@@ -849,7 +849,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               final Map<String, Map<String, SystemAspect>> latestAspects =
                   EntityUtils.toSystemAspects(
                       opContext.getRetrieverContext().get(),
-                      aspectDao.getLatestAspects(urnAspects));
+                      aspectDao.getLatestAspects(urnAspects, true));
               // read #2 (potentially)
               final Map<String, Map<String, Long>> nextVersions =
                   EntityUtils.calculateNextVersions(aspectDao, latestAspects, urnAspects);
@@ -866,7 +866,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 Map<String, Map<String, SystemAspect>> newLatestAspects =
                     EntityUtils.toSystemAspects(
                         opContext.getRetrieverContext().get(),
-                        aspectDao.getLatestAspects(updatedItems.getFirst()));
+                        aspectDao.getLatestAspects(updatedItems.getFirst(), true));
                 // merge
                 updatedLatestAspects = AspectsBatch.merge(latestAspects, newLatestAspects);
 
@@ -2064,7 +2064,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     EntityAspect latestKey = null;
     try {
-      latestKey = aspectDao.getLatestAspect(urn.toString(), keyAspectName);
+      latestKey = aspectDao.getLatestAspect(urn.toString(), keyAspectName, false);
     } catch (EntityNotFoundException e) {
       log.warn("Entity to delete does not exist. {}", urn.toString());
     }
@@ -2217,7 +2217,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   (EntityAspect.EntitySystemAspect)
                       EntityUtils.toSystemAspect(
                               opContext.getRetrieverContext().get(),
-                              aspectDao.getLatestAspect(urn, aspectName))
+                              aspectDao.getLatestAspect(urn, aspectName, false))
                           .orElse(null);
 
               // 1.1 If no latest exists, skip this aspect

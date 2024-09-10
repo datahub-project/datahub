@@ -69,7 +69,6 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source import tableau_constant as c
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
@@ -83,7 +82,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source.tableau_common import (
+from datahub.ingestion.source.tableau import tableau_constant as c
+from datahub.ingestion.source.tableau.tableau_common import (
     FIELD_TYPE_MAPPING,
     MetadataQueryException,
     TableauLineageOverrides,
@@ -93,6 +93,7 @@ from datahub.ingestion.source.tableau_common import (
     dashboard_graphql_query,
     database_servers_graphql_query,
     database_tables_graphql_query,
+    datasource_upstream_fields_graphql_query,
     embedded_datasource_graphql_query,
     get_filter_pages,
     get_overridden_info,
@@ -101,7 +102,7 @@ from datahub.ingestion.source.tableau_common import (
     make_fine_grained_lineage_class,
     make_upstream_class,
     published_datasource_graphql_query,
-    query_metadata,
+    query_metadata_cursor_based_pagination,
     sheet_graphql_query,
     tableau_field_to_schema_field,
     workbook_graphql_query,
@@ -345,6 +346,12 @@ class TableauConfig(
         default=10,
         description="[advanced] Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using the Tableau API.",
     )
+
+    fetch_size: int = Field(
+        default=250,
+        description="Specifies the number of records to retrieve in each batch during a query execution.",
+    )
+
     # We've found that even with a small workbook page size (e.g. 10), the Tableau API often
     # returns warnings like this:
     # {
@@ -483,9 +490,9 @@ class UsageStat:
 class TableauProject:
     id: str
     name: str
-    description: str
+    description: Optional[str]
     parent_id: Optional[str]
-    parent_name: Optional[str]  # Name of parent project
+    parent_name: Optional[str]  # Name of a parent project
     path: List[str]
 
 
@@ -936,6 +943,7 @@ class TableauSiteSource:
 
     def _populate_projects_registry(self) -> None:
         if self.server is None:
+            logger.warning("server is None. Can not initialize the project registry")
             return
 
         logger.info("Initializing site project registry")
@@ -972,38 +980,55 @@ class TableauSiteSource:
         query: str,
         connection_type: str,
         query_filter: str,
-        count: int = 0,
-        offset: int = 0,
+        current_cursor: Optional[str],
+        fetch_size: int = 250,
         retry_on_auth_error: bool = True,
         retries_remaining: Optional[int] = None,
-    ) -> Tuple[dict, int, int]:
+    ) -> Tuple[dict, Optional[str], int]:
+        """
+        `current_cursor:` Tableau Server executes the query and returns
+            a set of records based on the specified fetch_size. It also provides a cursor that
+            indicates the current position within the result set. In the next API call,
+            you pass this cursor to retrieve the next batch of records,
+            with each batch containing up to fetch_size records.
+            Initial value is None.
+
+        `fetch_size:` The number of records to retrieve from Tableau
+            Server in a single API call, starting from the current cursor position on Tableau Server.
+        """
         retries_remaining = retries_remaining or self.config.max_retries
 
         logger.debug(
-            f"Query {connection_type} to get {count} objects with offset {offset}"
+            f"Query {connection_type} to get {fetch_size} objects with cursor {current_cursor}"
             f" and filter {query_filter}"
         )
         try:
             assert self.server is not None
-            query_data = query_metadata(
-                self.server, query, connection_type, count, offset, query_filter
+            query_data = query_metadata_cursor_based_pagination(
+                server=self.server,
+                main_query=query,
+                connection_name=connection_type,
+                first=fetch_size,
+                after=current_cursor,
+                qry_filter=query_filter,
             )
+
         except REAUTHENTICATE_ERRORS:
             if not retry_on_auth_error:
                 raise
 
             # If ingestion has been running for over 2 hours, the Tableau
             # temporary credentials will expire. If this happens, this exception
-            # will be thrown and we need to re-authenticate and retry.
+            # will be thrown, and we need to re-authenticate and retry.
             self._re_authenticate()
             return self.get_connection_object_page(
-                query,
-                connection_type,
-                query_filter,
-                count,
-                offset,
+                query=query,
+                connection_type=connection_type,
+                query_filter=query_filter,
+                fetch_size=fetch_size,
+                current_cursor=current_cursor,
                 retry_on_auth_error=False,
-                retries_remaining=retries_remaining,
+                retries_remaining=retries_remaining - 1,
             )
         except OSError:
             # In tableauseverclient 0.26 (which was yanked and released in 0.28 on 2023-10-04),
@@ -1015,11 +1040,11 @@ class TableauSiteSource:
             if retries_remaining <= 0:
                 raise
             return self.get_connection_object_page(
-                query,
-                connection_type,
-                query_filter,
-                count,
-                offset,
+                query=query,
+                connection_type=connection_type,
+                query_filter=query_filter,
+                fetch_size=fetch_size,
+                current_cursor=current_cursor,
                 retry_on_auth_error=False,
                 retries_remaining=retries_remaining - 1,
             )
@@ -1035,6 +1060,7 @@ class TableauSiteSource:
                 # filter out PERMISSIONS_MODE_SWITCHED to report error in human-readable format
                 other_errors = []
                 permission_mode_errors = []
+                node_limit_errors = []
                 for error in errors:
                     if (
                         error.get("extensions")
@@ -1042,6 +1068,11 @@ class TableauSiteSource:
                         == "PERMISSIONS_MODE_SWITCHED"
                     ):
                         permission_mode_errors.append(error)
+                    elif (
+                        error.get("extensions")
+                        and error["extensions"].get("code") == "NODE_LIMIT_EXCEEDED"
+                    ):
+                        node_limit_errors.append(error)
                     else:
                         other_errors.append(error)
 
@@ -1060,9 +1091,25 @@ class TableauSiteSource:
                         context=f"{permission_mode_errors}",
                     )
 
+                if node_limit_errors:
+                    logger.debug(f"Node Limit Error. query_data {query_data}")
+                    self.report.warning(
+                        title="Tableau Data Exceed Predefined Limit",
+                        message="The numbers of record in result set exceeds a predefined limit. Increase the tableau "
+                        "configuration metadata query node limit to higher value. Refer "
+                        "https://help.tableau.com/current/server/en-us/"
+                        "cli_configuration-set_tsm.htm#metadata_nodelimit",
+                        context=f"""{{
+                                "errors": {node_limit_errors},
+                                "connection_type": {connection_type},
+                                "query_filter": {query_filter},
+                                "query": {query},
+                        }}""",
+                    )
             else:
-                # As of Tableau Server 2024.2, the metadata API sporadically returns a 30 second
-                # timeout error. It doesn't reliably happen, so retrying a couple times makes sense.
+                # As of Tableau Server 2024.2, the metadata API sporadically returns a 30-second
+                # timeout error.
+                # It doesn't reliably happen, so retrying a couple of times makes sense.
                 if all(
                     error.get("message")
                     == "Execution canceled because timeout of 30000 millis was reached"
@@ -1082,23 +1129,28 @@ class TableauSiteSource:
                     )
                     time.sleep(backoff_time)
                     return self.get_connection_object_page(
-                        query,
-                        connection_type,
-                        query_filter,
-                        count,
-                        offset,
+                        query=query,
+                        connection_type=connection_type,
+                        query_filter=query_filter,
+                        fetch_size=fetch_size,
+                        current_cursor=current_cursor,
                         retry_on_auth_error=False,
-                        retries_remaining=retries_remaining - 1,
+                        retries_remaining=retries_remaining,
                     )
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 
         connection_object = query_data.get(c.DATA, {}).get(connection_type, {})
 
-        total_count = connection_object.get(c.TOTAL_COUNT, 0)
         has_next_page = connection_object.get(c.PAGE_INFO, {}).get(
             c.HAS_NEXT_PAGE, False
         )
-        return connection_object, total_count, has_next_page
+
+        next_cursor = connection_object.get(c.PAGE_INFO, {}).get(
+            "endCursor",
+            None,
+        )
+
+        return connection_object, next_cursor, has_next_page
 
     def get_connection_objects(
         self,
@@ -1114,28 +1166,22 @@ class TableauSiteSource:
         filter_pages = get_filter_pages(query_filter, page_size)
 
         for filter_page in filter_pages:
-            total_count = page_size
             has_next_page = 1
-            offset = 0
+            current_cursor: Optional[str] = None
             while has_next_page:
-                count = (
-                    page_size
-                    if offset + page_size < total_count
-                    else total_count - offset
-                )
+                filter_: str = make_filter(filter_page)
+
                 (
                     connection_objects,
-                    total_count,
+                    current_cursor,
                     has_next_page,
                 ) = self.get_connection_object_page(
-                    query,
-                    connection_type,
-                    make_filter(filter_page),
-                    count,
-                    offset,
+                    query=query,
+                    connection_type=connection_type,
+                    query_filter=filter_,
+                    current_cursor=current_cursor,
+                    fetch_size=self.config.fetch_size,
                 )
-
-                offset += count
 
                 yield from connection_objects.get(c.NODES) or []
 
@@ -2291,6 +2337,41 @@ class TableauSiteSource:
 
         return container_key
 
+    def update_datasource_for_field_upstream(
+        self,
+        datasource: dict,
+        field_upstream_query: str,
+    ) -> dict:
+        # Collect field ids to fetch field upstreams
+        field_ids: List[str] = []
+        for field in datasource.get(c.FIELDS, []):
+            if field.get(c.ID):
+                field_ids.append(field.get(c.ID))
+
+        # Fetch field upstreams and arrange them in map
+        field_vs_upstream: Dict[str, dict] = {}
+        for field_upstream in self.get_connection_objects(
+            field_upstream_query,
+            c.FIELDS_CONNECTION,
+            {c.ID_WITH_IN: field_ids},
+        ):
+            if field_upstream.get(c.ID):
+                field_id = field_upstream[c.ID]
+                # delete the field id, we don't need it for further processing
+                del field_upstream[c.ID]
+                field_vs_upstream[field_id] = field_upstream
+
+        # update datasource's field for its upstream
+        for field_dict in datasource.get(c.FIELDS, []):
+            field_upstream_dict: Optional[dict] = field_vs_upstream.get(
+                field_dict.get(c.ID)
+            )
+            if field_upstream_dict:
+                # Add upstream fields to field
+                field_dict.update(field_upstream_dict)
+
+        return datasource
+
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
         datasource_filter = {c.ID_WITH_IN: self.datasource_ids_being_used}
 
@@ -2299,6 +2380,11 @@ class TableauSiteSource:
             c.PUBLISHED_DATA_SOURCES_CONNECTION,
             datasource_filter,
         ):
+            datasource = self.update_datasource_for_field_upstream(
+                datasource=datasource,
+                field_upstream_query=datasource_upstream_fields_graphql_query,
+            )
+
             yield from self.emit_datasource(datasource)
 
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
@@ -2940,6 +3026,10 @@ class TableauSiteSource:
             c.EMBEDDED_DATA_SOURCES_CONNECTION,
             datasource_filter,
         ):
+            datasource = self.update_datasource_for_field_upstream(
+                datasource=datasource,
+                field_upstream_query=datasource_upstream_fields_graphql_query,
+            )
             yield from self.emit_datasource(
                 datasource,
                 datasource.get(c.WORKBOOK),
@@ -2978,32 +3068,76 @@ class TableauSiteSource:
         return None
 
     def emit_project_containers(self) -> Iterable[MetadataWorkUnit]:
-        for _id, project in self.tableau_project_registry.items():
-            parent_container_key: Optional[ContainerKey] = None
-            if project.parent_id:
-                parent_container_key = self.gen_project_key(project.parent_id)
-            elif self.config.add_site_container and self.site and self.site.id:
-                parent_container_key = self.gen_site_key(self.site.id)
+        generated_project_keys: Set[str] = set()
+
+        def emit_project_in_topological_order(
+            project_: TableauProject,
+        ) -> Iterable[MetadataWorkUnit]:
+            """
+            The source_helpers.py file includes a function called auto_browse_path_v2 that automatically generates
+            BrowsePathsV2. This auto-generation relies on the correct sequencing of MetadataWorkUnit containers.
+            The emit_project_in_topological_order function ensures that parent containers are emitted before their child
+            containers.
+            This is a recursive function.
+            """
+            project_key: ProjectKey = self.gen_project_key(project_.id)
+
+            if project_key.guid() in generated_project_keys:
+                return
+
+            generated_project_keys.add(project_key.guid())
+
+            parent_project_key: Optional[
+                Union[ProjectKey, SiteKey]
+            ] = None  # It is going
+            # to be used as a parent container key for the current tableau project
+
+            if project_.parent_id is not None:
+                # Go to the parent project as we need to generate container first for parent
+                parent_project_key = self.gen_project_key(project_.parent_id)
+
+                parent_tableau_project: Optional[
+                    TableauProject
+                ] = self.tableau_project_registry.get(project_.parent_id)
+
+                if (
+                    parent_tableau_project is None
+                ):  # It is not in project registry because of project_pattern
+                    assert (
+                        project_.parent_name
+                    ), f"project {project_.name} should not be null"
+                    parent_tableau_project = TableauProject(
+                        id=project_.parent_id,
+                        name=project_.parent_name,
+                        description=None,
+                        parent_id=None,
+                        parent_name=None,
+                        path=[],
+                    )
+
+                yield from emit_project_in_topological_order(parent_tableau_project)
+
+            else:
+                # This is a root Tableau project since the parent_project_id is None.
+                # For a root project, either the site is the parent, or the platform is the default parent.
+                if self.config.add_site_container and self.site and self.site.id:
+                    # The site containers have already been generated by emit_site_container, so we
+                    # don't need to emit them again here.
+                    parent_project_key = self.gen_site_key(self.site.id)
 
             yield from gen_containers(
-                container_key=self.gen_project_key(_id),
-                name=project.name,
-                description=project.description,
+                container_key=project_key,
+                name=project_.name,
+                description=project_.description,
                 sub_types=[c.PROJECT],
-                parent_container_key=parent_container_key,
+                parent_container_key=parent_project_key,
             )
-            if (
-                project.parent_id is not None
-                and project.parent_id not in self.tableau_project_registry
-            ):
-                # Parent project got skipped because of project_pattern.
-                # Let's ingest its container name property to show parent container name on DataHub Portal, otherwise
-                # DataHub Portal will show parent container URN
-                yield from gen_containers(
-                    container_key=self.gen_project_key(project.parent_id),
-                    name=cast(str, project.parent_name),
-                    sub_types=[c.PROJECT],
-                )
+
+        for id_, project in self.tableau_project_registry.items():
+            logger.debug(
+                f"project {project.name} and it's parent {project.parent_name} and parent id {project.parent_id}"
+            )
+            yield from emit_project_in_topological_order(project)
 
     def emit_site_container(self):
         if not self.site or not self.site.id:
