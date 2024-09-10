@@ -385,14 +385,15 @@ div[class^="announcementBar"] {
 .comapny__logos {
   display: flex;
   min-width: 900px;
-  width: 75vw;
+  width: 80vw;
   margin: 0 auto;
+  margin-top: 12px;
   align-items: center;
   justify-content: center;
 
   .text {
     padding-right: 24px;
-    color: #999;
+    color: #666;
     font-size: 1.25rem;
     line-height: 1.5rem;
   }
@@ -408,7 +409,7 @@ div[class^="announcementBar"] {
     max-width: 70px;
     max-height: 30px;
     filter: grayscale(1);
-    opacity: .5;
+    opacity: .6;
   }
 }
 
