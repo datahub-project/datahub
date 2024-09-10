@@ -223,7 +223,7 @@ class HanaSource(SQLAlchemySource):
             UpstreamClass(
                 dataset=make_dataset_urn_with_platform_instance(
                     platform=self.get_platform(),
-                    name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{row[0].lower()}.{row[1].lower()}",
+                    name=f"{(self.config.database + '.') if self.config.database else ''}{row[0]}.{row[1]}",
                     platform_instance=self.config.platform_instance,
                     env=self.config.env
                 ),
@@ -258,12 +258,11 @@ class HanaSource(SQLAlchemySource):
             DATA_TYPE_NAME as data_type_name,
             IS_NULLABLE as is_nullable
             FROM SYS.VIEW_COLUMNS
-            WHERE "SCHEMA_NAME" = '_SYS_BIC'
+            WHERE LOWER("SCHEMA_NAME") = '_sys_bic'
             AND LOWER(VIEW_NAME) = '{view.lower()}'
             ORDER BY POSITION ASC
         """
         query_result = [dict(row) for row in self.engine.execute(query).fetchall()]
-        logger.info(f"View: {view.lower()} definition: {query_result}")
 
         columns = query_result
 
@@ -391,7 +390,7 @@ class HanaSource(SQLAlchemySource):
                        ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         entity = make_dataset_urn_with_platform_instance(
             platform=self.get_platform(),
-            name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{schema.lower()}.{dataset_name.lower()}",
+            name=f"{(self.config.database + '.') if self.config.database else ''}{schema}.{dataset_name}",
             platform_instance=self.config.platform_instance,
             env=self.config.env
         )
@@ -430,7 +429,7 @@ class HanaSource(SQLAlchemySource):
                       ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         entity = make_dataset_urn_with_platform_instance(
             platform=self.get_platform(),
-            name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{schema.lower()}.{dataset_name.lower()}",
+            name=f"{(self.config.database + '.') if self.config.database else ''}{schema}.{dataset_name}",
             platform_instance=self.config.platform_instance,
             env=self.config.env
         )
@@ -493,7 +492,7 @@ class HanaSource(SQLAlchemySource):
                     upstreams=[
                         make_dataset_urn_with_platform_instance(
                             platform=self.get_platform(),
-                            name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{row[0].lower()}.{row[1].lower()}",
+                            name=f"{(self.config.database + '.') if self.config.database else ''}{row[0]}.{row[1]}",
                             platform_instance=self.config.platform_instance,
                             env=self.config.env
                         ) for row in constructed_lineage
@@ -518,7 +517,7 @@ class HanaSource(SQLAlchemySource):
                     data_source_type = data_source.get("type")
                     if data_source_type.upper() == "CALCULATION_VIEW":
                         upstreams.append(
-                            f"_sys_bic.{data_source.find('resourceUri', ns).text[1:].replace('/calculationviews/','.')}"
+                            f"_SYS_BIC.{data_source.find('resourceUri', ns).text[1:].replace('/calculationviews/','.')}"
                         )
                     else:
                         column_object = data_source.find("columnObject", ns)
@@ -536,7 +535,7 @@ class HanaSource(SQLAlchemySource):
             UpstreamClass(
                 dataset=make_dataset_urn_with_platform_instance(
                     platform=self.get_platform(),
-                    name=row.lower(),
+                    name=row,
                     platform_instance=self.config.platform_instance,
                     env=self.config.env
                 ),
@@ -556,7 +555,7 @@ class HanaSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         entity = make_dataset_urn_with_platform_instance(
             platform=self.get_platform(),
-            name=f"_sys_bic.{dataset_path.lower()}.{dataset_name.lower()}",
+            name=f"_SYS_BIC.{dataset_path}.{dataset_name}",
             platform_instance=self.config.platform_instance,
             env=self.config.env
         )
