@@ -429,7 +429,6 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
               .fieldPath(baseField.getFieldPath())
               .fieldUrn(getSchemaFieldUrn(datasetUrn, baseField))
               .nullable(baseField.isNullable())
-              .modificationCategory(SchemaFieldModificationCategory.RENAME)
               .auditStamp(auditStamp)
               .build());
     }
@@ -486,6 +485,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
         .fieldPath(curBaseField.getFieldPath())
         .fieldUrn(getSchemaFieldUrn(datasetUrn, curBaseField))
         .nullable(curBaseField.isNullable())
+        .modificationCategory(SchemaFieldModificationCategory.RENAME)
         .auditStamp(auditStamp)
         .build();
   }
