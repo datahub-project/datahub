@@ -11,6 +11,11 @@ import { PlatformLogos } from "./_components/Logos";
 import RoundedImage from "./_components/RoundedImage";
 import { CompanyLogos } from "./_components/Logos";
 import QuickstartContent from "./_components/QuickstartContent";
+import Testimonials from "./_components/Testimonials";
+import Ecosystem from "./_components/Ecosystem";
+import Community from "./_components/Community";
+import CaseStudy from "./_components/CaseStudy";
+import Trial from "./_components/Trial";
 
 const example_recipe = `
 source:
@@ -39,20 +44,28 @@ function Home() {
       description="DataHub is a data discovery application built on an extensible data catalog that helps you tame the complexity of diverse data ecosystems."
     >
       <Hero />
-      <div style={{ backgroundColor: "var(--ifm-background-surface-color)" }}>
+      <div className="comapny__logos">
+        <div className="text">
+          Trusted by industry leaders around the world.
+        </div>
         <CompanyLogos />
-        <div style={{ textAlign: "center", margin: "1rem" }}>
+        {/* <div style={{ textAlign: "center", margin: "1rem" }}>
           <Link
             className="button button--secondary button--md"
             to={useBaseUrl("adoption-stories")}
           >
             Check Out Adoption Stories →
           </Link>
-        </div>
+        </div> */}
       </div>
       <QuickstartContent />
-      <Features />
-      <Section>
+      <Testimonials />
+      {/* <Features /> */}
+      <Ecosystem />
+      <Community />
+      <CaseStudy />
+      <Trial />
+      {/* <Section>
         <div className="container">
           <div className="row row--centered">
             <div className="col col--6">
@@ -81,7 +94,7 @@ function Home() {
               >
                 The Origins of DataHub
               </h1>
-              {/* <hr style={{ border: "2px solid black", width: "20rem" }}></hr> */}
+              <hr style={{ border: "2px solid black", width: "20rem" }}></hr>
               <p style={{ fontSize: "18px" }}>
                 Explore DataHub's journey from search and data discovery tool at
                 LinkedIn to the #1 open source metadata management platform,
@@ -169,7 +182,7 @@ function Home() {
             </div>
           </div>
         </div>
-      </Section>
+      </Section> */}
     </Layout>
   ) : null;
 }
