@@ -19,7 +19,7 @@ function WebinarCard({ slug, title, excerpt, cardImg, link, status }) {
           <p>{excerpt}</p>
         </div>
         <div className={styles.card_button}>
-          <Link className="button button--secondary button--md" to={`/webinars/webinar/${slug}`}>
+          <Link className="button button--secondary button--md" to={`/webinars/webinar/${slug}`}> 
             Discover
           </Link>
         </div>

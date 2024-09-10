@@ -38,6 +38,7 @@
     "@supabase/supabase-js": "^2.33.1",
     "@swc/core": "^1.4.2",
     "antd": "^5.0.7",
+    "bufferutil": "^4.0.8",
     "clsx": "^1.1.1",
     "docusaurus-graphql-plugin": "0.5.0",
     "docusaurus-plugin-sass": "^0.2.1",
@@ -49,6 +50,7 @@
     "sass": "^1.43.2",
     "swc-loader": "^0.2.6",
     "swiper": "^11.1.4",
+    "utf-8-validate": "^6.0.4",
     "uuid": "^9.0.0"
   },
   "browserslist": {

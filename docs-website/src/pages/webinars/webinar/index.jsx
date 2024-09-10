@@ -1,14 +1,11 @@
 import React, { useEffect, useState } from "react";
 import Layout from "@theme/Layout";
-import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import webinarsIndexes from "../webinarsIndexes.json";
 import clsx from "clsx";
 import styles from "./styles.module.scss";
 import "./hubspotFormStyle.css"
-import { useParams } from "@docusaurus/router";
 
 function GatedWebinar() {
-  const { siteConfig = {} } = useDocusaurusContext();
   const [isFormSubmitted, setIsFormSubmitted] = useState(false);
   const slug = "why-data-quality-belongs-in-the-data-catalog";
 
