@@ -82,7 +82,7 @@ module.exports = {
         {
           to: "/cloud",
           activeBasePath: "cloud",
-          label: "Cloud",
+          html: "Cloud",
           position: "right",
         },
         {
