@@ -81,14 +81,15 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public EntityAspect getLatestAspect(@Nonnull String urn, @Nonnull String aspectName) {
+  public EntityAspect getLatestAspect(
+      @Nonnull String urn, @Nonnull String aspectName, boolean forUpdate) {
     validateConnection();
     return getAspect(urn, aspectName, ASPECT_LATEST_VERSION);
   }
 
   @Override
   public Map<String, Map<String, EntityAspect>> getLatestAspects(
-      Map<String, Set<String>> urnAspects) {
+      Map<String, Set<String>> urnAspects, boolean forUpdate) {
     return urnAspects.entrySet().stream()
         .map(
             entry ->
@@ -97,7 +98,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
                     entry.getValue().stream()
                         .map(
                             aspectName -> {
-                              EntityAspect aspect = getLatestAspect(entry.getKey(), aspectName);
+                              EntityAspect aspect =
+                                  getLatestAspect(entry.getKey(), aspectName, forUpdate);
                               return aspect != null ? Map.entry(aspectName, aspect) : null;
                             })
                         .filter(Objects::nonNull)

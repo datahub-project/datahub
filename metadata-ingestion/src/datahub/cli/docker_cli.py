@@ -1001,7 +1001,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
     if token is not None:
         recipe["sink"]["config"]["token"] = token
 
-    pipeline = Pipeline.create(recipe, no_default_report=True)
+    pipeline = Pipeline.create(recipe, report_to=None)
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)
