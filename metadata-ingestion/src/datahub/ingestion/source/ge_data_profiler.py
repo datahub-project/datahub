@@ -432,11 +432,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             self.report.report_warning(
                 title="Profiling: Unable to Calculate Cardinality",
                 message="The cardinality for the column will not be accessible",
-                context=f"""
-                    {{
-                        "column": "{self.dataset_name}.{column}"
-                    }}
-                """,
+                context=f"{self.dataset_name}.{column}",
                 exc=e,
             )
             return
