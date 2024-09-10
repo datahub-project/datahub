@@ -166,7 +166,7 @@ class SnowflakeV2Source(
                     # If we're ingestion schema metadata for tables/views, then we will populate
                     # schemas into the resolver as we go. We only need to do a bulk fetch
                     # if we're not ingesting schema metadata as part of ingestion.
-                    (
+                    not (
                         self.config.include_technical_schema
                         and self.config.include_tables
                         and self.config.include_views
@@ -521,11 +521,13 @@ class SnowflakeV2Source(
                     include_lineage=self.config.include_table_lineage,
                     include_usage_statistics=self.config.include_usage_stats,
                     include_operations=self.config.include_operational_stats,
+                    user_email_pattern=self.config.user_email_pattern,
                 ),
                 structured_report=self.report,
                 filters=self.filters,
                 identifiers=self.identifiers,
                 schema_resolver=schema_resolver,
+                discovered_tables=discovered_datasets,
             )
 
             # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs

@@ -12,7 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 import pydantic
 from typing_extensions import Self
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
@@ -67,8 +67,16 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
     # TODO: Support stateful ingestion for the time windows.
     window: BaseTimeWindowConfig = BaseTimeWindowConfig()
 
-    # TODO: make this a proper allow/deny pattern
-    deny_usernames: List[str] = []
+    pushdown_deny_usernames: List[str] = pydantic.Field(
+        default=[],
+        description="List of snowflake usernames which will not be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering out users with extremely high query volumes.",
+    )
+
+    user_email_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for user emails to filter in usage.",
+    )
 
     temporary_tables_pattern: List[str] = pydantic.Field(
         default=DEFAULT_TEMP_TABLES_PATTERNS,
@@ -88,7 +96,7 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
     include_lineage: bool = True
     include_queries: bool = True
     include_usage_statistics: bool = True
-    include_query_usage_statistics: bool = False
+    include_query_usage_statistics: bool = True
     include_operations: bool = True
 
 
@@ -131,7 +139,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
         self.report = SnowflakeQueriesExtractorReport()
         self.filters = filters
         self.identifiers = identifiers
-        self.discovered_tables = discovered_tables
+        self.discovered_tables = set(discovered_tables) if discovered_tables else None
 
         self._structured_report = structured_report
 
@@ -150,6 +158,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                 bucket_duration=self.config.window.bucket_duration,
                 start_time=self.config.window.start_time,
                 end_time=self.config.window.end_time,
+                user_email_pattern=self.config.user_email_pattern,
                 # TODO make the rest of the fields configurable
             ),
             generate_operations=self.config.include_operations,
@@ -175,10 +184,24 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
         return path
 
     def is_temp_table(self, name: str) -> bool:
-        return any(
+        if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
-        )
+        ):
+            return True
+
+        # This is also a temp table if
+        #   1. this name would be allowed by the dataset patterns, and
+        #   2. we have a list of discovered tables, and
+        #   3. it's not in the discovered tables list
+        if (
+            self.filters.is_dataset_pattern_allowed(name, SnowflakeObjectDomain.TABLE)
+            and self.discovered_tables
+            and name not in self.discovered_tables
+        ):
+            return True
+
+        return False
 
     def is_allowed_table(self, name: str) -> bool:
         if self.discovered_tables and name not in self.discovered_tables:
@@ -219,7 +242,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                     queries.append(entry)
 
         with self.report.audit_log_load_timer:
-            for query in queries:
+            for i, query in enumerate(queries):
+                if i % 1000 == 0:
+                    logger.info(f"Added {i} query log entries to SQL aggregator")
                 self.aggregator.add(query)
 
         yield from auto_workunit(self.aggregator.gen_metadata())
@@ -265,7 +290,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
             start_time=self.config.window.start_time,
             end_time=self.config.window.end_time,
             bucket_duration=self.config.window.bucket_duration,
-            deny_usernames=self.config.deny_usernames,
+            deny_usernames=self.config.pushdown_deny_usernames,
         )
 
         with self.structured_reporter.report_exc(
@@ -275,8 +300,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
             resp = self.connection.query(query_log_query)
 
             for i, row in enumerate(resp):
-                if i % 1000 == 0:
-                    logger.info(f"Processed {i} query log rows")
+                if i > 0 and i % 1000 == 0:
+                    logger.info(f"Processed {i} query log rows so far")
 
                 assert isinstance(row, dict)
                 try:

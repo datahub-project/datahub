@@ -27,6 +27,9 @@ If you want to create and manage group-level Subscriptions for your team, you wi
 - Manage Group Notification Settings
 - Manage Group Subscriptions
 
+And to manage other user's subscriptions:
+- Manage User Subscriptions
+
 ## Using DataHub’s Subscriptions and Notifications Feature
 
 The first step is identifying the assets you want to subscribe to. 

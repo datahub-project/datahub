@@ -724,7 +724,7 @@ public class GmsGraphQLEngine {
    * Returns a {@link Supplier} responsible for creating a new {@link DataLoader} from a {@link
    * LoadableType}.
    */
-  public Map<String, Function<QueryContext, DataLoader<?, ?>>> loaderSuppliers(
+  public static Map<String, Function<QueryContext, DataLoader<?, ?>>> loaderSuppliers(
       final Collection<? extends LoadableType<?, ?>> loadableTypes) {
     return loadableTypes.stream()
         .collect(
@@ -1135,16 +1135,16 @@ public class GmsGraphQLEngine {
         });
   }
 
-  private DataFetcher getResolver(LoadableType<?, String> loadableType) {
-    return getResolver(loadableType, this::getUrnField);
+  private static DataFetcher getResolver(LoadableType<?, String> loadableType) {
+    return getResolver(loadableType, GmsGraphQLEngine::getUrnField);
   }
 
-  private <T, K> DataFetcher getResolver(
+  private static <T, K> DataFetcher getResolver(
       LoadableType<T, K> loadableType, Function<DataFetchingEnvironment, K> keyProvider) {
     return new LoadableTypeResolver<>(loadableType, keyProvider);
   }
 
-  private String getUrnField(DataFetchingEnvironment env) {
+  private static String getUrnField(DataFetchingEnvironment env) {
     return env.getArgument(URN_FIELD_NAME);
   }
 
@@ -3025,7 +3025,7 @@ public class GmsGraphQLEngine {
                     })));
   }
 
-  private <T, K> DataLoader<K, DataFetcherResult<T>> createDataLoader(
+  private static <T, K> DataLoader<K, DataFetcherResult<T>> createDataLoader(
       final LoadableType<T, K> graphType, final QueryContext queryContext) {
     BatchLoaderContextProvider contextProvider = () -> queryContext;
     DataLoaderOptions loaderOptions =

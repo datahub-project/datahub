@@ -104,6 +104,18 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
             source.name.toLocaleLowerCase().includes(searchFilter.toLocaleLowerCase()),
     );
 
+    filteredSources.sort((a, b) => {
+        if (a.name === 'custom') {
+            return 1;
+        }
+
+        if (b.name === 'custom') {
+            return -1;
+        }
+
+        return a.displayName.localeCompare(b.displayName);
+    });
+
     return (
         <Container>
             <Section>

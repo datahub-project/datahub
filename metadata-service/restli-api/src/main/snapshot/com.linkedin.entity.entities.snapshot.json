@@ -3572,7 +3572,7 @@
                         }, {
                           "name" : "isPartitioningKey",
                           "type" : "boolean",
-                          "doc" : "For Datasets which are partitioned, this determines the partitioning key.",
+                          "doc" : "For Datasets which are partitioned, this determines the partitioning key.\nNote that multiple columns can be part of a partitioning key, but currently we do not support\nrendering the ordered partitioning key.",
                           "optional" : true
                         }, {
                           "name" : "jsonProps",
@@ -6365,6 +6365,14 @@
                 "items" : "string"
               },
               "doc" : "A list of the the restricted aspects on the entity.\nIf the key aspect is present, assume ALL aspects should be restricted including the entity's Urn.",
+              "optional" : true
+            }, {
+              "name" : "extraFields",
+              "type" : {
+                "type" : "map",
+                "values" : "string"
+              },
+              "doc" : "Extra fields from the search document based on what is requested in the search request",
               "optional" : true
             } ]
           } ],

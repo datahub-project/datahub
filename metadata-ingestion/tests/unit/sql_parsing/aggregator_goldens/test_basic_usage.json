@@ -1,0 +1,51 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1707177600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 2,
+            "totalSqlQueries": 6,
+            "topSqlQueries": [
+                "SELECT\n  *\nFROM foo",
+                "CREATE TABLE bar AS\nSELECT\n  b + c AS c\nFROM foo"
+            ],
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:user1",
+                    "count": 5
+                },
+                {
+                    "user": "urn:li:corpuser:user2",
+                    "count": 1
+                }
+            ],
+            "fieldCounts": [
+                {
+                    "fieldPath": "b",
+                    "count": 6
+                },
+                {
+                    "fieldPath": "c",
+                    "count": 6
+                },
+                {
+                    "fieldPath": "a",
+                    "count": 5
+                }
+            ]
+        }
+    }
+}
+]

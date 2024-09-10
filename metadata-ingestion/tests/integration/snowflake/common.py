@@ -156,7 +156,7 @@ large_sql_query = """WITH object_access_history AS
                 on basic_usage_counts.bucket_start_time = user_usage_counts.bucket_start_time
                 and basic_usage_counts.object_name = user_usage_counts.object_name
         where
-            basic_usage_counts.object_domain in ('Table','External table','View','Materialized view')
+            basic_usage_counts.object_domain in ('Table','External table','View','Materialized view','Iceberg table')
             and basic_usage_counts.object_name is not null
         group by
             basic_usage_counts.object_name,
@@ -235,7 +235,7 @@ def default_query_results(  # noqa: C901
                 "BYTES": 1024,
                 "ROW_COUNT": 10000,
                 "COMMENT": "Comment for Table",
-                "CLUSTERING_KEY": None,
+                "CLUSTERING_KEY": "LINEAR(COL_1)",
             }
             for tbl_idx in range(1, num_tables + 1)
         ]

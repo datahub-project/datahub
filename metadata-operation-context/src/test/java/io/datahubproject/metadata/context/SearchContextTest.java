@@ -53,7 +53,12 @@ public class SearchContextTest {
     assertNotEquals(
         testNoFlags.getCacheKeyComponent(),
         SearchContext.builder()
-            .indexConvention(new IndexConventionImpl("Some Prefix", "MD5"))
+            .indexConvention(
+                new IndexConventionImpl(
+                    IndexConventionImpl.IndexConventionConfig.builder()
+                        .prefix("Some Prefix")
+                        .hashIdAlgo("MD5")
+                        .build()))
             .searchFlags(null)
             .build()
             .getCacheKeyComponent(),

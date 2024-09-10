@@ -210,7 +210,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                 placement="left"
                 closable={false}
                 onClose={handleClose}
-                visible={isDrawerVisible}
+                open={isDrawerVisible}
                 width={490}
                 bodyStyle={{ overflowX: 'hidden' }}
                 mask={false}
