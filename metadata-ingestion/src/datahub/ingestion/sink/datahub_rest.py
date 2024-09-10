@@ -51,13 +51,13 @@ class RestSinkMode(ConfigEnum):
     ASYNC = auto()
 
     # Uses the new ingestProposalBatch endpoint. Significantly more efficient than the other modes,
-    # but requires a server version that supports it.
+    # but requires a server version that supports it. Added in
     # https://github.com/datahub-project/datahub/pull/10706
     ASYNC_BATCH = auto()
 
 
 _DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
-    RestSinkMode, os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE", RestSinkMode.ASYNC)
+    RestSinkMode, os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE", RestSinkMode.ASYNC_BATCH)
 )
 
 
