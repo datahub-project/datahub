@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity.validation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
@@ -51,7 +52,8 @@ public class ValidationApiUtils {
       throw new IllegalArgumentException(
           "Error: cannot provide an URN with leading or trailing whitespace");
     }
-    if (URLEncoder.encode(urn.toString()).length() > URN_NUM_BYTES_LIMIT) {
+    if (!Constants.SCHEMA_FIELD_ENTITY_NAME.equals(urn.getEntityType())
+        && URLEncoder.encode(urn.toString()).length() > URN_NUM_BYTES_LIMIT) {
       throw new IllegalArgumentException(
           "Error: cannot provide an URN longer than "
               + Integer.toString(URN_NUM_BYTES_LIMIT)

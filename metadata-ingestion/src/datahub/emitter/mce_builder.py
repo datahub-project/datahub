@@ -248,6 +248,12 @@ def make_tag_urn(tag: str) -> str:
 
 
 def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
+    if owner_type == OwnerType.USER:
+        return make_user_urn(owner)
+    elif owner_type == OwnerType.GROUP:
+        return make_group_urn(owner)
+    # This should pretty much never happen.
+    # TODO: With Python 3.11, we can use typing.assert_never() here.
     return f"urn:li:{owner_type.value}:{owner}"
 
 

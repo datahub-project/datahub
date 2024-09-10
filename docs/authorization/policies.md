@@ -173,12 +173,13 @@ These privileges are for DataHub operators to access & manage the administrative
 | View Tests                          | View Asset Tests.                                                                                                  |
 | Manage Tests[^2]                    | Allow actor to create and remove Asset Tests.                                                                      |
 | View Metadata Proposals[^2]         | Allow actor to view the requests tab for viewing metadata proposals.                                               |
-| Create metadata constraints[^2]     | Allow actor to create metadata constraints.                                                                        |
+| Create metadata constraints[^3]     | Allow actor to create metadata constraints.                                                                        |
 | Manage Platform Settings[^2]        | Allow actor to view and change platform-level settings, like integrations & notifications.                         |
 | Manage Monitors[^2]                 | Allow actor to create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
 [^2]: DataHub Cloud only
+[^3]: Deprecated feature
 
 #### Entity Management
 

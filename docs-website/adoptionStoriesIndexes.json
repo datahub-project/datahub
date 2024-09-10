@@ -78,6 +78,28 @@
       "description": "<i>“We looked around for data catalog tool, and DataHub was a clear winner.”</i> <br /> <br /> Zynga levels up data management using DataHub, highlighting its role in enhancing data management, tracing data lineage, and ensuring data quality."
     },
     {
+      "name": "Chime",
+      "slug": "chime",
+      "imageUrl": "/img/logos/companies/chime.png",
+      "imageSize": "default",
+      "link": "https://www.youtube.com/watch?v=GktS-XJhK30",
+      "linkType": "video",
+      "tagline": "A Story of schema, contracts, and data discovery",
+      "category": "Financial & Fintech",
+      "description": "<i>“At Chime, DataHub serves as our guide for navigating the complexities of data cataloging and discovery.”</i> <br /> <br /> Chime uses Datahub (DataHub Cloud) for ingesting metadata from diverse infrastructure components like Snowflake, Looker, Terraform, and so many others."
+    },
+    {
+      "name": "Checkout.com",
+      "slug": "checkout-com",
+      "imageUrl": "/img/logos/companies/checkout-com.svg",
+      "imageSize": "small",
+      "link": "https://www.youtube.com/watch?v=emkpKO0bTkI",
+      "linkType": "video",
+      "tagline": "Self-Serve Data Governance with DataHub Action Framework",
+      "category": "Financial & Fintech",
+      "description": "Discover how Checkout leverage DataHub for advanced data management and compliance, especially in managing sensitive data types."
+    },
+    {
       "name": "MediaMarkt Saturn",
       "slug": "mediamarkt-saturn",
       "imageUrl": "/img/logos/companies/mediamarkt-saturn.png",

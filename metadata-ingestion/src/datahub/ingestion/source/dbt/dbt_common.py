@@ -276,6 +276,12 @@ class DBTCommonConfig(
         DBTEntitiesEnabled(),
         description="Controls for enabling / disabling metadata emission for different dbt entities (models, test definitions, test results, etc.)",
     )
+    prefer_sql_parser_lineage: bool = Field(
+        default=False,
+        description="Normally we use dbt's metadata to generate table lineage. When enabled, we prefer results from the SQL parser when generating lineage instead. "
+        "This can be useful when dbt models reference tables directly, instead of using the ref() macro. "
+        "This requires that `skip_sources_in_lineage` is enabled.",
+    )
     skip_sources_in_lineage: bool = Field(
         default=False,
         description="[Experimental] When enabled, dbt sources will not be included in the lineage graph. "
@@ -366,13 +372,6 @@ class DBTCommonConfig(
         description="When enabled, includes the compiled code in the emitted metadata.",
     )
 
-    prefer_sql_parser_lineage: bool = Field(
-        default=False,
-        description="Normally we use dbt's metadata to generate table lineage. When enabled, we prefer results from the SQL parser when generating lineage instead. "
-        "This can be useful when dbt models reference tables directly, instead of using the ref() macro. "
-        "This requires that `skip_sources_in_lineage` is enabled.",
-    )
-
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
         if target_platform.lower() == DBT_PLATFORM:
@@ -438,31 +437,33 @@ class DBTCommonConfig(
 
         return include_column_lineage
 
-    @validator("skip_sources_in_lineage")
+    @validator("skip_sources_in_lineage", always=True)
     def validate_skip_sources_in_lineage(
         cls, skip_sources_in_lineage: bool, values: Dict
     ) -> bool:
-        entites_enabled: Optional[DBTEntitiesEnabled] = values.get("entities_enabled")
+        entities_enabled: Optional[DBTEntitiesEnabled] = values.get("entities_enabled")
+        prefer_sql_parser_lineage: Optional[bool] = values.get(
+            "prefer_sql_parser_lineage"
+        )
+
+        if prefer_sql_parser_lineage and not skip_sources_in_lineage:
+            raise ValueError(
+                "`prefer_sql_parser_lineage` requires that `skip_sources_in_lineage` is enabled."
+            )
+
         if (
             skip_sources_in_lineage
-            and entites_enabled
-            and entites_enabled.sources == EmitDirective.YES
+            and entities_enabled
+            and entities_enabled.sources == EmitDirective.YES
+            # When `prefer_sql_parser_lineage` is enabled, it's ok to have `skip_sources_in_lineage` enabled
+            # without also disabling sources.
+            and not prefer_sql_parser_lineage
         ):
             raise ValueError(
                 "When `skip_sources_in_lineage` is enabled, `entities_enabled.sources` must be set to NO."
             )
 
         return skip_sources_in_lineage
-
-    @validator("prefer_sql_parser_lineage")
-    def validate_prefer_sql_parser_lineage(
-        cls, prefer_sql_parser_lineage: bool, values: Dict
-    ) -> bool:
-        if prefer_sql_parser_lineage and not values.get("skip_sources_in_lineage"):
-            raise ValueError(
-                "`prefer_sql_parser_lineage` requires that `skip_sources_in_lineage` is enabled."
-            )
-        return prefer_sql_parser_lineage
 
 
 @dataclass
@@ -769,23 +770,30 @@ def make_mapping_upstream_lineage(
     downstream_urn: str,
     node: DBTNode,
     convert_column_urns_to_lowercase: bool,
+    skip_sources_in_lineage: bool,
 ) -> UpstreamLineageClass:
     cll = []
-    for column in node.columns or []:
-        field_name = column.name
-        if convert_column_urns_to_lowercase:
-            field_name = field_name.lower()
+    if not (node.node_type == "source" and skip_sources_in_lineage):
+        # If `skip_sources_in_lineage` is enabled, we want to generate table lineage (for siblings)
+        # but not CLL. That's because CLL will make it look like the warehouse node has downstream
+        # column lineage, but it's really just empty.
+        for column in node.columns or []:
+            field_name = column.name
+            if convert_column_urns_to_lowercase:
+                field_name = field_name.lower()
 
-        cll.append(
-            FineGrainedLineage(
-                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                upstreams=[mce_builder.make_schema_field_urn(upstream_urn, field_name)],
-                downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                downstreams=[
-                    mce_builder.make_schema_field_urn(downstream_urn, field_name)
-                ],
+            cll.append(
+                FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=[
+                        mce_builder.make_schema_field_urn(upstream_urn, field_name)
+                    ],
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=[
+                        mce_builder.make_schema_field_urn(downstream_urn, field_name)
+                    ],
+                )
             )
-        )
 
     return UpstreamLineageClass(
         upstreams=[
@@ -1476,6 +1484,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     downstream_urn=node_datahub_urn,
                     node=node,
                     convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
+                    skip_sources_in_lineage=self.config.skip_sources_in_lineage,
                 )
                 if self.config.incremental_lineage:
                     # We only generate incremental lineage for non-dbt nodes.
@@ -1821,6 +1830,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 downstream_urn=node_urn,
                 node=node,
                 convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
+                skip_sources_in_lineage=self.config.skip_sources_in_lineage,
             )
         else:
             upstream_urns = get_upstreams(

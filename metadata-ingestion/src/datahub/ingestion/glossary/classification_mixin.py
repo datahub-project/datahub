@@ -48,7 +48,7 @@ class ClassificationReportMixin:
 class ClassificationSourceConfigMixin(ConfigModel):
     classification: ClassificationConfig = Field(
         default=ClassificationConfig(),
-        description="For details, refer [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
+        description="For details, refer to [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
     )
 
 

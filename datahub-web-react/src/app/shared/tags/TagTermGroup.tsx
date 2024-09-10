@@ -203,7 +203,7 @@ export default function TagTermGroup({
             {showAddModal && !!entityUrn && !!entityType && (
                 <EditTagTermsModal
                     type={addModalType}
-                    visible
+                    open
                     onCloseModal={() => {
                         onOpenModal?.();
                         setShowAddModal(false);

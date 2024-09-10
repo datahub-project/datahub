@@ -126,7 +126,12 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
-            entityRegistry, new IndexConventionImpl("es_timeseries_aspect_service_test"));
+            entityRegistry,
+            new IndexConventionImpl(
+                IndexConventionImpl.IndexConventionConfig.builder()
+                    .prefix("es_timeseries_aspect_service_test")
+                    .hashIdAlgo("MD5")
+                    .build()));
 
     elasticSearchTimeseriesAspectService = buildService();
     elasticSearchTimeseriesAspectService.reindexAll(Collections.emptySet());
@@ -152,7 +157,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
   private void upsertDocument(TestEntityProfile dp, Urn urn) throws JsonProcessingException {
     Map<String, JsonNode> documents =
-        TimeseriesAspectTransformer.transform(urn, dp, aspectSpec, null);
+        TimeseriesAspectTransformer.transform(urn, dp, aspectSpec, null, "MD5");
     assertEquals(documents.size(), 3);
     documents.forEach(
         (key, value) ->
