@@ -187,6 +187,11 @@ def test_file_dict_stores_counter() -> None:
 
 
 def test_file_dict_ordering() -> None:
+    """
+    We require that FileBackedDict maintains insertion order, similar to Python's
+    built-in dict. This test makes one of each and validates that they behave the same.
+    """
+
     cache = FileBackedDict[int](
         serializer=str,
         deserializer=int,
@@ -214,10 +219,7 @@ def test_file_dict_ordering() -> None:
         cache[str(i)] = i * 10
         data[str(i)] = i * 10
 
-    # breakpoint()
-    # print("fo")
     assert list(cache.items()) == list(data.items())
-    # print()
 
 
 @dataclass
