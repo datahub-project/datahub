@@ -27,7 +27,9 @@ public class DatasetSchemaFieldChangeEvent extends ChangeEvent {
       String description,
       String fieldPath,
       Urn fieldUrn,
-      boolean nullable) {
+      boolean nullable,
+      SchemaFieldModificationCategory modificationCategory
+  ) {
     super(
         entityUrn,
         category,
@@ -36,7 +38,9 @@ public class DatasetSchemaFieldChangeEvent extends ChangeEvent {
         ImmutableMap.of(
             "fieldPath", fieldPath,
             "fieldUrn", fieldUrn.toString(),
-            "nullable", nullable),
+            "nullable", nullable,
+            "modificationCategory", modificationCategory != null ? modificationCategory.toString() : SchemaFieldModificationCategory.OTHER.toString()
+        ),
         auditStamp,
         semVerChange,
         description);
