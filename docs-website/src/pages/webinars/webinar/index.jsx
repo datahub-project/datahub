@@ -51,17 +51,19 @@ function GatedWebinar() {
   }
 
   return (
-    <Layout title={webinar.title} description={webinar.excerpt}>
+    <Layout>
       <header className={clsx("hero", styles.hero)}>
         <div className={clsx("container", styles.container)}>
           <div className={clsx("hero__content", styles.heroContent)}>
             <h1>{webinar.title}</h1>
             {/* HubSpot Form */}
             {!isFormSubmitted && (
-              <div id="hubspotGateForm" className={clsx(styles.hubspotGateForm)}></div>
-              <div className={clsx(styles.contentPreview)}>
-                <p>{webinar.content}</p>
-              </div>
+                <>
+                <div id="hubspotGateForm" className={clsx(styles.hubspotGateForm)}></div>
+                <div className={clsx(styles.contentPreview)}>
+                  <p>{webinar.content}</p>
+                </div>
+              </>
             )}
 
             {/* Webinar Content */}

@@ -48,7 +48,7 @@ function GatedWebinar() {
   }
 
   return (
-    <Layout title={webinar.title} description={webinar.excerpt}>
+    <Layout>
       <header className={"hero"}>
         <div className="container">
           <div className="hero__content">
