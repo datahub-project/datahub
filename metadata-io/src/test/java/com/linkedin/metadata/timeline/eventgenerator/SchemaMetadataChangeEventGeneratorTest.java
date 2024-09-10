@@ -119,7 +119,11 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
             "A backwards incompatible change due to native datatype of the field 'ID' changed from 'NUMBER(16,1)' to 'NUMBER(10,1)'.",
             "A forwards & backwards compatible change due to the newly added field 'aa'."),
         actual);
-    compareModificationCategories(Set.of(SchemaFieldModificationCategory.OTHER.toString()), actual);
+    compareModificationCategories(
+        Set.of(
+            SchemaFieldModificationCategory.TYPE_CHANGE.toString(),
+            SchemaFieldModificationCategory.OTHER.toString()),
+        actual);
   }
 
   @Test
