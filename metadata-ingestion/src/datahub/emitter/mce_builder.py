@@ -50,7 +50,6 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     _Aspect as AspectAbstract,
 )
-from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
 from datahub.utilities.urn_encoder import UrnEncoder
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -222,21 +221,6 @@ def make_user_urn(username: str) -> str:
         f"urn:li:corpuser:{username}"
         if not username.startswith(("urn:li:corpuser:", "urn:li:corpGroup:"))
         else username
-    )
-
-
-def make_actor_urn(actor: str) -> Union[CorpUserUrn, CorpGroupUrn]:
-    """
-    Makes a user urn if the input is not a user or group urn already
-    """
-    return (
-        CorpUserUrn(actor)
-        if not actor.startswith(("urn:li:corpuser:", "urn:li:corpGroup:"))
-        else (
-            CorpUserUrn.from_string(actor)
-            if actor.startswith("urn:li:corpuser:")
-            else CorpGroupUrn.from_string(actor)
-        )
     )
 
 
