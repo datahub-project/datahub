@@ -29,8 +29,7 @@ const Trial = () => {
                   height={60}
                   src={useBaseUrl("/img/lock-soc.svg")}
                 />
-                SOC 2 <br />
-                compliant
+                Secure<br/> out of box with <br/>SOC2 compliance.
               </div>
               <div className={styles.cost}>
                 <img
@@ -49,12 +48,12 @@ const Trial = () => {
                   height={60}
                   src={useBaseUrl("/img/building.svg")}
                 />
-                Built for <br /> Enterprize Scale.
+                Built for <br /> Enterprise Scale.
               </div>
               <div className={styles.link}>
                 <img width={60} height={75} src={useBaseUrl("/img/link.svg")} />
-                One link to rule
-                <br /> them all.
+                Centralize all context
+                <br /> in one place.
               </div>
             </div>
           </div>

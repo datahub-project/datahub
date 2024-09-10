@@ -3,7 +3,8 @@
   flex-direction: column;
   background: #fafafa;
   width: 80vw;
-  min-width: 1000px;
+  min-width: 900px;
+  max-width: 1200px;
   margin: 1rem auto;
 }
 .trial {
@@ -72,6 +73,7 @@
   }
   .trial_right {
     width: 45%;
+    max-width: 520px;
     height: 100%;
 
     .right_content {
@@ -89,7 +91,7 @@
           font-size: 1.25rem;
           font-weight: 400;
           color: #fff;
-          line-height: normal;
+          line-height: 1.5rem;
           img {
             margin-bottom: 8px;
           }
@@ -133,7 +135,7 @@
           font-size: 1.25rem;
           font-weight: 400;
           color: #fff;
-          line-height: normal;
+          line-height: 1.5rem;
           img {
             margin-bottom: 8px;
           }
@@ -202,7 +204,7 @@
           color: #2e2e38;
           font-size: 2rem;
           font-weight: 500;
-          line-height: normal;
+          line-height: 1.5rem;
         }
         .btn_div {
           display: flex;
@@ -267,7 +269,7 @@
             font-size: 1rem;
             font-weight: 500;
             color: #2e2e38;
-            line-height: normal;
+            line-height: 1.5rem;
             img {
               margin-bottom: 20px;
             }
