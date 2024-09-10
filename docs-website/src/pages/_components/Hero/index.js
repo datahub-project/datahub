@@ -42,7 +42,7 @@ const Hero = ({}) => {
               <Link className="cta__primary">Datahub Cloud</Link>
               <Link className="cta__secondary">Product Tour</Link>
             </div>
-            <div className="hero__footer">Get started with Core → </div>
+            <Link className="hero__footer_cta">Get started with Core →</Link>
           </div>
           <div className="hero__img">
             <img src={useBaseUrl("/img/hero.png")} />

@@ -384,14 +384,30 @@ div[class^="announcementBar"] {
 
 .comapny__logos {
   display: flex;
-  width: 90vw;
+  min-width: 900px;
+  width: 75vw;
   margin: 0 auto;
   align-items: center;
   justify-content: center;
 
   .text {
-    padding: 0 50px;
-    color: #9EA3B6;
-    font-size: 1.5rem;
+    padding-right: 24px;
+    color: #999;
+    font-size: 1.25rem;
+    line-height: 1.5rem;
+  }
+
+  .company_logos_list_wrapper {
+    flex-direction: row;
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    justify-content: space-around;
+  }
+  .company_logo {
+    max-width: 70px;
+    max-height: 30px;
+    filter: grayscale(1);
+    opacity: .5;
   }
 }

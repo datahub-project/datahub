@@ -17,18 +17,10 @@ import Community from "./_components/Community";
 import CaseStudy from "./_components/CaseStudy";
 import Trial from "./_components/Trial";
 
-const example_recipe = `
-source:
-  type: "mysql"
-  config:
-    username: "datahub"
-    password: "datahub"
-    host_port: "localhost:3306"
-sink:
-  type: "datahub-rest"
-  config:
-    server: 'http://localhost:8080'`.trim();
-const example_recipe_run = "datahub ingest -c recipe.yml";
+const companyIndexes = require("../../adoptionStoriesIndexes.json");
+const companies = companyIndexes.companies;
+const keyCompanySlugs = ['netflix', 'visa', 'pinterest', 'airtel', 'optum'];
+const keyCompanies = keyCompanySlugs.map(slug => companies.find(co => co.slug === slug)).filter(isDefined => isDefined);
 
 function Home() {
   const context = useDocusaurusContext();
@@ -46,9 +38,18 @@ function Home() {
       <Hero />
       <div className="comapny__logos">
         <div className="text">
-          Trusted by industry leaders around the world.
+          Trusted by industry leaders<br/>around the world.
         </div>
-        <CompanyLogos />
+        <div className="company_logos_list_wrapper">
+          {keyCompanies.map(company => <a href={`/adoption-stories#${company.slug}`}>
+                <img
+                  src={useBaseUrl(company.imageUrl)}
+                  alt={company.name}
+                  title={company.name}
+                  className={'company_logo'}
+                />
+              </a>)}
+        </div>
         {/* <div style={{ textAlign: "center", margin: "1rem" }}>
           <Link
             className="button button--secondary button--md"
