@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -8,7 +9,6 @@ import com.linkedin.metadata.query.GroupingSpec;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import com.linkedin.data.template.StringArray;
 
 /**
  * Maps GraphQL SearchFlags to Pegasus
@@ -66,7 +66,8 @@ public class SearchFlagsInputMapper
                           .collect(Collectors.toList()))));
     }
     if (searchFlags.getCustomHighlightingFields() != null) {
-      result.setCustomHighlightingFields(new StringArray(searchFlags.getCustomHighlightingFields()));
+      result.setCustomHighlightingFields(
+          new StringArray(searchFlags.getCustomHighlightingFields()));
     }
     return result;
   }

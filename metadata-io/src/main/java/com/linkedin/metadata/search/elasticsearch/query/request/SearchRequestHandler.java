@@ -213,7 +213,8 @@ public class SearchRequestHandler {
     }
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
       if (CollectionUtils.isNotEmpty(searchFlags.getCustomHighlightingFields())) {
-        searchSourceBuilder.highlighter(getValidatedHighlighter(searchFlags.getCustomHighlightingFields()));
+        searchSourceBuilder.highlighter(
+            getValidatedHighlighter(searchFlags.getCustomHighlightingFields()));
       } else {
         searchSourceBuilder.highlighter(highlights);
       }
@@ -568,9 +569,10 @@ public class SearchRequestHandler {
     highlightBuilder.preTags("");
     highlightBuilder.postTags("");
     fieldsToHighlight.stream()
-            .filter(defaultQueryFieldNames::contains)
-            .flatMap(fieldName -> Stream.of(fieldName, fieldName + ".*")).distinct()
-            .forEach(highlightBuilder::field);
+        .filter(defaultQueryFieldNames::contains)
+        .flatMap(fieldName -> Stream.of(fieldName, fieldName + ".*"))
+        .distinct()
+        .forEach(highlightBuilder::field);
     return highlightBuilder;
   }
 }

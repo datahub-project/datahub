@@ -56,8 +56,13 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
   public static SearchConfiguration testQueryConfig;
   public static List<String> validHighlightingFields = List.of("urn", "foreignKey");
-  public static StringArray customHighlightFields = new StringArray(
-          List.of(validHighlightingFields.get(0), validHighlightingFields.get(1), "notExistingField", ""));
+  public static StringArray customHighlightFields =
+      new StringArray(
+          List.of(
+              validHighlightingFields.get(0),
+              validHighlightingFields.get(1),
+              "notExistingField",
+              ""));
 
   static {
     testQueryConfig = new SearchConfiguration();
@@ -109,22 +114,23 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   public void testCustomHighlights() {
     EntitySpec entitySpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
     SearchRequestHandler requestHandler =
-            SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
+        SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
     SearchRequest searchRequest =
-            requestHandler.getSearchRequest(
-                    operationContext.withSearchFlags(
-                            flags -> flags.setFulltext(false).setCustomHighlightingFields(customHighlightFields)),
-                    "testQuery",
-                    null,
-                    null,
-                    0,
-                    10,
-                    null);
+        requestHandler.getSearchRequest(
+            operationContext.withSearchFlags(
+                flags ->
+                    flags.setFulltext(false).setCustomHighlightingFields(customHighlightFields)),
+            "testQuery",
+            null,
+            null,
+            0,
+            10,
+            null);
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertNotNull(sourceBuilder.highlighter());
     assertEquals(4, sourceBuilder.highlighter().fields().size());
-    assertTrue(sourceBuilder.highlighter().fields()
-            .stream()
+    assertTrue(
+        sourceBuilder.highlighter().fields().stream()
             .map(HighlightBuilder.Field::name)
             .toList()
             .containsAll(validHighlightingFields));
