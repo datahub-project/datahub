@@ -4,9 +4,10 @@
   :global {
     .testimonials__content {
       width: 80vw;
+      max-width: 1200px;
       margin: 0 auto;
       position: relative;
-      padding: 40px 0;
+      padding: 60px 0;
 
       // &::before {
       //   position: absolute;
