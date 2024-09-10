@@ -1,7 +1,5 @@
 import datetime
-import re
 import logging
-import time
 
 from typing import Optional, Dict, List, Iterable, Union, Tuple, Any, Collection
 
@@ -29,7 +27,6 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     ViewPropertiesClass,
     OtherSchemaClass,
-    AuditStampClass,
     BooleanTypeClass,
     NumberTypeClass,
     StringTypeClass,
@@ -105,16 +102,6 @@ HANA_TYPES_MAP: Dict[str, Any] = {
     "SECONDDATE": TimeTypeClass(),
     "TIMESTAMP": TimeTypeClass(),
 }
-
-
-# def preprocess_sap_type(sap_type):
-#     type_str = sap_type.__class__.__name__
-#     return re.sub(r'\(.*\)', '', type_str).strip()
-#
-#
-# def get_pegasus_type(sap_type):
-#     processed_type = preprocess_sap_type(sap_type)
-#     return HANA_TYPES_MAP.get(processed_type)
 
 
 class BaseHanaConfig(BasicSQLAlchemyConfig):
@@ -417,10 +404,6 @@ class HanaSource(SQLAlchemySource):
             fields=columns,
             hash="",
             platformSchema=OtherSchemaClass(""),
-            # lastModified=AuditStampClass(
-            #     time=int(time.time() * 1000),
-            #     actor="urn:li:corpuser:admin",
-            # ),
         )
 
         dataset_snapshot = MetadataChangeProposalWrapper.construct_many(
@@ -468,10 +451,6 @@ class HanaSource(SQLAlchemySource):
             fields=columns,
             hash="",
             platformSchema=OtherSchemaClass(""),
-            # lastModified=AuditStampClass(
-            #     time=int(time.time() * 1000),
-            #     actor="urn:li:corpuser:admin",
-            # ),
         )
 
         view_properties = ViewPropertiesClass(
@@ -538,7 +517,7 @@ class HanaSource(SQLAlchemySource):
                 for data_source in data_sources.findall("DataSource", ns):
                     data_source_type = data_source.get("type")
                     if data_source_type.upper() == "CALCULATION_VIEW":
-                        upstreams.append(f"_sys_bic.{data_source.find('resourceUri', ns).text}")
+                        upstreams.append(f"_sys_bic.{data_source.find('resourceUri', ns).text[1:]}")
                     else:
                         column_object = data_source.find("columnObject", ns)
                         upstreams.append(f"{column_object.get('schemaName')}.{column_object.get('columnObjectName')}")
@@ -581,7 +560,6 @@ class HanaSource(SQLAlchemySource):
         )
 
         try:
-            logging.info(f"Dataset definition for {dataset_path}.{dataset_name}: {dataset_definition}")
             root = xml.etree.ElementTree.fromstring(dataset_definition)
         except Exception as e:
             logging.error(e)
@@ -610,10 +588,6 @@ class HanaSource(SQLAlchemySource):
                 fields=columns,
                 hash="",
                 platformSchema=OtherSchemaClass(""),
-                # lastModified=AuditStampClass(
-                #     time=int(time.time() * 1000),
-                #     actor="urn:li:corpuser:admin",
-                # ),
             )
 
             dataset_details = DatasetPropertiesClass(name=dataset_name)
