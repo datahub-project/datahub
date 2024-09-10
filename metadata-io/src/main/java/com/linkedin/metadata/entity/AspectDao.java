@@ -51,16 +51,30 @@ public interface AspectDao {
   List<EntityAspect> getAspectsInRange(
       @Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis);
 
+  /**
+   * @param urn urn to fetch
+   * @param aspectName aspect to fetch
+   * @param forUpdate set to true if the result is used for versioning <a
+   *     href="https://ebean.io/docs/query/option#forUpdate">link</a>
+   * @return
+   */
   @Nullable
   default EntityAspect getLatestAspect(
-      @Nonnull final String urn, @Nonnull final String aspectName) {
-    return getLatestAspects(Map.of(urn, Set.of(aspectName)))
+      @Nonnull final String urn, @Nonnull final String aspectName, boolean forUpdate) {
+    return getLatestAspects(Map.of(urn, Set.of(aspectName)), forUpdate)
         .getOrDefault(urn, Map.of())
         .getOrDefault(aspectName, null);
   }
 
+  /**
+   * @param urnAspects urn/aspects to fetch
+   * @param forUpdate set to true if the result is used for versioning <a
+   *     href="https://ebean.io/docs/query/option#forUpdate">link</a>
+   * @return the data
+   */
   @Nonnull
-  Map<String, Map<String, EntityAspect>> getLatestAspects(Map<String, Set<String>> urnAspects);
+  Map<String, Map<String, EntityAspect>> getLatestAspects(
+      Map<String, Set<String>> urnAspects, boolean forUpdate);
 
   void saveAspect(
       @Nullable Transaction tx,

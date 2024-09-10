@@ -1,7 +1,8 @@
 import random
 import string
+from datetime import datetime, timezone
 from typing import Any, Dict
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from freezegun import freeze_time
 from google.cloud.bigquery.table import TableListItem
@@ -24,6 +25,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
+    BigQueryV2Config,
 )
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import run_and_get_pipeline
@@ -43,7 +45,7 @@ def random_email():
     )
 
 
-def recipe(mcp_output_path: str, override: dict = {}) -> dict:
+def recipe(mcp_output_path: str, source_config_override: dict = {}) -> dict:
     return {
         "source": {
             "type": "bigquery",
@@ -64,7 +66,7 @@ def recipe(mcp_output_path: str, override: dict = {}) -> dict:
                     ],
                     max_workers=1,
                 ).dict(),
-                **override,
+                **source_config_override,
             },
         },
         "sink": {"type": "file", "config": {"filename": mcp_output_path}},
@@ -403,7 +405,119 @@ def test_bigquery_queries_v2_ingest(
     # if use_queries_v2 is set.
     pipeline_config_dict: Dict[str, Any] = recipe(
         mcp_output_path=mcp_output_path,
-        override={"use_queries_v2": True, "include_table_lineage": False},
+        source_config_override={"use_queries_v2": True, "include_table_lineage": False},
+    )
+
+    run_and_get_pipeline(pipeline_config_dict)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=mcp_output_path,
+        golden_path=mcp_golden_path,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
+@patch("google.cloud.resourcemanager_v3.ProjectsClient")
+def test_bigquery_queries_v2_lineage_usage_ingest(
+    projects_client,
+    policy_tag_manager_client,
+    get_bigquery_client,
+    get_datasets_for_project_id,
+    pytestconfig,
+    tmp_path,
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
+    mcp_golden_path = f"{test_resources_dir}/bigquery_lineage_usage_golden.json"
+    mcp_output_path = "{}/{}".format(tmp_path, "bigquery_lineage_usage_output.json")
+
+    dataset_name = "bigquery-dataset-1"
+    get_datasets_for_project_id.return_value = [BigqueryDataset(name=dataset_name)]
+
+    client = MagicMock()
+    get_bigquery_client.return_value = client
+    client.list_tables.return_value = [
+        TableListItem(
+            {"tableReference": {"projectId": "", "datasetId": "", "tableId": "table-1"}}
+        ),
+        TableListItem(
+            {"tableReference": {"projectId": "", "datasetId": "", "tableId": "view-1"}}
+        ),
+    ]
+
+    # mocking the query results for fetching audit log
+    # note that this is called twice, once for each region
+    client.query.return_value = [
+        {
+            "job_id": "1",
+            "project_id": "project-id-1",
+            "creation_time": datetime.now(timezone.utc),
+            "user_email": "foo@xyz.com",
+            "query": "select * from `bigquery-dataset-1`.`table-1`",
+            "session_id": None,
+            "query_hash": None,
+            "statement_type": "SELECT",
+            "destination_table": None,
+            "referenced_tables": None,
+        },
+        {
+            "job_id": "2",
+            "project_id": "project-id-1",
+            "creation_time": datetime.now(timezone.utc),
+            "user_email": "foo@xyz.com",
+            "query": "create view `bigquery-dataset-1`.`view-1` as select * from `bigquery-dataset-1`.`table-1`",
+            "session_id": None,
+            "query_hash": None,
+            "statement_type": "CREATE",
+            "destination_table": None,
+            "referenced_tables": None,
+        },
+        {
+            "job_id": "3",
+            "project_id": "project-id-1",
+            "creation_time": datetime.now(timezone.utc),
+            "user_email": "service_account@xyz.com",
+            "query": """\
+select * from `bigquery-dataset-1`.`view-1`
+LIMIT 100
+-- {"user":"@bar","email":"bar@xyz.com","url":"https://modeanalytics.com/acryltest/reports/6234ff78bc7d/runs/662b21949629/queries/f0aad24d5b37","scheduled":false}
+""",
+            "session_id": None,
+            "query_hash": None,
+            "statement_type": "SELECT",
+            "destination_table": None,
+            "referenced_tables": None,
+        },
+        {
+            "job_id": "4",
+            "project_id": "project-id-1",
+            "creation_time": datetime.now(timezone.utc),
+            "user_email": "service_account@xyz.com",
+            "query": """\
+select * from `bigquery-dataset-1`.`view-1`
+LIMIT 100
+-- {"user":"@foo","email":"foo@xyz.com","url":"https://modeanalytics.com/acryltest/reports/6234ff78bc7d/runs/662b21949629/queries/f0aad24d5b37","scheduled":false}
+""",
+            "session_id": None,
+            "query_hash": None,
+            "statement_type": "SELECT",
+            "destination_table": None,
+            "referenced_tables": None,
+        },
+    ]
+
+    pipeline_config_dict: Dict[str, Any] = recipe(
+        mcp_output_path=mcp_output_path,
+        source_config_override={
+            "use_queries_v2": True,
+            "include_schema_metadata": False,
+            "include_table_lineage": True,
+            "include_usage_statistics": True,
+            "classification": {"enabled": False},
+        },
     )
 
     run_and_get_pipeline(pipeline_config_dict)
