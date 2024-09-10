@@ -1,0 +1,30 @@
+/* Form Styles */
+#hubspotGateForm {
+  width: 90%;
+  max-width: 500px;
+  margin: 2rem auto;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+}
+
+#hubspotGateForm input,
+#hubspotGateForm button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+#hubspotGateForm button {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+#hubspotGateForm button:hover {
+  background-color: #0056b3;
+}
