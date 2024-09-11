@@ -9,6 +9,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import xml.etree.ElementTree
 
+import uuid
+
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
@@ -37,12 +39,17 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
     SchemaFieldDataTypeClass,
     SubTypesClass,
-    TimeStampClass
+    TimeStampClass,
+    BrowsePathsV2Class,
+    BrowsePathEntryClass,
+    ContainerPropertiesClass,
+    DataPlatformInstanceClass,
 )
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_data_platform_urn,
-    make_user_urn
+    make_user_urn,
+    make_container_urn,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
@@ -176,6 +183,86 @@ class HanaSource(SQLAlchemySource):
         url = self.config.get_sql_alchemy_url()
         return create_engine(url)
 
+    def create_container(self, schema: str) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+
+        browsePath: BrowsePathsV2Class = self.get_browse_path(
+            schema=schema,
+        )
+
+        container_urn = self.get_container_urn(
+            schema=schema,
+        )
+
+        container_name = ContainerPropertiesClass(
+            name=schema,
+        )
+
+        conatiner_type = SubTypesClass(
+            typeNames=["Schema"],
+        )
+
+        platform = self.get_platform_instance()
+
+        container_snapshot = MetadataChangeProposalWrapper.construct_many(
+            entityUrn=container_urn,
+            aspects=[
+                container_name,
+                conatiner_type,
+                browsePath,
+                platform
+            ]
+        )
+
+        for mcp in container_snapshot:
+            self.report.report_workunit(mcp.as_workunit())
+            yield mcp.as_workunit()
+
+    def get_browse_path(self, schema: str) -> BrowsePathsV2Class:
+        container_path: List[BrowsePathEntryClass] = []
+
+        if self.config.database:
+            container_path.append(
+                BrowsePathEntryClass(
+                    id=self.config.database.lower()
+                )
+            )
+        if self.config.platform_instance:
+            container_path.append(
+                BrowsePathEntryClass(
+                    id=self.config.platform_instance.lower()
+                )
+            )
+
+        container_path.append(
+            BrowsePathEntryClass(
+                id=schema
+            )
+        )
+
+        return BrowsePathsV2Class(
+            path=container_path
+        )
+
+    def get_container_urn(self, schema: str) -> str:
+        namespace = uuid.NAMESPACE_DNS
+
+        return make_container_urn(
+            guid=str(
+                uuid.uuid5(
+                    namespace,
+                    self.get_platform() + \
+                    self.config.platform_instance + \
+                    schema,
+                )
+            )
+        )
+
+    def get_platform_instance(self):
+        return DataPlatformInstanceClass(
+            platform=f"urn:li:dataPlatform:{self.get_platform()}",
+            instance=self.config.platform_instance
+        )
+
     def get_table_properties(self, inspector: Inspector, schema: str, table: str) -> Optional[DatasetPropertiesClass]:
         description = inspector.get_table_comment(table, schema).get("text", "")
         return DatasetPropertiesClass(name=table, description=description)
@@ -237,7 +324,7 @@ class HanaSource(SQLAlchemySource):
         columns = inspector.get_columns(table_or_view, schema)
         return [
             SchemaFieldClass(
-                fieldPath=f"[version=2.0].[type={col.get('data_type_name')}].{col.get('column_name')}",
+                fieldPath=col.get('column_name'),
                 type=SchemaFieldDataTypeClass(
                     type=HANA_TYPES_MAP.get(
                         col.get('data_type_name')
@@ -268,7 +355,7 @@ class HanaSource(SQLAlchemySource):
 
         return [
             SchemaFieldClass(
-                fieldPath=f"[version=2.0].[type={col.get('data_type_name')}].{col.get('column_name')}",
+                fieldPath=col.get('column_name'),
                 type=SchemaFieldDataTypeClass(
                     type=HANA_TYPES_MAP.get(
                         col.get('data_type_name')
@@ -327,6 +414,11 @@ class HanaSource(SQLAlchemySource):
             futures = []
 
             for schema in schemas:
+
+                yield from self.create_container(
+                    schema=schema,
+                )
+
                 if schema.lower() == "_sys_bic":
                     views = self.get_package_names()
                     for view in views:
@@ -405,11 +497,19 @@ class HanaSource(SQLAlchemySource):
             platformSchema=OtherSchemaClass(""),
         )
 
+        platform = self.get_platform_instance()
+
+        browsePath = self.get_browse_path(
+            schema=schema,
+        )
+
         dataset_snapshot = MetadataChangeProposalWrapper.construct_many(
             entityUrn=entity,
             aspects=[
                 description,
                 schema_metadata,
+                platform,
+                browsePath,
             ]
         )
 
@@ -458,11 +558,19 @@ class HanaSource(SQLAlchemySource):
             viewLogic=view_definition,
         )
 
+        platform = self.get_platform_instance()
+
+        browsePath = self.get_browse_path(
+            schema=schema,
+        )
+
         aspects = [
             properties,
             schema_metadata,
             view_properties,
             subtype,
+            platform,
+            browsePath,
         ]
 
         if lineage:
@@ -517,7 +625,7 @@ class HanaSource(SQLAlchemySource):
                     data_source_type = data_source.get("type")
                     if data_source_type.upper() == "CALCULATION_VIEW":
                         upstreams.append(
-                            f"_sys_bic.{data_source.find('resourceUri', ns).text[1:].replace('/calculationviews/','/')}"
+                            f"_sys_bic.{data_source.find('resourceUri', ns).text[1:].replace('/calculationviews/', '/')}"
                         )
                     else:
                         column_object = data_source.find("columnObject", ns)
@@ -543,6 +651,13 @@ class HanaSource(SQLAlchemySource):
             )
             for row in upstreams
         ]
+
+        # FineGrainedLineageClass(
+        #     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+        #     downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD
+        #
+        # )
+
         return UpstreamLineageClass(upstreams=upstream)
 
     def _process_calculation_view(
@@ -591,12 +706,20 @@ class HanaSource(SQLAlchemySource):
                 platformSchema=OtherSchemaClass(""),
             )
 
-            dataset_details = DatasetPropertiesClass(name=dataset_name)
+            dataset_details = DatasetPropertiesClass(
+                name=f"{schema}/{dataset_name}"
+            )
 
             view_properties = ViewPropertiesClass(
                 materialized=False,
                 viewLanguage="XML",
                 viewLogic=dataset_definition,
+            )
+
+            platform = self.get_platform_instance()
+
+            browsePath = self.get_browse_path(
+                schema=schema,
             )
 
             subtype = SubTypesClass(["View"])
@@ -606,6 +729,8 @@ class HanaSource(SQLAlchemySource):
                 subtype,
                 dataset_details,
                 view_properties,
+                platform,
+                browsePath,
             ]
 
             if lineage:
