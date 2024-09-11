@@ -1,5 +1,6 @@
 import React from "react";
 import styles from "./case-study.module.scss";
+import Link from '@docusaurus/Link'
 
 const CaseStudy = () => {
   return (
@@ -8,7 +9,7 @@ const CaseStudy = () => {
       <div className={styles.case_study}>
         <div className={styles.case_study_heading}>
           <div>See how Industry leaders use the Datahub</div>
-          <p>Across finance, healthcare, e-commerce and more.</p>
+          <p>Across finance, healthcare, e-commerce and countless more.</p>
         </div>
 
         <div className={styles.card_row}>
@@ -94,9 +95,9 @@ const CaseStudy = () => {
           </div>
         </div>
 
-        <div className={styles.bottom_line}>
-          See all adoption stories<span>→</span>
-        </div>
+        <Link className={styles.bottom_line} to="/adoption-stories">
+          See all adoption stories →
+        </Link>
       </div>
     </div>
   );
