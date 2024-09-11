@@ -39,7 +39,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
-## 0.14.0
+## 0.14.0.2
 
 ### Breaking Changes
 
