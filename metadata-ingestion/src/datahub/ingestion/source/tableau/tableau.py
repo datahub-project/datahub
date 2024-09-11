@@ -222,7 +222,7 @@ class TableauConnectionConfig(ConfigModel):
 
     session_trust_env: bool = Field(
         False,
-        description="Sets the trust_env property in the requests session to for example bypass proxy settings.",
+        description="Configures the trust_env property in the requests session. If set to false (default value) it will bypass proxy settings.",
     )
 
     extract_column_level_lineage: bool = Field(
@@ -317,9 +317,10 @@ class AccessRolesIngestionConfig(ConfigModel):
 
     group_name_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Filter for Tableau access permission names. "
-        "By default, all permissions will be added as roles. "
-        "You can both allow and deny permissions based on their name using their name, or a Regex pattern. "
+        description="Filter for Tableau group names when ingesting access roles. "
+        "For example, you could filter for groups that include the term 'Consumer' in their name by adding '^.*Consumer$' to the allow list."
+        "By default, all groups will be added as roles. "
+        "You can both allow and deny groups based on their name using their name, or a Regex pattern. "
         "Deny patterns always take precedence over allow patterns. ",
     )
 
@@ -345,7 +346,8 @@ class AccessRolesIngestionConfig(ConfigModel):
 
     displayed_capabilities: Optional[List[str]] = Field(
         default=None,
-        description="Description of the role that will be displayed in the Access Management tab of Datahub.",
+        description="List of Tableau permission capabilities (e.g. Read, Write, Delete) that will be displayed as Access Type in the Access Management tab of Datahub. "
+        "If omitted, all allowed capabilities of the group will be displayed.",
     )
 
     request_url: str = Field(
@@ -2867,10 +2869,12 @@ class TableauSiteSource:
             and self.config.access_role_ingestion.enable_workbooks
         ):
             logger.info(f"Ingest access roles of '{workbook.get(c.LUID)}'")
-            workbook_api = self.server.workbooks.get_by_id(workbook.get(c.LUID))
-            self.server.workbooks.populate_permissions(workbook_api)
+            workbook_instance = self.server.workbooks.get_by_id(workbook.get(c.LUID))
+            self.server.workbooks.populate_permissions(workbook_instance)
             container_urn = workbook_container_key.as_urn()
-            yield from self.emit_access_roles(workbook_api.permissions, container_urn)
+            yield from self.emit_access_roles(
+                workbook_instance.permissions, container_urn
+            )
 
     def gen_workbook_key(self, workbook_id: str) -> WorkbookKey:
         return WorkbookKey(
