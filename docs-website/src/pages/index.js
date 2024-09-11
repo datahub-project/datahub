@@ -14,6 +14,7 @@ import QuickstartContent from "./_components/QuickstartContent";
 import Testimonials from "./_components/Testimonials";
 import Ecosystem from "./_components/Ecosystem";
 import Community from "./_components/Community";
+import SocialMedia from "./_components/SocialMedia";
 import CaseStudy from "./_components/CaseStudy";
 import Trial from "./_components/Trial";
 
@@ -64,6 +65,7 @@ function Home() {
       {/* <Features /> */}
       <Ecosystem />
       <Community />
+      <SocialMedia />
       <CaseStudy />
       <Trial />
       {/* <Section>
