@@ -408,8 +408,12 @@ div[class^="announcementBar"] {
   .company_logo {
     max-width: 80px;
     max-height: 36px;
-    filter: grayscale(1);
-    opacity: .6;
+    filter: brightness(0) grayscale(1);
+    opacity: .4;
+    transition: opacity .3s ease-in-out;
+    &:hover {
+      opacity: 0.6;
+    }
   }
 }
 

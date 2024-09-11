@@ -25,7 +25,7 @@
     {
       "name": "Optum",
       "slug": "optum",
-      "imageUrl": "/img/logos/companies/optum.jpg",
+      "imageUrl": "/img/logos/companies/optum.png",
       "imageSize": "medium",
       "link": "https://opensource.optum.com/blog/2022/03/23/data-mesh-via-datahub",
       "linkType": "blog",
