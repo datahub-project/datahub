@@ -16,14 +16,15 @@ const Ecosystem = () => {
               DataHub is built on an extensible, scalable and secure foundation.
               <br/>It's hardened and ready for the toughest challenges large enterprises face.
             </div>
-            <Link className={styles.bottom_line_cta}>
+            <Link className={styles.bottom_line_cta} to="/adoption-stories#netflix">
               See how Netflix uses DataHub at scale&nbsp;→
             </Link>
           </div>
           <div className={styles.ecosystem_section_lower_content}>
             <div className={styles.itemWrappers}>
               <div className={styles.itemWrappersRow}>
-                <div className={styles.item1}>
+                <Link className={styles.item1} to="/docs/architecture/architecture" target="_blank">
+                  <img src={useBaseUrl("/img/link_arrow_open.png")} className={styles.itemLinkOpenArrow} />
                   <div className={styles.item_content}>
                     <img
                       width="20"
@@ -35,8 +36,9 @@ const Ecosystem = () => {
                       An architecture that's designed for true enterprise scale.
                     </span>
                   </div>
-                </div>
-                <div className={styles.item2}>
+                </Link>
+                <Link className={styles.item2}  to="/integrations" target="_blank">
+                  <img src={useBaseUrl("/img/link_arrow_open.png")} className={styles.itemLinkOpenArrow} />
                   <div className={styles.item_content}>
                     <img
                       width="20"
@@ -49,10 +51,11 @@ const Ecosystem = () => {
                       <br /> every month.
                     </span>
                   </div>
-                </div>
+                </Link>
               </div>
               <div className={styles.itemWrappersRow}>
-                <div className={styles.item3}>
+                <Link className={styles.item3} to="/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor" target="_blank">
+                <img src={useBaseUrl("/img/link_arrow_open.png")} className={styles.itemLinkOpenArrow} />
                   <div className={styles.item_content}>
                     <img
                       width="20"
@@ -66,8 +69,9 @@ const Ecosystem = () => {
                       the network.
                     </span>
                   </div>
-                </div>
-                <div className={styles.item4}>
+                </Link>
+                <Link className={styles.item4} to="/docs/act-on-metadata" target="_blank">
+                  <img src={useBaseUrl("/img/link_arrow_open.png")} className={styles.itemLinkOpenArrow} />
                   <div className={styles.item_content}>
                     <img
                       width="20"
@@ -79,7 +83,7 @@ const Ecosystem = () => {
                       Event-driven actions framework, rich APIs and SDKs.
                     </span>
                   </div>
-                </div>
+                </Link>
               </div>
             </div>
             <div className={styles.diagramItem}>

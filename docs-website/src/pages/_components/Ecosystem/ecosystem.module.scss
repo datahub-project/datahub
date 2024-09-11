@@ -47,8 +47,8 @@
         color: #12b0fb;
         font-size: 1rem;
         font-weight: 500;
-        margin-top: 10px;
-        margin-bottom: 10px;
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
         cursor: pointer;
       }
     }
@@ -74,7 +74,7 @@
       .itemWrappers>.itemWrappersRow:last-child {
         padding-top: 4px;
       }
-      .itemWrappersRow>div:nth-child(2) {
+      .itemWrappersRow>a:nth-child(2) {
         margin-left: 8px;
       }
 
@@ -98,9 +98,28 @@
       display: flex;
       align-items: end;
       justify-content: start;
+      position: relative;
       padding: 36px 32px;
       overflow: hidden;
       white-space: normal;
+      cursor: pointer;
+      transition: box-shadow 0.3s ease-in-out;
+      text-decoration: none;
+
+      &:hover {
+        box-shadow: 0px 2px 12px 0px #00000040;
+        .itemLinkOpenArrow {
+          opacity: 1;
+        }
+      }
+    }
+    .itemLinkOpenArrow {
+      position: absolute;
+      top: 12px; right: 12px;
+      height: 36px;
+      width: 36px;
+      opacity: 0.75;
+      transition: opacity 0.3s ease-in-out;
     }
 
     .item1 {
