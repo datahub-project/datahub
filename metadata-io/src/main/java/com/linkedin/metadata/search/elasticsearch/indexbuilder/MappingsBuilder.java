@@ -2,7 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import static com.linkedin.metadata.Constants.ENTITY_TYPE_URN_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
-import static com.linkedin.metadata.models.StructuredPropertyUtils.sanitizeStructuredPropertyFQN;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
 
@@ -17,11 +17,13 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -52,6 +54,15 @@ public class MappingsBuilder {
   public static final String WORD_GRAMS_LENGTH_2 = "wordGrams2";
   public static final String WORD_GRAMS_LENGTH_3 = "wordGrams3";
   public static final String WORD_GRAMS_LENGTH_4 = "wordGrams4";
+  public static final Set<String> SUBFIELDS =
+      Set.of(
+          KEYWORD,
+          DELIMITED,
+          LENGTH,
+          NGRAM,
+          WORD_GRAMS_LENGTH_2,
+          WORD_GRAMS_LENGTH_3,
+          WORD_GRAMS_LENGTH_4);
 
   // Alias field mappings constants
   public static final String ALIAS = "alias";
@@ -72,7 +83,7 @@ public class MappingsBuilder {
    */
   public static Map<String, Object> getMappings(
       @Nonnull final EntitySpec entitySpec,
-      Collection<StructuredPropertyDefinition> structuredProperties) {
+      Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
     Map<String, Object> mappings = getMappings(entitySpec);
 
     String entityName = entitySpec.getEntityAnnotation().getName();
@@ -80,9 +91,11 @@ public class MappingsBuilder {
         getMappingsForStructuredProperty(
             structuredProperties.stream()
                 .filter(
-                    prop -> {
+                    urnProp -> {
                       try {
-                        return prop.getEntityTypes()
+                        return urnProp
+                            .getSecond()
+                            .getEntityTypes()
                             .contains(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + entityName));
                       } catch (URISyntaxException e) {
                         return false;
@@ -165,10 +178,11 @@ public class MappingsBuilder {
   }
 
   public static Map<String, Object> getMappingsForStructuredProperty(
-      Collection<StructuredPropertyDefinition> properties) {
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     return properties.stream()
         .map(
-            property -> {
+            urnProperty -> {
+              StructuredPropertyDefinition property = urnProperty.getSecond();
               Map<String, Object> mappingForField = new HashMap<>();
               String valueType = property.getValueType().getId();
               if (valueType.equalsIgnoreCase(LogicalValueType.STRING.name())) {
@@ -183,7 +197,7 @@ public class MappingsBuilder {
                 mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
               }
               return Map.entry(
-                  sanitizeStructuredPropertyFQN(property.getQualifiedName()), mappingForField);
+                  toElasticsearchFieldName(urnProperty.getFirst(), property), mappingForField);
             })
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }

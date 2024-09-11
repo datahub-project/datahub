@@ -13,7 +13,7 @@ import { SchemaFieldDataType } from './businessAttributeUtils';
 import { validateCustomUrnId } from '../shared/textUtil';
 
 type Props = {
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
     onCreateBusinessAttribute: () => void;
 };
@@ -51,7 +51,7 @@ const StyledButton = styled(Button)`
 // Ensures that any newly added datatype is automatically included in the user dropdown.
 const DATA_TYPES = Object.values(SchemaFieldDataType);
 
-export default function CreateBusinessAttributeModal({ visible, onClose, onCreateBusinessAttribute }: Props) {
+export default function CreateBusinessAttributeModal({ open, onClose, onCreateBusinessAttribute }: Props) {
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
 
     const [createBusinessAttribute] = useCreateBusinessAttributeMutation();
@@ -120,7 +120,7 @@ export default function CreateBusinessAttributeModal({ visible, onClose, onCreat
         <>
             <Modal
                 title="Create Business Attribute"
-                visible={visible}
+                open={open}
                 onCancel={onModalClose}
                 footer={
                     <>
@@ -223,9 +223,9 @@ export default function CreateBusinessAttributeModal({ visible, onClose, onCreat
                             >
                                 <Typography.Paragraph>
                                     By default, a random UUID will be generated to uniquely identify this entity. If
-                                    you&apos;d like to provide a custom id, you may provide it here. Note that it should be
-                                    unique across the entire Business Attributes. Be careful, you cannot easily change the id after
-                                    creation.
+                                    you&apos;d like to provide a custom id, you may provide it here. Note that it should
+                                    be unique across the entire Business Attributes. Be careful, you cannot easily
+                                    change the id after creation.
                                 </Typography.Paragraph>
                                 <Form.Item
                                     name="id"

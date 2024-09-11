@@ -22,7 +22,7 @@ public abstract class AspectPayloadValidator extends PluginSpec {
       @Nonnull RetrieverContext retrieverContext) {
     return validateProposedAspects(
         mcpItems.stream()
-            .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectSpec()))
+            .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectName()))
             .collect(Collectors.toList()),
         retrieverContext);
   }
@@ -37,7 +37,7 @@ public abstract class AspectPayloadValidator extends PluginSpec {
       @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
     return validatePreCommitAspects(
         changeMCPs.stream()
-            .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectSpec()))
+            .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectName()))
             .collect(Collectors.toList()),
         retrieverContext);
   }

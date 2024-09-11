@@ -63,6 +63,7 @@ public class AuthModule extends AbstractModule {
   private static final String ENTITY_CLIENT_RETRY_INTERVAL = "entityClient.retryInterval";
   private static final String ENTITY_CLIENT_NUM_RETRIES = "entityClient.numRetries";
   private static final String ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE = "entityClient.restli.get.batchSize";
+  private static final String ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY = "entityClient.restli.get.batchConcurrency";
   private static final String GET_SSO_SETTINGS_ENDPOINT = "auth/getSsoSettings";
 
   private final com.typesafe.config.Config _configs;
@@ -208,7 +209,8 @@ public class AuthModule extends AbstractModule {
         new ExponentialBackoff(_configs.getInt(ENTITY_CLIENT_RETRY_INTERVAL)),
         _configs.getInt(ENTITY_CLIENT_NUM_RETRIES),
         configurationProvider.getCache().getClient().getEntityClient(),
-        Math.max(1, _configs.getInt(ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE)));
+        Math.max(1, _configs.getInt(ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE)),
+        Math.max(1, _configs.getInt(ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY)));
   }
 
   @Provides

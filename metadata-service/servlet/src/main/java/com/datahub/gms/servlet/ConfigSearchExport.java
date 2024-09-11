@@ -85,8 +85,7 @@ public class ConfigSearchExport extends HttpServlet {
             entitySpecOpt -> {
               EntitySpec entitySpec = entitySpecOpt.get();
               SearchRequest searchRequest =
-                  SearchRequestHandler.getBuilder(
-                          entitySpec, searchConfiguration, null, aspectRetriever)
+                  SearchRequestHandler.getBuilder(entitySpec, searchConfiguration, null)
                       .getSearchRequest(
                           getOperationContext(ctx)
                               .withSearchFlags(

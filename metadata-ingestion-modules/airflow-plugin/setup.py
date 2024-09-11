@@ -16,7 +16,9 @@ def get_long_description():
 
 _version: str = package_metadata["__version__"]
 _self_pin = (
-    f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
+    f"=={_version}"
+    if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
+    else ""
 )
 
 
@@ -42,7 +44,7 @@ plugins: Dict[str, Set[str]] = {
         # We remain restrictive on the versions allowed here to prevent
         # us from being broken by backwards-incompatible changes in the
         # underlying package.
-        "openlineage-airflow>=1.2.0,<=1.12.0",
+        "openlineage-airflow>=1.2.0,<=1.18.0",
     },
 }
 
@@ -53,7 +55,7 @@ base_requirements.update(plugins["datahub-rest"])
 mypy_stubs = {
     "types-dataclasses",
     "sqlalchemy-stubs",
-    "types-pkg_resources",
+    "types-setuptools",
     "types-six",
     "types-python-dateutil",
     "types-requests",
@@ -73,7 +75,7 @@ dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=1.4.0",
+    "mypy==1.10.1",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.10",
@@ -81,7 +83,8 @@ dev_requirements = {
     "pytest-cov>=2.8.1",
     "tox",
     "tox-uv",
-    "deepdiff",
+    # Missing numpy requirement in 8.0.0
+    "deepdiff!=8.0.0",
     "tenacity",
     "build",
     "twine",
@@ -142,6 +145,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",

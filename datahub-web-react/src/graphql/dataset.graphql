@@ -1,6 +1,7 @@
 query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Long) {
     dataset(urn: $urn) {
         urn
+        type
         datasetProfiles(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime) {
             rowCount
             columnCount

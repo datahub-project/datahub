@@ -418,7 +418,7 @@ class ModelProcessor:
 
         model_image_groups: Set[str] = set()
         if model_image is not None:
-            model_uri_groups = self.lineage.model_image_to_groups.get(
+            model_image_groups = self.lineage.model_image_to_groups.get(
                 model_image, set()
             )
 

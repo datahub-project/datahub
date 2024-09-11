@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -61,8 +62,9 @@ public class BaseService {
       return finalResult;
     } catch (Exception e) {
       log.error(
-          "Error retrieving global tags for entities. Entities: {} aspect: {}",
-          entityUrns,
+          "Error retrieving global tags for {} entities. Sample Urns: {} aspect: {}",
+          entityUrns.size(),
+          entityUrns.stream().limit(10).collect(Collectors.toList()),
           Constants.GLOSSARY_TERMS_ASPECT_NAME,
           e);
       return Collections.emptyMap();

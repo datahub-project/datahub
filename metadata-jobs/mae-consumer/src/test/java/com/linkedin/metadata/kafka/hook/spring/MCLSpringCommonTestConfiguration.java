@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import com.datahub.authentication.Authentication;
 import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -33,10 +34,13 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 @ComponentScan(
     basePackages = {
       "com.linkedin.metadata.kafka",
-      "com.linkedin.gms.factory.kafka.common",
-      "com.linkedin.gms.factory.kafka.schemaregistry",
+      "com.linkedin.gms.factory.kafka",
       "com.linkedin.gms.factory.entity.update.indices",
-      "com.linkedin.gms.factory.timeline.eventgenerator"
+      "com.linkedin.gms.factory.timeline.eventgenerator",
+      "com.linkedin.metadata.dao.producer",
+      "com.linkedin.gms.factory.change",
+      "com.datahub.event.hook",
+      "com.linkedin.gms.factory.notifications"
     })
 public class MCLSpringCommonTestConfiguration {
 
@@ -85,4 +89,6 @@ public class MCLSpringCommonTestConfiguration {
         indexConvention,
         mock(RetrieverContext.class));
   }
+
+  @MockBean SpringStandardPluginConfiguration springStandardPluginConfiguration;
 }

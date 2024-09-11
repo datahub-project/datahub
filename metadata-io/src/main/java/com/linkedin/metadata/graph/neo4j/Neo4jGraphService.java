@@ -699,11 +699,6 @@ public class Neo4jGraphService implements GraphService {
   }
 
   @Override
-  public void configure() {
-    // Do nothing
-  }
-
-  @Override
   public void clear() {
     removeNodesMatchingLabel(".*");
   }
@@ -926,7 +921,7 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull Filter destinationEntityFilter,
       @Nonnull List<String> relationshipTypes,
       @Nonnull RelationshipFilter relationshipFilter,
-      @Nonnull List<SortCriterion> sortCriterion,
+      @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       int count,
       @Nullable Long startTimeMillis,
@@ -942,29 +937,27 @@ public class Neo4jGraphService implements GraphService {
     final String edgeCriteria = relationshipFilterToCriteria(relationshipFilter);
 
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
-    String srcNodeLabel = "";
+
+    String matchTemplate = "MATCH (src %s)-[r%s %s]-(dest %s)%s";
+    if (relationshipDirection == RelationshipDirection.INCOMING) {
+      matchTemplate = "MATCH (src %s)<-[r%s %s]-(dest %s)%s";
+    } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
+      matchTemplate = "MATCH (src %s)-[r%s %s]->(dest %s)%s";
+    }
+
+    String srcNodeLabel = StringUtils.EMPTY;
     // Create a URN from the String. Only proceed if srcCriteria is not null or empty
-    if (srcCriteria != null && !srcCriteria.isEmpty()) {
+    if (StringUtils.isNotEmpty(srcCriteria)) {
       final String urnValue =
           sourceEntityFilter.getOr().get(0).getAnd().get(0).getValue().toString();
       try {
         final Urn urn = Urn.createFromString(urnValue);
         srcNodeLabel = urn.getEntityType();
+        matchTemplate = matchTemplate.replace("(src ", "(src:%s ");
       } catch (URISyntaxException e) {
         log.error("Failed to parse URN: {} ", urnValue, e);
       }
     }
-    String matchTemplate = "MATCH (src:%s %s)-[r%s %s]-(dest %s)%s";
-    if (relationshipDirection == RelationshipDirection.INCOMING) {
-      matchTemplate = "MATCH (src:%s %s)<-[r%s %s]-(dest %s)%s";
-    } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
-      matchTemplate = "MATCH (src:%s %s)-[r%s %s]->(dest %s)%s";
-    }
-
-    final String returnNodes =
-        String.format(
-            "RETURN dest, src, type(r)"); // Return both related entity and the relationship type.
-    final String returnCount = "RETURN count(*)"; // For getting the total results.
 
     String relationshipTypeFilter = "";
     if (!relationshipTypes.isEmpty()) {
@@ -974,17 +967,33 @@ public class Neo4jGraphService implements GraphService {
     String whereClause = computeEntityTypeWhereClause(sourceTypes, destinationTypes);
 
     // Build Statement strings
-    String baseStatementString =
-        String.format(
-            matchTemplate,
-            srcNodeLabel,
-            srcCriteria,
-            relationshipTypeFilter,
-            edgeCriteria,
-            destCriteria,
-            whereClause);
+    String baseStatementString;
 
+    if (StringUtils.isNotEmpty(srcNodeLabel)) {
+      baseStatementString =
+          String.format(
+              matchTemplate,
+              srcNodeLabel,
+              srcCriteria,
+              relationshipTypeFilter,
+              edgeCriteria,
+              destCriteria,
+              whereClause);
+    } else {
+      baseStatementString =
+          String.format(
+              matchTemplate,
+              srcCriteria,
+              relationshipTypeFilter,
+              edgeCriteria,
+              destCriteria,
+              whereClause);
+    }
     log.info(baseStatementString);
+
+    final String returnNodes =
+        "RETURN dest, src, type(r)"; // Return both related entity and the relationship type.
+    final String returnCount = "RETURN count(*)"; // For getting the total results.
 
     final String resultStatementString =
         String.format("%s %s SKIP $offset LIMIT $count", baseStatementString, returnNodes);

@@ -309,11 +309,16 @@ public class EntityChangeEventGeneratorHookTest {
     final Ownership newOwners = new Ownership();
     final Urn ownerUrn1 = Urn.createFromString("urn:li:corpuser:test1");
     final Urn ownerUrn2 = Urn.createFromString("urn:li:corpuser:test2");
+    final Urn ownerUrn3 = Urn.createFromString("urn:li:corpuser:test3");
     newOwners.setOwners(
         new OwnerArray(
             ImmutableList.of(
                 new Owner().setOwner(ownerUrn1).setType(OwnershipType.TECHNICAL_OWNER),
-                new Owner().setOwner(ownerUrn2).setType(OwnershipType.BUSINESS_OWNER))));
+                new Owner().setOwner(ownerUrn2).setType(OwnershipType.BUSINESS_OWNER),
+                new Owner()
+                    .setOwner(ownerUrn3)
+                    .setType(OwnershipType.CUSTOM)
+                    .setTypeUrn(Urn.createFromString("urn:li:ownershipType:my_custom_type")))));
     final Ownership prevOwners = new Ownership();
     prevOwners.setOwners(new OwnerArray());
     event.setAspect(GenericRecordUtils.serializeAspect(newOwners));
@@ -354,7 +359,24 @@ public class EntityChangeEventGeneratorHookTest {
                 "ownerType",
                 OwnershipType.BUSINESS_OWNER.toString()),
             actorUrn);
-    verifyProducePlatformEvent(_mockClient, platformEvent2, true);
+    verifyProducePlatformEvent(_mockClient, platformEvent2, false);
+
+    PlatformEvent platformEvent3 =
+        createChangeEvent(
+            DATASET_ENTITY_NAME,
+            Urn.createFromString(TEST_DATASET_URN),
+            ChangeCategory.OWNER,
+            ChangeOperation.ADD,
+            ownerUrn3.toString(),
+            ImmutableMap.of(
+                "ownerUrn",
+                ownerUrn3.toString(),
+                "ownerType",
+                OwnershipType.CUSTOM.toString(),
+                "ownerTypeUrn",
+                "urn:li:ownershipType:my_custom_type"),
+            actorUrn);
+    verifyProducePlatformEvent(_mockClient, platformEvent3, true);
   }
 
   @Test

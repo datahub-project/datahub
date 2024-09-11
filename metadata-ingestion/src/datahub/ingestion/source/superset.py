@@ -158,6 +158,7 @@ def get_filter_name(filter_obj):
 @capability(
     SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
 )
+@capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class SupersetSource(StatefulIngestionSourceBase):
     """
@@ -232,6 +233,8 @@ class SupersetSource(StatefulIngestionSourceBase):
             platform_name = get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
         if platform_name == "awsathena":
             return "athena"
+        if platform_name == "clickhousedb":
+            return "clickhouse"
         return platform_name
 
     @lru_cache(maxsize=None)
@@ -273,11 +276,9 @@ class SupersetSource(StatefulIngestionSourceBase):
             dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp() * 1000
         )
         title = dashboard_data.get("dashboard_title", "")
-        # note: the API does not currently supply created_by usernames due to a bug, but we are required to
-        # provide a created AuditStamp to comply with ChangeAuditStamp model. For now, I sub in the last
-        # modified actor urn
+        # note: the API does not currently supply created_by usernames due to a bug
         last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=modified_ts, actor=modified_actor),
+            created=None,
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
         dashboard_url = f"{self.config.display_uri}{dashboard_data.get('url', '')}"
@@ -380,11 +381,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         title = chart_data.get("slice_name", "")
 
-        # note: the API does not currently supply created_by usernames due to a bug, but we are required to
-        # provide a created AuditStamp to comply with ChangeAuditStamp model. For now, I sub in the last
-        # modified actor urn
+        # note: the API does not currently supply created_by usernames due to a bug
         last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=modified_ts, actor=modified_actor),
+            created=None,
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
         chart_type = chart_type_from_viz_type.get(chart_data.get("viz_type", ""))

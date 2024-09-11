@@ -49,7 +49,9 @@ public class CreateViewResolver implements DataFetcher<CompletableFuture<DataHub
                       DataHubViewType.valueOf(input.getViewType().toString()),
                       input.getName(),
                       input.getDescription(),
-                      ViewUtils.mapDefinition(input.getDefinition()),
+                      ViewUtils.mapDefinition(
+                          input.getDefinition(),
+                          context.getOperationContext().getAspectRetriever()),
                       System.currentTimeMillis());
               return createView(urn, input);
             } catch (Exception e) {

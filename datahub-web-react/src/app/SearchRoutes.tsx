@@ -53,15 +53,18 @@ export const SearchRoutes = (): JSX.Element => {
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
                 <Route path={`${PageRoutes.GLOSSARY}*`} render={() => <GlossaryRoutes />} />
-                <Route path={PageRoutes.BUSINESS_ATTRIBUTE} render={() => {
-                    if (!appConfigContextLoaded) {
-                        return null;
-                    }
-                    if (businessAttributesFlag) {
-                        return <BusinessAttributes />;
-                    }
-                    return <NoPageFound />;
-                }}/>
+                <Route
+                    path={PageRoutes.BUSINESS_ATTRIBUTE}
+                    render={() => {
+                        if (!appConfigContextLoaded) {
+                            return null;
+                        }
+                        if (businessAttributesFlag) {
+                            return <BusinessAttributes />;
+                        }
+                        return <NoPageFound />;
+                    }}
+                />
                 <Route component={NoPageFound} />
             </Switch>
         </SearchablePage>

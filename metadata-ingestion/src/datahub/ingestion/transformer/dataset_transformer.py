@@ -27,6 +27,26 @@ class DatasetTransformer(BaseTransformer, SingleAspectTransformer, metaclass=ABC
         return ["dataset"]
 
 
+class TagTransformer(BaseTransformer, SingleAspectTransformer, metaclass=ABCMeta):
+    """Transformer that does transform sequentially on each tag."""
+
+    def __init__(self):
+        super().__init__()
+
+    def entity_types(self) -> List[str]:
+        return ["dataset", "container"]
+
+
+class ContainerTransformer(BaseTransformer, SingleAspectTransformer, metaclass=ABCMeta):
+    """Transformer that does transform sequentially on each dataset."""
+
+    def __init__(self):
+        super().__init__()
+
+    def entity_types(self) -> List[str]:
+        return ["container"]
+
+
 class DatasetOwnershipTransformer(DatasetTransformer, metaclass=ABCMeta):
     def aspect_name(self) -> str:
         return "ownership"
@@ -128,3 +148,13 @@ class DatasetDataproductTransformer(DatasetTransformer, metaclass=ABCMeta):
 class DatasetUsageStatisticsTransformer(DatasetTransformer, metaclass=ABCMeta):
     def aspect_name(self) -> str:
         return "datasetUsageStatistics"
+
+
+class TagsToTermTransformer(TagTransformer, metaclass=ABCMeta):
+    def aspect_name(self) -> str:
+        return "glossaryTerms"
+
+
+class ContainerPropertiesTransformer(ContainerTransformer, metaclass=ABCMeta):
+    def aspect_name(self) -> str:
+        return "containerProperties"

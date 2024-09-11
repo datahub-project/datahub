@@ -58,6 +58,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -125,10 +126,15 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
-            entityRegistry, new IndexConventionImpl("es_timeseries_aspect_service_test"));
+            entityRegistry,
+            new IndexConventionImpl(
+                IndexConventionImpl.IndexConventionConfig.builder()
+                    .prefix("es_timeseries_aspect_service_test")
+                    .hashIdAlgo("MD5")
+                    .build()));
 
     elasticSearchTimeseriesAspectService = buildService();
-    elasticSearchTimeseriesAspectService.configure();
+    elasticSearchTimeseriesAspectService.reindexAll(Collections.emptySet());
     EntitySpec entitySpec = entityRegistry.getEntitySpec(ENTITY_NAME);
     aspectSpec = entitySpec.getAspectSpec(ASPECT_NAME);
   }
@@ -151,7 +157,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
   private void upsertDocument(TestEntityProfile dp, Urn urn) throws JsonProcessingException {
     Map<String, JsonNode> documents =
-        TimeseriesAspectTransformer.transform(urn, dp, aspectSpec, null);
+        TimeseriesAspectTransformer.transform(urn, dp, aspectSpec, null, "MD5");
     assertEquals(documents.size(), 3);
     documents.forEach(
         (key, value) ->
@@ -1290,7 +1296,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   @Test(
       groups = {"testCountAfterDelete"},
       dependsOnGroups = {"deleteAspectValues1"})
-  public void testCountByFilterAfterDelete() throws InterruptedException {
+  public void testCountByFilterAfterDelete() throws Exception {
     syncAfterWrite(getBulkProcessor());
     // Test with filter
     Criterion hasUrnCriterion =

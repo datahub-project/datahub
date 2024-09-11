@@ -5,6 +5,7 @@ import static com.datahub.authorization.AuthUtil.canViewEntity;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
+import static com.linkedin.metadata.authorization.PoliciesConfig.MANAGE_ACCESS_TOKENS;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -52,9 +53,11 @@ public class AuthorizationUtils {
 
   public static boolean canGeneratePersonalAccessToken(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE);
+            context.getAuthorizer(),
+            context.getActorUrn(),
+            PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE)
+        || AuthUtil.isAuthorized(
+            context.getAuthorizer(), context.getActorUrn(), MANAGE_ACCESS_TOKENS);
   }
 
   public static boolean canManageTokens(@Nonnull QueryContext context) {
@@ -379,6 +382,25 @@ public class AuthorizationUtils {
         | InstantiationException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  public static boolean canManageStructuredProperties(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        PoliciesConfig.MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE);
+  }
+
+  public static boolean canManageForms(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        PoliciesConfig.MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
+  }
+
+  public static boolean canManageFeatures(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_FEATURES_PRIVILEGE);
   }
 
   public static boolean isAuthorized(

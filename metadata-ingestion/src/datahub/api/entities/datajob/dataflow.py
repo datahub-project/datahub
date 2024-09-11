@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional, Set, cast
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.source_common import ALL_ENV_TYPES
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -16,6 +17,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    StatusClass,
     TagAssociationClass,
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
@@ -110,7 +112,20 @@ class DataFlow:
         )
         return [tags]
 
+    def _get_env(self) -> Optional[str]:
+        env: Optional[str] = None
+        if self.cluster in ALL_ENV_TYPES:
+            env = self.cluster
+        elif self.env in ALL_ENV_TYPES:
+            env = self.env
+        else:
+            logger.warning(
+                f"cluster {self.cluster} and {self.env} is not a valid environment type so Environment filter won't work."
+            )
+        return env
+
     def generate_mce(self) -> MetadataChangeEventClass:
+        env = self._get_env()
         flow_mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(
                 urn=str(self.urn),
@@ -120,6 +135,7 @@ class DataFlow:
                         description=self.description,
                         customProperties=self.properties,
                         externalUrl=self.url,
+                        env=env,
                     ),
                     *self.generate_ownership_aspect(),
                     *self.generate_tags_aspect(),
@@ -130,6 +146,7 @@ class DataFlow:
         return flow_mce
 
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
+        env = self._get_env()
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataFlowInfoClass(
@@ -137,6 +154,15 @@ class DataFlow:
                 description=self.description,
                 customProperties=self.properties,
                 externalUrl=self.url,
+                env=env,
+            ),
+        )
+        yield mcp
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=str(self.urn),
+            aspect=StatusClass(
+                removed=False,
             ),
         )
         yield mcp

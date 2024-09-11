@@ -33,7 +33,7 @@ public class BatchUpdateSoftDeletedResolverTest {
 
   @Test
   public void testGetSuccessNoExistingStatus() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -84,7 +84,7 @@ public class BatchUpdateSoftDeletedResolverTest {
   public void testGetSuccessExistingStatus() throws Exception {
     final Status originalStatus = new Status().setRemoved(true);
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -133,7 +133,7 @@ public class BatchUpdateSoftDeletedResolverTest {
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -173,7 +173,7 @@ public class BatchUpdateSoftDeletedResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
 
@@ -193,7 +193,7 @@ public class BatchUpdateSoftDeletedResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)

@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLWorkerPoolThreadFactory;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
@@ -31,6 +32,7 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
@@ -69,6 +71,7 @@ import org.springframework.context.annotation.Import;
   DataHubTokenServiceFactory.class,
   GitVersionFactory.class,
   SiblingGraphServiceFactory.class,
+  AssertionServiceFactory.class,
 })
 public class GraphQLEngineFactory {
   @Autowired
@@ -194,6 +197,10 @@ public class GraphQLEngineFactory {
   @Qualifier("connectionService")
   private ConnectionService _connectionService;
 
+  @Autowired
+  @Qualifier("assertionService")
+  private AssertionService assertionService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -249,6 +256,7 @@ public class GraphQLEngineFactory {
     args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());
     args.setBusinessAttributeService(businessAttributeService);
     args.setConnectionService(_connectionService);
+    args.setAssertionService(assertionService);
     return new GmsGraphQLEngine(args).builder().build();
   }
 

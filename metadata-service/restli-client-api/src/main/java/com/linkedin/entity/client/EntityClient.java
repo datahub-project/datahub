@@ -1,6 +1,7 @@
 package com.linkedin.entity.client;
 
 import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToAspectMap;
+import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToSystemAspectMap;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.VersionedUrn;
@@ -12,6 +13,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
@@ -36,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -234,7 +235,7 @@ public interface EntityClient {
    *
    * @param input search query
    * @param filter search filters
-   * @param sortCriterion sort criterion
+   * @param sortCriteria sort criteria
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return Snapshot key
@@ -245,7 +246,7 @@ public interface EntityClient {
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Filter filter,
-      SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException;
@@ -269,7 +270,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SortCriterion sortCriterion)
+      List<SortCriterion> sortCriteria)
       throws RemoteInvocationException;
 
   /**
@@ -291,7 +292,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       List<String> facets)
       throws RemoteInvocationException;
 
@@ -327,7 +328,7 @@ public interface EntityClient {
    * @param input the search input text
    * @param maxHops the max number of hops away to search for. If null, searches all hops.
    * @param filter the request map with fields and values as filters to be applied to search hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param start index to start the search from
    * @param count the number of search hits to return
    * @return a {@link SearchResult} that contains a list of matched documents and related search
@@ -341,7 +342,7 @@ public interface EntityClient {
       @Nonnull String input,
       @Nullable Integer maxHops,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException;
@@ -355,7 +356,7 @@ public interface EntityClient {
    * @param input the search input text
    * @param maxHops the max number of hops away to search for. If null, searches all hops.
    * @param filter the request map with fields and values as filters to be applied to search hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll ID indicating offset
    * @param keepAlive string representation of time to keep point in time alive, ex: 5m
    * @param count the number of search hits to return of roundtrips for UI visualizations.
@@ -371,7 +372,7 @@ public interface EntityClient {
       @Nonnull String input,
       @Nullable Integer maxHops,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
       int count)
@@ -425,7 +426,7 @@ public interface EntityClient {
    *
    * @param entity filter entity
    * @param filter search filters
-   * @param sortCriterion sort criterion
+   * @param sortCriteria sort criteria
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return a set of {@link SearchResult}s
@@ -435,7 +436,7 @@ public interface EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException;
@@ -517,27 +518,17 @@ public interface EntityClient {
     return ingestProposal(opContext, metadataChangeProposal, false);
   }
 
-  String ingestProposal(
+  /**
+   * Ingest a MetadataChangeProposal event.
+   *
+   * @return the urn string ingested
+   */
+  default String ingestProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final MetadataChangeProposal metadataChangeProposal,
       final boolean async)
-      throws RemoteInvocationException;
-
-  @Deprecated
-  default String wrappedIngestProposal(
-      @Nonnull OperationContext opContext, @Nonnull MetadataChangeProposal metadataChangeProposal) {
-    return wrappedIngestProposal(opContext, metadataChangeProposal, false);
-  }
-
-  default String wrappedIngestProposal(
-      @Nonnull OperationContext opContext,
-      @Nonnull MetadataChangeProposal metadataChangeProposal,
-      final boolean async) {
-    try {
-      return ingestProposal(opContext, metadataChangeProposal, async);
-    } catch (RemoteInvocationException e) {
-      throw new RuntimeException(e);
-    }
+      throws RemoteInvocationException {
+    return batchIngestProposals(opContext, List.of(metadataChangeProposal), async).get(0);
   }
 
   @Deprecated
@@ -548,15 +539,20 @@ public interface EntityClient {
     return batchIngestProposals(opContext, metadataChangeProposals, false);
   }
 
-  default List<String> batchIngestProposals(
+  /**
+   * Ingest a list of proposals in a batch.
+   *
+   * @param opContext operation context
+   * @param metadataChangeProposals list of proposals
+   * @param async async or sync ingestion path
+   * @return ingested urns
+   */
+  @Nonnull
+  List<String> batchIngestProposals(
       @Nonnull OperationContext opContext,
       @Nonnull final Collection<MetadataChangeProposal> metadataChangeProposals,
       final boolean async)
-      throws RemoteInvocationException {
-    return metadataChangeProposals.stream()
-        .map(proposal -> wrappedIngestProposal(opContext, proposal, async))
-        .collect(Collectors.toList());
-  }
+      throws RemoteInvocationException;
 
   @Deprecated
   <T extends RecordTemplate> Optional<T> getVersionedAspect(
@@ -601,5 +597,14 @@ public interface EntityClient {
       throws RemoteInvocationException, URISyntaxException {
     String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
     return entityResponseToAspectMap(batchGetV2(opContext, entityName, urns, aspectNames));
+  }
+
+  @Nonnull
+  default Map<Urn, Map<String, SystemAspect>> getLatestSystemAspect(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      throws RemoteInvocationException, URISyntaxException {
+    String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
+    return entityResponseToSystemAspectMap(
+        batchGetV2(opContext, entityName, urns, aspectNames), opContext.getEntityRegistry());
   }
 }

@@ -9,34 +9,65 @@ Documentation Forms are a way for end-users to fill out all mandatory attributes
 
 Learn more about forms in the [Documentation Forms Feature Guide](../../../docs/features/feature-guides/documentation-forms.md).
 
-
 ### Goal Of This Guide
-This guide will show you how to create and read forms.
+This guide will show you how to 
+- Create, Update, Read, and Delete a form
+- Assign and Remove a form from entities
 
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
 For detailed information, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
 
-
 <Tabs>
 <TabItem value="CLI" label="CLI">
 
-Install the relevant CLI version. Forms are available as of CLI version `0.13.1`. The corresponding SaaS release version is `v0.2.16.5`
+Install the relevant CLI version. Forms are available as of CLI version `0.13.1`. The corresponding DataHub Cloud release version is `v0.2.16.5`
 Connect to your instance via [init](https://datahubproject.io/docs/cli/#init):
 
 1. Run `datahub init` to update the instance you want to load into
 2. Set the server to your sandbox instance, `https://{your-instance-address}/gms`
 3. Set the token to your access token
 
-
 </TabItem>
 </Tabs>
-
 
 ## Create a Form
 
 <Tabs>
+<TabItem value="graphQL" label="GraphQL">
+
+```graphql
+mutation createForm {
+  createForm(
+    input: {
+      id: "metadataInitiative2024",
+      name: "Metadata Initiative 2024",
+      description: "How we want to ensure the most important data assets in our organization have all of the most important and expected pieces of metadata filled out",
+      type: VERIFICATION,
+      prompts: [
+        {
+          id: "123",
+          title: "retentionTime",
+          description: "Apply Retention Time structured property to form",
+          type: STRUCTURED_PROPERTY,
+          structuredPropertyParams: {
+            urn: "urn:li:structuredProperty:retentionTime"
+          }
+        }
+      ],
+      actors: {
+        users: ["urn:li:corpuser:jane@email.com", "urn:li:corpuser:john@email.com"],
+        groups: ["urn:li:corpGroup:team@email.com"]
+      }
+    }
+  ) {
+    urn
+  }
+}
+```
+
+</TabItem>
 <TabItem value="CLI" label="CLI">
 
 Create a yaml file representing the forms you’d like to load. 
@@ -111,8 +142,42 @@ If successful, you should see `Created form urn:li:form:...`
 </TabItem>
 </Tabs>
 
-## Read Property Definition
+## Update Form
 
+<Tabs>
+<TabItem value="graphQL" label="GraphQL">
+
+```graphql
+mutation updateForm {
+  updateForm(
+    input: {
+      urn: "urn:li:form:metadataInitiative2024",
+      name: "Metadata Initiative 2024",
+      description: "How we want to ensure the most important data assets in our organization have all of the most important and expected pieces of metadata filled out",
+      type: VERIFICATION,
+      promptsToAdd: [
+        {
+          id: "456",
+          title: "deprecationDate",
+          description: "Deprecation date for dataset",
+          type: STRUCTURED_PROPERTY,
+          structuredPropertyParams: {
+            urn: "urn:li:structuredProperty:deprecationDate"
+          }
+        }
+      ]
+      promptsToRemove: ["123"]
+    }
+  ) {
+    urn
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+## Read Property Definition
 
 <Tabs>
 <TabItem value="CLI" label="CLI">
@@ -144,5 +209,62 @@ If successful, you should see metadata about your form returned like below.
 }
 ```
 
+</TabItem>
+</Tabs>
+
+## Delete Form
+
+<Tabs>
+<TabItem value="graphQL" label="GraphQL">
+
+```graphql
+mutation deleteForm {
+  deleteForm(
+    input: {
+      urn: "urn:li:form:metadataInitiative2024"
+    }
+  )
+}
+```
+</TabItem>
+</Tabs>
+
+## Assign Form to Entities
+
+For assigning a form to a given list of entities: 
+
+<Tabs>
+<TabItem value="graphQL" label="GraphQL">
+
+```graphql
+mutation batchAssignForm {
+  batchAssignForm(
+    input: {
+      formUrn: "urn:li:form:myform",
+      entityUrns: ["urn:li:dataset:mydataset1", "urn:li:dataset:mydataset2"]
+    }
+  )
+}
+```
+</TabItem>
+</Tabs>
+
+## Remove Form from Entities
+
+For removing a form from a given list of entities:
+
+<Tabs>
+<TabItem value="graphQL" label="GraphQL">
+
+```graphql
+mutation batchRemoveForm {
+  batchRemoveForm(
+    input: {
+      formUrn: "urn:li:form:myform",
+      entityUrns: ["urn:li:dataset:mydataset1", "urn:li:dataset:mydataset2"]
+    }
+  )
+}
+```
 </TabItem>
 </Tabs>

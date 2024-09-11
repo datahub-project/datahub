@@ -4,7 +4,7 @@ description: Getting started with the DataHub GraphQL API.
 
 # Getting Started
 
-The Acryl DataHub GraphQL API is an extension of the open source [DataHub GraphQL API.](docs/api/graphql/overview.md)
+The DataHub Cloud GraphQL API is an extension of the open source [DataHub GraphQL API.](docs/api/graphql/overview.md)
 
 For a full reference to the Queries & Mutations available for consumption, check out [Queries](graphql/queries.md) & [Mutations](graphql/mutations.md).
 
@@ -39,7 +39,7 @@ e.g. to connect to ingestion endpoint for doing ingestion programmatically you c
 
 The entire GraphQL API can be explored & [introspected](https://graphql.org/learn/introspection/) using GraphiQL, an interactive query tool which allows you to navigate the entire Acryl GraphQL schema as well as craft & issue using an intuitive UI.
 
-[GraphiQL](https://www.gatsbyjs.com/docs/how-to/querying-data/running-queries-with-graphiql/) is available for each Acryl DataHub deployment, locating at `https://your-account.acryl.io/api/graphiql`.
+[GraphiQL](https://www.gatsbyjs.com/docs/how-to/querying-data/running-queries-with-graphiql/) is available for each DataHub Cloud deployment, locating at `https://your-account.acryl.io/api/graphiql`.
 
 ### Querying the API
 

@@ -65,11 +65,11 @@ const RoleIcon = styled.span`
 `;
 
 type Props = {
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
 };
 
-export default function ViewInviteTokenModal({ visible, onClose }: Props) {
+export default function ViewInviteTokenModal({ open, onClose }: Props) {
     const baseUrl = window.location.origin;
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -110,7 +110,7 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
 
     // Code related to getting or creating an invite token
     const { data: getInviteTokenData } = useGetInviteTokenQuery({
-        skip: !visible,
+        skip: !open,
         variables: { input: { roleUrn: selectedRole?.urn } },
     });
 
@@ -167,7 +167,7 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
                     <b>Share Invite Link</b>
                 </Typography.Text>
             }
-            visible={visible}
+            open={open}
             onCancel={onClose}
         >
             <ModalSection>

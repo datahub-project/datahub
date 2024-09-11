@@ -39,6 +39,10 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                         status
                         startTimeMs
                         durationMs
+                        structuredReport {
+                            type
+                            serializedValue
+                        }
                     }
                 }
             }
@@ -86,6 +90,10 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
                     status
                     startTimeMs
                     durationMs
+                    structuredReport {
+                        type
+                        serializedValue
+                    }
                 }
             }
         }

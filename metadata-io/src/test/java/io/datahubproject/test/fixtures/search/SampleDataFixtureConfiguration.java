@@ -40,6 +40,7 @@ import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -85,12 +86,20 @@ public class SampleDataFixtureConfiguration {
 
   @Bean(name = "sampleDataIndexConvention")
   protected IndexConvention indexConvention(@Qualifier("sampleDataPrefix") String prefix) {
-    return new IndexConventionImpl(prefix);
+    return new IndexConventionImpl(
+        IndexConventionImpl.IndexConventionConfig.builder()
+            .prefix(prefix)
+            .hashIdAlgo("MD5")
+            .build());
   }
 
   @Bean(name = "longTailIndexConvention")
   protected IndexConvention longTailIndexConvention(@Qualifier("longTailPrefix") String prefix) {
-    return new IndexConventionImpl(prefix);
+    return new IndexConventionImpl(
+        IndexConventionImpl.IndexConventionConfig.builder()
+            .prefix(prefix)
+            .hashIdAlgo("MD5")
+            .build());
   }
 
   @Bean(name = "sampleDataFixtureName")
@@ -148,6 +157,7 @@ public class SampleDataFixtureConfiguration {
             1,
             Map.of(),
             true,
+            false,
             false,
             new ElasticSearchConfiguration(),
             gitVersion);
@@ -252,7 +262,7 @@ public class SampleDataFixtureConfiguration {
             ranker);
 
     // Build indices & write fixture data
-    indexBuilders.reindexAll();
+    indexBuilders.reindexAll(Collections.emptySet());
 
     FixtureReader.builder()
         .bulkProcessor(_bulkProcessor)

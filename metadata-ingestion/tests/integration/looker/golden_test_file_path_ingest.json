@@ -175,7 +175,8 @@
                     "urn": "urn:li:container:691314a7b63628684d62a14861d057a8"
                 },
                 {
-                    "id": "foo"
+                    "id": "urn:li:dashboard:(looker,dashboards.1)",
+                    "urn": "urn:li:dashboard:(looker,dashboards.1)"
                 }
             ]
         }
@@ -312,9 +313,6 @@
                         },
                         "nativeDataType": "string",
                         "recursive": false,
-                        "globalTags": {
-                            "tags": []
-                        },
                         "isPartOfKey": false
                     }
                 },
@@ -373,9 +371,6 @@
                         },
                         "nativeDataType": "string",
                         "recursive": false,
-                        "globalTags": {
-                            "tags": []
-                        },
                         "isPartOfKey": false
                     }
                 },

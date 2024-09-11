@@ -96,7 +96,19 @@ record SchemaField {
       "fieldName": "fieldTags",
       "fieldType": "URN",
       "boostScore": 0.5
-    }
+    },
+    "/tags/*/attribution/time": {
+        "fieldName": "fieldTagAttributionDates",
+        "fieldType": "DATETIME"
+      },
+    "/tags/*/attribution/actor": {
+        "fieldName": "fieldTagAttributionActors",
+        "fieldType": "URN"
+      },
+    "/tags/*/attribution/source": {
+        "fieldName": "fieldTagAttributionSources",
+        "fieldType": "URN"
+      },
   }
   globalTags: optional GlobalTags
 
@@ -114,7 +126,19 @@ record SchemaField {
       "fieldName": "fieldGlossaryTerms",
       "fieldType": "URN",
       "boostScore": 0.5
-    }
+    },
+    "/terms/*/attribution/time": {
+        "fieldName": "fieldTermAttributionDates",
+        "fieldType": "DATETIME"
+      },
+    "/terms/*/attribution/actor": {
+        "fieldName": "fieldTermAttributionActors",
+        "fieldType": "URN"
+      },
+    "/terms/*/attribution/source": {
+        "fieldName": "fieldTermAttributionSources",
+        "fieldType": "URN"
+      },
   }
   glossaryTerms: optional GlossaryTerms
 
@@ -126,6 +150,8 @@ record SchemaField {
 
   /**
    * For Datasets which are partitioned, this determines the partitioning key.
+   * Note that multiple columns can be part of a partitioning key, but currently we do not support
+   * rendering the ordered partitioning key.
    */
   isPartitioningKey: optional boolean
 

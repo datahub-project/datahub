@@ -123,6 +123,8 @@ def by_registry(
     Delete all metadata written using the given registry id and version pair.
     """
 
+    client = get_default_graph()
+
     if soft and not dry_run:
         raise click.UsageError(
             "Soft-deleting with a registry-id is not yet supported. Try --dry-run to see what you will be deleting, before issuing a hard-delete using the --hard flag"
@@ -138,7 +140,10 @@ def by_registry(
             unsafe_entity_count,
             unsafe_entities,
         ) = cli_utils.post_rollback_endpoint(
-            registry_delete, "/entities?action=deleteAll"
+            client._session,
+            client.config.server,
+            registry_delete,
+            "/entities?action=deleteAll",
         )
 
     if not dry_run:

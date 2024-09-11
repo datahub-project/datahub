@@ -119,7 +119,7 @@ export default function UserProfile() {
     if (data?.corpUser?.exists === false) {
         return <NonExistentEntityPage />;
     }
-    
+
     return (
         <>
             {error && <ErrorSection />}

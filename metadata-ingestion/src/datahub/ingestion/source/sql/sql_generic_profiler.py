@@ -92,16 +92,25 @@ class GenericProfiler:
             request for request in requests if request.profile_table_level_only
         ]
         for request in table_level_profile_requests:
-            table_level_profile = DatasetProfile(
-                timestampMillis=int(datetime.now().timestamp() * 1000),
-                columnCount=request.table.column_count,
-                rowCount=request.table.rows_count,
-                sizeInBytes=request.table.size_in_bytes,
-            )
-            dataset_urn = self.dataset_urn_builder(request.pretty_name)
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=table_level_profile
-            ).as_workunit()
+            if (
+                request.table.column_count is None
+                and request.table.rows_count is None
+                and request.table.size_in_bytes is None
+            ):
+                logger.warning(
+                    f"Table {request.pretty_name} has no column count, rows count, or size in bytes. Skipping emitting table level profile."
+                )
+            else:
+                table_level_profile = DatasetProfile(
+                    timestampMillis=int(datetime.now().timestamp() * 1000),
+                    columnCount=request.table.column_count,
+                    rowCount=request.table.rows_count,
+                    sizeInBytes=request.table.size_in_bytes,
+                )
+                dataset_urn = self.dataset_urn_builder(request.pretty_name)
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=table_level_profile
+                ).as_workunit()
 
         if not ge_profile_requests:
             return

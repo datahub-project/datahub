@@ -18,7 +18,7 @@ describe('handleAccessRoles', () => {
                                     requestUrl: 'https://www.google.com/role-1',
                                 },
                                 urn: 'urn:li:role:test-role-1',
-                                isAssignedToMe: true
+                                isAssignedToMe: true,
                             },
                         },
                         {
@@ -32,7 +32,7 @@ describe('handleAccessRoles', () => {
                                     requestUrl: 'https://www.google.com/role-2',
                                 },
                                 urn: 'urn:li:role:test-role-2',
-                                isAssignedToMe: false
+                                isAssignedToMe: false,
                             },
                         },
                     ],

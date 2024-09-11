@@ -1,7 +1,7 @@
 import json
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, cast
 from unittest import mock
 
 import pytest
@@ -12,6 +12,7 @@ from looker_sdk.sdk.api40.models import (
     Category,
     Dashboard,
     DashboardElement,
+    Folder,
     FolderBase,
     Look,
     LookmlModelExplore,
@@ -94,6 +95,8 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
                         "client_id": "foo",
                         "client_secret": "bar",
                         "extract_usage_history": False,
+                        "platform_instance": "ap-south-1",
+                        "include_platform_instance_in_urns": True,
                     },
                 },
                 "sink": {
@@ -1050,22 +1053,33 @@ def test_upstream_cll(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                 ),
             ],
         )
+        config = mock.MagicMock()
+
+        config.view_naming_pattern.replace_variables.return_value = "dataset_lineages"
+        config.platform_name = "snowflake"
+        config.platform_instance = "sales"
+        config.env = "DEV"
 
         looker_explore: Optional[LookerExplore] = looker_common.LookerExplore.from_api(
             model="fake",
             explore_name="my_explore_name",
             client=mocked_client,
             reporter=mock.MagicMock(),
-            source_config=mock.MagicMock(),
+            source_config=config,
         )
 
         assert looker_explore is not None
         assert looker_explore.name == "my_explore_name"
         assert looker_explore.fields is not None
         assert len(looker_explore.fields) == 3
+
         assert (
-            looker_explore.fields[2].upstream_fields[0] == "dataset_lineages.createdon"
+            looker_explore.fields[2].upstream_fields[0].table
+            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+            "sales.dataset_lineages,DEV)"
         )
+
+        assert looker_explore.fields[2].upstream_fields[0].column == "createdon"
 
 
 @freeze_time(FROZEN_TIME)
@@ -1120,3 +1134,147 @@ def test_explore_tags(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                             ]
 
         assert expected_tag_urns == actual_tag_urns
+
+
+def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Dashboard:
+    assert kwargs["dashboard_id"] in ["1", "2", "3"], "Invalid dashboard id"
+
+    if kwargs["dashboard_id"] == "1":
+        return Dashboard(
+            id=kwargs["dashboard_id"],
+            title="first dashboard",
+            created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
+            description="first",
+            folder=FolderBase(name="A", id="a"),
+            dashboard_elements=[
+                DashboardElement(
+                    id="2",
+                    type="",
+                    subtitle_text="Some text",
+                    query=Query(
+                        model="data",
+                        view="my_view",
+                        fields=["dim1"],
+                        dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
+                    ),
+                )
+            ],
+        )
+
+    if kwargs["dashboard_id"] == "2":
+        return Dashboard(
+            id=kwargs["dashboard_id"],
+            title="second dashboard",
+            created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
+            description="second",
+            folder=FolderBase(name="B", id="b"),
+            dashboard_elements=[
+                DashboardElement(
+                    id="2",
+                    type="",
+                    subtitle_text="Some text",
+                    query=Query(
+                        model="data",
+                        view="my_view",
+                        fields=["dim1"],
+                        dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
+                    ),
+                )
+            ],
+        )
+
+    if kwargs["dashboard_id"] == "3":
+        return Dashboard(
+            id=kwargs["dashboard_id"],
+            title="third dashboard",
+            created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
+            description="third",
+            folder=FolderBase(name="C", id="c"),
+            dashboard_elements=[
+                DashboardElement(
+                    id="2",
+                    type="",
+                    subtitle_text="Some text",
+                    query=Query(
+                        model="data",
+                        view="my_view",
+                        fields=["dim1"],
+                        dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
+                    ),
+                )
+            ],
+        )
+
+    # Default return to satisfy the linter
+    return Dashboard(
+        id="unknown",
+        title="unknown",
+        created_at=datetime.utcfromtimestamp(time.time()),
+        updated_at=datetime.utcfromtimestamp(time.time()),
+        description="unknown",
+        folder=FolderBase(name="Unknown", id="unknown"),
+        dashboard_elements=[],
+    )
+
+
+def side_effect_function_folder_ancestors(
+    *args: Tuple[Any], **kwargs: Any
+) -> Sequence[Folder]:
+    assert args[0] in ["a", "b", "c"], "Invalid folder id"
+
+    if args[0] == "a":
+        # No parent
+        return ()
+
+    if args[0] == "b":
+        return (Folder(id="a", name="A"),)
+
+    if args[0] == "c":
+        return Folder(id="a", name="A"), Folder(id="b", name="B")
+
+    # Default return to satisfy the linter
+    return (Folder(id="unknown", name="Unknown"),)
+
+
+def setup_mock_dashboard_with_folder(mocked_client):
+    mocked_client.all_dashboards.return_value = [
+        Dashboard(id="1"),
+        Dashboard(id="2"),
+        Dashboard(id="3"),
+    ]
+    mocked_client.dashboard.side_effect = side_effect_function_for_dashboards
+    mocked_client.folder_ancestors.side_effect = side_effect_function_folder_ancestors
+
+
+@freeze_time(FROZEN_TIME)
+def test_folder_path_pattern(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+    mocked_client = mock.MagicMock()
+    new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/looker_mces.json")
+    new_recipe["source"]["config"]["folder_path_pattern"] = {
+        "allow": ["A/B/C"],
+    }
+
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_sdk.return_value = mocked_client
+
+        setup_mock_dashboard_with_folder(mocked_client)
+
+        setup_mock_explore(mocked_client)
+
+        setup_mock_look(mocked_client)
+
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
+
+        pipeline = Pipeline.create(new_recipe)
+        pipeline.run()
+        pipeline.raise_from_status()
+        mce_out_file = "golden_test_folder_path_pattern_ingest.json"
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "looker_mces.json",
+            golden_path=f"{test_resources_dir}/{mce_out_file}",
+        )

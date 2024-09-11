@@ -42,7 +42,7 @@ class MockDataHubGraph(DataHubGraph):
         )
         for wu in file_source.get_workunits():
             if isinstance(wu, MetadataWorkUnit):
-                metadata = wu.get_metadata().get("metadata")
+                metadata = wu.metadata
                 mcps: Iterable[
                     Union[
                         MetadataChangeProposal,
@@ -111,6 +111,7 @@ class MockDataHubGraph(DataHubGraph):
             UsageAggregationClass,
         ],
         callback: Union[Callable[[Exception, str], None], None] = None,
+        async_flag: Optional[bool] = None,
     ) -> None:
         self.emitted.append(item)  # type: ignore
 
@@ -118,7 +119,9 @@ class MockDataHubGraph(DataHubGraph):
         self.emitted.append(mce)
 
     def emit_mcp(
-        self, mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper]
+        self,
+        mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
+        async_flag: Optional[bool] = None,
     ) -> None:
         self.emitted.append(mcp)
 

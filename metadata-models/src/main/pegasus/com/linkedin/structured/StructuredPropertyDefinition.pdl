@@ -78,5 +78,13 @@ record StructuredPropertyDefinition {
       "fieldType": "BOOLEAN"
     }
     immutable: boolean = false
+
+    /**
+     * Definition version - Allows breaking schema changes. String is compared case-insensitive and new
+     *                      versions must be monotonically increasing. Cannot use periods/dots.
+     *                      Suggestions: v1, v2
+     *                                   20240610, 20240611
+     */
+    version: optional string
 }
 

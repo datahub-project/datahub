@@ -69,6 +69,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:dagster",
+    "aspect": {
+      "datasetNameDelimiter": "/",
+      "name": "dagster",
+      "displayName": "Dagster",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/dagsterlogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:external",
     "aspect": {
       "datasetNameDelimiter": ".",
@@ -188,6 +198,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:db2",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "db2",
+      "displayName": "DB2",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "/assets/platforms/db2logo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:mariadb",
     "aspect": {
       "datasetNameDelimiter": ".",
@@ -235,6 +255,26 @@
       "displayName": "PostgreSQL",
       "type": "RELATIONAL_DB",
       "logoUrl": "/assets/platforms/postgreslogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:prefect",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "prefect",
+      "displayName": "Prefect",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/prefectlogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:presto",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "prefect",
+      "displayName": "Prefect",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/prefectlogo.png"
     }
   },
   {
@@ -653,6 +693,16 @@
       "displayName": "Sigma",
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/sigmalogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:sac",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "sac",
+      "displayName": "SAP Analytics Cloud",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/saclogo.svg"
     }
   }
 ]

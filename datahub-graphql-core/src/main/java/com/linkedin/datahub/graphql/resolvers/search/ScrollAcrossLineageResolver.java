@@ -78,7 +78,8 @@ public class ScrollAcrossLineageResolver
     @Nullable
     Long startTimeMillis = input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
     @Nullable
-    Long endTimeMillis = input.getEndTimeMillis() == null ? null : input.getEndTimeMillis();
+    Long endTimeMillis =
+        ResolverUtils.getLineageEndTimeMillis(input.getStartTimeMillis(), input.getEndTimeMillis());
 
     final LineageFlags lineageFlags = LineageFlagsInputMapper.map(context, input.getLineageFlags());
     if (lineageFlags.getStartTimeMillis() == null && startTimeMillis != null) {
@@ -129,7 +130,10 @@ public class ScrollAcrossLineageResolver
                     entityNames,
                     sanitizedQuery,
                     maxHops,
-                    ResolverUtils.buildFilter(facetFilters, input.getOrFilters()),
+                    ResolverUtils.buildFilter(
+                        facetFilters,
+                        input.getOrFilters(),
+                        context.getOperationContext().getAspectRetriever()),
                     null,
                     scrollId,
                     keepAlive,
