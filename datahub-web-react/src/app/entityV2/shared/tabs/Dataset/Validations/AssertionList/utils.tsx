@@ -523,18 +523,6 @@ export const getAssertionGroupsByDisplayOrder = (assertionGroups: AssertionGroup
     return orderedAssertionGroups;
 };
 
-/** return assertions table data structure to render on table from assertions */
-export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]): AssertionTable => {
-    const assertionRawData: AssertionTable = { assertions: [], groupBy: { type: [], status: [] } };
-
-    const assertionsTableData = mapAssertionData(assertions);
-    assertionRawData.assertions = assertionsTableData;
-    const assertionGroups = createAssertionGroups(assertions);
-    assertionRawData.groupBy.type = getAssertionGroupsByDisplayOrder(assertionGroups);
-    assertionRawData.groupBy.status = generateAssertionGroupByStatus(assertions);
-    return assertionRawData;
-};
-
 // Build the Filter Options as per the type & status
 const buildFilterOptions = (key: string, value: Record<string, number>, filterOptions: AssertionFilterOptions) => {
     Object.entries(value).forEach(([name, count]) => {
@@ -658,6 +646,9 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
         assertions: [],
         groupBy: { type: [], status: [] },
         filterOptions: {},
+        totalCount: 0,
+        filteredCount: 0,
+        searchCount: 0,
     };
     assertionRawData.assertions = mapAssertionData(filteredAssertions);
     const assertionsByType = createAssertionGroups(filteredAssertions);
@@ -722,11 +713,12 @@ export const getFilteredTransformedAssertionData = (
     // Apply search filter if searchText is provided
     let filteredAssertions = assertionsWithDescription;
     const { searchText } = filter.filterCriteria;
-
+    let searchCount = 0;
     if (searchText) {
         fuse.setCollection(assertionsWithDescription || []);
         const result = fuse.search(searchText);
         filteredAssertions = result.map((match) => match.item as AssertionWithDescription);
+        searchCount = filteredAssertions.length;
     }
 
     // Apply type, status, and other filters
@@ -734,6 +726,9 @@ export const getFilteredTransformedAssertionData = (
 
     // Transform filtered assertions
     const assertionRawData = assignFilteredAssertionToGroup(filteredAssertions);
+    assertionRawData.totalCount = assertions.length;
+    assertionRawData.searchCount = searchCount;
+    assertionRawData.filteredCount = getFilteredAssertions(assertionsWithDescription, filter).length;
     return assertionRawData;
 };
 
