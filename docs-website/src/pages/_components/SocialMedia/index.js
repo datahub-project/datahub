@@ -130,8 +130,9 @@ const SocialMedia = ({}) => {
           </div>
         </div>
       </div>
-      <div style={{ height: "100%", width: "45%" }}>
-        <Carousel slidesToShow={1} dotPosition="left" infinite autoplay>
+      <div className={styles.carousalContainer}>
+        <div className={styles.carousalWrapper}>
+        <Carousel slidesToShow={3} dotPosition="left" infinite autoplay>
           {sliderVideos.map((video, idx) => (
             <div className={styles.videoContainer} key={idx}>
               <video
@@ -154,32 +155,8 @@ const SocialMedia = ({}) => {
             </div>
           ))}
         </Carousel>
+        </div>
       </div>
-      {/* <Swiper
-        slidesPerView={2}
-        spaceBetween={30}
-        slidesPerGroup={3}
-        className={styles.videoStyles}
-        direction="vertical"
-        scrollbar={{ draggable: true }}
-        navigation
-      >
-        {sliderVideos.map((video, idx) => (
-          <SwiperSlide key={idx}>
-            <div className={styles.videoContainer}>
-              <video
-                autoPlay
-                width="100%"
-                height="auto"
-                src={video.videoUrl}
-                className={styles.video}
-              />
-              <div className={styles.videoTitle}>{video.title}</div>
-              <div className={styles.videoDescription}>{video.description}</div>
-            </div>
-          </SwiperSlide>
-        ))}
-      </Swiper> */}
     </div>
   );
 };
