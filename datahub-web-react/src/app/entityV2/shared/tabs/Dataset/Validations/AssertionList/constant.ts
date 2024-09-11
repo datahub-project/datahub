@@ -1,3 +1,4 @@
+import { AssertionSourceType } from '@src/types.generated';
 import { AssertionTable } from './types';
 
 export const ASSERTION_DEFAULT_FILTERS = {
@@ -9,7 +10,7 @@ export const ASSERTION_DEFAULT_FILTERS = {
         type: [],
         tags: [],
         column: [],
-        others: [],
+        source: [],
     },
 };
 
@@ -30,3 +31,9 @@ export const ASSERTION_DEFAULT_RAW_DATA: AssertionTable = {
     filteredCount: 0,
     searchCount: 0,
 };
+
+export const ASSERTION_SOURCES = [
+    AssertionSourceType.Native,
+    AssertionSourceType.Inferred,
+    AssertionSourceType.External,
+];

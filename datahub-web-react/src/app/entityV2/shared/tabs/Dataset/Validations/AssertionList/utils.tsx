@@ -68,7 +68,7 @@ import {
     AssertionColumnGroup,
 } from './types';
 import { createCronText, createFixedIntervalText, createSinceTheLastCheckText } from '../FreshnessAssertionDescription';
-import { ASSERTION_DEFAULT_RAW_DATA } from './constant';
+import { ASSERTION_DEFAULT_RAW_DATA, ASSERTION_SOURCES } from './constant';
 
 /**
  * It refers the {@link getSchemaAggregationText} utility function to get plain text from html description.
@@ -528,7 +528,10 @@ export const getAssertionGroupsByDisplayOrder = (assertionGroups: AssertionGroup
 // Build the Filter Options as per the type & status
 const buildFilterOptions = (key: string, value: Record<string, number>, filterOptions: AssertionFilterOptions) => {
     Object.entries(value).forEach(([name, count]) => {
-        const displayName = key === 'type' ? getAssertionGroupName(name) : STATUS_GROUP_NAME_MAP[name] || name;
+        let displayName = key === 'type' ? getAssertionGroupName(name) : STATUS_GROUP_NAME_MAP[name] || name;
+        if (key === 'source') {
+            displayName = RECOMMENDED_FILTER_NAME_MAP[name];
+        }
         const filterItem = { name, category: key, count, displayName } as AssertionRecommendedFilter;
 
         filterOptions.recommendedFilters.push(filterItem);
@@ -557,6 +560,7 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
             status: [],
             column: [],
             tags: [],
+            source: [],
         },
         recommendedFilters: [],
     };
@@ -566,13 +570,15 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
         status: {} as Record<string, number>,
         column: {} as Record<string, number>,
         tags: {} as Record<string, number>,
+        source: {} as Record<string, number>,
     };
 
-    const others: Record<string, number> = {};
+    const source: Record<string, number> = {};
 
     // maintain array to show all the Assertion Type count even if it is not present
     const remainingAssertionTypes = ASSERTION_INFO.map((item) => item.type);
     const remainingAssertionStatus = [...CORE_STATUSES];
+    const remainingAssertionSources = [...ASSERTION_SOURCES];
 
     assertions.forEach((assertion: AssertionWithMonitorDetails) => {
         // filter out tracked types
@@ -605,19 +611,17 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
         if (columnId) {
             filterGroupCounts.column[columnId] = (filterGroupCounts.column[columnId] || 0) + 1;
         }
-
-        switch (assertion.info?.source?.type) {
-            case AssertionSourceType.Inferred:
-                others[AssertionSourceType.Inferred] = (others[AssertionSourceType.Inferred] || 0) + 1;
-                break;
-            case AssertionSourceType.Native:
-                others[AssertionSourceType.Native] = (others[AssertionSourceType.Native] || 0) + 1;
-                break;
-            default:
-                if (isExternalAssertion(assertion)) {
-                    others[AssertionSourceType.External] = (others[AssertionSourceType.External] || 0) + 1;
-                }
-                break;
+        let sourceType = assertion.info?.source?.type as AssertionSourceType;
+        if (isExternalAssertion(assertion)) {
+            filterGroupCounts.source[AssertionSourceType.External] =
+                (filterGroupCounts.source[AssertionSourceType.External] || 0) + 1;
+            sourceType = AssertionSourceType.External;
+        } else {
+            filterGroupCounts.source[sourceType] = (filterGroupCounts.source[sourceType] || 0) + 1;
+        }
+        const sourceTypeIndex = remainingAssertionSources.indexOf(sourceType);
+        if (sourceTypeIndex > -1) {
+            remainingAssertionSources.splice(index, 1);
         }
     });
 
@@ -631,19 +635,15 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
         filterGroupCounts.status[status] = 0;
     });
 
+    // Add remaining Assertion status with count 0
+    remainingAssertionSources.forEach((source: AssertionSourceType) => {
+        filterGroupCounts.source[source] = 0;
+    });
+
     buildFilterOptions('status', filterGroupCounts.status, filterOptions);
     buildFilterOptions('type', filterGroupCounts.type, filterOptions);
     buildFilterOptions('column', filterGroupCounts.column, filterOptions);
-
-    Object.entries(others).forEach(([name, count]) => {
-        filterOptions.recommendedFilters.push({
-            name,
-            category: 'others',
-            count,
-            displayName: RECOMMENDED_FILTER_NAME_MAP[name] || name,
-        });
-    });
-
+    buildFilterOptions('source', filterGroupCounts.source, filterOptions);
     return filterOptions;
 };
 
@@ -708,7 +708,7 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
 };
 
 const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: AssertionListFilter) => {
-    const { type, status, others, column } = filter.filterCriteria;
+    const { type, status, source, column } = filter.filterCriteria;
 
     // Apply type, status, and other filters
     return assertions.filter((assertion: AssertionWithMonitorDetails) => {
@@ -718,9 +718,9 @@ const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: A
         const matchesStatus = status.length === 0 || status.includes(resultType);
         const matchesColumn = column.length === 0 || column.includes(columnId);
         const matchesOthers =
-            others.length === 0 ||
-            others.includes(assertion.info?.source?.type as AssertionSourceType) ||
-            (others.includes(AssertionSourceType.External) && isExternalAssertion(assertion));
+            source.length === 0 ||
+            source.includes(assertion.info?.source?.type as AssertionSourceType) ||
+            (source.includes(AssertionSourceType.External) && isExternalAssertion(assertion));
 
         return matchesType && matchesStatus && matchesOthers && matchesColumn;
     });

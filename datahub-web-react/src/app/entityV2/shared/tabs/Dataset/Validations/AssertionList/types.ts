@@ -21,7 +21,7 @@ export type AssertionListFilter = {
         type: AssertionType[];
         tags: string[];
         column: string[];
-        others: AssertionSourceType[];
+        source: AssertionSourceType[];
     };
 };
 
@@ -83,13 +83,14 @@ export type AssertionFilterOptions = {
         status: AssertionResultType[];
         column: string[];
         tags: string[];
+        source: AssertionSourceType[];
     };
     recommendedFilters: AssertionRecommendedFilter[];
 };
 
 export type AssertionRecommendedFilter = {
     name: string;
-    category: 'status' | 'type' | 'others';
+    category: 'status' | 'type' | 'source';
     count: number;
     displayName: string;
 };

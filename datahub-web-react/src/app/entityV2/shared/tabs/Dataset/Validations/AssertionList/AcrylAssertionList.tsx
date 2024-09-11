@@ -108,7 +108,6 @@ export const AcrylAssertionList = () => {
                     filterOptions={visibleAssertions?.filterOptions}
                     setFilters={setFilters}
                     filter={filter}
-                    allAssertionCount={assertionMonitorData?.length || 0}
                     filteredAssertions={visibleAssertions}
                 />
             )}
