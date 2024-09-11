@@ -2,59 +2,112 @@
   background: #ffffff;
   font-family: "Manrope";
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
+  margin: auto;
+  width: 90vw;
+  height: 90vh;
+  border-radius: 50px;
+  background-color: #9297AA;
+  padding: 25px;
+  position: relative;
 }
 
-.upperSection {
-  border-radius: 16px;
-  width: 60%;
-  height: 40%;
-  background-color: #f0f0f0;
+.upperBox {
+  border-radius: 40px;
+  width: 45%;
+  height: 25%;
+  background-color: #f3f3f5;
+  color: #000;
   font-size: 24px;
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 25px;
   margin-bottom: 16px;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
-.rightBox {
-  width: 100%;
-  height: 100%;
-  border-radius: 16px;
-  background-color: rgb(171, 171, 171);
+.mainBox {
   color: #fff;
-  padding: 25px;
+  display: flex;
+  flex-direction: column;
 }
 
 .socialSubText {
+  font-size: 30px;
+  font-weight: 400;
+  text-align: left;
 }
 
 .socialStats {
   display:grid;
-  gap: 20px;
-  width: 100px;
-  height: 100px;
-  grid-template-columns: 200px 200px;
-  grid-column-gap: 20px;
-  grid-row-gap: 20px;
+  gap: 10px;
+  width: fit-content;
+  height: fit-content;
+  grid-template-columns: 260px 260px;
+  grid-column-gap: 40px;
   margin-top: 20px;
   margin-bottom: 70px;
 }
 
-.statItem {
-  border: 1px solid #ffffff;
-  padding: 10px;
-  border-radius: 10px;
-  font-size: 14px;
+.mediaIcons > svg {
+  color: white;
+  width: 38px;
+  height: 38px;
+}
+
+.followerCount {
+  font-size: 23px;
+  font-weight: 400;
+}
+
+.styledIcon {
+  width: 74px;
+  height: 74px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  flex-direction: column;
+  align-items: center;
+
+}
+
+.visitPageIcon {
+  position: absolute;
+  top: 10px;
+  right: 10px,
+}
+
+.visitPageIcon > svg {
+  color: white;
+}
+
+.statItem {
+  border-radius: 20px;
+  padding: 10px;
+  width: max-content;
+  height: fit-content;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 14px;
 }
 
 .statName {
-  font-size: 20px;
+  font-size: 34px;
   font-weight: 700;
+  display: flex;
+  justify-content: flex-start;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.socialMediaSection {
+  display: flex;
+  justify-content: flex-start;
+  flex-direction: column;
+  align-items: flex-start;
 }
