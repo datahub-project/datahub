@@ -18,6 +18,7 @@ import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteEntityArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
@@ -54,10 +55,12 @@ public class AutocompleteRequestHandler {
   private final CustomizedQueryHandler customizedQueryHandler;
 
   private final EntitySpec entitySpec;
+  private final QueryFilterRewriteChain queryFilterRewriteChain;
 
   public AutocompleteRequestHandler(
       @Nonnull EntitySpec entitySpec,
-      @Nullable CustomSearchConfiguration customSearchConfiguration) {
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     this.entitySpec = entitySpec;
     List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
     this.customizedQueryHandler = CustomizedQueryHandler.builder(customSearchConfiguration).build();
@@ -83,13 +86,18 @@ public class AutocompleteRequestHandler {
                       set1.addAll(set2);
                       return set1;
                     }));
+    this.queryFilterRewriteChain = queryFilterRewriteChain;
   }
 
   public static AutocompleteRequestHandler getBuilder(
       @Nonnull EntitySpec entitySpec,
-      @Nullable CustomSearchConfiguration customSearchConfiguration) {
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     return AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME.computeIfAbsent(
-        entitySpec, k -> new AutocompleteRequestHandler(entitySpec, customSearchConfiguration));
+        entitySpec,
+        k ->
+            new AutocompleteRequestHandler(
+                entitySpec, customSearchConfiguration, queryFilterRewriteChain));
   }
 
   public SearchRequest getSearchRequest(
@@ -113,7 +121,7 @@ public class AutocompleteRequestHandler {
     // Initial query with input filters
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
-            filter, false, searchableFieldTypes, opContext.getAspectRetriever());
+            filter, false, searchableFieldTypes, opContext, queryFilterRewriteChain);
     baseQuery.filter(filterQuery);
 
     // Add autocomplete query

@@ -6,6 +6,7 @@ import com.linkedin.metadata.config.events.EventSinksConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.notification.NotificationConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import lombok.Data;
 
@@ -38,6 +39,9 @@ public class DataHubAppConfiguration {
 
   /** ElasticSearch configurations */
   private ElasticSearchConfiguration elasticSearch;
+
+  /* Search Service configurations */
+  private SearchServiceConfiguration searchService;
 
   /** System Update configurations */
   private SystemUpdateConfiguration systemUpdate;

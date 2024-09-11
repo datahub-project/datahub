@@ -116,6 +116,15 @@ searchService:
       serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
   ranker:
     type: ${SEARCH_SERVICE_RANKER_TYPE:}
+  queryFilterRewriter:
+    containerExpansion:
+      enabled: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_ENABLED:true}
+      pageSize: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_PAGE_SIZE:100}
+      limit: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_LIMIT:100}
+    domainExpansion:
+      enabled: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_ENABLED:true}
+      pageSize: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE:100}
+      limit: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT:100}
 
 recommendationService:
   mostPopular:

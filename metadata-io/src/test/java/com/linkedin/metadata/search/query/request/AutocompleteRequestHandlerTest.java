@@ -10,6 +10,7 @@ import com.linkedin.metadata.config.search.custom.BoolQueryConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -33,7 +34,9 @@ import org.testng.annotations.Test;
 public class AutocompleteRequestHandlerTest {
   private AutocompleteRequestHandler handler =
       AutocompleteRequestHandler.getBuilder(
-          TestEntitySpecBuilder.getSpec(), CustomSearchConfiguration.builder().build());
+          TestEntitySpecBuilder.getSpec(),
+          CustomSearchConfiguration.builder().build(),
+          QueryFilterRewriteChain.EMPTY);
   private OperationContext mockOpContext =
       TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
 
@@ -170,7 +173,8 @@ public class AutocompleteRequestHandlerTest {
                                     .should(List.of(Map.of("match_all", Map.of())))
                                     .build())
                             .build()))
-                .build());
+                .build(),
+            QueryFilterRewriteChain.EMPTY);
 
     SearchRequest autocompleteRequest =
         withoutDefaultQuery.getSearchRequest(mockOpContext, "input", null, null, 10);
@@ -195,7 +199,8 @@ public class AutocompleteRequestHandlerTest {
                                     .should(List.of(Map.of("match_all", Map.of())))
                                     .build())
                             .build()))
-                .build());
+                .build(),
+            QueryFilterRewriteChain.EMPTY);
 
     autocompleteRequest = withDefaultQuery.getSearchRequest(mockOpContext, "input", null, null, 10);
     sourceBuilder = autocompleteRequest.source();
@@ -237,7 +242,8 @@ public class AutocompleteRequestHandlerTest {
                                     .should(List.of(Map.of("match_all", Map.of())))
                                     .build())
                             .build()))
-                .build());
+                .build(),
+            QueryFilterRewriteChain.EMPTY);
 
     SearchRequest autocompleteRequest =
         withInherit.getSearchRequest(mockOpContext, "input", null, null, 10);
@@ -275,7 +281,8 @@ public class AutocompleteRequestHandlerTest {
                                     .should(List.of(Map.of("match_all", Map.of())))
                                     .build())
                             .build()))
-                .build());
+                .build(),
+            QueryFilterRewriteChain.EMPTY);
 
     autocompleteRequest =
         noQueryCustomization.getSearchRequest(mockOpContext, "input", null, null, 10);
@@ -337,7 +344,8 @@ public class AutocompleteRequestHandlerTest {
                                                 Map.<String, Object>of(
                                                     "deprecated", Map.of("value", false)))))))
                             .build()))
-                .build());
+                .build(),
+            QueryFilterRewriteChain.EMPTY);
 
     SearchRequest autocompleteRequest =
         explicitNoInherit.getSearchRequest(mockOpContext, "input", null, null, 10);
@@ -389,7 +397,8 @@ public class AutocompleteRequestHandlerTest {
                                                 Map.<String, Object>of(
                                                     "deprecated", Map.of("value", false)))))))
                             .build()))
-                .build());
+                .build(),
+            QueryFilterRewriteChain.EMPTY);
 
     autocompleteRequest = explicit.getSearchRequest(mockOpContext, "input", null, null, 10);
     sourceBuilder = autocompleteRequest.source();

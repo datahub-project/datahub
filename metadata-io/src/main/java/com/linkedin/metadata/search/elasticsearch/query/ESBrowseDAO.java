@@ -23,6 +23,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
@@ -69,6 +70,7 @@ public class ESBrowseDAO {
   private final RestHighLevelClient client;
   @Nonnull private final SearchConfiguration searchConfiguration;
   @Nullable private final CustomSearchConfiguration customSearchConfiguration;
+  @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
 
   private static final String BROWSE_PATH = "browsePaths";
   private static final String BROWSE_PATH_DEPTH = "browsePaths.length";
@@ -607,7 +609,8 @@ public class ESBrowseDAO {
 
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     QueryBuilder query =
-        SearchRequestHandler.getBuilder(entitySpec, searchConfiguration, customSearchConfiguration)
+        SearchRequestHandler.getBuilder(
+                entitySpec, searchConfiguration, customSearchConfiguration, queryFilterRewriteChain)
             .getQuery(
                 finalOpContext,
                 input,
@@ -623,7 +626,7 @@ public class ESBrowseDAO {
 
     queryBuilder.filter(
         SearchRequestHandler.getFilterQuery(
-            finalOpContext, filter, entitySpec.getSearchableFieldTypes()));
+            finalOpContext, filter, entitySpec.getSearchableFieldTypes(), queryFilterRewriteChain));
 
     return queryBuilder;
   }
@@ -643,7 +646,11 @@ public class ESBrowseDAO {
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
 
     QueryBuilder query =
-        SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
+        SearchRequestHandler.getBuilder(
+                entitySpecs,
+                searchConfiguration,
+                customSearchConfiguration,
+                queryFilterRewriteChain)
             .getQuery(
                 finalOpContext,
                 input,
@@ -669,7 +676,8 @@ public class ESBrowseDAO {
                       return set1;
                     }));
     queryBuilder.filter(
-        SearchRequestHandler.getFilterQuery(finalOpContext, filter, searchableFields));
+        SearchRequestHandler.getFilterQuery(
+            finalOpContext, filter, searchableFields, queryFilterRewriteChain));
 
     return queryBuilder;
   }

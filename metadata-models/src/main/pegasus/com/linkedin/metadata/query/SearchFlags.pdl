@@ -55,4 +55,9 @@ record SearchFlags {
       by the server
     */
   fetchExtraFields: optional array[string] = []
+
+  /**
+   * invoke query rewrite chain for filters based on configured rewriters
+   */
+   rewriteQuery: optional boolean = true
 }

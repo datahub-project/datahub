@@ -15,7 +15,7 @@ import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.query.request.TestSearchFieldConfig;
+import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import java.io.Serializable;
