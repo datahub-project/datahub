@@ -69,7 +69,8 @@ export const AcrylAssertionFilters: React.FC<AcrylAssertionFiltersProps> = ({
     return (
         <Dropdown overlay={menu} trigger={['click']} placement="bottomLeft">
             <Button>
-                Filters <DownOutlined />
+                Filters {selectedFilters.length ? <>&nbsp;({selectedFilters.length})</> : null}
+                <DownOutlined />
             </Button>
         </Dropdown>
     );

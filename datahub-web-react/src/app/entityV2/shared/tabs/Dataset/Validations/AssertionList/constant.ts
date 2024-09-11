@@ -20,7 +20,7 @@ export const ASSERTION_GROUP_BY_FILTER_OPTIONS = [
 
 export const ASSERTION_SUMMARY_CARD_STATUSES = ['failing', 'passing', 'erroring'];
 
-export const NO_RUNNING_STATAE = 'notRunning';
+export const NO_RUNNING_STATE = 'notRunning';
 
 export const ASSERTION_DEFAULT_RAW_DATA: AssertionTable = {
     assertions: [],
