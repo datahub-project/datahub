@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Iterable, Optional
+from typing import Dict, Iterable, Optional
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
@@ -27,7 +27,7 @@ def auto_patch_last_modified(
 
     We need this functionality to support sort by `last modified` on UI.
     """
-    candidate_dataset_for_patch: dict[str, TimestampPair] = {}
+    candidate_dataset_for_patch: Dict[str, TimestampPair] = {}
 
     for wu in stream:
         if not wu.get_urn().startswith("urn:li:dataset:"):
