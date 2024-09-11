@@ -65,8 +65,10 @@ import {
     AssertionFilterOptions,
     AssertionRecommendedFilter,
     AssertionWithDescription,
+    AssertionColumnGroup,
 } from './types';
 import { createCronText, createFixedIntervalText, createSinceTheLastCheckText } from '../FreshnessAssertionDescription';
+import { ASSERTION_DEFAULT_RAW_DATA } from './constant';
 
 /**
  * It refers the {@link getSchemaAggregationText} utility function to get plain text from html description.
@@ -599,6 +601,10 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
             const tagName = tag.tag.properties?.name || '';
             filterGroupCounts.tags[tagName] = (filterGroupCounts.tags[tagName] || 0) + 1;
         });
+        const columnId = getColumnIdFromAssertion(assertion);
+        if (columnId) {
+            filterGroupCounts.column[columnId] = (filterGroupCounts.column[columnId] || 0) + 1;
+        }
 
         switch (assertion.info?.source?.type) {
             case AssertionSourceType.Inferred:
@@ -627,6 +633,7 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
 
     buildFilterOptions('status', filterGroupCounts.status, filterOptions);
     buildFilterOptions('type', filterGroupCounts.type, filterOptions);
+    buildFilterOptions('column', filterGroupCounts.column, filterOptions);
 
     Object.entries(others).forEach(([name, count]) => {
         filterOptions.recommendedFilters.push({
@@ -640,20 +647,53 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
     return filterOptions;
 };
 
+// get columnId from Column/Field Assertion
+const getColumnIdFromAssertion = (assertion: Assertion): string | null => {
+    const info = assertion?.info;
+    const fieldAssertion = info?.fieldAssertion;
+    if (info?.type === AssertionType.Field) {
+        const field = (fieldAssertion?.fieldMetricAssertion || fieldAssertion?.fieldValuesAssertion)?.field;
+        return field?.path || null;
+    }
+    return null;
+};
+
+// create column id group from column assertions
+const getColumnIdGroupFromColumnAssertions = (assertions: Assertion[]): AssertionColumnGroup[] => {
+    const columnIdGroups: AssertionColumnGroup[] = [];
+    const columnIdToAssertionMap = new Map<string, Assertion[]>();
+    assertions.forEach((assertion: Assertion) => {
+        const columnId = getColumnIdFromAssertion(assertion);
+        if (columnId) {
+            const columnAssertions = columnIdToAssertionMap.get(columnId) || [];
+            columnAssertions.push(assertion);
+            columnIdToAssertionMap.set(columnId, columnAssertions);
+        }
+    });
+    columnIdToAssertionMap.forEach((assertions: Assertion[], columnId: string) => {
+        const assertionColumnGroup: AssertionColumnGroup = {
+            name: columnId,
+            assertions: mapAssertionData(assertions),
+            // summary: { [key: string]: number },
+        };
+        columnIdGroups.push(assertionColumnGroup);
+    });
+    return columnIdGroups;
+};
+
 // Assign Filtered Assertions to group
 const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescription[]): AssertionTable => {
     const assertionRawData: AssertionTable = {
-        assertions: [],
-        groupBy: { type: [], status: [] },
-        filterOptions: {},
-        totalCount: 0,
-        filteredCount: 0,
-        searchCount: 0,
+        ...ASSERTION_DEFAULT_RAW_DATA,
     };
     assertionRawData.assertions = mapAssertionData(filteredAssertions);
     const assertionsByType = createAssertionGroups(filteredAssertions);
     assertionRawData.groupBy.type = getAssertionGroupsByDisplayOrder(assertionsByType);
+    let columnTypeAssertions: any = [];
     (assertionRawData.groupBy.type || []).forEach((item) => {
+        if (item.type === AssertionType.Field) {
+            columnTypeAssertions = [...item.assertions];
+        }
         const transformedData = mapAssertionData(item.assertions);
         // eslint-disable-next-line  no-param-reassign
         item.assertions = transformedData;
@@ -661,25 +701,28 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
         item.groupName = <AssertionGroupHeader group={item} />;
     });
     assertionRawData.groupBy.status = generateAssertionGroupByStatus(filteredAssertions);
+    const columnsGroup = getColumnIdGroupFromColumnAssertions(columnTypeAssertions);
+    assertionRawData.groupBy.column = columnsGroup;
     assertionRawData.filterOptions = extractFilterOptionListFromAssertions(filteredAssertions);
     return assertionRawData;
 };
 
 const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: AssertionListFilter) => {
-    const { type, status, others } = filter.filterCriteria;
+    const { type, status, others, column } = filter.filterCriteria;
 
     // Apply type, status, and other filters
     return assertions.filter((assertion: AssertionWithMonitorDetails) => {
         const resultType = assertion.runEvents?.runEvents?.[0]?.result?.type as AssertionResultType;
-
+        const columnId = getColumnIdFromAssertion(assertion) || '';
         const matchesType = type.length === 0 || type.includes(assertion.info?.type as AssertionType);
         const matchesStatus = status.length === 0 || status.includes(resultType);
+        const matchesColumn = column.length === 0 || column.includes(columnId);
         const matchesOthers =
             others.length === 0 ||
             others.includes(assertion.info?.source?.type as AssertionSourceType) ||
             (others.includes(AssertionSourceType.External) && isExternalAssertion(assertion));
 
-        return matchesType && matchesStatus && matchesOthers;
+        return matchesType && matchesStatus && matchesOthers && matchesColumn;
     });
 };
 

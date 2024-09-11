@@ -66,7 +66,8 @@ export const AcrylAssertionRecommendedFilters: React.FC<AcrylAssertionRecommende
     useEffect(() => {
         const transformedAppliedFilters = appliedFilters.map((filter) => filter.name);
         const newVisibleFilters = filters.filter(
-            (filter: FilterItem) => filter.count || transformedAppliedFilters.includes(filter.name),
+            (filter: FilterItem) =>
+                filter.category !== 'column' && (filter.count || transformedAppliedFilters.includes(filter.name)),
         );
         setVisibleFilters(newVisibleFilters);
     }, [filters, appliedFilters]);

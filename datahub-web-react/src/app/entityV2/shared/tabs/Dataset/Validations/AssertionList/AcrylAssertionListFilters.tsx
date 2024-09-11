@@ -71,7 +71,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                 acc[selectedfilter.category].push(selectedfilter.name);
                 return acc;
             },
-            { type: [], status: [], others: [] },
+            { type: [], status: [], others: [], column: [] },
         );
 
         setFilters((prev) => ({
@@ -85,11 +85,15 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
      * This hook is for setting applied filter when we are getting it from selected Filter state
      */
     useEffect(() => {
-        const { status, type, others } = filter.filterCriteria || ASSERTION_DEFAULT_FILTERS.filterCriteria;
+        const { status, type, others, column } = filter.filterCriteria || ASSERTION_DEFAULT_FILTERS.filterCriteria;
         const recommendedFilters = filterOptions?.recommendedFilters || [];
         // just set recommended filters for status, type & Others as of right now
         const appliedRecommendedFilters = recommendedFilters.filter(
-            (item) => status.includes(item.name) || type.includes(item.name) || others.includes(item.name),
+            (item) =>
+                status.includes(item.name) ||
+                type.includes(item.name) ||
+                others.includes(item.name) ||
+                column.includes(item.name),
         );
         setAppliedFilters(appliedRecommendedFilters);
         setSelectedGroupBy(filter.groupBy);

@@ -20,7 +20,7 @@ export type AssertionListFilter = {
         status: AssertionResultType[];
         type: AssertionType[];
         tags: string[];
-        columns: string[];
+        column: string[];
         others: AssertionSourceType[];
     };
 };
@@ -56,9 +56,16 @@ export type AssertionStatusGroup = {
     groupName?: JSX.Element;
 };
 
+export type AssertionColumnGroup = {
+    name: string;
+    assertions: AssertionListTableRow[];
+    summary?: { [key: string]: number };
+};
+
 type AssertionGroupBy = {
     type: any[];
     status: AssertionStatusGroup[];
+    column: AssertionColumnGroup[];
 };
 
 export type AssertionTable = {
