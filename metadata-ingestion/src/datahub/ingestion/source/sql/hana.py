@@ -7,7 +7,7 @@ from pydantic.fields import Field
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import xml.etree.ElementTree
+import xml.etree.ElementTree as ET
 
 import uuid
 
@@ -44,6 +44,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
+    ContainerClass,
 )
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
@@ -156,7 +157,6 @@ class HanaSource(SQLAlchemySource):
         super().__init__(config, ctx, self.get_platform())
         self.config = config
         self.engine = self._create_engine()
-        # self.discovered_tables: Optional[Collection[str]] = None
         self.aggregator = SqlParsingAggregator(
             platform=self.get_platform(),
             platform_instance=self.config.platform_instance if self.config.platform_instance else None,
@@ -168,7 +168,6 @@ class HanaSource(SQLAlchemySource):
             generate_operations=True,
             format_queries=True,
             usage_config=BaseUsageConfig(),
-            # is_allowed_table=self.is_allowed_table,
         )
 
     def get_platform(self):
@@ -185,7 +184,7 @@ class HanaSource(SQLAlchemySource):
 
     def create_container(self, schema: str) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
 
-        browsePath: BrowsePathsV2Class = self.get_browse_path(
+        browse_path: BrowsePathsV2Class = self.get_browse_path(
             schema=schema,
         )
 
@@ -208,7 +207,7 @@ class HanaSource(SQLAlchemySource):
             aspects=[
                 container_name,
                 conatiner_type,
-                browsePath,
+                browse_path,
                 platform
             ]
         )
@@ -254,6 +253,13 @@ class HanaSource(SQLAlchemySource):
                     self.config.platform_instance + \
                     schema,
                 )
+            )
+        )
+
+    def get_container_class(self, schema: str) -> ContainerClass:
+        return ContainerClass(
+            container=self.get_container_urn(
+                schema=schema,
             )
         )
 
@@ -499,7 +505,11 @@ class HanaSource(SQLAlchemySource):
 
         platform = self.get_platform_instance()
 
-        browsePath = self.get_browse_path(
+        browse_path = self.get_browse_path(
+            schema=schema,
+        )
+
+        container = self.get_container_class(
             schema=schema,
         )
 
@@ -509,7 +519,8 @@ class HanaSource(SQLAlchemySource):
                 description,
                 schema_metadata,
                 platform,
-                browsePath,
+                browse_path,
+                container,
             ]
         )
 
@@ -560,7 +571,11 @@ class HanaSource(SQLAlchemySource):
 
         platform = self.get_platform_instance()
 
-        browsePath = self.get_browse_path(
+        browse_path = self.get_browse_path(
+            schema=schema,
+        )
+
+        container = self.get_container_class(
             schema=schema,
         )
 
@@ -570,7 +585,8 @@ class HanaSource(SQLAlchemySource):
             view_properties,
             subtype,
             platform,
-            browsePath,
+            browse_path,
+            container
         ]
 
         if lineage:
@@ -615,7 +631,7 @@ class HanaSource(SQLAlchemySource):
             self.report.report_workunit(mcp.as_workunit())
             yield mcp.as_workunit()
 
-    def get_calculation_view_lineage(self, root: xml.etree.ElementTree, ns: Dict, dataset_path: str, dataset_name: str):
+    def get_calculation_view_lineage(self, root: ET, ns: Dict, dataset_path: str, dataset_name: str):
         upstreams = []
         data_sources = root.find("dataSources", ns)
 
@@ -676,7 +692,7 @@ class HanaSource(SQLAlchemySource):
         )
 
         try:
-            root = xml.etree.ElementTree.fromstring(dataset_definition)
+            root = ET.fromstring(dataset_definition)
         except Exception as e:
             logging.error(e)
             root = None
@@ -718,7 +734,11 @@ class HanaSource(SQLAlchemySource):
 
             platform = self.get_platform_instance()
 
-            browsePath = self.get_browse_path(
+            browse_path = self.get_browse_path(
+                schema=schema,
+            )
+
+            container = self.get_container_class(
                 schema=schema,
             )
 
@@ -730,7 +750,8 @@ class HanaSource(SQLAlchemySource):
                 dataset_details,
                 view_properties,
                 platform,
-                browsePath,
+                browse_path,
+                container,
             ]
 
             if lineage:
