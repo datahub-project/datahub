@@ -6,7 +6,7 @@ const homePageRedirection = () => {
 const addOrEditAnnouncement = (text, title, description, testId) => {
   cy.waitTextPresent(text);
   cy.get('[data-testid="create-post-title"]').clear().type(title);
-  cy.get('[id="description"]').clear().type(description);
+  cy.get(".create-post-description").clear().type(description);
   cy.get(`[data-testid="${testId}-post-button"]`).click({ force: true });
   cy.reload();
   homePageRedirection();
@@ -23,12 +23,10 @@ const addOrEditLink = (text, title, url, imagesURL, testId) => {
 };
 
 const clickOnNewPost = () => {
-  cy.contains("Platform").should("be.visible");
   cy.get('[id="posts-create-post"]').click({ force: true });
 };
 
 const clickOnMoreOption = () => {
-  cy.contains("Platform").should("be.visible");
   cy.get('[aria-label="more"]').first().click();
 };
 
@@ -43,7 +41,7 @@ describe("create announcement and link post", () => {
   it("Verify create, edit and delete announcement post", () => {
     clickOnNewPost();
     addOrEditAnnouncement(
-      "Create new Post",
+      "Create",
       "Test Announcement Title",
       "Add Description to post announcement",
       "create",
@@ -55,7 +53,7 @@ describe("create announcement and link post", () => {
     cy.clickOptionWithText("Edit");
     cy.contains("label", "Announcement").click();
     addOrEditAnnouncement(
-      "Edit Post",
+      "Edit",
       "Test Announcement Title Updated",
       "Decription Updated",
       "update",
@@ -73,10 +71,10 @@ describe("create announcement and link post", () => {
 
   it("Verify create, edit and delete link post", () => {
     clickOnNewPost();
-    cy.waitTextPresent("Create new Post");
-    cy.contains("label", "Link").click();
+    cy.waitTextPresent("Create");
+    cy.contains("label", "Pinned Link").click();
     addOrEditLink(
-      "Create new Post",
+      "Create",
       "Test Link Title",
       "https://www.example.com",
       "https://www.example.com/images/example-image.jpg",
@@ -86,9 +84,9 @@ describe("create announcement and link post", () => {
     cy.goToHomePagePostSettings();
     clickOnMoreOption();
     cy.clickOptionWithText("Edit");
-    cy.contains("label", "Link").click();
+    cy.contains("label", "Pinned Link").click();
     addOrEditLink(
-      "Edit Post",
+      "Edit",
       "Test Link Updated Title",
       "https://www.updatedexample.com",
       "https://www.updatedexample.com/images/example-image.jpg",

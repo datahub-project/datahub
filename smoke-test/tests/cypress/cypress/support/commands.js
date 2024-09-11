@@ -113,7 +113,7 @@ Cypress.Commands.add("goToSubscriptionsSettings", () => {
 
 Cypress.Commands.add("goToHomePagePostSettings", () => {
   cy.visit("/settings/posts");
-  cy.waitTextVisible("Home Page Posts");
+  cy.waitTextVisible("Home Page");
 });
 
 Cypress.Commands.add("goToAccessTokenSettings", () => {

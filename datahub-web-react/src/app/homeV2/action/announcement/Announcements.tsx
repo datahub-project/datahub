@@ -1,6 +1,6 @@
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
-import { Carousel, Button } from 'antd';
+import { Carousel, Button, Tooltip } from 'antd';
 import { NotificationOutlined, CloseOutlined } from '@ant-design/icons';
 import AnnouncementsSkeleton from '../../content/tabs/announcements/AnnouncementsSkeleton';
 import { Announcement } from './Announcement';
@@ -16,6 +16,7 @@ const Card = styled.div`
     background-color: #ffffff;
     overflow: hidden;
     padding: 16px 20px 8px 20px;
+    width: 380px;
 `;
 
 const Header = styled.div`
@@ -101,9 +102,11 @@ export const Announcements = () => {
                 <Title>
                     <Icon /> Announcements
                 </Title>
-                <CloseButton type="text" onClick={hideAnnouncements}>
-                    <StyledCloseOutlined />
-                </CloseButton>
+                <Tooltip placement="left" showArrow={false} title="Hide announcements">
+                    <CloseButton type="text" onClick={hideAnnouncements}>
+                        <StyledCloseOutlined />
+                    </CloseButton>
+                </Tooltip>
             </Header>
             <StyledCarousel autoplaySpeed={8000} autoplay>
                 {sortedAnnouncements.map((announcement) => (

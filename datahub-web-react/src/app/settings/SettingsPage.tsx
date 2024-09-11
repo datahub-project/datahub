@@ -283,7 +283,7 @@ export const SettingsPage = () => {
                             )}
                             {showHomePagePosts && (
                                 <Menu.Item key="posts">
-                                    <PushpinOutlined /> <ItemTitle>Home Page Posts</ItemTitle>
+                                    <PushpinOutlined /> <ItemTitle>Home Page</ItemTitle>
                                 </Menu.Item>
                             )}
                         </Menu.ItemGroup>
