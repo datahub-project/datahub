@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import styles from "./socialmedia.module.scss";
 import "swiper/css";
 import "swiper/css/pagination";
@@ -8,7 +8,32 @@ import {
   MediumWorkmarkOutlined,
   YoutubeOutlined,
 } from "@ant-design/icons";
+import video from "./demo.mp4";
+import { Carousel } from "antd";
 
+const sliderVideos = [
+  {
+    videoUrl: video,
+    title: "Kathleen Maley from Experian talks about data leadership",
+    description: "VP Data Analytics, Experian",
+    date: "12 Aug 2024",
+    subscriberCount: "12k",
+  },
+  {
+    videoUrl: video,
+    title: "Kathleen Maley from Experian talks about data leadership",
+    description: "VP Data Analytics, Experian",
+    date: "12 Aug 2024",
+    subscriberCount: "12k",
+  },
+  {
+    videoUrl: video,
+    title: "Kathleen Maley from Experian talks about data leadership",
+    description: "VP Data Analytics, Experian",
+    date: "12 Aug 2024",
+    subscriberCount: "12k",
+  },
+];
 
 const SocialMedia = ({}) => {
   return (
@@ -20,21 +45,13 @@ const SocialMedia = ({}) => {
             Data Practitioners
           </div>
         </div>
-        <div style={{ height: "40vh" }}></div>
         <div className={styles.socialMediaSection}>
           <div className={styles.socialSubText}>
             Born at LinkedIn, driven by Acryl <br />
             and 500+ community contributors.
           </div>
           <div className={styles.socialStats}>
-            <div
-              className={styles.statItem}
-              style={{
-                background: "#A2A6B4",
-                border: "1px solid #ffffff",
-                position: "relative",
-              }}
-            >
+            <div className={styles.statItem}>
               <div className={styles.styledIcon}>
                 <YoutubeOutlined
                   width={38}
@@ -65,6 +82,12 @@ const SocialMedia = ({}) => {
                 LinkedIn
                 <div className={styles.followerCount}>3.5k followers</div>
               </div>
+              <ArrowUpOutlined
+                width={13}
+                height={13}
+                rotate={45}
+                className={styles.visitPageIcon}
+              />
             </div>
             <div className={styles.statItem}>
               <div className={styles.styledIcon}>
@@ -78,6 +101,12 @@ const SocialMedia = ({}) => {
                 Newsletter
                 <div className={styles.followerCount}>900 subscribers</div>
               </div>
+              <ArrowUpOutlined
+                width={13}
+                height={13}
+                rotate={45}
+                className={styles.visitPageIcon}
+              />
             </div>
             <div className={styles.statItem}>
               <div className={styles.styledIcon}>
@@ -91,10 +120,66 @@ const SocialMedia = ({}) => {
                 Medium
                 <div className={styles.followerCount}>1k subscribers</div>
               </div>
+              <ArrowUpOutlined
+                width={13}
+                height={13}
+                rotate={45}
+                className={styles.visitPageIcon}
+              />
             </div>
           </div>
         </div>
       </div>
+      <div style={{ height: "100%", width: "45%" }}>
+        <Carousel slidesToShow={1} dotPosition="left" infinite autoplay>
+          {sliderVideos.map((video, idx) => (
+            <div className={styles.videoContainer} key={idx}>
+              <video
+                autoPlay
+                width="100%"
+                height="auto"
+                src={video.videoUrl}
+                className={styles.video}
+              />
+              <div className={styles.videoTitle}>{video.title}</div>
+              <div className={styles.videoDetails}>
+                <div className={styles.videoDescription}>
+                  {video.description}
+                </div>
+                <div className={styles.divider}>.</div>
+                <div className={styles.videoDescription}>{video.date}</div>
+                <div className={styles.divider}>.</div>
+                <div>{video.subscriberCount}</div>
+              </div>
+            </div>
+          ))}
+        </Carousel>
+      </div>
+      {/* <Swiper
+        slidesPerView={2}
+        spaceBetween={30}
+        slidesPerGroup={3}
+        className={styles.videoStyles}
+        direction="vertical"
+        scrollbar={{ draggable: true }}
+        navigation
+      >
+        {sliderVideos.map((video, idx) => (
+          <SwiperSlide key={idx}>
+            <div className={styles.videoContainer}>
+              <video
+                autoPlay
+                width="100%"
+                height="auto"
+                src={video.videoUrl}
+                className={styles.video}
+              />
+              <div className={styles.videoTitle}>{video.title}</div>
+              <div className={styles.videoDescription}>{video.description}</div>
+            </div>
+          </SwiperSlide>
+        ))}
+      </Swiper> */}
     </div>
   );
 };

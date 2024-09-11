@@ -4,22 +4,22 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: auto;
+  margin: 60px auto;
   width: 90vw;
   height: 90vh;
   border-radius: 50px;
-  background-color: #9297AA;
-  padding: 25px;
+  background-color: #9297aa;
+  padding: 80px;
   position: relative;
 }
 
 .upperBox {
   border-radius: 40px;
-  width: 45%;
+  width: 27%;
   height: 25%;
   background-color: #f3f3f5;
   color: #000;
-  font-size: 24px;
+  font-size: 1.6rem;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -33,24 +33,24 @@
 .mainBox {
   color: #fff;
   display: flex;
-  flex-direction: column;
+  justify-content: flex-start;
+  height: 100%;
 }
 
 .socialSubText {
-  font-size: 30px;
+  font-size: 1.8rem;
   font-weight: 400;
   text-align: left;
 }
 
 .socialStats {
-  display:grid;
+  display: grid;
   gap: 10px;
   width: fit-content;
   height: fit-content;
   grid-template-columns: 260px 260px;
-  grid-column-gap: 40px;
+  grid-column-gap: 50px;
   margin-top: 20px;
-  margin-bottom: 70px;
 }
 
 .mediaIcons > svg {
@@ -60,25 +60,24 @@
 }
 
 .followerCount {
-  font-size: 23px;
+  font-size: 1.2rem;
   font-weight: 400;
 }
 
 .styledIcon {
-  width: 74px;
-  height: 74px;
+  min-width: 74px;
+  min-height: 74px;
   background: rgba(255, 255, 255, 0.2);
   border-radius: 16px;
   display: flex;
   justify-content: center;
   align-items: center;
-
 }
 
 .visitPageIcon {
   position: absolute;
   top: 10px;
-  right: 10px,
+  right: 10px;
 }
 
 .visitPageIcon > svg {
@@ -87,13 +86,30 @@
 
 .statItem {
   border-radius: 20px;
-  padding: 10px;
-  width: max-content;
+  padding: 7px;
+  width: 20rem;
   height: fit-content;
   display: flex;
   justify-content: flex-start;
   align-items: center;
   gap: 14px;
+  border: 2px solid transparent;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.statItem:hover {
+  background-color: #a2a6b4;
+  border-color: #ffffff;
+  position: relative;
+}
+
+.visitPageIcon {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.statItem:hover .visitPageIcon {
+  opacity: 1;
 }
 
 .statName {
@@ -107,7 +123,54 @@
 
 .socialMediaSection {
   display: flex;
-  justify-content: flex-start;
+  justify-content: flex-end;
   flex-direction: column;
   align-items: flex-start;
+}
+
+.videoStyles {
+  height: 100%;
+  width: 35%;
+  gap: 10px;
+}
+
+.videoContainer {
+  width: 80% !important;
+  height: 25rem;
+  padding: 10px;
+  margin-bottom: 40px;
+  border: 1px solid white;
+  border-radius: 30px;
+  background: white;
+}
+
+.videoTitle {
+  font-size: 20px;
+  font-weight: 500;
+  color: rgba(46, 46, 56, 1);
+}
+
+.video {
+  border-radius: 16px;
+}
+
+.videoDescription {
+  font-size: 14px;
+  font-weight: 400;
+  color: #838ba8;
+}
+
+.videoDetails {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+}
+
+.divider {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 7px;
+  color: #838ba8;
 }
