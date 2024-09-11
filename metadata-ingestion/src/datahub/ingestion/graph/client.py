@@ -1740,9 +1740,9 @@ class DataHubGraph(DatahubRestEmitter):
             "type": type,
             "properties": properties,
             "externalUrl": external_url,
-            "error": {"type": error_type, "message": error_message}
-            if error_type
-            else None,
+            "error": (
+                {"type": error_type, "message": error_message} if error_type else None
+            ),
         }
 
         res = self.execute_graphql(

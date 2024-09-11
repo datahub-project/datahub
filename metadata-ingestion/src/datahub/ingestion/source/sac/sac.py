@@ -333,15 +333,19 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 lastModified=ChangeAuditStampsClass(
                     created=AuditStampClass(
                         time=round(resource.created_time.timestamp() * 1000),
-                        actor=make_user_urn(resource.created_by)
-                        if resource.created_by
-                        else "urn:li:corpuser:unknown",
+                        actor=(
+                            make_user_urn(resource.created_by)
+                            if resource.created_by
+                            else "urn:li:corpuser:unknown"
+                        ),
                     ),
                     lastModified=AuditStampClass(
                         time=round(resource.modified_time.timestamp() * 1000),
-                        actor=make_user_urn(resource.modified_by)
-                        if resource.modified_by
-                        else "urn:li:corpuser:unknown",
+                        actor=(
+                            make_user_urn(resource.modified_by)
+                            if resource.modified_by
+                            else "urn:li:corpuser:unknown"
+                        ),
                     ),
                 ),
                 customProperties={

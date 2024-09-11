@@ -521,6 +521,7 @@ class SnowflakeV2Source(
                     include_lineage=self.config.include_table_lineage,
                     include_usage_statistics=self.config.include_usage_stats,
                     include_operations=self.config.include_operational_stats,
+                    user_email_pattern=self.config.user_email_pattern,
                 ),
                 structured_report=self.report,
                 filters=self.filters,

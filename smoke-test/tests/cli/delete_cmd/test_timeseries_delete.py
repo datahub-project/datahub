@@ -56,16 +56,20 @@ def datahub_get_and_verify_profile(
     sync_elastic()
     get_args: List[str] = ["get", "--urn", test_dataset_urn, "-a", test_aspect_name]
     get_result: Result = runner.invoke(datahub, get_args)
-    assert get_result.exit_code == 0
-    try:
-        get_result_output_obj: Dict = json.loads(get_result.stdout)
-    except JSONDecodeError as e:
-        print("Failed to decode: " + get_result.stdout, file=sys.stderr)
-        raise e
 
     if expected_profile is None:
-        assert not get_result_output_obj
+        assert get_result.exit_code != 0
+        assert (
+            test_dataset_urn in get_result.stderr and "not found" in get_result.stderr
+        ), f"Got stderr of {get_result.stderr} in get_and_verify_profile"
     else:
+        assert get_result.exit_code == 0
+        try:
+            get_result_output_obj: Dict = json.loads(get_result.stdout)
+        except JSONDecodeError as e:
+            print("Failed to decode: " + get_result.stdout, file=sys.stderr)
+            raise e
+
         profile_from_get = DatasetProfileClass.from_obj(
             get_result_output_obj["datasetProfile"]
         )

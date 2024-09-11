@@ -31,13 +31,15 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   ```
   Re-running with stateful ingestion should automatically clear up the entities with old URNS and add entities with new URNs, therefore not duplicating the containers or jobs. 
 
+- #11313 - `datahub get` will no longer return a key aspect for entities that don't exist.
+
 ### Potential Downtime
 
 ### Deprecations
 
 ### Other Notable Changes
 
-## 0.14.0
+## 0.14.0.2
 
 ### Breaking Changes
 
