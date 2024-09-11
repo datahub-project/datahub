@@ -25,7 +25,7 @@ const sliderVideos = [
         viewerCount: "100+",
     },
     {
-        videoUrl: useBaseUrl("/img/home-social-media/visa.webm"),
+        videoUrl: useBaseUrl("/img/home-social-media/visa_speaker.webm"),
         link: 'https://www.youtube.com/watch?v=B6CplqnIkFw',
         title: "The VISA Team's vision for Logical Datasets",
         // description: "VP Data Analytics, Experian",
@@ -148,6 +148,7 @@ const sliderVideos = [
                 muted
                 src={video.videoUrl}
                 className={styles.video}
+                controls={false}
               />
               <div className={styles.videoItemFooter}>
                 <div className={styles.videoTitle}>{video.title}</div>
