@@ -105,6 +105,8 @@
           padding: 5px 20px;
           border-radius: 50px;
           margin: 0 10px 0 0;
+          font-weight: 600;
+          text-decoration: none;
         }
 
         .cta__secondary {
@@ -114,6 +116,17 @@
         }
       }
     }
+
+    .hero__footer_cta {
+      margin-top: 2rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 1.2rem;
+      color: white;
+    }
+
 
     .hero__img {
       display: flex;

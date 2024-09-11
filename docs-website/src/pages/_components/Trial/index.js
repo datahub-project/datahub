@@ -13,10 +13,10 @@ const Trial = () => {
               Get a free trial of <b>DataHub</b> cloud today
             </p>
             <div className={styles.btn_div}>
-              <a>Book a Demo</a>
-              <a>Product Tour</a>
+              <Link to="/cloud">Book a Demo</Link>
+              <Link to="https://www.acryldata.io/tour">Product Tour</Link>
             </div>
-            <div className={styles.start_arrow}>Get started with Core <span>→</span></div>
+            <Link className={styles.start_arrow} to="/docs">Get started with Core →</Link>
           </div>
         </div>
         <div className={styles.trial_right}>

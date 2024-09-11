@@ -39,10 +39,10 @@ const Hero = ({}) => {
               </span>
             </div>
             <div className="hero__cta">
-              <Link className="cta__primary">Datahub Cloud</Link>
-              <Link className="cta__secondary">Product Tour</Link>
+              <Link className="cta__primary" to="/cloud">Book a Demo</Link>
+              <Link className="cta__secondary" to="https://www.acryldata.io/tour">Product Tour</Link>
             </div>
-            <div className="hero__footer">Get started with Core → </div>
+            <Link className="hero__footer_cta" to="/docs">Get started with Core →</Link>
           </div>
           <div className="hero__img">
             <img src={useBaseUrl("/img/hero.png")} />

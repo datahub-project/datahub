@@ -38,22 +38,24 @@
 
         a:first-child {
           cursor: pointer;
+          text-decoration: none;
           display: inline-block;
           font-size: 1rem;
           background-color: #1890ff;
-          padding: 10px 20px;
+          padding: 8px 20px;
           border-radius: 50px;
-          margin: 0 10px 0 0;
+          margin: 0 0 0 0;
           color: white;
         }
 
         a:nth-child(2) {
           cursor: pointer;
+          text-decoration: none;
           display: inline-block;
           font-size: 1rem;
-          padding: 10px 20px;
+          padding: 8px 20px;
           border-radius: 50px;
-          margin: 0 10px 0 0;
+          margin: 0 0 0 0;
           background-color: transparent;
           color: #1890ff;
           border: 1px solid #1890ff;
@@ -61,10 +63,12 @@
       }
 
       .start_arrow {
-        margin-top: 2rem;
+        margin-top: .5rem;
+        display: inline-block;
         font-size: 1.1rem;
         color: #1890ff;
         font-weight: 500;
+        cursor: pointer;
       }
     }
   }
@@ -216,6 +220,7 @@
             border-radius: 50px;
             margin: 0 10px 0 0;
             color: white;
+            text-decoration: none;
           }
   
           a:nth-child(2) {
@@ -228,6 +233,7 @@
             background-color: transparent;
             color: #1890ff;
             border: 1px solid #1890ff;
+            text-decoration: none;
           }
         }
   

@@ -390,8 +390,38 @@ div[class^="announcementBar"] {
   justify-content: center;
 
   .text {
-    padding: 0 50px;
-    color: #9EA3B6;
-    font-size: 1.5rem;
+    padding-right: 24px;
+    color: #666;
+    font-size: 1.25rem;
+    line-height: 1.5rem;
+  }
+
+  .company_logos_list_wrapper {
+    flex-direction: row;
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    justify-content: space-around;
+  }
+  .company_logo {
+    max-width: 80px;
+    max-height: 36px;
+    filter: brightness(0) grayscale(1);
+    opacity: .4;
+    transition: opacity .3s ease-in-out;
+    &:hover {
+      opacity: 0.6;
+    }
+  }
+}
+
+
+
+@keyframes expand-on-scroll {
+  from {
+      transform: scaleY(0);
+  }
+  to {
+      transform: scaleY(1);
   }
 }

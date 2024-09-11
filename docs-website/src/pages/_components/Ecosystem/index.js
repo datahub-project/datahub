@@ -22,35 +22,74 @@ const Ecosystem = () => {
                 See how Netflix uses DataHub at scale.&nbsp;<span>→</span>
               </span>
             </div>
+            <Link className={styles.bottom_line_cta} to="/adoption-stories#netflix">
+              See how Netflix uses DataHub at scale&nbsp;→
+            </Link>
           </div>
           <div className={styles.ecosystem_section_lower_content}>
-            <div className={styles.item1}>
-              <div className={styles.item_content}>
-                <img
-                  width="20"
-                  height="20"
-                  color="#12B0FB"
-                  src={useBaseUrl("/img/cloud.svg")}
-                  alt="right--v1"
-                />
-                <span className="">
-                  An architecture that's designed for true enterprise scale{" "}
-                </span>
+            <div className={styles.itemWrappers}>
+              <div className={styles.itemWrappersRow}>
+                <Link className={styles.item1} to="/docs/architecture/architecture" target="_blank">
+                  <img src={useBaseUrl("/img/link_arrow_open.png")} className={styles.itemLinkOpenArrow} />
+                  <div className={styles.item_content}>
+                    <img
+                      width="20"
+                      height="20"
+                      src={useBaseUrl("/img/cloud.svg")}
+                      alt="right--v1"
+                    />
+                    <span className="">
+                      An architecture that's designed for true enterprise scale.
+                    </span>
+                  </div>
+                </Link>
+                <Link className={styles.item2}  to="/integrations" target="_blank">
+                  <img src={useBaseUrl("/img/link_arrow_open.png")} className={styles.itemLinkOpenArrow} />
+                  <div className={styles.item_content}>
+                    <img
+                      width="20"
+                      height="20"
+                      src={useBaseUrl("/img/git-pull.svg")}
+                      alt="right--v1"
+                    />
+                    <span className="">
+                      70+ native <br /> integrations, growing
+                      <br /> every month.
+                    </span>
+                  </div>
+                </Link>
               </div>
-            </div>
-            <div className={styles.item2}>
-              <div className={styles.item_content}>
-                <img
-                  width="20"
-                  height="20"
-                  color="#12B0FB"
-                  src={useBaseUrl("/img/git-pull.svg")}
-                  alt="right--v1"
-                />
-                <span className="">
-                  70+ native <br /> integrations, growing
-                  <br /> every month.{" "}
-                </span>
+              <div className={styles.itemWrappersRow}>
+                <Link className={styles.item3} to="/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor" target="_blank">
+                <img src={useBaseUrl("/img/link_arrow_open.png")} className={styles.itemLinkOpenArrow} />
+                  <div className={styles.item_content}>
+                    <img
+                      width="20"
+                      height="20"
+                      src={useBaseUrl("/img/lock.svg")}
+                      alt="right--v1"
+                    />
+                    <span className="">
+                      Execute ingestion in-VPC,
+                      <br /> so your actual data never leaves <br />
+                      the network.
+                    </span>
+                  </div>
+                </Link>
+                <Link className={styles.item4} to="/docs/act-on-metadata" target="_blank">
+                  <img src={useBaseUrl("/img/link_arrow_open.png")} className={styles.itemLinkOpenArrow} />
+                  <div className={styles.item_content}>
+                    <img
+                      width="20"
+                      height="20"
+                      src={useBaseUrl("/img/lightning.svg")}
+                      alt="right--v1"
+                    />
+                    <span className="">
+                      Event-driven actions framework, rich APIs and SDKs.
+                    </span>
+                  </div>
+                </Link>
               </div>
             </div>
             <div className={styles.item3}>
