@@ -136,18 +136,43 @@ class SnowflakeTagHelper(Closeable):
         if isinstance(parsed_entity_urn, DatasetUrn):
             dataset_urn = parsed_entity_urn
             database, schema, table = dataset_urn.name.split(".")
+
+            # Since when removing a tag, it might not exist on Snowflake (just datahub), we need to handle the exception
+            # internally to prevent getting locked out of the account.
+            query = f"""
+                BEGIN
+                    -- Attempt to remove the tag from the table
+                    ALTER TABLE {table} UNSET TAG "{tag}";
+                EXCEPTION WHEN OTHER THEN
+                    -- Handle any error
+                    RETURN 'Tag does not exist or unauthorized.';
+                END;
+            """
+
             self._run_query(
                 database,
                 schema,
-                f'ALTER TABLE {table} UNSET TAG "{tag}";',
+                query,
             )
         elif isinstance(parsed_entity_urn, SchemaFieldUrn):
             dataset_urn = DatasetUrn.create_from_string(parsed_entity_urn.parent)
             database, schema, table = dataset_urn.name.split(".")
+            # Since when removing a tag, it might not exist on Snowflake (just datahub), we need to handle the exception
+            # internally to prevent getting locked out of the account.
+            query = f"""
+                BEGIN
+                    -- Attempt to remove the tag from the column
+                    ALTER TABLE {table} MODIFY COLUMN {parsed_entity_urn.field_path} UNSET TAG "{tag}";
+                EXCEPTION WHEN OTHER THEN
+                    -- Handle any error
+                    RETURN 'Tag does not exist or unauthorized.';
+                END;
+            """
+
             self._run_query(
                 database,
                 schema,
-                f'ALTER TABLE {table} MODIFY COLUMN {parsed_entity_urn.field_path} UNSET TAG "{tag}";',
+                query,
             )
         else:
             raise ValueError(
@@ -193,7 +218,6 @@ class SnowflakeTagHelper(Closeable):
 
     def _too_many_errors(self) -> bool:
         self._cleanup_old_errors()
-        logger.info(len(self.error_timestamps))
         return len(self.error_timestamps) >= self.error_threshold
 
     def close(self) -> None:
