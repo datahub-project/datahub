@@ -520,11 +520,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             self.report.report_warning(
                 title="Profiling: Unable to Calculate Min",
                 message="The min for the column will not be accessible",
-                context=f"""
-                    {{
-                        "column": "{self.dataset_name}.{column}"
-                    }}
-                """,
+                context=f"{self.dataset_name}.{column}",
                 exc=e,
             )
 
@@ -544,11 +540,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             self.report.report_warning(
                 title="Profiling: Unable to Calculate Max",
                 message="The max for the column will not be accessible",
-                context=f"""
-                    {{
-                        "column": "{self.dataset_name}.{column}"
-                    }}
-                """,
+                context=f"{self.dataset_name}.{column}",
                 exc=e,
             )
 
@@ -566,13 +558,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             )
 
             self.report.report_warning(
-                title="Profiling: to Calculate Mean",
+                title="Profiling: Unable to Calculate Mean",
                 message="The mean for the column will not be accessible",
-                context=f"""
-                    {{
-                        "column": "{self.dataset_name}.{column}"
-                    }}
-                """,
+                context=f"{self.dataset_name}.{column}",
                 exc=e,
             )
 
@@ -609,11 +597,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             self.report.report_warning(
                 title="Profiling: Unable to Calculate Medians",
                 message="The medians for the column will not be accessible",
-                context=f"""
-                    {{
-                        "column": "{self.dataset_name}.{column}"
-                    }}
-                """,
+                context=f"{self.dataset_name}.{column}",
                 exc=e,
             )
 
@@ -632,11 +616,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             self.report.report_warning(
                 title="Profiling: Unable to Calculate Standard Deviation",
                 message="The standard deviation for the column will not be accessible",
-                context=f"""
-                    {{
-                        "column": "{self.dataset_name}.{column}"
-                    }}
-                """,
+                context=f"{self.dataset_name}.{column}",
                 exc=e,
             )
 
@@ -679,11 +659,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             self.report.report_warning(
                 title="Profiling: Unable to Calculate Quantiles",
                 message="The quantiles for the column will not be accessible",
-                context=f"""
-                    {{
-                        "column": "{self.dataset_name}.{column}"
-                    }}
-                """,
+                context=f"{self.dataset_name}.{column}",
                 exc=e,
             )
 
@@ -730,11 +706,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             self.report.report_warning(
                 title="Profiling: Unable to Calculate Histogram",
                 message="The histogram for the column will not be accessible",
-                context=f"""
-                    {{
-                        "column": "{self.dataset_name}.{column}"
-                    }}
-                """,
+                context=f"{self.dataset_name}.{column}",
                 exc=e,
             )
 
@@ -769,11 +741,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             self.report.report_warning(
                 title="Profiling: Unable to Calculate Sample Values",
                 message="The sample values for the column will not be accessible",
-                context=f"""
-                    {{
-                        "column": "{self.dataset_name}.{column}"
-                    }}
-                """,
+                context=f"{self.dataset_name}.{column}",
                 exc=e,
             )
 
