@@ -32,7 +32,7 @@ const Ecosystem = () => {
                       alt="right--v1"
                     />
                     <span className="">
-                      An architecture that's designed for true enterprise scale{" "}
+                      An architecture that's designed for true enterprise scale.
                     </span>
                   </div>
                 </div>
@@ -46,7 +46,7 @@ const Ecosystem = () => {
                     />
                     <span className="">
                       70+ native <br /> integrations, growing
-                      <br /> every month.{" "}
+                      <br /> every month.
                     </span>
                   </div>
                 </div>
