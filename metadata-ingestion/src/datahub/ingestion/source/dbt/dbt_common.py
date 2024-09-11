@@ -262,7 +262,8 @@ class DBTCommonConfig(
     )
     target_platform_instance: Optional[str] = Field(
         default=None,
-        description="The platform instance for the platform that dbt is operating on. Use this if you have multiple instances of the same platform (e.g. redshift) and need to distinguish between them.",
+        description="The platform instance for the platform that dbt is operating on. Use this if you have multiple "
+        "instances of the same platform (e.g. redshift) and need to distinguish between them.",
     )
     use_identifiers: bool = Field(
         default=False,
@@ -274,11 +275,13 @@ class DBTCommonConfig(
 
     entities_enabled: DBTEntitiesEnabled = Field(
         DBTEntitiesEnabled(),
-        description="Controls for enabling / disabling metadata emission for different dbt entities (models, test definitions, test results, etc.)",
+        description="Controls for enabling / disabling metadata emission for different dbt entities (models, "
+        "test definitions, test results, etc.)",
     )
     prefer_sql_parser_lineage: bool = Field(
         default=False,
-        description="Normally we use dbt's metadata to generate table lineage. When enabled, we prefer results from the SQL parser when generating lineage instead. "
+        description="Normally we use dbt's metadata to generate table lineage. When enabled, we prefer results from "
+        "the SQL parser when generating lineage instead."
         "This can be useful when dbt models reference tables directly, instead of using the ref() macro. "
         "This requires that `skip_sources_in_lineage` is enabled.",
     )
@@ -297,11 +300,13 @@ class DBTCommonConfig(
     )
     meta_mapping: Dict = Field(
         default={},
-        description="mapping rules that will be executed against dbt meta properties. Refer to the section below on dbt meta automated mappings.",
+        description="mapping rules that will be executed against dbt meta properties. Refer to the section below on "
+        "dbt meta automated mappings.",
     )
     column_meta_mapping: Dict = Field(
         default={},
-        description="mapping rules that will be executed against dbt column meta properties. Refer to the section below on dbt meta automated mappings.",
+        description="mapping rules that will be executed against dbt column meta properties. Refer to the section "
+        "below on dbt meta automated mappings.",
     )
     enable_meta_mapping: bool = Field(
         default=True,
@@ -309,7 +314,8 @@ class DBTCommonConfig(
     )
     query_tag_mapping: Dict = Field(
         default={},
-        description="mapping rules that will be executed against dbt query_tag meta properties. Refer to the section below on dbt meta automated mappings.",
+        description="mapping rules that will be executed against dbt query_tag meta properties. Refer to the section "
+        "below on dbt meta automated mappings.",
     )
     enable_query_tag_mapping: bool = Field(
         default=True,
@@ -318,7 +324,8 @@ class DBTCommonConfig(
     write_semantics: str = Field(
         # TODO: Replace with the WriteSemantics enum.
         default="PATCH",
-        description='Whether the new tags, terms and owners to be added will override the existing ones added only by this source or not. Value for this config can be "PATCH" or "OVERRIDE"',
+        description="Whether the new tags, terms and owners to be added will override the existing ones added only by "
+        'this source or not. Value for this config can be "PATCH" or "OVERRIDE"',
     )
     strip_user_ids_from_email: bool = Field(
         default=False,
@@ -330,12 +337,16 @@ class DBTCommonConfig(
     )
     owner_extraction_pattern: Optional[str] = Field(
         default=None,
-        description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\\w+) (\\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',
+        description="Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match "
+        "object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be "
+        '`owner`. Examples: (1)`r"(?P<owner>(.*)): (\\w+) (\\w+)"` will extract `jdoe` as the owner from '
+        '`"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',
     )
 
     include_env_in_assertion_guid: bool = Field(
         default=False,
-        description="Prior to version 0.9.4.2, the assertion GUIDs did not include the environment. If you're using multiple dbt ingestion "
+        description="Prior to version 0.9.4.2, the assertion GUIDs did not include the environment. If you're using "
+        "multiple dbt ingestion"
         "that are only distinguished by env, then you should set this flag to True.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
@@ -356,13 +367,17 @@ class DBTCommonConfig(
     )
     include_column_lineage: bool = Field(
         default=True,
-        description="When enabled, column-level lineage will be extracted from the dbt node definition. Requires `infer_dbt_schemas` to be enabled. "
-        "If you run into issues where the column name casing does not match up with properly, providing a datahub_api or using the rest sink will improve accuracy.",
+        description="When enabled, column-level lineage will be extracted from the dbt node definition. Requires "
+        "`infer_dbt_schemas` to be enabled."
+        "If you run into issues where the column name casing does not match up with properly, providing a "
+        "datahub_api"
+        "or using the rest sink will improve accuracy.",
     )
     # override default value to True.
     incremental_lineage: bool = Field(
         default=True,
-        description="When enabled, emits incremental/patch lineage for non-dbt entities. When disabled, re-states lineage on each run.",
+        description="When enabled, emits incremental/patch lineage for non-dbt entities. When disabled, re-states "
+        "lineage on each run.",
     )
 
     _remove_use_compiled_code = pydantic_removed_field("use_compiled_code")
@@ -680,10 +695,10 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
 
 
 def _get_dbt_cte_names(name: str, target_platform: str) -> List[str]:
-    # Match the dbt CTE naming scheme:
-    # The default is defined here https://github.com/dbt-labs/dbt-core/blob/4122f6c308c88be4a24c1ea490802239a4c1abb8/core/dbt/adapters/base/relation.py#L222
-    # However, since this PR https://github.com/dbt-labs/dbt-core/pull/2712, it's also possible
-    # for adapters to override this default. Only a handful actually do though:
+    # Match the dbt CTE naming scheme: The default is defined here
+    # https://github.com/dbt-labs/dbt-core/blob/4122f6c308c88be4a24c1ea490802239a4c1abb8/core/dbt/adapters/base
+    # /relation.py#L222 However, since this PR https://github.com/dbt-labs/dbt-core/pull/2712, it's also possible for
+    # adapters to override this default. Only a handful actually does though:
     # https://github.com/search?type=code&q=add_ephemeral_prefix+path:/%5Edbt%5C/adapters%5C//
 
     # Regardless, we need to keep the original name to work with older dbt versions.
@@ -1055,7 +1070,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         1. Iterate over the dbt nodes in topological order.
         2. For each node, either load the schema from the graph or from the dbt catalog info.
            We also add this schema to the schema resolver.
-        3. Run sql parser to infer the schema + generate column lineage.
+        3. Run SQL parser to infer the schema + generate column lineage.
         4. Write the schema and column lineage back to the DBTNode object.
         5. If we haven't already added the node's schema to the schema resolver, do that.
         """
@@ -1466,11 +1481,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
                 continue
 
-            # We are creating empty node for platform and only add lineage/keyaspect.
+            # We are creating empty node for a platform and only add lineage/keyaspect.
             if not node.exists_in_target_platform:
                 continue
 
-            # This code block is run when we are generating entities of platform type.
+            # This code block is run when we are generating entities of a platform type.
             # We will not link the platform not to the dbt node for type "source" because
             # in this case the platform table existed first.
             if node.node_type != "source":
@@ -1618,12 +1633,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         aspects.append(dbt_properties)
 
-        # add status aspect
+        # add a status aspect
         status = StatusClass(removed=False)
         aspects.append(status)
-        # add owners aspect
+        # add an owner aspect
         if self.config.enable_owner_extraction:
-            # we need to aggregate owners added by meta properties and the owners that are coming from server.
+            # we need it to aggregate owners added by meta properties and the owners that are coming from server.
             meta_owner_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
             aggregated_owners = self._aggregate_owners(node, meta_owner_aspects)
             if aggregated_owners:
