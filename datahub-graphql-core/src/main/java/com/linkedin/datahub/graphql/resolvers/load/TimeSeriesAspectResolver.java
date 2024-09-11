@@ -78,8 +78,7 @@ public class TimeSeriesAspectResolver
     if (_entityName.equals(Constants.DATASET_ENTITY_NAME)
         && _aspectName.equals(Constants.DATASET_PROFILE_ASPECT_NAME)) {
       return AuthUtil.isAuthorized(
-          context.getAuthorizer(),
-          context.getActorUrn(),
+          context.getOperationContext(),
           PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE,
           new EntitySpec(_entityName, urn));
     }

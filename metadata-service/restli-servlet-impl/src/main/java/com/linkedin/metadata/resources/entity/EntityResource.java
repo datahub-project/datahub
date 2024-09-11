@@ -193,16 +193,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final Urn urn = Urn.createFromString(urnStr);
 
     Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "restrictedService", urn.getEntityType()), authorizer, auth, true);
+
     if (!isAPIAuthorizedEntityUrns(
-            auth,
-            authorizer,
+            opContext,
             READ,
             List.of(urn))) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urn);
     }
-    final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "restrictedService", urn.getEntityType()), authorizer, auth, true);
 
     return RestliUtil.toTask(
         () -> {
@@ -233,16 +234,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "batchGet", urnStrs), authorizer, auth, true);
+
     if (!isAPIAuthorizedEntityUrns(
-            auth,
-            authorizer,
+            opContext,
             READ,
             urns)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entities: " + urnStrs);
     }
-    final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "batchGet", urnStrs), authorizer, auth, true);
 
     return RestliUtil.toTask(
         () -> {
@@ -269,16 +271,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
     final Urn urn = com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue());
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(), getContext(),
+                    ACTION_INGEST, urn.getEntityType()), authorizer, authentication, true);
+
     if (!isAPIAuthorizedEntityUrns(
-            authentication,
-            authorizer,
+            opContext,
             CREATE,
             List.of(urn))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to edit entity " + urn);
     }
-    final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(), getContext(), ACTION_INGEST, urn.getEntityType()), authorizer, authentication, true);
 
     try {
       validateOrThrow(entity);
@@ -311,20 +314,20 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-
     List<Urn> urns = Arrays.stream(entities)
             .map(Entity::getValue)
             .map(com.datahub.util.ModelUtils::getUrnFromSnapshotUnion).collect(Collectors.toList());
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
+                    getContext(), ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList())),
+            authorizer, authentication, true);
+
     if (!isAPIAuthorizedEntityUrns(
-            authentication,
-            authorizer,
+            opContext,
             CREATE, urns)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to edit entities.");
     }
-    final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(), getContext(), ACTION_BATCH_INGEST, urns.stream()
-                    .map(Urn::getEntityType).collect(Collectors.toList())), authorizer, authentication, true);
 
     for (Entity entity : entities) {
       try {
@@ -374,18 +377,18 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(systemOperationContext,
+                    RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_SEARCH, entityName), authorizer, auth, true)
+            .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(Boolean.TRUE.equals(fulltext)));
+
+
     if (!AuthUtil.isAPIAuthorizedEntityType(
-            auth,
-            authorizer,
+            opContext,
              READ,
             entityName)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
-
-    OperationContext opContext = OperationContext.asSession(systemOperationContext,
-                    RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_SEARCH, entityName), authorizer, auth, true)
-            .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(Boolean.TRUE.equals(fulltext)));
 
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
@@ -400,8 +403,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   List.of(entityName), input, filter, sortCriterionList, start, count);
 
           if (!isAPIAuthorizedResult(
-                  auth,
-                  authorizer,
+                  opContext,
                   result)) {
             throw new RestLiServiceException(
                     HttpStatus.S_403_FORBIDDEN, "User is unauthorized get entity.");
@@ -427,13 +429,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     final Authentication auth = AuthenticationContext.getAuthentication();
     OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_SEARCH_ACROSS_ENTITIES, entities), authorizer, auth, true)
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            ACTION_SEARCH_ACROSS_ENTITIES, entities), authorizer, auth, true)
             .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true));
 
     List<String> entityList = searchService.getEntitiesToSearch(opContext, entities == null ? Collections.emptyList() : Arrays.asList(entities), count);
     if (!isAPIAuthorizedEntityType(
-            auth,
-            authorizer,
+            opContext,
             READ,
             entityList)) {
       throw new RestLiServiceException(
@@ -447,8 +449,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         () -> {
           SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, filter, sortCriterionList, start, count);
           if (!isAPIAuthorizedResult(
-                  auth,
-                  authorizer,
+                  opContext,
                   result)) {
             throw new RestLiServiceException(
                     HttpStatus.S_403_FORBIDDEN, "User is unauthorized get entity.");
@@ -486,13 +487,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     final Authentication auth = AuthenticationContext.getAuthentication();
     OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_SCROLL_ACROSS_ENTITIES, entities), authorizer, auth, true)
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            ACTION_SCROLL_ACROSS_ENTITIES, entities), authorizer, auth, true)
             .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true));
 
     List<String> entityList = searchService.getEntitiesToSearch(opContext, entities == null ? Collections.emptyList() : Arrays.asList(entities), count);
     if (!isAPIAuthorizedEntityType(
-            auth,
-            authorizer,
+            opContext,
             READ, entityList)) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
@@ -518,8 +519,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   keepAlive,
                   count);
           if (!isAPIAuthorizedResult(
-                  auth,
-                  authorizer,
+                  opContext,
                   result)) {
             throw new RestLiServiceException(
                     HttpStatus.S_403_FORBIDDEN, "User is unauthorized get entity.");
@@ -549,22 +549,22 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags)
       throws URISyntaxException {
     final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            ACTION_SEARCH_ACROSS_LINEAGE, entities), authorizer, auth, true)
+            .withSearchFlags(flags -> (searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true))
+                    .setIncludeRestricted(true))
+            .withLineageFlags(flags -> flags.setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
+                    .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
+
     if (!isAPIAuthorized(
-            auth,
-            authorizer,
+            opContext,
             LINEAGE, READ)) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
 
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
-
-    OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_SEARCH_ACROSS_LINEAGE, entities), authorizer, auth, true)
-            .withSearchFlags(flags -> (searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true))
-                    .setIncludeRestricted(true))
-            .withLineageFlags(flags -> flags.setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
-                    .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
 
     Urn urn = Urn.createFromString(urnStr);
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
@@ -611,21 +611,20 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throws URISyntaxException {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    if (!isAPIAuthorized(
-            auth,
-            authorizer,
-            LINEAGE, READ)) {
-      throw new RestLiServiceException(
-              HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
-    }
-
     OperationContext opContext = OperationContext.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_SCROLL_ACROSS_LINEAGE, entities),
-            authorizer, auth, true)
+                    authorizer, auth, true)
             .withSearchFlags(flags -> (searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true))
                     .setIncludeRestricted(true))
             .withLineageFlags(flags -> flags.setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
                     .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
+
+    if (!isAPIAuthorized(
+            opContext,
+            LINEAGE, READ)) {
+      throw new RestLiServiceException(
+              HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
+    }
 
     Urn urn = Urn.createFromString(urnStr);
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
@@ -669,17 +668,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_COUNT) int count) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            ACTION_LIST, entityName), authorizer, auth, true)
+            .withSearchFlags(flags -> new SearchFlags().setFulltext(false));
+
     if (!AuthUtil.isAPIAuthorizedEntityType(
-            auth,
-            authorizer,
+            opContext,
             READ, entityName)) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
-
-    OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_LIST, entityName), authorizer, auth, true)
-            .withSearchFlags(flags -> new SearchFlags().setFulltext(false));
 
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
@@ -688,8 +687,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         () -> {
             SearchResult result = entitySearchService.filter(opContext, entityName, filter, sortCriterionList, start, count);
           if (!AuthUtil.isAPIAuthorizedResult(
-                  auth,
-                  authorizer,
+                  opContext,
                   result)) {
             throw new RestLiServiceException(
                     HttpStatus.S_403_FORBIDDEN, "User is unauthorized get entity.");
@@ -712,24 +710,23 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            ACTION_AUTOCOMPLETE, entityName), authorizer, auth, true)
+            .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags);
+
     if (!AuthUtil.isAPIAuthorizedEntityType(
-            auth,
-            authorizer,
+            opContext,
              READ, entityName)) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
 
-    OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_AUTOCOMPLETE, entityName), authorizer, auth, true)
-            .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags);
-
     return RestliUtil.toTask(
         () -> {
           AutoCompleteResult result = entitySearchService.autoComplete(opContext, entityName, query, field, filter, limit);
           if (!isAPIAuthorizedResult(
-                  auth,
-                  authorizer,
+                  opContext,
                   result)) {
             throw new RestLiServiceException(
                     HttpStatus.S_403_FORBIDDEN, "User is unauthorized get entity.");
@@ -750,25 +747,24 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            ACTION_BROWSE, entityName), authorizer, auth, true)
+            .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags);
+
     if (!AuthUtil.isAPIAuthorizedEntityType(
-            auth,
-            authorizer,
+            opContext,
              READ, entityName)) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
-
-    OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_BROWSE, entityName), authorizer, auth, true)
-            .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags);
 
     log.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
     return RestliUtil.toTask(
         () -> {
           BrowseResult result = entitySearchService.browse(opContext, entityName, path, filter, start, limit);
           if (!isAPIAuthorizedResult(
-                  auth,
-                  authorizer,
+                  opContext,
                   result)) {
             throw new RestLiServiceException(
                     HttpStatus.S_403_FORBIDDEN, "User is unauthorized get entity.");
@@ -787,18 +783,18 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    ACTION_GET_BROWSE_PATHS, urn.getEntityType()), authorizer, auth, true);
+
     if (!isAPIAuthorizedEntityUrns(
-            auth,
-            authorizer,
+            opContext,
              READ,
             List.of(urn))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity: " + urn);
     }
     log.info("GET BROWSE PATHS for {}", urn);
-
-    OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_GET_BROWSE_PATHS, urn.getEntityType()), authorizer, auth, true);
 
     return RestliUtil.toTask(
         () -> new StringArray(entitySearchService.getBrowsePaths(opContext, urnToEntityName(urn), urn)),
@@ -858,16 +854,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   .keySet();
 
           final Authentication auth = AuthenticationContext.getAuthentication();
+          OperationContext opContext = OperationContext.asSession(
+                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                          "deleteAll", urns), authorizer, auth, true);
+
           if (!isAPIAuthorizedEntityUrns(
-                  auth,
-                  authorizer,
+                  opContext,
                   DELETE,
                   urns.stream().map(UrnUtils::getUrn).collect(Collectors.toSet()))) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entities.");
           }
-          OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "deleteAll", urns), authorizer, auth, true);
 
           response.setEntitiesAffected(urns.size());
           response.setEntitiesDeleted(
@@ -909,16 +906,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     Urn urn = Urn.createFromString(urnStr);
 
     final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    ACTION_DELETE, urn.getEntityType()), authorizer, auth, true);
+
     if (!isAPIAuthorizedEntityUrns(
-            auth,
-            authorizer,
+            opContext,
             DELETE,
             List.of(urn))) {
       throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity: " + urnStr);
+              HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity: " + urnStr);
     }
-    final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_DELETE, urn.getEntityType()), authorizer, auth, true);
 
     return RestliUtil.toTask(
         () -> {
@@ -971,16 +969,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     long totalNumberOfDocsDeleted = 0;
 
     final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "deleteTimeseriesAspects", urn.getEntityType()), authorizer, auth, true);
+
     if (!isAPIAuthorizedUrns(
-            auth,
-            authorizer,
+            opContext,
             TIMESERIES, DELETE,
             List.of(urn))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urn);
     }
-    final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "deleteTimeseriesAspects", urn.getEntityType()), authorizer, auth, true);
 
     // Construct the filter.
     List<Criterion> criteria = new ArrayList<>();
@@ -1027,16 +1026,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     Urn urn = Urn.createFromString(urnStr);
 
     final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "deleteReferences", urn.getEntityType()), authorizer, auth, true);
+
     if (!isAPIAuthorizedEntityUrns(
-            auth,
-            authorizer,
+            opContext,
             DELETE,
             List.of(urn))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urnStr);
     }
-    final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "deleteReferences", urn.getEntityType()), authorizer, auth, true);
 
     return RestliUtil.toTask(
         () -> deleteEntityService.deleteReferencesTo(opContext, urn, dryRun),
@@ -1052,9 +1052,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<Void> setWriteable(
       @ActionParam(PARAM_VALUE) @Optional("true") @Nonnull Boolean value) {
 
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "setWriteable"), authorizer, auth, true);
+
     if (!isAPIAuthorized(
-            AuthenticationContext.getAuthentication(),
-            authorizer,
+            opContext,
             PoliciesConfig.SET_WRITEABLE_PRIVILEGE)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to enable and disable write mode.");
@@ -1073,15 +1077,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<Long> getTotalEntityCount(@ActionParam(PARAM_ENTITY) @Nonnull String entityName) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "getTotalEntityCount", entityName), authorizer, auth, true);
+
     if (!isAPIAuthorized(
-            auth,
-            authorizer,
+            opContext,
             COUNTS, READ)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity counts.");
     }
-    OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "getTotalEntityCount", entityName), authorizer, auth, true);
+
     return RestliUtil.toTask(() -> entitySearchService.docCount(opContext, entityName));
   }
 
@@ -1091,15 +1097,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<LongMap> batchGetTotalEntityCount(
       @ActionParam(PARAM_ENTITIES) @Nonnull String[] entityNames) {
     final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "batchGetTotalEntityCount", entityNames), authorizer, auth, true);
+
     if (!isAPIAuthorized(
-            auth,
-            authorizer,
+            opContext,
             COUNTS, READ)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity counts.");
     }
-    OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "batchGetTotalEntityCount", entityNames), authorizer, auth, true);
+
     return RestliUtil.toTask(
         () -> new LongMap(searchService.docCountPerEntity(opContext, Arrays.asList(entityNames))));
   }
@@ -1114,22 +1122,22 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throws URISyntaxException {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    ACTION_LIST_URNS, entityName), authorizer, auth, true);
+
     if (!AuthUtil.isAPIAuthorizedEntityType(
-            auth,
-            authorizer,
+            opContext,
             READ, entityName)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
-    OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_LIST_URNS, entityName), authorizer, auth, true);
 
     log.info("LIST URNS for {} with start {} and count {}", entityName, start, count);
     return RestliUtil.toTask(() -> {
       ListUrnsResult result = entityService.listUrns(opContext, entityName, start, count);
       if (!isAPIAuthorizedEntityUrns(
-              auth,
-              authorizer,
+              opContext,
               READ, result.getEntities())) {
         throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity counts.");
@@ -1155,16 +1163,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    ACTION_APPLY_RETENTION, resourceSpec.getType()), authorizer, auth, true);
+
     if (!isAPIAuthorized(
-            auth,
-            authorizer,
+            opContext,
             PoliciesConfig.APPLY_RETENTION_PRIVILEGE,
             resourceSpec)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to apply retention.");
     }
-    OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_APPLY_RETENTION, resourceSpec.getType()), authorizer, auth, true);
 
     return RestliUtil.toTask(
         () -> entityService.batchApplyRetention(opContext, start, count, attemptWithVersion, aspectName, urn),
@@ -1183,24 +1192,25 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_COUNT) int count) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    ACTION_FILTER, entityName), authorizer, auth, true);
+
     if (!AuthUtil.isAPIAuthorizedEntityType(
-            auth,
-            authorizer,
+            opContext,
             READ, entityName)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
-    OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_FILTER, entityName), authorizer, auth, true);
 
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
     log.info("FILTER RESULTS for {} with filter {}", entityName, filter);
     return RestliUtil.toTask(
         () -> {
-          SearchResult result = entitySearchService.filter(opContext.withSearchFlags(flags -> flags.setFulltext(true)), entityName, filter, sortCriterionList, start, count);
+          SearchResult result = entitySearchService.filter(opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                  entityName, filter, sortCriterionList, start, count);
           if (!isAPIAuthorizedResult(
-                  auth,
-                  authorizer,
+                  opContext,
                   result)) {
             throw new RestLiServiceException(
                     HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity counts.");
@@ -1219,16 +1229,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     Urn urn = UrnUtils.getUrn(urnStr);
 
     final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    ACTION_EXISTS, urn.getEntityType()), authorizer, auth, true);
     if (!isAPIAuthorizedEntityUrns(
-            auth,
-            authorizer,
+            opContext,
             EXISTS,
             List.of(urn))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized check entity existence: " + urnStr);
     }
-    OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_EXISTS, urn.getEntityType()), authorizer, auth, true);
+
     log.info("EXISTS for {}", urnStr);
     final boolean includeRemoved = includeSoftDelete == null || includeSoftDelete;
     return RestliUtil.toTask(
