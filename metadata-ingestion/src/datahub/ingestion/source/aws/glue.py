@@ -1351,11 +1351,13 @@ class GlueSource(StatefulIngestionSourceBase):
         def get_data_platform_instance() -> DataPlatformInstanceClass:
             return DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.platform),
-                instance=make_dataplatform_instance_urn(
-                    self.platform, self.source_config.platform_instance
-                )
-                if self.source_config.platform_instance
-                else None,
+                instance=(
+                    make_dataplatform_instance_urn(
+                        self.platform, self.source_config.platform_instance
+                    )
+                    if self.source_config.platform_instance
+                    else None
+                ),
             )
 
         @lru_cache(maxsize=None)
