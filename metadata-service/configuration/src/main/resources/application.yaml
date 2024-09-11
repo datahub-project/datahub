@@ -485,6 +485,9 @@ cache:
           status: 20
           corpUserCredentials: 20
           corpUserSettings: 20
+          roleMembership: 20
+          groupMembership: 20
+          nativeGroupMembership: 20
         structuredProperty:
           status: 300 # 5 min
           propertyDefinition: 300 # 5 min
