@@ -19,6 +19,7 @@ from datahub.emitter.mce_builder import (
     make_dashboard_urn,
     make_dataset_urn,
     make_domain_urn,
+    make_data_platform_urn,
 )
 from datahub.emitter.mcp_builder import (
     add_domain_to_entity_wu
@@ -68,6 +69,28 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities import config_clean
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    NullType,
+    SchemaField,
+    SchemaFieldDataType,
+)
+from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayType,
+    BooleanType,
+    BytesType,
+    MySqlDDL,
+    NullType,
+    NumberType,
+    RecordType,
+    SchemaField,
+    SchemaFieldDataType,
+    SchemaMetadata,
+    StringType,
+    TimeType,
+)
+from typing import Dict, Iterable, List, Optional, Type, Union
+
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +113,119 @@ chart_type_from_viz_type = {
     "box_plot": ChartTypeClass.BAR,
 }
 
+SUPERSET_FIELD_TYPE_MAPPINGS: Dict[
+        str,
+        Type[
+            Union[
+                ArrayType,
+                BytesType,
+                BooleanType,
+                NumberType,
+                RecordType,
+                StringType,
+                TimeType,
+                NullType,
+            ]
+        ],
+    ] = {
+        "BYTES": BytesType,
+        "BOOL": BooleanType,
+        "BOOLEAN": BooleanType,
+        "DOUBLE": NumberType,
+        "DOUBLE PRECISION": NumberType,
+        "DECIMAL": NumberType,
+        "NUMERIC": NumberType,
+        "BIGNUMERIC": NumberType,
+        "BIGDECIMAL": NumberType,
+        "FLOAT64": NumberType,
+        "INT": NumberType,
+        "INT64": NumberType,
+        "SMALLINT": NumberType,
+        "INTEGER": NumberType,
+        "BIGINT": NumberType,
+        "TINYINT": NumberType,
+        "BYTEINT": NumberType,
+        "STRING": StringType,
+        "TIME": TimeType,
+        "TIMESTAMP": TimeType,
+        "DATE": TimeType,
+        "DATETIME": TimeType,
+        "GEOGRAPHY": NullType,
+        "JSON": NullType,
+        "INTERVAL": NullType,
+        "ARRAY": ArrayType,
+        "STRUCT": RecordType,
+        "CHARACTER VARYING": StringType,
+        "CHARACTER": StringType,
+        "CHAR": StringType,
+        "TIMESTAMP WITHOUT TIME ZONE": TimeType,
+        "REAL": NumberType,
+        "VARCHAR": StringType,
+        "TIMESTAMPTZ": TimeType,
+        "GEOMETRY": NullType,
+        "HLLSKETCH": NullType,
+        "TIMETZ": TimeType,
+        "VARBYTE": StringType,
+    }
+TEST_DATA = [
+        {
+            "advanced_data_type": None,
+            "changed_on": "2023-01-11T01:11:09.374478",
+            "column_name": "dag_id",
+            "created_on": "2023-01-08T03:22:23.799933",
+            "description": None,
+            "expression": None,
+            "extra": "{}",
+            "filterable": True,
+            "groupby": True,
+            "id": 1276,
+            "is_active": True,
+            "is_dttm": False,
+            "python_date_format": None,
+            "type": "VARCHAR(1000)",
+            "type_generic": 1,
+            "uuid": "2a745bb2-06fe-4e97-8f78-b5cfc765c8f9",
+            "verbose_name": None
+        },
+        {
+            "advanced_data_type": None,
+            "changed_on": "2023-01-11T01:11:09.374498",
+            "column_name": "is_paused",
+            "created_on": "2023-01-08T03:22:23.799972",
+            "description": None,
+            "expression": None,
+            "extra": "{}",
+            "filterable": True,
+            "groupby": True,
+            "id": 1277,
+            "is_active": True,
+            "is_dttm": False,
+            "python_date_format": None,
+            "type": "BOOLEAN",
+            "type_generic": 3,
+            "uuid": "1d028edb-8f9a-4ec9-bb1e-3078c3fc1fac",
+            "verbose_name": None
+        },
+        {
+            "advanced_data_type": None,
+            "changed_on": "2023-01-11T01:11:09.374505",
+            "column_name": "is_subdag",
+            "created_on": "2023-01-08T03:22:23.799995",
+            "description": None,
+            "expression": None,
+            "extra": "{}",
+            "filterable": True,
+            "groupby": True,
+            "id": 1278,
+            "is_active": True,
+            "is_dttm": False,
+            "python_date_format": None,
+            "type": "BOOLEAN",
+            "type_generic": 3,
+            "uuid": "d73e0acf-5671-4281-8626-870562495b96",
+            "verbose_name": None
+        }
+    ]
 
 class SupersetConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
@@ -484,18 +620,45 @@ class SupersetSource(StatefulIngestionSourceBase):
                     entity_urn=chart_snapshot.urn,
                 )
 
+    def gen_schema_fields(self, column_data):
+        ## TODO: Remove column limit
+        schema_fields: List[SchemaField] = []
+        for col in column_data[:3]:
+            data_type = SUPERSET_FIELD_TYPE_MAPPINGS.get(col.get("type"))
+            field = SchemaField(
+                fieldPath=col.get("column_name"),
+                type=SchemaFieldDataType(data_type() if data_type else NullType()),
+                nativeDataType="",
+                description=col.get("column_name"),
+                nullable=True,
+            )
+            schema_fields.append(field)
+        return schema_fields
+
+
+    def gen_schema_metadata(
+        self,
+        dataset_urn: str,
+        dataset_response: dict,
+    ) -> Iterable[MetadataWorkUnit]:
+        dataset_response = dataset_response.get("result", {})
+        column_data = dataset_response.get("columns", [])
+        schema_metadata = SchemaMetadata(
+            schemaName=dataset_response.get("table_name"),
+            platform=make_data_platform_urn('preset'),
+            version=0,
+            hash="",
+            platformSchema=MySqlDDL(tableSchema=""),
+            fields=self.gen_schema_fields(column_data),
+        )
+        return schema_metadata
 
 ## Ingestion for Preset Dataset
     def construct_dataset_from_dataset_data(self, dataset_data):
-
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{dataset_data.get('id')}"
         ).json()
         datasource_urn = self.get_datasource_urn_from_id(dataset_response)
-        dataset_snapshot = DatasetSnapshot(
-            urn=datasource_urn,
-            aspects=[Status(removed=False)],
-        )
         ## Check API format for dataset
         modified_actor = f"urn:li:corpuser:{(dataset_data.get('changed_by') or {}).get('username', 'unknown')}"
         modified_ts = int(
@@ -514,7 +677,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             for metric in (dataset_response.get("result", {}).get("metrics", []) or [dataset_response.get("result", {}).get("metrics")])
         ]
         owners = [
-            'Mark_test'
+            owner.get("first_name") + "_" + str(owner.get("id"))
             for owner in (dataset_response.get("result", {}).get("owners", []) or [dataset_response.get("result", {}).get("owners")])
         ]
 
@@ -530,7 +693,10 @@ class SupersetSource(StatefulIngestionSourceBase):
             externalUrl=dataset_url,
             customProperties=custom_properties,
         )
-        dataset_snapshot.aspects.append(dataset_info)
+        dataset_snapshot = DatasetSnapshot(
+            urn=datasource_urn,
+            aspects=[self.gen_schema_metadata(datasource_urn, dataset_response), dataset_info],
+        )
         return dataset_snapshot
 
     def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
@@ -538,7 +704,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         # we will set total datasets to the actual number after we get the response
         total_datasets = PAGE_SIZE
 
-        while current_dataset_page * PAGE_SIZE <= total_datasets and current_dataset_page:
+        while current_dataset_page * PAGE_SIZE <= total_datasets:
             dataset_response = self.session.get(
                 f"{self.config.connect_uri}/api/v1/dataset/",
                 params=f"q=(page:{current_dataset_page},page_size:{PAGE_SIZE})",
@@ -553,18 +719,20 @@ class SupersetSource(StatefulIngestionSourceBase):
             total_datasets = payload["count"]
             for dataset_data in payload["result"]:
                 dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
-
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
                 yield from self._get_domain_wu(
                     title=dataset_data.get("table_name", ""),
                     entity_urn=dataset_snapshot.urn,
                 )
+                break
+            break
+
 
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.emit_dashboard_mces()
-        yield from self.emit_chart_mces()
+        # yield from self.emit_dashboard_mces()
+        # yield from self.emit_chart_mces()
         yield from self.emit_dataset_mces()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
