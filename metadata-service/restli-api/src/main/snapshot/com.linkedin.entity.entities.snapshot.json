@@ -6032,6 +6032,14 @@
       "doc" : "include restricted entities in results (default is to filter)",
       "default" : false,
       "optional" : true
+    }, {
+      "name" : "customHighlightingFields",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "Include mentioned fields inside elastic highlighting query",
+      "optional" : true
     } ]
   }, {
     "type" : "enum",
