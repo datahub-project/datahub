@@ -6,7 +6,7 @@
 .ecosystem_section {
   position: relative;
   background: white;
-  min-height: 95vh;
+  min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -14,7 +14,7 @@
   // margin: 4rem 0rem 0rem 0rem;
 
   .ecosystem_section_content {
-    width: 60%;
+    width: 80%;
     min-width: 800px;
     height: 100%;
     display: flex;
@@ -84,8 +84,12 @@
         overflow: hidden;
         aspect-ratio: 1;
         height: 100%;
-        flex-basis: 50%;
+        flex-basis: 40%;
         background-color: #f6f8fb;
+        justify-content: center;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
       }
 
     }
@@ -158,8 +162,8 @@
       overflow: hidden;
       text-overflow: ellipsis;
       color: white;
-      font-size: 1rem;
-      line-height: 1.25rem;
+      font-size: 1.15rem;
+      line-height: 1.3rem;
     }
   }
 }

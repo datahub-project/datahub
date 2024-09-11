@@ -47,8 +47,7 @@ const Ecosystem = () => {
                       alt="right--v1"
                     />
                     <span className="">
-                      70+ native <br /> integrations, growing
-                      <br /> every month.
+                      70+ native integrations,<br /> growing every month.
                     </span>
                   </div>
                 </Link>
@@ -64,9 +63,8 @@ const Ecosystem = () => {
                       alt="right--v1"
                     />
                     <span className="">
-                      Execute ingestion in-VPC,
-                      <br /> so your actual data never leaves <br />
-                      the network.
+                      Execute ingestion in-VPC,<br/>so your data never leaves
+                      <br /> the network.
                     </span>
                   </div>
                 </Link>
@@ -86,11 +84,7 @@ const Ecosystem = () => {
                 </Link>
               </div>
             </div>
-            <div className={styles.diagramItem}>
-              <img
-                src={useBaseUrl("/img/datahub-architechture-diagram.svg")}
-              />
-            </div>
+            <div className={styles.diagramItem} style={{ backgroundImage: `url(${useBaseUrl("/img/datahub-architechture-diagram.svg")})` }} />
           </div>
         </div>
       </div>
