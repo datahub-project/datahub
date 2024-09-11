@@ -664,9 +664,9 @@ class OktaSource(StatefulIngestionSourceBase):
         full_name = f"{profile.firstName} {profile.lastName}"
         return CorpUserInfoClass(
             active=True,
-            displayName=profile.displayName
-            if profile.displayName is not None
-            else full_name,
+            displayName=(
+                profile.displayName if profile.displayName is not None else full_name
+            ),
             firstName=profile.firstName,
             lastName=profile.lastName,
             fullName=full_name,

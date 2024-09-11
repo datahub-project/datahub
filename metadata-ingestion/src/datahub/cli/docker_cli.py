@@ -240,9 +240,11 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
     compose_files_for_stopping = (
         quickstart_compose_file
         if quickstart_compose_file
-        else [pathlib.Path(default_quickstart_compose_file)]
-        if default_quickstart_compose_file
-        else None
+        else (
+            [pathlib.Path(default_quickstart_compose_file)]
+            if default_quickstart_compose_file
+            else None
+        )
     )
     if compose_files_for_stopping:
         # docker-compose stop
@@ -868,10 +870,10 @@ def download_compose_files(
     # also allow local files
     request_session = requests.Session()
     request_session.mount("file://", FileAdapter())
-    with open(
-        quickstart_compose_file_name, "wb"
-    ) if quickstart_compose_file_name else tempfile.NamedTemporaryFile(
-        suffix=".yml", delete=False
+    with (
+        open(quickstart_compose_file_name, "wb")
+        if quickstart_compose_file_name
+        else tempfile.NamedTemporaryFile(suffix=".yml", delete=False)
     ) as tmp_file:
         path = pathlib.Path(tmp_file.name)
         quickstart_compose_file_list.append(path)
@@ -892,10 +894,10 @@ def download_compose_files(
         default_consumer_compose_file = (
             Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
         )
-        with open(
-            default_consumer_compose_file, "wb"
-        ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
-            suffix=".yml", delete=False
+        with (
+            open(default_consumer_compose_file, "wb")
+            if default_consumer_compose_file
+            else tempfile.NamedTemporaryFile(suffix=".yml", delete=False)
         ) as tmp_file:
             path = pathlib.Path(tmp_file.name)
             quickstart_compose_file_list.append(path)
@@ -914,10 +916,10 @@ def download_compose_files(
         default_kafka_compose_file = (
             Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.kafka-setup.yml"
         )
-        with open(
-            default_kafka_compose_file, "wb"
-        ) if default_kafka_compose_file else tempfile.NamedTemporaryFile(
-            suffix=".yml", delete=False
+        with (
+            open(default_kafka_compose_file, "wb")
+            if default_kafka_compose_file
+            else tempfile.NamedTemporaryFile(suffix=".yml", delete=False)
         ) as tmp_file:
             path = pathlib.Path(tmp_file.name)
             quickstart_compose_file_list.append(path)

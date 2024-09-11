@@ -464,9 +464,11 @@ class S3Source(StatefulIngestionSourceBase):
         for partition_key in partition_keys:
             fields.append(
                 SchemaField(
-                    fieldPath=f"{partition_key[0]}"
-                    if not is_fieldpath_v2
-                    else f"[version=2.0].[type=string].{partition_key[0]}",
+                    fieldPath=(
+                        f"{partition_key[0]}"
+                        if not is_fieldpath_v2
+                        else f"[version=2.0].[type=string].{partition_key[0]}"
+                    ),
                     nativeDataType="string",
                     type=SchemaFieldDataTypeClass(StringTypeClass()),
                     isPartitioningKey=True,
