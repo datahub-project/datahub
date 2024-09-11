@@ -205,10 +205,10 @@ def extract_dbt_entities(
         catalog_type = None
 
         if catalog_node is None:
-            if materialization not in {"test", "ephemeral"}:
+            if materialization in {"test", "ephemeral"}:
                 # Test and ephemeral nodes will never show up in the catalog.
                 missing_from_catalog = False
-
+            else:
                 if not only_include_if_in_catalog:
                     report.warning(
                         title="Node missing from catalog",
