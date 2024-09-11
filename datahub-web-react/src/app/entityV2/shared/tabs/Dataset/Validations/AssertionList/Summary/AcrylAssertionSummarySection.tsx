@@ -52,16 +52,18 @@ export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ gr
                 return (
                     <Tooltip
                         title={
-                            <>
-                                {group.name} {status.text} Assertions{' '}
-                                <Link
-                                    to={url}
-                                    style={{ color: REDESIGN_COLORS.BLUE }}
-                                    onClick={(event) => event.stopPropagation()}
-                                >
-                                    view
-                                </Link>
-                            </>
+                            status.resultType && (
+                                <>
+                                    {group.name} {status.text} Assertions{' '}
+                                    <Link
+                                        to={url}
+                                        style={{ color: REDESIGN_COLORS.BLUE }}
+                                        onClick={(event) => event.stopPropagation()}
+                                    >
+                                        view
+                                    </Link>
+                                </>
+                            )
                         }
                     >
                         <SummaryContainer>

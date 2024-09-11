@@ -12,7 +12,7 @@ import { AcrylAssertionProgressBar, AssertionProgressSummary } from '../AcrylAss
 import { ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '../AcrylAssertionListConstants';
 import { AcrylAssertionSummarySection } from './AcrylAssertionSummarySection';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '../../shared/constant';
-import { ASSERTION_SUMMARY_CARD_STATUSES } from '../constant';
+import { ASSERTION_SUMMARY_CARD_STATUSES, NO_RUNNING_STATAE } from '../constant';
 import { buildAssertionUrlSearch } from '../utils';
 
 const StyledCard = styled.div`
@@ -108,8 +108,12 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
     const icon = ASSERTION_TYPE_TO_ICON_MAP[group.type];
 
     const visibleStatuses: string[] = ['passing', 'failing', 'erroring'].filter((status) => group.summary?.[status]);
+    // add No running state if there is no running state assertions
+    if (visibleStatuses.length == 0) {
+        visibleStatuses.push(NO_RUNNING_STATAE);
+    }
 
-    const status = ASSERTION_SUMMARY_CARD_STATUSES.find((key) => group.summary[key]);
+    const status = ASSERTION_SUMMARY_CARD_STATUSES.find((key) => group.summary[key]) || NO_RUNNING_STATAE;
     const headerTitle = status ? ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS[status].headerComponent : null;
 
     const handleCardClick = (type: AssertionType, event: React.MouseEvent) => {

@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { CheckOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { AssertionResultType } from '@src/types.generated';
+import { NO_RUNNING_STATAE } from './constant';
 
 const StyledCardTitle = styled.div<{ background: string; color: string }>`
     background: ${({ background }) => background};
@@ -49,6 +50,18 @@ export const ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS = {
         headerComponent: (
             <StyledCardTitle background="#FEF9ED" color="#EEAE09">
                 <InfoCircleOutlined /> Error
+            </StyledCardTitle>
+        ),
+    },
+    [NO_RUNNING_STATAE]: {
+        color: '#8D95B1',
+        backgroundColor: '#e0e0e0',
+        resultType: null,
+        icon: <InfoCircleOutlined />,
+        text: '0 Running',
+        headerComponent: (
+            <StyledCardTitle background="#e0e0e0" color="#8D95B1">
+                <InfoCircleOutlined /> No Running
             </StyledCardTitle>
         ),
     },

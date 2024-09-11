@@ -17,3 +17,5 @@ export const ASSERTION_GROUP_BY_FILTER_OPTIONS = [
 ];
 
 export const ASSERTION_SUMMARY_CARD_STATUSES = ['failing', 'passing', 'erroring'];
+
+export const NO_RUNNING_STATAE = 'notRunning';
