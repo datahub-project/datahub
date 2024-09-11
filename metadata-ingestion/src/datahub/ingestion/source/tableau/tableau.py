@@ -322,12 +322,12 @@ class TableauConfig(
 
     project_path_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Filter for specific Tableau projects by checking their full path. For example, use 'My Project/Nested Project' to ingest a nested project with name 'Nested Project'. "
-        "The difference to project_pattern is that project_path_pattern exclusively checks the projects path and not both the path and the name."
-        "This is needed if you for example want to exclude all nested projects of a specific project."
-        "You can both allow and deny projects based on their path using a path, or a Regex pattern. "
-        "Deny patterns always take precedence over allow patterns. "
-        "By default, all projects will be ingested.",
+        description="Filters Tableau projects by their full path. For instance, 'My Project/Nested Project' targets a specific nested project named 'Nested Project'."
+        " Unlike project_pattern, this field only checks the project path, not both the path and project name."
+        " This is useful when you need to exclude all nested projects under a particular project."
+        " You can allow or deny projects by specifying their path or a regular expression pattern."
+        " Deny patterns always override allow patterns."
+        " By default, all projects are ingested.",
     )
 
     project_path_separator: str = Field(
@@ -910,11 +910,11 @@ class TableauSiteSource:
 
             for project in list_of_skip_projects:
                 if (
-                    project.parent_id in self.tableau_project_registry
+                    project.parent_id in projects_to_ingest
                     and self._is_denied_project(project) is False
                 ):
                     logger.debug(f"Project {project.name} is added in project registry")
-                    self.tableau_project_registry[project.id] = project
+                    projects_to_ingest[project.id] = project
 
         # We rely on automatic browse paths (v2) when creating containers. That's why we need to sort the projects here.
         # Otherwise, nested projects will not have the correct browse paths if not created in correct order / hierarchy.
