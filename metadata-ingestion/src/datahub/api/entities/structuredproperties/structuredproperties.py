@@ -126,19 +126,23 @@ class StructuredProperties(ConfigModel):
                             ],
                             cardinality=structuredproperty.cardinality,
                             immutable=structuredproperty.immutable,
-                            allowedValues=[
-                                PropertyValueClass(
-                                    value=v.value, description=v.description
-                                )
-                                for v in structuredproperty.allowed_values
-                            ]
-                            if structuredproperty.allowed_values
-                            else None,
-                            typeQualifier={
-                                "allowedTypes": structuredproperty.type_qualifier.allowed_types
-                            }
-                            if structuredproperty.type_qualifier
-                            else None,
+                            allowedValues=(
+                                [
+                                    PropertyValueClass(
+                                        value=v.value, description=v.description
+                                    )
+                                    for v in structuredproperty.allowed_values
+                                ]
+                                if structuredproperty.allowed_values
+                                else None
+                            ),
+                            typeQualifier=(
+                                {
+                                    "allowedTypes": structuredproperty.type_qualifier.allowed_types
+                                }
+                                if structuredproperty.type_qualifier
+                                else None
+                            ),
                         ),
                     )
                     emitter.emit_mcp(mcp)
@@ -160,20 +164,22 @@ class StructuredProperties(ConfigModel):
             description=structured_property.description,
             entity_types=structured_property.entityTypes,
             cardinality=structured_property.cardinality,
-            allowed_values=[
-                AllowedValue(
-                    value=av.value,
-                    description=av.description,
-                )
-                for av in structured_property.allowedValues or []
-            ]
-            if structured_property.allowedValues is not None
-            else None,
-            type_qualifier={
-                "allowed_types": structured_property.typeQualifier.get("allowedTypes")
-            }
-            if structured_property.typeQualifier
-            else None,
+            allowed_values=(
+                [
+                    AllowedValue(
+                        value=av.value,
+                        description=av.description,
+                    )
+                    for av in structured_property.allowedValues or []
+                ]
+                if structured_property.allowedValues is not None
+                else None
+            ),
+            type_qualifier=(
+                {"allowed_types": structured_property.typeQualifier.get("allowedTypes")}
+                if structured_property.typeQualifier
+                else None
+            ),
         )
 
     def to_yaml(

@@ -23,8 +23,8 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
       "${python_executable} -m venv ${venv_name} && " +
-          "${venv_name}/bin/python -m pip install --upgrade pip uv wheel 'setuptools>=63.0.0' && " +
-          "touch ${sentinel_file}"
+      "${venv_name}/bin/python -m pip install --upgrade uv && " +
+      "touch ${sentinel_file}"
 }
 
 task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
@@ -75,33 +75,21 @@ task installDevTest(type: Exec, dependsOn: [installDev]) {
     "${pip_install_command} -e .[dev,integration-tests] && touch ${sentinel_file}"
 }
 
-def testFile = hasProperty('testFile') ? testFile : 'unknown'
-task testSingle(dependsOn: [installDevTest]) {
-  doLast {
-  if (testFile != 'unknown')  {
-  exec {
-    commandLine 'bash', '-x', '-c',
-     "source ${venv_name}/bin/activate && pytest ${testFile}"
-    }
-  } else {
-   throw new GradleException("No file provided. Use -PtestFile=<test_file>")
-    }
-  }
-}
-
 task testQuick(type: Exec, dependsOn: installDevTest) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
   outputs.dir("${venv_name}")
-  commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest --cov-config=setup.cfg --cov-report xml:coverage_quick.xml -vv --continue-on-collection-errors --junit-xml=junit.quick.xml -s"
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest --cov-config=setup.cfg --cov-report xml:coverage_quick.xml -vv --continue-on-collection-errors --junit-xml=junit.quick.xml -s"
 }
 
 
 task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
-  commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
 
 

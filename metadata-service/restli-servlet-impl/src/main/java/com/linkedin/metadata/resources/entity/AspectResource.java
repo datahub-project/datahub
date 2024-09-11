@@ -137,16 +137,17 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         () -> {
 
             Authentication auth = AuthenticationContext.getAuthentication();
-          if (!isAPIAuthorizedEntityUrns(
-                  auth,
-                  _authorizer,
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            "authorizerChain", urn.getEntityType()), _authorizer, auth, true);
+
+            if (!isAPIAuthorizedEntityUrns(
+                  opContext,
                   READ,
                   List.of(urn))) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get aspect for " + urn);
           }
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "authorizerChain", urn.getEntityType()), _authorizer, auth, true);
 
           final VersionedAspect aspect =
               _entityService.getVersionedAspect(opContext, urn, aspectName, version);
@@ -186,17 +187,18 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         () -> {
 
             Authentication auth = AuthenticationContext.getAuthentication();
-          if (!isAPIAuthorizedUrns(
-                  auth,
-                  _authorizer,
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()), _authorizer, auth, true);
+
+            if (!isAPIAuthorizedUrns(
+                  opContext,
                   TIMESERIES, READ,
                   List.of(urn))) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN,
                 "User is unauthorized to get timeseries aspect for " + urn);
           }
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()), _authorizer, auth, true);
 
             GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
           response.setEntityName(entityName);
@@ -277,10 +279,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                                                      .map(MetadataChangeProposal::getEntityType)
                                                      .collect(Collectors.toSet());
     final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(), getContext(), ACTION_INGEST_PROPOSAL, entityTypes), _authorizer, authentication, true);
+              systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(), getContext(),
+                    ACTION_INGEST_PROPOSAL, entityTypes), _authorizer, authentication, true);
 
     // Ingest Authorization Checks
-    List<Pair<MetadataChangeProposal, Integer>> exceptions = isAPIAuthorized(authentication, _authorizer, ENTITY,
+    List<Pair<MetadataChangeProposal, Integer>> exceptions = isAPIAuthorized(opContext, ENTITY,
              opContext.getEntityRegistry(), metadataChangeProposals)
              .stream().filter(p -> p.getSecond() != HttpStatus.S_200_OK.getCode())
              .collect(Collectors.toList());
@@ -333,15 +336,16 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         () -> {
 
             Authentication authentication = AuthenticationContext.getAuthentication();
-          if (!isAPIAuthorized(
-                  authentication,
-                  _authorizer,
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
+                            getContext(), ACTION_GET_COUNT), _authorizer, authentication, true);
+
+            if (!isAPIAuthorized(
+                  opContext,
                   COUNTS, READ)) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get aspect counts.");
           }
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(), getContext(), ACTION_GET_COUNT, List.of()), _authorizer, authentication, true);
 
             return _entityService.getCountAspect(opContext, aspectName, urnLike);
         },
@@ -362,9 +366,14 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
     return RestliUtil.toTask(
         () -> {
+
+            Authentication authentication = AuthenticationContext.getAuthentication();
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
+                            getContext(), ACTION_RESTORE_INDICES), _authorizer, authentication, true);
+
             if (!isAPIAuthorized(
-                    AuthenticationContext.getAuthentication(),
-                    _authorizer,
+                    opContext,
                     PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
                 throw new RestLiServiceException(
                         HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entities.");
