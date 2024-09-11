@@ -32,7 +32,7 @@
       "tagline": "How Notion Uses Acryl Data to Ensure Data Reliability",
       "category": "B2B & B2C",
       "platform": "cloud",
-      "description": "<i>\"\"We rely on Acryl to gain insights and ensure our critical data is reliable. Acryl’s managed product takes DataHub to the next level through automation and emphasis on time-to-value.\" \"<br /><br /><div style='color: gray;'>—  Ada Draginda, Senior Data Engineer at Notion</div></i><br />"
+      "description": "<i>\"We rely on Acryl to gain insights and ensure our critical data is reliable. Acryl’s managed product takes DataHub to the next level through automation and emphasis on time-to-value.\"<br /><br /><div style='color: gray;'>—  Ada Draginda, Senior Data Engineer at Notion</div></i><br />"
     },
     {
       "name": "Optum",
@@ -121,7 +121,7 @@
       "tagline": "How MYOB Improved Data Reliability for dbt and Snowflake",
       "category": "Financial & Fintech",
       "platform": "cloud",
-      "description": "<i>\"\"Before bringing Acryl on board, MYOB’s data teams would see multiple breaking changes per week...Acryl has helped us significantly reduce the number of breaking changes, to the extent that they are no longer a burden on all teams.\" \"<br /><br /><div style='color: gray;'>—  Asad Naveed, Engineering Manager at MYOB</div></i><br />"
+      "description": "<i>\"Before bringing Acryl on board, MYOB’s data teams would see multiple breaking changes per week...Acryl has helped us significantly reduce the number of breaking changes, to the extent that they are no longer a burden on all teams.\"<br /><br /><div style='color: gray;'>—  Asad Naveed, Engineering Manager at MYOB</div></i><br />"
     },
     {
       "name": "DPG Media",
@@ -133,7 +133,7 @@
       "tagline": "How Acryl Data Helped DPG Media Save 25% Per Month in Snowflake Costs",
       "category": "And More",
       "platform": "cloud",
-      "description": "<i>\"\"DPG Media used DataHub Cloud to identify and safely retire redundant assets from their data warehouse, reducing costs by 25%\nDataHub Cloud is used to bring federated governance to the data mesh architecture at DPG Media.\nReduced time to data incident resolution with a central resource for data collaboration.<br />"
+      "description": "<i>DPG Media used DataHub Cloud to identify and safely retire redundant assets from their data warehouse, reducing costs by 25%. <br /><br />DataHub Cloud is used to bring federated governance to the data mesh architecture at DPG Media.<br />"
     },
     {
       "name": "MediaMarkt Saturn",
