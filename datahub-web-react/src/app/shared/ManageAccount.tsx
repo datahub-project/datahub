@@ -95,12 +95,6 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
                     </MenuItem>
                 );
             })}
-            <MenuItem key="graphiQLLink">
-                <a href="/api/graphiql">GraphiQL</a>
-            </MenuItem>
-            <MenuItem key="openapiLink">
-                <a href="/openapi/swagger-ui/index.html">OpenAPI</a>
-            </MenuItem>
             <Menu.Divider />
             <MenuItem danger key="logout" tabIndex={0}>
                 <a href="/logOut" onClick={handleLogout} data-testid="log-out-menu-item">
