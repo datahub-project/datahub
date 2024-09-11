@@ -20,8 +20,10 @@ import Trial from "./_components/Trial";
 
 const companyIndexes = require("../../adoptionStoriesIndexes.json");
 const companies = companyIndexes.companies;
-const keyCompanySlugs = ['netflix', 'visa', 'pinterest', 'airtel', 'optum'];
-const keyCompanies = keyCompanySlugs.map(slug => companies.find(co => co.slug === slug)).filter(isDefined => isDefined);
+const keyCompanySlugs = ["netflix", "visa", "pinterest", "airtel", "optum"];
+const keyCompanies = keyCompanySlugs
+  .map((slug) => companies.find((co) => co.slug === slug))
+  .filter((isDefined) => isDefined);
 
 function Home() {
   const context = useDocusaurusContext();
@@ -39,17 +41,21 @@ function Home() {
       <Hero />
       <div className="comapny__logos">
         <div className="text">
-          Trusted by industry leaders<br/>around the world.
+          Trusted by industry leaders
+          <br />
+          around the world.
         </div>
         <div className="company_logos_list_wrapper">
-          {keyCompanies.map(company => <a href={`/adoption-stories#${company.slug}`}>
-                <img
-                  src={useBaseUrl(company.imageUrl)}
-                  alt={company.name}
-                  title={company.name}
-                  className={'company_logo'}
-                />
-              </a>)}
+          {keyCompanies.map((company) => (
+            <a href={`/adoption-stories#${company.slug}`}>
+              <img
+                src={useBaseUrl(company.imageUrl)}
+                alt={company.name}
+                title={company.name}
+                className={"company_logo"}
+              />
+            </a>
+          ))}
         </div>
         {/* <div style={{ textAlign: "center", margin: "1rem" }}>
           <Link
