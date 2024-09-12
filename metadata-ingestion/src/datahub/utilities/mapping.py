@@ -292,9 +292,11 @@ class OperationProcessor:
                         owner=x.get("urn"),
                         type=x.get("category"),
                         typeUrn=x.get("categoryUrn"),
-                        source=OwnershipSourceClass(type=self.owner_source_type)
-                        if self.owner_source_type
-                        else None,
+                        source=(
+                            OwnershipSourceClass(type=self.owner_source_type)
+                            if self.owner_source_type
+                            else None
+                        ),
                     )
                     for x in sorted(
                         operation_map[Constants.ADD_OWNER_OPERATION],

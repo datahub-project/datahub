@@ -73,10 +73,12 @@ class AddDatasetTerms(DatasetTermsTransformer):
         )
         out_glossary_terms: GlossaryTermsClass = GlossaryTermsClass(
             terms=[],
-            auditStamp=in_glossary_terms.auditStamp
-            if in_glossary_terms is not None
-            else AuditStampClass(
-                time=builder.get_sys_time(), actor="urn:li:corpUser:restEmitter"
+            auditStamp=(
+                in_glossary_terms.auditStamp
+                if in_glossary_terms is not None
+                else AuditStampClass(
+                    time=builder.get_sys_time(), actor="urn:li:corpUser:restEmitter"
+                )
             ),
         )
         # Check if user want to keep existing terms

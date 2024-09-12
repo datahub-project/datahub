@@ -144,11 +144,11 @@ class PatternAddDatasetDataProduct(AddDatasetDataProduct):
     def __init__(self, config: PatternDatasetDataProductConfig, ctx: PipelineContext):
         dataset_to_data_product = config.dataset_to_data_product_urns_pattern
         generic_config = AddDatasetDataProductConfig(
-            get_data_product_to_add=lambda dataset_urn: dataset_to_data_product.value(
-                dataset_urn
-            )[0]
-            if dataset_to_data_product.value(dataset_urn)
-            else None,
+            get_data_product_to_add=lambda dataset_urn: (
+                dataset_to_data_product.value(dataset_urn)[0]
+                if dataset_to_data_product.value(dataset_urn)
+                else None
+            ),
             is_container=config.is_container,
         )
         super().__init__(generic_config, ctx)

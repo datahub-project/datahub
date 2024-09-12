@@ -251,11 +251,7 @@ public class LabelUtils {
                             : PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean isAuthorizedToUpdateTerms(
@@ -277,11 +273,7 @@ public class LabelUtils {
                             : PoliciesConfig.EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static void validateResourceAndLabel(

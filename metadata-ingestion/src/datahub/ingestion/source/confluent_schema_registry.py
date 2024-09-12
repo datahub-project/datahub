@@ -260,9 +260,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 self.report.warning(
                     title="Failed to get subject schema from schema registry",
                     message=f"Failed to get {kafka_entity} {schema_type_str or ''} schema from schema registry",
-                    context=f"{topic}: {topic_subject}"
-                    if not is_subject
-                    else topic_subject,
+                    context=(
+                        f"{topic}: {topic_subject}" if not is_subject else topic_subject
+                    ),
                     exc=e,
                 )
         else:
@@ -320,9 +320,11 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             fields = schema_util.avro_schema_to_mce_fields(
                 avro_schema,
                 is_key_schema=is_key_schema,
-                meta_mapping_processor=self.field_meta_processor
-                if self.source_config.enable_meta_mapping
-                else None,
+                meta_mapping_processor=(
+                    self.field_meta_processor
+                    if self.source_config.enable_meta_mapping
+                    else None
+                ),
                 schema_tags_field=self.source_config.schema_tags_field,
                 tag_prefix=self.source_config.tag_prefix,
             )
@@ -334,9 +336,11 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             base_name: str = topic.replace(".", "_")
             fields = protobuf_util.protobuf_schema_to_mce_fields(
                 ProtobufSchema(
-                    f"{base_name}-key.proto"
-                    if is_key_schema
-                    else f"{base_name}-value.proto",
+                    (
+                        f"{base_name}-key.proto"
+                        if is_key_schema
+                        else f"{base_name}-value.proto"
+                    ),
                     schema.schema_str,
                 ),
                 imported_schemas,

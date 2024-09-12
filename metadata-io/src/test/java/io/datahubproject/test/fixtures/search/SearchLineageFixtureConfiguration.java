@@ -30,6 +30,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilde
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SearchRanker;
@@ -132,16 +133,19 @@ public class SearchLineageFixtureConfiguration {
 
   @Bean(name = "searchLineageEntitySearchService")
   protected ElasticSearchService entitySearchService(
-      @Qualifier("searchLineageEntityIndexBuilders") EntityIndexBuilders indexBuilders) {
+      @Qualifier("searchLineageEntityIndexBuilders") EntityIndexBuilders indexBuilders,
+      final QueryFilterRewriteChain queryFilterRewriteChain) {
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             searchClient,
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             searchConfiguration,
-            null);
+            null,
+            queryFilterRewriteChain);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(searchClient, searchConfiguration, customSearchConfiguration);
+        new ESBrowseDAO(
+            searchClient, searchConfiguration, customSearchConfiguration, queryFilterRewriteChain);
     ESWriteDAO writeDAO = new ESWriteDAO(searchClient, bulkProcessor, 1);
 
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);

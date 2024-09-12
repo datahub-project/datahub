@@ -108,6 +108,15 @@ searchService:
   cache:
     hazelcast:
       serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
+  queryFilterRewriter:
+    containerExpansion:
+      enabled: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_ENABLED:true}
+      pageSize: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_PAGE_SIZE:100}
+      limit: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_LIMIT:100}
+    domainExpansion:
+      enabled: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_ENABLED:true}
+      pageSize: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE:100}
+      limit: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT:100}
 
 configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
@@ -387,7 +396,15 @@ systemUpdate:
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_BATCH_SIZE:500}
     delayMs: ${SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_DELAY_MS:5000}
     limit: ${SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_LIMIT:0}
-
+  processInstanceHasRunEvents:
+    enabled: ${SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_ENABLED:true}
+    batchSize: ${SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_BATCH_SIZE:100}
+    delayMs: ${SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_DELAY_MS:1000}
+    totalDays: ${SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_TOTAL_DAYS:90}
+    windowDays: ${SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_WINDOW_DAYS:1}
+    reprocess:
+      enabled: ${SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_REPROCESS:false}
+      
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
@@ -477,6 +494,9 @@ cache:
           status: 20
           corpUserCredentials: 20
           corpUserSettings: 20
+          roleMembership: 20
+          groupMembership: 20
+          nativeGroupMembership: 20
         structuredProperty:
           status: 300 # 5 min
           propertyDefinition: 300 # 5 min

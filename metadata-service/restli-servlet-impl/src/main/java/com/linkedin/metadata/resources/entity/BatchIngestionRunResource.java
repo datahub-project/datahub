@@ -87,15 +87,16 @@ public class BatchIngestionRunResource
       throws Exception {
 
       Authentication auth = AuthenticationContext.getAuthentication();
+      final OperationContext opContext = OperationContext.asSession(
+              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "rollback", List.of()), authorizer, auth, true);
+
+
       if (!AuthUtil.isAPIAuthorized(
-              auth,
-              authorizer,
+              opContext,
               ENTITY, MANAGE)) {
           throw new RestLiServiceException(
                   HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entity");
       }
-      final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "rollback", List.of()), authorizer, auth, true);
 
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
 
@@ -163,15 +164,16 @@ public class BatchIngestionRunResource
         () -> {
 
             Authentication auth = AuthenticationContext.getAuthentication();
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            "describe", List.of()), authorizer, auth, true);
+
             if (!AuthUtil.isAPIAuthorized(
-                    auth,
-                    authorizer,
+                    opContext,
                     ENTITY, READ)) {
                 throw new RestLiServiceException(
                         HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity");
             }
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "describe", List.of()), authorizer, auth, true);
 
           List<AspectRowSummary> summaries =
               systemMetadataService.findByRunId(
