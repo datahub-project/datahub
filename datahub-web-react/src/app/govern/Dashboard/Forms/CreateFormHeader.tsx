@@ -2,18 +2,13 @@ import { Icon, Pill, Text } from '@components';
 import { ColorOptions } from '@components/theme/config';
 import { FormState } from '@src/types.generated';
 import React, { useContext } from 'react';
-import { useHistory } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { PageRoutes } from '@src/conf/Global';
 import ManageFormContext from './ManageFormContext';
-import { BackText, BreadcrumbContainer, Header } from './styledComponents';
+import { BreadcrumbContainer, Header } from './styledComponents';
 
 const CreateFormHeader = () => {
     const { formMode, formValues } = useContext(ManageFormContext);
-
-    const history = useHistory();
-
-    const handleGoBack = () => {
-        (history as any)?.goBack();
-    };
 
     const formStatus = formValues.state || FormState.Draft;
     let colorScheme: ColorOptions = 'gray';
@@ -23,11 +18,11 @@ const CreateFormHeader = () => {
     return (
         <>
             <BreadcrumbContainer>
-                <BackText onClick={() => handleGoBack()}>
+                <Link to={`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`}>
                     <Text size="sm" color="gray">
                         Forms
                     </Text>
-                </BackText>
+                </Link>
                 <Icon icon="ChevronRight" size="xl" color="gray" />
                 <Text size="sm" color="gray">
                     {formMode === 'create' ? 'Create' : 'Edit'}

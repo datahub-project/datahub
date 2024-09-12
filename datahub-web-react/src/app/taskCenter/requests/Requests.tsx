@@ -2,11 +2,13 @@ import React, { useMemo } from 'react';
 
 import { Empty, List, message } from 'antd';
 import styled from 'styled-components';
+import { FormForActor } from '@src/types.generated';
 
 import { Message } from '../../shared/Message';
 import { useGetFormsForActorQuery } from '../../../graphql/form.generated';
 
 import { RequestItem } from './RequestItem';
+import { filterFormsForUser } from './utils';
 
 const StyledList = styled(List)`
     &&& {
@@ -25,7 +27,8 @@ export const Requests = () => {
     const requests = useMemo(
         () =>
             // client-side filter of forms unfinished
-            (data?.getFormsForActor.formsForActor || []).filter((form) => form!.numEntitiesToComplete! > 0) || [],
+            (data?.getFormsForActor.formsForActor || []).filter((form) => filterFormsForUser(form as FormForActor)) ||
+            [],
         [data],
     );
 

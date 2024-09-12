@@ -5,6 +5,7 @@ import {
     FormAssociation,
     FormPrompt,
     FormPromptAssociation,
+    FormState,
     FormType,
     ResolvedAuditStamp,
     SchemaField,
@@ -13,7 +14,9 @@ import { SCHEMA_FIELD_PROMPT_TYPES } from '../../../../entityForm/constants';
 import { GenericEntityProperties } from '../../../../types';
 
 export function getFormAssociations(entityData: GenericEntityProperties | null) {
-    return [...(entityData?.forms?.incompleteForms || []), ...(entityData?.forms?.completedForms || [])];
+    return [...(entityData?.forms?.incompleteForms || []), ...(entityData?.forms?.completedForms || [])].filter(
+        filterFormAssociationsForUser,
+    );
 }
 
 export function getFormAssociation(formUrn: string, entityData: GenericEntityProperties | null) {
@@ -194,8 +197,15 @@ export function getPromptAssociation(entityData: GenericEntityProperties | null,
 
 // Get prompts from both complete and incomplete forms
 export function getAllPrompts(entityData: GenericEntityProperties | null) {
-    let prompts = entityData?.forms?.incompleteForms?.flatMap((form) => form.form.info.prompts) || [];
-    prompts = prompts.concat(entityData?.forms?.completedForms?.flatMap((form) => form.form.info.prompts) || []);
+    let prompts =
+        entityData?.forms?.incompleteForms
+            ?.filter(filterFormAssociationsForUser)
+            ?.flatMap((form) => form.form.info.prompts) || [];
+    prompts = prompts.concat(
+        entityData?.forms?.completedForms
+            ?.filter(filterFormAssociationsForUser)
+            ?.flatMap((form) => form.form.info.prompts) || [],
+    );
     return prompts;
 }
 
@@ -326,4 +336,8 @@ export function getVerificationAuditStamp(entityData: GenericEntityProperties | 
 
 export function getBulkByQuestionPrompts(form: Form) {
     return form.info.prompts.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type)) || [];
+}
+
+export function filterFormAssociationsForUser(association: FormAssociation) {
+    return association.form.info.status.state === FormState.Published;
 }

@@ -3,6 +3,7 @@ import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import { useCreateFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
 import { FormState, FormType } from '@src/types.generated';
+import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import React, { useContext, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import ManageFormContext from './ManageFormContext';
@@ -10,6 +11,7 @@ import { FooterContainer } from './styledComponents';
 import { mapPromptsToCreatePromptInput } from './formUtils';
 
 const FormFooter = () => {
+    const isThemeV2 = useIsThemeV2();
     const { form, formValues, setFormValues, setIsFormLoading } = useContext(ManageFormContext);
     const [createForm] = useCreateFormMutation();
     const [updateForm] = useUpdateFormMutation();
@@ -44,8 +46,6 @@ const FormFooter = () => {
         }));
     };
 
-    console.log('formValues', formValues.questions);
-
     const saveForm = (state?: FormState) => {
         if (form) {
             form.validateFields().then(() => {
@@ -62,12 +62,14 @@ const FormFooter = () => {
                             groups: formValues.actors?.groups?.map((group) => group.urn),
                         },
                         state: state || formValues.state,
-                        formAssetAssignment: {
-                            orFilters: formValues.assets?.orFilters,
-                            json: formValues.assets?.logicalPredicate
-                                ? JSON.stringify(formValues.assets.logicalPredicate)
-                                : undefined,
-                        },
+                        formAssetAssignment: formValues.assets?.orFilters
+                            ? {
+                                  orFilters: formValues.assets?.orFilters,
+                                  json: formValues.assets?.logicalPredicate
+                                      ? JSON.stringify(formValues.assets.logicalPredicate)
+                                      : undefined,
+                              }
+                            : undefined,
                     };
                     setIsFormLoading(true);
 
@@ -98,12 +100,14 @@ const FormFooter = () => {
                             groups: formValues.actors?.groups?.map((group) => group.urn),
                         },
                         state: state || formValues.state,
-                        formAssetAssignment: {
-                            orFilters: formValues.assets?.orFilters,
-                            json: formValues.assets?.logicalPredicate
-                                ? JSON.stringify(formValues.assets.logicalPredicate)
-                                : undefined,
-                        },
+                        formAssetAssignment: formValues.assets?.orFilters
+                            ? {
+                                  orFilters: formValues.assets?.orFilters,
+                                  json: formValues.assets?.logicalPredicate
+                                      ? JSON.stringify(formValues.assets.logicalPredicate)
+                                      : undefined,
+                              }
+                            : undefined,
                     };
                     setIsFormLoading(true);
 
@@ -130,7 +134,7 @@ const FormFooter = () => {
     };
 
     return (
-        <FooterContainer>
+        <FooterContainer $showV1Styles={!isThemeV2}>
             <Button variant="outline" onClick={() => saveForm()}>
                 Save
             </Button>

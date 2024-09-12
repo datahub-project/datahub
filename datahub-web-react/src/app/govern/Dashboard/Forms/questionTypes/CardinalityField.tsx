@@ -9,7 +9,7 @@ interface Props {
 
 const CardinalityField = ({ paramsField }: Props) => {
     const form = Form.useFormInstance();
-    const cardinality = form.getFieldValue([paramsField, 'cardinality']) || PromptCardinality.Single;
+    const cardinality = form.getFieldValue([paramsField, 'cardinality']) || PromptCardinality.Multiple;
     const [isChecked, setIsChecked] = useState(cardinality === PromptCardinality.Multiple);
 
     function handleCheck() {
