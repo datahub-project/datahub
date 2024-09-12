@@ -126,7 +126,8 @@ public class SearchDocumentTransformerTest {
     assertEquals(
         parsedJson.get("customProperties"),
         JsonNodeFactory.instance.arrayNode().add("shortValue=123"));
-    assertEquals(parsedJson.get("esObjectField"), JsonNodeFactory.instance.arrayNode().add("123"));
+    assertEquals(
+        parsedJson.get("esObjectField"), JsonNodeFactory.instance.arrayNode().add("123").add(""));
 
     searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 20);
     snapshot = TestEntityUtil.getSnapshot();
@@ -150,6 +151,7 @@ public class SearchDocumentTransformerTest {
             .add("value1")
             .add("value2")
             .add("123")
+            .add("")
             .add("0123456789"));
   }
 
