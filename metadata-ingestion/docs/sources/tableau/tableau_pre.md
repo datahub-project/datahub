@@ -57,6 +57,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | User                        | [User (a.k.a CorpUser)](../../metamodel/entities/corpuser.md) | Optionally Extracted              |
 | Workbook                    | [Container](../../metamodel/entities/container.md)            | SubType `"Workbook"`              |
 | Tag                         | [Tag](../../metamodel/entities/tag.md)                        | Optionally Extracted              |
+| Permissions (Groups)        | [Role](../../metamodel/entities/role)                         | Optionally Extracted              |
 
 #### Lineage
 
@@ -68,6 +69,40 @@ Lineage is emitted as received from Tableau's metadata API for
 - Tables upstream to Embedded or Published Data Source
 - Custom SQL datasources upstream to Embedded or Published Data Source
 - Tables upstream to Custom SQL Data Source
+
+#### Access Roles
+
+The ingestion can be configured to ingest Tableau permissions as access roles. This enables users to request access to Tableau assets from Datahub.
+The Tableau group permissions are fetched from the Tableau API, optionally transformed to your needs, and then added as roles to the Tableau asset in Datahub. Currently, this is only available for Workbooks.
+
+The configuration in the recipe could look something like this:
+```
+source:
+  type: tableau
+  config:
+    connect_uri: https://tableau.example.com
+
+    access_role_ingestion:
+      enable_workbooks: True
+      role_prefix: "AR-Tableau-"
+      group_substring_start: 29
+      role_description: "IAM role required to access this Tableau asset."
+      displayed_capabilities: ["Read", "Write", "Delete"]
+      request_url: "https://iam.example.com/accessRequest?role=$ROLE_NAME"
+      group_name_pattern:
+        allow: [ "^.*_Consumer$" ]
+
+    username: "${TABLEAU_USER}"
+    password: "${TABLEAU_PASSWORD}"
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+```
+Assuming you have groups in Tableau with names like `AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer` or `AB_XY00-Tableau-Access_A_123_PROJECT_XY_Analyst` and corresponding IAM roles like `AR-Tableau-PROJECT_XY_Consumer` or `AR-Tableau-PROJECT_XY_Analyst`.
+With the above ingestion config, we would filter for the consumer roles and transform the group name in Tableau to the corresponding IAM role that is used in the request link to request access to the asset.
+You can find more information about the specific fields in the config details below.
 
 #### Caveats
 
