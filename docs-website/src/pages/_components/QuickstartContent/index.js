@@ -9,28 +9,16 @@ import styles from "./quickstartcontent.module.scss";
 // import CodeBlock from "@theme/CodeBlock";
 // import TownhallButton from "../TownhallButton";
 // import { Section } from "../Section";
-import quickstart from "./quickstartContent";
+import quickstartContent from "./quickstartContent";
+import { motion, useScroll, useTransform} from 'framer-motion';
 
 const QuickstartContent = ({}) => {
-  // const { colorMode } = useColorMode();
-  const [barHeight, setBarHeight] = useState(0);
-  const scrollableElement = useRef();
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollPosition = scrollableElement.current.scrollTop;
-      const totalHeight =
-        scrollableElement.current.scrollHeight -
-        scrollableElement.current.clientHeight;
-      const progressPercentage = (scrollPosition / totalHeight) * 100;
-      const scaledProgressPercentage = progressPercentage * 0.5;
-      setBarHeight(scaledProgressPercentage);
-    };
-    scrollableElement.current?.addEventListener("scroll", handleScroll);
-    return () => {
-      scrollableElement.current?.removeEventListener("scroll", handleScroll);
-    };
-  }, [scrollableElement]);
+  const scrollableElement = useRef(null)
+  const { scrollYProgress } = useScroll({
+    target: scrollableElement,
+    offset: ["start end", "end end"]
+  })
+  const scaleBar = useTransform(scrollYProgress, [0, .9, 1], [0, .8, 1])
 
   return (
     <div className={clsx("quickstart", styles.quickstart)}>
@@ -45,24 +33,45 @@ const QuickstartContent = ({}) => {
         id="quickstart__container"
         ref={scrollableElement}
       >
-        <div
+        <motion.div
           className="quickstart__bar"
-          style={{ height: `${barHeight}%`, maxHeight: "50vh" }}
+          style={{  scaleY: scaleBar }}
         />
-        {quickstart.map((data, idx) => (
-          <div className="quickstart__content" key={idx}>
+        {quickstartContent.map((data, idx) => (
+          <motion.div key={idx} className="quickstart__content" key={idx}
+            initial={{
+              opacity: 0,
+              scale: .9,
+              y: 50,
+            }}
+            exit={{
+              opacity: 0,
+              scale: .9,
+              y: -50
+            }}
+            whileInView={{
+              opacity: 1,
+              scale: 1,
+              y: 0,
+              transition: {
+                delay: 0,
+                duration: .75
+              }
+            }}
+            viewport={{ once: true, amount: .9 }}
+          >
             <div className="quickstart__text">
               <div className="quickstart__text__label">{data.heading}</div>
               <div className="quickstart__text__head">{data.title}</div>
               <div className="quickstart__text__desc">
                 <p dangerouslySetInnerHTML={{ __html: data.description }} />
-                <span className="learn_more">Learn More →</span>
+                {/* <span className="learn_more">Learn More →</span> */}
               </div>
             </div>
             <div className="quickstart__img">
               <img src={useBaseUrl(data.image)} />
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>

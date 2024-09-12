@@ -22,7 +22,7 @@ const Community = () => {
           setCount(currentCountRef.current);
           makeTimeout();
         }
-      }, isSlowCount ? Math.random()*6000 : (isMediumCount ? 150 : 50)); 
+      }, isSlowCount ? Math.random() * 6000 : (isMediumCount ? 150 : 50)); 
     }
     makeTimeout();
   };

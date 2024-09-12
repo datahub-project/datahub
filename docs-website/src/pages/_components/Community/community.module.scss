@@ -66,7 +66,6 @@
     .community_section_subText {
       padding: 100px 50px 50px;
       color: white;
-      font-size: 28px;
 
       a {
         text-decoration: none;
@@ -265,15 +264,15 @@
 
 .slide_track {
   display: flex;
-  width: calc(116px * 6 * 2);
+  width: calc((72px + 24px) * 6 * 2);
   /* Width of the track */
   animation: scroll 15s linear infinite;
 }
 
 .slide {
-  width: 100px;
-  height: 100px;
-  margin-left: 16px;
+  width: 72px;
+  height: 72px;
+  margin-left: 24px;
   display: flex;
   justify-content: center;
   overflow: hidden;

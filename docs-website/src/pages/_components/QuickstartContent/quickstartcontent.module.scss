@@ -68,7 +68,8 @@
 
 .quickstart {
   width: 80vw;
-  margin: 5rem auto;
+  min-height: 100vh;
+  margin: 12rem auto;
   display: flex;
   flex-direction: column;
   gap: 100px;
@@ -94,31 +95,30 @@
         content: "";
 
         width: 10px;
+        height: 100%;
         position: absolute;
 
         background: linear-gradient(180deg, #29B5E8 18.71%, #FFBF4C 143.37%);
         border-radius: 10px;
-        transition: height 0.3s;
-        animation: progress 0.3s linear;
+        transform-origin: top;
+        // transition: transform 0.3s;
+        // animation: progress 0.3s linear;
 
         /* Inside auto layout */
         display: block;
     }
 
-    @keyframes progress {
-      0% {
-        height: 0;
-      }
-      100% {
-        height: 100%;
-      }
-    }
+    // @keyframes progress {
+    //   0% {
+    //     height: 0;
+    //   }
+    //   100% {
+    //     height: 100%;
+    //   }
+    // }
 
     .quickstart__container {
-      max-height: 52vh;
-      overflow-y: auto;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
+      position: relative;
     }
 
     .quickstart__content {
@@ -127,6 +127,9 @@
 
       .quickstart__text {
         max-width: 45vw;
+        display: flex;
+        justify-content: center;
+        flex-direction: column;
         
         div {
           padding-left: 10%;
