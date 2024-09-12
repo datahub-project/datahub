@@ -1,20 +1,31 @@
-package com.datahub.metadata.dao.producer;
+package com.datahub.metadata.dao.throttle;
+
+import static com.linkedin.metadata.dao.throttle.ThrottleType.MCL_TIMESERIES_LAG;
+import static com.linkedin.metadata.dao.throttle.ThrottleType.MCL_VERSIONED_LAG;
 
 import com.codahale.metrics.Gauge;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
+import com.linkedin.metadata.dao.throttle.ThrottleControl;
+import com.linkedin.metadata.dao.throttle.ThrottleEvent;
+import com.linkedin.metadata.dao.throttle.ThrottleSensor;
+import com.linkedin.metadata.dao.throttle.ThrottleType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -27,23 +38,43 @@ import org.apache.kafka.common.TopicPartition;
 import org.springframework.util.backoff.BackOffExecution;
 import org.springframework.util.backoff.ExponentialBackOff;
 
+/**
+ * This class is designed to monitor MCL consumption by a specific consumer group and provide
+ * throttling hooks.
+ *
+ * <p>Initially this was designed for throttling the async mcp processor `mce-consumer`, however it
+ * also handles throttling synchronous requests via rest.li, graphql, and openapi for non-browser
+ * based requests.
+ */
 @Slf4j
 @Builder(toBuilder = true)
-public class KafkaProducerThrottle {
+public class KafkaThrottleSensor implements ThrottleSensor {
+  private static final Set<ThrottleType> SUPPORTED_THROTTLE_TYPES =
+      Set.of(MCL_VERSIONED_LAG, MCL_TIMESERIES_LAG);
   @Nonnull private final EntityRegistry entityRegistry;
   @Nonnull private final Admin kafkaAdmin;
   @Nonnull private final MetadataChangeProposalConfig.ThrottlesConfig config;
   @Nonnull private final String mclConsumerGroupId;
   @Nonnull private final String versionedTopicName;
   @Nonnull private final String timeseriesTopicName;
-  @Nonnull private final Consumer<Boolean> pauseConsumer;
+
+  /** A list of throttle event listeners to execute when throttling occurs and ceases */
+  @Builder.Default @Nonnull
+  private final List<Function<ThrottleEvent, ThrottleControl>> throttleCallbacks =
+      new ArrayList<>();
 
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-  private final Map<MclType, Long> medianLag = new ConcurrentHashMap<>();
-  private final Map<MclType, BackOffExecution> backoffMap = new ConcurrentHashMap<>();
+  private final Map<ThrottleType, Long> medianLag = new ConcurrentHashMap<>();
+  private final Map<ThrottleType, BackOffExecution> backoffMap = new ConcurrentHashMap<>();
+
+  @Override
+  public KafkaThrottleSensor addCallback(Function<ThrottleEvent, ThrottleControl> callback) {
+    throttleCallbacks.add(callback);
+    return this;
+  }
 
   /** Update lag information at a given rate */
-  public KafkaProducerThrottle start() {
+  public KafkaThrottleSensor start() {
     if ((config.getVersioned().isEnabled() || config.getTimeseries().isEnabled())
         && config.getUpdateIntervalMs() > 0) {
       scheduler.scheduleAtFixedRate(
@@ -79,13 +110,13 @@ public class KafkaProducerThrottle {
    * @return median lag per mcl topic
    */
   @VisibleForTesting
-  public Map<MclType, Long> getLag() {
+  public Map<ThrottleType, Long> getLag() {
     return medianLag.entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   @VisibleForTesting
-  public boolean isThrottled(MclType mclType) {
+  public boolean isThrottled(ThrottleType mclType) {
     if (getThrottleConfig(mclType).isEnabled() && medianLag.containsKey(mclType)) {
       return medianLag.get(mclType) > getThrottleConfig(mclType).getThreshold();
     }
@@ -93,7 +124,7 @@ public class KafkaProducerThrottle {
   }
 
   @VisibleForTesting
-  public long computeNextBackOff(MclType mclType) {
+  public long computeNextBackOff(ThrottleType mclType) {
     if (isThrottled(mclType)) {
       BackOffExecution backOffExecution =
           backoffMap.computeIfAbsent(
@@ -115,54 +146,61 @@ public class KafkaProducerThrottle {
 
   @VisibleForTesting
   public void throttle() throws InterruptedException {
-    for (MclType mclType : MclType.values()) {
-      if (isThrottled(mclType)) {
-        long backoffWaitMs = computeNextBackOff(mclType);
 
-        if (backoffWaitMs > 0) {
-          log.warn(
-              "Throttled producer Topic: {} Duration: {} ms MedianLag: {}",
-              getTopicName(mclType),
-              backoffWaitMs,
-              medianLag.get(mclType));
-          MetricUtils.gauge(
-              this.getClass(),
-              String.format("%s_throttled", getTopicName(mclType)),
-              () -> (Gauge<?>) () -> 1);
-          MetricUtils.counter(
-                  this.getClass(), String.format("%s_throttledCount", getTopicName(mclType)))
-              .inc();
+    Map<ThrottleType, Long> throttled = new LinkedHashMap<>();
 
-          log.info("Pausing MCE consumer for {} ms.", backoffWaitMs);
-          pauseConsumer.accept(true);
-          Thread.sleep(backoffWaitMs);
-          log.info("Resuming MCE consumer.");
-          pauseConsumer.accept(false);
+    for (ThrottleType mclType : SUPPORTED_THROTTLE_TYPES) {
+      long backoffWaitMs = computeNextBackOff(mclType);
 
-          // if throttled for one topic, skip remaining
-          return;
-        } else {
-          // no throttle or exceeded configuration limits
-          log.info("MCE consumer throttle exponential backoff reset.");
-          backoffMap.remove(mclType);
-          MetricUtils.gauge(
-              this.getClass(),
-              String.format("%s_throttled", getTopicName(mclType)),
-              () -> (Gauge<?>) () -> 0);
-        }
-      } else {
+      if (backoffWaitMs <= 0) {
         // not throttled, remove backoff tracking
-        log.info("MCE consumer throttle exponential backoff reset.");
+        log.info("Throttle exponential backoff reset.");
         backoffMap.remove(mclType);
         MetricUtils.gauge(
             this.getClass(),
             String.format("%s_throttled", getTopicName(mclType)),
             () -> (Gauge<?>) () -> 0);
+      } else {
+        throttled.put(mclType, backoffWaitMs);
+      }
+    }
+
+    // handle throttled
+    if (!throttled.isEmpty()) {
+      long maxBackoffWaitMs = throttled.values().stream().max(Comparator.naturalOrder()).get();
+      log.warn(
+          "Throttled Topic: {} Duration: {} ms MedianLag: {}",
+          throttled.keySet().stream().map(this::getTopicName).collect(Collectors.toList()),
+          maxBackoffWaitMs,
+          throttled.keySet().stream().map(medianLag::get).collect(Collectors.toList()));
+
+      throttled.keySet().stream()
+          .forEach(
+              mclType -> {
+                MetricUtils.gauge(
+                    this.getClass(),
+                    String.format("%s_throttled", getTopicName(mclType)),
+                    () -> (Gauge<?>) () -> 1);
+                MetricUtils.counter(
+                        this.getClass(), String.format("%s_throttledCount", getTopicName(mclType)))
+                    .inc();
+              });
+
+      log.info("Throttling {} callbacks for {} ms.", throttleCallbacks.size(), maxBackoffWaitMs);
+      final ThrottleEvent throttleEvent = ThrottleEvent.throttle(throttled);
+      List<ThrottleControl> throttleControls =
+          throttleCallbacks.stream().map(callback -> callback.apply(throttleEvent)).toList();
+
+      if (throttleControls.stream().anyMatch(ThrottleControl::hasCallback)) {
+        Thread.sleep(maxBackoffWaitMs);
+        log.info("Resuming {} callbacks after wait.", throttleControls.size());
+        throttleControls.forEach(
+            control -> control.execute(ThrottleEvent.clearThrottle(throttleEvent)));
       }
     }
   }
 
-  private Map<MclType, Long> getMedianLag() {
+  private Map<ThrottleType, Long> getMedianLag() {
     try {
       Map<TopicPartition, OffsetAndMetadata> mclConsumerOffsets =
           kafkaAdmin
@@ -183,11 +221,11 @@ public class KafkaProducerThrottle {
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
       return Stream.of(
-              Pair.of(MclType.VERSIONED, versionedTopicName),
-              Pair.of(MclType.TIMESERIES, timeseriesTopicName))
+              Pair.of(MCL_VERSIONED_LAG, versionedTopicName),
+              Pair.of(MCL_TIMESERIES_LAG, timeseriesTopicName))
           .map(
               topic -> {
-                MclType mclType = topic.getFirst();
+                ThrottleType mclType = topic.getFirst();
                 String topicName = topic.getSecond();
 
                 Map<TopicPartition, OffsetAndMetadata> topicOffsets =
@@ -212,22 +250,22 @@ public class KafkaProducerThrottle {
           .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     } catch (ExecutionException | InterruptedException e) {
       log.error("Error fetching consumer group offsets.", e);
-      return Map.of(MclType.VERSIONED, 0L, MclType.TIMESERIES, 0L);
+      return Map.of(MCL_VERSIONED_LAG, 0L, MCL_TIMESERIES_LAG, 0L);
     }
   }
 
-  private MetadataChangeProposalConfig.ThrottleConfig getThrottleConfig(MclType mclType) {
+  private MetadataChangeProposalConfig.ThrottleConfig getThrottleConfig(ThrottleType mclType) {
     MetadataChangeProposalConfig.ThrottleConfig throttleConfig;
     switch (mclType) {
-      case VERSIONED -> throttleConfig = config.getVersioned();
-      case TIMESERIES -> throttleConfig = config.getTimeseries();
+      case MCL_VERSIONED_LAG -> throttleConfig = config.getVersioned();
+      case MCL_TIMESERIES_LAG -> throttleConfig = config.getTimeseries();
       default -> throw new IllegalStateException();
     }
     return throttleConfig;
   }
 
-  private String getTopicName(MclType mclType) {
-    return MclType.TIMESERIES.equals(mclType) ? timeseriesTopicName : versionedTopicName;
+  private String getTopicName(ThrottleType mclType) {
+    return MCL_TIMESERIES_LAG.equals(mclType) ? timeseriesTopicName : versionedTopicName;
   }
 
   private static Double getMedian(Collection<Double> listValues) {
@@ -237,10 +275,5 @@ public class KafkaProducerThrottle {
       median = (values[values.length / 2] + values[values.length / 2 - 1]) / 2;
     else median = values[values.length / 2];
     return median;
-  }
-
-  public enum MclType {
-    TIMESERIES,
-    VERSIONED
   }
 }

@@ -26,7 +26,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.elasticsearch.query.request.TestSearchFieldConfig;
+import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -115,6 +115,7 @@ public class SearchDocumentTransformerTest {
     assertEquals(
         parsedJson.get("esObjectFieldInteger").get("key1").getNodeType(),
         JsonNodeFactory.instance.numberNode(123).getNodeType());
+    assertEquals(parsedJson.get("esObjectField").get("key3").asText(), "");
   }
 
   @Test
@@ -155,7 +156,8 @@ public class SearchDocumentTransformerTest {
     assertEquals(
         parsedJson.get("customProperties"),
         JsonNodeFactory.instance.arrayNode().add("shortValue=123"));
-    assertEquals(parsedJson.get("esObjectField"), JsonNodeFactory.instance.arrayNode().add("123"));
+    assertEquals(
+        parsedJson.get("esObjectField"), JsonNodeFactory.instance.arrayNode().add("123").add(""));
 
     searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 20);
     snapshot = TestEntityUtil.getSnapshot();
@@ -179,6 +181,7 @@ public class SearchDocumentTransformerTest {
             .add("value1")
             .add("value2")
             .add("123")
+            .add("")
             .add("0123456789"));
   }
 

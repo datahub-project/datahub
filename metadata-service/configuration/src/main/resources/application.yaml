@@ -108,6 +108,15 @@ searchService:
   cache:
     hazelcast:
       serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
+  queryFilterRewriter:
+    containerExpansion:
+      enabled: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_ENABLED:true}
+      pageSize: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_PAGE_SIZE:100}
+      limit: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_LIMIT:100}
+    domainExpansion:
+      enabled: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_ENABLED:true}
+      pageSize: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE:100}
+      limit: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT:100}
 
 configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
@@ -534,18 +543,27 @@ metadataChangeProposal:
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 
-    # Versioned MCL topic
+    # What component is throttled
+    components:
+      mceConsumer:
+        enabled: ${MCP_MCE_CONSUMER_THROTTLE_ENABLED:false}
+      apiRequests:
+        enabled: ${MCP_API_REQUESTS_THROTTLE_ENABLED:false}
+
+    # How is it throttled
+    # Versioned MCL topic settings
     versioned:
-      # Whether to throttle MCP processing based on MCL backlog
+      # Whether to monitor MCL versioned backlog
       enabled: ${MCP_VERSIONED_THROTTLE_ENABLED:false}
       threshold: ${MCP_VERSIONED_THRESHOLD:4000} # throttle threshold
       maxAttempts: ${MCP_VERSIONED_MAX_ATTEMPTS:1000}
       initialIntervalMs: ${MCP_VERSIONED_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_VERSIONED_MULTIPLIER:10}
       maxIntervalMs: ${MCP_VERSIONED_MAX_INTERVAL_MS:30000}
-    # Timeseries MCL topic
+
+    # Timeseries MCL topic settings
     timeseries:
-      # Whether to throttle MCP processing based on MCL backlog
+      # Whether to monitor MCL timeseries backlog
       enabled: ${MCP_TIMESERIES_THROTTLE_ENABLED:false}
       threshold: ${MCP_TIMESERIES_THRESHOLD:4000} # throttle threshold
       maxAttempts: ${MCP_TIMESERIES_MAX_ATTEMPTS:1000}
