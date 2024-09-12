@@ -55,7 +55,8 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
-    KnownQueryLineageInfo
+    KnownQueryLineageInfo,
+    ObservedQuery,
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -472,7 +473,15 @@ class HanaSource(SQLAlchemySource):
             queries = self.get_query_logs()
             for query in queries:
                 self.aggregator.add_observed_query(
-                    observed=query.get("statement_string"),
+                    observed=ObservedQuery(
+                        query=query.get("statement_string"),
+                        timestamp=query.get("last_execution_timestamp"),
+                        user=CorpuserUrn(
+                            make_user_urn(
+                                query.get("user_name")
+                            )
+                        )
+                    ),
                 )
 
             for future in as_completed(futures):
