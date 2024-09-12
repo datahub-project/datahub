@@ -191,7 +191,7 @@ public class TestOperationContexts {
     IndexConvention indexConvention =
         Optional.ofNullable(indexConventionSupplier)
             .map(Supplier::get)
-            .orElse(IndexConventionImpl.NO_PREFIX);
+            .orElse(IndexConventionImpl.noPrefix("MD5"));
 
     ServicesRegistryContext servicesRegistryContext =
         Optional.ofNullable(servicesRegistrySupplier).orElse(() -> null).get();
@@ -257,6 +257,12 @@ public class TestOperationContexts {
       @Nullable EntityRegistry entityRegistry) {
     return systemContextNoSearchAuthorization(entityRegistry)
         .asSession(RequestContext.TEST, authorizer, sessionAuthorization);
+  }
+
+  public static OperationContext userContextNoSearchAuthorization(
+      @Nonnull RequestContext requestContext) {
+    return systemContextNoSearchAuthorization(defaultEntityRegistry())
+        .asSession(requestContext, Authorizer.EMPTY, TEST_USER_AUTH);
   }
 
   @Builder

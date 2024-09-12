@@ -1,8 +1,37 @@
+from typing import Any, Dict
+
 import pytest
 
-import datahub.ingestion.source.tableau_constant as c
-from datahub.ingestion.source.tableau import TableauSiteSource
-from datahub.ingestion.source.tableau_common import get_filter_pages, make_filter
+import datahub.ingestion.source.tableau.tableau_constant as c
+from datahub.ingestion.source.tableau.tableau import TableauSiteSource
+from datahub.ingestion.source.tableau.tableau_common import (
+    get_filter_pages,
+    make_filter,
+    tableau_field_to_schema_field,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
+
+
+def test_tablea_source_handles_none_nativedatatype():
+    field: Dict[str, Any] = {
+        "__typename": "CalculatedField",
+        "id": "abcd",
+        "name": "Test Field",
+        "description": None,
+        "isHidden": False,
+        "folderName": None,
+        "upstreamFields": [],
+        "upstreamColumns": [],
+        "role": None,
+        "dataType": None,
+        "defaultFormat": "s",
+        "aggregation": None,
+        "formula": "a/b + d",
+    }
+    schema_field: SchemaField = tableau_field_to_schema_field(
+        field=field, ingest_tags=False
+    )
+    assert schema_field.nativeDataType == "UNKNOWN"
 
 
 def test_tableau_source_unescapes_lt():

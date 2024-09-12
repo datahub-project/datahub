@@ -49,7 +49,7 @@ public class DatasetStatsSummaryResolver
               log.debug(
                   "User {} is not authorized to view profile information for dataset {}",
                   context.getActorUrn(),
-                  resourceUrn.toString());
+                  resourceUrn);
               return null;
             }
 

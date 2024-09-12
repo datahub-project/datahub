@@ -181,7 +181,7 @@ public class AspectsBatchImpl implements AspectsBatch {
                             mcp, auditStamp, retrieverContext.getAspectRetriever());
                       }
                     } catch (IllegalArgumentException e) {
-                      log.error("Invalid proposal, skipping and proceeding with batch: " + mcp, e);
+                      log.error("Invalid proposal, skipping and proceeding with batch: {}", mcp, e);
                       return null;
                     }
                   })

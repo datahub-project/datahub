@@ -1,5 +1,4 @@
 import contextlib
-import enum
 import functools
 import json
 import logging
@@ -67,6 +66,7 @@ from datahub.metadata.schema_classes import (
     TelemetryClientIdClass,
 )
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 if TYPE_CHECKING:
@@ -1138,9 +1138,7 @@ class DataHubGraph(DatahubRestEmitter):
 
         return result["data"]
 
-    class RelationshipDirection(str, enum.Enum):
-        # FIXME: Upgrade to enum.StrEnum when we drop support for Python 3.10
-
+    class RelationshipDirection(StrEnum):
         INCOMING = "INCOMING"
         OUTGOING = "OUTGOING"
 
@@ -1742,9 +1740,9 @@ class DataHubGraph(DatahubRestEmitter):
             "type": type,
             "properties": properties,
             "externalUrl": external_url,
-            "error": {"type": error_type, "message": error_message}
-            if error_type
-            else None,
+            "error": (
+                {"type": error_type, "message": error_message} if error_type else None
+            ),
         }
 
         res = self.execute_graphql(

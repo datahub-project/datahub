@@ -111,9 +111,11 @@ class FivetranSource(StatefulIngestionSourceBase):
         for table_lineage in connector.table_lineage:
             input_dataset_urn = DatasetUrn.create_from_ids(
                 platform_id=source_platform,
-                table_name=f"{source_database.lower()}.{table_lineage.source_table}"
-                if source_database
-                else table_lineage.source_table,
+                table_name=(
+                    f"{source_database.lower()}.{table_lineage.source_table}"
+                    if source_database
+                    else table_lineage.source_table
+                ),
                 env=source_platform_detail.env,
                 platform_instance=source_platform_detail.platform_instance,
             )
@@ -132,23 +134,27 @@ class FivetranSource(StatefulIngestionSourceBase):
                     fine_grained_lineage.append(
                         FineGrainedLineage(
                             upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                            upstreams=[
-                                builder.make_schema_field_urn(
-                                    str(input_dataset_urn),
-                                    column_lineage.source_column,
-                                )
-                            ]
-                            if input_dataset_urn
-                            else [],
+                            upstreams=(
+                                [
+                                    builder.make_schema_field_urn(
+                                        str(input_dataset_urn),
+                                        column_lineage.source_column,
+                                    )
+                                ]
+                                if input_dataset_urn
+                                else []
+                            ),
                             downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                            downstreams=[
-                                builder.make_schema_field_urn(
-                                    str(output_dataset_urn),
-                                    column_lineage.destination_column,
-                                )
-                            ]
-                            if output_dataset_urn
-                            else [],
+                            downstreams=(
+                                [
+                                    builder.make_schema_field_urn(
+                                        str(output_dataset_urn),
+                                        column_lineage.destination_column,
+                                    )
+                                ]
+                                if output_dataset_urn
+                                else []
+                            ),
                         )
                     )
 
@@ -283,6 +289,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         logger.info("Fivetran plugin execution is started")
         connectors = self.audit_log.get_allowed_connectors_list(
             self.config.connector_patterns,
+            self.config.destination_patterns,
             self.report,
             self.config.history_sync_lookback_period,
         )

@@ -19,6 +19,19 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
+- #9857 (#10773) `lower` method was removed from `get_db_name` of `SQLAlchemySource` class. This change will affect the urns of all related to `SQLAlchemySource` entities.
+  
+  Old `urn`, where `data_base_name` is `Some_Database`:
+  ```
+  - urn:li:dataJob:(urn:li:dataFlow:(mssql,demodata.Foo.stored_procedures,PROD),Proc.With.SpecialChar)
+  ```
+  New `urn`, where `data_base_name` is `Some_Database`:
+  ```
+  - urn:li:dataJob:(urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD),Proc.With.SpecialChar)
+  ```
+  Re-running with stateful ingestion should automatically clear up the entities with old URNS and add entities with new URNs, therefore not duplicating the containers or jobs. 
+
+- #11313 - `datahub get` will no longer return a key aspect for entities that don't exist.
 
 ### Potential Downtime
 
@@ -26,7 +39,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
-## 0.14.0
+## 0.14.0.2
 
 ### Breaking Changes
 

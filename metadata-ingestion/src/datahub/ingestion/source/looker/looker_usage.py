@@ -74,16 +74,20 @@ class LookerDashboardForUsage(ModelForUsage):
             id=dashboard.id,
             view_count=dashboard.view_count,
             favorite_count=dashboard.favorite_count,
-            last_viewed_at=round(dashboard.last_viewed_at.timestamp() * 1000)
-            if dashboard.last_viewed_at
-            else None,
-            looks=[
-                LookerChartForUsage.from_chart(e.look)
-                for e in dashboard.dashboard_elements
-                if e.look is not None
-            ]
-            if dashboard.dashboard_elements
-            else [],
+            last_viewed_at=(
+                round(dashboard.last_viewed_at.timestamp() * 1000)
+                if dashboard.last_viewed_at
+                else None
+            ),
+            looks=(
+                [
+                    LookerChartForUsage.from_chart(e.look)
+                    for e in dashboard.dashboard_elements
+                    if e.look is not None
+                ]
+                if dashboard.dashboard_elements
+                else []
+            ),
         )
 
 

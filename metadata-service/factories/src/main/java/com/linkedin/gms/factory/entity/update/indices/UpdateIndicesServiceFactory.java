@@ -9,6 +9,7 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,7 +31,8 @@ public class UpdateIndicesServiceFactory {
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       SearchDocumentTransformer searchDocumentTransformer,
-      EntityIndexBuilders entityIndexBuilders) {
+      EntityIndexBuilders entityIndexBuilders,
+      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo) {
 
     return new UpdateIndicesService(
         graphService,
@@ -38,7 +40,8 @@ public class UpdateIndicesServiceFactory {
         timeseriesAspectService,
         systemMetadataService,
         searchDocumentTransformer,
-        entityIndexBuilders);
+        entityIndexBuilders,
+        idHashAlgo);
   }
 
   @Bean
@@ -50,7 +53,8 @@ public class UpdateIndicesServiceFactory {
       final SystemMetadataService systemMetadataService,
       final SearchDocumentTransformer searchDocumentTransformer,
       final EntityIndexBuilders entityIndexBuilders,
-      final EntityService<?> entityService) {
+      final EntityService<?> entityService,
+      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo) {
 
     UpdateIndicesService updateIndicesService =
         new UpdateIndicesService(
@@ -59,7 +63,8 @@ public class UpdateIndicesServiceFactory {
             timeseriesAspectService,
             systemMetadataService,
             searchDocumentTransformer,
-            entityIndexBuilders);
+            entityIndexBuilders,
+            idHashAlgo);
 
     entityService.setUpdateIndicesService(updateIndicesService);
 
