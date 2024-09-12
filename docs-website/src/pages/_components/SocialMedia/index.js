@@ -33,12 +33,19 @@ const sliderVideos = [
         viewerCount: "900+",
     },
     {
+      videoUrl: useBaseUrl("/img/home-social-media/linkedin.webm"),
+      link: 'https://www.youtube.com/watch?v=3alQ9e6Lf2Y',
+      title: 'AI and Data: The LinkedIn Story w/ Kapil Surlaker',
+      date: "Apr 11, 2024",
+      viewerCount: "150+",
+    },
+    {
         videoUrl: useBaseUrl("/img/home-social-media/hashi.mp4"),
         title: "Why Sean Rice of HashiCorp loves the time to value of Acryl Data.",
         link: 'https://www.youtube.com/watch?v=a3Rgb9QYbUk',
         // description: "VP Data Analytics, Experian",
         date: "July 2024",
-        viewerCount: "12k",
+        viewerCount: "300+",
     },
     ];
       
