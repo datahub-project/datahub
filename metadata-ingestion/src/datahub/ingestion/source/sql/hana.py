@@ -334,8 +334,37 @@ class HanaSource(SQLAlchemySource):
         ]
         return UpstreamLineageClass(upstreams=upstream)
 
-    def get_columns(self, inspector: Inspector, schema: str, table_or_view: str) -> List[SchemaFieldClass]:
-        columns = inspector.get_columns(table_or_view, schema)
+        def get_columns(self, schema: str, table_or_view: str) -> List[SchemaFieldClass]:
+        query = f"""
+                    SELECT COLUMN_NAME as column_name,
+                    COMMENTS as comments,
+                    DATA_TYPE_NAME as data_type_name,
+                    IS_NULLABLE as is_nullable
+                    FROM (
+                        SELECT POSITION,
+                        COLUMN_NAME,
+                        COMMENTS,
+                        DATA_TYPE_NAME,
+                        IS_NULLABLE,
+                        SCHEMA_NAME,
+                        TABLE_NAME
+                        FROM SYS.TABLE_COLUMNS UNION ALL
+                        SELECT POSITION,
+                        COLUMN_NAME,
+                        COMMENTS,
+                        DATA_TYPE_NAME,
+                        IS_NULLABLE,
+                        SCHEMA_NAME,
+                        VIEW_NAME AS TABLE_NAME
+                        FROM SYS.VIEW_COLUMNS ) AS COLUMNS
+                    WHERE LOWER("SCHEMA_NAME") = '{schema.lower()}'
+                    AND LOWER(TABLE_NAME) = '{table_or_view.lower()}'
+                    ORDER BY POSITION ASC
+                """
+        query_result = [dict(row) for row in self.engine.execute(query).fetchall()]
+
+        columns = query_result
+
         return [
             SchemaFieldClass(
                 fieldPath=col.get('column_name'),
@@ -345,9 +374,8 @@ class HanaSource(SQLAlchemySource):
                     )
                 ),
                 nativeDataType=col.get('data_type_name'),
-                description=col.get("comment", ""),
+                description=col.get('comments', ""),
                 nullable=bool(col.get("is_nullable")),
-
             )
             for col in columns
         ]
@@ -503,7 +531,7 @@ class HanaSource(SQLAlchemySource):
             env=self.config.env
         )
         description = self.get_table_properties(inspector=inspector, schema=schema, table=dataset_name)
-        columns = self.get_columns(inspector=inspector, schema=schema, table_or_view=dataset_name)
+        columns = self.get_columns(schema=schema, table_or_view=dataset_name)
         schema_metadata = SchemaMetadataClass(
             schemaName=f"{schema}.{dataset_name}",
             platform=make_data_platform_urn(self.get_platform()),
@@ -559,7 +587,7 @@ class HanaSource(SQLAlchemySource):
         view_definition = view_details[0]
         properties = self.get_view_info(view=dataset_name, definition_and_description=view_details)
 
-        columns = self.get_columns(inspector=inspector, schema=schema, table_or_view=dataset_name)
+        columns = self.get_columns(schema=schema, table_or_view=dataset_name)
         constructed_lineage = self.get_lineage(schema=schema, table_or_view=dataset_name)
         lineage = self.construct_lineage(upstreams=constructed_lineage)
         subtype = SubTypesClass(["View"])
