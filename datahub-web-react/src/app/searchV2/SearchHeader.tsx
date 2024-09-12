@@ -3,7 +3,7 @@ import { Layout } from 'antd';
 import styled from 'styled-components';
 import { V2_SEARCH_BAR_ID } from '../onboarding/configV2/HomePageOnboardingConfig';
 import { SearchBar } from './SearchBar';
-import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
+import { AutoCompleteResultForEntity } from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
 import { useAppConfig } from '../useAppConfig';
 import OnboardingContext from '../onboarding/OnboardingContext';
@@ -61,7 +61,7 @@ type Props = {
     initialQuery: string;
     placeholderText: string;
     suggestions: Array<AutoCompleteResultForEntity>;
-    onSearch: (query: string, type?: EntityType) => void;
+    onSearch: (query: string) => void;
     onQueryChange: (query: string) => void;
     entityRegistry: EntityRegistry;
 };
