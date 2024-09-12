@@ -470,7 +470,6 @@ class HanaSource(SQLAlchemySource):
                                 dataset_path=view.get("package_id"),
                                 dataset_name=view.get("object_name"),
                                 dataset_definition=view.get("cdata"),
-                                inspector=inspector,
                                 schema=schema,
                             )
                         )
@@ -493,10 +492,12 @@ class HanaSource(SQLAlchemySource):
                             executor.submit(
                                 self._process_view,
                                 dataset_name=view,
-                                inspector=inspector,
                                 schema=schema
                             )
                         )
+
+            for future in as_completed(futures):
+                yield from future.result()
 
             queries = self.get_query_logs()
             for query in queries:
@@ -511,9 +512,6 @@ class HanaSource(SQLAlchemySource):
                         )
                     ),
                 )
-
-            for future in as_completed(futures):
-                yield from future.result()
 
         for mcp in self.aggregator.gen_metadata():
             self.report.report_workunit(mcp.as_workunit())
@@ -567,13 +565,14 @@ class HanaSource(SQLAlchemySource):
             schema=schema_metadata,
         )
 
+        self.aggregator.is_allowed_table(entity)
+
         for mcp in dataset_snapshot:
             self.report.report_workunit(mcp.as_workunit())
             yield mcp.as_workunit()
 
     def _process_view(self,
                       dataset_name: str,
-                      inspector: Inspector,
                       schema: str,
                       ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         entity = make_dataset_urn_with_platform_instance(
@@ -640,6 +639,8 @@ class HanaSource(SQLAlchemySource):
             schema=schema_metadata
         )
 
+        self.aggregator.is_allowed_table(entity)
+
         self.aggregator.add_view_definition(
             view_urn=entity,
             view_definition=view_definition,
@@ -697,7 +698,7 @@ class HanaSource(SQLAlchemySource):
             UpstreamClass(
                 dataset=make_dataset_urn_with_platform_instance(
                     platform=self.get_platform(),
-                    name=row.lower(),
+                    name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{row.lower()}",
                     platform_instance=self.config.platform_instance,
                     env=self.config.env
                 ),
@@ -719,12 +720,11 @@ class HanaSource(SQLAlchemySource):
             dataset_path: str,
             dataset_name: str,
             dataset_definition: str,
-            inspector: Inspector,
             schema: str
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         entity = make_dataset_urn_with_platform_instance(
             platform=self.get_platform(),
-            name=f"_sys_bic.{dataset_path.lower()}/{dataset_name.lower()}",
+            name=f"{(self.config.database.lower() + '.') if self.config.database else ''}_sys_bic.{dataset_path.lower()}/{dataset_name.lower()}",
             platform_instance=self.config.platform_instance,
             env=self.config.env
         )
@@ -804,6 +804,8 @@ class HanaSource(SQLAlchemySource):
                 urn=entity,
                 schema=schema_metadata
             )
+
+            self.aggregator.is_allowed_table(entity)
 
             for mcp in dataset_snapshot:
                 self.report.report_workunit(mcp.as_workunit())
