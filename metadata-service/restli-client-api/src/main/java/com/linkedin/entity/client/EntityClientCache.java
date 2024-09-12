@@ -4,6 +4,7 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.Weigher;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.client.ClientCache;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
@@ -80,6 +81,8 @@ public class EntityClientCache {
 
       Set<EntityResponse> responses =
           envelopedAspects.entrySet().stream()
+              // Exclude cached nulls
+              .filter(entry -> !(entry.getValue() instanceof NullEnvelopedAspect))
               .map(entry -> Pair.of(entry.getKey().getUrn(), entry.getValue()))
               .collect(
                   Collectors.groupingBy(
@@ -102,6 +105,11 @@ public class EntityClientCache {
     }
 
     return response;
+  }
+
+  @VisibleForTesting
+  ClientCache<Key, EnvelopedAspect, EntityClientCacheConfig> getCache() {
+    return this.cache;
   }
 
   private static EntityResponse toEntityResponse(
@@ -130,9 +138,13 @@ public class EntityClientCache {
     public EntityClientCache build(
         @Nonnull final Function<CollectionKey, Map<Urn, EntityResponse>> fetchFunction,
         Class<?> metricClazz) {
+
       // estimate size
       Weigher<Key, EnvelopedAspect> weighByEstimatedSize =
-          (key, value) -> value.getValue().data().toString().getBytes().length;
+          (key, value) ->
+              value instanceof NullEnvelopedAspect
+                  ? key.getUrn().toString().getBytes().length
+                  : value.getValue().data().toString().getBytes().length;
 
       // batch loads data from entity client (restli or java)
       Function<Iterable<? extends Key>, Map<Key, EnvelopedAspect>> loader =
@@ -192,37 +204,53 @@ public class EntityClientCache {
       String contextId,
       Map<String, Set<Key>> keysByEntity,
       Function<CollectionKey, Map<Urn, EntityResponse>> loadFunction) {
-    return keysByEntity.entrySet().stream()
-        .flatMap(
-            entry -> {
-              Set<Urn> urns =
-                  entry.getValue().stream().map(Key::getUrn).collect(Collectors.toSet());
-              Set<String> aspects =
-                  entry.getValue().stream().map(Key::getAspectName).collect(Collectors.toSet());
-              return loadFunction
-                  .apply(
-                      CollectionKey.builder()
-                          .contextId(contextId)
-                          .urns(urns)
-                          .aspectNames(aspects)
-                          .build())
-                  .entrySet()
-                  .stream();
-            })
-        .flatMap(
-            resp ->
-                resp.getValue().getAspects().values().stream()
-                    .map(
-                        envAspect -> {
-                          Key key =
-                              Key.builder()
-                                  .contextId(contextId)
-                                  .urn(resp.getKey())
-                                  .aspectName(envAspect.getName())
-                                  .build();
-                          return Map.entry(key, envAspect);
-                        }))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    Map<Key, EnvelopedAspect> result =
+        keysByEntity.entrySet().stream()
+            .flatMap(
+                entry -> {
+                  Set<Urn> urns =
+                      entry.getValue().stream().map(Key::getUrn).collect(Collectors.toSet());
+                  Set<String> aspects =
+                      entry.getValue().stream().map(Key::getAspectName).collect(Collectors.toSet());
+                  return loadFunction
+                      .apply(
+                          CollectionKey.builder()
+                              .contextId(contextId)
+                              .urns(urns)
+                              .aspectNames(aspects)
+                              .build())
+                      .entrySet()
+                      .stream();
+                })
+            .flatMap(
+                resp ->
+                    resp.getValue().getAspects().values().stream()
+                        .map(
+                            envAspect -> {
+                              Key key =
+                                  Key.builder()
+                                      .contextId(contextId)
+                                      .urn(resp.getKey())
+                                      .aspectName(envAspect.getName())
+                                      .build();
+                              return Map.entry(key, envAspect);
+                            }))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    /*
+     * Traditionally responses from the API omit non-existent aspects. For the cache,
+     * we re-introduce the missing keys.
+     */
+    Map<Key, EnvelopedAspect> missingAspects =
+        keysByEntity.values().stream()
+            .flatMap(Set::stream)
+            .filter(key -> !result.containsKey(key))
+            .map(missingKey -> Map.entry(missingKey, NullEnvelopedAspect.NULL))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    result.putAll(missingAspects);
+
+    return result;
   }
 
   @Data
@@ -243,5 +271,11 @@ public class EntityClientCache {
     private final String contextId;
     private final Set<Urn> urns;
     private final Set<String> aspectNames;
+  }
+
+  /** Represents a cached null aspect */
+  @VisibleForTesting
+  static class NullEnvelopedAspect extends EnvelopedAspect {
+    private static final NullEnvelopedAspect NULL = new NullEnvelopedAspect();
   }
 }
