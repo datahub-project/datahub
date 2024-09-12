@@ -106,7 +106,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     infer_output_schema,
 )
 from datahub.utilities import config_clean
-from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.lossy_collections import LossyList
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -135,9 +135,14 @@ class ModeConfig(StatefulIngestionConfigBase, DatasetLineageProviderConfigBase):
     connect_uri: str = Field(
         default="https://app.mode.com", description="Mode host URL."
     )
-    token: str = Field(description="Mode user token.")
+    token: str = Field(
+        description="When creating workspace API key this is the 'Key ID'."
+    )
     password: pydantic.SecretStr = Field(
-        description="Mode password for authentication."
+        description="When creating workspace API key this is the 'Secret'."
+    )
+    exclude_restricted: bool = Field(
+        default=False, description="Exclude restricted collections"
     )
 
     workspace: str = Field(
@@ -194,10 +199,6 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     num_query_template_render_failures: int = 0
     num_query_template_render_success: int = 0
 
-    dropped_imported_datasets: LossyDict[str, LossyList[str]] = dataclasses.field(
-        default_factory=LossyDict
-    )
-
     def report_dropped_space(self, ent_name: str) -> None:
         self.filtered_spaces.append(ent_name)
 
@@ -205,8 +206,12 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
 @platform_name("Mode")
 @config_class(ModeConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
+@capability(SourceCapability.LINEAGE_FINE, "Supported by default")
+@capability(SourceCapability.OWNERSHIP, "Enabled by default")
 class ModeSource(StatefulIngestionSourceBase):
     """
 
@@ -311,8 +316,9 @@ class ModeSource(StatefulIngestionSourceBase):
             self._get_request_json(f"{self.config.connect_uri}/api/verify")
         except HTTPError as http_error:
             self.report.report_failure(
-                key="mode-session",
-                reason=f"Unable to verify connection. Error was: {str(http_error)}",
+                title="Failed to Connect",
+                message="Unable to verify connection to mode.",
+                context=f"Error: {str(http_error)}",
             )
 
         self.workspace_uri = f"{self.config.connect_uri}/api/{self.config.workspace}"
@@ -371,15 +377,15 @@ class ModeSource(StatefulIngestionSourceBase):
 
         if not report_token:
             self.report.report_warning(
-                key="mode-report",
-                reason=f"Report token is missing for {report_info.get('id', '')}",
+                title="Missing Report Token",
+                message=f"Report token is missing for {report_info.get('id', '')}",
             )
             return None
 
         if not report_info.get("id"):
             self.report.report_warning(
-                key="mode-report",
-                reason=f"Report id is missing for {report_info.get('token', '')}",
+                title="Missing Report ID",
+                message=f"Report id is missing for {report_info.get('token', '')}",
             )
             return None
 
@@ -419,10 +425,25 @@ class ModeSource(StatefulIngestionSourceBase):
         # Last refreshed ts.
         last_refreshed_ts = self._parse_last_run_at(report_info)
 
+        # Datasets
+        datasets = []
+        for imported_dataset_name in report_info.get("imported_datasets", {}):
+            mode_dataset = self._get_request_json(
+                f"{self.workspace_uri}/reports/{imported_dataset_name.get('token')}"
+            )
+            dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                self.platform,
+                str(mode_dataset.get("id")),
+                platform_instance=None,
+                env=self.config.env,
+            )
+            datasets.append(dataset_urn)
+
         dashboard_info_class = DashboardInfoClass(
             description=description if description else "",
             title=title if title else "",
             charts=self._get_chart_urns(report_token),
+            datasets=datasets if datasets else None,
             lastModified=last_modified,
             lastRefreshed=last_refreshed_ts,
             dashboardUrl=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}",
@@ -488,9 +509,9 @@ class ModeSource(StatefulIngestionSourceBase):
             )
         except HTTPError as http_error:
             self.report.report_warning(
-                key="mode-user",
-                reason=f"Unable to retrieve user for {href}, "
-                f"Reason: {str(http_error)}",
+                title="Failed to retrieve Mode creator",
+                message=f"Unable to retrieve user for {href}",
+                context=f"Reason: {str(http_error)}",
             )
         return user
 
@@ -521,6 +542,16 @@ class ModeSource(StatefulIngestionSourceBase):
             for s in spaces:
                 logger.debug(f"Space: {s.get('name')}")
                 space_name = s.get("name", "")
+                # Using both restricted and default_access_level because
+                # there is a current bug with restricted returning False everytime
+                # which has been reported to Mode team
+                if self.config.exclude_restricted and (
+                    s.get("restricted") or s.get("default_access_level") == "restricted"
+                ):
+                    logging.debug(
+                        f"Skipping space {space_name} due to exclude restricted"
+                    )
+                    continue
                 if not self.config.space_pattern.allowed(space_name):
                     self.report.report_dropped_space(space_name)
                     logging.debug(f"Skipping space {space_name} due to space pattern")
@@ -528,9 +559,9 @@ class ModeSource(StatefulIngestionSourceBase):
                 space_info[s.get("token", "")] = s.get("name", "")
         except HTTPError as http_error:
             self.report.report_failure(
-                key="mode-spaces",
-                reason=f"Unable to retrieve spaces/collections for {self.workspace_uri}, "
-                f"Reason: {str(http_error)}",
+                title="Failed to Retrieve Spaces",
+                message="Unable to retrieve spaces / collections for workspace.",
+                context=f"Workspace: {self.workspace_uri}, Error: {str(http_error)}",
             )
 
         return space_info
@@ -559,17 +590,19 @@ class ModeSource(StatefulIngestionSourceBase):
             "histogram": ChartTypeClass.HISTOGRAM,
         }
         if not display_type:
-            self.report.report_warning(
-                key="mode-chart-type-mapper",
-                reason=f"{token}: Chart type is missing. Setting to None",
+            self.report.info(
+                title="Missing chart type found",
+                message="Chart type is missing. Setting to None",
+                context=f"Token: {token}",
             )
             return None
         try:
             chart_type = type_mapping[display_type]
         except KeyError:
-            self.report.report_warning(
-                key="mode-chart-type-mapper",
-                reason=f"{token}: Chart type {display_type} not supported. Setting to None",
+            self.report.info(
+                title="Unrecognized chart type found",
+                message=f"Chart type {display_type} not supported. Setting to None",
+                context=f"Token: {token}",
             )
             chart_type = None
 
@@ -661,8 +694,8 @@ class ModeSource(StatefulIngestionSourceBase):
             return platform_mapping[adapter]
         else:
             self.report.report_warning(
-                key=f"mode-platform-{adapter}",
-                reason=f"Platform was not found in DataHub. "
+                title="Unrecognized Platform Found",
+                message=f"Platform was not found in DataHub. "
                 f"Using {platform} name as is",
             )
 
@@ -676,8 +709,9 @@ class ModeSource(StatefulIngestionSourceBase):
             data_sources = ds_json.get("_embedded", {}).get("data_sources", [])
         except HTTPError as http_error:
             self.report.report_failure(
-                key="mode-data-sources",
-                reason=f"Unable to retrieve data sources. Reason: {str(http_error)}",
+                title="Failed to retrieve Data Sources",
+                message="Unable to retrieve data sources from Mode.",
+                context=f"Error: {str(http_error)}",
             )
 
         return data_sources
@@ -690,8 +724,9 @@ class ModeSource(StatefulIngestionSourceBase):
 
         if not data_sources:
             self.report.report_failure(
-                key=f"mode-datasource-{data_source_id}",
-                reason=f"No data sources found for datasource id: " f"{data_source_id}",
+                title="No Data Sources Found",
+                message="Could not find data sources matching some ids",
+                context=f"Data Soutce ID: {data_source_id}",
             )
             return None, None
 
@@ -701,11 +736,15 @@ class ModeSource(StatefulIngestionSourceBase):
                     data_source.get("adapter", ""), data_source.get("name", "")
                 )
                 database = data_source.get("database", "")
+                # This is hacky but on bigquery we want to change the database if its default
+                # For lineage we need project_id.db.table
+                if platform == "bigquery" and database == "default":
+                    database = data_source.get("host", "")
                 return platform, database
         else:
             self.report.report_warning(
-                key=f"mode-datasource-{data_source_id}",
-                reason=f"Cannot create datasource urn for datasource id: "
+                title="Failed to create Data Platform Urn",
+                message=f"Cannot create datasource urn for datasource id: "
                 f"{data_source_id}",
             )
         return None, None
@@ -736,7 +775,7 @@ class ModeSource(StatefulIngestionSourceBase):
     def _parse_definition_name(self, definition_variable: str) -> Tuple[str, str]:
         name, alias = "", ""
         # i.e '{{ @join_on_definition as alias}}'
-        name_match = re.findall("@[a-zA-z]+", definition_variable)
+        name_match = re.findall("@[a-zA-Z_]+", definition_variable)
         if len(name_match):
             name = name_match[0][1:]
         alias_match = re.findall(
@@ -761,9 +800,9 @@ class ModeSource(StatefulIngestionSourceBase):
 
         except HTTPError as http_error:
             self.report.report_failure(
-                key=f"mode-definition-{definition_name}",
-                reason=f"Unable to retrieve definition for {definition_name}, "
-                f"Reason: {str(http_error)}",
+                title="Failed to Retrieve Definition",
+                message="Unable to retrieve definition from Mode.",
+                context=f"Definition Name: {definition_name}, Error: {str(http_error)}",
             )
         return None
 
@@ -782,10 +821,9 @@ class ModeSource(StatefulIngestionSourceBase):
                 source_paths.add(f"{source_schema}.{source_table}")
         except Exception as e:
             self.report.report_failure(
-                key="mode-query",
-                reason=f"Unable to retrieve lineage from query. "
-                f"Query: {raw_query} "
-                f"Reason: {str(e)} ",
+                title="Failed to Extract Lineage From Query",
+                message="Unable to retrieve lineage from Mode query.",
+                context=f"Query: {raw_query}, Error: {str(e)}",
             )
 
         return source_paths
@@ -877,24 +915,36 @@ class ModeSource(StatefulIngestionSourceBase):
 
         return rendered_query
 
-    def construct_query_from_api_data(
+    def construct_query_or_dataset(
         self,
         report_token: str,
         query_data: dict,
         space_token: str,
         report_info: dict,
+        is_mode_dataset: bool,
     ) -> Iterable[MetadataWorkUnit]:
-        query_urn = self.get_dataset_urn_from_query(query_data)
+        query_urn = (
+            self.get_dataset_urn_from_query(query_data)
+            if not is_mode_dataset
+            else self.get_dataset_urn_from_query(report_info)
+        )
+
         query_token = query_data.get("token")
 
+        externalUrl = (
+            f"{self.config.connect_uri}/{self.config.workspace}/datasets/{report_token}"
+            if is_mode_dataset
+            else f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}/details/queries/{query_token}"
+        )
+
         dataset_props = DatasetPropertiesClass(
-            name=query_data.get("name"),
+            name=report_info.get("name") if is_mode_dataset else query_data.get("name"),
             description=f"""### Source Code
 ``` sql
 {query_data.get("raw_query")}
 ```
             """,
-            externalUrl=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}/details/queries/{query_token}",
+            externalUrl=externalUrl,
             customProperties=self.get_custom_props_from_dict(
                 query_data,
                 [
@@ -916,7 +966,22 @@ class ModeSource(StatefulIngestionSourceBase):
             ).as_workunit()
         )
 
-        subtypes = SubTypesClass(typeNames=([BIAssetSubTypes.MODE_QUERY]))
+        if is_mode_dataset:
+            space_container_key = self.gen_space_key(space_token)
+            yield from add_dataset_to_container(
+                container_key=space_container_key,
+                dataset_urn=query_urn,
+            )
+
+        subtypes = SubTypesClass(
+            typeNames=(
+                [
+                    BIAssetSubTypes.MODE_DATASET
+                    if is_mode_dataset
+                    else BIAssetSubTypes.MODE_QUERY
+                ]
+            )
+        )
         yield (
             MetadataChangeProposalWrapper(
                 entityUrn=query_urn,
@@ -927,7 +992,9 @@ class ModeSource(StatefulIngestionSourceBase):
         yield MetadataChangeProposalWrapper(
             entityUrn=query_urn,
             aspect=BrowsePathsV2Class(
-                path=self._browse_path_query(space_token, report_info)
+                path=self._browse_path_dashboard(space_token)
+                if is_mode_dataset
+                else self._browse_path_query(space_token, report_info)
             ),
         ).as_workunit()
 
@@ -935,7 +1002,6 @@ class ModeSource(StatefulIngestionSourceBase):
             upstream_warehouse_platform,
             upstream_warehouse_db_name,
         ) = self._get_platform_and_dbname(query_data.get("data_source_id"))
-
         if upstream_warehouse_platform is None:
             # this means we can't infer the platform
             return
@@ -999,7 +1065,7 @@ class ModeSource(StatefulIngestionSourceBase):
         schema_fields = infer_output_schema(parsed_query_object)
         if schema_fields:
             schema_metadata = SchemaMetadataClass(
-                schemaName="mode_query",
+                schemaName="mode_dataset" if is_mode_dataset else "mode_query",
                 platform=f"urn:li:dataPlatform:{self.platform}",
                 version=0,
                 fields=schema_fields,
@@ -1017,7 +1083,7 @@ class ModeSource(StatefulIngestionSourceBase):
             )
 
         yield from self.get_upstream_lineage_for_parsed_sql(
-            query_data, parsed_query_object
+            query_urn, query_data, parsed_query_object
         )
 
         operation = OperationClass(
@@ -1066,10 +1132,9 @@ class ModeSource(StatefulIngestionSourceBase):
             ).as_workunit()
 
     def get_upstream_lineage_for_parsed_sql(
-        self, query_data: dict, parsed_query_object: SqlParsingResult
+        self, query_urn: str, query_data: dict, parsed_query_object: SqlParsingResult
     ) -> List[MetadataWorkUnit]:
         wu = []
-        query_urn = self.get_dataset_urn_from_query(query_data)
 
         if parsed_query_object is None:
             logger.info(
@@ -1321,11 +1386,29 @@ class ModeSource(StatefulIngestionSourceBase):
             reports = reports_json.get("_embedded", {}).get("reports", {})
         except HTTPError as http_error:
             self.report.report_failure(
-                key=f"mode-report-{space_token}",
-                reason=f"Unable to retrieve reports for space token: {space_token}, "
-                f"Reason: {str(http_error)}",
+                title="Failed to Retrieve Reports for Space",
+                message="Unable to retrieve reports for space token.",
+                context=f"Space Token: {space_token}, Error: {str(http_error)}",
             )
         return reports
+
+    @lru_cache(maxsize=None)
+    def _get_datasets(self, space_token: str) -> List[dict]:
+        """
+        Retrieves datasets for a given space token.
+        """
+        datasets = []
+        try:
+            url = f"{self.workspace_uri}/spaces/{space_token}/datasets"
+            datasets_json = self._get_request_json(url)
+            datasets = datasets_json.get("_embedded", {}).get("reports", [])
+        except HTTPError as http_error:
+            self.report.report_failure(
+                title="Failed to Retrieve Datasets for Space",
+                message=f"Unable to retrieve datasets for space token {space_token}.",
+                context=f"Error: {str(http_error)}",
+            )
+        return datasets
 
     @lru_cache(maxsize=None)
     def _get_queries(self, report_token: str) -> list:
@@ -1337,9 +1420,9 @@ class ModeSource(StatefulIngestionSourceBase):
             queries = queries_json.get("_embedded", {}).get("queries", {})
         except HTTPError as http_error:
             self.report.report_failure(
-                key=f"mode-query-{report_token}",
-                reason=f"Unable to retrieve queries for report token: {report_token}, "
-                f"Reason: {str(http_error)}",
+                title="Failed to Retrieve Queries",
+                message="Unable to retrieve queries for report token.",
+                context=f"Report Token: {report_token}, Error: {str(http_error)}",
             )
         return queries
 
@@ -1354,9 +1437,9 @@ class ModeSource(StatefulIngestionSourceBase):
             queries = queries_json.get("_embedded", {}).get("queries", {})
         except HTTPError as http_error:
             self.report.report_failure(
-                key=f"mode-query-{report_token}",
-                reason=f"Unable to retrieve queries for report token: {report_token}, "
-                f"Reason: {str(http_error)}",
+                title="Failed to Retrieve Queries for Report",
+                message="Unable to retrieve queries for report token.",
+                context=f"Report Token:{report_token}, Error: {str(http_error)}",
             )
             return {}
         return queries
@@ -1372,11 +1455,11 @@ class ModeSource(StatefulIngestionSourceBase):
             charts = charts_json.get("_embedded", {}).get("charts", {})
         except HTTPError as http_error:
             self.report.report_failure(
-                key=f"mode-chart-{report_token}-{query_token}",
-                reason=f"Unable to retrieve charts: "
-                f"Report token: {report_token} "
+                title="Failed to Retrieve Charts",
+                message="Unable to retrieve charts from Mode.",
+                context=f"Report Token: {report_token}, "
                 f"Query token: {query_token}, "
-                f"Reason: {str(http_error)}",
+                f"Error: {str(http_error)}",
             )
         return charts
 
@@ -1500,24 +1583,14 @@ class ModeSource(StatefulIngestionSourceBase):
             for report in reports:
                 report_token = report.get("token", "")
 
-                if report.get("imported_datasets"):
-                    # The connector doesn't support imported datasets yet.
-                    # For now, we just keep this in the report to track what we're missing.
-                    imported_datasets = [
-                        imported_dataset.get("name") or str(imported_dataset)
-                        for imported_dataset in report["imported_datasets"]
-                    ]
-                    self.report.dropped_imported_datasets.setdefault(
-                        report_token, LossyList()
-                    ).extend(imported_datasets)
-
                 queries = self._get_queries(report_token)
                 for query in queries:
-                    query_mcps = self.construct_query_from_api_data(
+                    query_mcps = self.construct_query_or_dataset(
                         report_token,
                         query,
                         space_token=space_token,
                         report_info=report,
+                        is_mode_dataset=False,
                     )
                     chart_fields: Dict[str, SchemaFieldClass] = {}
                     for wu in query_mcps:
@@ -1543,6 +1616,27 @@ class ModeSource(StatefulIngestionSourceBase):
                             query_name=query["name"],
                         )
 
+    def emit_dataset_mces(self):
+        """
+        Emits MetadataChangeEvents (MCEs) for datasets within each space.
+        """
+        for space_token, _ in self.space_tokens.items():
+            datasets = self._get_datasets(space_token)
+
+            for report in datasets:
+                report_token = report.get("token", "")
+                queries = self._get_queries(report_token)
+                for query in queries:
+                    query_mcps = self.construct_query_or_dataset(
+                        report_token,
+                        query,
+                        space_token=space_token,
+                        report_info=report,
+                        is_mode_dataset=True,
+                    )
+                    for wu in query_mcps:
+                        yield wu
+
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ModeSource":
         config: ModeConfig = ModeConfig.parse_obj(config_dict)
@@ -1558,6 +1652,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
+        yield from self.emit_dataset_mces()
         yield from self.emit_chart_mces()
 
     def get_report(self) -> SourceReport:

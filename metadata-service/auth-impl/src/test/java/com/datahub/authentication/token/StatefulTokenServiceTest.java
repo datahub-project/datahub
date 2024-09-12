@@ -203,7 +203,8 @@ public class StatefulTokenServiceTest {
 
     Mockito.when(mockService.exists(any(OperationContext.class), any(Urn.class), eq(true)))
         .thenReturn(true);
-    final RollbackRunResult result = new RollbackRunResult(ImmutableList.of(), 0);
+    final RollbackRunResult result =
+        new RollbackRunResult(ImmutableList.of(), 0, ImmutableList.of());
     Mockito.when(mockService.deleteUrn(any(OperationContext.class), any(Urn.class)))
         .thenReturn(result);
 

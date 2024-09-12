@@ -35,6 +35,8 @@ DATAHUB_PACKAGES = [
     "acryl_datahub_cloud",
 ]
 IN_MEMORY_LOG_BUFFER_SIZE = 2000  # lines
+IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH = 2000  # characters
+
 
 NO_COLOR = os.environ.get("NO_COLOR", False)
 
@@ -149,9 +151,9 @@ class _DatahubLogFilter(logging.Filter):
                 return record.levelno >= logging.INFO
         else:
             if self.debug:
-                return record.levelno >= logging.WARNING
-            else:
                 return record.levelno >= logging.INFO
+            else:
+                return record.levelno >= logging.WARNING
 
 
 class _LogBuffer:
@@ -159,6 +161,9 @@ class _LogBuffer:
         self._buffer: Deque[str] = collections.deque(maxlen=maxlen)
 
     def write(self, line: str) -> None:
+        if len(line) > IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH:
+            line = line[:IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH] + "[truncated]"
+
         self._buffer.append(line)
 
     def clear(self) -> None:
@@ -274,6 +279,8 @@ def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[N
 
 # Reduce logging from some particularly chatty libraries.
 logging.getLogger("urllib3").setLevel(logging.ERROR)
+logging.getLogger("urllib3.util.retry").setLevel(logging.WARNING)
 logging.getLogger("snowflake").setLevel(level=logging.WARNING)
 # logging.getLogger("botocore").setLevel(logging.INFO)
 # logging.getLogger("google").setLevel(logging.INFO)
+logging.getLogger("pyodata").setLevel(logging.WARNING)

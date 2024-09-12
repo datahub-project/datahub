@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.buildFilterWithUrns;
+import static org.mockito.Mockito.mock;
 import static org.testng.AssertJUnit.assertEquals;
 
 import com.google.common.collect.ImmutableList;
@@ -11,6 +13,9 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.MetadataChangeProposalConfig;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -28,7 +33,7 @@ public class ResolverUtilsTest {
 
   @Test
   public void testCriterionFromFilter() throws Exception {
-    final DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    final DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     final QueryContext mockAllowContext = TestUtils.getMockAllowContext();
     Mockito.when(mockEnv.getContext()).thenReturn(mockAllowContext);
 
@@ -40,7 +45,8 @@ public class ResolverUtilsTest {
                 null,
                 ImmutableList.of("urn:li:tag:abc", "urn:li:tag:def"),
                 false,
-                FilterOperator.EQUAL));
+                FilterOperator.EQUAL),
+            mock(AspectRetriever.class));
     assertEquals(
         valuesCriterion,
         new Criterion()
@@ -53,7 +59,8 @@ public class ResolverUtilsTest {
     // this is the legacy pathway
     Criterion valueCriterion =
         criterionFromFilter(
-            new FacetFilterInput("tags", "urn:li:tag:abc", null, true, FilterOperator.EQUAL));
+            new FacetFilterInput("tags", "urn:li:tag:abc", null, true, FilterOperator.EQUAL),
+            mock(AspectRetriever.class));
     assertEquals(
         valueCriterion,
         new Criterion()
@@ -66,7 +73,9 @@ public class ResolverUtilsTest {
     // check that both being null doesn't cause a NPE. this should never happen except via API
     // interaction
     Criterion doubleNullCriterion =
-        criterionFromFilter(new FacetFilterInput("tags", null, null, true, FilterOperator.EQUAL));
+        criterionFromFilter(
+            new FacetFilterInput("tags", null, null, true, FilterOperator.EQUAL),
+            mock(AspectRetriever.class));
     assertEquals(
         doubleNullCriterion,
         new Criterion()
@@ -96,7 +105,18 @@ public class ResolverUtilsTest {
         new ConjunctiveCriterionArray(
             ImmutableList.of(new ConjunctiveCriterion().setAnd(andCriterionArray))));
 
-    Filter finalFilter = buildFilterWithUrns(urns, filter);
+    DataHubAppConfiguration appConfig = new DataHubAppConfiguration();
+    appConfig.setMetadataChangeProposal(new MetadataChangeProposalConfig());
+    appConfig
+        .getMetadataChangeProposal()
+        .setSideEffects(new MetadataChangeProposalConfig.SideEffectsConfig());
+    appConfig
+        .getMetadataChangeProposal()
+        .getSideEffects()
+        .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
+    appConfig.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(true);
+
+    Filter finalFilter = buildFilterWithUrns(appConfig, urns, filter);
 
     Criterion urnsCriterion =
         new Criterion()

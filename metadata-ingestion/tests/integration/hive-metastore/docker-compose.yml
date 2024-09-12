@@ -1,9 +1,6 @@
 # Adapted from https://github.com/big-data-europe/docker-hive.
 
-version: "3"
-
 services:
-
   presto:
     image: starburstdata/presto:350-e.15
     container_name: "presto"

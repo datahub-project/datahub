@@ -1,33 +1,44 @@
 package com.linkedin.metadata.models;
 
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.GetMode;
+import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.StructuredProperties;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
 import java.sql.Date;
 import java.time.format.DateTimeParseException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class StructuredPropertyUtils {
 
   private StructuredPropertyUtils() {}
@@ -35,26 +46,169 @@ public class StructuredPropertyUtils {
   static final Date MIN_DATE = Date.valueOf("1000-01-01");
   static final Date MAX_DATE = Date.valueOf("9999-12-31");
 
+  public static LogicalValueType getLogicalValueType(
+      StructuredPropertyDefinition structuredPropertyDefinition) {
+    return getLogicalValueType(structuredPropertyDefinition.getValueType());
+  }
+
+  public static LogicalValueType getLogicalValueType(@Nullable Urn valueType) {
+    String valueTypeId = getValueTypeId(valueType);
+    if ("string".equals(valueTypeId)) {
+      return LogicalValueType.STRING;
+    } else if ("date".equals(valueTypeId)) {
+      return LogicalValueType.DATE;
+    } else if ("number".equals(valueTypeId)) {
+      return LogicalValueType.NUMBER;
+    } else if ("urn".equals(valueTypeId)) {
+      return LogicalValueType.URN;
+    } else if ("rich_text".equals(valueTypeId)) {
+      return LogicalValueType.RICH_TEXT;
+    }
+    return LogicalValueType.UNKNOWN;
+  }
+
+  @Nullable
+  public static String getValueTypeId(@Nullable final Urn valueType) {
+    if (valueType != null) {
+      String valueTypeId = valueType.getId();
+      if (valueTypeId.startsWith("datahub.")) {
+        valueTypeId = valueTypeId.split("\\.")[1];
+      }
+      return valueTypeId.toLowerCase();
+    } else {
+      return null;
+    }
+  }
+
   /**
-   * Sanitizes fully qualified name for use in an ElasticSearch field name Replaces . and " "
+   * Given a structured property input field or facet name, return a valid structured property facet
+   * name
+   *
+   * @param fieldOrFacetName input name
+   * @param aspectRetriever aspect retriever
+   * @return guranteed facet name
+   */
+  public static Optional<String> toStructuredPropertyFacetName(
+      @Nonnull String fieldOrFacetName, @Nullable AspectRetriever aspectRetriever) {
+    return lookupDefinitionFromFilterOrFacetName(fieldOrFacetName, aspectRetriever)
+        .map(
+            urnDefinition -> {
+              switch (getLogicalValueType(urnDefinition.getSecond())) {
+                case DATE:
+                case NUMBER:
+                  return STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
+                      + StructuredPropertyUtils.toElasticsearchFieldName(
+                          urnDefinition.getFirst(), urnDefinition.getSecond());
+                default:
+                  return STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
+                      + StructuredPropertyUtils.toElasticsearchFieldName(
+                          urnDefinition.getFirst(), urnDefinition.getSecond())
+                      + ".keyword";
+              }
+            });
+  }
+
+  /**
+   * Lookup structured property definition given the name used for the field in APIs such as a
+   * search filter or aggregation query facet name.
+   *
+   * @param fieldOrFacetName the field name used in a filter or facet name in an aggregation query
+   * @param aspectRetriever method to look up the definition aspect
+   * @return the structured property definition if found
+   */
+  public static Optional<Pair<Urn, StructuredPropertyDefinition>>
+      lookupDefinitionFromFilterOrFacetName(
+          @Nonnull String fieldOrFacetName, @Nullable AspectRetriever aspectRetriever) {
+    if (fieldOrFacetName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + ".")) {
+      String fqn =
+          fieldOrFacetName
+              .substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1)
+              .replace(".keyword", "")
+              .replace(".delimited", "");
+      Urn urn = toURNFromFQN(fqn);
+      Map<Urn, Map<String, Aspect>> result =
+          Objects.requireNonNull(aspectRetriever)
+              .getLatestAspectObjects(
+                  Collections.singleton(urn),
+                  Collections.singleton(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
+      Optional<Aspect> definition =
+          Optional.ofNullable(
+              result
+                  .getOrDefault(urn, Collections.emptyMap())
+                  .getOrDefault(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, null));
+      return definition.map(
+          definitonAspect ->
+              Pair.of(urn, new StructuredPropertyDefinition(definitonAspect.data())));
+    }
+    return Optional.empty();
+  }
+
+  /**
+   * Given the structured property definition extract the Elasticsearch field name with nesting and
+   * character replacement.
+   *
+   * <p>Sanitizes fully qualified name for use in an ElasticSearch field name Replaces `.`
    * characters
    *
-   * @param fullyQualifiedName The original fully qualified name of the property
+   * @param definition The structured property definition
    * @return The sanitized version that can be used as a field name
    */
-  public static String sanitizeStructuredPropertyFQN(@Nonnull String fullyQualifiedName) {
-    if (fullyQualifiedName.contains(" ")) {
+  public static String toElasticsearchFieldName(
+      @Nonnull Urn propertyUrn, @Nullable StructuredPropertyDefinition definition) {
+    String qualifiedName = definition != null ? definition.getQualifiedName() : propertyUrn.getId();
+
+    if (qualifiedName.contains(" ")) {
       throw new IllegalArgumentException(
           "Fully qualified structured property name cannot contain spaces");
     }
-    return fullyQualifiedName.replace('.', '_');
+    if (definition != null && definition.getVersion(GetMode.NULL) != null) {
+      // includes type suffix
+      return String.join(
+          ".",
+          STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD,
+          definition.getQualifiedName().replace('.', '_'),
+          definition.getVersion(),
+          getLogicalValueType(definition).name().toLowerCase());
+    } else {
+      // un-typed property
+      return qualifiedName.replace('.', '_');
+    }
+  }
+
+  /**
+   * Return an elasticsearch type from structured property type
+   *
+   * @param fieldName filter or facet field name
+   * @param aspectRetriever aspect retriever
+   * @return elasticsearch type
+   */
+  public static Set<String> toElasticsearchFieldType(
+      @Nonnull String fieldName, @Nullable AspectRetriever aspectRetriever) {
+    LogicalValueType logicalValueType =
+        lookupDefinitionFromFilterOrFacetName(fieldName, aspectRetriever)
+            .map(definition -> getLogicalValueType(definition.getValue()))
+            .orElse(LogicalValueType.STRING);
+
+    switch (logicalValueType) {
+      case NUMBER:
+        return Collections.singleton("double");
+      case DATE:
+        return Collections.singleton("long");
+      case RICH_TEXT:
+        return Collections.singleton("text");
+      case UNKNOWN:
+      case STRING:
+      case URN:
+      default:
+        return Collections.singleton("keyword");
+    }
   }
 
   public static void validateStructuredPropertyFQN(
       @Nonnull Collection<String> fullyQualifiedNames, @Nonnull AspectRetriever aspectRetriever) {
     Set<Urn> structuredPropertyUrns =
         fullyQualifiedNames.stream()
-            .map(StructuredPropertyUtils::toURNFromFieldName)
+            .map(StructuredPropertyUtils::toURNFromFQN)
             .collect(Collectors.toSet());
     Set<Urn> removedUrns = getRemovedUrns(structuredPropertyUrns, aspectRetriever);
     if (!removedUrns.isEmpty()) {
@@ -63,13 +217,19 @@ public class StructuredPropertyUtils {
     }
   }
 
-  public static Urn toURNFromFieldName(@Nonnull String fieldName) {
+  /**
+   * Given a Structured Property fqn, calculate the expected URN
+   *
+   * @param fqn structured property's fqn
+   * @return the expected structured property urn
+   */
+  private static Urn toURNFromFQN(@Nonnull String fqn) {
     return UrnUtils.getUrn(
-        String.join(":", "urn:li", STRUCTURED_PROPERTY_ENTITY_NAME, fieldName.replace('_', '.')));
+        String.join(":", "urn:li", STRUCTURED_PROPERTY_ENTITY_NAME, fqn.replace('_', '.')));
   }
 
   public static void validateFilter(
-      @Nullable Filter filter, @Nonnull AspectRetriever aspectRetriever) {
+      @Nullable Filter filter, @Nullable AspectRetriever aspectRetriever) {
 
     if (filter == null) {
       return;
@@ -80,7 +240,7 @@ public class StructuredPropertyUtils {
     if (filter.getCriteria() != null) {
       for (Criterion c : filter.getCriteria()) {
         if (c.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
-          fieldNames.add(c.getField().substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1));
+          fieldNames.add(stripStructuredPropertyPrefix(c.getField()));
         }
       }
     }
@@ -89,15 +249,24 @@ public class StructuredPropertyUtils {
       for (ConjunctiveCriterion cc : filter.getOr()) {
         for (Criterion c : cc.getAnd()) {
           if (c.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
-            fieldNames.add(c.getField().substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1));
+            fieldNames.add(stripStructuredPropertyPrefix(c.getField()));
           }
         }
       }
     }
 
     if (!fieldNames.isEmpty()) {
-      validateStructuredPropertyFQN(fieldNames, aspectRetriever);
+      validateStructuredPropertyFQN(fieldNames, Objects.requireNonNull(aspectRetriever));
     }
+  }
+
+  private static String stripStructuredPropertyPrefix(String s) {
+    if (s.startsWith(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX)) {
+      return s.substring(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.length() + 1).split("[.]")[0];
+    } else if (s.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+      return s.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1).split("[.]")[0];
+    }
+    return s;
   }
 
   public static Date toDate(PrimitivePropertyValue value) throws DateTimeParseException {
@@ -120,7 +289,7 @@ public class StructuredPropertyUtils {
     return date.compareTo(MIN_DATE) >= 0 && date.compareTo(MAX_DATE) <= 0;
   }
 
-  private static Set<Urn> getRemovedUrns(Set<Urn> urns, AspectRetriever aspectRetriever) {
+  private static Set<Urn> getRemovedUrns(Set<Urn> urns, @Nonnull AspectRetriever aspectRetriever) {
     return aspectRetriever
         .getLatestAspectObjects(urns, ImmutableSet.of(STATUS_ASPECT_NAME))
         .entrySet()

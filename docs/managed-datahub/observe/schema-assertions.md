@@ -8,7 +8,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-> The **Schema Assertions** feature is available as part of the **Acryl Observe** module of Acryl Cloud.
+> The **Schema Assertions** feature is available as part of the **Acryl Observe** module of DataHub Cloud.
 > If you are interested in learning more about **Acryl Observe** or trying it out, please [visit our website](https://www.acryldata.io/observe).
 
 ## Introduction
@@ -20,9 +20,9 @@ There are many reasons why the structure of an important Table on Snowflake, Red
 of downstream consumers of the table. 
 
 What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data
-issues _before_ anyone else? With Acryl DataHub **Schema Assertions**, you can.
+issues _before_ anyone else? With DataHub Cloud **Schema Assertions**, you can.
 
-Acryl DataHub allows users to define expectations about a table's columns and their data types, and will monitor and validate these expectations over
+DataHub Cloud allows users to define expectations about a table's columns and their data types, and will monitor and validate these expectations over
 time, notifying you when a breaking change occurs. 
 
 In this article, we'll cover the basics of monitoring Schema Assertions - what they are, how to configure them, and more - so that you and your team can

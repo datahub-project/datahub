@@ -1,6 +1,7 @@
 plugins {
   id 'pegasus'
   id 'java-library'
+  id 'java-test-fixtures'
 }
 
 dependencies {
@@ -45,5 +46,8 @@ dependencies {
     exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
   }
 
+  testFixturesImplementation externalDependency.mockito
+  testFixturesCompileOnly externalDependency.lombok
+  testFixturesAnnotationProcessor externalDependency.lombok
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')

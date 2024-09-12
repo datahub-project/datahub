@@ -13,6 +13,7 @@ import unittest.mock
 import uuid
 from functools import lru_cache
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -39,6 +40,7 @@ from great_expectations.data_context.types.base import (
 from great_expectations.dataset.dataset import Dataset
 from great_expectations.dataset.sqlalchemy_dataset import SqlAlchemyDataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
+from great_expectations.execution_engine.sqlalchemy_dialect import GXSqlDialect
 from great_expectations.profile.base import ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
 from sqlalchemy.engine import Connection, Engine
@@ -72,8 +74,13 @@ from datahub.utilities.sqlalchemy_query_combiner import (
     get_query_columns,
 )
 
+if TYPE_CHECKING:
+    from pyathena.cursor import Cursor
+
 assert MARKUPSAFE_PATCHED
 logger: logging.Logger = logging.getLogger(__name__)
+
+_original_get_column_median = SqlAlchemyDataset.get_column_median
 
 P = ParamSpec("P")
 POSTGRESQL = "postgresql"
@@ -203,6 +210,47 @@ def _get_column_quantiles_bigquery_patch(  # type:ignore
         return list()
 
 
+def _get_column_quantiles_awsathena_patch(  # type:ignore
+    self, column: str, quantiles: Iterable
+) -> list:
+    import ast
+
+    table_name = ".".join(
+        [f'"{table_part}"' for table_part in str(self._table).split(".")]
+    )
+
+    quantiles_list = list(quantiles)
+    quantiles_query = (
+        f"SELECT approx_percentile({column}, ARRAY{str(quantiles_list)}) as quantiles "
+        f"from (SELECT {column} from {table_name})"
+    )
+    try:
+        quantiles_results = self.engine.execute(quantiles_query).fetchone()[0]
+        quantiles_results_list = ast.literal_eval(quantiles_results)
+        return quantiles_results_list
+
+    except ProgrammingError as pe:
+        self._treat_quantiles_exception(pe)
+        return []
+
+
+def _get_column_median_patch(self, column):
+    # AWS Athena and presto have an special function that can be used to retrieve the median
+    if (
+        self.sql_engine_dialect.name.lower() == GXSqlDialect.AWSATHENA
+        or self.sql_engine_dialect.name.lower() == GXSqlDialect.TRINO
+    ):
+        table_name = ".".join(
+            [f'"{table_part}"' for table_part in str(self._table).split(".")]
+        )
+        element_values = self.engine.execute(
+            f"SELECT approx_percentile({column},  0.5) FROM {table_name}"
+        )
+        return convert_to_json_serializable(element_values.fetchone()[0])
+    else:
+        return _original_get_column_median(self, column)
+
+
 def _is_single_row_query_method(query: Any) -> bool:
     SINGLE_ROW_QUERY_FILES = {
         # "great_expectations/dataset/dataset.py",
@@ -257,10 +305,9 @@ def _is_single_row_query_method(query: Any) -> bool:
         if frame.name in SINGLE_ROW_QUERY_METHODS:
             return True
         if frame.name in CONSTANT_ROW_QUERY_METHODS:
-            # TODO: figure out how to handle these.
-            # A cross join will return (`constant` ** `queries`) rows rather
-            # than `constant` rows with `queries` columns.
-            # See https://stackoverflow.com/questions/35638753/create-query-to-join-2-tables-1-on-1-with-nothing-in-common.
+            # TODO: figure out how to handle these. A cross join will return (`constant` ** `queries`) rows rather
+            #  than `constant` rows with `queries` columns. See
+            #  https://stackoverflow.com/questions/35638753/create-query-to-join-2-tables-1-on-1-with-nothing-in-common.
             return False
 
         if frame.name == COLUMN_MAP_QUERY_METHOD:
@@ -381,9 +428,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column cardinality for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column cardinality",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Cardinality",
+                message="The cardinality for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
             return
 
@@ -436,14 +486,15 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 self.dataset.engine.execute(get_estimate_script).scalar()
             )
         else:
-            # If the configuration is not set to 'estimate only' mode, we directly obtain the row count from the dataset.
-            # However, if an offset or limit is set, we need to adjust how we calculate the row count.
-            # This is because applying a limit or offset could potentially skew the row count.
-            # For instance, if a limit is set and the actual row count exceeds this limit,
-            # the returned row count would incorrectly be the limit value.
+            # If the configuration is not set to 'estimate only' mode, we directly obtain the row count from the
+            # dataset. However, if an offset or limit is set, we need to adjust how we calculate the row count. This
+            # is because applying a limit or offset could potentially skew the row count. For instance, if a limit is
+            # set and the actual row count exceeds this limit, the returned row count would incorrectly be the limit
+            # value.
             #
-            # To address this, if a limit is set, we use the original table name when calculating the row count.
-            # This ensures that the row count is based on the original table, not on a view which have limit or offset applied.
+            # To address this, if a limit is set, we use the original table name when calculating the row count. This
+            # ensures that the row count is based on the original table, not on a view which have limit or offset
+            # applied.
             if (self.config.limit or self.config.offset) and not self.custom_sql:
                 # We don't want limit and offset to get applied to the row count
                 # This is kinda hacky way to do it, but every other way would require major refactoring
@@ -465,9 +516,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column min for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column min",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Min",
+                message="The min for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -482,9 +536,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column max for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column max",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Max",
+                message="The max for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -499,9 +556,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column mean for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column mean",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Mean",
+                message="The mean for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -533,9 +593,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column median for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column medians",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Medians",
+                message="The medians for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -551,8 +614,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column stddev for column {column}. {e}"
             )
             self.report.report_warning(
-                "Profiling - Unable to get column stddev",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Standard Deviation",
+                message="The standard deviation for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -590,9 +655,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column quantiles for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column quantiles",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Quantiles",
+                message="The quantiles for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -634,9 +702,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column histogram for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column histogram",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Histogram",
+                message="The histogram for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -666,9 +737,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get sample values for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column sample values",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Sample Values",
+                message="The sample values for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     def generate_dataset_profile(  # noqa: C901 (complexity)
@@ -1038,6 +1112,12 @@ class DatahubGEProfiler:
         ), unittest.mock.patch(
             "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
             _get_column_quantiles_bigquery_patch,
+        ), unittest.mock.patch(
+            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_awsathena",
+            _get_column_quantiles_awsathena_patch,
+        ), unittest.mock.patch(
+            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_median",
+            _get_column_median_patch,
         ), concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers
         ) as async_executor, SQLAlchemyQueryCombiner(
@@ -1114,15 +1194,16 @@ class DatahubGEProfiler:
             **request.batch_kwargs,
         )
 
-    def _drop_trino_temp_table(self, temp_dataset: Dataset) -> None:
+    def _drop_temp_table(self, temp_dataset: Dataset) -> None:
         schema = temp_dataset._table.schema
         table = temp_dataset._table.name
+        table_name = f'"{schema}"."{table}"' if schema else f'"{table}"'
         try:
             with self.base_engine.connect() as connection:
-                connection.execute(f"drop view if exists {schema}.{table}")
-                logger.debug(f"View {schema}.{table} was dropped.")
+                connection.execute(f"drop view if exists {table_name}")
+                logger.debug(f"View {table_name} was dropped.")
         except Exception:
-            logger.warning(f"Unable to delete trino temporary table: {schema}.{table}")
+            logger.warning(f"Unable to delete temporary table: {table_name}")
 
     def _generate_single_profile(
         self,
@@ -1149,6 +1230,19 @@ class DatahubGEProfiler:
         }
 
         bigquery_temp_table: Optional[str] = None
+        temp_view: Optional[str] = None
+        if platform and platform.upper() == "ATHENA" and (custom_sql):
+            if custom_sql is not None:
+                # Note that limit and offset are not supported for custom SQL.
+                temp_view = create_athena_temp_table(
+                    self, custom_sql, pretty_name, self.base_engine.raw_connection()
+                )
+                ge_config["table"] = temp_view
+                ge_config["schema"] = None
+                ge_config["limit"] = None
+                ge_config["offset"] = None
+                custom_sql = None
+
         if platform == BIGQUERY and (
             custom_sql or self.config.limit or self.config.offset
         ):
@@ -1180,6 +1274,7 @@ class DatahubGEProfiler:
             if custom_sql is not None:
                 ge_config["query"] = custom_sql
 
+        batch = None
         with self._ge_context() as ge_context, PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
@@ -1215,12 +1310,34 @@ class DatahubGEProfiler:
             except Exception as e:
                 if not self.config.catch_exceptions:
                     raise e
-                logger.exception(f"Encountered exception while profiling {pretty_name}")
-                self.report.report_warning(pretty_name, f"Profiling exception {e}")
+
+                error_message = str(e).lower()
+                if "permission denied" in error_message:
+                    self.report.warning(
+                        title="Unauthorized to extract data profile statistics",
+                        message="We were denied access while attempting to generate profiling statistics for some assets. Please ensure the provided user has permission to query these tables and views.",
+                        context=f"Asset: {pretty_name}",
+                        exc=e,
+                    )
+                else:
+                    self.report.warning(
+                        title="Failed to extract statistics for some assets",
+                        message="Caught unexpected exception while attempting to extract profiling statistics for some assets.",
+                        context=f"Asset: {pretty_name}",
+                        exc=e,
+                    )
                 return None
             finally:
-                if self.base_engine.engine.name == TRINO:
-                    self._drop_trino_temp_table(batch)
+                if batch is not None and self.base_engine.engine.name.upper() in [
+                    "TRINO",
+                    "AWSATHENA",
+                ]:
+                    if (
+                        self.base_engine.engine.name.upper() == "TRINO"
+                        or temp_view is not None
+                    ):
+                        self._drop_temp_table(batch)
+                    # if we are not on Trino then we only drop table if temp table variable was set
 
     def _get_ge_dataset(
         self,
@@ -1282,6 +1399,40 @@ def _get_column_types_to_ignore(dialect_name: str) -> List[str]:
         return ["JSON"]
 
     return []
+
+
+def create_athena_temp_table(
+    instance: Union[DatahubGEProfiler, _SingleDatasetProfiler],
+    sql: str,
+    table_pretty_name: str,
+    raw_connection: Any,
+) -> Optional[str]:
+    try:
+        cursor: "Cursor" = cast("Cursor", raw_connection.cursor())
+        logger.debug(f"Creating view for {table_pretty_name}: {sql}")
+        temp_view = f"ge_{uuid.uuid4()}"
+        if "." in table_pretty_name:
+            schema_part = table_pretty_name.split(".")[-1]
+            schema_part_quoted = ".".join(
+                [f'"{part}"' for part in str(schema_part).split(".")]
+            )
+            temp_view = f"{schema_part_quoted}_{temp_view}"
+
+        temp_view = f"ge_{uuid.uuid4()}"
+        cursor.execute(f'create or replace view "{temp_view}" as {sql}')
+    except Exception as e:
+        if not instance.config.catch_exceptions:
+            raise e
+        logger.exception(f"Encountered exception while profiling {table_pretty_name}")
+        instance.report.report_warning(
+            table_pretty_name,
+            f"Profiling exception {e} when running custom sql {sql}",
+        )
+        return None
+    finally:
+        raw_connection.close()
+
+    return temp_view
 
 
 def create_bigquery_temp_table(

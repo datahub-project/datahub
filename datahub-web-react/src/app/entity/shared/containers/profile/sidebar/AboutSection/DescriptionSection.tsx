@@ -61,11 +61,11 @@ export default function DescriptionSection({ description, baDescription, isExpan
     }
 
     function readBAMore() {
-        if(isCompact || isExpandable) {
+        if (isCompact || isExpandable) {
             setIsBaExpanded(true);
         } else if (baUrn != null) {
-                history.push(entityRegistry.getEntityUrl(EntityType.BusinessAttribute, baUrn || ''));
-            }
+            history.push(entityRegistry.getEntityUrl(EntityType.BusinessAttribute, baUrn || ''));
+        }
     }
 
     return (
@@ -74,14 +74,18 @@ export default function DescriptionSection({ description, baDescription, isExpan
                 {isExpanded && (
                     <>
                         <MarkdownViewer source={description} ignoreLimit />
-                        {isOverLimit && <Typography.Link onClick={() => setIsExpanded(false)}>Read Less</Typography.Link>}
+                        {isOverLimit && (
+                            <Typography.Link onClick={() => setIsExpanded(false)}>Read Less</Typography.Link>
+                        )}
                     </>
                 )}
                 {!isExpanded && (
                     <NoMarkdownViewer
                         limit={limit || ABBREVIATED_LIMIT}
                         readMore={
-                            shouldShowReadMore ? <Typography.Link onClick={readMore}>Read More</Typography.Link> : undefined
+                            shouldShowReadMore ? (
+                                <Typography.Link onClick={readMore}>Read More</Typography.Link>
+                            ) : undefined
                         }
                         shouldWrap
                     >
@@ -93,14 +97,18 @@ export default function DescriptionSection({ description, baDescription, isExpan
                 {isBaExpanded && (
                     <>
                         <MarkdownViewer source={baDescription || ''} ignoreLimit />
-                        {isBaOverLimit && <Typography.Link onClick={() => setIsBaExpanded(false)}>Read Less</Typography.Link>}
+                        {isBaOverLimit && (
+                            <Typography.Link onClick={() => setIsBaExpanded(false)}>Read Less</Typography.Link>
+                        )}
                     </>
                 )}
                 {!isBaExpanded && (
                     <NoMarkdownViewer
                         limit={limit || ABBREVIATED_LIMIT}
                         readMore={
-                            shouldShowReadMore ? <Typography.Link onClick={readBAMore}>Read More</Typography.Link> : undefined
+                            shouldShowReadMore ? (
+                                <Typography.Link onClick={readBAMore}>Read More</Typography.Link>
+                            ) : undefined
                         }
                         shouldWrap
                     >

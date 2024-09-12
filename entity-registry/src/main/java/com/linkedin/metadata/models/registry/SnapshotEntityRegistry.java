@@ -20,6 +20,10 @@ import com.linkedin.metadata.aspect.patch.template.dataproduct.DataProductProper
 import com.linkedin.metadata.aspect.patch.template.dataset.DatasetPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.EditableSchemaMetadataTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.UpstreamLineageTemplate;
+import com.linkedin.metadata.aspect.patch.template.form.FormInfoTemplate;
+import com.linkedin.metadata.aspect.patch.template.structuredproperty.StructuredPropertyDefinitionTemplate;
+import com.linkedin.metadata.aspect.plugins.PluginFactory;
+import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -30,8 +34,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.Getter;
 
 /**
  * Implementation of {@link EntityRegistry} that builds {@link DefaultEntitySpec} objects from the a
@@ -44,6 +51,9 @@ public class SnapshotEntityRegistry implements EntityRegistry {
   private final AspectTemplateEngine _aspectTemplateEngine;
   private final Map<String, AspectSpec> _aspectNameToSpec;
 
+  @Getter @Nullable
+  private BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider;
+
   private static final SnapshotEntityRegistry INSTANCE = new SnapshotEntityRegistry();
 
   public SnapshotEntityRegistry() {
@@ -54,6 +64,19 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     entitySpecs = new ArrayList<>(entityNameToSpec.values());
     _aspectNameToSpec = populateAspectMap(entitySpecs);
     _aspectTemplateEngine = populateTemplateEngine(_aspectNameToSpec);
+    pluginFactoryProvider = null;
+  }
+
+  public SnapshotEntityRegistry(
+      BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider) {
+    entityNameToSpec =
+        new EntitySpecBuilder()
+            .buildEntitySpecs(new Snapshot().schema()).stream()
+                .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
+    entitySpecs = new ArrayList<>(entityNameToSpec.values());
+    _aspectNameToSpec = populateAspectMap(entitySpecs);
+    _aspectTemplateEngine = populateTemplateEngine(_aspectNameToSpec);
+    this.pluginFactoryProvider = pluginFactoryProvider;
   }
 
   public SnapshotEntityRegistry(UnionTemplate snapshot) {
@@ -87,6 +110,9 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, new DataJobInputOutputTemplate());
     aspectSpecTemplateMap.put(
         STRUCTURED_PROPERTIES_ASPECT_NAME, new StructuredPropertiesTemplate());
+    aspectSpecTemplateMap.put(
+        STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, new StructuredPropertyDefinitionTemplate());
+    aspectSpecTemplateMap.put(FORM_INFO_ASPECT_NAME, new FormInfoTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }
 

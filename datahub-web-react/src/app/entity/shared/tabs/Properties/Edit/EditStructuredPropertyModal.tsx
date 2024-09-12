@@ -1,7 +1,6 @@
 import { Button, Modal, message } from 'antd';
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
-import { PropertyRow } from '../types';
 import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
 import { PropertyValueInput, StructuredPropertyEntity } from '../../../../../../types.generated';
 import { useUpsertStructuredPropertiesMutation } from '../../../../../../graphql/structuredProperties.generated';
@@ -17,18 +16,32 @@ const Description = styled.div`
 
 interface Props {
     isOpen: boolean;
-    propertyRow: PropertyRow;
     structuredProperty: StructuredPropertyEntity;
+    associatedUrn?: string;
+    values?: (string | number | null)[];
     closeModal: () => void;
+    refetch?: () => void;
 }
 
-export default function EditStructuredPropertyModal({ isOpen, propertyRow, structuredProperty, closeModal }: Props) {
-    const { refetch } = useEntityContext();
-    const urn = useMutationUrn();
-    const initialValues = propertyRow.values?.map((v) => v.value) || [];
-    const { selectedValues, selectSingleValue, toggleSelectedValue, updateSelectedValues } =
+export default function EditStructuredPropertyModal({
+    isOpen,
+    structuredProperty,
+    associatedUrn,
+    values,
+    closeModal,
+    refetch,
+}: Props) {
+    const { refetch: entityRefetch } = useEntityContext();
+    const mutationUrn = useMutationUrn();
+    const urn = associatedUrn || mutationUrn;
+    const initialValues = useMemo(() => values || [], [values]);
+    const { selectedValues, selectSingleValue, toggleSelectedValue, updateSelectedValues, setSelectedValues } =
         useEditStructuredProperty(initialValues);
     const [upsertStructuredProperties] = useUpsertStructuredPropertiesMutation();
+
+    useEffect(() => {
+        setSelectedValues(initialValues);
+    }, [isOpen, initialValues, setSelectedValues]);
 
     function upsertProperties() {
         message.loading('Updating...');
@@ -51,7 +64,11 @@ export default function EditStructuredPropertyModal({ isOpen, propertyRow, struc
             },
         })
             .then(() => {
-                refetch();
+                if (refetch) {
+                    refetch();
+                } else {
+                    entityRefetch();
+                }
                 message.destroy();
                 message.success('Successfully updated structured property!');
                 closeModal();
@@ -67,7 +84,7 @@ export default function EditStructuredPropertyModal({ isOpen, propertyRow, struc
 
     return (
         <Modal
-            title={propertyRow.displayName}
+            title={structuredProperty.definition.displayName}
             onCancel={closeModal}
             open={isOpen}
             width={650}

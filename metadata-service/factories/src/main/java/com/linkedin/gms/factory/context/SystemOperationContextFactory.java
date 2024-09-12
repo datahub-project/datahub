@@ -9,13 +9,14 @@ import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.SearchServiceSearchRetriever;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import javax.annotation.Nonnull;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -23,10 +24,6 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class SystemOperationContextFactory {
-
-  @Autowired
-  @Qualifier("baseElasticSearchComponents")
-  private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
   /**
    * Used inside GMS
@@ -42,13 +39,19 @@ public class SystemOperationContextFactory {
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final EntityService<?> entityService,
       @Nonnull final RestrictedService restrictedService,
-      @Nonnull final GraphRetriever graphRetriever) {
+      @Nonnull final GraphRetriever graphRetriever,
+      @Nonnull final SearchService searchService,
+      @Qualifier("baseElasticSearchComponents")
+          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components) {
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
         EntityServiceAspectRetriever.builder()
             .entityRegistry(entityRegistry)
             .entityService(entityService)
             .build();
+
+    SearchServiceSearchRetriever searchServiceSearchRetriever =
+        SearchServiceSearchRetriever.builder().searchService(searchService).build();
 
     OperationContext systemOperationContext =
         OperationContext.asSystem(
@@ -60,15 +63,17 @@ public class SystemOperationContextFactory {
             RetrieverContext.builder()
                 .aspectRetriever(entityServiceAspectRetriever)
                 .graphRetriever(graphRetriever)
+                .searchRetriever(searchServiceSearchRetriever)
                 .build());
 
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
+    searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
     return systemOperationContext;
   }
 
   /**
-   * Used outside of GMS
+   * Used outside GMS
    *
    * <p>Entity Client and Aspect Retriever implemented by Restli call to GMS Entity Client and
    * Aspect Retriever client-side caching enabled
@@ -82,10 +87,16 @@ public class SystemOperationContextFactory {
       @Nonnull @Qualifier("systemAuthentication") final Authentication systemAuthentication,
       @Nonnull final OperationContextConfig operationContextConfig,
       @Nonnull final RestrictedService restrictedService,
-      @Nonnull final GraphRetriever graphRetriever) {
+      @Nonnull final GraphRetriever graphRetriever,
+      @Nonnull final SearchService searchService,
+      @Qualifier("baseElasticSearchComponents")
+          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components) {
 
     EntityClientAspectRetriever entityServiceAspectRetriever =
         EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();
+
+    SearchServiceSearchRetriever searchServiceSearchRetriever =
+        SearchServiceSearchRetriever.builder().searchService(searchService).build();
 
     OperationContext systemOperationContext =
         OperationContext.asSystem(
@@ -97,9 +108,11 @@ public class SystemOperationContextFactory {
             RetrieverContext.builder()
                 .aspectRetriever(entityServiceAspectRetriever)
                 .graphRetriever(graphRetriever)
+                .searchRetriever(searchServiceSearchRetriever)
                 .build());
 
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
+    searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
     return systemOperationContext;
   }

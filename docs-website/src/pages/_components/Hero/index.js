@@ -7,8 +7,8 @@ import { useColorMode } from "@docusaurus/theme-common";
 import { QuestionCircleOutlined } from "@ant-design/icons";
 import styles from "./hero.module.scss";
 import CodeBlock from "@theme/CodeBlock";
-import CardCTAs from "../CardCTAs";
 import TownhallButton from "../TownhallButton";
+import { Section } from "../Section";
 
 const HeroAnnouncement = ({ message, linkUrl, linkText }) => (
   <div className={clsx("hero__alert alert alert--primary", styles.hero__alert)}>
@@ -49,33 +49,6 @@ const Hero = ({}) => {
             </Link>
             <TownhallButton />
           </div>
-        </div>
-        <CardCTAs />
-        <div className={styles.quickstartContent}>
-          <h1 className={styles.quickstartTitle}>Get Started Now</h1>
-          <p className={styles.quickstartSubtitle}>Run the following command to get started with DataHub.</p>
-          <div className={styles.quickstartCodeblock}>
-            <CodeBlock className={"language-shell"}>
-              python3 -m pip install --upgrade pip wheel setuptools <br />
-              python3 -m pip install --upgrade acryl-datahub <br />
-              datahub docker quickstart
-            </CodeBlock>
-          </div>
-          <Link className="button button--primary button--md" to={useBaseUrl("docs/quickstart")}>
-            DataHub Quickstart Guide
-          </Link>
-          <Link className="button button--secondary button--md" to={useBaseUrl("docs/deploy/kubernetes")}>
-            Deploying With Kubernetes
-          </Link>
-        </div>
-        <div className={clsx("card", styles.quickLinks)}>
-          <div className={styles.quickLinksLabel}>
-            <QuestionCircleOutlined />
-            Learn
-          </div>
-          <Link to={useBaseUrl("docs/")}>What is DataHub?</Link>
-          <Link to={useBaseUrl("docs/architecture/architecture")}>How is DataHub architected?</Link>
-          <Link to="https://demo.datahubproject.io">See DataHub in action</Link>
         </div>
       </div>
     </header>

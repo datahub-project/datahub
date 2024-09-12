@@ -8,6 +8,8 @@ export const SidebarWrapper = styled.div<{ width: number }>`
     width: ${(props) => props.width}px;
     min-width: ${(props) => props.width}px;
     display: ${(props) => (props.width ? 'block' : 'none')};
+    display: flex;
+    flex-direction: column;
 `;
 
 export function RotatingTriangle({ isOpen, onClick }: { isOpen: boolean; onClick?: () => void }) {

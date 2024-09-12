@@ -87,6 +87,14 @@ class DataSource:
 
 
 @dataclass
+class MeasureProfile:
+    min: Optional[str] = None
+    max: Optional[str] = None
+    unique_count: Optional[int] = None
+    sample_values: Optional[List[str]] = None
+
+
+@dataclass
 class Column:
     name: str
     dataType: str
@@ -97,6 +105,7 @@ class Column:
     columnType: Optional[str] = None
     expression: Optional[str] = None
     description: Optional[str] = None
+    measure_profile: Optional[MeasureProfile] = None
 
 
 @dataclass
@@ -109,6 +118,7 @@ class Measure:
         BooleanTypeClass, DateTypeClass, NullTypeClass, NumberTypeClass, StringTypeClass
     ] = field(default_factory=NullTypeClass)
     description: Optional[str] = None
+    measure_profile: Optional[MeasureProfile] = None
 
 
 @dataclass
@@ -118,6 +128,8 @@ class Table:
     expression: Optional[str] = None
     columns: Optional[List[Column]] = None
     measures: Optional[List[Measure]] = None
+    row_count: Optional[int] = None
+    column_count: Optional[int] = None
 
     # Pointer to the parent dataset.
     dataset: Optional["PowerBIDataset"] = None
@@ -297,9 +309,11 @@ def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset
         id=raw_instance["id"],
         name=raw_instance.get("name"),
         description=raw_instance.get("description", ""),
-        webUrl="{}/details".format(raw_instance.get("webUrl"))
-        if raw_instance.get("webUrl") is not None
-        else None,
+        webUrl=(
+            "{}/details".format(raw_instance.get("webUrl"))
+            if raw_instance.get("webUrl") is not None
+            else None
+        ),
         workspace_id=workspace_id,
         parameters={},
         tables=[],

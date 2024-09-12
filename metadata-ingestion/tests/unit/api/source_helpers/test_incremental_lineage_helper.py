@@ -37,20 +37,22 @@ def make_lineage_aspect(
             )
             for upstream_urn in upstreams
         ],
-        fineGrainedLineages=[
-            models.FineGrainedLineageClass(
-                upstreamType=models.FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                downstreamType=models.FineGrainedLineageDownstreamTypeClass.FIELD,
-                upstreams=[
-                    make_schema_field_urn(upstream_urn, col)
-                    for upstream_urn in upstreams
-                ],
-                downstreams=[make_schema_field_urn(dataset_urn, col)],
-            )
-            for col in columns
-        ]
-        if include_cll
-        else None,
+        fineGrainedLineages=(
+            [
+                models.FineGrainedLineageClass(
+                    upstreamType=models.FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    downstreamType=models.FineGrainedLineageDownstreamTypeClass.FIELD,
+                    upstreams=[
+                        make_schema_field_urn(upstream_urn, col)
+                        for upstream_urn in upstreams
+                    ],
+                    downstreams=[make_schema_field_urn(dataset_urn, col)],
+                )
+                for col in columns
+            ]
+            if include_cll
+            else None
+        ),
     )
 
 

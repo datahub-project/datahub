@@ -6,9 +6,11 @@ import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.common.steps.ClearGraphServiceStep;
 import com.linkedin.datahub.upgrade.common.steps.ClearSearchServiceStep;
+import com.linkedin.datahub.upgrade.common.steps.ClearSystemMetadataServiceStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,10 +34,13 @@ public class RestoreIndices implements Upgrade {
   public RestoreIndices(
       @Nullable final Database server,
       final EntityService<?> entityService,
+      final SystemMetadataService systemMetadataService,
       final EntitySearchService entitySearchService,
       final GraphService graphService) {
     if (server != null) {
-      _steps = buildSteps(server, entityService, entitySearchService, graphService);
+      _steps =
+          buildSteps(
+              server, entityService, systemMetadataService, entitySearchService, graphService);
     } else {
       _steps = List.of();
     }
@@ -54,9 +59,11 @@ public class RestoreIndices implements Upgrade {
   private List<UpgradeStep> buildSteps(
       final Database server,
       final EntityService<?> entityService,
+      final SystemMetadataService systemMetadataService,
       final EntitySearchService entitySearchService,
       final GraphService graphService) {
     final List<UpgradeStep> steps = new ArrayList<>();
+    steps.add(new ClearSystemMetadataServiceStep(systemMetadataService, false));
     steps.add(new ClearSearchServiceStep(entitySearchService, false));
     steps.add(new ClearGraphServiceStep(graphService, false));
     steps.add(new SendMAEStep(server, entityService));

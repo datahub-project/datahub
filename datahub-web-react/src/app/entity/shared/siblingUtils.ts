@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import * as QueryString from 'query-string';
 import { Dataset, Entity, Maybe, SiblingProperties } from '../../../types.generated';
 import { GenericEntityProperties } from './types';
+import { useIsShowSeparateSiblingsEnabled } from '../../useAppConfig';
 
 export function stripSiblingsFromEntity(entity: any) {
     return {
@@ -267,8 +268,9 @@ export const SEPARATE_SIBLINGS_URL_PARAM = 'separate_siblings';
 
 // used to determine whether sibling entities should be shown merged or not
 export function useIsSeparateSiblingsMode() {
+    const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
 
-    return params[SEPARATE_SIBLINGS_URL_PARAM] === 'true';
+    return showSeparateSiblings || params[SEPARATE_SIBLINGS_URL_PARAM] === 'true';
 }

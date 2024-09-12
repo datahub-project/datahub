@@ -38,7 +38,7 @@ either Kafka or using the Metadata Store Rest APIs directly. DataHub supports an
 a host of capabilities including schema extraction, table & column profiling, usage information extraction, and more.  
 
 Getting started with the Ingestion Framework is as simple: just define a YAML file and execute the `datahub ingest` command.
-Learn more by heading over the the [Metadata Ingestion](https://datahubproject.io/docs/metadata-ingestion/) guide. 
+Learn more by heading over the [Metadata Ingestion](https://datahubproject.io/docs/metadata-ingestion/) guide. 
 
 ## GraphQL API
 

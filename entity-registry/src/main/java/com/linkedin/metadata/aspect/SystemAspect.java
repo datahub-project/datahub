@@ -2,7 +2,9 @@ package com.linkedin.metadata.aspect;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 
 /**
@@ -21,5 +23,17 @@ public interface SystemAspect extends ReadItem {
     return new AuditStamp()
         .setActor(UrnUtils.getUrn(getCreatedBy()))
         .setTime(getCreatedOn().getTime());
+  }
+
+  /**
+   * If aspect version exists in system metadata, return it
+   *
+   * @return version of the aspect
+   */
+  default Optional<Long> getSystemMetadataVersion() {
+    return Optional.ofNullable(getSystemMetadata())
+        .filter(SystemMetadata::hasVersion)
+        .map(SystemMetadata::getVersion)
+        .map(Long::parseLong);
   }
 }

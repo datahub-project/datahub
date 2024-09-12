@@ -25,6 +25,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
@@ -61,15 +62,22 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
   public void setup() {
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
-            new SnapshotEntityRegistry(new Snapshot()), new IndexConventionImpl("es_service_test"));
+            new SnapshotEntityRegistry(new Snapshot()),
+            new IndexConventionImpl(
+                IndexConventionImpl.IndexConventionConfig.builder()
+                    .prefix("es_service_test")
+                    .hashIdAlgo("MD5")
+                    .build()));
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildService();
-    elasticSearchService.configure();
+    elasticSearchService.reindexAll(Collections.emptySet());
   }
 
   @BeforeMethod
   public void wipe() throws Exception {
+    syncAfterWrite(getBulkProcessor());
     elasticSearchService.clear(opContext);
+    syncAfterWrite(getBulkProcessor());
   }
 
   @Nonnull

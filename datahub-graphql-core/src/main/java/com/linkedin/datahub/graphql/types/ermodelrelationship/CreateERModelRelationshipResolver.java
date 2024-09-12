@@ -54,14 +54,15 @@ public class CreateERModelRelationshipResolver
       highDataset = source;
     }
     // The following sequence mimics datahub.emitter.mce_builder.datahub_guid
+    // Keys have to be in alphabetical order - Destination, ERModelRelationName and Source
 
     String ermodelrelationKey =
-        "{\"Source\":\""
+        "{\"Destination\":\""
             + lowDataset
-            + "\",\"Destination\":\""
-            + highDataset
             + "\",\"ERModelRelationName\":\""
             + ermodelrelationName
+            + "\",\"Source\":\""
+            + highDataset
             + "\"}";
 
     byte[] mybytes = ermodelrelationKey.getBytes(StandardCharsets.UTF_8);

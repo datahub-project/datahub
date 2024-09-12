@@ -1,7 +1,8 @@
-import { Button, Checkbox, Collapse, Form, Input, Typography } from 'antd';
+import { Button, Checkbox, Collapse, Form, Input, Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
+import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -156,7 +157,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
 
     return (
         <>
-            <Form layout="vertical">
+            <RequiredFieldForm layout="vertical">
                 <Form.Item
                     required
                     label={
@@ -166,7 +167,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                     }
                     style={{ marginBottom: 8 }}
                 >
-                    <Typography.Paragraph>Give this ingestion source a name.</Typography.Paragraph>
+                    <Typography.Paragraph>Give this data source a name</Typography.Paragraph>
                     <Input
                         data-testid="source-name-input"
                         className="source-name-input"
@@ -178,10 +179,12 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 </Form.Item>
                 <Collapse ghost>
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
-                        <Form.Item label={<Typography.Text strong>Executor Id</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>Executor ID</Typography.Text>}>
                             <Typography.Paragraph>
-                                Provide the executor id to route execution requests to. The built-in DataHub executor id
-                                is &apos;default&apos;. Do not change this unless you have configured a custom executor.
+                                Provide the ID of the executor that should execute this ingestion recipe. This ID is
+                                used to route execution requests of the recipe to the executor of the same ID. The
+                                built-in DataHub executor ID is &apos;default&apos;. Do not change this unless you have
+                                configured a remote or custom executor.
                             </Typography.Paragraph>
                             <Input
                                 placeholder="default"
@@ -250,7 +253,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                         </Form.Item>
                     </Collapse.Panel>
                 </Collapse>
-            </Form>
+            </RequiredFieldForm>
             <ControlsContainer>
                 <Button onClick={prev}>Previous</Button>
                 <div>
@@ -261,13 +264,15 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                     >
                         Save
                     </SaveButton>
-                    <Button
-                        disabled={!(state.name !== undefined && state.name.length > 0)}
-                        onClick={() => onClickCreate(true)}
-                        type="primary"
-                    >
-                        Save & Run
-                    </Button>
+                    <Tooltip showArrow={false} title="Save and starting syncing data source">
+                        <Button
+                            disabled={!(state.name !== undefined && state.name.length > 0)}
+                            onClick={() => onClickCreate(true)}
+                            type="primary"
+                        >
+                            Save & Run
+                        </Button>
+                    </Tooltip>
                 </div>
             </ControlsContainer>
         </>

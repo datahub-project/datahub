@@ -8,7 +8,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -50,6 +49,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.CollectionUtils;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.unit.TimeValue;
@@ -117,8 +117,7 @@ public class SearchRequestHandler {
   public static SearchRequestHandler getBuilder(
       @Nonnull EntitySpec entitySpec,
       @Nonnull SearchConfiguration configs,
-      @Nullable CustomSearchConfiguration customSearchConfiguration,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nullable CustomSearchConfiguration customSearchConfiguration) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
         ImmutableList.of(entitySpec),
         k -> new SearchRequestHandler(entitySpec, configs, customSearchConfiguration));
@@ -127,8 +126,7 @@ public class SearchRequestHandler {
   public static SearchRequestHandler getBuilder(
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull SearchConfiguration configs,
-      @Nullable CustomSearchConfiguration customSearchConfiguration,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nullable CustomSearchConfiguration customSearchConfiguration) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
         ImmutableList.copyOf(entitySpecs),
         k -> new SearchRequestHandler(entitySpecs, configs, customSearchConfiguration));
@@ -167,10 +165,7 @@ public class SearchRequestHandler {
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
-            filter,
-            false,
-            searchableFieldTypes,
-            opContext.getRetrieverContext().get().getAspectRetriever());
+            filter, false, searchableFieldTypes, opContext.getAspectRetriever());
     return applyDefaultSearchFilters(opContext, filter, filterQuery);
   }
 
@@ -193,7 +188,7 @@ public class SearchRequestHandler {
       @Nonnull OperationContext opContext,
       @Nonnull String input,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets) {
@@ -217,9 +212,15 @@ public class SearchRequestHandler {
           .forEach(searchSourceBuilder::aggregation);
     }
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
-      searchSourceBuilder.highlighter(highlights);
+      if (CollectionUtils.isNotEmpty(searchFlags.getCustomHighlightingFields())) {
+        searchSourceBuilder.highlighter(
+            getValidatedHighlighter(searchFlags.getCustomHighlightingFields()));
+      } else {
+        searchSourceBuilder.highlighter(highlights);
+      }
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
+
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
 
     if (Boolean.TRUE.equals(searchFlags.isGetSuggestions())) {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input);
@@ -249,7 +250,7 @@ public class SearchRequestHandler {
       @Nonnull OperationContext opContext,
       @Nonnull String input,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable Object[] sort,
       @Nullable String pitId,
       @Nullable String keepAlive,
@@ -278,7 +279,7 @@ public class SearchRequestHandler {
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
       searchSourceBuilder.highlighter(highlights);
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest);
     searchRequest.indicesOptions(null);
@@ -291,7 +292,7 @@ public class SearchRequestHandler {
    * to be applied to search results.
    *
    * @param filters {@link Filter} list of conditions with fields and values
-   * @param sortCriterion {@link SortCriterion} to be applied to the search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to the search results
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @return {@link SearchRequest} that contains the filtered query
@@ -300,7 +301,7 @@ public class SearchRequestHandler {
   public SearchRequest getFilterRequest(
       @Nonnull OperationContext opContext,
       @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size) {
     SearchRequest searchRequest = new SearchRequest();
@@ -309,7 +310,7 @@ public class SearchRequestHandler {
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(size);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
@@ -337,7 +338,9 @@ public class SearchRequestHandler {
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.size(0);
     searchSourceBuilder.aggregation(
-        AggregationBuilders.terms(field).field(ESUtils.toKeywordField(field, false)).size(limit));
+        AggregationBuilders.terms(field)
+            .field(ESUtils.toKeywordField(field, false, opContext.getAspectRetriever()))
+            .size(limit));
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
@@ -528,7 +531,8 @@ public class SearchRequestHandler {
 
     if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
       final List<AggregationMetadata> aggregationMetadataList =
-          aggregationQueryBuilder.extractAggregationMetadata(searchResponse, filter);
+          aggregationQueryBuilder.extractAggregationMetadata(
+              searchResponse, filter, opContext.getAspectRetriever());
       searchResultMetadata.setAggregations(new AggregationMetadataArray(aggregationMetadataList));
     }
 
@@ -558,5 +562,17 @@ public class SearchRequestHandler {
       }
     }
     return searchSuggestions;
+  }
+
+  private HighlightBuilder getValidatedHighlighter(Collection<String> fieldsToHighlight) {
+    HighlightBuilder highlightBuilder = new HighlightBuilder();
+    highlightBuilder.preTags("");
+    highlightBuilder.postTags("");
+    fieldsToHighlight.stream()
+        .filter(defaultQueryFieldNames::contains)
+        .flatMap(fieldName -> Stream.of(fieldName, fieldName + ".*"))
+        .distinct()
+        .forEach(highlightBuilder::field);
+    return highlightBuilder;
   }
 }

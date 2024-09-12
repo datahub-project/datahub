@@ -1,5 +1,7 @@
 query getMLModel($urn: String!) {
     mlModel(urn: $urn) {
+        urn
+        type
         ...nonRecursiveMLModel
         features: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
             start

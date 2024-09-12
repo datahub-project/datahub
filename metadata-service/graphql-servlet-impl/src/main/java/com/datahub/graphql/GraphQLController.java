@@ -15,6 +15,7 @@ import com.google.inject.name.Named;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
 import io.datahubproject.metadata.context.OperationContext;
@@ -51,6 +52,8 @@ public class GraphQLController {
 
   @Inject AuthorizerChain _authorizerChain;
 
+  @Inject ConfigurationProvider configurationProvider;
+
   @Nonnull
   @Inject
   @Named("systemOperationContext")
@@ -59,7 +62,8 @@ public class GraphQLController {
   private static final int MAX_LOG_WIDTH = 512;
 
   @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
-  CompletableFuture<ResponseEntity<String>> postGraphQL(HttpEntity<String> httpEntity) {
+  CompletableFuture<ResponseEntity<String>> postGraphQL(
+      HttpServletRequest request, HttpEntity<String> httpEntity) {
 
     String jsonStr = httpEntity.getBody();
     ObjectMapper mapper = new ObjectMapper();
@@ -74,7 +78,7 @@ public class GraphQLController {
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error("Failed to parse json {}", jsonStr);
+      log.error("Failed to parse json ", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
 
@@ -117,13 +121,19 @@ public class GraphQLController {
 
     SpringQueryContext context =
         new SpringQueryContext(
-            true, authentication, _authorizerChain, systemOperationContext, query, variables);
+            true,
+            authentication,
+            _authorizerChain,
+            systemOperationContext,
+            configurationProvider,
+            request,
+            operationName,
+            query,
+            variables);
     Span.current().setAttribute("actor.urn", context.getActorUrn());
 
-    // operationName is an optional field only required if multiple operations are present
-    final String queryName = operationName != null ? operationName : context.getQueryName();
     final String threadName = Thread.currentThread().getName();
-    log.info("Processing request, operation: {}, actor urn: {}", queryName, context.getActorUrn());
+    final String queryName = context.getQueryName();
     log.debug("Query: {}, variables: {}", query, variables);
 
     return GraphQLConcurrencyUtils.supplyAsync(

@@ -28,6 +28,7 @@ export type State = {
  * Context about the currently-authenticated user.
  */
 export type UserContextType = {
+    loaded: boolean;
     urn?: string | null;
     user?: CorpUser | null;
     platformPrivileges?: PlatformPrivileges | null;
@@ -53,6 +54,7 @@ export const DEFAULT_STATE: State = {
 };
 
 export const DEFAULT_CONTEXT = {
+    loaded: false,
     urn: undefined,
     user: undefined,
     state: DEFAULT_STATE,

@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.hook.form;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.DynamicFormAssignment;
@@ -15,6 +16,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,9 +40,6 @@ import org.springframework.stereotype.Component;
  * <p>3. When a form is hard deleted, any automations used for assigning the form, or validating
  * prompts, are automatically deleted.
  *
- * <p>Note that currently, Datasets, Dashboards, Charts, Data Jobs, Data Flows, Containers, are the
- * only asset types supported for this hook.
- *
  * <p>TODO: In the future, let's decide whether we want to support automations to auto-mark form
  * prompts as "completed" when they do in fact have the correct metadata. (Without user needing to
  * explicitly fill out a form prompt response)
@@ -56,17 +55,25 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
       ImmutableSet.of(
           ChangeType.UPSERT, ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.RESTATE);
 
-  private final FormService _formService;
-  private final boolean _isEnabled;
+  private final FormService formService;
+  private final boolean isEnabled;
 
   private OperationContext systemOperationContext;
+  @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public FormAssignmentHook(
       @Nonnull final FormService formService,
-      @Nonnull @Value("${forms.hook.enabled:true}") Boolean isEnabled) {
-    _formService = Objects.requireNonNull(formService, "formService is required");
-    _isEnabled = isEnabled;
+      @Nonnull @Value("${forms.hook.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${forms.hook.consumerGroupSuffix}") String consumerGroupSuffix) {
+    this.formService = Objects.requireNonNull(formService, "formService is required");
+    this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public FormAssignmentHook(@Nonnull final FormService formService, @Nonnull Boolean isEnabled) {
+    this(formService, isEnabled, "");
   }
 
   @Override
@@ -77,12 +84,12 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @Override
   public void invoke(@Nonnull final MetadataChangeLog event) {
-    if (_isEnabled && isEligibleForProcessing(event)) {
+    if (isEnabled && isEligibleForProcessing(event)) {
       if (isFormDynamicFilterUpdated(event)) {
         handleFormFilterUpdated(event);
       }
@@ -99,7 +106,7 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
             DynamicFormAssignment.class);
 
     // 2. Register a automation to assign it.
-    _formService.upsertFormAssignmentRunner(
+    formService.upsertFormAssignmentRunner(
         systemOperationContext, event.getEntityUrn(), formFilters);
   }
 

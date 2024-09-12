@@ -2,8 +2,6 @@ import logging
 from dataclasses import dataclass
 from typing import Iterable, Optional, Type, TypeVar, Union, overload
 
-from deprecated import deprecated
-
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import WorkUnit
@@ -11,7 +9,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.schema_classes import UsageAggregationClass, _Aspect
+from datahub.metadata.schema_classes import _Aspect
 
 logger = logging.getLogger(__name__)
 
@@ -158,11 +156,21 @@ class MetadataWorkUnit(WorkUnit):
             for mcpw in mcps_from_mce(self.metadata)
         ]
 
+    @classmethod
+    def from_metadata(
+        cls,
+        metadata: Union[
+            MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
+        ],
+        id: Optional[str] = None,
+    ) -> "MetadataWorkUnit":
+        workunit_id = id or cls.generate_workunit_id(metadata)
 
-@deprecated
-@dataclass
-class UsageStatsWorkUnit(WorkUnit):
-    usageStats: UsageAggregationClass
-
-    def get_metadata(self) -> dict:
-        return {"usage": self.usageStats}
+        if isinstance(metadata, MetadataChangeEvent):
+            return MetadataWorkUnit(id=workunit_id, mce=metadata)
+        elif isinstance(metadata, (MetadataChangeProposal)):
+            return MetadataWorkUnit(id=workunit_id, mcp_raw=metadata)
+        elif isinstance(metadata, MetadataChangeProposalWrapper):
+            return MetadataWorkUnit(id=workunit_id, mcp=metadata)
+        else:
+            raise ValueError(f"Unexpected metadata type {type(metadata)}")

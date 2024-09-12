@@ -1,14 +1,18 @@
 package io.datahubproject.test.fixtures.search;
 
 import static com.linkedin.metadata.Constants.*;
+import static io.datahubproject.test.search.SearchTestUtils.getGraphQueryConfiguration;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.MetadataChangeProposalConfig;
 import com.linkedin.metadata.config.PreProcessHooks;
+import com.linkedin.metadata.config.cache.CacheConfiguration;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.cache.SearchCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -39,6 +43,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -70,7 +75,11 @@ public class SearchLineageFixtureConfiguration {
 
   @Bean(name = "searchLineageIndexConvention")
   protected IndexConvention indexConvention(@Qualifier("searchLineagePrefix") String prefix) {
-    return new IndexConventionImpl(prefix);
+    return new IndexConventionImpl(
+        IndexConventionImpl.IndexConventionConfig.builder()
+            .prefix(prefix)
+            .hashIdAlgo("MD5")
+            .build());
   }
 
   @Bean(name = "searchLineageFixtureName")
@@ -78,11 +87,21 @@ public class SearchLineageFixtureConfiguration {
     return "search_lineage";
   }
 
-  @Bean(name = "lineageCacheConfiguration")
-  protected SearchLineageCacheConfiguration searchLineageCacheConfiguration() {
-    SearchLineageCacheConfiguration conf = new SearchLineageCacheConfiguration();
-    conf.setLightningThreshold(300);
-    conf.setTtlSeconds(30);
+  @Bean(name = "lineageAppConfig")
+  protected DataHubAppConfiguration searchLineageAppConfiguration() {
+    DataHubAppConfiguration conf = new DataHubAppConfiguration();
+    conf.setCache(new CacheConfiguration());
+    conf.getCache().setSearch(new SearchCacheConfiguration());
+    conf.getCache().getSearch().setLineage(new SearchLineageCacheConfiguration());
+    conf.getCache().getSearch().getLineage().setLightningThreshold(300);
+    conf.getCache().getSearch().getLineage().setTtlSeconds(30);
+    conf.setMetadataChangeProposal(new MetadataChangeProposalConfig());
+    conf.getMetadataChangeProposal()
+        .setSideEffects(new MetadataChangeProposalConfig.SideEffectsConfig());
+    conf.getMetadataChangeProposal()
+        .getSideEffects()
+        .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
+    conf.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(false);
     return conf;
   }
 
@@ -99,6 +118,7 @@ public class SearchLineageFixtureConfiguration {
             1,
             Map.of(),
             true,
+            false,
             false,
             new ElasticSearchConfiguration(),
             gitVersion);
@@ -151,6 +171,7 @@ public class SearchLineageFixtureConfiguration {
         Map.of(),
         true,
         true,
+        false,
         new ElasticSearchConfiguration(),
         gitVersion);
   }
@@ -169,12 +190,10 @@ public class SearchLineageFixtureConfiguration {
             indexConvention,
             new ESGraphWriteDAO(indexConvention, bulkProcessor, 1),
             new ESGraphQueryDAO(
-                searchClient,
-                lineageRegistry,
-                indexConvention,
-                GraphQueryConfiguration.testDefaults),
-            indexBuilder);
-    graphService.configure();
+                searchClient, lineageRegistry, indexConvention, getGraphQueryConfiguration()),
+            indexBuilder,
+            indexConvention.getIdHashAlgo());
+    graphService.reindexAll(Collections.emptySet());
     return graphService;
   }
 
@@ -185,7 +204,7 @@ public class SearchLineageFixtureConfiguration {
       @Qualifier("searchLineageGraphService") ElasticSearchGraphService graphService,
       @Qualifier("searchLineagePrefix") String prefix,
       @Qualifier("searchLineageFixtureName") String fixtureName,
-      @Qualifier("lineageCacheConfiguration") SearchLineageCacheConfiguration cacheConfiguration)
+      @Qualifier("lineageAppConfig") DataHubAppConfiguration appConfig)
       throws IOException {
 
     // Load fixture data (after graphService mappings applied)
@@ -197,7 +216,7 @@ public class SearchLineageFixtureConfiguration {
         .build()
         .read();
 
-    return new LineageSearchService(searchService, graphService, null, false, cacheConfiguration);
+    return new LineageSearchService(searchService, graphService, null, false, appConfig);
   }
 
   @Bean(name = "searchLineageSearchService")
@@ -225,7 +244,7 @@ public class SearchLineageFixtureConfiguration {
             ranker);
 
     // Build indices
-    indexBuilders.reindexAll();
+    indexBuilders.reindexAll(Collections.emptySet());
 
     return service;
   }

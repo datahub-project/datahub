@@ -48,7 +48,8 @@ public class UpdateViewResolver implements DataFetcher<CompletableFuture<DataHub
                   urn,
                   input.getName(),
                   input.getDescription(),
-                  ViewUtils.mapDefinition(input.getDefinition()),
+                  ViewUtils.mapDefinition(
+                      input.getDefinition(), context.getOperationContext().getAspectRetriever()),
                   System.currentTimeMillis());
               log.info(String.format("Successfully updated View %s with urn", urn));
               return getView(context, urn, context.getAuthentication());

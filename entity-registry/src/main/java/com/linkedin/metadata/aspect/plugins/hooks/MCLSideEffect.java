@@ -24,7 +24,7 @@ public abstract class MCLSideEffect extends PluginSpec
       @Nonnull Collection<MCLItem> batchItems, @Nonnull RetrieverContext retrieverContext) {
     return applyMCLSideEffect(
         batchItems.stream()
-            .filter(item -> shouldApply(item.getChangeType(), item.getUrn(), item.getAspectSpec()))
+            .filter(item -> shouldApply(item.getChangeType(), item.getUrn(), item.getAspectName()))
             .collect(Collectors.toList()),
         retrieverContext);
   }

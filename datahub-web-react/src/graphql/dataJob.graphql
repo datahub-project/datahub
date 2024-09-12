@@ -1,5 +1,7 @@
 query getDataJob($urn: String!) {
     dataJob(urn: $urn) {
+        urn
+        type
         ...dataJobFields
         privileges {
             ...entityPrivileges

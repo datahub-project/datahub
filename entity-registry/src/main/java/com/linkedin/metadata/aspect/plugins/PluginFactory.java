@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -48,17 +49,72 @@ public class PluginFactory {
       PluginFactory b,
       @Nullable
           BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider) {
+
+    if (b.isEmpty()) {
+      return a;
+    }
+    if (a.isEmpty()) {
+      return b;
+    }
+
     PluginConfiguration mergedPluginConfig =
         PluginConfiguration.merge(a.pluginConfiguration, b.pluginConfiguration);
     List<ClassLoader> mergedClassLoaders =
         Stream.concat(a.getClassLoaders().stream(), b.getClassLoaders().stream())
             .collect(Collectors.toList());
 
-    if (pluginFactoryProvider != null) {
-      return pluginFactoryProvider.apply(mergedPluginConfig, mergedClassLoaders);
-    } else {
-      return PluginFactory.withCustomClasspath(mergedPluginConfig, mergedClassLoaders);
+    if (!a.hasLoadedPlugins() && !b.hasLoadedPlugins()) {
+      if (pluginFactoryProvider != null) {
+        return pluginFactoryProvider.apply(mergedPluginConfig, mergedClassLoaders);
+      } else {
+        if (mergedPluginConfig
+            .streamAll()
+            .anyMatch(config -> config.getSpring() != null && config.getSpring().isEnabled())) {
+          throw new IllegalStateException(
+              "Unexpected Spring configuration found without a provided Spring Plugin Factory");
+        }
+        return PluginFactory.withCustomClasspath(mergedPluginConfig, mergedClassLoaders);
+      }
     }
+
+    PluginFactory loadedA = a.hasLoadedPlugins() ? a : a.loadPlugins();
+    PluginFactory loadedB = b.hasLoadedPlugins() ? b : b.loadPlugins();
+
+    return new PluginFactory(
+        mergedPluginConfig,
+        mergedClassLoaders,
+        Stream.concat(
+                loadedA.aspectPayloadValidators.stream()
+                    .filter(
+                        aPlugin ->
+                            loadedB.pluginConfiguration.getAspectPayloadValidators().stream()
+                                .noneMatch(bConfig -> aPlugin.getConfig().isDisabledBy(bConfig))),
+                loadedB.aspectPayloadValidators.stream())
+            .collect(Collectors.toList()),
+        Stream.concat(
+                loadedA.mutationHooks.stream()
+                    .filter(
+                        aPlugin ->
+                            loadedB.pluginConfiguration.getMutationHooks().stream()
+                                .noneMatch(bConfig -> aPlugin.getConfig().isDisabledBy(bConfig))),
+                loadedB.mutationHooks.stream())
+            .collect(Collectors.toList()),
+        Stream.concat(
+                loadedA.mclSideEffects.stream()
+                    .filter(
+                        aPlugin ->
+                            loadedB.pluginConfiguration.getMclSideEffects().stream()
+                                .noneMatch(bConfig -> aPlugin.getConfig().isDisabledBy(bConfig))),
+                loadedB.mclSideEffects.stream())
+            .collect(Collectors.toList()),
+        Stream.concat(
+                loadedA.mcpSideEffects.stream()
+                    .filter(
+                        aPlugin ->
+                            loadedB.pluginConfiguration.getMcpSideEffects().stream()
+                                .noneMatch(bConfig -> aPlugin.getConfig().isDisabledBy(bConfig))),
+                loadedB.mcpSideEffects.stream())
+            .collect(Collectors.toList()));
   }
 
   @Getter private final PluginConfiguration pluginConfiguration;
@@ -77,12 +133,77 @@ public class PluginFactory {
         pluginConfiguration == null ? PluginConfiguration.EMPTY : pluginConfiguration;
   }
 
+  public PluginFactory(
+      @Nullable PluginConfiguration pluginConfiguration,
+      @Nonnull List<ClassLoader> classLoaders,
+      @Nonnull List<AspectPayloadValidator> aspectPayloadValidators,
+      @Nonnull List<MutationHook> mutationHooks,
+      @Nonnull List<MCLSideEffect> mclSideEffects,
+      @Nonnull List<MCPSideEffect> mcpSideEffects) {
+    this.classLoaders = classLoaders;
+    this.pluginConfiguration =
+        pluginConfiguration == null ? PluginConfiguration.EMPTY : pluginConfiguration;
+    this.aspectPayloadValidators = applyDisable(aspectPayloadValidators);
+    this.mutationHooks = applyDisable(mutationHooks);
+    this.mclSideEffects = applyDisable(mclSideEffects);
+    this.mcpSideEffects = applyDisable(mcpSideEffects);
+  }
+
   public PluginFactory loadPlugins() {
-    this.aspectPayloadValidators = buildAspectPayloadValidators(this.pluginConfiguration);
-    this.mutationHooks = buildMutationHooks(this.pluginConfiguration);
-    this.mclSideEffects = buildMCLSideEffects(this.pluginConfiguration);
-    this.mcpSideEffects = buildMCPSideEffects(this.pluginConfiguration);
+    if (this.aspectPayloadValidators != null
+        || this.mutationHooks != null
+        || this.mclSideEffects != null
+        || this.mcpSideEffects != null) {
+      log.error("Plugins are already loaded. Re-building plugins will be skipped.");
+    } else {
+      this.aspectPayloadValidators = buildAspectPayloadValidators(this.pluginConfiguration);
+      this.mutationHooks = buildMutationHooks(this.pluginConfiguration);
+      this.mclSideEffects = buildMCLSideEffects(this.pluginConfiguration);
+      this.mcpSideEffects = buildMCPSideEffects(this.pluginConfiguration);
+      logSummary(
+          Stream.of(
+                  this.aspectPayloadValidators,
+                  this.mutationHooks,
+                  this.mclSideEffects,
+                  this.mcpSideEffects)
+              .flatMap(List::stream)
+              .collect(Collectors.toList()));
+    }
     return this;
+  }
+
+  public boolean isEmpty() {
+    return this.pluginConfiguration.isEmpty()
+        && Optional.ofNullable(this.aspectPayloadValidators).map(List::isEmpty).orElse(true)
+        && Optional.ofNullable(this.mutationHooks).map(List::isEmpty).orElse(true)
+        && Optional.ofNullable(this.mclSideEffects).map(List::isEmpty).orElse(true)
+        && Optional.ofNullable(this.mcpSideEffects).map(List::isEmpty).orElse(true);
+  }
+
+  public boolean hasLoadedPlugins() {
+    return Stream.of(
+            this.aspectPayloadValidators,
+            this.mutationHooks,
+            this.mcpSideEffects,
+            this.mcpSideEffects)
+        .anyMatch(Objects::nonNull);
+  }
+
+  private void logSummary(List<PluginSpec> pluginSpecs) {
+    if (!pluginSpecs.isEmpty()) {
+      log.info(
+          "Enabled {} plugins. {}",
+          pluginSpecs.size(),
+          pluginSpecs.stream()
+              .map(
+                  v ->
+                      String.join(
+                          ", ",
+                          Collections.singletonList(
+                              String.format("%s", v.getConfig().getClassName()))))
+              .sorted()
+              .collect(Collectors.toList()));
+    }
   }
 
   /**

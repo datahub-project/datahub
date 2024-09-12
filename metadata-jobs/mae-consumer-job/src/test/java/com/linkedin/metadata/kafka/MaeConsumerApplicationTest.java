@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka;
 
 import static org.testng.AssertJUnit.*;
 
+import com.datahub.event.PlatformEventProcessor;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.FormService;
@@ -14,7 +15,8 @@ import org.testng.annotations.Test;
 
 @ActiveProfiles("test")
 @SpringBootTest(
-    classes = {MaeConsumerApplication.class, MaeConsumerApplicationTestConfiguration.class})
+    classes = {MaeConsumerApplication.class, MaeConsumerApplicationTestConfiguration.class},
+    properties = "PE_CONSUMER_ENABLED=true")
 public class MaeConsumerApplicationTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private EntityService<?> mockEntityService;
@@ -25,10 +27,13 @@ public class MaeConsumerApplicationTest extends AbstractTestNGSpringContextTests
 
   @Autowired private EntitySearchService entitySearchService;
 
+  @Autowired private PlatformEventProcessor platformEventProcessor;
+
   @Test
   public void testMaeConsumerAutoWiring() {
     assertNotNull(mockEntityService);
     assertNotNull(kafkaHealthIndicator);
     assertNotNull(formService);
+    assertNotNull(platformEventProcessor);
   }
 }

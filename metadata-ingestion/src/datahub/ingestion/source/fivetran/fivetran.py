@@ -111,9 +111,11 @@ class FivetranSource(StatefulIngestionSourceBase):
         for table_lineage in connector.table_lineage:
             input_dataset_urn = DatasetUrn.create_from_ids(
                 platform_id=source_platform,
-                table_name=f"{source_database.lower()}.{table_lineage.source_table}"
-                if source_database
-                else table_lineage.source_table,
+                table_name=(
+                    f"{source_database.lower()}.{table_lineage.source_table}"
+                    if source_database
+                    else table_lineage.source_table
+                ),
                 env=source_platform_detail.env,
                 platform_instance=source_platform_detail.platform_instance,
             )
@@ -132,23 +134,27 @@ class FivetranSource(StatefulIngestionSourceBase):
                     fine_grained_lineage.append(
                         FineGrainedLineage(
                             upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                            upstreams=[
-                                builder.make_schema_field_urn(
-                                    str(input_dataset_urn),
-                                    column_lineage.source_column,
-                                )
-                            ]
-                            if input_dataset_urn
-                            else [],
+                            upstreams=(
+                                [
+                                    builder.make_schema_field_urn(
+                                        str(input_dataset_urn),
+                                        column_lineage.source_column,
+                                    )
+                                ]
+                                if input_dataset_urn
+                                else []
+                            ),
                             downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                            downstreams=[
-                                builder.make_schema_field_urn(
-                                    str(output_dataset_urn),
-                                    column_lineage.destination_column,
-                                )
-                            ]
-                            if output_dataset_urn
-                            else [],
+                            downstreams=(
+                                [
+                                    builder.make_schema_field_urn(
+                                        str(output_dataset_urn),
+                                        column_lineage.destination_column,
+                                    )
+                                ]
+                                if output_dataset_urn
+                                else []
+                            ),
                         )
                     )
 
@@ -173,11 +179,12 @@ class FivetranSource(StatefulIngestionSourceBase):
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
+        owner_email = self.audit_log.get_user_email(connector.user_id)
         datajob = DataJob(
             id=connector.connector_id,
             flow_urn=dataflow_urn,
             name=connector.connector_name,
-            owners={connector.user_email} if connector.user_email else set(),
+            owners={owner_email} if owner_email else set(),
         )
 
         job_property_bag: Dict[str, str] = {}
@@ -220,7 +227,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                 f"Status should be either SUCCESSFUL, FAILURE_WITH_TASK or CANCELED and it was "
                 f"{job.status}"
             )
-            return []
+            return
         result = status_result_map[job.status]
         start_timestamp_millis = job.start_time * 1000
         for mcp in dpi.generate_mcp(
@@ -281,7 +288,10 @@ class FivetranSource(StatefulIngestionSourceBase):
         """
         logger.info("Fivetran plugin execution is started")
         connectors = self.audit_log.get_allowed_connectors_list(
-            self.config.connector_patterns, self.report
+            self.config.connector_patterns,
+            self.config.destination_patterns,
+            self.report,
+            self.config.history_sync_lookback_period,
         )
         for connector in connectors:
             logger.info(f"Processing connector id: {connector.connector_id}")
