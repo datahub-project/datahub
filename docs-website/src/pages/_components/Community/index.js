@@ -1,12 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import styles from "./community.module.scss";
 import useBaseUrl from "@docusaurus/useBaseUrl";
-import Item1 from "../../../../static/img/slack/slack-community-user-1.png";
-import Item2 from "../../../../static/img/slack/slack-community-user-2.png";
-import Item3 from "../../../../static/img/slack/slack-community-user-3.png";
-import Item4 from "../../../../static/img/slack/slack-community-user-4.png";
-import Item5 from "../../../../static/img/slack/slack-community-user-5.png";
-import Item6 from "../../../../static/img/slack/slack-community-user-6.png";
 
 const TARGET_COUNT = 10335;
 const INCREMENT = 1;
@@ -107,8 +101,8 @@ const Community = () => {
                   {/* Duplicate the slides */}
                   {[...Array(2)].map((_, i) => (
                     <React.Fragment key={i}>
-                      {[Item1, Item2, Item3, Item4, Item5, Item6].map((item, index) => (
-                        <div className={styles.slide} key={index} style={{ backgroundImage: `url(${item})` }} />
+                      {[1, 2, 3, 4, 5, 6].map((item, index) => (
+                        <div className={styles.slide} key={index} style={{ backgroundImage: `url(/img/slack/slack-community-user-${item}.png)` }} />
                       ))}
                     </React.Fragment>
                   ))}
