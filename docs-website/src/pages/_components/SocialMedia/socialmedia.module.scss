@@ -189,7 +189,7 @@
 }
   
 .videoContainer {
-    height: 55vh;
+    height: 60vh;
     min-height: 400px;
     padding: 8px;
     margin-bottom: 40px;
@@ -216,11 +216,12 @@
     border-radius: 20px;
     flex-grow: 1;
     overflow: hidden;
-    background-color: white;
+    background-color: #000;
 }
 
 .videoItemFooter {
     padding: 12px 12px;
+    padding-top: 20px;
     line-height: 1.25rem;
     opacity: .7;
     transition: opacity .3s ease-in-out;
