@@ -470,7 +470,7 @@ class HanaSource(SQLAlchemySource):
                         )
 
             queries = self.get_query_logs()
-                        for query in queries:
+            for query in queries:
                 self.aggregator.add_observed_query(
                     observed=query.get("statement_string"),
                 )
