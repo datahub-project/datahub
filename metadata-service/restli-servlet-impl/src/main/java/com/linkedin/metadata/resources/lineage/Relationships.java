@@ -28,7 +28,7 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -137,7 +137,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     }
     RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
     final List<String> relationshipTypes = Arrays.asList(relationshipTypesParam);
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
           final RelatedEntitiesResult relatedEntitiesResult =
               getRelatedEntities(rawUrn, relationshipTypes, direction, start, count);
@@ -214,7 +214,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity lineage: " + urnStr);
     }
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () ->
             _graphService.getLineage(
                 urn,
