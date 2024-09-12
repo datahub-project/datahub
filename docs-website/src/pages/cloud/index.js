@@ -36,9 +36,8 @@ function Home() {
       </div>
       <div className={clsx("hero", styles.hero)}>
         <div className="container" style={{ paddingTop: '12vh', paddingBottom: '12vh' }}>
-          <div className={clsx(styles.hero__cta)}>
           <div className="row row__padded">
-            <div  className={clsx(styles.col, "col col--7")}>
+            <div  className={clsx(styles.col, styles.hero__cta, "col col--7")}>
               <h1 className={styles.hero__title}>Get your free trial.</h1>
               <div className={clsx(styles.hero__subtitle)}>Data Discovery, Data Quality and Data Governance unified.</div>
               <div>
@@ -52,9 +51,8 @@ function Home() {
               <div className="hero__subtitle" />
             </div>
             <div className={clsx(styles.col, "col col--5")}>
-               <DemoForm />
+               <DemoForm formId="footerForm"/>
             </div>
-          </div>
           </div>
         </div>
       </div>
