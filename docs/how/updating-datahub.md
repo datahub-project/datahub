@@ -37,7 +37,6 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   Re-running with stateful ingestion should automatically clear up the entities with old URNS and add entities with new URNs, therefore not duplicating the containers or jobs.
 
 - #11313 - `datahub get` will no longer return a key aspect for entities that don't exist.
-- #11335 - The default datahub-rest sink mode has been changed to `ASYNC_BATCH`. This requires a server with version 0.14.0+.
 
 ### Potential Downtime
 
