@@ -334,7 +334,7 @@ class HanaSource(SQLAlchemySource):
         ]
         return UpstreamLineageClass(upstreams=upstream)
 
-        def get_columns(self, schema: str, table_or_view: str) -> List[SchemaFieldClass]:
+    def get_columns(self, schema: str, table_or_view: str) -> List[SchemaFieldClass]:
         query = f"""
                     SELECT COLUMN_NAME as column_name,
                     COMMENTS as comments,
