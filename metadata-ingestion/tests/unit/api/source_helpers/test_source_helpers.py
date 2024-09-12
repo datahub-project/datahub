@@ -8,7 +8,6 @@ from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_dataplatform_instance_urn,
@@ -27,12 +26,8 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    GenericAspectClass,
-    MetadataChangeProposalClass,
-    OperationTypeClass,
-)
+from datahub.metadata.schema_classes import OperationTypeClass, TimeStampClass
+from datahub.specific.dataset import DatasetPatchBuilder
 
 _base_metadata: List[
     Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]
@@ -709,23 +704,19 @@ def test_auto_patch_last_modified():
 
     expected = list(auto_workunit(mcps))
 
-    patch_dataset_properties = MetadataChangeProposalClass(
-        entityUrn="urn:li:dataset:a.b.c",
-        entityType="dataset",
-        changeType=ChangeTypeClass.PATCH,
-        aspectName="datasetProperties",
-        aspect=GenericAspectClass(
-            # operation aspect with higher lastUpdatedTimestamp should be in datasetProperties patch
-            value=b'[{"op": "add", "path": "/lastModified", "value": {"time": 20}}]',
-            contentType=JSON_PATCH_CONTENT_TYPE,
-        ),
+    dataset_patch_builder = DatasetPatchBuilder(
+        urn="urn:li:dataset:a.b.c"
+    ).set_last_modified(TimeStampClass(time=20))
+
+    expected.extend(
+        [
+            MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(patch_mcp), mcp_raw=patch_mcp
+            )
+            for patch_mcp in dataset_patch_builder.build()
+        ]
     )
 
-    expected.append(
-        MetadataWorkUnit(
-            id=MetadataWorkUnit.generate_workunit_id(patch_dataset_properties),
-            mcp_raw=patch_dataset_properties,
-        )
-    )
-
+    # work unit should contain path of datasetProperties with lastModified set to max of operation.lastUpdatedTime
+    # i.e., 20
     assert list(auto_patch_last_modified(auto_workunit(mcps))) == expected
