@@ -14,20 +14,9 @@ const INCREMENT = 1;
 const Community = () => {
   const currentCountRef = useRef(TARGET_COUNT - 50);
   const [count, setCount] = useState(currentCountRef.current);
-  const [hasAnimated, setHasAnimated] = useState(false);
+  const hasAnimatedRef = useRef(false);
   const counterRef = useRef(null);
 
-  const handleScroll = () => {
-    if (!hasAnimated && counterRef.current) {
-      const { top } = counterRef.current.getBoundingClientRect();
-      const windowHeight = window.innerHeight;
-
-      if (top <= windowHeight) {
-        setHasAnimated(true);
-        animateNumber();
-      }
-    }
-  };
   const animateNumber = () => {
     const makeTimeout = () => {
       const distance = TARGET_COUNT - currentCountRef.current;
@@ -43,10 +32,27 @@ const Community = () => {
     }
     makeTimeout();
   };
+  const handleScroll = () => {
+    if (hasAnimatedRef.current) return;
+    if (!counterRef.current) return;
+
+    const { top } = counterRef.current.getBoundingClientRect();
+    const windowHeight = window.innerHeight;
+
+    if (top <= windowHeight) {
+      hasAnimatedRef.current = true;
+      animateNumber();
+    }
+  };
 
   const formattedCount = count.toLocaleString();
 
-  window.onscroll = handleScroll;
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    }
+  }, [])
 
   return (
     <div className={styles.container}>
