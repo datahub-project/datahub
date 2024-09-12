@@ -353,6 +353,13 @@ public interface EntitySearchService {
       int size,
       @Nullable List<String> facets);
 
+  /**
+   * Return index convention
+   *
+   * @return convent
+   */
+  IndexConvention getIndexConvention();
+
   // SAAS Only - Support searching based on predicates
   /**
    * Gets a list of documents that match given search request. The results are aggregated and
@@ -385,11 +392,4 @@ public interface EntitySearchService {
       int from,
       int size,
       @Nullable List<String> facets);
-
-  /**
-   * Return index convention
-   *
-   * @return convent
-   */
-  IndexConvention getIndexConvention();
 }

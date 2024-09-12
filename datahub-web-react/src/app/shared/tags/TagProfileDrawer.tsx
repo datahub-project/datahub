@@ -27,7 +27,7 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
                 placement="right"
                 closable={false}
                 onClose={closeTagProfileDrawer}
-                visible={tagProfileDrawerVisible}
+                open={tagProfileDrawerVisible}
                 footer={
                     <DetailsLayout>
                         <Space>

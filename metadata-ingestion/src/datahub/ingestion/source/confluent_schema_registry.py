@@ -249,7 +249,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
 
         if topic_subject is not None:
             logger.debug(
-                f"The {schema_type_str} schema subject:'{topic_subject}' is found for {kafka_entity}:'{topic}'."
+                f"The {schema_type_str} schema subject:'{topic_subject}' is found for {kafka_entity}: '{topic}'."
             )
             try:
                 registered_schema = self.schema_registry_client.get_latest_version(
@@ -257,12 +257,13 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 )
                 schema = registered_schema.schema
             except Exception as e:
-                logger.warning(
-                    f"For {kafka_entity}: {topic}, failed to get {schema_type_str} schema from schema registry using subject:'{topic_subject}': {e}."
-                )
-                self.report.report_warning(
-                    topic,
-                    f"failed to get {schema_type_str} schema from schema registry using subject:'{topic_subject}': {e}.",
+                self.report.warning(
+                    title="Failed to get subject schema from schema registry",
+                    message=f"Failed to get {kafka_entity} {schema_type_str or ''} schema from schema registry",
+                    context=(
+                        f"{topic}: {topic_subject}" if not is_subject else topic_subject
+                    ),
+                    exc=e,
                 )
         else:
             logger.debug(
@@ -270,10 +271,11 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
             if not is_key_schema:
                 # Value schema is always expected. Report a warning.
-                self.report.report_warning(
-                    topic,
-                    f"The schema registry subject for the {schema_type_str} schema is not found."
-                    f" The {kafka_entity} is either schema-less, or no messages have been written to the {kafka_entity} yet.",
+                self.report.warning(
+                    title="Unable to find a matching subject name for the topic in the schema registry",
+                    message=f"The {kafka_entity} {schema_type_str or ''} is either schema-less, or no messages have been written to the {kafka_entity} yet. "
+                    "If this is unexpected, check the topic_subject_map and topic_naming related configs.",
+                    context=topic,
                 )
 
         # Obtain the schema fields from schema for the topic.
@@ -318,9 +320,11 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             fields = schema_util.avro_schema_to_mce_fields(
                 avro_schema,
                 is_key_schema=is_key_schema,
-                meta_mapping_processor=self.field_meta_processor
-                if self.source_config.enable_meta_mapping
-                else None,
+                meta_mapping_processor=(
+                    self.field_meta_processor
+                    if self.source_config.enable_meta_mapping
+                    else None
+                ),
                 schema_tags_field=self.source_config.schema_tags_field,
                 tag_prefix=self.source_config.tag_prefix,
             )
@@ -332,9 +336,11 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             base_name: str = topic.replace(".", "_")
             fields = protobuf_util.protobuf_schema_to_mce_fields(
                 ProtobufSchema(
-                    f"{base_name}-key.proto"
-                    if is_key_schema
-                    else f"{base_name}-value.proto",
+                    (
+                        f"{base_name}-key.proto"
+                        if is_key_schema
+                        else f"{base_name}-value.proto"
+                    ),
                     schema.schema_str,
                 ),
                 imported_schemas,

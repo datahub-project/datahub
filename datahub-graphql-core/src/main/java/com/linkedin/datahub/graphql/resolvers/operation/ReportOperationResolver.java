@@ -137,10 +137,6 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_OPERATIONS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        resourceUrn.getEntityType(),
-        resourceUrn.toString(),
-        orPrivilegeGroups);
+        context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
   }
 }

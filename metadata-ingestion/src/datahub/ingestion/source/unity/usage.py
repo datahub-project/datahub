@@ -128,9 +128,9 @@ class UnityCatalogUsageExtractor:
             operation_aspect = OperationClass(
                 timestampMillis=int(time.time() * 1000),
                 lastUpdatedTimestamp=int(query.end_time.timestamp() * 1000),
-                actor=self.user_urn_builder(query.user_name)
-                if query.user_name
-                else None,
+                actor=(
+                    self.user_urn_builder(query.user_name) if query.user_name else None
+                ),
                 operationType=OPERATION_STATEMENT_TYPES[query.statement_type],
                 affectedDatasets=[
                     self.table_urn_builder(table) for table in table_info.source_tables

@@ -70,7 +70,7 @@ export const EntitySidebar = <T,>({ sidebarSections, topSection, loading }: Prop
     return (
         <>
             {topSection && <topSection.component key={`${topSection.component}`} properties={topSection.properties} />}
-            {entityData?.lastIngested && (
+            {!!entityData?.lastIngested && (
                 <LastIngestedSection>
                     <LastIngested lastIngested={entityData.lastIngested} />
                 </LastIngestedSection>

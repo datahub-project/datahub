@@ -281,9 +281,11 @@ def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset
         id=raw_instance["id"],
         name=raw_instance.get("name"),
         description=raw_instance.get("description", ""),
-        webUrl="{}/details".format(raw_instance.get("webUrl"))
-        if raw_instance.get("webUrl") is not None
-        else None,
+        webUrl=(
+            "{}/details".format(raw_instance.get("webUrl"))
+            if raw_instance.get("webUrl") is not None
+            else None
+        ),
         workspace_id=workspace_id,
         parameters={},
         tables=[],

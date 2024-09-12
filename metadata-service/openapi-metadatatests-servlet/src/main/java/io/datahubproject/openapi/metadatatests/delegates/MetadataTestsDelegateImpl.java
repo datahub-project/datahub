@@ -129,10 +129,6 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       Urn entityUrn = Urn.createFromString(entityUrnStr);
 
       final Authentication auth = AuthenticationContext.getAuthentication();
-      if (!AuthUtil.isAPIAuthorized(auth, authorizationChain, MANAGE_TESTS_PRIVILEGE)) {
-        throw new UnauthorizedException(
-            auth.getActor().toUrnStr() + " is unauthorized evaluate tests.");
-      }
       OperationContext opContext =
           OperationContext.asSession(
               systemOpContext,
@@ -145,6 +141,11 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
               authorizationChain,
               auth,
               true);
+
+      if (!AuthUtil.isAPIAuthorized(opContext, MANAGE_TESTS_PRIVILEGE)) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized evaluate tests.");
+      }
 
       Set<Urn> testUrns =
           testUrnStrings.stream()
@@ -193,10 +194,6 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       Urn testUrn = Urn.createFromString(testUrnStr);
 
       final Authentication auth = AuthenticationContext.getAuthentication();
-      if (!AuthUtil.isAPIAuthorized(auth, authorizationChain, MANAGE_TESTS_PRIVILEGE)) {
-        throw new UnauthorizedException(
-            auth.getActor().toUrnStr() + " is unauthorized evaluate tests.");
-      }
       OperationContext opContext =
           OperationContext.asSession(
               systemOpContext,
@@ -206,6 +203,11 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
               authorizationChain,
               auth,
               true);
+
+      if (!AuthUtil.isAPIAuthorized(opContext, MANAGE_TESTS_PRIVILEGE)) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized evaluate tests.");
+      }
 
       Pair<Map<Urn, TestInfo>, TestEngine> testRuntime =
           getEngineForTests(opContext, Set.of(testUrn));

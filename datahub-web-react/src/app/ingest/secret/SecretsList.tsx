@@ -294,7 +294,7 @@ export const SecretsList = () => {
                 </SourcePaginationContainer>
             </div>
             <SecretBuilderModal
-                visible={isCreatingSecret}
+                open={isCreatingSecret}
                 editSecret={editSecret}
                 onUpdate={onUpdate}
                 onSubmit={onSubmit}

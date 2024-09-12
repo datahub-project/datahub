@@ -196,11 +196,11 @@ async def retrieve_version_stats(
             current=VersionStats(
                 version=current_server_version, release_date=current_server_release_date
             ),
-            latest=VersionStats(
-                version=last_server_version, release_date=last_server_date
-            )
-            if last_server_version
-            else None,
+            latest=(
+                VersionStats(version=last_server_version, release_date=last_server_date)
+                if last_server_version
+                else None
+            ),
             current_server_type=current_server_type,
         )
 

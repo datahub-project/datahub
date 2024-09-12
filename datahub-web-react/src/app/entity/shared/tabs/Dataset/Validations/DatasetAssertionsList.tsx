@@ -17,11 +17,11 @@ import { Assertion, AssertionRunStatus, DataContract, EntityType } from '../../.
 import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
 import { useDeleteAssertionMutation } from '../../../../../../graphql/assertion.generated';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
-import AssertionMenu from './AssertionMenu';
 import { REDESIGN_COLORS } from '../../../constants';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { isAssertionPartOfContract } from './contract/utils';
 import { useEntityData } from '../../../EntityContext';
+import CopyUrnMenuItem from '../../../../../shared/share/items/CopyUrnMenuItem';
 
 const ResultContainer = styled.div`
     display: flex;
@@ -136,6 +136,15 @@ export const DatasetAssertionsList = ({
             assertion.runEvents.runEvents[0].result?.type,
     }));
 
+    const assertionMenuItems = (urn: string) => {
+        return [
+            {
+                key: 1,
+                label: <CopyUrnMenuItem key="1" urn={urn} type="Assertion" />,
+            },
+        ];
+    };
+
     const assertionsTableCols = [
         {
             title: '',
@@ -215,9 +224,9 @@ export const DatasetAssertionsList = ({
             title: '',
             dataIndex: '',
             key: '',
-            render: (_, record: any) => (
-                <>
-                    {showMenu && (
+            render: (_, record: any) => {
+                return (
+                    showMenu && (
                         <ActionButtonContainer>
                             <Tooltip
                                 title={
@@ -244,13 +253,13 @@ export const DatasetAssertionsList = ({
                             <Button onClick={() => onDeleteAssertion(record.urn)} type="text" shape="circle" danger>
                                 <DeleteOutlined />
                             </Button>
-                            <Dropdown overlay={<AssertionMenu urn={record.urn} />} trigger={['click']}>
+                            <Dropdown menu={{ items: assertionMenuItems(record.urn) }} trigger={['click']}>
                                 <StyledMoreOutlined />
                             </Dropdown>
                         </ActionButtonContainer>
-                    )}
-                </>
-            ),
+                    )
+                );
+            },
         },
     ];
 

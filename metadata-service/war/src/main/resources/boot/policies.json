@@ -40,6 +40,7 @@
         "MANAGE_STRUCTURED_PROPERTIES",
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES",
+        "MANAGE_SYSTEM_OPERATIONS",
         "CREATE_CONSTRAINTS",
         "MANAGE_CONNECTIONS",
         "MANAGE_DOCUMENTATION_FORMS",
@@ -446,7 +447,8 @@
                 "glossaryTerm",
                 "glossaryNode",
                 "notebook",
-                "dataProduct"
+                "dataProduct",
+                "dataProcessInstance"
               ],
               "condition": "EQUALS"
             }

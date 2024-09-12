@@ -338,7 +338,7 @@ export const EditOwnersModal = ({
     return (
         <Modal
             title={title || `${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
-            visible
+            open
             onCancel={onModalClose}
             keyboard
             footer={

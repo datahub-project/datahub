@@ -58,7 +58,7 @@ RUN python3 -m venv $VIRTUAL_ENV
 COPY --chown=datahub:datahub ./datahub-integrations-service /datahub-integrations-service
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 
-ARG RELEASE_VERSION
+ARG RELEASE_VERSION=1!0.0.0.dev0
 WORKDIR /datahub-integrations-service
 RUN test -n "$RELEASE_VERSION" && \
     sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed 's/+/-/'|sed '1 s/-/+/')\"/" ../metadata-ingestion/src/datahub/__init__.py && \

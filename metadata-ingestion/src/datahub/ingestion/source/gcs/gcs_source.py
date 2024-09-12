@@ -118,9 +118,11 @@ class GCSSource(StatefulIngestionSourceBase):
             s3_path_specs.append(
                 PathSpec(
                     include=path_spec.include.replace("gs://", "s3://"),
-                    exclude=[exc.replace("gs://", "s3://") for exc in path_spec.exclude]
-                    if path_spec.exclude
-                    else None,
+                    exclude=(
+                        [exc.replace("gs://", "s3://") for exc in path_spec.exclude]
+                        if path_spec.exclude
+                        else None
+                    ),
                     file_types=path_spec.file_types,
                     default_extension=path_spec.default_extension,
                     table_name=path_spec.table_name,

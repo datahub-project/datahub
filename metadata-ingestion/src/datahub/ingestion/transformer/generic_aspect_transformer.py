@@ -115,9 +115,11 @@ class GenericAspectTransformer(
                                     changeType="UPSERT",
                                     aspectName=self.aspect_name(),
                                     aspect=transformed_aspect,
-                                    systemMetadata=last_seen_mcp.systemMetadata
-                                    if last_seen_mcp
-                                    else last_seen_mce_system_metadata,
+                                    systemMetadata=(
+                                        last_seen_mcp.systemMetadata
+                                        if last_seen_mcp
+                                        else last_seen_mce_system_metadata
+                                    ),
                                 ),
                                 metadata=record_metadata,
                             )

@@ -288,6 +288,14 @@
         "recipe": "source: \n    type: csv-enricher \n    config: \n        # URL of your csv file to ingest \n        filename: \n        array_delimiter: '|' \n        delimiter: ',' \n        write_semantics: PATCH"
     },
     {
+        "urn": "urn:li:dataPlatform:sac",
+        "name": "sac",
+        "displayName": "SAP Analytics Cloud",
+        "description": "Import Stories, Applications and Models from SAP Analytics Cloud.",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/sac/",
+        "recipe": "source:\n    type: sac\n    config:\n        tenant_url: # Your SAP Analytics Cloud tenant URL, e.g. https://company.eu10.sapanalytics.cloud or https://company.eu10.hcs.cloud.sap\n        token_url: # The Token URL of your SAP Analytics Cloud tenant, e.g. https://company.eu10.hana.ondemand.com/oauth/token.\n\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: \"${SAC_CLIENT_ID}\" # Your SAP Analytics Cloud client id\n        client_secret: \"${SAC_CLIENT_SECRET}\" # Your SAP Analytics Cloud client secret"
+    },
+    {
         "urn": "urn:li:dataPlatform:custom",
         "name": "custom",
         "displayName": "Other",

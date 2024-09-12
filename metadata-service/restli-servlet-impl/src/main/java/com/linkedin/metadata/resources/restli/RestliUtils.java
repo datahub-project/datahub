@@ -1,5 +1,10 @@
 package com.linkedin.metadata.resources.restli;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
+import com.linkedin.metadata.dao.throttle.APIThrottleException;
+import com.linkedin.metadata.restli.NonExceptionHttpErrorResponse;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
@@ -27,18 +32,39 @@ public class RestliUtils {
       return Task.value(supplier.get());
     } catch (Throwable throwable) {
 
+      final RestLiServiceException finalException;
+
       // Convert IllegalArgumentException to BAD REQUEST
       if (throwable instanceof IllegalArgumentException
           || throwable.getCause() instanceof IllegalArgumentException) {
-        throwable = badRequestException(throwable.getMessage());
+        finalException = badRequestException(throwable.getMessage());
+      } else if (throwable instanceof APIThrottleException) {
+        finalException = apiThrottled(throwable.getMessage());
+      } else if (throwable instanceof RestLiServiceException) {
+        finalException = (RestLiServiceException) throwable;
+      } else {
+        finalException = new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR, throwable);
       }
 
-      if (throwable instanceof RestLiServiceException) {
-        throw (RestLiServiceException) throwable;
-      }
-
-      throw new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR, throwable);
+      throw finalException;
     }
+  }
+
+  @Nonnull
+  public static <T> Task<T> toTask(@Nonnull Supplier<T> supplier, String metricName) {
+    Timer.Context context = MetricUtils.timer(metricName).time();
+    // Stop timer on success and failure
+    return toTask(supplier)
+            .transform(
+                    orig -> {
+                      context.stop();
+                      if (orig.isFailed()) {
+                        MetricUtils.counter(MetricRegistry.name(metricName, "failed")).inc();
+                      } else {
+                        MetricUtils.counter(MetricRegistry.name(metricName, "success")).inc();
+                      }
+                      return orig;
+                    });
   }
 
   /**
@@ -60,6 +86,11 @@ public class RestliUtils {
   }
 
   @Nonnull
+  public static RestLiServiceException nonExceptionResourceNotFound() {
+    return new NonExceptionHttpErrorResponse(HttpStatus.S_404_NOT_FOUND);
+  }
+
+  @Nonnull
   public static RestLiServiceException resourceNotFoundException(@Nullable String message) {
     return new RestLiServiceException(HttpStatus.S_404_NOT_FOUND, message);
   }
@@ -72,5 +103,10 @@ public class RestliUtils {
   @Nonnull
   public static RestLiServiceException invalidArgumentsException(@Nullable String message) {
     return new RestLiServiceException(HttpStatus.S_412_PRECONDITION_FAILED, message);
+  }
+
+  @Nonnull
+  public static RestLiServiceException apiThrottled(@Nullable String message) {
+    return new RestLiServiceException(HttpStatus.S_429_TOO_MANY_REQUESTS, message);
   }
 }

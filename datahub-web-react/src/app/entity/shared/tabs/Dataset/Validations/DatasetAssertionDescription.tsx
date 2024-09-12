@@ -399,7 +399,7 @@ export const DatasetAssertionDescription = ({ description, assertionInfo, lastEv
             )}
             <DatasetAssertionLogicModal
                 logic={logic || 'N/A'}
-                visible={isLogicVisible}
+                open={isLogicVisible}
                 onClose={() => setIsLogicVisible(false)}
             />
         </Popover>

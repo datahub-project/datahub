@@ -163,12 +163,14 @@ def create_and_run_test_pipeline(
         "tests.unit.test_source.FakeSource.get_workunits"
     ) as mock_getworkunits:
         mock_getworkunits.return_value = [
-            workunit.MetadataWorkUnit(
-                id=f"test-workunit-mce-{e.proposedSnapshot.urn}", mce=e
-            )
-            if isinstance(e, MetadataChangeEventClass)
-            else workunit.MetadataWorkUnit(
-                id=f"test-workunit-mcp-{e.entityUrn}-{e.aspectName}", mcp=e
+            (
+                workunit.MetadataWorkUnit(
+                    id=f"test-workunit-mce-{e.proposedSnapshot.urn}", mce=e
+                )
+                if isinstance(e, MetadataChangeEventClass)
+                else workunit.MetadataWorkUnit(
+                    id=f"test-workunit-mcp-{e.entityUrn}-{e.aspectName}", mcp=e
+                )
             )
             for e in events
         ]

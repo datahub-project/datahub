@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.query.request;
 
 import static com.linkedin.metadata.utils.SearchUtil.*;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -56,6 +57,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   private OperationContext operationContext;
 
   public static SearchConfiguration testQueryConfig;
+  public static List<String> validHighlightingFields = List.of("urn", "foreignKey");
+  public static StringArray customHighlightFields =
+      new StringArray(
+          List.of(
+              validHighlightingFields.get(0),
+              validHighlightingFields.get(1),
+              "notExistingField",
+              ""));
 
   static {
     testQueryConfig = new SearchConfiguration();
@@ -102,6 +111,36 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .noneMatch(
                 fieldName -> fieldName.contains("upstream") || fieldName.contains("downstream")),
         "unexpected lineage fields in highlights: " + highlightFields);
+  }
+
+  @Test
+  public void testCustomHighlights() {
+    EntitySpec entitySpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
+    SearchRequestHandler requestHandler =
+        SearchRequestHandler.getBuilder(
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            mock(QueryFilterRewriteChain.class));
+    SearchRequest searchRequest =
+        requestHandler.getSearchRequest(
+            operationContext.withSearchFlags(
+                flags ->
+                    flags.setFulltext(false).setCustomHighlightingFields(customHighlightFields)),
+            "testQuery",
+            null,
+            null,
+            0,
+            10,
+            null);
+    SearchSourceBuilder sourceBuilder = searchRequest.source();
+    assertNotNull(sourceBuilder.highlighter());
+    assertEquals(4, sourceBuilder.highlighter().fields().size());
+    assertTrue(
+        sourceBuilder.highlighter().fields().stream()
+            .map(HighlightBuilder.Field::name)
+            .toList()
+            .containsAll(validHighlightingFields));
   }
 
   @Test

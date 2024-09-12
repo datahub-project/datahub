@@ -573,19 +573,25 @@ public class ESUtils {
                 aspectRetriever)
             .queryName(queryName != null ? queryName : fieldName);
       } else if (condition == Condition.CONTAIN) {
-        return QueryBuilders.wildcardQuery(
-                toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
-                "*" + ESUtils.escapeReservedCharacters(criterion.getValue().trim()) + "*")
-            .queryName(queryName != null ? queryName : fieldName);
+        return buildContainsConditionFromCriterion(
+            fieldName, criterion, queryName, isTimeseries, aspectRetriever);
       } else if (condition == Condition.START_WITH) {
-        return QueryBuilders.wildcardQuery(
-                toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
-                ESUtils.escapeReservedCharacters(criterion.getValue().trim()) + "*")
-            .queryName(queryName != null ? queryName : fieldName);
+        return buildStartsWithConditionFromCriterion(
+            fieldName, criterion, queryName, isTimeseries, aspectRetriever);
       } else if (condition == Condition.END_WITH) {
-        return QueryBuilders.wildcardQuery(
-                toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
-                "*" + ESUtils.escapeReservedCharacters(criterion.getValue().trim()))
+        return buildEndsWithConditionFromCriterion(
+            fieldName, criterion, queryName, isTimeseries, aspectRetriever);
+      } else if (Set.of(ANCESTORS_INCL, DESCENDANTS_INCL, RELATED_INCL).contains(condition)) {
+
+        return QueryFilterRewriterContext.builder()
+            .queryFilterRewriteChain(queryFilterRewriteChain)
+            .condition(condition)
+            .searchFlags(opContext.getSearchContext().getSearchFlags())
+            .build(isTimeseries)
+            .rewrite(
+                opContext,
+                buildEqualsConditionFromCriterion(
+                    fieldName, criterion, isTimeseries, searchableFieldTypes, aspectRetriever))
             .queryName(queryName != null ? queryName : fieldName);
       } else if (condition == Condition.IN) {
         return QueryBuilders.termsQuery(
@@ -607,6 +613,84 @@ public class ESUtils {
       }
     }
     throw new UnsupportedOperationException("Unsupported condition: " + condition);
+  }
+
+  private static QueryBuilder buildWildcardQueryWithMultipleValues(
+      @Nonnull final String fieldName,
+      @Nonnull final Criterion criterion,
+      final boolean isTimeseries,
+      @Nullable String queryName,
+      @Nonnull AspectRetriever aspectRetriever,
+      String wildcardPattern) {
+    BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+
+    for (String value : criterion.getValues()) {
+      boolQuery.should(
+          QueryBuilders.wildcardQuery(
+                  toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
+                  String.format(wildcardPattern, ESUtils.escapeReservedCharacters(value.trim())))
+              .queryName(queryName != null ? queryName : fieldName));
+    }
+    return boolQuery;
+  }
+
+  private static QueryBuilder buildWildcardQueryWithSingleValue(
+      @Nonnull final String fieldName,
+      @Nonnull final Criterion criterion,
+      final boolean isTimeseries,
+      @Nullable String queryName,
+      @Nonnull AspectRetriever aspectRetriever,
+      String wildcardPattern) {
+    return QueryBuilders.wildcardQuery(
+            toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
+            String.format(
+                wildcardPattern, ESUtils.escapeReservedCharacters(criterion.getValue().trim())))
+        .queryName(queryName != null ? queryName : fieldName);
+  }
+
+  private static QueryBuilder buildContainsConditionFromCriterion(
+      @Nonnull final String fieldName,
+      @Nonnull final Criterion criterion,
+      @Nullable String queryName,
+      final boolean isTimeseries,
+      @Nonnull AspectRetriever aspectRetriever) {
+
+    if (!criterion.getValues().isEmpty()) {
+      return buildWildcardQueryWithMultipleValues(
+          fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s*");
+    }
+    return buildWildcardQueryWithSingleValue(
+        fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s*");
+  }
+
+  private static QueryBuilder buildStartsWithConditionFromCriterion(
+      @Nonnull final String fieldName,
+      @Nonnull final Criterion criterion,
+      @Nullable String queryName,
+      final boolean isTimeseries,
+      @Nonnull AspectRetriever aspectRetriever) {
+
+    if (!criterion.getValues().isEmpty()) {
+      return buildWildcardQueryWithMultipleValues(
+          fieldName, criterion, isTimeseries, queryName, aspectRetriever, "%s*");
+    }
+    return buildWildcardQueryWithSingleValue(
+        fieldName, criterion, isTimeseries, queryName, aspectRetriever, "%s*");
+  }
+
+  private static QueryBuilder buildEndsWithConditionFromCriterion(
+      @Nonnull final String fieldName,
+      @Nonnull final Criterion criterion,
+      @Nullable String queryName,
+      final boolean isTimeseries,
+      @Nonnull AspectRetriever aspectRetriever) {
+
+    if (!criterion.getValues().isEmpty()) {
+      return buildWildcardQueryWithMultipleValues(
+          fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s");
+    }
+    return buildWildcardQueryWithSingleValue(
+        fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s");
   }
 
   private static QueryBuilder buildEqualsConditionFromCriterion(

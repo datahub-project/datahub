@@ -41,6 +41,15 @@ test {
     useJUnit()
     finalizedBy jacocoTestReport
 }
+shadowJar {
+    zip64 = true
+    archiveClassifier = ''
+    exclude('log4j2.*', 'log4j.*')
+}
+
+jar {
+    archiveClassifier = 'lib'
+}
 
 //task sourcesJar(type: Jar) {
 //    classifier 'sources'

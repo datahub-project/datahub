@@ -50,14 +50,19 @@ record SearchFlags {
    includeRestricted:optional boolean = false
 
   /**
-    * Extra fields to fetch from the search documents
-    * Note: This will be added on top of the default fields that is controlled
-      by the server
-    */
-  fetchExtraFields: optional array[string] = []
+   * Include mentioned fields inside elastic highlighting query
+   */
+   customHighlightingFields:optional array[string]
 
   /**
    * invoke query rewrite chain for filters based on configured rewriters
    */
    rewriteQuery: optional boolean = true
+
+  /**
+    * Extra fields to fetch from the search documents
+    * Note: This will be added on top of the default fields that is controlled
+      by the server
+    */
+  fetchExtraFields: optional array[string] = []
 }

@@ -16,6 +16,8 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,6 +25,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.util.Arrays;
@@ -58,6 +61,7 @@ public class RelationshipsController {
   }
 
   private static final int MAX_DOWNSTREAM_CNT = 200;
+  private final OperationContext systemOperationContext;
   private final GraphService _graphService;
   private final AuthorizerChain _authorizerChain;
 
@@ -114,6 +118,7 @@ public class RelationshipsController {
             content = @Content(schema = @Schema(implementation = RelatedEntitiesResult.class)))
       })
   public ResponseEntity<RelatedEntitiesResult> getRelationships(
+      HttpServletRequest request,
       @Parameter(
               name = "urn",
               required = true,
@@ -158,8 +163,16 @@ public class RelationshipsController {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 
-    if (!AuthUtil.isAPIAuthorizedUrns(
-        authentication, _authorizerChain, RELATIONSHIP, READ, List.of(entityUrn))) {
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(actorUrnStr, request, "getRelationships", entityUrn.getEntityType()),
+            _authorizerChain,
+            authentication,
+            true);
+
+    if (!AuthUtil.isAPIAuthorizedUrns(opContext, RELATIONSHIP, READ, List.of(entityUrn))) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to get relationships.");
     }
 

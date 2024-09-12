@@ -272,18 +272,22 @@ class RedshiftUsageExtractor:
                         userid=row[field_names.index("userid")],
                         username=row[field_names.index("username")],
                         query=row[field_names.index("query")],
-                        querytxt=row[field_names.index("querytxt")].strip()
-                        if row[field_names.index("querytxt")]
-                        else None,
+                        querytxt=(
+                            row[field_names.index("querytxt")].strip()
+                            if row[field_names.index("querytxt")]
+                            else None
+                        ),
                         tbl=row[field_names.index("tbl")],
                         database=row[field_names.index("database")],
                         schema=row[field_names.index("schema")],
                         table=row[field_names.index("table")],
                         starttime=row[field_names.index("starttime")],
                         endtime=row[field_names.index("endtime")],
-                        operation_type=row[field_names.index("operation_type")]
-                        if "operation_type" in field_names
-                        else None,
+                        operation_type=(
+                            row[field_names.index("operation_type")]
+                            if "operation_type" in field_names
+                            else None
+                        ),
                     )
                 except pydantic.error_wrappers.ValidationError as e:
                     logging.warning(

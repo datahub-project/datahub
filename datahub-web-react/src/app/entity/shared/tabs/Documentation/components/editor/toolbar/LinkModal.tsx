@@ -5,12 +5,12 @@ import { useAttrs, useCommands, useEditorState, useHelpers } from '@remirror/rea
 import { getMarkRange } from '@remirror/core-utils';
 
 type LinkModalProps = {
-    visible: boolean;
+    open: boolean;
     handleClose: () => void;
 };
 
 export const LinkModal = (props: LinkModalProps) => {
-    const { visible, handleClose } = props;
+    const { open, handleClose } = props;
 
     const [trPos, setTrPos] = useState<FromToProps>({ from: 0, to: 0 });
     const [form] = Form.useForm();
@@ -22,7 +22,7 @@ export const LinkModal = (props: LinkModalProps) => {
     const href = (useAttrs().link()?.href as string) ?? '';
 
     useEffect(() => {
-        if (visible) {
+        if (open) {
             const { from, to } = editorState.selection;
             const pos = getMarkRange(editorState.doc.resolve(from), 'link') || { from, to };
 
@@ -34,7 +34,7 @@ export const LinkModal = (props: LinkModalProps) => {
             setTrPos(pos);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [visible]);
+    }, [open]);
 
     const handleOk = async () => {
         try {
@@ -58,7 +58,7 @@ export const LinkModal = (props: LinkModalProps) => {
     };
 
     return (
-        <Modal title="Add Link" okText="Save" onCancel={handleClose} onOk={handleOk} visible={visible}>
+        <Modal title="Add Link" okText="Save" onCancel={handleClose} onOk={handleOk} open={open}>
             <Form
                 form={form}
                 layout="vertical"

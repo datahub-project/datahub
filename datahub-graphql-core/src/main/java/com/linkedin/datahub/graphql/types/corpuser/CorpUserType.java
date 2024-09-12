@@ -183,8 +183,7 @@ public class CorpUserType
     // information.
     return context.getActorUrn().equals(urn)
         || AuthorizationUtils.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
+            context,
             PoliciesConfig.CORP_GROUP_PRIVILEGES.getResourceType(),
             urn,
             orPrivilegeGroups);

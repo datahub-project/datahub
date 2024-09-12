@@ -21,7 +21,9 @@ class PlatformInstanceConfigMixin(ConfigModel):
 
     platform_instance: Optional[str] = Field(
         default=None,
-        description="The instance of the platform that all assets produced by this recipe belong to",
+        description="The instance of the platform that all assets produced by this recipe belong to. "
+        "This should be unique within the platform. "
+        "See https://datahubproject.io/docs/platform-instances/ for more details.",
     )
 
 

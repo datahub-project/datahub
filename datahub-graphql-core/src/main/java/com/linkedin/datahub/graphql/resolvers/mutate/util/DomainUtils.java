@@ -67,11 +67,7 @@ public class DomainUtils {
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        entityUrn.getEntityType(),
-        entityUrn.toString(),
-        orPrivilegeGroups);
+        context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
   }
 
   public static void setDomainForResources(

@@ -123,7 +123,7 @@ public class AuthServiceController {
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error("Failed to parse json while attempting to generate session token {}", jsonStr, e);
+      log.error("Failed to parse json while attempting to generate session token ", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     if (bodyJson == null) {
@@ -238,7 +238,7 @@ public class AuthServiceController {
           try {
             Urn inviteTokenUrn = _inviteTokenService.getInviteTokenUrn(inviteTokenString);
             if (!_inviteTokenService.isInviteTokenValid(systemOperationContext, inviteTokenUrn)) {
-              log.error("Invalid invite token {}", inviteTokenString);
+              log.error("Invalid invite token");
               return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
             }
 
@@ -386,7 +386,7 @@ public class AuthServiceController {
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error("Failed to parse json while attempting to track analytics event {}", jsonStr);
+      log.error("Failed to parse json while attempting to track analytics event", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     if (bodyJson == null) {

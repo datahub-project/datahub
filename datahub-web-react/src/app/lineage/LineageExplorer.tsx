@@ -210,7 +210,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                 placement="left"
                 closable={false}
                 onClose={handleClose}
-                visible={isDrawerVisible}
+                open={isDrawerVisible}
                 width={490}
                 bodyStyle={{ overflowX: 'hidden' }}
                 mask={false}
@@ -221,7 +221,9 @@ export default function LineageExplorer({ urn, type }: Props) {
                                 Close
                             </Button>
                             {selectedEntity.type !== EntityType.Restricted && (
-                                <Button href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}>
+                                <Button
+                                    href={`${entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}`}
+                                >
                                     <InfoCircleOutlined /> View details
                                 </Button>
                             )}

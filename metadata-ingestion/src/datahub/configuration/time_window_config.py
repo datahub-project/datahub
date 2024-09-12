@@ -9,10 +9,11 @@ from pydantic.fields import Field
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.datetimes import parse_absolute_time, parse_relative_timespan
 from datahub.metadata.schema_classes import CalendarIntervalClass
+from datahub.utilities.str_enum import StrEnum
 
 
 @enum.unique
-class BucketDuration(str, enum.Enum):
+class BucketDuration(StrEnum):
     DAY = CalendarIntervalClass.DAY
     HOUR = CalendarIntervalClass.HOUR
 

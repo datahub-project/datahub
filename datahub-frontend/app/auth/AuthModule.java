@@ -26,7 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 
 import io.datahubproject.metadata.context.ActorContext;
-import io.datahubproject.metadata.context.AuthorizerContext;
+import io.datahubproject.metadata.context.AuthorizationContext;
 import io.datahubproject.metadata.context.EntityRegistryContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
@@ -184,10 +184,10 @@ public class AuthModule extends AbstractModule {
     return OperationContext.builder()
             .operationContextConfig(systemConfig)
             .systemActorContext(systemActorContext)
+            // Authorizer.EMPTY is fine since it doesn't actually apply to system auth
+            .authorizationContext(AuthorizationContext.builder().authorizer(Authorizer.EMPTY).build())
             .searchContext(SearchContext.EMPTY)
             .entityRegistryContext(EntityRegistryContext.builder().build(EmptyEntityRegistry.EMPTY))
-            // Authorizer.EMPTY doesn't actually apply to system auth
-            .authorizerContext(AuthorizerContext.builder().authorizer(Authorizer.EMPTY).build())
             .validationContext(ValidationContext.builder().alternateValidation(false).build())
             .build(systemAuthentication);
   }

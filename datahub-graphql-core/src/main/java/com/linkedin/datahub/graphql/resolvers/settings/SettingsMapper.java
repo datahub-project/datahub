@@ -44,7 +44,7 @@ public class SettingsMapper {
   /** Returns true if the authenticated user is able to manage global settings. */
   public static boolean canManageGlobalSettings(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_GLOBAL_SETTINGS);
+        context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_SETTINGS);
   }
 
   public static GlobalSettingsInfo getGlobalSettings(

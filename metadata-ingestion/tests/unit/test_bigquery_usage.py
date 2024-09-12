@@ -8,7 +8,6 @@ import pytest
 from freezegun import freeze_time
 
 from datahub.configuration.time_window_config import BucketDuration
-from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
@@ -23,6 +22,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryV2Config,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilder
 from datahub.ingestion.source.bigquery_v2.usage import (
     OPERATION_STATEMENT_TYPES,
     BigQueryUsageExtractor,
@@ -162,21 +162,23 @@ def query_view_1_and_table_1(timestamp: datetime = TS_1, actor: str = ACTOR_1) -
 
 
 def make_usage_workunit(
-    table: Table, dataset_usage_statistics: DatasetUsageStatisticsClass
+    table: Table,
+    dataset_usage_statistics: DatasetUsageStatisticsClass,
+    identifiers: BigQueryIdentifierBuilder,
 ) -> MetadataWorkUnit:
     resource = BigQueryTableRef.from_string_name(TABLE_REFS[table.name])
     return MetadataChangeProposalWrapper(
-        entityUrn=resource.to_urn("PROD"),
+        entityUrn=identifiers.gen_dataset_urn_from_raw_ref(resource),
         aspectName=dataset_usage_statistics.get_aspect_name(),
         aspect=dataset_usage_statistics,
     ).as_workunit()
 
 
 def make_operational_workunit(
-    resource: str, operation: OperationClass
+    resource_urn: str, operation: OperationClass
 ) -> MetadataWorkUnit:
     return MetadataChangeProposalWrapper(
-        entityUrn=BigQueryTableRef.from_string_name(resource).to_urn("PROD"),
+        entityUrn=resource_urn,
         aspectName=operation.get_aspect_name(),
         aspect=operation,
     ).as_workunit()
@@ -204,14 +206,15 @@ def usage_extractor(config: BigQueryV2Config) -> BigQueryUsageExtractor:
         config,
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
-        dataset_urn_builder=lambda ref: make_dataset_urn(
-            "bigquery", str(ref.table_identifier)
-        ),
+        identifiers=BigQueryIdentifierBuilder(config, report),
     )
 
 
 def make_zero_usage_workunit(
-    table: Table, time: datetime, bucket_duration: BucketDuration = BucketDuration.DAY
+    table: Table,
+    time: datetime,
+    identifiers: BigQueryIdentifierBuilder,
+    bucket_duration: BucketDuration = BucketDuration.DAY,
 ) -> MetadataWorkUnit:
     return make_usage_workunit(
         table=table,
@@ -224,6 +227,7 @@ def make_zero_usage_workunit(
             userCounts=[],
             fieldCounts=[],
         ),
+        identifiers=identifiers,
     )
 
 
@@ -294,9 +298,10 @@ def test_usage_counts_single_bucket_resource_project(
                     ),
                 ],
             ),
+            identifiers=usage_extractor.identifiers,
         ),
-        make_zero_usage_workunit(TABLE_2, TS_1),
-        make_zero_usage_workunit(VIEW_1, TS_1),
+        make_zero_usage_workunit(TABLE_2, TS_1, usage_extractor.identifiers),
+        make_zero_usage_workunit(VIEW_1, TS_1, usage_extractor.identifiers),
     ]
     compare_workunits(workunits, expected)
 
@@ -377,6 +382,7 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
                     ),
                 ],
             ),
+            identifiers=usage_extractor.identifiers,
         ),
         make_usage_workunit(
             table=VIEW_1,
@@ -404,6 +410,7 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
                 ],
                 fieldCounts=[],
             ),
+            identifiers=usage_extractor.identifiers,
         ),
         make_usage_workunit(
             table=TABLE_2,
@@ -435,6 +442,7 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
                     ),
                 ],
             ),
+            identifiers=usage_extractor.identifiers,
         ),
         # TS 2
         make_usage_workunit(
@@ -479,6 +487,7 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
                     ),
                 ],
             ),
+            identifiers=usage_extractor.identifiers,
         ),
         make_usage_workunit(
             table=VIEW_1,
@@ -499,6 +508,7 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
                 ],
                 fieldCounts=[],
             ),
+            identifiers=usage_extractor.identifiers,
         ),
         make_usage_workunit(
             table=TABLE_2,
@@ -532,6 +542,7 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
                     ),
                 ],
             ),
+            identifiers=usage_extractor.identifiers,
         ),
     ]
     compare_workunits(workunits, expected)
@@ -622,6 +633,7 @@ def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
                     ),
                 ],
             ),
+            identifiers=usage_extractor.identifiers,
         ),
         make_usage_workunit(
             table=TABLE_2,
@@ -664,6 +676,7 @@ def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
                     ),
                 ],
             ),
+            identifiers=usage_extractor.identifiers,
         ),
         # TS 2
         make_usage_workunit(
@@ -713,6 +726,7 @@ def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
                     ),
                 ],
             ),
+            identifiers=usage_extractor.identifiers,
         ),
         make_usage_workunit(
             table=TABLE_2,
@@ -764,8 +778,9 @@ def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
                     ),
                 ],
             ),
+            identifiers=usage_extractor.identifiers,
         ),
-        make_zero_usage_workunit(VIEW_1, TS_1),
+        make_zero_usage_workunit(VIEW_1, TS_1, usage_extractor.identifiers),
         # TS_2 not included as only 1 minute of it was ingested
     ]
     compare_workunits(workunits, expected)
@@ -793,7 +808,7 @@ def test_usage_counts_no_query_event(
         workunits = usage_extractor._get_workunits_internal([event], [str(ref)])
         expected = [
             MetadataChangeProposalWrapper(
-                entityUrn=ref.to_urn("PROD"),
+                entityUrn=usage_extractor.identifiers.gen_dataset_urn_from_raw_ref(ref),
                 aspect=DatasetUsageStatisticsClass(
                     timestampMillis=int(TS_1.timestamp() * 1000),
                     eventGranularity=TimeWindowSizeClass(
@@ -872,6 +887,7 @@ def test_usage_counts_no_columns(
                     ],
                     fieldCounts=[],
                 ),
+                identifiers=usage_extractor.identifiers,
             )
         ]
         compare_workunits(workunits, expected)
@@ -991,6 +1007,7 @@ def test_usage_counts_no_columns_and_top_n_limit_hit(
                     ],
                     fieldCounts=[],
                 ),
+                identifiers=usage_extractor.identifiers,
             )
         ]
         compare_workunits(workunits, expected)
@@ -1036,7 +1053,11 @@ def test_operational_stats(
     workunits = usage_extractor._get_workunits_internal(events, table_refs.values())
     expected = [
         make_operational_workunit(
-            table_refs[query.object_modified.name],
+            usage_extractor.identifiers.gen_dataset_urn_from_raw_ref(
+                BigQueryTableRef.from_string_name(
+                    table_refs[query.object_modified.name]
+                )
+            ),
             OperationClass(
                 timestampMillis=int(FROZEN_TIME.timestamp() * 1000),
                 lastUpdatedTimestamp=int(query.timestamp.timestamp() * 1000),
@@ -1053,18 +1074,20 @@ def test_operational_stats(
                 ),
                 affectedDatasets=list(
                     dict.fromkeys(  # Preserve order
-                        BigQueryTableRef.from_string_name(
-                            table_refs[field.table.name]
-                        ).to_urn("PROD")
+                        usage_extractor.identifiers.gen_dataset_urn_from_raw_ref(
+                            BigQueryTableRef.from_string_name(
+                                table_refs[field.table.name]
+                            )
+                        )
                         for field in query.fields_accessed
                         if not field.table.is_view()
                     )
                 )
                 + list(
                     dict.fromkeys(  # Preserve order
-                        BigQueryTableRef.from_string_name(
-                            table_refs[parent.name]
-                        ).to_urn("PROD")
+                        usage_extractor.identifiers.gen_dataset_urn_from_raw_ref(
+                            BigQueryTableRef.from_string_name(table_refs[parent.name])
+                        )
                         for field in query.fields_accessed
                         if field.table.is_view()
                         for parent in field.table.upstreams

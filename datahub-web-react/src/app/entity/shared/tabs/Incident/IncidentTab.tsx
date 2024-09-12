@@ -99,7 +99,7 @@ export const IncidentTab = () => {
                         </Button>
                         <AddIncidentModal
                             refetch={refetch}
-                            visible={isRaiseIncidentModalVisible}
+                            open={isRaiseIncidentModalVisible}
                             onClose={() => setIsRaiseIncidentModalVisible(false)}
                         />
                     </Tooltip>

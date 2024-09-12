@@ -439,6 +439,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         facets);
   }
 
+  @Override
+  public IndexConvention getIndexConvention() {
+    return indexBuilders.getIndexConvention();
+  }
+
   // SAAS ONLY - Support predicate based filtering
   @Nonnull
   public SearchResult predicateSearch(
@@ -465,10 +470,5 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         from,
         size,
         facets);
-  }
-
-  @Override
-  public IndexConvention getIndexConvention() {
-    return indexBuilders.getIndexConvention();
   }
 }

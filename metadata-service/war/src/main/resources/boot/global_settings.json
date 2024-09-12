@@ -7,5 +7,9 @@
   "notifications": {
     "settings": {}
   },
-  "views": {}
+  "views": {},
+  "docPropagation": {
+    "enabled": true,
+    "columnPropagationEnabled": true
+  }
 }

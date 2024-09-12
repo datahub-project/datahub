@@ -24,11 +24,13 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import org.apache.directory.scim.core.json.ObjectMapperFactory;
 import org.apache.directory.scim.core.schema.SchemaRegistry;
 import org.apache.directory.scim.protocol.Constants;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -40,6 +42,7 @@ import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.http.converter.xml.MappingJackson2XmlHttpMessageConverter;
+import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @OpenAPIDefinition(
@@ -61,11 +64,18 @@ public class SpringWebConfig implements WebMvcConfigurer {
   private static final Set<String> OPENLINEAGE_PACKAGES =
       Set.of("io.datahubproject.openapi.openlineage");
 
+  @Value("${datahub.gms.async.request-timeout-ms}")
+  private long asyncTimeoutMilliseconds;
+
   @Autowired SchemaRegistry schemaRegistry;
 
-  @Bean
-  public MappingJackson2HttpMessageConverter jsonMessageConverter(SchemaRegistry schemaRegistry) {
-    ObjectMapper objectMapper = ObjectMapperFactory.createObjectMapper(schemaRegistry);
+  @Override
+  public void configureMessageConverters(List<HttpMessageConverter<?>> messageConverters) {
+    messageConverters.add(new StringHttpMessageConverter());
+    messageConverters.add(new ByteArrayHttpMessageConverter());
+    messageConverters.add(new FormHttpMessageConverter());
+
+    ObjectMapper objectMapper = new ObjectMapper();
     int maxSize =
         Integer.parseInt(
             System.getenv()
@@ -75,44 +85,12 @@ public class SpringWebConfig implements WebMvcConfigurer {
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
     objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
-    MappingJackson2HttpMessageConverter converter =
+    MappingJackson2HttpMessageConverter jsonConverter =
         new MappingJackson2HttpMessageConverter(objectMapper);
-    converter.setSupportedMediaTypes(
-        Arrays.asList(
-            MediaType.APPLICATION_JSON,
-            MediaType.APPLICATION_XML,
-            MediaType.valueOf(Constants.SCIM_CONTENT_TYPE),
-            MediaType.valueOf("application/json-patch+json")));
-    return converter;
-  }
+    messageConverters.add(jsonConverter);
 
-  @Bean
-  public MappingJackson2XmlHttpMessageConverter xmlMessageConverter(SchemaRegistry schemaRegistry) {
-    ObjectMapper objectMapper = ObjectMapperFactory.createXmlObjectMapper(schemaRegistry);
-    MappingJackson2XmlHttpMessageConverter converter =
-        new MappingJackson2XmlHttpMessageConverter(objectMapper);
-    converter.setSupportedMediaTypes(
-        Arrays.asList(
-            MediaType.APPLICATION_JSON,
-            MediaType.APPLICATION_XML,
-            MediaType.valueOf(Constants.SCIM_CONTENT_TYPE)));
-    return converter;
-  }
-
-  @Override
-  public void configureMessageConverters(List<HttpMessageConverter<?>> messageConverters) {
-    messageConverters.add(new StringHttpMessageConverter());
-    messageConverters.add(new ByteArrayHttpMessageConverter());
-    messageConverters.add(new FormHttpMessageConverter());
-    messageConverters.add(jsonMessageConverter(schemaRegistry));
-    messageConverters.add(xmlMessageConverter(schemaRegistry));
-  }
-
-  @Override
-  public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
-    converters.add(jsonMessageConverter(schemaRegistry));
-    converters.add(xmlMessageConverter(schemaRegistry));
+    // Saas Only
+    configureMessageConvertersSaas(messageConverters);
   }
 
   @Override
@@ -213,5 +191,61 @@ public class SpringWebConfig implements WebMvcConfigurer {
                         Map.Entry::getValue,
                         (v1, v2) -> v2,
                         LinkedHashMap::new));
+  }
+
+  @Override
+  public void configureAsyncSupport(@Nonnull AsyncSupportConfigurer configurer) {
+    WebMvcConfigurer.super.configureAsyncSupport(configurer);
+    configurer.setDefaultTimeout(asyncTimeoutMilliseconds);
+  }
+
+  private void configureMessageConvertersSaas(List<HttpMessageConverter<?>> messageConverters) {
+    // remove OSS
+    messageConverters.remove(messageConverters.size() - 1);
+    // Add Saas
+    messageConverters.add(jsonMessageConverter(schemaRegistry));
+    messageConverters.add(xmlMessageConverter(schemaRegistry));
+  }
+
+  private MappingJackson2HttpMessageConverter jsonMessageConverter(SchemaRegistry schemaRegistry) {
+    ObjectMapper objectMapper = ObjectMapperFactory.createObjectMapper(schemaRegistry);
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    objectMapper
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+    MappingJackson2HttpMessageConverter converter =
+        new MappingJackson2HttpMessageConverter(objectMapper);
+    converter.setSupportedMediaTypes(
+        Arrays.asList(
+            MediaType.APPLICATION_JSON,
+            MediaType.APPLICATION_XML,
+            MediaType.valueOf(Constants.SCIM_CONTENT_TYPE),
+            MediaType.valueOf("application/json-patch+json")));
+    return converter;
+  }
+
+  private MappingJackson2XmlHttpMessageConverter xmlMessageConverter(
+      SchemaRegistry schemaRegistry) {
+    ObjectMapper objectMapper = ObjectMapperFactory.createXmlObjectMapper(schemaRegistry);
+    MappingJackson2XmlHttpMessageConverter converter =
+        new MappingJackson2XmlHttpMessageConverter(objectMapper);
+    converter.setSupportedMediaTypes(
+        Arrays.asList(
+            MediaType.APPLICATION_JSON,
+            MediaType.APPLICATION_XML,
+            MediaType.valueOf(Constants.SCIM_CONTENT_TYPE)));
+    return converter;
+  }
+
+  @Override
+  public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
+    converters.add(jsonMessageConverter(schemaRegistry));
+    converters.add(xmlMessageConverter(schemaRegistry));
   }
 }

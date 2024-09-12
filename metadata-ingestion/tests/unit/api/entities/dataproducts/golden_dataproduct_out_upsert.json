@@ -121,6 +121,7 @@
                     "type": "BUSINESS_OWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"

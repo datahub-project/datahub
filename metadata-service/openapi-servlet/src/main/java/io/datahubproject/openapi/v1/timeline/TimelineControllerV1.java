@@ -14,8 +14,11 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Set;
@@ -42,6 +45,7 @@ import org.springframework.web.bind.annotation.RestController;
         "An API for retrieving historical updates to entities and their related documentation.")
 public class TimelineControllerV1 {
 
+  private final OperationContext systemOperationContext;
   private final TimelineService _timelineService;
   private final AuthorizerChain _authorizerChain;
 
@@ -60,6 +64,7 @@ public class TimelineControllerV1 {
    */
   @GetMapping(path = "/{urn}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<ChangeTransaction>> getTimeline(
+      HttpServletRequest request,
       @PathVariable("urn") String rawUrn,
       @RequestParam(name = "startTime", defaultValue = "-1") long startTime,
       @RequestParam(name = "endTime", defaultValue = "0") long endTime,
@@ -72,14 +77,23 @@ public class TimelineControllerV1 {
     Urn urn = Urn.createFromString(rawUrn);
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
+
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(actorUrnStr, request, "getTimeline", urn.getEntityType()),
+            _authorizerChain,
+            authentication,
+            true);
+
     EntitySpec resourceSpec = new EntitySpec(urn.getEntityType(), rawUrn);
     DisjunctivePrivilegeGroup orGroup =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.GET_TIMELINE_PRIVILEGE.getType()))));
-    if (restApiAuthorizationEnabled
-        && !AuthUtil.isAuthorized(_authorizerChain, actorUrnStr, orGroup, resourceSpec)) {
+    if (restApiAuthorizationEnabled && !AuthUtil.isAuthorized(opContext, orGroup, resourceSpec)) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to edit entities.");
     }
     return ResponseEntity.ok(

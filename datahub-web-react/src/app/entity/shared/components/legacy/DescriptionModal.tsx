@@ -19,10 +19,15 @@ const StyledViewer = styled(Editor)`
     }
 `;
 
+const OriginalDocumentation = styled(Form.Item)`
+    margin-bottom: 0;
+`;
+
 type Props = {
     title: string;
     description?: string | undefined;
     original?: string | undefined;
+    propagatedDescription?: string | undefined;
     onClose: () => void;
     onSubmit: (description: string) => void;
     onPropose?: (description: string) => void;
@@ -34,6 +39,7 @@ export default function UpdateDescriptionModal({
     title,
     description,
     original,
+    propagatedDescription,
     onClose,
     onSubmit,
     onPropose,
@@ -56,7 +62,7 @@ export default function UpdateDescriptionModal({
     return (
         <Modal
             title={title}
-            visible
+            open
             width={900}
             onCancel={onClose}
             okText={isAddDesc ? 'Submit' : 'Update'}
@@ -88,9 +94,14 @@ export default function UpdateDescriptionModal({
                     />
                 </Form.Item>
                 {!isAddDesc && description && original && (
-                    <Form.Item label={<FormLabel>Original:</FormLabel>}>
+                    <OriginalDocumentation label={<FormLabel>Original:</FormLabel>}>
                         <StyledViewer content={original || ''} readOnly />
-                    </Form.Item>
+                    </OriginalDocumentation>
+                )}
+                {!isAddDesc && description && propagatedDescription && (
+                    <OriginalDocumentation label={<FormLabel>Propagated:</FormLabel>}>
+                        <StyledViewer content={propagatedDescription || ''} readOnly />
+                    </OriginalDocumentation>
                 )}
             </Form>
         </Modal>

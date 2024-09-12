@@ -90,7 +90,7 @@ export default function SelectRoleGroup({ group, groupRoleUrn, selectRoleOptions
                 {selectOptions}
             </RoleSelect>
             <AssignRoletoGroupConfirmation
-                visible={isViewingAssignRole}
+                open={isViewingAssignRole}
                 roleToAssign={rolesMap.get(currentRoleUrn)}
                 groupUrn={group.urn}
                 groupName={group?.info?.displayName as string}
