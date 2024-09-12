@@ -124,9 +124,12 @@
     .quickstart__content {
       display: flex;
       margin-top: 3rem;
+      width: 100%;
 
       .quickstart__text {
-        max-width: 45vw;
+        width: 60%;
+        min-width: 600px;
+        padding-right: 40px;
         display: flex;
         justify-content: center;
         flex-direction: column;
@@ -140,9 +143,9 @@
           /* Label */
           font-family: 'Manrope';
           font-style: normal;
-          font-weight: 700;
-          font-size: 1.25rem;
-          line-height: 27px;
+          font-weight: 600;
+          font-size: 1.1rem;
+          line-height: 1.2rem;
           letter-spacing: 0.4em;
           text-transform: uppercase;
 
@@ -155,8 +158,8 @@
           font-family: 'Manrope';
           font-style: normal;
           font-weight: 600;
-          font-size: 2.25rem;
-          line-height: 49px;
+          font-size: 2rem;
+          line-height: 2rem;
 
           color: #171B2B;
           margin-top: 1.5rem;
@@ -168,8 +171,8 @@
           font-family: 'Manrope';
           font-style: normal;
           font-weight: 400;
-          font-size: 1.25rem;
-          line-height: 32px;
+          font-size: 1.1rem;
+          line-height: 1.75rem;
           /* Text|Light */
           color: #838BA8;
 
@@ -188,6 +191,8 @@
         display: flex;
         align-items: flex-start;
         justify-content: center;
+        min-width: 400px;
+        width: 40%;
 
         img {
           width: 100%;

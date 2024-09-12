@@ -32,7 +32,7 @@ const Hero = ({}) => {
               The <strong>#1 open source</strong> metadata platform.
             </div>
             <div className="hero__subtitle">
-              The unified platform for{" "}
+              A unified platform for{" "}
               <span>
                 {" "}
                 <span>AI Governance</span>

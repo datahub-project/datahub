@@ -110,12 +110,20 @@
           margin: 0 10px 0 0;
           font-weight: 600;
           text-decoration: none;
+          transition: background-color .2s ease-in-out;
+          &:hover {
+            background-color: #FFFFFFEE;
+          }
         }
 
         .cta__secondary {
           background-color: rgba($color: #fff, $alpha: .2);
           color: white;
           border: 1px solid white;
+          transition: background-color .2s ease-in-out;
+          &:hover {
+            background-color: rgba($color: #fff, $alpha: .3);
+          }
         }
       }
     }

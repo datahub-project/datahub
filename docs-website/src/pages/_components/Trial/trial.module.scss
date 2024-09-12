@@ -45,10 +45,14 @@
           display: inline-block;
           font-size: 1rem;
           background-color: #1890ff;
-          padding: 8px 20px;
+          padding: 4px 20px;
           border-radius: 50px;
           margin: 0 0 0 0;
           color: white;
+          transition: opacity .2s ease-in-out;
+          &:hover {
+            opacity: .9;
+          }
         }
 
         a:nth-child(2) {
@@ -56,12 +60,16 @@
           text-decoration: none;
           display: inline-block;
           font-size: 1rem;
-          padding: 8px 20px;
+          padding: 4px 20px;
           border-radius: 50px;
           margin: 0 0 0 0;
           background-color: transparent;
           color: #1890ff;
           border: 1px solid #1890ff;
+          transition: background-color .2s ease-in-out;
+          &:hover {
+            background-color: #1890ff1A;
+          }
         }
       }
 
@@ -72,6 +80,7 @@
         color: #1890ff;
         font-weight: 500;
         cursor: pointer;
+        text-decoration: none;
       }
     }
   }
