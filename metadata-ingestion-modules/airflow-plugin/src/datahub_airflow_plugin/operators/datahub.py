@@ -2,11 +2,9 @@ from typing import List, Union
 
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
+from avrogen.dict_wrapper import DictWrapper
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import (
-    DatasetSnapshotClass,
-    MetadataChangeEventClass,
-)
 
 from datahub_airflow_plugin.hooks.datahub import (
     DatahubGenericHook,
@@ -55,7 +53,7 @@ class DatahubEmitterOperator(DatahubBaseOperator):
     @apply_defaults  # type: ignore[misc]
     def __init__(  # type: ignore[no-untyped-def]
         self,
-        mces: List[MetadataChangeEvent],
+        mces: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]],
         datahub_conn_id: str,
         **kwargs,
     ):
@@ -65,37 +63,32 @@ class DatahubEmitterOperator(DatahubBaseOperator):
         )
         self.metadata = mces
 
+    def _render_template_fields(self, field_value, context, jinja_env):
+        if isinstance(field_value, DictWrapper):
+            for key, value in field_value.items():
+                setattr(
+                    field_value,
+                    key,
+                    self._render_template_fields(value, context, jinja_env),
+                )
+        elif isinstance(field_value, list):
+            for item in field_value:
+                self._render_template_fields(item, context, jinja_env)
+        elif isinstance(field_value, str):
+            return self.render_template(field_value, context, jinja_env)
+        else:
+            return self.render_template(field_value, context, jinja_env)
+        return field_value
+
     def execute(self, context):
         if context:
             jinja_env = self.get_template_env()
-            for mce in self.metadata:
-                if isinstance(mce, MetadataChangeEventClass):
-                    for key in mce.keys():
-                        value = getattr(mce, key)
-                        if isinstance(value, DatasetSnapshotClass):
-                            for ds_key in value.keys():
-                                ds_value = getattr(value, ds_key)
-
-                                if isinstance(ds_value, str) and ds_value not in [
-                                    "",
-                                    None,
-                                ]:
-                                    rendered_value = self.render_template(
-                                        ds_value, context, jinja_env
-                                    )
-                                    setattr(value, ds_key, rendered_value)
-
-                                if isinstance(ds_value, list) and ds_value:
-                                    for aspect in ds_value:
-                                        for aspect_key in aspect.keys():
-                                            aspect_value = getattr(aspect, aspect_key)
-
-                                            rendered_aspect_val = self.render_template(
-                                                aspect_value, context, jinja_env
-                                            )
-
-                                            setattr(
-                                                aspect, aspect_key, rendered_aspect_val
-                                            )
+            for item in self.metadata:
+                if isinstance(item, MetadataChangeProposalWrapper):
+                    for key in item.__dict__.keys():
+                        value = getattr(item, key)
+                        self._render_template_fields(value, context, jinja_env)
+                if isinstance(item, MetadataChangeEvent):
+                    self._render_template_fields(item, context, jinja_env)
 
         self.generic_hook.get_underlying_hook().emit(self.metadata)

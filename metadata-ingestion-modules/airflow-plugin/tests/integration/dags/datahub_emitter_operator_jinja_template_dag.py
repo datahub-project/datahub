@@ -1,8 +1,15 @@
 from datetime import datetime, timedelta
 
 from airflow import DAG
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import DatasetPropertiesClass, DatasetSnapshotClass
+from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
+    DatasetPropertiesClass,
+    DatasetSnapshotClass,
+)
 
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
 
@@ -28,6 +35,12 @@ with DAG(
     add_custom_properties = DatahubEmitterOperator(
         task_id="datahub_emitter_operator_jinja_template_dag_task",
         mces=[
+            MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:hive,foursquare.example.mcpw_example,DEV)",
+                aspect=BrowsePathsV2Class(
+                    path=[BrowsePathEntryClass("mcpw_example {{ ds }}")],
+                ),
+            ),
             MetadataChangeEvent(
                 proposedSnapshot=DatasetSnapshotClass(
                     urn="urn:li:dataset:(urn:li:dataPlatform:hive,foursquare.example.lineage_example,DEV)",
@@ -37,7 +50,7 @@ with DAG(
                         )
                     ],
                 ),
-            )
+            ),
         ],
         datahub_conn_id="datahub_file_default",
     )

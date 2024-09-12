@@ -242,7 +242,7 @@
             "name": "datahub_emitter_operator_jinja_template_dag_datahub_emitter_operator_jinja_template_dag_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1725524757579,
+                "time": 1726143832830,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -267,13 +267,28 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1725524757579,
+            "timestampMillis": 1726143832830,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,foursquare.example.mcpw_example,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "mcpw_example 2023-09-27"
+                }
+            ]
         }
     }
 },
@@ -394,7 +409,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1725524757792,
+            "timestampMillis": 1726143832992,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
