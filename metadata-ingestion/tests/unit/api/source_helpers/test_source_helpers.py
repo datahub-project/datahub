@@ -708,15 +708,32 @@ def test_auto_patch_last_modified():
         urn="urn:li:dataset:a.b.c"
     ).set_last_modified(TimeStampClass(time=20))
 
-    expected.extend(
-        [
-            MetadataWorkUnit(
-                id=MetadataWorkUnit.generate_workunit_id(patch_mcp), mcp_raw=patch_mcp
-            )
-            for patch_mcp in dataset_patch_builder.build()
-        ]
-    )
+    auto_generated_work_units = [
+        MetadataWorkUnit(
+            id=MetadataWorkUnit.generate_workunit_id(patch_mcp), mcp_raw=patch_mcp
+        )
+        for patch_mcp in dataset_patch_builder.build()
+    ]
 
-    # work unit should contain path of datasetProperties with lastModified set to max of operation.lastUpdatedTime
+    expected.extend(auto_generated_work_units)
+
+    # work unit should contain a path of datasetProperties with lastModified set to max of operation.lastUpdatedTime
     # i.e., 20
     assert list(auto_patch_last_modified(auto_workunit(mcps))) == expected
+
+    dataset_patch_builder.set_display_name("foo")
+    dataset_patch_builder.set_description("it is fake")
+    patch_work_units = [
+        MetadataWorkUnit(
+            id=MetadataWorkUnit.generate_workunit_id(patch_mcp), mcp_raw=patch_mcp
+        )
+        for patch_mcp in dataset_patch_builder.build()
+    ]
+
+    work_units = [*list(auto_workunit(mcps)), *patch_work_units]
+
+    expected = [*work_units, *auto_generated_work_units]
+
+    # In this case, the final work units include two patch units: one originating from the source and
+    # the other from auto_patch_last_modified.
+    assert list(auto_patch_last_modified(work_units)) == expected
