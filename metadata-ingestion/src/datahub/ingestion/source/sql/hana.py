@@ -733,7 +733,7 @@ class HanaSource(SQLAlchemySource):
             )
 
             dataset_details = DatasetPropertiesClass(
-                name=f"{schema}/{dataset_name}"
+                name=f"{dataset_path}/{dataset_name}"
             )
 
             view_properties = ViewPropertiesClass(
