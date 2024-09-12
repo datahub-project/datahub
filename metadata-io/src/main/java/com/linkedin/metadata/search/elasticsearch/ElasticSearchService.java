@@ -41,7 +41,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   public static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =
       new SearchFlags()
-          .setFulltext(true)
+          .setFulltext(false)
           .setMaxAggValues(20)
           .setSkipCache(false)
           .setSkipAggregates(false)
@@ -257,7 +257,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
             entityName, path, filters, from, size));
     return esBrowseDAO.browse(
         opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            flags ->
+                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
         entityName,
         path,
         filters,
@@ -278,7 +280,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     return esBrowseDAO.browseV2(
         opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            flags ->
+                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
         entityName,
         path,
         filter,
@@ -300,7 +304,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     return esBrowseDAO.browseV2(
         opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            flags ->
+                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
         entityNames,
         path,
         filter,
