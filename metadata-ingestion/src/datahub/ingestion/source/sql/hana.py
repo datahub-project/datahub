@@ -433,7 +433,10 @@ class HanaSource(SQLAlchemySource):
 
         container_path.append(
             BrowsePathEntryClass(
-                id=schema
+                id=schema,
+                urn=self.get_container_urn(
+                    schema=schema
+                )
             )
         )
 
