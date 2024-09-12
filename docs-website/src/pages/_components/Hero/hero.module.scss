@@ -84,11 +84,12 @@
 
             font-family: 'Manrope';
             font-style: normal;
-            font-weight: 700;
+            font-weight: 400;
             font-size: 1.2rem;
 
 
-            background: linear-gradient(90deg, #3B20D9 0%, #C713C6 31%, #DD567D 64.5%, #D7AC27 100%);
+            // background: linear-gradient(90deg, #3B20D9 0%, #C713C6 31%, #DD567D 64.5%, #D7AC27 100%);
+            background: linear-gradient(90deg, #3B20D9 0%, #533FD1 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
