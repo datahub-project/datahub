@@ -51,6 +51,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_user_urn,
     make_container_urn,
+    make_dataplatform_instance_urn
 )
 from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
@@ -266,7 +267,13 @@ class HanaSource(SQLAlchemySource):
     def get_platform_instance(self):
         return DataPlatformInstanceClass(
             platform=f"urn:li:dataPlatform:{self.get_platform()}",
-            instance=self.config.platform_instance
+            instance=(
+                make_dataplatform_instance_urn(
+                    self.get_platform(), self.config.platform_instance
+                )
+                if self.config.platform_instance
+                else None
+            )
         )
 
     def get_table_properties(self, inspector: Inspector, schema: str, table: str) -> Optional[DatasetPropertiesClass]:
