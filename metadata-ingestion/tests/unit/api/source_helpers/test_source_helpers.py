@@ -8,12 +8,16 @@ from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
+    auto_patch_last_modified,
+)
 from datahub.ingestion.api.source_helpers import (
     _prepend_platform_instance,
     auto_browse_path_v2,
@@ -23,6 +27,12 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    GenericAspectClass,
+    MetadataChangeProposalClass,
+    OperationTypeClass,
+)
 
 _base_metadata: List[
     Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]
@@ -656,3 +666,66 @@ def test_auto_empty_dataset_usage_statistics_invalid_timestamp(
             changeType=models.ChangeTypeClass.CREATE,
         ).as_workunit(),
     ]
+
+
+@freeze_time("2023-01-02 00:00:00")
+def test_auto_patch_last_modified():
+    mcps = [
+        MetadataChangeProposalWrapper(
+            entityUrn="urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
+            aspect=models.StatusClass(removed=False),
+        )
+    ]
+
+    initial_wu = list(auto_workunit(mcps))
+
+    expected = initial_wu
+
+    assert (
+        list(auto_patch_last_modified(initial_wu)) == expected
+    )  # There should be no change
+
+    mcps.append(
+        MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:a.b.c",
+            aspect=models.OperationClass(
+                timestampMillis=10,
+                lastUpdatedTimestamp=12,
+                operationType=OperationTypeClass.CREATE,
+            ),
+        )
+    )
+
+    mcps.append(
+        MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:a.b.c",
+            aspect=models.OperationClass(
+                timestampMillis=11,
+                lastUpdatedTimestamp=20,
+                operationType=OperationTypeClass.CREATE,
+            ),
+        )
+    )
+
+    expected = list(auto_workunit(mcps))
+
+    patch_dataset_properties = MetadataChangeProposalClass(
+        entityUrn="urn:li:dataset:a.b.c",
+        entityType="dataset",
+        changeType=ChangeTypeClass.PATCH,
+        aspectName="datasetProperties",
+        aspect=GenericAspectClass(
+            # operation aspect with higher lastUpdatedTimestamp should be in datasetProperties patch
+            value=b'[{"op": "add", "path": "/lastModified", "value": {"time": 20}}]',
+            contentType=JSON_PATCH_CONTENT_TYPE,
+        ),
+    )
+
+    expected.append(
+        MetadataWorkUnit(
+            id=MetadataWorkUnit.generate_workunit_id(patch_dataset_properties),
+            mcp_raw=patch_dataset_properties,
+        )
+    )
+
+    assert list(auto_patch_last_modified(auto_workunit(mcps))) == expected

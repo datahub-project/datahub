@@ -8,12 +8,15 @@ from datahub.metadata.schema_classes import (
     TimeStampClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.utilities.urns.urn import guess_entity_type
 
 
 @dataclasses.dataclass
 class TimestampPair:
-    last_modified: Optional[TimeStampClass]
-    last_updated_timestamp: Optional[int]
+    last_modified: Optional[TimeStampClass]  # last_modified of datasetProperties aspect
+    last_updated_timestamp: Optional[
+        int
+    ]  # lastUpdatedTimestamp of the operation aspect
 
 
 def auto_patch_last_modified(
@@ -30,7 +33,9 @@ def auto_patch_last_modified(
     candidate_dataset_for_patch: Dict[str, TimestampPair] = {}
 
     for wu in stream:
-        if not wu.get_urn().startswith("urn:li:dataset:"):
+        if (
+            guess_entity_type(wu.get_urn()) != "dataset"
+        ):  # we are only processing datasets
             yield wu
             continue
 
@@ -48,22 +53,13 @@ def auto_patch_last_modified(
                 dataset_operation_aspect
                 and dataset_operation_aspect.lastUpdatedTimestamp
             ):
-                if timestamp_pair.last_updated_timestamp:
-                    # lastUpdatedTimestamp is present and less than the current operation aspect lastUpdateTimestamp
-                    # than update the timestamp_pair
-                    if (
-                        timestamp_pair.last_updated_timestamp
-                        < dataset_operation_aspect.lastUpdatedTimestamp
-                    ):
-                        timestamp_pair.last_updated_timestamp = (
-                            dataset_operation_aspect.lastUpdatedTimestamp
-                        )
-                else:
-                    timestamp_pair.last_updated_timestamp = (
-                        dataset_operation_aspect.lastUpdatedTimestamp
-                    )
+                timestamp_pair.last_updated_timestamp = max(
+                    timestamp_pair.last_updated_timestamp or 0,
+                    dataset_operation_aspect.lastUpdatedTimestamp,
+                )
+
         else:
-            # Generate new one
+            # Create new TimestampPair
             last_modified: Optional[TimeStampClass] = None
             last_updated_timestamp: Optional[int] = None
 
