@@ -1,5 +1,12 @@
 import { LogicalPredicate } from '@src/app/tests/builder/steps/definition/builder/types';
-import { CorpGroup, CorpUser, FormState, FormType, PromptCardinality } from '../../../../types.generated';
+import {
+    AndFilterInput,
+    CorpGroup,
+    CorpUser,
+    FormState,
+    FormType,
+    PromptCardinality,
+} from '../../../../types.generated';
 
 export type FormMode = 'create' | 'edit';
 
@@ -23,6 +30,11 @@ export type FormActors = {
     groups?: CorpGroup[];
 };
 
+export type FormAssets = {
+    orFilters?: AndFilterInput[];
+    logicalPredicate?: LogicalPredicate;
+};
+
 export type FormFields = {
     formType?: FormType;
     formName?: string;
@@ -30,7 +42,7 @@ export type FormFields = {
     questions: FormQuestion[];
     actors?: FormActors;
     state?: FormState;
-    filters?: LogicalPredicate;
+    assets?: FormAssets;
 };
 
 export const handleInputChange = (setFormValues) => (event) => {

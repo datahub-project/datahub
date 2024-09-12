@@ -3,7 +3,7 @@ import { EntityType } from '@src/types.generated';
 
 export const properties = [
     {
-        id: 'entityType',
+        id: '_entityType',
         displayName: 'Type',
         description: 'The type of the asset.',
         valueType: ValueTypeId.ENUM,
@@ -38,7 +38,7 @@ export const properties = [
         },
     },
     {
-        id: 'dataPlatformInstance.platform',
+        id: 'platform',
         displayName: 'Platform',
         description: 'The data platform where the asset lives.',
         valueType: ValueTypeId.URN,
@@ -48,7 +48,7 @@ export const properties = [
         },
     },
     {
-        id: 'container.container',
+        id: 'container',
         displayName: 'Container',
         description: 'The parent container of the asset.',
         valueType: ValueTypeId.URN,
@@ -58,12 +58,68 @@ export const properties = [
         },
     },
     {
-        id: 'domains.domains',
+        id: 'domains',
         displayName: 'Domain',
         description: 'The domain that the asset is a part of.',
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.Domain],
+            mode: SelectInputMode.MULTIPLE,
+        },
+    },
+    {
+        id: 'glossaryTerms',
+        displayName: 'Glossary Terms',
+        description: 'The glossary terms applied to an asset',
+        valueType: ValueTypeId.URN,
+        valueOptions: {
+            entityTypes: [EntityType.GlossaryTerm],
+            mode: SelectInputMode.MULTIPLE,
+        },
+    },
+    {
+        id: 'tags',
+        displayName: 'Tags',
+        description: 'The tags applied to an asset',
+        valueType: ValueTypeId.URN,
+        valueOptions: {
+            entityTypes: [EntityType.Tag],
+            mode: SelectInputMode.MULTIPLE,
+        },
+    },
+    {
+        id: 'owners',
+        displayName: 'Owned By',
+        description: 'The owners of an asset',
+        valueType: ValueTypeId.URN,
+        valueOptions: {
+            entityTypes: [EntityType.CorpUser, EntityType.CorpGroup],
+            mode: SelectInputMode.MULTIPLE,
+        },
+    },
+    {
+        id: 'urn',
+        displayName: 'Asset',
+        description: 'The specific asset itself',
+        valueType: ValueTypeId.URN,
+        valueOptions: {
+            entityTypes: [
+                EntityType.Dataset,
+                EntityType.Dashboard,
+                EntityType.Chart,
+                EntityType.Mlmodel,
+                EntityType.MlmodelGroup,
+                EntityType.MlfeatureTable,
+                EntityType.Mlfeature,
+                EntityType.MlprimaryKey,
+                EntityType.DataFlow,
+                EntityType.DataJob,
+                EntityType.GlossaryTerm,
+                EntityType.GlossaryNode,
+                EntityType.Container,
+                EntityType.Domain,
+                EntityType.DataProduct,
+            ],
             mode: SelectInputMode.MULTIPLE,
         },
     },

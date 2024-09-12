@@ -230,7 +230,8 @@ public class FormService extends BaseService {
       @Nonnull final DynamicFormAssignment formFilters,
       @Nonnull ObjectMapper objectMapper) {
     final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormAssignment(formUrn);
-    final TestInfo testDefinition = FormTestBuilder.buildFormAssignmentTest(formUrn, formFilters);
+    final TestInfo testDefinition =
+        FormTestBuilder.buildFormAssignmentTest(opContext, formUrn, formFilters);
     try {
       List<MetadataChangeProposal> changes =
           ImmutableList.of(

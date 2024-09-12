@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Modal } from 'antd';
 import styled from 'styled-components';
-import { EntityType, FacetFilterInput, SortCriterion } from '../../../../../../types.generated';
+import { AndFilterInput, EntityType, FacetFilterInput, SortCriterion } from '../../../../../../types.generated';
 import { EmbeddedListSearch } from './EmbeddedListSearch';
 import { UnionType } from '../../../../../search/utils/constants';
 import { FilterSet } from './types';
@@ -22,6 +22,7 @@ type Props = {
     title: React.ReactNode;
     emptySearchQuery?: string | null;
     fixedFilters?: FilterSet;
+    fixedOrFilters?: AndFilterInput[];
     fixedQuery?: string | null;
     placeholderText?: string | null;
     defaultShowFilters?: boolean;
@@ -40,6 +41,7 @@ export const EmbeddedListSearchModal = ({
     title,
     emptySearchQuery,
     fixedFilters,
+    fixedOrFilters,
     fixedQuery,
     placeholderText,
     defaultShowFilters,
@@ -94,6 +96,7 @@ export const EmbeddedListSearchModal = ({
                     onChangeUnionType={setUnionType}
                     emptySearchQuery={emptySearchQuery}
                     fixedFilters={fixedFilters}
+                    fixedOrFilters={fixedOrFilters}
                     fixedQuery={fixedQuery}
                     placeholderText={placeholderText}
                     defaultShowFilters={defaultShowFilters}

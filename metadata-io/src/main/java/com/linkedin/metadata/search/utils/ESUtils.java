@@ -10,7 +10,6 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFie
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
@@ -27,7 +26,6 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -96,30 +94,6 @@ public class ESUtils {
           Condition.LESS_THAN_OR_EQUAL_TO);
   public static final String ENTITY_NAME_FIELD = "_entityName";
   public static final String NAME_SUGGESTION = "nameSuggestion";
-
-  // we use this to make sure we filter for editable & non-editable fields. Also expands out
-  // top-level properties
-  // to field level properties
-  public static final Map<String, List<String>> FIELDS_TO_EXPANDED_FIELDS_LIST =
-      new HashMap<String, List<String>>() {
-        {
-          put("tags", ImmutableList.of("tags", "fieldTags", "editedFieldTags"));
-          put(
-              "glossaryTerms",
-              ImmutableList.of("glossaryTerms", "fieldGlossaryTerms", "editedFieldGlossaryTerms"));
-          put("fieldTags", ImmutableList.of("fieldTags", "editedFieldTags"));
-          put(
-              "fieldGlossaryTerms",
-              ImmutableList.of("fieldGlossaryTerms", "editedFieldGlossaryTerms"));
-          put(
-              "fieldDescriptions",
-              ImmutableList.of("fieldDescriptions", "editedFieldDescriptions"));
-          put("description", ImmutableList.of("description", "editedDescription"));
-          put(
-              "businessAttribute",
-              ImmutableList.of("businessAttributeRef", "businessAttributeRef.urn"));
-        }
-      };
 
   /*
    * Refer to https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html for list of reserved

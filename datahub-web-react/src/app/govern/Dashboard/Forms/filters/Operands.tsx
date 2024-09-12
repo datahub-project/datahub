@@ -17,7 +17,11 @@ interface Props {
 const Operands = ({ operands, onChangeOperands, onDeletePredicate, properties, depth }: Props) => {
     const onUpdatePredicate = (newPredicate, index) => {
         const newOperands = [...operands];
-        newOperands[index] = newPredicate;
+        if (newPredicate === undefined) {
+            newOperands.splice(index, 1);
+        } else {
+            newOperands[index] = newPredicate;
+        }
         onChangeOperands(newOperands);
     };
 

@@ -88,8 +88,19 @@ public class MetadataTestServiceUtils {
     }
 
     if (searchableFieldsToPathSpecs != null) {
-      final List<PathSpec> pathSpecs =
-          searchableFieldsToPathSpecs.get(criterion.getField().replace(KEYWORD_SUFFIX, ""));
+      final String filterField = criterion.getField().replace(KEYWORD_SUFFIX, "");
+      final List<PathSpec> pathSpecs = new ArrayList<>();
+      if (FIELDS_TO_EXPANDED_FIELDS_LIST.containsKey(filterField)) {
+        // If a filter field should be expanded,
+        List<String> expandedFields = FIELDS_TO_EXPANDED_FIELDS_LIST.get(filterField);
+        expandedFields.forEach(
+            field ->
+                pathSpecs.addAll(
+                    searchableFieldsToPathSpecs.get(field.replace(KEYWORD_SUFFIX, ""))));
+      } else {
+        pathSpecs.addAll(searchableFieldsToPathSpecs.get(filterField));
+      }
+
       if (pathSpecs.size() == 1) {
         PathSpec pathSpec = pathSpecs.get(0);
         String field = String.join(".", pathSpec.getPathComponents());

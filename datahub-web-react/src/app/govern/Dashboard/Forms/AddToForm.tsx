@@ -1,5 +1,6 @@
 import { LogicalOperatorType, LogicalPredicate } from '@src/app/tests/builder/steps/definition/builder/types';
-import { FormState } from '@src/types.generated';
+import { AndFilterInput, FormState } from '@src/types.generated';
+import { convertLogicalPredicateToOrFilters } from '@src/app/tests/builder/steps/definition/builder/utils';
 import { Divider } from 'antd';
 import React, { useContext, useState } from 'react';
 import AddElement from './AddElement';
@@ -10,6 +11,7 @@ import { properties } from './filters/properties';
 import { FormQuestion } from './formUtils';
 import ManageFormContext from './ManageFormContext';
 import QuestionsList from './QuestionsList';
+import AssetReviewModal from './AssetReviewModal';
 
 const AddToForm = () => {
     const { formValues, setFormValues } = useContext(ManageFormContext);
@@ -17,16 +19,24 @@ const AddToForm = () => {
     const [showQuestionModal, setShowQuestionModal] = useState<boolean>(false);
     const [currentQuestion, setCurrentQuestion] = useState<FormQuestion | undefined>();
 
-    const handleFiltersChange = (updatedFilters?: LogicalPredicate) => {
-        setFormValues({ ...formValues, filters: updatedFilters });
+    const handleFiltersChange = (updatedPredicate?: LogicalPredicate) => {
+        // create null filter so no entities match this by default
+        let orFilters: AndFilterInput[] = [{ and: [{ field: 'NULL', values: ['NULL'] }] }];
+        if (updatedPredicate && updatedPredicate.operands.length > 0) {
+            // if there are filters, convert them to orFilters format
+            orFilters = convertLogicalPredicateToOrFilters(updatedPredicate);
+        }
+        setFormValues({ ...formValues, assets: { logicalPredicate: updatedPredicate, orFilters } });
     };
 
     const addFilters = () => {
         setFormValues({
             ...formValues,
-            filters: {
-                operator: LogicalOperatorType.OR,
-                operands: [],
+            assets: {
+                logicalPredicate: {
+                    operator: LogicalOperatorType.OR,
+                    operands: [],
+                },
             },
         });
     };
@@ -48,14 +58,17 @@ const AddToForm = () => {
                 description="Assign the Assets for which you want to collect the data"
                 buttonLabel="Add Assets"
                 buttonOnClick={addFilters}
-                isButtonHidden={!!formValues.filters}
+                isButtonHidden={!!formValues.assets?.logicalPredicate}
             />
-            {formValues.filters && (
-                <LogicalFiltersBuilder
-                    filters={formValues.filters}
-                    onChangeFilters={handleFiltersChange}
-                    properties={properties}
-                />
+            {formValues.assets?.logicalPredicate && (
+                <>
+                    <LogicalFiltersBuilder
+                        filters={formValues.assets?.logicalPredicate}
+                        onChangeFilters={handleFiltersChange}
+                        properties={properties}
+                    />
+                    <AssetReviewModal />
+                </>
             )}
             <Divider />
 
