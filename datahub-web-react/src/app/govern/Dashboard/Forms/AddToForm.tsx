@@ -1,5 +1,5 @@
 import { LogicalOperatorType, LogicalPredicate } from '@src/app/tests/builder/steps/definition/builder/types';
-import { AndFilterInput, FormState } from '@src/types.generated';
+import { AndFilterInput, FormPrompt, FormState } from '@src/types.generated';
 import { convertLogicalPredicateToOrFilters } from '@src/app/tests/builder/steps/definition/builder/utils';
 import { Divider } from 'antd';
 import React, { useContext, useState } from 'react';
@@ -8,7 +8,6 @@ import AddQuestionModal from './AddQuestionModal';
 import AddRecipients from './AddRecipients';
 import LogicalFiltersBuilder from './filters/LogicalFiltersBuilder';
 import { properties } from './filters/properties';
-import { FormQuestion } from './formUtils';
 import ManageFormContext from './ManageFormContext';
 import QuestionsList from './QuestionsList';
 import AssetReviewModal from './AssetReviewModal';
@@ -17,7 +16,7 @@ const AddToForm = () => {
     const { formValues, setFormValues } = useContext(ManageFormContext);
 
     const [showQuestionModal, setShowQuestionModal] = useState<boolean>(false);
-    const [currentQuestion, setCurrentQuestion] = useState<FormQuestion | undefined>();
+    const [currentQuestion, setCurrentQuestion] = useState<FormPrompt | undefined>();
 
     const handleFiltersChange = (updatedPredicate?: LogicalPredicate) => {
         // create null filter so no entities match this by default

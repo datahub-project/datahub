@@ -1,4 +1,4 @@
-import { EntityType } from '@src/types.generated';
+import { EntityType, GlossaryTerm } from '@src/types.generated';
 import React, { useState } from 'react';
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import {
@@ -8,19 +8,29 @@ import {
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetGlossaryNodeLazyQuery } from '@src/graphql/glossaryNode.generated';
 import styled from 'styled-components';
+import { Form } from 'antd';
 import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 
 const Wrapper = styled.div`
-    margin-bottom: 24px;
-
-    label {
-        font-size: 14px !important;
-    }
+    margin-top: 24px;
 `;
 
 const GlossaryTermsSelector = () => {
     const entityRegistry = useEntityRegistryV2();
     const [useSearch, setUseSearch] = useState(false);
+    const form = Form.useFormInstance();
+    const initialAllowedTerms =
+        form.getFieldValue(['glossaryTermsParams', 'allowedTerms']) ||
+        form.getFieldValue(['glossaryTermsParams', 'resolvedAllowedTerms']) ||
+        [];
+    const initialOptions = initialAllowedTerms.map((term: GlossaryTerm) => ({
+        value: term.urn,
+        label: entityRegistry.getDisplayName(term.type, term),
+        id: term.urn,
+        isParent: term.type === EntityType.GlossaryNode,
+        parentId: term.parentNodes?.[0]?.urn,
+        entity: term,
+    }));
 
     const [autoComplete, { data: autoCompleteData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const { data } = useGetSearchResultsForMultipleQuery({
@@ -49,6 +59,7 @@ const GlossaryTermsSelector = () => {
                         label: entityRegistry.getDisplayName(type, entity),
                         isParent: type === EntityType.GlossaryNode,
                         parentValue: nodeData.glossaryNode?.urn,
+                        entity,
                     });
                 }
             });
@@ -61,6 +72,7 @@ const GlossaryTermsSelector = () => {
             value: result.entity.urn,
             label: entityRegistry.getDisplayName(result.entity.type, result.entity),
             isParent: result.entity.type === EntityType.GlossaryNode,
+            entity: result.entity,
         })) || [];
     const autoCompleteOptions =
         autoCompleteData?.autoCompleteForMultiple?.suggestions
@@ -69,6 +81,7 @@ const GlossaryTermsSelector = () => {
                 value: term.urn,
                 label: entityRegistry.getDisplayName(term.type, term),
                 isParent: term.type === EntityType.GlossaryNode,
+                entity: term,
             })) || [];
 
     function handleLoad(option: SelectOption) {
@@ -84,6 +97,15 @@ const GlossaryTermsSelector = () => {
         }
     }
 
+    function handleUpdate(values: SelectOption[]) {
+        if (values.length) {
+            const allowedTerms = values.map((v) => v.entity).filter((r) => !!r);
+            form.setFieldValue(['glossaryTermsParams', 'allowedTerms'], allowedTerms);
+        } else {
+            form.setFieldValue(['glossaryTermsParams', 'allowedTerms'], undefined);
+        }
+    }
+
     return (
         <Wrapper>
             <NestedSelect
@@ -91,8 +113,10 @@ const GlossaryTermsSelector = () => {
                 placeholder="Select allowed glossary terms"
                 areParentsSelectable={false}
                 options={useSearch ? autoCompleteOptions : [...options, ...childOptions]}
+                initialValues={initialOptions}
                 loadData={handleLoad}
                 onSearch={handleSearch}
+                onUpdate={handleUpdate}
                 width="full"
                 isMultiSelect
                 showSearch

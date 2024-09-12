@@ -3,26 +3,21 @@ import {
     AndFilterInput,
     CorpGroup,
     CorpUser,
+    CreatePromptInput,
+    DomainParams,
+    DomainParamsInput,
     FormState,
     FormType,
-    PromptCardinality,
+    FormPrompt,
+    GlossaryTermsParams,
+    GlossaryTermsParamsInput,
+    OwnershipParams,
+    OwnershipParamsInput,
+    StructuredPropertyParams,
+    StructuredPropertyParamsInput,
 } from '../../../../types.generated';
 
 export type FormMode = 'create' | 'edit';
-
-export type FormQuestion = {
-    id: string;
-    type: string;
-    title: string;
-    description?: string;
-    required: boolean;
-    structuredPropertyParams?: {
-        urn: string;
-    };
-    ownershipParams?: {
-        cardinality: PromptCardinality;
-    };
-};
 
 export type FormActors = {
     owners?: boolean;
@@ -39,7 +34,7 @@ export type FormFields = {
     formType?: FormType;
     formName?: string;
     formDescription?: string | undefined;
-    questions: FormQuestion[];
+    questions: FormPrompt[];
     actors?: FormActors;
     state?: FormState;
     assets?: FormAssets;
@@ -96,3 +91,42 @@ export const questionTypes = [
         description: 'This question applies structured property to columns of assets',
     },
 ];
+
+function mapStructuredPropertyParams(params: StructuredPropertyParams): StructuredPropertyParamsInput {
+    return { urn: params.structuredProperty.urn };
+}
+
+function mapGlossaryTermsParams(params: GlossaryTermsParams): GlossaryTermsParamsInput {
+    const allowedTerms = params.allowedTerms ? params.allowedTerms : params.resolvedAllowedTerms;
+    return { cardinality: params.cardinality, allowedTerms: allowedTerms?.map((t) => t.urn) };
+}
+
+function mapOwnershipParams(params: OwnershipParams): OwnershipParamsInput {
+    return {
+        cardinality: params.cardinality,
+        allowedOwners: params.allowedOwners?.map((o) => o.urn),
+        allowedOwnershipTypes: params.allowedOwnershipTypes?.map((o) => o.urn),
+    };
+}
+
+function mapDomainParams(params: DomainParams): DomainParamsInput {
+    return { allowedDomains: params.allowedDomains?.map((o) => o.urn) };
+}
+
+export function mapPromptsToCreatePromptInput(prompts: FormPrompt[]): CreatePromptInput[] {
+    return prompts.map((prompt) => ({
+        id: prompt.id,
+        description: prompt.description,
+        type: prompt.type,
+        title: prompt.title,
+        required: prompt.required,
+        structuredPropertyParams: prompt.structuredPropertyParams
+            ? mapStructuredPropertyParams(prompt.structuredPropertyParams)
+            : undefined,
+        ownershipParams: prompt.ownershipParams ? mapOwnershipParams(prompt.ownershipParams) : undefined,
+        glossaryTermsParams: prompt.glossaryTermsParams
+            ? mapGlossaryTermsParams(prompt.glossaryTermsParams)
+            : undefined,
+        domainParams: prompt.domainParams ? mapDomainParams(prompt.domainParams) : undefined,
+    }));
+}

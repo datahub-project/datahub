@@ -37,11 +37,12 @@ const StructuredPropertyQuestion = () => {
         });
         setStructuredProperties(properties);
     }, [data]);
+
     return (
         <>
             <FieldLabel> Select Structured Property</FieldLabel>
             <Form.Item
-                name={['structuredPropertyParams', 'urn']}
+                name={['structuredPropertyParams', 'structuredProperty', 'urn']}
                 rules={[
                     {
                         required: true,

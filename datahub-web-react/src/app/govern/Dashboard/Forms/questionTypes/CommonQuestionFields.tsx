@@ -1,7 +1,7 @@
 import { TextArea } from '@src/alchemy-components';
 import { Form, Input, Radio } from 'antd';
 import React from 'react';
-import { FieldLabel } from '../styledComponents';
+import { FieldLabel, StyledRadioGroup } from '../styledComponents';
 
 interface Props {
     isFormDisabled: boolean;
@@ -27,10 +27,10 @@ const CommonQuestionFields = ({ isFormDisabled }: Props) => {
             </Form.Item>
             <FieldLabel> Mandatory</FieldLabel>
             <Form.Item name="required">
-                <Radio.Group defaultValue={false}>
+                <StyledRadioGroup defaultValue={false}>
                     <Radio value>Yes</Radio>
                     <Radio value={false}>No</Radio>
-                </Radio.Group>
+                </StyledRadioGroup>
             </Form.Item>
         </>
     );

@@ -1,6 +1,7 @@
 import { colors, Icon } from '@src/alchemy-components';
+import theme from '@src/alchemy-components/theme';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { Divider, Modal, Spin, Tag, Typography } from 'antd';
+import { Checkbox, Divider, Modal, Radio, Spin, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 
 export const CreateFormContainer = styled.div`
@@ -67,6 +68,7 @@ export const FieldLabel = styled(Typography.Text)`
     font-weight: 500;
     color: ${colors.gray[600]};
     margin-bottom: 4px;
+    display: block;
 `;
 
 export const BreadcrumbContainer = styled.div`
@@ -117,6 +119,27 @@ export const StyledModal = styled(Modal)`
 
     .ant-modal-body {
         padding: 0 20px;
+    }
+
+    label {
+        font-size: 14px !important;
+    }
+`;
+
+export const StyledRadioGroup = styled(Radio.Group)`
+    span {
+        color: ${colors.gray[1600]};
+    }
+    .ant-radio-checked .ant-radio-inner {
+        border-color: ${theme.semanticTokens.colors.primary} !important;
+    }
+
+    .ant-radio-checked .ant-radio-inner:after {
+        background-color: ${theme.semanticTokens.colors.primary};
+    }
+
+    .ant-radio:hover .ant-radio-inner {
+        border-color: ${theme.semanticTokens.colors.primary};
     }
 `;
 
@@ -231,4 +254,42 @@ export const EmptyContainer = styled.div`
         width: 160px;
         height: 160px;
     }
+`;
+
+export const StyledCheckbox = styled(Checkbox)<{ checked?: boolean; indeterminate?: boolean; disabled?: boolean }>`
+    .ant-checkbox-inner {
+        border: 1px solid ${colors.gray[300]} !important;
+        border-radius: 3px;
+    }
+    margin-left: auto;
+    ${(props) =>
+        props.checked &&
+        !props.indeterminate &&
+        `
+    .ant-checkbox-inner {
+        background-color: ${theme.semanticTokens.colors.primary};
+        border-color: ${theme.semanticTokens.colors.primary} !important;
+    }
+`}
+    ${(props) =>
+        props.indeterminate &&
+        `
+    .ant-checkbox-inner {
+        &:after {
+            background-color: ${theme.semanticTokens.colors.primary};
+        }
+    }
+`}
+${(props) =>
+        props.disabled &&
+        `
+    .ant-checkbox-inner {
+        background-color: ${colors.gray[200]} !important;
+    }
+`}
+`;
+
+export const StyledLabel = styled.label`
+    color: ${colors.gray[1600]};
+    margin-left: 8px;
 `;

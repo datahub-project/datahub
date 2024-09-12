@@ -128,8 +128,6 @@ export const SearchRoutes = (): JSX.Element => {
                 {!me.loaded && (
                     <>
                         <Route path={PageRoutes.GOVERN_DASHBOARD} render={() => <LoadingPermissions />} />
-                        <Route path={PageRoutes.NEW_FORM} render={() => <LoadingPermissions />} />
-                        <Route path={PageRoutes.EDIT_FORM} render={() => <LoadingPermissions />} />
                     </>
                 )}
                 {includeGovernDashboard && (

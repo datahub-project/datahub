@@ -2,11 +2,12 @@ import { Button } from '@components';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import { useCreateFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
-import { CreatePromptInput, FormState, FormType } from '@src/types.generated';
+import { FormState, FormType } from '@src/types.generated';
 import React, { useContext, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import ManageFormContext from './ManageFormContext';
 import { FooterContainer } from './styledComponents';
+import { mapPromptsToCreatePromptInput } from './formUtils';
 
 const FormFooter = () => {
     const { form, formValues, setFormValues, setIsFormLoading } = useContext(ManageFormContext);
@@ -43,6 +44,8 @@ const FormFooter = () => {
         }));
     };
 
+    console.log('formValues', formValues.questions);
+
     const saveForm = (state?: FormState) => {
         if (form) {
             form.validateFields().then(() => {
@@ -52,7 +55,7 @@ const FormFooter = () => {
                         type: formValues.formType,
                         name: formValues.formName,
                         description: formValues.formDescription,
-                        prompts: formValues.questions as CreatePromptInput[],
+                        prompts: mapPromptsToCreatePromptInput(formValues.questions),
                         actors: {
                             owners: formValues.actors?.owners,
                             users: formValues.actors?.users?.map((user) => user.urn),
@@ -88,7 +91,7 @@ const FormFooter = () => {
                         type: formValues.formType || FormType.Completion,
                         name: formValues.formName || '',
                         description: formValues.formDescription,
-                        prompts: formValues.questions as CreatePromptInput[],
+                        prompts: mapPromptsToCreatePromptInput(formValues.questions),
                         actors: {
                             owners: formValues.actors?.owners,
                             users: formValues.actors?.users?.map((user) => user.urn),

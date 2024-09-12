@@ -91,7 +91,7 @@ export interface SelectProps {
     value?: string;
     initialValues?: SelectOption[];
     onCancel?: () => void;
-    onUpdate?: (selectedValues: string[]) => void;
+    onUpdate?: (selectedValues: SelectOption[]) => void;
     size?: SelectSizeOptions;
     showSearch?: boolean;
     isDisabled?: boolean;
@@ -184,7 +184,7 @@ export const NestedSelect = ({
                 setIsOpen(false);
             }
             if (onUpdate) {
-                onUpdate(newSelectedOptions.map((o) => o.value));
+                onUpdate(newSelectedOptions);
             }
         },
         [onUpdate, selectedOptions, isMultiSelect],
@@ -194,7 +194,7 @@ export const NestedSelect = ({
         (optionsToAdd: SelectOption[]) => {
             const newSelectedOptions = Array.from(new Set([...selectedOptions, ...optionsToAdd]));
             setSelectedOptions(newSelectedOptions);
-            onUpdate?.(newSelectedOptions.map((o) => o.value));
+            onUpdate?.(newSelectedOptions);
         },
         [onUpdate, selectedOptions],
     );
@@ -205,7 +205,7 @@ export const NestedSelect = ({
                 (selectedOption) => !optionsToRemove.find((o) => o.value === selectedOption.value),
             );
             setSelectedOptions(newValues);
-            onUpdate?.(newValues.map((o) => o.value));
+            onUpdate?.(newValues);
         },
         [onUpdate, selectedOptions],
     );

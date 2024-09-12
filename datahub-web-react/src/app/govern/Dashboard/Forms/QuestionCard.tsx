@@ -2,16 +2,16 @@ import { Button, Icon, Text } from '@components';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
-import { FormState } from '@src/types.generated';
+import { FormPrompt, FormState } from '@src/types.generated';
 import React, { useContext, useState } from 'react';
-import { FormQuestion, questionTypes } from './formUtils';
+import { questionTypes } from './formUtils';
 import ManageFormContext from './ManageFormContext';
 import { CardContainer, CardData, CardIcons, DragIcon, MandatoryTag } from './styledComponents';
 
 interface Props {
-    question: FormQuestion;
+    question: FormPrompt;
     setShowQuestionModal: React.Dispatch<React.SetStateAction<boolean>>;
-    setCurrentQuestion: React.Dispatch<React.SetStateAction<FormQuestion | undefined>>;
+    setCurrentQuestion: React.Dispatch<React.SetStateAction<FormPrompt | undefined>>;
 }
 
 const QuestionCard = ({ question, setShowQuestionModal, setCurrentQuestion }: Props) => {
