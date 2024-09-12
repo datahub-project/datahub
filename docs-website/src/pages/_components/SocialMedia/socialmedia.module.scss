@@ -191,9 +191,9 @@
 .videoContainer {
     height: 60vh;
     min-height: 400px;
-    padding: 8px;
     margin-bottom: 40px;
     border-radius: 28px;
+    overflow: hidden;
     background: #111;
     display: flex!important;
     flex-direction: column;
@@ -213,15 +213,14 @@
 }
 
 .video {
-    border-radius: 20px;
+    // border-radius: 20px;
     flex-grow: 1;
     overflow: hidden;
     background-color: #000;
 }
 
 .videoItemFooter {
-    padding: 12px 12px;
-    padding-top: 20px;
+    padding: 20px;
     line-height: 1.25rem;
     opacity: .7;
     transition: opacity .3s ease-in-out;
