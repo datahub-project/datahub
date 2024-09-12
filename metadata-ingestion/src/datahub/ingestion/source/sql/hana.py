@@ -470,15 +470,9 @@ class HanaSource(SQLAlchemySource):
                         )
 
             queries = self.get_query_logs()
-            for query in queries:
+                        for query in queries:
                 self.aggregator.add_observed_query(
-                    query=query.get("statement_string"),
-                    query_timestamp=query.get("last_execution_timestamp"),
-                    user=CorpuserUrn(
-                        make_user_urn(
-                            query.get("user_name")
-                        )
-                    ),
+                    observed=query.get("statement_string"),
                 )
 
             for future in as_completed(futures):
