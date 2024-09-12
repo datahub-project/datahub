@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 // import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
@@ -9,9 +9,29 @@ import styles from "./quickstartcontent.module.scss";
 // import CodeBlock from "@theme/CodeBlock";
 // import TownhallButton from "../TownhallButton";
 // import { Section } from "../Section";
+import quickstart from "./quickstartContent";
 
 const QuickstartContent = ({}) => {
   // const { colorMode } = useColorMode();
+  const [barHeight, setBarHeight] = useState(0);
+  const scrollableElement = useRef();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollPosition = scrollableElement.current.scrollTop;
+      const totalHeight =
+        scrollableElement.current.scrollHeight -
+        scrollableElement.current.clientHeight;
+      const progressPercentage = (scrollPosition / totalHeight) * 100;
+      const scaledProgressPercentage = progressPercentage * 0.5;
+      setBarHeight(scaledProgressPercentage);
+    };
+    scrollableElement.current?.addEventListener("scroll", handleScroll);
+    return () => {
+      scrollableElement.current?.removeEventListener("scroll", handleScroll);
+    };
+  }, [scrollableElement]);
+
   return (
     <div className={clsx("quickstart", styles.quickstart)}>
       <div className="quickstart__header">
@@ -20,35 +40,30 @@ const QuickstartContent = ({}) => {
           Unified Discovery, Observability, and Governance for Data and AI.
         </div>
       </div>
-      <div className="quickstart__content">
-      <div id="quickstart_progressbar" />
-        <div className="quickstart__text">
-          <div className="quickstart__text__label">Governance</div>
-          <div className="quickstart__text__head">
-            Minimize compliance risk, effortlessly
+      <div
+        className="quickstart__container"
+        id="quickstart__container"
+        ref={scrollableElement}
+      >
+        <div
+          className="quickstart__bar"
+          style={{ height: `${barHeight}%`, maxHeight: "50vh" }}
+        />
+        {quickstart.map((data, idx) => (
+          <div className="quickstart__content" key={idx}>
+            <div className="quickstart__text">
+              <div className="quickstart__text__label">{data.heading}</div>
+              <div className="quickstart__text__head">{data.title}</div>
+              <div className="quickstart__text__desc">
+                <p dangerouslySetInnerHTML={{ __html: data.description }} />
+                <span className="learn_more">Learn More →</span>
+              </div>
+            </div>
+            <div className="quickstart__img">
+              <img src={useBaseUrl(data.image)} />
+            </div>
           </div>
-          <div className="quickstart__text__desc">
-            <p>
-              Ensure every data asset is accounted for and responsibility
-              governed by defining and enforcing documentation standards.
-            </p>
-
-            <p>
-              Automate your governance program to automatically classify assets
-              as they evolve over time.
-            </p>
-
-            <p>
-              {" "}
-              Minimize redundant, manual work with GenAI documentation,
-              AI-driven classification, smart propagation, and more.
-            </p>
-            <span className="learn_more">Learn More →</span>
-          </div>
-        </div>
-        <div className="quickstart__img">
-          <img src={useBaseUrl("/img/quickstart.png")} />
-        </div>
+        ))}
       </div>
     </div>
   );
