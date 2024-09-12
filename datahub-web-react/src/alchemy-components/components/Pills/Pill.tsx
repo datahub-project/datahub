@@ -17,12 +17,14 @@ export function Pill({
     rightIcon,
     colorScheme,
     variant = pillDefault.variant,
+    onClickRightIcon,
+    onClickLeftIcon,
 }: PillProps) {
     return (
         <PillContainer variant={variant} colorScheme={colorScheme} size={size}>
-            {leftIcon && <Icon icon={leftIcon} size={size} />}
+            {leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />}
             {label}
-            {rightIcon && <Icon icon={rightIcon} size={size} />}
+            {rightIcon && <Icon icon={rightIcon} size={size} onClick={onClickRightIcon} />}
         </PillContainer>
     );
 }

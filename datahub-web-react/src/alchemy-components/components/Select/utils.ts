@@ -11,6 +11,8 @@ export const getOptionLabelStyle = (isSelected: boolean) => ({
     backgroundColor: isSelected ? colors.violet[100] : 'transparent',
     color: isSelected ? colors.violet[700] : colors.gray[400],
     fontWeight: typography.fontWeights.normal,
+    display: 'flex',
+    alignItems: 'center',
 
     '&:hover': {
         backgroundColor: isSelected ? colors.violet[100] : colors.gray[100],

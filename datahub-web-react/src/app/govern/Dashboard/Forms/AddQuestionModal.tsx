@@ -9,6 +9,7 @@ import CommonQuestionFields from './questionTypes/CommonQuestionFields';
 import OwnershipQuestion from './questionTypes/OwnershipQuestion';
 import StructuredPropertyQuestion from './questionTypes/StructuredPropertyQuestion';
 import { FieldLabel, FormFieldsContainer, ModalFooter, SelectOptionContainer, StyledModal } from './styledComponents';
+import GlossaryTermsSelector from './questionTypes/GlossaryTermsSelector';
 
 interface Props {
     showQuestionModal: boolean;
@@ -146,6 +147,8 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                         selectedType === FormPromptType.FieldsStructuredProperty) && <StructuredPropertyQuestion />}
 
                     {selectedType === FormPromptType.Ownership && <OwnershipQuestion />}
+                    {selectedType === FormPromptType.GlossaryTerms && <GlossaryTermsSelector />}
+                    {selectedType === FormPromptType.FieldsGlossaryTerms && <GlossaryTermsSelector />}
 
                     {selectedType && <CommonQuestionFields isFormDisabled={isFormDisabled} />}
                 </FormFieldsContainer>

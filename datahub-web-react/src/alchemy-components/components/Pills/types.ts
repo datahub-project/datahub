@@ -11,4 +11,6 @@ export interface PillProps extends HTMLAttributes<HTMLElement>, PillStyleProps {
     label: string;
     rightIcon?: string;
     leftIcon?: string;
+    onClickRightIcon?: (e: React.MouseEvent<HTMLElement, MouseEvent>) => void;
+    onClickLeftIcon?: (e: React.MouseEvent<HTMLElement, MouseEvent>) => void;
 }
