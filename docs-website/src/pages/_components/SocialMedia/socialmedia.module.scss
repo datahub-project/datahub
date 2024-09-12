@@ -189,10 +189,11 @@
 }
   
 .videoContainer {
+    position: relative;
     height: 60vh;
     min-height: 400px;
     margin-bottom: 40px;
-    border-radius: 28px;
+    border-radius: 24px;
     overflow: hidden;
     background: #111;
     display: flex!important;
@@ -221,9 +222,12 @@
 
 .videoItemFooter {
     padding: 20px;
+    position: absolute;
+    bottom: 0;
     line-height: 1.25rem;
     opacity: .7;
     transition: opacity .3s ease-in-out;
+    background: linear-gradient(#00000000 0%, #000000 100%);
 }
   
 .videoTitle {
