@@ -406,10 +406,11 @@ public abstract class GenericEntitiesController<
   public void deleteEntity(
       HttpServletRequest request,
       @PathVariable("entityName") String entityName,
-      @PathVariable("entityUrn") String entityUrn)
+      @PathVariable("entityUrn") String entityUrn,
+      @RequestParam(value = "aspects", required = false, defaultValue = "") Set<String> aspects,
+      @RequestParam(value = "clear", required = false, defaultValue = "false") boolean clear)
       throws InvalidUrnException {
 
-    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     Urn urn = validatedUrn(entityUrn);
     Authentication authentication = AuthenticationContext.getAuthentication();
     OperationContext opContext =
@@ -427,7 +428,26 @@ public abstract class GenericEntitiesController<
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
 
-    entityService.deleteUrn(opContext, urn);
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(urn.getEntityType());
+
+    if (clear) {
+      // remove all aspects, preserve entity by retaining key aspect
+      aspects =
+          entitySpec.getAspectSpecs().stream()
+              .map(AspectSpec::getName)
+              .filter(name -> !name.equals(entitySpec.getKeyAspectName()))
+              .collect(Collectors.toSet());
+    }
+
+    if (aspects == null || aspects.isEmpty() || aspects.contains(entitySpec.getKeyAspectName())) {
+      entityService.deleteUrn(opContext, urn);
+    } else {
+      aspects.stream()
+          .map(aspectName -> lookupAspectSpec(urn, aspectName).getName())
+          .forEach(
+              aspectName ->
+                  entityService.deleteAspect(opContext, entityUrn, aspectName, Map.of(), true));
+    }
   }
 
   @Tag(name = "Generic Entities")

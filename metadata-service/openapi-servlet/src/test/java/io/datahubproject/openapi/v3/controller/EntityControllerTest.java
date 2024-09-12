@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.v3.controller;
 
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -7,6 +8,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.testng.Assert.assertNotNull;
@@ -26,6 +30,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -68,6 +73,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   @Autowired private MockMvc mockMvc;
   @Autowired private SearchService mockSearchService;
   @Autowired private EntityService<?> mockEntityService;
+  @Autowired private EntityRegistry entityRegistry;
 
   @Test
   public void initTest() {
@@ -169,6 +175,57 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             MockMvcResultMatchers.jsonPath("$.entities[1].urn").value(TEST_URNS.get(1).toString()))
         .andExpect(
             MockMvcResultMatchers.jsonPath("$.entities[2].urn").value(TEST_URNS.get(0).toString()));
+  }
+
+  @Test
+  public void testDeleteEntity() throws Exception {
+    Urn TEST_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,4,PROD)");
+
+    // test delete entity
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(String.format("/v3/entity/dataset/%s", TEST_URN))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    // test delete entity by aspect key
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(String.format("/v3/entity/dataset/%s", TEST_URN))
+                .param("aspects", "datasetKey")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    verify(mockEntityService, times(2)).deleteUrn(any(), eq(TEST_URN));
+
+    // test delete entity by non-key aspect
+    reset(mockEntityService);
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(String.format("/v3/entity/dataset/%s", TEST_URN))
+                .param("aspects", "status")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+    verify(mockEntityService, times(1))
+        .deleteAspect(any(), eq(TEST_URN.toString()), eq("status"), anyMap(), eq(true));
+
+    // test delete entity clear
+    reset(mockEntityService);
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(String.format("/v3/entity/dataset/%s", TEST_URN))
+                .param("clear", "true")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    entityRegistry.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpecs().stream()
+        .map(AspectSpec::getName)
+        .filter(aspectName -> !"datasetKey".equals(aspectName))
+        .forEach(
+            aspectName ->
+                verify(mockEntityService)
+                    .deleteAspect(
+                        any(), eq(TEST_URN.toString()), eq(aspectName), anyMap(), eq(true)));
   }
 
   @TestConfiguration
