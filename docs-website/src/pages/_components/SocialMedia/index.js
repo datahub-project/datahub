@@ -166,7 +166,7 @@ const sliderVideos = [
                     <div className={styles.divider}/> */}
                     <div className={styles.videoDescription}>{video.date}</div>
                     <div className={styles.divider}/>
-                    <div className={styles.videoDescription}>{video.viewerCount}</div>
+                    <div className={styles.videoDescription}>{video.viewerCount} views</div>
                 </div>
               </div>
             </Link>

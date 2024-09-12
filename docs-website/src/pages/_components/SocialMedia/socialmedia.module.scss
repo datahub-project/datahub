@@ -220,13 +220,13 @@
 
 .videoItemFooter {
     padding: 12px 12px;
-    line-height: 1.1rem;
+    line-height: 1.25rem;
     opacity: .7;
     transition: opacity .3s ease-in-out;
 }
   
 .videoTitle {
-    font-size: .9rem;
+    font-size: 1.1rem;
     font-weight: 400;
     display: inline-block;
     color: #EEE;
@@ -249,7 +249,7 @@
 }
   
 .videoDescription {
-    font-size: .75rem;
+    font-size: .8rem;
     font-weight: 400;
     color: #999;
 }
@@ -259,7 +259,7 @@
     justify-content: center;
     align-items: center;
     background-color: #555;
-    height: 3px;
-    width: 3px;
-    border-radius: 3px;
+    height: 2px;
+    width: 2px;
+    border-radius: 2px;
 }

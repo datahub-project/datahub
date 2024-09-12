@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import styles from "./community.module.scss";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import Item1 from "../../../../static/img/slack/slack-community-user-1.png";
@@ -8,8 +8,12 @@ import Item4 from "../../../../static/img/slack/slack-community-user-4.png";
 import Item5 from "../../../../static/img/slack/slack-community-user-5.png";
 import Item6 from "../../../../static/img/slack/slack-community-user-6.png";
 
+const TARGET_COUNT = 10335;
+const INCREMENT = 1;
+
 const Community = () => {
-  const [count, setCount] = useState(10235);
+  const currentCountRef = useRef(TARGET_COUNT - 50);
+  const [count, setCount] = useState(currentCountRef.current);
   const [hasAnimated, setHasAnimated] = useState(false);
   const counterRef = useRef(null);
 
@@ -24,20 +28,20 @@ const Community = () => {
       }
     }
   };
-
   const animateNumber = () => {
-    let currentCount = 10335;
-    const targetCount = 10500;
-    const increment = 1;
-
-    const interval = setInterval(() => {
-      if (currentCount < targetCount) {
-        currentCount += increment;
-        setCount(currentCount);
-      } else {
-        clearInterval(interval);
-      }
-    }, 50);
+    const makeTimeout = () => {
+      const distance = TARGET_COUNT - currentCountRef.current;
+      const isSlowCount = distance < 10;
+      const isMediumCount = distance < 20;
+      setTimeout(() => {
+        if (currentCountRef.current < TARGET_COUNT) {
+          currentCountRef.current += INCREMENT;
+          setCount(currentCountRef.current);
+          makeTimeout();
+        }
+      }, isSlowCount ? Math.random()*6000 : (isMediumCount ? 150 : 50)); 
+    }
+    makeTimeout();
   };
 
   const formattedCount = count.toLocaleString();
@@ -98,9 +102,7 @@ const Community = () => {
                   {[...Array(2)].map((_, i) => (
                     <React.Fragment key={i}>
                       {[Item1, Item2, Item3, Item4, Item5, Item6].map((item, index) => (
-                        <div className={styles.slide} key={index}>
-                          <img src={item} alt={`Item ${index}`} />
-                        </div>
+                        <div className={styles.slide} key={index} style={{ backgroundImage: `url(${item})` }} />
                       ))}
                     </React.Fragment>
                   ))}

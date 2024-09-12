@@ -265,7 +265,7 @@
 
 .slide_track {
   display: flex;
-  width: calc(100px * 6 * 2);
+  width: calc(116px * 6 * 2);
   /* Width of the track */
   animation: scroll 15s linear infinite;
 }
@@ -273,18 +273,15 @@
 .slide {
   width: 100px;
   height: 100px;
-  margin-left: 15px;
+  margin-left: 16px;
   display: flex;
   justify-content: center;
   overflow: hidden;
   flex-direction: column;
   align-items: center;
   position: relative;
-}
-
-.slide img {
-  height: 100%;
-  width: 100%;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
 @keyframes scroll {
@@ -345,4 +342,5 @@
 .numberChange {
   display: inline-block;
   animation: slideIn 0.5s ease-in-out;
+  width: 12rem;
 }
