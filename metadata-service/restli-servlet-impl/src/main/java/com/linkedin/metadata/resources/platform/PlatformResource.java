@@ -10,7 +10,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.event.EventProducer;
-import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -70,7 +70,7 @@ public class PlatformResource extends CollectionResourceTaskTemplate<String, Ent
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to produce platform events.");
     }
     log.info(String.format("Emitting platform event. name: %s, key: %s", eventName, key));
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
           _eventProducer.producePlatformEvent(eventName, key, event);
           return null;
