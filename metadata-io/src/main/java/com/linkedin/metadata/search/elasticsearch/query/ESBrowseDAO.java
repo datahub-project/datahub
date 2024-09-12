@@ -85,7 +85,7 @@ public class ESBrowseDAO {
 
   private static final SearchFlags DEFAULT_BROWSE_SEARCH_FLAGS =
       new SearchFlags()
-          .setFulltext(false)
+          .setFulltext(true)
           .setSkipHighlighting(true)
           .setGetSuggestions(false)
           .setIncludeSoftDeleted(false)
