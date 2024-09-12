@@ -186,7 +186,7 @@ class HanaSource(SQLAlchemySource):
 
     def create_container(self, schema: str) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
 
-        browse_path: BrowsePathsV2Class = self.get_browse_path(
+        browse_path = self.get_browse_path(
             schema=schema,
         )
 
@@ -225,12 +225,6 @@ class HanaSource(SQLAlchemySource):
             container_path.append(
                 BrowsePathEntryClass(
                     id=self.config.database.lower()
-                )
-            )
-        if self.config.platform_instance:
-            container_path.append(
-                BrowsePathEntryClass(
-                    id=self.config.platform_instance.lower()
                 )
             )
 
