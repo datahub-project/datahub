@@ -13,6 +13,7 @@ import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -40,6 +41,8 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiSimpleResource;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Arrays;
@@ -69,6 +72,10 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
   @Inject
   @Named("authorizerChain")
   private Authorizer _authorizer;
+
+  @Inject
+  @Named("systemOperationContext")
+  private OperationContext systemOperationContext;
 
   public Relationships() {
     super();
@@ -116,9 +123,13 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
       @QueryParam("count") @Optional @Nullable Integer count) {
     Urn urn = UrnUtils.getUrn(rawUrn);
 
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "getRelationships", urn.getEntityType()), _authorizer, auth, true);
+
     if (!isAPIAuthorizedUrns(
-            AuthenticationContext.getAuthentication(),
-            _authorizer,
+            opContext,
             LINEAGE, READ,
             List.of(urn))) {
       throw new RestLiServiceException(
@@ -162,9 +173,13 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
   public UpdateResponse delete(@QueryParam("urn") @Nonnull String rawUrn) throws Exception {
     Urn urn = Urn.createFromString(rawUrn);
 
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "deleteRelationships", urn.getEntityType()), _authorizer, auth, true);
+
     if (!isAPIAuthorizedUrns(
-            AuthenticationContext.getAuthentication(),
-            _authorizer,
+            opContext,
             LINEAGE, DELETE,
             List.of(urn))) {
       throw new RestLiServiceException(
@@ -187,9 +202,13 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     log.info("GET LINEAGE {} {} {} {} {}", urnStr, direction, start, count, maxHops);
     final Urn urn = Urn.createFromString(urnStr);
 
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "getLineage", urn.getEntityType()), _authorizer, auth, true);
+
     if (!isAPIAuthorizedUrns(
-            AuthenticationContext.getAuthentication(),
-            _authorizer,
+            opContext,
             LINEAGE, READ,
             List.of(urn))) {
       throw new RestLiServiceException(

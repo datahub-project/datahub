@@ -31,6 +31,7 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
 
     The circuit breaker checks if there are passing assertion on the Dataset.
     """
+
     config: AssertionCircuitBreakerConfig
 
     def __init__(self, config: AssertionCircuitBreakerConfig):

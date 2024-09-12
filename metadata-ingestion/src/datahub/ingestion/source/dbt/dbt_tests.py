@@ -176,20 +176,27 @@ def make_assertion_from_test(
                 dataset=upstream_urn,
                 scope=assertion_params.scope,
                 operator=assertion_params.operator,
-                fields=[mce_builder.make_schema_field_urn(upstream_urn, column_name)]
-                if (
-                    assertion_params.scope == DatasetAssertionScopeClass.DATASET_COLUMN
-                    and column_name
-                )
-                else [],
+                fields=(
+                    [mce_builder.make_schema_field_urn(upstream_urn, column_name)]
+                    if (
+                        assertion_params.scope
+                        == DatasetAssertionScopeClass.DATASET_COLUMN
+                        and column_name
+                    )
+                    else []
+                ),
                 nativeType=node.name,
                 aggregation=assertion_params.aggregation,
-                parameters=assertion_params.parameters(kw_args)
-                if assertion_params.parameters
-                else None,
-                logic=assertion_params.logic_fn(kw_args)
-                if assertion_params.logic_fn
-                else None,
+                parameters=(
+                    assertion_params.parameters(kw_args)
+                    if assertion_params.parameters
+                    else None
+                ),
+                logic=(
+                    assertion_params.logic_fn(kw_args)
+                    if assertion_params.logic_fn
+                    else None
+                ),
                 nativeParameters=_string_map(kw_args),
             ),
         )
@@ -244,10 +251,12 @@ def make_assertion_result_from_test(
         asserteeUrn=upstream_urn,
         runId=test_result.invocation_id,
         result=AssertionResultClass(
-            type=AssertionResultTypeClass.SUCCESS
-            if test_result.status == "pass"
-            or (not test_warnings_are_errors and test_result.status == "warn")
-            else AssertionResultTypeClass.FAILURE,
+            type=(
+                AssertionResultTypeClass.SUCCESS
+                if test_result.status == "pass"
+                or (not test_warnings_are_errors and test_result.status == "warn")
+                else AssertionResultTypeClass.FAILURE
+            ),
             nativeResults=test_result.native_results,
         ),
         status=AssertionRunStatusClass.COMPLETE,
