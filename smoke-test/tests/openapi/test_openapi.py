@@ -98,10 +98,12 @@ def run_tests(fixture_globs, num_workers=3):
 # def test_openapi_all():
 #     run_tests(fixture_globs=["tests/openapi/*/*.json"], num_workers=10)
 
+
 # Acryl Only
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_openapi_acryl():
     run_tests(fixture_globs=["tests/openapi/acryl/*/*.json"], num_workers=10)
+
 
 # @pytest.mark.dependency(depends=["test_healthchecks"])
 # def test_openapi_v1():
