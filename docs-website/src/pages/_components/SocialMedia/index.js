@@ -147,12 +147,13 @@ const sliderVideos = [
       </div>
       <div className={styles.carousalContainer}>
         <div className={styles.carousalWrapper}>
-        <Carousel slidesToShow={3} dots={false} dotPosition="left" infinite autoplay speed={750} autoplaySpeed={4000}>
+        <Carousel slidesToShow={3} dots={false} dotPosition="left" infinite autoplay speed={300} autoplaySpeed={4000}>
           {sliderVideos.map((video, idx) => (
             <Link className={styles.videoContainer} to={video.link} key={idx}>
               <video
                 autoPlay
                 muted
+                infinite
                 src={video.videoUrl}
                 className={styles.video}
                 controls={false}
