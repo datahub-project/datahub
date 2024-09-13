@@ -69,10 +69,10 @@
                     "nullable": false,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.DateType": {}
                         }
                     },
-                    "nativeDataType": "string",
+                    "nativeDataType": "date",
                     "recursive": false,
                     "isPartOfKey": false
                 },
