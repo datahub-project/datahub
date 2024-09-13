@@ -181,7 +181,9 @@ export function HeaderLinks(props: Props) {
                                   />
                                   <NavTitleText>Tests</NavTitleText>
                               </NavTitleContainer>
-                              <NavTitleDescription>Monitor policies & automate actions across data assets</NavTitleDescription>
+                              <NavTitleDescription>
+                                  Monitor policies & automate actions across data assets
+                              </NavTitleDescription>
                           </Link>
                       ),
                   },

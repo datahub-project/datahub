@@ -143,11 +143,15 @@ public class DatasetStatsSummaryResolverTest {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
-    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+
     AuthorizationResult mockAuthorizerResult = Mockito.mock(AuthorizationResult.class);
     Mockito.when(mockAuthorizerResult.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    Mockito.when(mockAuthorizer.authorize(Mockito.any())).thenReturn(mockAuthorizerResult);
-    Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
+
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
+    Mockito.when(mockContext.getOperationContext().authorize(any(), any()))
+        .thenReturn(mockAuthorizerResult);
+
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

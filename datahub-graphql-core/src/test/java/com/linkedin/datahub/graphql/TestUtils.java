@@ -61,9 +61,21 @@ public class TestUtils {
     when(mockContext.getActorUrn()).thenReturn(actorUrn);
 
     Authorizer mockAuthorizer = mock(Authorizer.class);
-    AuthorizationResult result = mock(AuthorizationResult.class);
-    when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(mockAuthorizer.authorize(Mockito.eq(request))).thenReturn(result);
+
+    when(mockAuthorizer.authorize(Mockito.any(AuthorizationRequest.class)))
+        .thenAnswer(
+            args -> {
+              AuthorizationRequest req = args.getArgument(0);
+              AuthorizationResult result = mock(AuthorizationResult.class);
+              when(result.getRequest()).thenReturn(request);
+
+              if (request.equals(req)) {
+                when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
+              } else {
+                when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
+              }
+              return result;
+            });
 
     Authentication authentication =
         new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
