@@ -578,7 +578,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     "See https://github.com/dbt-labs/dbt-core/issues/9119 for details on the bug.",
                 )
         except Exception as e:
-            self.report.report_warning(
+            self.report.report_info(
                 title="Dbt Catalog Version",
                 message="Failed to determine the catalog version",
                 exc=e,
