@@ -35,6 +35,7 @@ dependencies {
     testImplementation externalDependency.testng
     testImplementation externalDependency.mockito
     testImplementation externalDependency.springBootTest
+    testImplementation project(':metadata-service:factories')
 
     swaggerCodegen externalDependency.swaggerCli
 }
