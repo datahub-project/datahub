@@ -29,6 +29,7 @@ import com.linkedin.test.BatchedTestResults;
 import com.linkedin.test.MetadataTestClient;
 import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestInterval;
+import com.linkedin.test.TestSourceType;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.Objects;
 import java.util.Set;
@@ -199,7 +200,8 @@ public class MetadataTestHook implements MetadataChangeLogHook {
         && event.getChangeType() == ChangeType.UPSERT
         && event.getEntityType().equals(TEST_ENTITY_NAME)
         && event.getAspectName().equals(TEST_INFO_ASPECT_NAME)
-        && !isOnDemandTest(event)) { // don't process on demand tests
+        && !isOnDemandTest(event) // don't process on demand tests
+        && !isFormPromptTest(event)) { // don't process form prompt tests on change
       log.info(
           "Upsert event for Metadata Test entity {} received, evaluating test",
           event.getEntityUrn());
@@ -275,6 +277,25 @@ public class MetadataTestHook implements MetadataChangeLogHook {
 
     return testInfo.getSchedule() != null
         && testInfo.getSchedule().getInterval().equals(TestInterval.NONE);
+  }
+
+  /*
+   * If the test source type is FORM_PROMPT we should not be running them on test changes.
+   * It creates unnecessary load, as we should rely on entity changes and nightly runs.
+   * Prompts should not be changing once the form is published anyways.
+   */
+  private boolean isFormPromptTest(@Nonnull MetadataChangeLog event) {
+    if (!event.getEntityType().equals(TEST_ENTITY_NAME)
+        || !event.getAspectName().equals(TEST_INFO_ASPECT_NAME)) {
+      return false;
+    }
+
+    TestInfo testInfo =
+        GenericRecordUtils.deserializeAspect(
+            event.getAspect().getValue(), event.getAspect().getContentType(), TestInfo.class);
+
+    return testInfo.getSource() != null
+        && testInfo.getSource().getType() != TestSourceType.FORM_PROMPT;
   }
 
   @VisibleForTesting

@@ -105,7 +105,8 @@ public class FormTestBuilder {
     testInfo.setDefinition(buildFormPromptCompletionTestDefinition(opContext, formUrn, prompt));
     testInfo.setCreated(createSystemAuditStamp());
     testInfo.setLastUpdated(createSystemAuditStamp());
-    testInfo.setSource(new TestSource().setType(TestSourceType.FORMS).setSourceEntity(formUrn));
+    testInfo.setSource(
+        new TestSource().setType(TestSourceType.FORM_PROMPT).setSourceEntity(formUrn));
     return testInfo;
   }
 

@@ -892,7 +892,8 @@ public class FormServiceTest {
         new ObjectMapper()
             .readTree(new ClassPathResource(TEST_FORM_PROMPT_TEST_DEFINITION_PATH).getFile());
     Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
-    TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
+    TestInfo expectedTestInfo =
+        createExpectedTestInfo(testDefinition, promptId, TestSourceType.FORM_PROMPT);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
@@ -926,7 +927,8 @@ public class FormServiceTest {
             .readTree(
                 new ClassPathResource(TEST_FORM_OWNERSHIP_PROMPT_TEST_DEFINITION_PATH).getFile());
     Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
-    TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
+    TestInfo expectedTestInfo =
+        createExpectedTestInfo(testDefinition, promptId, TestSourceType.FORM_PROMPT);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
@@ -974,7 +976,8 @@ public class FormServiceTest {
                 new ClassPathResource(TEST_FORM_OWNERSHIP_WITH_PARAMS_PROMPT_TEST_DEFINITION_PATH)
                     .getFile());
     Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
-    TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
+    TestInfo expectedTestInfo =
+        createExpectedTestInfo(testDefinition, promptId, TestSourceType.FORM_PROMPT);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
@@ -1010,7 +1013,8 @@ public class FormServiceTest {
             .readTree(
                 new ClassPathResource(TEST_GLOSSARY_TERMS_PROMPT_TEST_DEFINITION_PATH).getFile());
     Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
-    TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
+    TestInfo expectedTestInfo =
+        createExpectedTestInfo(testDefinition, promptId, TestSourceType.FORM_PROMPT);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
@@ -1054,7 +1058,8 @@ public class FormServiceTest {
                 new ClassPathResource(TEST_GLOSSARY_TERMS_ALLOWED_LIST_PROMPT_TEST_DEFINITION_PATH)
                     .getFile());
     Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
-    TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
+    TestInfo expectedTestInfo =
+        createExpectedTestInfo(testDefinition, promptId, TestSourceType.FORM_PROMPT);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
@@ -1088,7 +1093,8 @@ public class FormServiceTest {
             .readTree(
                 new ClassPathResource(TEST_FORM_DOMAIN_PROMPT_TEST_DEFINITION_PATH).getFile());
     Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
-    TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
+    TestInfo expectedTestInfo =
+        createExpectedTestInfo(testDefinition, promptId, TestSourceType.FORM_PROMPT);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
@@ -1130,7 +1136,8 @@ public class FormServiceTest {
                 new ClassPathResource(TEST_FORM_DOMAIN_WITH_PARAMS_PROMPT_TEST_DEFINITION_PATH)
                     .getFile());
     Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
-    TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
+    TestInfo expectedTestInfo =
+        createExpectedTestInfo(testDefinition, promptId, TestSourceType.FORM_PROMPT);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
@@ -1142,7 +1149,8 @@ public class FormServiceTest {
             eq(false));
   }
 
-  private TestInfo createExpectedTestInfo(JsonNode testDefinition, String promptId) {
+  private TestInfo createExpectedTestInfo(
+      JsonNode testDefinition, String promptId, TestSourceType sourceType) {
     return new TestInfo()
         .setName(String.format("Form Prompts Test - %s, Prompt Id - %s", TEST_FORM_URN, promptId))
         .setDescription(
@@ -1150,7 +1158,7 @@ public class FormServiceTest {
                 "This test was auto-generated to implement form assignment for form with urn %s",
                 TEST_FORM_URN))
         .setCategory("Forms")
-        .setSource(new TestSource().setType(TestSourceType.FORMS).setSourceEntity(TEST_FORM_URN))
+        .setSource(new TestSource().setType(sourceType).setSourceEntity(TEST_FORM_URN))
         .setDefinition(
             new TestDefinition()
                 .setType(TestDefinitionType.JSON)
