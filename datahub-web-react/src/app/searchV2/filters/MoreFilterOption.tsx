@@ -15,6 +15,17 @@ const IconNameWrapper = styled.span`
     align-items: center;
 `;
 
+const StyledValueSelector = styled(ValueSelector)<{ width: number; height: number; isElementOutsideWindow: boolean }>`
+    position: absolute;
+    top: -${(props) => props.height}px;
+    ${(props) => (props.isElementOutsideWindow ? 'right' : 'left')}: ${(props) => props.width}px;
+`;
+
+const StyledRightOutlined = styled(RightOutlined)`
+    font-size: 12px;
+    height: 12px;
+`;
+
 interface Props {
     filter: FacetMetadata;
     activeFilters: FacetFilterInput[];
@@ -30,7 +41,7 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
     });
     const filterIcon = getFilterDropdownIcon(filter.field);
     const labelRef = useRef<HTMLDivElement>(null);
-    const { width, height, isElementOutsideWindow } = useElementDimensions(labelRef);
+    const elementDimensions = useElementDimensions(labelRef);
 
     const onChangeFilterValues = (currentFilterPredicate: FilterPredicate, newValues) => {
         if (currentFilterPredicate.values !== newValues) {
@@ -43,16 +54,12 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
     ) as FilterPredicate;
 
     return (
-        <ValueSelector
+        <StyledValueSelector
             field={currentFilterPredicate?.field}
             values={currentFilterPredicate?.values}
             defaultOptions={currentFilterPredicate?.defaultValueOptions}
             onChangeValues={(newValues) => onChangeFilterValues(currentFilterPredicate, newValues)}
-            style={{
-                position: 'absolute',
-                top: -height,
-                [isElementOutsideWindow ? 'right' : 'left']: width,
-            }}
+            {...elementDimensions}
         >
             <MoreFilterOptionLabel
                 $isActive={!!numActiveFilters}
@@ -63,8 +70,8 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
                     {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
                     {capitalizeFirstLetterOnly(filter.displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 </IconNameWrapper>
-                <RightOutlined style={{ fontSize: '12px', height: '12px' }} />
+                <StyledRightOutlined />
             </MoreFilterOptionLabel>
-        </ValueSelector>
+        </StyledValueSelector>
     );
 }

@@ -1,4 +1,4 @@
-import React, { CSSProperties, useState } from 'react';
+import React, { useState } from 'react';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import OptionsDropdownMenu from '../OptionsDropdownMenu';
 import { mapFilterOption } from '../mapFilterOption';
@@ -20,7 +20,7 @@ interface Props {
     onApply: () => void;
     type?: 'card' | 'default';
     includeCount?: boolean;
-    style?: CSSProperties;
+    className?: string;
 }
 
 export default function EntityValueMenu({
@@ -29,9 +29,9 @@ export default function EntityValueMenu({
     defaultOptions,
     type = 'card',
     includeCount = false,
-    style,
     onChangeValues,
     onApply,
+    className,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const isSearchable =
@@ -96,7 +96,7 @@ export default function EntityValueMenu({
             isLoading={searchLoading || aggLoading}
             searchPlaceholder={`Search for ${displayName}`}
             type={type}
-            style={style}
+            className={className}
         />
     );
 }
