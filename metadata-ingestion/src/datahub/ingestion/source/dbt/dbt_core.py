@@ -562,16 +562,26 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         ) = self.loadManifestAndCatalog()
 
         # If catalog_version is between 1.7.0 and 1.7.2, report a warning.
-        if (
-            catalog_version
-            and catalog_version.startswith("1.7.")
-            and version.parse(catalog_version) < version.parse("1.7.3")
-        ):
+        try:
+            if (
+                catalog_version
+                and catalog_version.startswith("1.7.")
+                and version.parse(catalog_version) < version.parse("1.7.3")
+            ):
+                self.report.report_warning(
+                    title="Dbt Catalog Version",
+                    message="Due to a bug in dbt version between 1.7.0 and 1.7.2, you will have incomplete metadata "
+                    "source",
+                    context=f"Due to a bug in dbt, dbt version {catalog_version} will have incomplete metadata on "
+                    f"sources."
+                    "Please upgrade to dbt version 1.7.3 or later. "
+                    "See https://github.com/dbt-labs/dbt-core/issues/9119 for details on the bug.",
+                )
+        except Exception as e:
             self.report.report_warning(
-                "dbt_catalog_version",
-                f"Due to a bug in dbt, dbt version {catalog_version} will have incomplete metadata on sources. "
-                "Please upgrade to dbt version 1.7.3 or later. "
-                "See https://github.com/dbt-labs/dbt-core/issues/9119 for details on the bug.",
+                title="Dbt Catalog Version",
+                message="Failed to determine the catalog version",
+                exc=e,
             )
 
         additional_custom_props = {
