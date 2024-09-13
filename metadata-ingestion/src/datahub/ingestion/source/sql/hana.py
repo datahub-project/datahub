@@ -124,76 +124,79 @@ class SAPCalculationViewParser:
 
     @staticmethod
     def _parseCalc(view: str, xml: ET) -> Dict:
-
         sources = {}
-        for child in xml.iter('DataSource'):
-            source = {'type': child.attrib['type']}
-            for grandchild in child:
-                if grandchild.tag == 'columnObject':
-                    source['name'] = grandchild.attrib['columnObjectName']
-                    source['path'] = grandchild.attrib['schemaName']
-                elif grandchild.tag == 'resourceUri':
-                    source['name'] = grandchild.text.split(sep="/")[-1]
-                    source['path'] = "/".join(grandchild.text.split(sep="/")[:-1])
-            sources[child.attrib['id']] = source
-
         outputs = {}
-        for child in xml.findall(".//logicalModel/attributes/attribute"):
-            output = {
-                'source': child.find('keyMapping').attrib['columnName'],
-                'node': child.find('keyMapping').attrib['columnObjectName'],
-                'type': 'attribute',
-            }
-            outputs[child.attrib['id']] = output
-
-        for child in xml.findall(".//logicalModel/baseMeasures/measure"):
-            output = {
-                'source': child.find('measureMapping').attrib['columnName'],
-                'node': child.find('measureMapping').attrib['columnObjectName'],
-                'type': 'measure',
-            }
-            outputs[child.attrib['id']] = output
-
         nodes = {}
-        for child in xml.iter('calculationView'):
-            node = {
-                'type': child.attrib['{http://www.w3.org/2001/XMLSchema-instance}type'],
-                'sources': {},
-                'id': child.attrib['id'],
-            }
 
-            if node['type'] == 'Calculation:UnionView':
-                node['unions'] = []
-                for grandchild in child.iter('input'):
-                    union_source = grandchild.attrib['node'].split('#')[-1]
-                    node['unions'].append(union_source)
-                    node['sources'][union_source] = {}
-                    for mapping in grandchild.iter('mapping'):
-                        if 'source' in mapping.attrib:
-                            node['sources'][union_source][mapping.attrib['target']] = {
-                                'type': 'column',
-                                'source': mapping.attrib['source']
-                            }
-            else:
-                for grandchild in child.iter('input'):
-                    input_source = grandchild.attrib['node'].split('#')[-1]
-                    node['sources'][input_source] = {}
-                    for mapping in grandchild.iter('mapping'):
-                        if 'source' in mapping.attrib:
-                            node['sources'][input_source][mapping.attrib['target']] = {
-                                'type': 'column',
-                                'source': mapping.attrib['source']
-                            }
+        try:
+            for child in xml.iter('DataSource'):
+                source = {'type': child.attrib['type']}
+                for grandchild in child:
+                    if grandchild.tag == 'columnObject':
+                        source['name'] = grandchild.attrib['columnObjectName']
+                        source['path'] = grandchild.attrib['schemaName']
+                    elif grandchild.tag == 'resourceUri':
+                        source['name'] = grandchild.text.split(sep="/")[-1]
+                        source['path'] = "/".join(grandchild.text.split(sep="/")[:-1])
+                sources[child.attrib['id']] = source
 
-            for grandchild in child.iter('calculatedViewAttribute'):
-                formula = grandchild.find('formula')
-                if formula is not None:
-                    node['sources'][grandchild.attrib['id']] = {
-                        'type': 'formula',
-                        'source': formula.text
-                    }
+            for child in xml.findall(".//logicalModel/attributes/attribute"):
+                output = {
+                    'source': child.find('keyMapping').attrib['columnName'],
+                    'node': child.find('keyMapping').attrib['columnObjectName'],
+                    'type': 'attribute',
+                }
+                outputs[child.attrib['id']] = output
 
-            nodes[node['id']] = node
+            for child in xml.findall(".//logicalModel/baseMeasures/measure"):
+                output = {
+                    'source': child.find('measureMapping').attrib['columnName'],
+                    'node': child.find('measureMapping').attrib['columnObjectName'],
+                    'type': 'measure',
+                }
+                outputs[child.attrib['id']] = output
+
+            for child in xml.iter('calculationView'):
+                node = {
+                    'type': child.attrib['{http://www.w3.org/2001/XMLSchema-instance}type'],
+                    'sources': {},
+                    'id': child.attrib['id'],
+                }
+
+                if node['type'] == 'Calculation:UnionView':
+                    node['unions'] = []
+                    for grandchild in child.iter('input'):
+                        union_source = grandchild.attrib['node'].split('#')[-1]
+                        node['unions'].append(union_source)
+                        node['sources'][union_source] = {}
+                        for mapping in grandchild.iter('mapping'):
+                            if 'source' in mapping.attrib:
+                                node['sources'][union_source][mapping.attrib['target']] = {
+                                    'type': 'column',
+                                    'source': mapping.attrib['source']
+                                }
+                else:
+                    for grandchild in child.iter('input'):
+                        input_source = grandchild.attrib['node'].split('#')[-1]
+                        node['sources'][input_source] = {}
+                        for mapping in grandchild.iter('mapping'):
+                            if 'source' in mapping.attrib:
+                                node['sources'][input_source][mapping.attrib['target']] = {
+                                    'type': 'column',
+                                    'source': mapping.attrib['source']
+                                }
+
+                for grandchild in child.iter('calculatedViewAttribute'):
+                    formula = grandchild.find('formula')
+                    if formula is not None:
+                        node['sources'][grandchild.attrib['id']] = {
+                            'type': 'formula',
+                            'source': formula.text
+                        }
+
+                nodes[node['id']] = node
+        except Exception as e:
+            logger.error(e)
 
         return {
             'viewName': view,
@@ -213,66 +216,70 @@ class SAPCalculationViewParser:
             node: str,
             visited: Set[str]
     ) -> List[Dict]:
-        if node in visited:
-            return []
-        visited.add(node)
-
         sources = []
-        node_info = calc_view['nodes'].get(node)
 
-        if not node_info:
-            source = calc_view['sources'].get(node)
-            if source:
-                return [{
-                    'column': column,
-                    'source': source['name'],
-                    'sourceType': source['type'],
-                    'sourcePath': source.get('path', '')
-                }]
-            return []
+        try:
+            if node in visited:
+                return []
+            visited.add(node)
 
-        if node_info['type'] == 'Calculation:UnionView':
-            for union_source in node_info['unions']:
-                for col, col_info in node_info['sources'][union_source].items():
-                    if col == column:
-                        new_sources = self._find_all_sources(
-                            calc_view,
-                            col_info['source'],
-                            union_source,
-                            visited.copy()
-                        )
-                        if not new_sources and union_source in calc_view['sources']:
-                            new_sources = [{
+            node_info = calc_view['nodes'].get(node)
+
+            if not node_info:
+                source = calc_view['sources'].get(node)
+                if source:
+                    return [{
+                        'column': column,
+                        'source': source['name'],
+                        'sourceType': source['type'],
+                        'sourcePath': source.get('path', '')
+                    }]
+                return []
+
+            if node_info['type'] == 'Calculation:UnionView':
+                for union_source in node_info['unions']:
+                    for col, col_info in node_info['sources'][union_source].items():
+                        if col == column:
+                            new_sources = self._find_all_sources(
+                                calc_view,
+                                col_info['source'],
+                                union_source,
+                                visited.copy()
+                            )
+                            if not new_sources and union_source in calc_view['sources']:
+                                new_sources = [{
+                                    'column': col_info['source'],
+                                    'source': f"{calc_view['sources'][union_source]['path']}/{calc_view['sources'][union_source]['name']}" if
+                                    calc_view['sources'][union_source]['type'] == 'CALCULATION_VIEW' else
+                                    calc_view['sources'][union_source]['name'],
+                                    'sourceType': calc_view['sources'][union_source]['type'],
+                                    'sourcePath': calc_view['sources'][union_source]['path'],
+                                }]
+                            sources.extend(new_sources)
+            else:
+                for source, columns in node_info['sources'].items():
+                    if column in columns:
+                        col_info = columns[column]
+                        if col_info['type'] == 'formula':
+                            formula_columns = self._extract_columns_from_formula(col_info['source'])
+                            for formula_column in formula_columns:
+                                sources.extend(self._find_all_sources(calc_view, formula_column, node, visited.copy()))
+                        elif source in calc_view['sources']:
+                            sources.append({
                                 'column': col_info['source'],
-                                'source': f"{calc_view['sources'][union_source]['path']}/{calc_view['sources'][union_source]['name']}" if
-                                calc_view['sources'][union_source]['type'] == 'CALCULATION_VIEW' else
-                                calc_view['sources'][union_source]['name'],
-                                'sourceType': calc_view['sources'][union_source]['type'],
-                                'sourcePath': calc_view['sources'][union_source]['path'],
-                            }]
-                        sources.extend(new_sources)
-        else:
-            for source, columns in node_info['sources'].items():
-                if column in columns:
-                    col_info = columns[column]
-                    if col_info['type'] == 'formula':
-                        formula_columns = self._extract_columns_from_formula(col_info['source'])
-                        for formula_column in formula_columns:
-                            sources.extend(self._find_all_sources(calc_view, formula_column, node, visited.copy()))
-                    elif source in calc_view['sources']:
-                        sources.append({
-                            'column': col_info['source'],
-                            'source': f"{calc_view['sources'][source]['path']}/{calc_view['sources'][source]['name']}" if
-                            calc_view['sources'][source]['type'] == 'CALCULATION_VIEW' else
-                            calc_view['sources'][source][
-                                'name'],
-                            'sourceType': calc_view['sources'][source]['type'],
-                            'sourcePath': calc_view['sources'][source]['path'],
-                        })
-                    else:
-                        sources.extend(
-                            self._find_all_sources(calc_view, col_info['source'], source, visited.copy())
-                        )
+                                'source': f"{calc_view['sources'][source]['path']}/{calc_view['sources'][source]['name']}" if
+                                calc_view['sources'][source]['type'] == 'CALCULATION_VIEW' else
+                                calc_view['sources'][source][
+                                    'name'],
+                                'sourceType': calc_view['sources'][source]['type'],
+                                'sourcePath': calc_view['sources'][source]['path'],
+                            })
+                        else:
+                            sources.extend(
+                                self._find_all_sources(calc_view, col_info['source'], source, visited.copy())
+                            )
+        except Exception as e:
+            logger.error(e)
 
         return sources
 
@@ -280,19 +287,22 @@ class SAPCalculationViewParser:
         calc_view = self._parseCalc(view, definition)
         columns_lineage = {}
 
-        for output, output_info in calc_view['outputs'].items():
-            sources = self._find_all_sources(calc_view, output_info['source'], output_info['node'], set())
-            columns_lineage[output] = sources
+        try:
+            for output, output_info in calc_view['outputs'].items():
+                sources = self._find_all_sources(calc_view, output_info['source'], output_info['node'], set())
+                columns_lineage[output] = sources
 
-        # Handle calculated attributes
-        for node in calc_view['nodes'].values():
-            for column, col_info in node['sources'].items():
-                if isinstance(col_info, dict) and col_info.get('type') == 'formula':
-                    formula_columns = self._extract_columns_from_formula(col_info['source'])
-                    sources = []
-                    for formula_column in formula_columns:
-                        sources.extend(self._find_all_sources(calc_view, formula_column, node['id'], set()))
-                    columns_lineage[column] = sources
+            # Handle calculated attributes
+            for node in calc_view['nodes'].values():
+                for column, col_info in node['sources'].items():
+                    if isinstance(col_info, dict) and col_info.get('type') == 'formula':
+                        formula_columns = self._extract_columns_from_formula(col_info['source'])
+                        sources = []
+                        for formula_column in formula_columns:
+                            sources.extend(self._find_all_sources(calc_view, formula_column, node['id'], set()))
+                        columns_lineage[column] = sources
+        except Exception as e:
+            logger.error(e)
 
         return columns_lineage
 
@@ -301,29 +311,36 @@ class SAPCalculationViewParser:
             view_name: str,
             view_definition: str,
     ) -> List[Dict[str, Union[str, List[Dict[str, str]]]]]:
-        output_columns = self._allColumnsOrigin(
-            view_name,
-            view_definition,
-        )
         column_dicts: List[Dict[str, List[Dict[str, str]]]] = []
-        for cols, src in output_columns.items():
-            column_dicts.append(
-                {
-                    "downstream_column": cols,
-                    "upstream": [
-                        {
-                            "upstream_table":
-                                f"{src_col.get('sourcePath')}.{src_col.get('source')}".lower()
-                                if src_col.get('sourceType') == "DATA_BASE_TABLE" else
-                                f"_sys_bic.{src_col.get('source').replace('::', '/').lower()}"
-                                if src_col.get('sourceType') == "TABLE_FUNCTION" else
-                                f"_sys_bic.{src_col.get('source')[1:].replace('/calculationviews/', '/')}".lower(),
-                            "upstream_column": src_col.get('column')
-                        }
-                        for src_col in src
-                    ]
-                }
+
+        try:
+            output_columns = self._allColumnsOrigin(
+                view_name,
+                view_definition,
             )
+
+            for cols, src in output_columns.items():
+                column_dicts.append(
+                    {
+                        "downstream_column": cols,
+                        "upstream": [
+                            {
+                                "upstream_table":
+                                    f"{src_col.get('sourcePath')}.{src_col.get('source')}".lower()
+                                    if src_col.get('sourceType') == "DATA_BASE_TABLE" else
+                                    f"_sys_bic.{src_col.get('source').replace('::', '/').lower()}"
+                                    if src_col.get('sourceType') == "TABLE_FUNCTION" else
+                                    f"_sys_bic.{src_col.get('source')[1:].replace('/calculationviews/', '/')}".lower(),
+                                "upstream_column": src_col.get('column')
+                            }
+                            for src_col in src
+                        ]
+                    }
+                )
+
+        except Exception as e:
+            logger.error(e)
+
         return column_dicts
 
 
@@ -928,45 +945,49 @@ class HanaSource(SQLAlchemySource):
 
         fine_grained_lineage: List[FineGrainedLineageClass] = []
 
-        for column_lineage in SAPCalculationViewParser().format_column_dictionary(
-                view_name=f"{dataset_path}/{dataset_name}",
-                view_definition=root,
-        ):
-            if column_lineage.get("upstream"):
-                downstream_column = column_lineage.get("downstream_column")
-                upstream_columns: List[str] = []
-                for column in column_lineage.get("upstream"):
-                    upstream_columns.append(
-                        make_schema_field_urn(
-                            parent_urn=make_dataset_urn_with_platform_instance(
-                                platform=self.get_platform(),
-                                name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{column.get('upstream_table')}",
-                                platform_instance=self.config.platform_instance,
-                                env=self.config.env
-                            ),
-                            field_path=column.get("upstream_column"),
-                        )
-                    )
-
-                fine_grained_lineage.append(
-                    FineGrainedLineageClass(
-                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                        upstreams=upstream_columns,
-                        downstreams=[
+        try:
+            for column_lineage in SAPCalculationViewParser().format_column_dictionary(
+                    view_name=f"{dataset_path}/{dataset_name}",
+                    view_definition=root,
+            ):
+                if column_lineage.get("upstream"):
+                    downstream_column = column_lineage.get("downstream_column")
+                    upstream_columns: List[str] = []
+                    for column in column_lineage.get("upstream"):
+                        upstream_columns.append(
                             make_schema_field_urn(
                                 parent_urn=make_dataset_urn_with_platform_instance(
                                     platform=self.get_platform(),
-                                    name=f"{(self.config.database.lower() + '.') if self.config.database else ''}_sys_bic.{dataset_path.lower()}/{dataset_name.lower()}",
+                                    name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{column.get('upstream_table')}",
                                     platform_instance=self.config.platform_instance,
                                     env=self.config.env
                                 ),
-                                field_path=downstream_column,
+                                field_path=column.get("upstream_column"),
                             )
-                        ],
-                        confidenceScore=1.0,
+                        )
+
+                    fine_grained_lineage.append(
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            upstreams=upstream_columns,
+                            downstreams=[
+                                make_schema_field_urn(
+                                    parent_urn=make_dataset_urn_with_platform_instance(
+                                        platform=self.get_platform(),
+                                        name=f"{(self.config.database.lower() + '.') if self.config.database else ''}_sys_bic.{dataset_path.lower()}/{dataset_name.lower()}",
+                                        platform_instance=self.config.platform_instance,
+                                        env=self.config.env
+                                    ),
+                                    field_path=downstream_column,
+                                )
+                            ],
+                            confidenceScore=1.0,
+                        )
                     )
-                )
+
+        except Exception as e:
+            logging.error(e)
 
         return UpstreamLineageClass(
             upstreams=upstream,
