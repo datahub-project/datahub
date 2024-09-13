@@ -516,21 +516,25 @@ class HanaSource(SQLAlchemySource):
         return self.engine.execute(query).fetchall()
 
     def construct_lineage(self, upstreams: List[Tuple[str, str]]) -> Optional[UpstreamLineageClass]:
+        upstream_tables: List[str] = []
+        for row_item in upstreams:
+            if isinstance(row_item[0], str) and isinstance(row_item[1], str):
+                upstream_tables.append(f"{row_item[0].lower()}.{row_item[1].lower()}")
 
-        if not upstreams:
+        if not upstream_tables:
             return None
 
         upstream = [
             UpstreamClass(
                 dataset=make_dataset_urn_with_platform_instance(
                     platform=self.get_platform(),
-                    name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{row[0].lower()}.{row[1].lower()}",
+                    name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{row}",
                     platform_instance=self.config.platform_instance,
                     env=self.config.env
                 ),
                 type=DatasetLineageTypeClass.VIEW,
             )
-            for row in upstreams
+            for row in upstream_tables
         ]
         return UpstreamLineageClass(upstreams=upstream)
 
@@ -849,16 +853,21 @@ class HanaSource(SQLAlchemySource):
         )
 
         if constructed_lineage:
+            upstream_tables: List[str] = []
+            for row_item in constructed_lineage:
+                if isinstance(row_item[0], str) and isinstance(row_item[1], str):
+                    upstream_tables.append(f"{row_item[0].lower()}.{row_item[1].lower()}")
+
             self.aggregator.add_known_query_lineage(
                 KnownQueryLineageInfo(
                     query_text=view_definition,
                     upstreams=[
                         make_dataset_urn_with_platform_instance(
                             platform=self.get_platform(),
-                            name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{row[0].lower()}.{row[1].lower()}",
+                            name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{row}",
                             platform_instance=self.config.platform_instance,
                             env=self.config.env
-                        ) for row in constructed_lineage
+                        ) for row in upstream_tables
                     ],
                     downstream=entity,
                     query_type=QueryType.SELECT
