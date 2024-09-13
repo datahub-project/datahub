@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.proposal;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.datahub.authentication.proposal.ProposalService;
 import com.linkedin.actionrequest.DataContractProposalOperationType;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
@@ -15,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.DataQualityContractInput;
 import com.linkedin.datahub.graphql.generated.FreshnessContractInput;
 import com.linkedin.datahub.graphql.generated.ProposeDataContractInput;
 import com.linkedin.datahub.graphql.generated.SchemaContractInput;
+import com.linkedin.metadata.service.ProposalService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;

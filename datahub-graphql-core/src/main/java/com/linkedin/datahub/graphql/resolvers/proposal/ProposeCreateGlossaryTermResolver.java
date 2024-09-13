@@ -2,12 +2,12 @@ package com.linkedin.datahub.graphql.resolvers.proposal;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.datahub.authentication.proposal.ProposalService;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
+import com.linkedin.metadata.service.ProposalService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Optional;

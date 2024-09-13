@@ -5,11 +5,11 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.authentication.proposal.ProposalService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DescriptionUpdateInput;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
+import com.linkedin.metadata.service.ProposalService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import org.testng.annotations.BeforeMethod;

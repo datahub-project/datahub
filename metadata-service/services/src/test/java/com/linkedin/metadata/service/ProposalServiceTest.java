@@ -1,6 +1,5 @@
-package com.datahub.authentication.proposal;
+package com.linkedin.metadata.service;
 
-import static com.datahub.authentication.proposal.ProposalService.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
