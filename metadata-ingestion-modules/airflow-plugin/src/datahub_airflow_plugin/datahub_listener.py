@@ -73,7 +73,9 @@ _RUN_IN_THREAD = os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD", "true").lower
     "true",
     "1",
 )
-_RUN_IN_THREAD_TIMEOUT = 30
+_RUN_IN_THREAD_TIMEOUT = float(
+    os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT", 30)
+)
 _DATAHUB_CLEANUP_DAG = "Datahub_Cleanup"
 
 
@@ -129,12 +131,17 @@ def run_in_thread(f: _F) -> _F:
                 )
                 thread.start()
 
-                thread.join(timeout=_RUN_IN_THREAD_TIMEOUT)
-                if thread.is_alive():
-                    logger.warning(
-                        f"Thread for {f.__name__} is still running after {_RUN_IN_THREAD_TIMEOUT} seconds. "
-                        "Continuing without waiting for it to finish."
-                    )
+                if _RUN_IN_THREAD_TIMEOUT > 0:
+                    # If _RUN_IN_THREAD_TIMEOUT is 0, we just kick off the thread and move on.
+                    # Because it's a daemon thread, it'll be automatically killed when the main
+                    # thread exists.
+
+                    thread.join(timeout=_RUN_IN_THREAD_TIMEOUT)
+                    if thread.is_alive():
+                        logger.warning(
+                            f"Thread for {f.__name__} is still running after {_RUN_IN_THREAD_TIMEOUT} seconds. "
+                            "Continuing without waiting for it to finish."
+                        )
             else:
                 f(*args, **kwargs)
         except Exception as e:
