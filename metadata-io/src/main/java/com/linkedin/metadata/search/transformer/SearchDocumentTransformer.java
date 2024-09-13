@@ -282,11 +282,11 @@ public class SearchDocumentTransformer {
               });
       searchDocument.set(fieldName, dictDoc);
     } else if (valueType == DataSchema.Type.MAP) {
-      ObjectNode dictDoc = JsonNodeFactory.instance.objectNode();
-      fieldValues
-          .subList(0, Math.min(fieldValues.size(), maxObjectKeys))
-          .forEach(
-              fieldValue -> {
+        ObjectNode dictDoc = JsonNodeFactory.instance.objectNode();
+        fieldValues
+        .subList(0, Math.min(fieldValues.size(), maxObjectKeys))
+        .forEach(
+            fieldValue -> {
                 String[] keyValues = fieldValue.toString().split("=");
                 String key = keyValues[0], value = "";
                 if (keyValues.length > 1) {
