@@ -5,6 +5,7 @@ export interface PillStyleProps {
     colorScheme?: ColorOptions; // need to keep colorScheme because HTMLAttributes also have color property
     variant?: VariantOptions;
     size?: SizeOptions;
+    clickable?: boolean;
 }
 
 export interface PillProps extends HTMLAttributes<HTMLElement>, PillStyleProps {

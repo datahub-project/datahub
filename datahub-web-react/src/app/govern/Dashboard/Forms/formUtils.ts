@@ -60,7 +60,7 @@ export const questionTypes = [
         description: 'This question applies documentation to assets',
     },
     {
-        label: 'Documentation - Column',
+        label: 'Column Documentation',
         value: 'FIELDS_DOCUMENTATION',
         description: 'This question applies documentation to columns of assets',
     },
@@ -70,7 +70,7 @@ export const questionTypes = [
         description: 'This question applies glossary terms to assets',
     },
     {
-        label: 'Glossary Terms - Column',
+        label: 'Column Glossary Terms',
         value: 'FIELDS_GLOSSARY_TERMS',
         description: 'This question applies glossary terms to columns of assets',
     },
@@ -81,7 +81,7 @@ export const questionTypes = [
     },
 
     {
-        label: 'Structured Property - Column',
+        label: 'Column Structured Property',
         value: 'FIELDS_STRUCTURED_PROPERTY',
         description: 'This question applies structured property to columns of assets',
     },

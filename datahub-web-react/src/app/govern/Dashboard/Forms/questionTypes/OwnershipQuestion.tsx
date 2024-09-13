@@ -57,7 +57,7 @@ const OwnershipQuestion = () => {
                 </StyledRadioGroup>
                 {!anyOwnershipTypeSelected && <OwnershipTypeSelector />}
             </AllowedTermsWrapper>
-            <CardinalityField paramsField="ownershipParams" />
+            <CardinalityField paramsField="ownershipParams" inputType="owners" />
         </>
     );
 };

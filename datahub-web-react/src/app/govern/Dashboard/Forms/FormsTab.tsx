@@ -44,7 +44,7 @@ const FormsTab = () => {
         <Container>
             <FormsSection>
                 <SectionHeader>
-                    <HeaderText>All Forms</HeaderText>
+                    <HeaderText>Your Forms</HeaderText>
                     <StyledButton
                         $color={REDESIGN_COLORS.TITLE_PURPLE}
                         $type="filled"

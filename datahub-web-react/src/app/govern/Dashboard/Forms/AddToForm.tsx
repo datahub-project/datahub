@@ -40,21 +40,28 @@ const AddToForm = () => {
         });
     };
 
+    const isAddQuestionDisabled = formValues.state !== FormState.Draft;
+
     return (
         <>
             <AddElement
-                heading="Add Question"
-                description="Add some questions"
+                heading="Add Questions"
+                description="Create the requirements, or questions, that must be provided for each assigned asset."
                 buttonLabel="Add Question"
                 buttonOnClick={() => setShowQuestionModal(true)}
-                isButtonDisabled={formValues.state !== FormState.Draft}
+                isButtonDisabled={isAddQuestionDisabled}
+                buttonTooltip={
+                    isAddQuestionDisabled
+                        ? 'New questions cannot be added once a form has been published. To add new questions create a new compliance form.'
+                        : undefined
+                }
             />
             <QuestionsList setShowQuestionModal={setShowQuestionModal} setCurrentQuestion={setCurrentQuestion} />
 
             <Divider />
             <AddElement
                 heading="Assign Assets"
-                description="Assign the Assets for which you want to collect the data"
+                description="Select the assets to assign this form to"
                 buttonLabel="Add Assets"
                 buttonOnClick={addFilters}
                 isButtonHidden={!!formValues.assets?.logicalPredicate}

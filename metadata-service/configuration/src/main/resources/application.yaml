@@ -523,7 +523,7 @@ featureFlags:
   slackBotTokensConfigEnabled: ${SLACK_BOT_TOKENS_CONFIG_ENABLED:false} # Enables the ability to configure slack bot tokens via the integrations settings UI
   broadcastNewIncidentUpdatesEnabled: ${BROADCAST_NEW_INCIDENT_UPDATES_ENABLED:true} # Enables stateful updating of active incidents in 3rd party destinations.
   separateSiblingsLineageByDefault: ${SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT:false} # Whether siblings lineage should be separate from each other or not
-  formCreationEnabled: ${FORM_CREATION_ENABLED:false} # Enables the form creation workflow feature on the documentation page
+  formCreationEnabled: ${FORM_CREATION_ENABLED:true} # Enables the form creation workflow feature on the documentation page
   alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false} # Enables alternate MCP validation flow
   schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
   schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:false} # If turned on, schema field lineage will always fetch ghost entities and present them as real

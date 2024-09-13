@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { SchemaField } from '@src/types.generated';
 import { ColumnSelectorProps } from './types';
 
-export default function useColumnSelector(): ColumnSelectorProps {
+export default function useColumnSelector(schemaFields?: SchemaField[]): ColumnSelectorProps {
     const [isBulkApplyingFieldPath, setIsBulkApplyingFieldPath] = useState(false);
     const [selectedFieldPaths, setSelectedFieldPaths] = useState<string[]>([]);
 
@@ -10,5 +11,6 @@ export default function useColumnSelector(): ColumnSelectorProps {
         setIsBulkApplyingFieldPath,
         selectedFieldPaths,
         setSelectedFieldPaths,
+        schemaFields,
     };
 }

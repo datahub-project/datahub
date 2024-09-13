@@ -8,6 +8,7 @@ export const pillDefault: PillProps = {
     label: 'Label',
     size: 'md',
     variant: 'filled',
+    clickable: true,
 };
 
 export function Pill({
@@ -17,11 +18,12 @@ export function Pill({
     rightIcon,
     colorScheme,
     variant = pillDefault.variant,
+    clickable = pillDefault.clickable,
     onClickRightIcon,
     onClickLeftIcon,
 }: PillProps) {
     return (
-        <PillContainer variant={variant} colorScheme={colorScheme} size={size}>
+        <PillContainer variant={variant} colorScheme={colorScheme} size={size} clickable={clickable}>
             {leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />}
             {label}
             {rightIcon && <Icon icon={rightIcon} size={size} onClick={onClickRightIcon} />}

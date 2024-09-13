@@ -1,5 +1,6 @@
 import { Button, Text } from '@src/alchemy-components';
 import React from 'react';
+import { Tooltip } from 'antd';
 import { AddElementContainer, LeftSection } from './styledComponents';
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
     buttonOnClick?: () => void;
     isButtonDisabled?: boolean;
     isButtonHidden?: boolean;
+    buttonTooltip?: string;
 }
 
 const AddElement = ({
@@ -18,6 +20,7 @@ const AddElement = ({
     buttonOnClick,
     isButtonDisabled = false,
     isButtonHidden = false,
+    buttonTooltip,
 }: Props) => {
     return (
         <AddElementContainer>
@@ -30,11 +33,13 @@ const AddElement = ({
                 </Text>
             </LeftSection>
             {!isButtonHidden && (
-                <div>
-                    <Button onClick={buttonOnClick} isDisabled={isButtonDisabled}>
-                        {buttonLabel}
-                    </Button>
-                </div>
+                <Tooltip title={buttonTooltip}>
+                    <div>
+                        <Button onClick={buttonOnClick} isDisabled={isButtonDisabled}>
+                            {buttonLabel}
+                        </Button>
+                    </div>
+                </Tooltip>
             )}
         </AddElementContainer>
     );

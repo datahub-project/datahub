@@ -203,9 +203,11 @@ export function HeaderLinks(props: Props) {
                                 <Link to="/govern/dashboard">
                                     <NavTitleContainer>
                                         <FormOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
-                                        <NavTitleText>Documentation</NavTitleText>
+                                        <NavTitleText>Compliance Forms</NavTitleText>
                                     </NavTitleContainer>
-                                    <NavTitleDescription>Manage your documentation standards</NavTitleDescription>
+                                    <NavTitleDescription>
+                                        Manage compliance initiatives for your data assets
+                                    </NavTitleDescription>
                                 </Link>
                             </MenuItem>
                         )}

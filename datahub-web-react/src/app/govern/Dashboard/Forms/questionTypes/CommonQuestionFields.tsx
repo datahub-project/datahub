@@ -1,6 +1,6 @@
-import { TextArea } from '@src/alchemy-components';
+import { TextArea, Input } from '@src/alchemy-components';
 import { WARNING_COLOR_HEX } from '@src/app/entityV2/shared/tabs/Incident/incidentUtils';
-import { Form, Input, Radio } from 'antd';
+import { Form, Radio } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { FieldLabel, StyledRadioGroup, WarningWarpper, StyledExclamationOutlined } from '../styledComponents';
 
@@ -20,7 +20,6 @@ const CommonQuestionFields = ({ isFormDisabled }: Props) => {
 
     return (
         <>
-            <FieldLabel> Question</FieldLabel>
             <Form.Item
                 name="title"
                 rules={[
@@ -30,7 +29,7 @@ const CommonQuestionFields = ({ isFormDisabled }: Props) => {
                     },
                 ]}
             >
-                <Input placeholder="Add Question here" />
+                <Input placeholder="Add Question here" label="Question" />
             </Form.Item>
             <Form.Item name="description">
                 <TextArea label="Description" placeholder="Add description here" isDisabled={isFormDisabled} />
