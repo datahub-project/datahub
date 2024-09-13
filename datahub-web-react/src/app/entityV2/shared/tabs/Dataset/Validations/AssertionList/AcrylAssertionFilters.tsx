@@ -54,7 +54,7 @@ export const AcrylAssertionFilters: React.FC<AcrylAssertionFiltersProps> = ({
                             checked={checkIsSelected(filter)}
                             onChange={(e) => handleFilterChange(filter, e.target.checked)}
                         >
-                            {filter.displayName} ({filter.count})
+                            {filter.displayName}
                         </Checkbox>
                     </Menu.Item>
                 ))}
