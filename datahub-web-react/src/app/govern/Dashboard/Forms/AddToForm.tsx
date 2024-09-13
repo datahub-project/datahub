@@ -20,7 +20,7 @@ const AddToForm = () => {
 
     const handleFiltersChange = (updatedPredicate?: LogicalPredicate) => {
         // create null filter so no entities match this by default
-        let orFilters: AndFilterInput[] = [{ and: [{ field: 'NULL', values: ['NULL'] }] }];
+        let orFilters: AndFilterInput[] = [{ and: [{ field: 'urn', values: ['urn:li:fakeUrnWithNoMatches'] }] }];
         if (updatedPredicate && updatedPredicate.operands.length > 0) {
             // if there are filters, convert them to orFilters format
             orFilters = convertLogicalPredicateToOrFilters(updatedPredicate);
@@ -43,9 +43,9 @@ const AddToForm = () => {
     return (
         <>
             <AddElement
-                heading="Add Questions"
+                heading="Add Question"
                 description="Add some questions"
-                buttonLabel="Add Questions"
+                buttonLabel="Add Question"
                 buttonOnClick={() => setShowQuestionModal(true)}
                 isButtonDisabled={formValues.state !== FormState.Draft}
             />

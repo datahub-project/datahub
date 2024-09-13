@@ -68,6 +68,9 @@ query getFormsForActor($input: GetFormsForActorInput) {
                     name
                     description
                     type
+                    status {
+                        state
+                    }
                 }
                 ownership {
                     ...ownershipFields

@@ -3,7 +3,7 @@ import { Input, AutoComplete, Button, Skeleton } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import { AutoCompleteResultForEntity, EntityType, FacetFilterInput, ScenarioType } from '../../types.generated';
+import { AutoCompleteResultForEntity, FacetFilterInput, ScenarioType } from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
 import filterSearchQuery from './utils/filterSearchQuery';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
@@ -130,7 +130,7 @@ interface Props {
     initialQuery?: string;
     placeholderText: string;
     suggestions: Array<AutoCompleteResultForEntity>;
-    onSearch: (query: string, type?: EntityType, filters?: FacetFilterInput[]) => void;
+    onSearch: (query: string, filters?: FacetFilterInput[]) => void;
     onQueryChange: (query: string) => void;
     style?: React.CSSProperties;
     inputStyle?: React.CSSProperties;
@@ -210,7 +210,6 @@ export const SearchBar = ({
 
     useEffect(() => setSelected(initialQuery), [initialQuery]);
 
-    const searchEntityTypes = entityRegistry.getSearchEntityTypes();
     const userUrn = useUserContext().user?.urn;
 
     const { data } = useListRecommendationsQuery({
@@ -350,8 +349,8 @@ export const SearchBar = ({
         setIsFocused(false);
     }
 
-    function handleSearch(query: string, type?: EntityType, appliedQuickFilters?: FacetFilterInput[]) {
-        onSearch(query, type, appliedQuickFilters);
+    function handleSearch(query: string, appliedQuickFilters?: FacetFilterInput[]) {
+        onSearch(query, appliedQuickFilters);
         if (selectedQuickFilter) {
             setSelectedQuickFilter(null);
         }
@@ -412,7 +411,6 @@ export const SearchBar = ({
                         ) {
                             handleSearch(
                                 `${filterSearchQuery(value as string)}`,
-                                searchEntityTypes.indexOf(option.type) >= 0 ? option.type : undefined,
                                 getFiltersWithQuickFilter(selectedQuickFilter),
                             );
                             analytics.event({
@@ -459,7 +457,6 @@ export const SearchBar = ({
                         onPressEnter={() => {
                             handleSearch(
                                 filterSearchQuery(searchQuery || ''),
-                                undefined,
                                 getFiltersWithQuickFilter(selectedQuickFilter),
                             );
                         }}
@@ -477,7 +474,6 @@ export const SearchBar = ({
                                     onClick={() => {
                                         handleSearch(
                                             filterSearchQuery(searchQuery || ''),
-                                            undefined,
                                             getFiltersWithQuickFilter(selectedQuickFilter),
                                         );
                                     }}

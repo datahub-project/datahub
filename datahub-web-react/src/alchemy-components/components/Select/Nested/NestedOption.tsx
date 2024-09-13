@@ -210,7 +210,7 @@ export const NestedOption = ({
                                 e.stopPropagation();
                                 e.preventDefault();
                                 setIsOpen(!isOpen);
-                                if (!isOpen) {
+                                if (!isOpen && isParentMissingChildren) {
                                     loadData?.(option);
                                 }
                             }}

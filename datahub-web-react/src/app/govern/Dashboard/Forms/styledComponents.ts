@@ -11,7 +11,7 @@ export const CreateFormContainer = styled.div`
     height: 100%;
 `;
 
-export const ContentContainer = styled.div`
+export const ContentContainer = styled.div<{ $showV1Styles?: boolean }>`
     display: flex;
     flex-direction: column;
     padding: 16px;
@@ -20,12 +20,14 @@ export const ContentContainer = styled.div`
     flex: 1;
     background-color: ${colors.white};
     gap: 12px;
-    height: calc(100% - 76px);
+    max-height: calc(100vh - 152px);
     overflow: auto;
     box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.1);
+
+    ${(props) => props.$showV1Styles && `margin: 8px 24px 0 24px;`}
 `;
 
-export const FooterContainer = styled.div`
+export const FooterContainer = styled.div<{ $showV1Styles?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: flex-end;
@@ -36,6 +38,8 @@ export const FooterContainer = styled.div`
     background-color: ${colors.white};
     border-radius: 12px 12px 0px 0px;
     box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.1);
+
+    ${(props) => props.$showV1Styles && `margin: 0 24px;`}
 `;
 
 export const AddElementContainer = styled.div`

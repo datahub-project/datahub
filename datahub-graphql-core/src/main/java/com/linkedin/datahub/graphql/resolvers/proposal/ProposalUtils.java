@@ -1,6 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.proposal;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DATA_CONTRACT_PROPOSAL;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TAG_PROPOSAL;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.AuthorizedActors;
@@ -22,14 +28,19 @@ import com.linkedin.common.Proposals;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.container.Container;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.ActionRequestResult;
 import com.linkedin.datahub.graphql.generated.ActionRequestType;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ActionRequestUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
@@ -43,6 +54,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.ProposalService;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -56,10 +68,12 @@ import com.linkedin.schema.SchemaProposals;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -1152,6 +1166,122 @@ public class ProposalUtils {
 
     filter.setOr(disjunction);
     return filter;
+  }
+
+  public static void validateProposalUrns(@Nonnull final Set<Urn> proposalUrns) {
+    // First, validate that we have a valid Action Request.
+    for (final Urn proposalUrn : proposalUrns) {
+      if (!proposalUrn.getEntityType().equals(ACTION_REQUEST_ENTITY_NAME)) {
+        throw new RuntimeException(
+            String.format(
+                "Failed to act on proposal, Urn provided (%s) is not a valid Action Request urn",
+                proposalUrn));
+      }
+    }
+  }
+
+  public static void validateProposals(
+      @Nonnull final Collection<Entity> entities,
+      @Nonnull final QueryContext context,
+      @Nonnull final ProposalService proposalService) {
+    for (final Entity proposal : entities) {
+      validateProposal(proposal, context, proposalService);
+    }
+  }
+
+  private static void validateProposal(
+      @Nonnull final Entity proposalEntity,
+      @Nonnull final QueryContext context,
+      @Nonnull final ProposalService proposalService) {
+    // TODO: Migrate away from using deprecated 'snapshot' entities here.
+    final ActionRequestSnapshot actionRequestSnapshot =
+        proposalEntity.getValue().getActionRequestSnapshot();
+
+    final ActionRequestStatus actionRequestStatus =
+        extractActionRequestStatus(actionRequestSnapshot);
+
+    final ActionRequestInfo actionRequestInfo = extractActionRequestInfo(actionRequestSnapshot);
+
+    if (actionRequestStatus == null || actionRequestInfo == null) {
+      throw new DataHubGraphQLException(
+          String.format(
+              "Unable to validate proposal. Provided urn %s does not exist!",
+              proposalEntity.getValue().getActionRequestSnapshot().getUrn()),
+          DataHubGraphQLErrorCode.NOT_FOUND);
+    }
+
+    // Validate each type slightly separately.
+    if (!isAuthorizedToAcceptProposal(actionRequestSnapshot, context, proposalService)) {
+      throw new AuthorizationException(
+          "Unauthorized to perform this action. Please contact your DataHub administrator.");
+    }
+  }
+
+  private static boolean isAuthorizedToAcceptProposal(
+      @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
+      @Nonnull final QueryContext context,
+      @Nonnull final ProposalService proposalService) {
+
+    final ActionRequestInfo actionRequestInfo = extractActionRequestInfo(actionRequestSnapshot);
+
+    final Urn actor = UrnUtils.getUrn(context.getActorUrn());
+    final String subResource = actionRequestInfo.getSubResource();
+    final String actionRequestType = actionRequestInfo.getType();
+
+    switch (actionRequestInfo.getType()) {
+      case ACTION_REQUEST_TYPE_TAG_PROPOSAL:
+      case ACTION_REQUEST_TYPE_TERM_PROPOSAL:
+      case ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL:
+      case ACTION_REQUEST_TYPE_DATA_CONTRACT_PROPOSAL:
+        return ProposalUtils.isAuthorizedToAcceptProposal(
+            context,
+            ActionRequestType.valueOf(actionRequestType),
+            UrnUtils.getUrn(actionRequestInfo.getResource()),
+            subResource);
+        // Glossary Node Proposal Case is a bit more complex. We need to check the parent glossary
+        // nodes at every level,
+        // which happens below.
+      case ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL:
+        return proposalService.canResolveGlossaryNodeProposal(
+            context.getOperationContext(),
+            actor,
+            actionRequestSnapshot,
+            GlossaryUtils.canManageGlossaries(context));
+      case ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL:
+        return proposalService.canResolveGlossaryTermProposal(
+            context.getOperationContext(),
+            actor,
+            actionRequestSnapshot,
+            GlossaryUtils.canManageGlossaries(context));
+      default:
+        log.warn(
+            String.format(
+                "Unrecognized action request type %s provided. Denying authorization for unknown action!",
+                actionRequestInfo.getType()));
+        return false;
+    }
+  }
+
+  @Nullable
+  public static ActionRequestInfo extractActionRequestInfo(
+      @Nonnull final ActionRequestSnapshot actionRequestSnapshot) {
+    for (ActionRequestAspect aspect : actionRequestSnapshot.getAspects()) {
+      if (aspect.isActionRequestInfo()) {
+        return aspect.getActionRequestInfo();
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  public static ActionRequestStatus extractActionRequestStatus(
+      @Nonnull final ActionRequestSnapshot actionRequestSnapshot) {
+    for (ActionRequestAspect aspect : actionRequestSnapshot.getAspects()) {
+      if (aspect.isActionRequestStatus()) {
+        return aspect.getActionRequestStatus();
+      }
+    }
+    return null;
   }
 
   private ProposalUtils() {}

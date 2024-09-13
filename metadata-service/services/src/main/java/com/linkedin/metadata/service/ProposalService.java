@@ -1,4 +1,4 @@
-package com.datahub.authentication.proposal;
+package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -615,6 +615,7 @@ public class ProposalService {
       @Nonnull final String actionRequestStatus,
       @Nonnull final String actionRequestResult,
       @Nonnull final Entity proposalEntity) {
+
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(actionRequestStatus, "actionRequestStatus cannot be null");
     Objects.requireNonNull(actionRequestResult, "actionRequestResult cannot be null");

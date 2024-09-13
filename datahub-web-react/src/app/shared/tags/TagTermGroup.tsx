@@ -17,7 +17,7 @@ import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import analytics, { EntityActionType, EventType } from '../../analytics';
 import { EMPTY_MESSAGES, ANTD_GRAY } from '../../entity/shared/constants';
 import { DomainLink } from './DomainLink';
-import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
+import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
 import ProposalModal from './ProposalModal';
 import EditTagTermsModal from './AddTagsTermsModal';
 import StyledTerm from './term/StyledTerm';
@@ -93,8 +93,8 @@ export default function TagTermGroup({
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
 
-    const [acceptProposalMutation] = useAcceptProposalMutation();
-    const [rejectProposalMutation] = useRejectProposalMutation();
+    const [acceptProposalsMutation] = useAcceptProposalsMutation();
+    const [rejectProposalsMutation] = useRejectProposalsMutation();
     const [showProposalDecisionModal, setShowProposalDecisionModal] = useState(false);
 
     const onCloseProposalDecisionModal = (e) => {
@@ -104,7 +104,7 @@ export default function TagTermGroup({
     };
 
     const onProposalAcceptance = (actionRequest: ActionRequest) => {
-        acceptProposalMutation({ variables: { urn: actionRequest.urn } })
+        acceptProposalsMutation({ variables: { urns: [actionRequest.urn] } })
             .then(() => {
                 if (entityUrn) {
                     analytics.event({
@@ -125,7 +125,7 @@ export default function TagTermGroup({
     };
 
     const onProposalRejection = (actionRequest: ActionRequest) => {
-        rejectProposalMutation({ variables: { urn: actionRequest.urn } })
+        rejectProposalsMutation({ variables: { urns: [actionRequest.urn] } })
             .then(() => {
                 if (entityUrn) {
                     analytics.event({

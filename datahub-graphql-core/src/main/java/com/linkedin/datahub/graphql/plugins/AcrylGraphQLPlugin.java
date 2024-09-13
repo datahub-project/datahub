@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.plugins;
 import static com.linkedin.datahub.graphql.AcrylConstants.*;
 
 import com.datahub.authentication.group.GroupService;
-import com.datahub.authentication.proposal.ProposalService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
@@ -92,6 +91,7 @@ import com.linkedin.datahub.graphql.resolvers.monitor.SystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateMonitorStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateSystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryNodeResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryTermResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeDataContractResolver;
@@ -99,6 +99,7 @@ import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTagResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTermResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeUpdateDescriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.GlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateGlobalSettingsResolver;
@@ -148,6 +149,7 @@ import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.DataContractService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.MonitorService;
+import com.linkedin.metadata.service.ProposalService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ShareService;
 import com.linkedin.metadata.service.SubscriptionService;
@@ -326,7 +328,11 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "acceptProposal", new AcceptProposalResolver(entityService, proposalService))
                 .dataFetcher(
+                    "acceptProposals", new AcceptProposalsResolver(entityService, proposalService))
+                .dataFetcher(
                     "rejectProposal", new RejectProposalResolver(entityService, proposalService))
+                .dataFetcher(
+                    "rejectProposals", new RejectProposalsResolver(entityService, proposalService))
                 .dataFetcher("proposeTag", new ProposeTagResolver(entityService, entityClient))
                 .dataFetcher("proposeTerm", new ProposeTermResolver(entityService, entityClient))
                 .dataFetcher(

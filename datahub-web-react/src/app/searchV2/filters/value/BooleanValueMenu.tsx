@@ -1,4 +1,4 @@
-import React, { CSSProperties, useState } from 'react';
+import React, { useState } from 'react';
 import { FilterField, FilterValue } from '../types';
 import { mapFilterOption } from '../mapFilterOption';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -17,10 +17,10 @@ interface Props {
     onChangeValues: (newValues: FilterValue[]) => void;
     onApply: () => void;
     type?: 'card' | 'default';
-    style?: CSSProperties;
+    className?: string;
 }
 
-export default function BooleanValueMenu({ field, values, type = 'card', style, onChangeValues, onApply }: Props) {
+export default function BooleanValueMenu({ field, values, type = 'card', onChangeValues, onApply, className }: Props) {
     const entityRegistry = useEntityRegistry();
 
     // Ideally we would not have staged values, and filters would update automatically.
@@ -56,7 +56,7 @@ export default function BooleanValueMenu({ field, values, type = 'card', style, 
             isLoading={false}
             showSearchBar={false}
             type={type}
-            style={style}
+            className={className}
         />
     );
 }

@@ -1,4 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import React, { useContext, useEffect } from 'react';
 import AddToForm from './AddToForm';
 import CreateFormHeader from './CreateFormHeader';
@@ -13,13 +14,14 @@ interface Props {
 
 const FormContent = ({ mode }: Props) => {
     const { setFormMode, isFormLoading } = useContext(ManageFormContext);
+    const isThemeV2 = useIsThemeV2();
 
     useEffect(() => {
         setFormMode(mode);
     }, [mode, setFormMode]);
 
     return (
-        <ContentContainer>
+        <ContentContainer $showV1Styles={!isThemeV2}>
             <StyledSpin spinning={isFormLoading} indicator={<LoadingOutlined />}>
                 <CreateFormHeader />
                 <DetailsForm />

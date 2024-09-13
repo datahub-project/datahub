@@ -1,9 +1,9 @@
 package com.linkedin.gms.factory.auth;
 
-import com.datahub.authentication.proposal.ProposalService;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.service.ProposalService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;

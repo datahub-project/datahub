@@ -6,7 +6,7 @@ import * as QueryString from 'query-string';
 import styled, { useTheme } from 'styled-components';
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { EntityType, FacetFilterInput } from '../../types.generated';
+import { FacetFilterInput } from '../../types.generated';
 import {
     GetAutoCompleteMultipleResultsQuery,
     useGetAutoCompleteMultipleResultsLazyQuery,
@@ -52,15 +52,7 @@ const Content = styled.div`
 
 const FIFTH_SECOND_IN_MS = 100;
 
-interface Props extends React.PropsWithChildren<any> {
-    onSearch?: (query: string, type?: EntityType) => void;
-    onAutoComplete?: (query: string) => void;
-}
-
-const defaultProps = {
-    onSearch: undefined,
-    onAutoComplete: undefined,
-};
+type Props = React.PropsWithChildren<any>;
 
 const isSearchResultPage = (path: string) => {
     return path.startsWith(PageRoutes.SEARCH);
@@ -69,7 +61,7 @@ const isSearchResultPage = (path: string) => {
 /**
  * A page that includes a sticky search header (nav bar)
  */
-export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) => {
+export const SearchablePage = ({ children }: Props) => {
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramFilters: Array<FacetFilterInput> = useFilters(params);
@@ -95,7 +87,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
         }
     }, [suggestionsData]);
 
-    const search = (query: string, type?: EntityType, quickFilters?: FacetFilterInput[]) => {
+    const search = (query: string, quickFilters?: FacetFilterInput[]) => {
         analytics.event({
             type: EventType.SearchEvent,
             query,
@@ -108,7 +100,6 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
         const appliedFilters = quickFilters && quickFilters?.length > 0 ? quickFilters : filters;
 
         navigateToSearchUrl({
-            type,
             query,
             filters: appliedFilters,
             history,
@@ -155,8 +146,8 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
                         newSuggestionData.autoCompleteForMultiple.suggestions) ||
                     []
                 }
-                onSearch={onSearch || search}
-                onQueryChange={onAutoComplete || autoComplete}
+                onSearch={search}
+                onQueryChange={autoComplete}
                 entityRegistry={entityRegistry}
             />
             <BodyBackground />
@@ -169,5 +160,3 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
         </>
     );
 };
-
-SearchablePage.defaultProps = defaultProps;

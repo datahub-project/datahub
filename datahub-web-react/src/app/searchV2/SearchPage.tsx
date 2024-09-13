@@ -49,7 +49,7 @@ export const SearchPage = () => {
     const showBrowseV2 = useIsBrowseV2();
     const searchVersion = useSearchVersion();
     const history = useHistory();
-    const { query, unionType, filters, orFilters, viewUrn, page, activeType, sortInput } = useGetSearchQueryInputs();
+    const { query, unionType, filters, orFilters, viewUrn, page, sortInput } = useGetSearchQueryInputs();
     const { filterModeRef } = useFilterMode(filters, unionType);
     const selectedSortOption = useSelectedSortOption();
 
@@ -113,7 +113,6 @@ export const SearchPage = () => {
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
         navigateToSearchUrl({
-            type: activeType,
             query,
             selectedSortOption,
             page: 1,
@@ -130,7 +129,6 @@ export const SearchPage = () => {
 
     const onChangeUnionType = (newUnionType: UnionType) => {
         navigateToSearchUrl({
-            type: activeType,
             query,
             selectedSortOption,
             page: 1,
@@ -143,7 +141,6 @@ export const SearchPage = () => {
     const onChangePage = (newPage: number) => {
         scrollToTop();
         navigateToSearchUrl({
-            type: activeType,
             query,
             selectedSortOption,
             page: newPage,

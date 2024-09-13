@@ -3,7 +3,7 @@ import { Button, message, Modal, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
+import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
 import { ActionRequest, ActionRequestResult, ActionRequestStatus, EntityType } from '../../../types.generated';
 import { CustomAvatar } from '../../shared/avatar';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
@@ -67,15 +67,15 @@ export default function MetadataAssociationRequestItem({
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
-    const [acceptProposalMutation] = useAcceptProposalMutation();
-    const [rejectProposalMutation] = useRejectProposalMutation();
+    const [acceptProposalsMutation] = useAcceptProposalsMutation();
+    const [rejectProposalsMutation] = useRejectProposalsMutation();
 
     const acceptRequest = () => {
         Modal.confirm({
             content: 'Are you sure you want to accept this proposal?',
             okText: 'Yes',
             onOk() {
-                acceptProposalMutation({ variables: { urn: actionRequest.urn } })
+                acceptProposalsMutation({ variables: { urns: [actionRequest.urn] } })
                     .then(() => {
                         if (actionRequest.entity?.urn) {
                             analytics.event({
@@ -102,7 +102,7 @@ export default function MetadataAssociationRequestItem({
             content: 'Are you sure you want to reject this proposal?',
             okText: 'Yes',
             onOk() {
-                rejectProposalMutation({ variables: { urn: actionRequest.urn } })
+                rejectProposalsMutation({ variables: { urns: [actionRequest.urn] } })
                     .then(() => {
                         if (actionRequest.entity?.urn) {
                             analytics.event({

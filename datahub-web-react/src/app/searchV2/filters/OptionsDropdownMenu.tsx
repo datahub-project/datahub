@@ -1,6 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import React, { CSSProperties } from 'react';
+import React from 'react';
 import styled from 'styled-components/macro';
 import { ANTD_GRAY, SEARCH_COLORS } from '../../entityV2/shared/constants';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
@@ -58,10 +58,10 @@ interface Props {
     isLoading: boolean;
     searchQuery: string;
     updateSearchQuery: (query: string) => void;
-    style?: CSSProperties;
     searchPlaceholder?: string;
     showSearchBar?: boolean;
     type?: 'card' | 'default';
+    className?: string;
 }
 
 export default function OptionsDropdownMenu({
@@ -70,17 +70,17 @@ export default function OptionsDropdownMenu({
     isLoading,
     searchQuery,
     updateSearchQuery,
-    style,
     searchPlaceholder,
     showSearchBar = true,
     type = 'card',
+    className,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
     useEnterKeyListener({ querySelectorToExecuteClick: '#updateFiltersButton' });
 
     return (
-        <DropdownMenu type={type} data-testid="filter-dropdown" style={style}>
+        <DropdownMenu type={type} data-testid="filter-dropdown" className={className}>
             <ScrollableContent>
                 {showSearchBar && (
                     <SearchBar

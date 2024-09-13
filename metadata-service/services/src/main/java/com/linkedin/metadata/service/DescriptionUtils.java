@@ -1,4 +1,4 @@
-package com.datahub.authentication.proposal;
+package com.linkedin.metadata.service;
 
 import com.datahub.authentication.Actor;
 import com.linkedin.common.AuditStamp;

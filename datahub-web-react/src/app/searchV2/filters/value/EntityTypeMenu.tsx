@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import React, { CSSProperties, useState } from 'react';
+import React, { useState } from 'react';
 import { FilterField, FilterValue, FilterValueOption } from '../types';
 import { mapFilterOption } from '../mapFilterOption';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -17,7 +17,7 @@ interface Props {
     type?: 'card' | 'default';
     includeSubTypes?: boolean;
     includeCount?: boolean;
-    style?: CSSProperties;
+    className?: string;
 }
 
 export default function EntityTypeMenu({
@@ -29,7 +29,7 @@ export default function EntityTypeMenu({
     onApply,
     includeSubTypes = true,
     includeCount = false,
-    style,
+    className,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const { displayName } = field;
@@ -90,7 +90,7 @@ export default function EntityTypeMenu({
             isLoading={aggLoading}
             searchPlaceholder={displayName}
             type={type}
-            style={style}
+            className={className}
         />
     );
 }
