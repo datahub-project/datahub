@@ -77,6 +77,7 @@ const OwnershipSelector = () => {
             <NestedSelect
                 label="Owners"
                 placeholder="Select allowed owners"
+                searchPlaceholder="Search all owners..."
                 options={useSearch ? autoCompleteOptions : options}
                 initialValues={initialOptions}
                 onSearch={handleSearch}

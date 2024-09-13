@@ -11,6 +11,7 @@ import { EntityType, FormState } from '@src/types.generated';
 import { Dropdown, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import EmptyForms from './EmptyForms';
 import { CardIcons } from './styledComponents';
@@ -22,6 +23,10 @@ const FormName = styled(Typography.Text)`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+
+    &:hover {
+        text-decoration: underline;
+    }
 `;
 
 const FormDescription = styled(Typography.Text)`
@@ -126,7 +131,9 @@ const FormsTable = () => {
             render: (record) => {
                 return (
                     <CellContainer>
-                        <FormName>{record.entity.formInfo.name}</FormName>
+                        <Link to={`/govern/dashboard/edit-form/${record.entity.urn}`}>
+                            <FormName>{record.entity.formInfo.name}</FormName>
+                        </Link>
                         <FormDescription> {record.entity.formInfo.description}</FormDescription>
                     </CellContainer>
                 );
@@ -214,15 +221,17 @@ const FormsTable = () => {
                 return (
                     <>
                         <CardIcons>
-                            <Icon
-                                icon="TrendingUp"
-                                size="md"
-                                onClick={() => {
-                                    history.push(
-                                        `${PageRoutes.GOVERN_DASHBOARD}?documentationTab=analytics&tab=byForm&filter=${record.entity.urn}`,
-                                    );
-                                }}
-                            />
+                            {record.entity.formInfo.status.state !== FormState.Draft && (
+                                <Icon
+                                    icon="TrendingUp"
+                                    size="md"
+                                    onClick={() => {
+                                        history.push(
+                                            `${PageRoutes.GOVERN_DASHBOARD}?documentationTab=analytics&tab=byForm&filter=${record.entity.urn}`,
+                                        );
+                                    }}
+                                />
+                            )}
                             <Dropdown menu={{ items }} trigger={['click']}>
                                 <Icon icon="MoreVert" size="md" />
                             </Dropdown>

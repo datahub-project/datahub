@@ -19,12 +19,12 @@ const CreateFormHeader = () => {
         <>
             <BreadcrumbContainer>
                 <Link to={`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`}>
-                    <Text size="sm" color="gray">
+                    <Text size="lg" color="gray">
                         Forms
                     </Text>
                 </Link>
                 <Icon icon="ChevronRight" size="xl" color="gray" />
-                <Text size="sm" color="gray">
+                <Text size="lg" color="gray">
                     {formMode === 'create' ? 'Create' : 'Edit'}
                 </Text>
             </BreadcrumbContainer>

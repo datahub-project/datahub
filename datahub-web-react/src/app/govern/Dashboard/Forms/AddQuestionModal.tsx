@@ -29,11 +29,7 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
     const isFormDisabled = formValues.state !== FormState.Draft;
 
     useEffect(() => {
-        form.setFieldsValue(
-            question || {
-                required: false,
-            },
-        );
+        form.setFieldsValue(question || {});
         setSelectedType(question?.type);
     }, [form, question]);
 
@@ -106,6 +102,7 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                     )}
                 </ModalFooter>
             }
+            destroyOnClose
         >
             <Form form={form} disabled={isFormDisabled}>
                 <FormFieldsContainer>
@@ -124,6 +121,13 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                             onChange={(value) => {
                                 resetDependentFields();
                                 setSelectedType(value);
+                                form.setFieldsValue(
+                                    question
+                                        ? { ...question, required: !(value as string).startsWith('FIELD') }
+                                        : {
+                                              required: !(value as string).startsWith('FIELD'),
+                                          },
+                                );
                             }}
                         >
                             {questionTypes.map((questionType) => {

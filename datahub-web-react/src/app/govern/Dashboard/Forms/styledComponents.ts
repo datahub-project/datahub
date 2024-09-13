@@ -1,6 +1,9 @@
+import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { colors, Icon } from '@src/alchemy-components';
 import theme from '@src/alchemy-components/theme';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { WARNING_COLOR_HEX } from '@src/app/entityV2/shared/tabs/Incident/incidentUtils';
+import { applyOpacity } from '@src/app/shared/styleUtils';
 import { Checkbox, Divider, Modal, Radio, Spin, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 
@@ -80,6 +83,9 @@ export const BreadcrumbContainer = styled.div`
     align-items: center;
     gap: 8px;
     margin: 12px 0 16px 0;
+    &&& {
+        font-size: 16px;
+    }
 `;
 
 export const Header = styled.div`
@@ -296,4 +302,23 @@ ${(props) =>
 export const StyledLabel = styled.label`
     color: ${colors.gray[1600]};
     margin-left: 8px;
+`;
+
+export const WarningWarpper = styled.div`
+    background-color: ${applyOpacity(WARNING_COLOR_HEX, 8)};
+    border: 1px solid ${applyOpacity(WARNING_COLOR_HEX, 20)};
+    border-radius: 4px;
+    padding: 6px 4px;
+    font-size: 14px;
+    color: ${colors.gray[1600]};
+    margin: -14px 0 20px 0;
+    display: flex;
+    align-items: center;
+`;
+
+export const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
+    color: ${WARNING_COLOR_HEX};
+    font-size: 16px;
+    margin-right: 8px;
+    margin-left: 4px;
 `;

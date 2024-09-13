@@ -194,9 +194,12 @@ export const NestedOption = ({
                     onClick={(e) => {
                         if (isParentMissingChildren) {
                             loadData?.(option);
-                            setAutoSelectChildren(true);
                         }
-                        selectOption();
+                        if (option.isParent) {
+                            setIsOpen(!isOpen);
+                        } else {
+                            selectOption();
+                        }
                         e.preventDefault();
                     }}
                     isSelected={!isMultiSelect && isSelected}
@@ -221,7 +224,19 @@ export const NestedOption = ({
                             style={{ cursor: 'pointer', marginLeft: '4px' }}
                         />
                     )}
-                    <StyledCheckbox checked={isSelected} indeterminate={isPartialSelected} />
+                    <StyledCheckbox
+                        checked={isSelected}
+                        indeterminate={isPartialSelected}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            if (isParentMissingChildren) {
+                                loadData?.(option);
+                                setAutoSelectChildren(true);
+                            }
+                            selectOption();
+                        }}
+                    />
                 </OptionLabel>
             </ParentOption>
             {isOpen && (

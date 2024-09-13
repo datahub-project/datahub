@@ -104,6 +104,7 @@ export interface SelectProps {
     width?: number | 'full';
     height?: number;
     placeholder?: string;
+    searchPlaceholder?: string;
 }
 
 export const selectDefaults: SelectProps = {
@@ -134,6 +135,7 @@ export const NestedSelect = ({
     size = selectDefaults.size,
     areParentsSelectable = true,
     placeholder,
+    searchPlaceholder,
     height = selectDefaults.height,
     ...props
 }: SelectProps) => {
@@ -261,7 +263,7 @@ export const NestedSelect = ({
                         <SearchInputContainer>
                             <SearchInput
                                 type="text"
-                                placeholder="Search…"
+                                placeholder={searchPlaceholder || 'Search...'}
                                 value={searchQuery}
                                 onChange={(e) => handleSearch(e.target.value)}
                                 style={{ fontSize: size || 'md', width: '100%' }}

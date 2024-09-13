@@ -6,6 +6,8 @@ import { FormState, FormType } from '@src/types.generated';
 import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import React, { useContext, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
+import { Link } from 'react-router-dom';
+import { PageRoutes } from '@src/conf/Global';
 import ManageFormContext from './ManageFormContext';
 import { FooterContainer } from './styledComponents';
 import { mapPromptsToCreatePromptInput } from './formUtils';
@@ -135,10 +137,13 @@ const FormFooter = () => {
 
     return (
         <FooterContainer $showV1Styles={!isThemeV2}>
+            <Link to={`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`}>
+                <Button variant="outline">Cancel</Button>
+            </Link>
             <Button variant="outline" onClick={() => saveForm()}>
-                Save
+                {formValues.state === FormState.Draft ? 'Save Draft' : 'Save'}
             </Button>
-            <Button variant="outline" onClick={() => form?.validateFields().then(() => setShowConfirmationModal(true))}>
+            <Button onClick={() => form?.validateFields().then(() => setShowConfirmationModal(true))}>
                 {formValues.state === FormState.Published ? 'Unpublish' : 'Publish'}
             </Button>
             <ConfirmationModal
