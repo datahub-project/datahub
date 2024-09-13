@@ -24,7 +24,7 @@ import com.linkedin.dataset.DatasetUserUsageCountsArray;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.UsageServiceUtil;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
@@ -100,7 +100,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   @WithSpan
   public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets) {
     log.info("Ingesting {} usage stats aggregations", buckets.length);
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
           final Authentication auth = AuthenticationContext.getAuthentication();
@@ -140,7 +140,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     log.info(
         "Querying usage stats for resource: {}, duration: {}, start time: {}, end time: {}, max buckets: {}",
         resource, duration, startTime, endTime, maxBuckets);
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
           Urn resourceUrn = UrnUtils.getUrn(resource);
@@ -185,7 +185,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
     }
 
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
             () -> UsageServiceUtil.queryRange(opContext, _timeseriesAspectService, resource, duration, range), MetricRegistry.name(this.getClass(), "queryRange"));
   }
 

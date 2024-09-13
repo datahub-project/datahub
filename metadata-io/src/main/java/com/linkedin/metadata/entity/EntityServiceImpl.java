@@ -51,6 +51,10 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
 import com.linkedin.metadata.config.PreProcessHooks;
+import com.linkedin.metadata.dao.throttle.APIThrottle;
+import com.linkedin.metadata.dao.throttle.ThrottleControl;
+import com.linkedin.metadata.dao.throttle.ThrottleEvent;
+import com.linkedin.metadata.dao.throttle.ThrottleType;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -96,6 +100,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -159,6 +164,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
 
+  @Getter
+  private final Map<Set<ThrottleType>, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
+
   public EntityServiceImpl(
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
@@ -192,6 +200,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   public void setUpdateIndicesService(@Nullable SearchIndicesService updateIndicesService) {
     this.updateIndicesService = updateIndicesService;
+  }
+
+  public ThrottleControl handleThrottleEvent(ThrottleEvent throttleEvent) {
+    final Set<ThrottleType> activeEvents = throttleEvent.getActiveThrottles();
+    // store throttle event
+    throttleEvents.put(activeEvents, throttleEvent);
+
+    return ThrottleControl.builder()
+        // clear throttle event
+        .callback(clearThrottle -> throttleEvents.remove(clearThrottle.getDisabledThrottles()))
+        .build();
   }
 
   @Override
@@ -769,6 +788,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       return Collections.emptyList();
     }
 
+    // Handle throttling
+    APIThrottle.evaluate(opContext, new HashSet<>(throttleEvents.values()), false);
+
     List<UpdateAspectResult> ingestResults =
         ingestAspectsToLocalDB(opContext, aspectsBatch, overwrite);
 
@@ -1183,6 +1205,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     if (!async) {
+      // Handle throttling
+      APIThrottle.evaluate(opContext, new HashSet<>(throttleEvents.values()), true);
+
       // Create default non-timeseries aspects for timeseries aspects
       List<MCPItem> timeseriesKeyAspects =
           aspectsBatch.getMCPItems().stream()
