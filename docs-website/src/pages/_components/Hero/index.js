@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import clsx from "clsx";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
@@ -6,6 +6,7 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 // import { useColorMode } from "@docusaurus/theme-common";
 // import { QuestionCircleOutlined } from "@ant-design/icons";
 import styles from "./hero.module.scss";
+import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 // import CodeBlock from "@theme/CodeBlock";
 // import TownhallButton from "../TownhallButton";
 // import { Section } from "../Section";
@@ -17,12 +18,44 @@ import styles from "./hero.module.scss";
 //       <Link className="button button--primary button--md" href={linkUrl} target="_blank">
 //         {linkText}
 //       </Link>
-//     )}
+//     )} 
 //   </div>
 // );
 
 const Hero = ({}) => {
   // const { colorMode } = useColorMode();
+  const textIndex = useMotionValue(0);
+  const texts = ["AI Governance", "AI Discovery", "AI Observability"];
+  const baseText = useTransform(textIndex, (latest) => texts[latest] || "");
+  const count = useMotionValue(0);
+  const rounded = useTransform(count, (latest) => Math.round(latest));
+  const displayText = useTransform(rounded, (latest) =>
+    baseText.get().slice(0, latest)
+  );
+  const updatedThisRound = useMotionValue(true);
+
+  useEffect(() => {
+    animate(count, 60, {
+      type: "tween",
+      duration: 1.5,
+      ease: "easeIn",
+      repeat: Infinity,
+      repeatType: "reverse",
+      repeatDelay: 0.5,
+      onUpdate(latest) {
+        if (updatedThisRound.get() === true && latest > 0) {
+          updatedThisRound.set(false);
+        } else if (updatedThisRound.get() === false && latest === 0) {
+          if (textIndex.get() === texts.length - 1) {
+            textIndex.set(0);
+          } else {
+            textIndex.set(textIndex.get() + 1);
+          }
+          updatedThisRound.set(true);
+        }
+      },
+    });
+  }, []);
   return (
     <header className={clsx("hero", styles.hero)}>
       <div className="container">
@@ -34,15 +67,23 @@ const Hero = ({}) => {
             <div className="hero__subtitle">
               A unified platform for{" "}
               <span>
-                {" "}
-                <span>AI Governance</span>
+                <motion.span>{displayText}</motion.span>
               </span>
             </div>
             <div className="hero__cta">
-              <Link className="cta__primary" to="/cloud">Book a Demo</Link>
-              <Link className="cta__secondary" to="https://www.acryldata.io/tour">Product Tour</Link>
+              <Link className="cta__primary" to="/cloud">
+                Book a Demo
+              </Link>
+              <Link
+                className="cta__secondary"
+                to="https://www.acryldata.io/tour"
+              >
+                Product Tour
+              </Link>
             </div>
-            <Link className="hero__footer_cta" to="/docs">Get started with Core →</Link>
+            <Link className="hero__footer_cta" to="/docs">
+              Get started with Core →
+            </Link>
           </div>
           <div className="hero__img">
             <img src={useBaseUrl("/img/hero.png")} />
