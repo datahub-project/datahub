@@ -1,4 +1,5 @@
-from typing import Callable, List, Optional, cast
+import logging
+from typing import Callable, List, Optional, Union, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -9,16 +10,22 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.emitter.mce_builder import Aspect
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.transformer.dataset_transformer import (
     DatasetOwnershipTransformer,
 )
+from datahub.metadata._schema_classes import MetadataChangeProposalClass
 from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.specific.dashboard import DashboardPatchBuilder
+
+logger = logging.getLogger(__name__)
 
 
 class AddDatasetOwnershipConfig(TransformerSemanticsConfigModel):
@@ -26,6 +33,8 @@ class AddDatasetOwnershipConfig(TransformerSemanticsConfigModel):
     default_actor: str = builder.make_user_urn("etl")
 
     _resolve_owner_fn = pydantic_resolve_key("get_owners_to_add")
+
+    is_container: bool = False
 
 
 class AddDatasetOwnership(DatasetOwnershipTransformer):
@@ -69,6 +78,49 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
             mce_ownership.owners = list(owners.values())
 
         return mce_ownership
+
+    def handle_end_of_stream(
+        self,
+    ) -> List[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
+        if not self.config.is_container:
+            return []
+
+        logger.debug("Generating Ownership for containers")
+
+        ownership_container: List[DashboardPatchBuilder] = []
+
+        for entity_urn, data_ownerships in (
+            (urn, self.config.get_owners_to_add(urn)) for urn in self.entity_map.keys()
+        ):
+            if not data_ownerships:
+                continue
+
+            assert self.ctx.graph
+            browse_paths = self.ctx.graph.get_aspect(entity_urn, BrowsePathsV2Class)
+            if not browse_paths:
+                continue
+
+            for path in browse_paths.path:
+                container_urn = path.urn
+
+                if not container_urn or not container_urn.startswith(
+                    "urn:li:container:"
+                ):
+                    continue
+
+                patch_builder = DashboardPatchBuilder(container_urn)
+                for data_ownership in data_ownerships:
+                    patch_builder.add_owner(data_ownership)
+                ownership_container.append(patch_builder)
+
+        mcps: List[
+            Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
+        ] = []
+
+        for owner in ownership_container:
+            mcps.extend(list(owner.build()))
+
+        return mcps
 
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
@@ -147,6 +199,7 @@ class SimpleAddDatasetOwnership(AddDatasetOwnership):
 class PatternDatasetOwnershipConfig(DatasetOwnershipBaseConfig):
     owner_pattern: KeyValuePattern = KeyValuePattern.all()
     default_actor: str = builder.make_user_urn("etl")
+    is_container: bool = False
 
 
 class PatternAddDatasetOwnership(AddDatasetOwnership):
@@ -169,6 +222,7 @@ class PatternAddDatasetOwnership(AddDatasetOwnership):
             default_actor=config.default_actor,
             semantics=config.semantics,
             replace_existing=config.replace_existing,
+            is_container=config.is_container,
         )
         super().__init__(generic_config, ctx)
 
