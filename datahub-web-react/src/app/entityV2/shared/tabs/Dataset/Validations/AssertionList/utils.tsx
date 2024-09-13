@@ -616,10 +616,14 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
             const tagName = tag.tag.properties?.name || '';
             filterGroupCounts.tags[tagName] = (filterGroupCounts.tags[tagName] || 0) + 1;
         });
+
+        // count columnIds assertion
         const columnId = getColumnIdFromAssertion(assertion);
         if (columnId) {
             filterGroupCounts.column[columnId] = (filterGroupCounts.column[columnId] || 0) + 1;
         }
+
+        // count source type assertion
         let sourceType = assertion.info?.source?.type as AssertionSourceType;
         if (isExternalAssertion(assertion)) {
             filterGroupCounts.source[AssertionSourceType.External] =
@@ -668,6 +672,8 @@ const getColumnIdGroupFromColumnAssertions = (assertions: Assertion[]): Assertio
             columnIdToAssertionMap.set(columnId, columnAssertions);
         }
     });
+
+    // transform columnIds group data into table render Row
     columnIdToAssertionMap.forEach((columnAssertions: Assertion[], columnId: string) => {
         const assertionColumnGroup: AssertionColumnGroup = {
             name: columnId,
