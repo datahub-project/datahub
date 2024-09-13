@@ -1,6 +1,9 @@
 package io.datahubproject.metadata.context;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.AuthorizationSession;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
@@ -36,7 +39,7 @@ import lombok.Getter;
  */
 @Builder(toBuilder = true)
 @Getter
-public class OperationContext {
+public class OperationContext implements AuthorizationSession {
 
   /**
    * This should be the primary entry point when a request is made to Rest.li, OpenAPI, Graphql or
@@ -66,10 +69,8 @@ public class OperationContext {
             systemOperationContext.getOperationContextConfig().toBuilder()
                 .allowSystemAuthentication(allowSystemAuthentication)
                 .build())
-        .authorizerContext(AuthorizerContext.builder().authorizer(authorizer).build())
+        .authorizationContext(AuthorizationContext.builder().authorizer(authorizer).build())
         .requestContext(requestContext)
-        // Initialize view authorization for user viewable urn tracking
-        .viewAuthorizationContext(ViewAuthorizationContext.builder().build())
         .build(sessionAuthentication);
   }
 
@@ -157,7 +158,7 @@ public class OperationContext {
         .entityRegistryContext(EntityRegistryContext.builder().build(entityRegistry))
         .servicesRegistryContext(servicesRegistryContext)
         // Authorizer.EMPTY doesn't actually apply to system auth
-        .authorizerContext(AuthorizerContext.builder().authorizer(Authorizer.EMPTY).build())
+        .authorizationContext(AuthorizationContext.builder().authorizer(Authorizer.EMPTY).build())
         .retrieverContext(retrieverContext)
         .objectMapperContext(objectMapperContext)
         .build(systemAuthentication);
@@ -167,11 +168,10 @@ public class OperationContext {
   @Nonnull private final ActorContext sessionActorContext;
   @Nullable private final ActorContext systemActorContext;
   @Nonnull private final SearchContext searchContext;
-  @Nonnull private final AuthorizerContext authorizerContext;
+  @Nonnull private final AuthorizationContext authorizationContext;
   @Nonnull private final EntityRegistryContext entityRegistryContext;
   @Nullable private final ServicesRegistryContext servicesRegistryContext;
   @Nullable private final RequestContext requestContext;
-  @Nullable private final ViewAuthorizationContext viewAuthorizationContext;
   @Nullable private final RetrieverContext retrieverContext;
   @Nonnull private final ObjectMapperContext objectMapperContext;
 
@@ -237,7 +237,7 @@ public class OperationContext {
    * @return
    */
   public Collection<Urn> getActorPeers() {
-    return authorizerContext.getAuthorizer().getActorPeers(sessionActorContext.getActorUrn());
+    return authorizationContext.getAuthorizer().getActorPeers(sessionActorContext.getActorUrn());
   }
 
   /**
@@ -278,10 +278,6 @@ public class OperationContext {
     return getAuditStamp(null);
   }
 
-  public Optional<ViewAuthorizationContext> getViewAuthorizationContext() {
-    return Optional.ofNullable(viewAuthorizationContext);
-  }
-
   public Optional<RetrieverContext> getRetrieverContext() {
     return Optional.ofNullable(retrieverContext);
   }
@@ -293,6 +289,19 @@ public class OperationContext {
 
   public Optional<AspectRetriever> getAspectRetrieverOpt() {
     return getRetrieverContext().map(RetrieverContext::getAspectRetriever);
+  }
+
+  /**
+   * Provides a cached authorizer interface in the context of the session user
+   *
+   * @param privilege the requested privilege
+   * @param resourceSpec the optional resource that is the target of the privilege
+   * @return authorization result
+   */
+  @Override
+  public AuthorizationResult authorize(
+      @Nonnull String privilege, @Nullable EntitySpec resourceSpec) {
+    return authorizationContext.authorize(getSessionActorContext(), privilege, resourceSpec);
   }
 
   /**
@@ -309,7 +318,7 @@ public class OperationContext {
     return String.valueOf(
         ImmutableSet.<ContextInterface>builder()
             .add(getOperationContextConfig())
-            .add(getAuthorizerContext())
+            .add(getAuthorizationContext())
             .add(getSessionActorContext())
             .add(getSearchContext())
             .add(
@@ -321,10 +330,6 @@ public class OperationContext {
                     ? EmptyContext.EMPTY
                     : getServicesRegistryContext())
             .add(getRequestContext() == null ? EmptyContext.EMPTY : getRequestContext())
-            .add(
-                getViewAuthorizationContext().isPresent()
-                    ? getViewAuthorizationContext().get()
-                    : EmptyContext.EMPTY)
             .add(
                 getRetrieverContext().isPresent()
                     ? getRetrieverContext().get()
@@ -411,8 +416,8 @@ public class OperationContext {
                           .getAuthentication()
                           .getActor()
                           .equals(sessionAuthentication.getActor()))
-              .policyInfoSet(this.authorizerContext.getAuthorizer().getActorPolicies(actorUrn))
-              .groupMembership(this.authorizerContext.getAuthorizer().getActorGroups(actorUrn))
+              .policyInfoSet(this.authorizationContext.getAuthorizer().getActorPolicies(actorUrn))
+              .groupMembership(this.authorizationContext.getAuthorizer().getActorGroups(actorUrn))
               .build();
       return build(sessionActor);
     }
@@ -424,11 +429,10 @@ public class OperationContext {
           sessionActor,
           this.systemActorContext,
           Objects.requireNonNull(this.searchContext),
-          Objects.requireNonNull(this.authorizerContext),
+          Objects.requireNonNull(this.authorizationContext),
           this.entityRegistryContext,
           this.servicesRegistryContext,
           this.requestContext,
-          this.viewAuthorizationContext,
           this.retrieverContext,
           this.objectMapperContext != null
               ? this.objectMapperContext
