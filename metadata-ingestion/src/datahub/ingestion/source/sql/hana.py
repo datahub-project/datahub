@@ -932,40 +932,41 @@ class HanaSource(SQLAlchemySource):
                 view_name=f"{dataset_path}/{dataset_name}",
                 view_definition=root,
         ):
-            downstream_column = column_lineage.get("downstream_column")
-            upstream_columns: List[str] = []
-            for column in column_lineage.get("upstream"):
-                upstream_columns.append(
-                    make_schema_field_urn(
-                        parent_urn=make_dataset_urn_with_platform_instance(
-                            platform=self.get_platform(),
-                            name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{column.get('upstream_table')}",
-                            platform_instance=self.config.platform_instance,
-                            env=self.config.env
-                        ),
-                        field_path=column.get("upstream_column"),
-                    )
-                )
-
-            fine_grained_lineage.append(
-                FineGrainedLineageClass(
-                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                    upstreams=upstream_columns,
-                    downstreams=[
+            if column_lineage.get("upstream"):
+                downstream_column = column_lineage.get("downstream_column")
+                upstream_columns: List[str] = []
+                for column in column_lineage.get("upstream"):
+                    upstream_columns.append(
                         make_schema_field_urn(
                             parent_urn=make_dataset_urn_with_platform_instance(
                                 platform=self.get_platform(),
-                                name=f"{(self.config.database.lower() + '.') if self.config.database else ''}_sys_bic.{dataset_path.lower()}/{dataset_name.lower()}",
+                                name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{column.get('upstream_table')}",
                                 platform_instance=self.config.platform_instance,
                                 env=self.config.env
                             ),
-                            field_path=downstream_column,
+                            field_path=column.get("upstream_column"),
                         )
-                    ],
-                    confidenceScore=1.0,
+                    )
+
+                fine_grained_lineage.append(
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        upstreams=upstream_columns,
+                        downstreams=[
+                            make_schema_field_urn(
+                                parent_urn=make_dataset_urn_with_platform_instance(
+                                    platform=self.get_platform(),
+                                    name=f"{(self.config.database.lower() + '.') if self.config.database else ''}_sys_bic.{dataset_path.lower()}/{dataset_name.lower()}",
+                                    platform_instance=self.config.platform_instance,
+                                    env=self.config.env
+                                ),
+                                field_path=downstream_column,
+                            )
+                        ],
+                        confidenceScore=1.0,
+                    )
                 )
-            )
 
         return UpstreamLineageClass(
             upstreams=upstream,
