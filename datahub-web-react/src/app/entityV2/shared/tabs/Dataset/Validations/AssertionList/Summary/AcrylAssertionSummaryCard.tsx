@@ -109,7 +109,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
 
     const visibleStatuses: string[] = ['passing', 'failing', 'erroring'].filter((status) => group.summary?.[status]);
     // add No running state if there is no running state assertions
-    if (visibleStatuses.length == 0) {
+    if (visibleStatuses.length === 0) {
         visibleStatuses.push(NO_RUNNING_STATE);
     }
 

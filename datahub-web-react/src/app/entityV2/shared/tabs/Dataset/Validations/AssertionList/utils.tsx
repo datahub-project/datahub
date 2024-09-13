@@ -539,6 +539,17 @@ const buildFilterOptions = (key: string, value: Record<string, number>, filterOp
     });
 };
 
+// get columnId from Column/Field Assertion
+const getColumnIdFromAssertion = (assertion: Assertion): string | null => {
+    const info = assertion?.info;
+    const fieldAssertion = info?.fieldAssertion;
+    if (info?.type === AssertionType.Field) {
+        const field = (fieldAssertion?.fieldMetricAssertion || fieldAssertion?.fieldValuesAssertion)?.field;
+        return field?.path || null;
+    }
+    return null;
+};
+
 /** Create filter option list as per the assertion data present 
  * for example
  * status :[
@@ -572,8 +583,6 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
         tags: {} as Record<string, number>,
         source: {} as Record<string, number>,
     };
-
-    const source: Record<string, number> = {};
 
     // maintain array to show all the Assertion Type count even if it is not present
     const remainingAssertionTypes = ASSERTION_INFO.map((item) => item.type);
@@ -636,8 +645,8 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
     });
 
     // Add remaining Assertion status with count 0
-    remainingAssertionSources.forEach((source: AssertionSourceType) => {
-        filterGroupCounts.source[source] = 0;
+    remainingAssertionSources.forEach((sourceType: AssertionSourceType) => {
+        filterGroupCounts.source[sourceType] = 0;
     });
 
     buildFilterOptions('status', filterGroupCounts.status, filterOptions);
@@ -645,17 +654,6 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
     buildFilterOptions('column', filterGroupCounts.column, filterOptions);
     buildFilterOptions('source', filterGroupCounts.source, filterOptions);
     return filterOptions;
-};
-
-// get columnId from Column/Field Assertion
-const getColumnIdFromAssertion = (assertion: Assertion): string | null => {
-    const info = assertion?.info;
-    const fieldAssertion = info?.fieldAssertion;
-    if (info?.type === AssertionType.Field) {
-        const field = (fieldAssertion?.fieldMetricAssertion || fieldAssertion?.fieldValuesAssertion)?.field;
-        return field?.path || null;
-    }
-    return null;
 };
 
 // create column id group from column assertions
@@ -670,11 +668,10 @@ const getColumnIdGroupFromColumnAssertions = (assertions: Assertion[]): Assertio
             columnIdToAssertionMap.set(columnId, columnAssertions);
         }
     });
-    columnIdToAssertionMap.forEach((assertions: Assertion[], columnId: string) => {
+    columnIdToAssertionMap.forEach((columnAssertions: Assertion[], columnId: string) => {
         const assertionColumnGroup: AssertionColumnGroup = {
             name: columnId,
-            assertions: mapAssertionData(assertions),
-            // summary: { [key: string]: number },
+            assertions: mapAssertionData(columnAssertions),
         };
         columnIdGroups.push(assertionColumnGroup);
     });

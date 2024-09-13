@@ -97,6 +97,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
         );
         setAppliedFilters(appliedRecommendedFilters);
         setSelectedGroupBy(filter.groupBy);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filter, filterOptions]);
 
     return (
