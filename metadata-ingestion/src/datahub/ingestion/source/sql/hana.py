@@ -315,6 +315,8 @@ class SAPCalculationViewParser:
                             "upstream_table":
                                 f"{src_col.get('sourcePath')}.{src_col.get('source')}".lower()
                                 if src_col.get('sourceType') == "DATA_BASE_TABLE" else
+                                f"_sys_bic.{src_col.get('source').replace('::', '/').lower()}"
+                                if src_col.get('sourceType') == "TABLE_FUNCTION" else
                                 f"_sys_bic.{src_col.get('source')[1:].replace('/calculationviews/', '/')}".lower(),
                             "upstream_column": src_col.get('column')
                         }
