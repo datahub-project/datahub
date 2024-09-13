@@ -116,11 +116,21 @@ public class SearchDocumentTransformerTest {
         parsedJson.get("esObjectFieldInteger").get("key1").getNodeType(),
         JsonNodeFactory.instance.numberNode(123).getNodeType());
     assertEquals(parsedJson.get("esObjectField").get("key3").asText(), "");
-    assertEquals(parsedJson.get("esObjectFieldBoolean").get("key2").getNodeType(), JsonNodeFactory.instance.booleanNode(false).getNodeType());
-    assertEquals(parsedJson.get("esObjectFieldLong").get("key2").getNodeType(), JsonNodeFactory.instance.numberNode(2L).getNodeType());
-    assertEquals(parsedJson.get("esObjectFieldFloat").get("key1").getNodeType(), JsonNodeFactory.instance.numberNode(1.0f).getNodeType());
-    assertEquals(parsedJson.get("esObjectFieldDouble").get("key2").getNodeType(), JsonNodeFactory.instance.numberNode(2.4).getNodeType());
-    assertEquals(parsedJson.get("esObjectFieldInteger").get("key1").getNodeType(), JsonNodeFactory.instance.numberNode(123).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldBoolean").get("key2").getNodeType(),
+        JsonNodeFactory.instance.booleanNode(false).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldLong").get("key2").getNodeType(),
+        JsonNodeFactory.instance.numberNode(2L).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldFloat").get("key1").getNodeType(),
+        JsonNodeFactory.instance.numberNode(1.0f).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldDouble").get("key2").getNodeType(),
+        JsonNodeFactory.instance.numberNode(2.4).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldInteger").get("key1").getNodeType(),
+        JsonNodeFactory.instance.numberNode(123).getNodeType());
   }
 
   @Test
