@@ -221,6 +221,14 @@ class SAPCalculationViewParser:
         node_info = calc_view['nodes'].get(node)
 
         if not node_info:
+            source = calc_view['sources'].get(node)
+            if source:
+                return [{
+                    'column': column,
+                    'source': source['name'],
+                    'sourceType': source['type'],
+                    'sourcePath': source.get('path', '')
+                }]
             return []
 
         if node_info['type'] == 'Calculation:UnionView':
