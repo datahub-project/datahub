@@ -15,6 +15,7 @@ describe("run managed ingestion", () => {
     cy.contains("Loading ingestion sources...").should("not.exist");
     //cy.clickOptionWithText("Create new source");
     cy.clickOptionWithTestId("create-ingestion-source-button");
+    cy.get('[placeholder="Search data sources..."]').type("other");
     cy.clickOptionWithTextToScrollintoView("Other");
 
     cy.waitTextVisible("source-type");
