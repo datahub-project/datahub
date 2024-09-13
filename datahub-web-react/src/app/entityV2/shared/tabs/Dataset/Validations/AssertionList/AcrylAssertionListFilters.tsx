@@ -16,6 +16,7 @@ interface FilterItem {
 
 interface AcrylAssertionListFiltersProps {
     filterOptions: any;
+    originalFilterOptions: any;
     setFilters: React.Dispatch<React.SetStateAction<AssertionListFilter>>;
     filter: AssertionListFilter;
     filteredAssertions: AssertionTable;
@@ -41,6 +42,7 @@ const StyledFilterContainer = styled.div`
 
 export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps> = ({
     filterOptions,
+    originalFilterOptions,
     setFilters,
     filter,
     filteredAssertions,
@@ -84,7 +86,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
      */
     useEffect(() => {
         const { status, type, source, column } = filter.filterCriteria || ASSERTION_DEFAULT_FILTERS.filterCriteria;
-        const recommendedFilters = filterOptions?.recommendedFilters || [];
+        const recommendedFilters = originalFilterOptions?.recommendedFilters || [];
         // just set recommended filters for status, type & Others as of right now
         const appliedRecommendedFilters = recommendedFilters.filter(
             (item) =>
@@ -111,7 +113,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                 {/* ************Render Filter Component ************************* */}
                 <StyledFilterContainer>
                     <AcrylAssertionFilters
-                        filterOptions={filterOptions?.filterGroupOptions || []}
+                        filterOptions={originalFilterOptions?.filterGroupOptions || []}
                         selectedFilters={appliedFilters}
                         onFilterChange={handleFilterChange}
                     />

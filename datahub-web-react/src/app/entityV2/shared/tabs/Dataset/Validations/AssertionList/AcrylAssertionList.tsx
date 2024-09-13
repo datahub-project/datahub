@@ -106,6 +106,7 @@ export const AcrylAssertionList = () => {
             {assertionMonitorData?.length > 0 && (
                 <AcrylAssertionListFilters
                     filterOptions={visibleAssertions?.filterOptions}
+                    originalFilterOptions={visibleAssertions?.originalFilterOptions}
                     setFilters={setFilters}
                     filter={filter}
                     filteredAssertions={visibleAssertions}

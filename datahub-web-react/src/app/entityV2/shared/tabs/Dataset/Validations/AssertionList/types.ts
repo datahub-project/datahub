@@ -72,6 +72,7 @@ export type AssertionTable = {
     assertions: AssertionListTableRow[];
     groupBy: AssertionGroupBy;
     filterOptions?: any;
+    originalFilterOptions?: any;
     filteredCount?: number;
     searchCount?: number;
     totalCount?: number;

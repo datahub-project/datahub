@@ -772,6 +772,7 @@ export const getFilteredTransformedAssertionData = (
     assertionRawData.totalCount = assertions.length;
     assertionRawData.searchCount = searchCount;
     assertionRawData.filteredCount = getFilteredAssertions(assertionsWithDescription, filter).length;
+    assertionRawData.originalFilterOptions = extractFilterOptionListFromAssertions(assertions);
     return assertionRawData;
 };
 
