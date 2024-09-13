@@ -1041,6 +1041,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             inputBatch,
             DEFAULT_MAX_TRANSACTION_RETRY)
         .stream()
+        .filter(Objects::nonNull)
         .flatMap(List::stream)
         .collect(Collectors.toList());
   }
