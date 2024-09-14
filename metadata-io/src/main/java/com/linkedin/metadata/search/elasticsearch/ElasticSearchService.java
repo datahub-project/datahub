@@ -281,7 +281,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
             entityName, path, filters, from, size));
     return esBrowseDAO.browse(
         opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            flags ->
+                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
         entityName,
         path,
         filters,
@@ -302,7 +304,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     return esBrowseDAO.browseV2(
         opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            flags ->
+                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
         entityName,
         path,
         filter,
@@ -324,7 +328,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     return esBrowseDAO.browseV2(
         opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            flags ->
+                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
         entityNames,
         path,
         filter,
@@ -439,6 +445,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         facets);
   }
 
+  @Override
+  public IndexConvention getIndexConvention() {
+    return indexBuilders.getIndexConvention();
+  }
+
   // SAAS ONLY - Support predicate based filtering
   @Nonnull
   public SearchResult predicateSearch(
@@ -465,10 +476,5 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         from,
         size,
         facets);
-  }
-
-  @Override
-  public IndexConvention getIndexConvention() {
-    return indexBuilders.getIndexConvention();
   }
 }

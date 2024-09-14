@@ -129,7 +129,8 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
 
       try {
         do {
-          log.info("Upgrading batch of policies {}-{}", migratedCount, migratedCount + batchSize);
+          log.info(
+              "Upgrading batch of schemaFields {}-{}", migratedCount, migratedCount + batchSize);
           scrollId = updateDocId(searchRequest, scrollId);
           migratedCount += batchSize;
 

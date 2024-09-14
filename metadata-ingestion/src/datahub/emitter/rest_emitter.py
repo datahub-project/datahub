@@ -307,12 +307,21 @@ class DataHubRestEmitter(Closeable, Emitter):
         except HTTPError as e:
             try:
                 info: Dict = response.json()
-                logger.debug(
-                    "Full stack trace from DataHub:\n%s", info.get("stackTrace")
-                )
-                info.pop("stackTrace", None)
+
+                if info.get("stackTrace"):
+                    logger.debug(
+                        "Full stack trace from DataHub:\n%s", info.get("stackTrace")
+                    )
+                    info.pop("stackTrace", None)
+
+                hint = ""
+                if "unrecognized field found but not allowed" in (
+                    info.get("message") or ""
+                ):
+                    hint = ", likely because the server version is too old relative to the client"
+
                 raise OperationalError(
-                    f"Unable to emit metadata to DataHub GMS: {info.get('message')}",
+                    f"Unable to emit metadata to DataHub GMS{hint}: {info.get('message')}",
                     info,
                 ) from e
             except JSONDecodeError:

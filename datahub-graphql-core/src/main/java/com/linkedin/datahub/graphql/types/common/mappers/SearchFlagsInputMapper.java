@@ -65,6 +65,10 @@ public class SearchFlagsInputMapper
                           .map(c -> GroupingCriterionInputMapper.map(context, c))
                           .collect(Collectors.toList()))));
     }
+    if (searchFlags.getCustomHighlightingFields() != null) {
+      result.setCustomHighlightingFields(
+          new StringArray(searchFlags.getCustomHighlightingFields()));
+    }
     if (searchFlags.getFetchExtraFields() != null) {
       result.setFetchExtraFields(new StringArray(searchFlags.getFetchExtraFields()));
     }

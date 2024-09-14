@@ -1,0 +1,23 @@
+{
+  "type": "s3",
+  "config": {
+    "env": "UAT",
+    "path_specs": [{
+      "include": "s3://my-test-bucket/folder_a/folder_aa/{dept}/{table}/",
+      "sample_files": true,
+      "autodetect_partitions": true,
+      "table_name": "{dept}.{table}",
+      "exclude":[
+        "**/folder_aaaa/**"
+      ]
+    }],
+    "aws_config": {
+      "aws_region": "us-east-1",
+      "aws_access_key_id": "testing",
+      "aws_secret_access_key": "testing"
+    },
+    "profiling": {
+      "enabled": false
+    }
+  }
+}

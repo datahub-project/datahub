@@ -1,0 +1,39 @@
+{
+    "data": {
+        "fieldsConnection": {
+            "nodes": [
+                {
+                    "id": "55a70afe-3e54-492d-80c8-744601ae78cc",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "id",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "c7dd65fb-6e7e-4091-bbde-8c78b34a40f8"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "636b9454-8786-4773-b94b-8e8f2db7e1a3",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "name",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "c7dd65fb-6e7e-4091-bbde-8c78b34a40f8"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 8
+        }
+    }
+}

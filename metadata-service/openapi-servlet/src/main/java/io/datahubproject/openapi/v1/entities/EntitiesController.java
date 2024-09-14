@@ -115,10 +115,6 @@ public class EntitiesController {
     log.debug("GET ENTITIES {}", entityUrns);
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(authentication, _authorizerChain, READ, entityUrns)) {
-      throw new UnauthorizedException(actorUrnStr + " is unauthorized to get entities.");
-    }
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -134,6 +130,10 @@ public class EntitiesController {
             _authorizerChain,
             authentication,
             true);
+
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, entityUrns)) {
+      throw new UnauthorizedException(actorUrnStr + " is unauthorized to get entities.");
+    }
 
     if (entityUrns.size() <= 0) {
       return ResponseEntity.ok(UrnResponseMap.builder().responses(Collections.emptyMap()).build());
@@ -209,9 +209,7 @@ public class EntitiesController {
      Ingest Authorization Checks
     */
     List<Pair<MetadataChangeProposal, Integer>> exceptions =
-        isAPIAuthorized(
-                authentication, _authorizerChain, ENTITY, opContext.getEntityRegistry(), proposals)
-            .stream()
+        isAPIAuthorized(opContext, ENTITY, opContext.getEntityRegistry(), proposals).stream()
             .filter(p -> p.getSecond() != com.linkedin.restli.common.HttpStatus.S_200_OK.getCode())
             .collect(Collectors.toList());
     if (!exceptions.isEmpty()) {
@@ -277,10 +275,6 @@ public class EntitiesController {
               .map(UrnUtils::getUrn)
               .collect(Collectors.toSet());
 
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(
-          authentication, _authorizerChain, DELETE, entityUrns)) {
-        throw new UnauthorizedException(actorUrnStr + " is unauthorized to delete entities.");
-      }
       OperationContext opContext =
           OperationContext.asSession(
               systemOperationContext,
@@ -293,6 +287,10 @@ public class EntitiesController {
               _authorizerChain,
               authentication,
               true);
+
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, entityUrns)) {
+        throw new UnauthorizedException(actorUrnStr + " is unauthorized to delete entities.");
+      }
 
       if (!soft) {
         return ResponseEntity.ok(

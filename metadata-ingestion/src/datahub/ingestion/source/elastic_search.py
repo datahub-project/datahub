@@ -333,7 +333,6 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class ElasticsearchSource(Source):
-
     """
     This plugin extracts the following:
 
@@ -479,11 +478,15 @@ class ElasticsearchSource(Source):
             entityUrn=dataset_urn,
             aspect=SubTypesClass(
                 typeNames=[
-                    DatasetSubTypes.ELASTIC_INDEX_TEMPLATE
-                    if not is_index
-                    else DatasetSubTypes.ELASTIC_INDEX
-                    if not data_stream
-                    else DatasetSubTypes.ELASTIC_DATASTREAM
+                    (
+                        DatasetSubTypes.ELASTIC_INDEX_TEMPLATE
+                        if not is_index
+                        else (
+                            DatasetSubTypes.ELASTIC_INDEX
+                            if not data_stream
+                            else DatasetSubTypes.ELASTIC_DATASTREAM
+                        )
+                    )
                 ]
             ),
         )

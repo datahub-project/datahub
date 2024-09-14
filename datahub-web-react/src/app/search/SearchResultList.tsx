@@ -71,6 +71,7 @@ type Props = {
     selectedEntities: EntityAndType[];
     setSelectedEntities: (entities: EntityAndType[]) => any;
     suggestions: SearchSuggestion[];
+    pageNumber: number;
     previewType?: PreviewType;
     onCardClick?: (any: any) => any;
     onClickExploreAll?: () => any;
@@ -87,6 +88,7 @@ export const SearchResultList = ({
     selectedEntities,
     setSelectedEntities,
     suggestions,
+    pageNumber,
     previewType,
     onCardClick,
     onClickExploreAll,
@@ -105,6 +107,7 @@ export const SearchResultList = ({
             entityType: result.entity.type,
             index,
             total: totalResultCount,
+            pageNumber,
         });
     };
 

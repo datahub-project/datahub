@@ -328,9 +328,11 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
                 ViewField(
                     name=cll.downstream.column,
                     label="",
-                    type=cll.downstream.native_column_type
-                    if cll.downstream.native_column_type is not None
-                    else "unknown",
+                    type=(
+                        cll.downstream.native_column_type
+                        if cll.downstream.native_column_type is not None
+                        else "unknown"
+                    ),
                     description="",
                     field_type=ViewFieldType.UNKNOWN,
                     upstream_fields=_drop_hive_dot_from_upstream(cll.upstreams),
@@ -385,7 +387,7 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
             config=self.config,
         )
 
-        return upstreams_column_refs
+        return _drop_hive_dot_from_upstream(upstreams_column_refs)
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
         return self._get_upstream_dataset_urn()

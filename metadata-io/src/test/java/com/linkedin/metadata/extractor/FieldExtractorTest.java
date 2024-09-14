@@ -57,7 +57,8 @@ public class FieldExtractorTest {
         ImmutableList.of("key1=value1", "key2=value2", "shortValue=123", "longValue=0123456789"));
     assertEquals(
         result.get(nameToSpec.get("esObjectField")),
-        ImmutableList.of("key1=value1", "key2=value2", "shortValue=123", "longValue=0123456789"));
+        ImmutableList.of(
+            "key1=value1", "key2=value2", "shortValue=123", "key3=", "longValue=0123456789"));
   }
 
   @Test
@@ -99,9 +100,6 @@ public class FieldExtractorTest {
         result.get(nameToSpec.get("customProperties")),
         ImmutableList.of(),
         "Expected no matching values because of value limit of 1");
-    assertEquals(
-        result.get(nameToSpec.get("esObjectField")),
-        ImmutableList.of(),
-        "Expected no matching values because of value limit of 1");
+    assertEquals(result.get(nameToSpec.get("esObjectField")), ImmutableList.of("key3="));
   }
 }

@@ -169,5 +169,6 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             self.report.report_entity_scanned(tag_identifier, "tag")
             if not self.config.tag_pattern.allowed(tag_identifier):
                 self.report.report_dropped(tag_identifier)
-            allowed_tags.append(tag)
+            else:
+                allowed_tags.append(tag)
         return allowed_tags

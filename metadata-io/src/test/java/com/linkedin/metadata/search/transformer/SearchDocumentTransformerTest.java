@@ -85,6 +85,7 @@ public class SearchDocumentTransformerTest {
     assertEquals(parsedJson.get("feature2").asInt(), 1);
     JsonNode browsePathV2 = (JsonNode) parsedJson.get("browsePathV2");
     assertEquals(browsePathV2.asText(), "␟levelOne␟levelTwo");
+    assertEquals(parsedJson.get("esObjectField").get("key3").asText(), "");
   }
 
   @Test
@@ -125,7 +126,8 @@ public class SearchDocumentTransformerTest {
     assertEquals(
         parsedJson.get("customProperties"),
         JsonNodeFactory.instance.arrayNode().add("shortValue=123"));
-    assertEquals(parsedJson.get("esObjectField"), JsonNodeFactory.instance.arrayNode().add("123"));
+    assertEquals(
+        parsedJson.get("esObjectField"), JsonNodeFactory.instance.arrayNode().add("123").add(""));
 
     searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 20);
     snapshot = TestEntityUtil.getSnapshot();
@@ -149,6 +151,7 @@ public class SearchDocumentTransformerTest {
             .add("value1")
             .add("value2")
             .add("123")
+            .add("")
             .add("0123456789"));
   }
 

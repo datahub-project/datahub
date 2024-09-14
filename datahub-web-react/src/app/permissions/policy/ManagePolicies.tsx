@@ -426,7 +426,7 @@ export const ManagePolicies = () => {
                     focusPolicyUrn={focusPolicyUrn}
                     policy={focusPolicy || EMPTY_POLICY}
                     setPolicy={setFocusPolicy}
-                    visible={showPolicyBuilderModal}
+                    open={showPolicyBuilderModal}
                     onClose={onClosePolicyBuilder}
                     onSave={onSavePolicy}
                 />
@@ -434,7 +434,7 @@ export const ManagePolicies = () => {
             {showViewPolicyModal && (
                 <PolicyDetailsModal
                     policy={focusPolicy}
-                    visible={showViewPolicyModal}
+                    open={showViewPolicyModal}
                     onClose={onCancelViewPolicy}
                     privileges={getPrivilegeNames(focusPolicy)}
                 />

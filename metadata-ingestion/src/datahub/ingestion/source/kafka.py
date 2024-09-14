@@ -2,7 +2,6 @@ import concurrent.futures
 import json
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Type, cast
 
 import avro.schema
@@ -73,11 +72,12 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
 
-class KafkaTopicConfigKeys(str, Enum):
+class KafkaTopicConfigKeys(StrEnum):
     MIN_INSYNC_REPLICAS_CONFIG = "min.insync.replicas"
     RETENTION_SIZE_CONFIG = "retention.bytes"
     RETENTION_TIME_CONFIG = "retention.ms"

@@ -11,6 +11,7 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.linkedin.gms.factory.entity.throttle.ManualThrottleSensor;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -122,4 +123,5 @@ public class MetadataTestsTestConfiguration {
   @MockBean public HealthCheckController healthCheckController;
   @MockBean public OperationsController operationsController;
   @MockBean public TestEngine testEngine;
+  @MockBean public ManualThrottleSensor manualThrottleSensor;
 }

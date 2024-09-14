@@ -35,6 +35,7 @@ describe("managing secrets for ingestion creation", () => {
     cy.goToIngestionPage();
     cy.get('[data-node-key="Sources"]').click();
     cy.get("#ingestion-create-source").click();
+    cy.get('[placeholder="Search data sources..."]').type("snowflake");
     cy.clickOptionWithText("Snowflake");
     cy.waitTextVisible("Account");
     cy.get("#account_id").type(accound_id);
@@ -75,6 +76,7 @@ describe("managing secrets for ingestion creation", () => {
 
     // Verify secret is not present during ingestion source creation for password dropdown
     cy.clickOptionWithText("Create new source");
+    cy.get('[placeholder="Search data sources..."]').type("snowflake");
     cy.clickOptionWithText("Snowflake");
     cy.waitTextVisible("Account");
     cy.get("#account_id").type(accound_id);

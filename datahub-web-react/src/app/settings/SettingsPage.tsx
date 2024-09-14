@@ -155,7 +155,7 @@ export const SettingsPage = () => {
     const showViews = isViewsEnabled || false;
     const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
-    const showFeatures = true; // TODO: Add feature flag for this
+    const showFeatures = me?.platformPrivileges?.manageIngestion; // TODO: Add feature flag for this
     const showCustomHelpLink = me?.platformPrivileges?.manageGlobalSettings;
     const isThemeV2 = useIsThemeV2();
 

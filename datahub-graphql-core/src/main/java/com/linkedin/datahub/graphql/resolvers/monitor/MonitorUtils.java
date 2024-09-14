@@ -107,16 +107,11 @@ public class MonitorUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_MONITORS.getType()))));
     return AuthUtil.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
+            context.getOperationContext(),
             PoliciesConfig.MANAGE_MONITORS,
             new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()))
         || AuthorizationUtils.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
-            entityUrn.getEntityType(),
-            entityUrn.toString(),
-            orPrivilegeGroups);
+            context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
   }
 
   /**
@@ -137,14 +132,9 @@ public class MonitorUtils {
                     ImmutableList.of(
                         PoliciesConfig.EDIT_ENTITY_SQL_ASSERTION_MONITORS.getType()))));
     return AuthorizationUtils.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
-            entityUrn.getEntityType(),
-            entityUrn.toString(),
-            orPrivilegeGroups)
+            context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups)
         || AuthUtil.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
+            context.getOperationContext(),
             PoliciesConfig.MANAGE_MONITORS,
             new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()));
   }

@@ -10,7 +10,7 @@ import { OwnerLabel } from '../../shared/OwnerLabel';
 
 type Props = {
     urn: string;
-    visible: boolean;
+    open: boolean;
     onCloseModal: () => void;
     onSubmit: () => void;
 };
@@ -29,7 +29,7 @@ const StyleTag = styled(Tag)`
     align-items: center;
 `;
 
-export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: Props) => {
+export const AddGroupMembersModal = ({ urn, open, onCloseModal, onSubmit }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [selectedMembers, setSelectedMembers] = useState<any[]>([]);
     const [inputValue, setInputValue] = useState('');
@@ -134,7 +134,7 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
     return (
         <Modal
             title="Add group members"
-            visible={visible}
+            open={open}
             onCancel={onModalClose}
             footer={
                 <>

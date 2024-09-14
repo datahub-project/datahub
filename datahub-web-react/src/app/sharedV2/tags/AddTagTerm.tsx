@@ -31,7 +31,7 @@ export default function AddTagTerm({
             {showAddModal && !!entityUrn && !!entityType && (
                 <EditTagTermsModal
                     type={addModalType}
-                    visible
+                    open
                     onCloseModal={() => {
                         onOpenModal?.();
                         setShowAddModal(false);

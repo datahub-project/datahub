@@ -90,7 +90,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
         <Modal
             width={700}
             title="Create new group"
-            visible
+            open
             onCancel={onClose}
             footer={
                 <>

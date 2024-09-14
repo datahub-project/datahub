@@ -184,7 +184,7 @@ public class ProposalService {
     } else {
       AuthorizedActors actors =
           opContext
-              .getAuthorizerContext()
+              .getAuthorizationContext()
               .getAuthorizer()
               .authorizedActors(
                   PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType(),
@@ -256,7 +256,7 @@ public class ProposalService {
 
     AuthorizedActors actors =
         opContext
-            .getAuthorizerContext()
+            .getAuthorizationContext()
             .getAuthorizer()
             .authorizedActors(
                 PoliciesConfig.MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE.getType(),
@@ -638,7 +638,7 @@ public class ProposalService {
       @Nonnull final Optional<Urn> urnOptional) {
     AuthorizedActors authorizedActors =
         opContext
-            .getAuthorizerContext()
+            .getAuthorizationContext()
             .getAuthorizer()
             .authorizedActors(privilegeType, Optional.empty());
 

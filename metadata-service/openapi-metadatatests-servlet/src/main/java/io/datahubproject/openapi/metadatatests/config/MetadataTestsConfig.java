@@ -42,13 +42,13 @@ public class MetadataTestsConfig {
                 entityService,
                 searchService,
                 entitiesController,
-                systemOpContext.getAuthorizerContext().getAuthorizer(),
+                systemOpContext.getAuthorizationContext().getAuthorizer(),
                 TestEntityRequestV2.class,
                 TestEntityResponseV2.class,
                 ScrollTestEntityResponseV2.class);
     return new MetadataTestsDelegateImpl(
         systemOpContext,
-        systemOpContext.getAuthorizerContext().getAuthorizer(),
+        systemOpContext.getAuthorizationContext().getAuthorizer(),
         entityService,
         entitySearchService,
         timeseriesAspectService,

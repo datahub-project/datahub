@@ -9,12 +9,15 @@ import akka.stream.Materializer;
 import akka.util.ByteString;
 import auth.Authenticator;
 import com.datahub.authentication.AuthenticationConstants;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -33,6 +36,7 @@ import play.libs.ws.InMemoryBodyWritable;
 import play.libs.ws.StandaloneWSClient;
 import play.libs.ws.ahc.StandaloneAhcWSClient;
 import play.mvc.Controller;
+import play.mvc.Http.Cookie;
 import play.mvc.Http;
 import play.mvc.ResponseHeader;
 import play.mvc.Result;
@@ -132,6 +136,9 @@ public class Application extends Controller {
       headers.put(Http.HeaderNames.X_FORWARDED_PROTO, List.of(schema));
     }
 
+    // Get the current time to measure the duration of the request
+    Instant start = Instant.now();
+
     return _ws.url(
             String.format(
                 "%s://%s:%s%s", protocol, metadataServiceHost, metadataServicePort, resolvedUri))
@@ -160,6 +167,15 @@ public class Application extends Controller {
         .execute()
         .thenApply(
             apiResponse -> {
+              // Log the query if it takes longer than the configured threshold and verbose logging is enabled
+              boolean verboseGraphQLLogging = _config.getBoolean("graphql.verbose.logging");
+              int verboseGraphQLLongQueryMillis = _config.getInt("graphql.verbose.slowQueryMillis");
+              Instant finish = Instant.now();
+              long timeElapsed = Duration.between(start, finish).toMillis();
+              if (verboseGraphQLLogging && timeElapsed >= verboseGraphQLLongQueryMillis) {
+                logSlowQuery(request, resolvedUri, timeElapsed);
+              }
+
               final ResponseHeader header =
                   new ResponseHeader(
                       apiResponse.getStatus(),
@@ -358,5 +374,35 @@ public class Application extends Controller {
 
     // Otherwise, return original path
     return path;
+  }
+
+
+  /**
+   * Called if verbose logging is enabled and request takes longer that the slow query milliseconds defined in the config
+   * @param request GraphQL request that was made
+   * @param resolvedUri URI that was requested
+   * @param duration How long the query took to complete
+   */
+  private void logSlowQuery(Http.Request request, String resolvedUri, float duration) {
+    StringBuilder jsonBody = new StringBuilder();
+    Optional<Cookie> actorCookie = request.getCookie("actor");
+    String actorValue = actorCookie.isPresent() ? actorCookie.get().value() : "N/A";
+
+    try {
+      ObjectMapper mapper = new ObjectMapper();
+      JsonNode jsonNode = request.body().asJson();
+      ((ObjectNode) jsonNode).remove("query");
+      jsonBody.append(mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode));
+    }
+    catch (Exception e) {
+      _logger.info("GraphQL Request Received: {}, Unable to parse JSON body", resolvedUri);
+    }
+    String jsonBodyStr = jsonBody.toString();
+    _logger.info("Slow GraphQL Request Received: {}, Request query string: {}, Request actor: {}, Request JSON: {}, Request completed in {} ms",
+            resolvedUri,
+            request.queryString(),
+            actorValue,
+            jsonBodyStr,
+            duration);
   }
 }

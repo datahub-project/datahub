@@ -61,7 +61,7 @@ export const DataContractBuilderModal = ({
                 title={<Typography.Text>{titleText}</Typography.Text>}
                 style={modalStyle}
                 bodyStyle={modalBodyStyle}
-                visible
+                open
                 onCancel={onCancel}
             >
                 <DataContractBuilder

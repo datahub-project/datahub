@@ -6430,6 +6430,20 @@
       "default" : false,
       "optional" : true
     }, {
+      "name" : "customHighlightingFields",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "Include mentioned fields inside elastic highlighting query",
+      "optional" : true
+    }, {
+      "name" : "rewriteQuery",
+      "type" : "boolean",
+      "doc" : "invoke query rewrite chain for filters based on configured rewriters",
+      "default" : true,
+      "optional" : true
+    }, {
       "name" : "fetchExtraFields",
       "type" : {
         "type" : "array",
@@ -6437,12 +6451,6 @@
       },
       "doc" : "Extra fields to fetch from the search documents\nNote: This will be added on top of the default fields that is controlled\n      by the server",
       "default" : [ ],
-      "optional" : true
-    }, {
-      "name" : "rewriteQuery",
-      "type" : "boolean",
-      "doc" : "invoke query rewrite chain for filters based on configured rewriters",
-      "default" : true,
       "optional" : true
     } ]
   }, {

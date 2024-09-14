@@ -82,10 +82,12 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
 
         new_glossary_term = GlossaryTermsClass(
             terms=[],
-            auditStamp=schema_field.glossaryTerms.auditStamp
-            if schema_field.glossaryTerms is not None
-            else AuditStampClass(
-                time=builder.get_sys_time(), actor="urn:li:corpUser:restEmitter"
+            auditStamp=(
+                schema_field.glossaryTerms.auditStamp
+                if schema_field.glossaryTerms is not None
+                else AuditStampClass(
+                    time=builder.get_sys_time(), actor="urn:li:corpUser:restEmitter"
+                )
             ),
         )
         new_glossary_term.terms.extend(unique_gloseary_terms)

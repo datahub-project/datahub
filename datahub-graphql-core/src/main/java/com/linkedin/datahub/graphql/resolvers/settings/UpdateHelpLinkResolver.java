@@ -37,8 +37,7 @@ public class UpdateHelpLinkResolver implements DataFetcher<CompletableFuture<Boo
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (!AuthUtil.isAuthorized(
-              context.getAuthorizer(), context.getActorUrn(), MANAGE_GLOBAL_SETTINGS)) {
+          if (!AuthUtil.isAuthorized(context.getOperationContext(), MANAGE_GLOBAL_SETTINGS)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }

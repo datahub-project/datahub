@@ -564,12 +564,12 @@ entities:
       - structuredProperties
       - forms
       - businessAttributes
+      - status
+      - schemaFieldAliases
       - documentation
       - testResults
       - schemaFieldProfile
       - lineageFeatures
-      - status
-      - schemaFieldAliases
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal

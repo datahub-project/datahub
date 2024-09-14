@@ -200,7 +200,16 @@ public class OwnerUtils {
 
   public static void validateAuthorizedToUpdateOwners(
       @Nonnull QueryContext context, Urn resourceUrn) {
-    boolean authorized = isAuthorizedToUpdateOwners(context, resourceUrn);
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType()))));
+
+    boolean authorized =
+        AuthorizationUtils.isAuthorized(
+            context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
     if (!authorized) {
       throw new AuthorizationException(
           "Unauthorized to update owners. Please contact your DataHub administrator.");
@@ -335,10 +344,6 @@ public class OwnerUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType()))));
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        resourceUrn.getEntityType(),
-        resourceUrn.toString(),
-        orPrivilegeGroups);
+        context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
   }
 }

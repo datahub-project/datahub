@@ -17,15 +17,19 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericScrollResult;
 import io.datahubproject.openapi.v2.models.GenericRelationship;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -35,6 +39,10 @@ public abstract class GenericRelationshipController {
   @Autowired private EntityRegistry entityRegistry;
   @Autowired private ElasticSearchGraphService graphService;
   @Autowired private AuthorizerChain authorizationChain;
+
+  @Qualifier("systemOperationContext")
+  @Autowired
+  protected OperationContext systemOperationContext;
 
   /**
    * Returns relationship edges by type
@@ -47,12 +55,26 @@ public abstract class GenericRelationshipController {
   @GetMapping(value = "/{relationshipType}", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Scroll relationships of the given type.")
   public ResponseEntity<GenericScrollResult<GenericRelationship>> getRelationshipsByType(
+      HttpServletRequest request,
       @PathVariable("relationshipType") String relationshipType,
       @RequestParam(value = "count", defaultValue = "10") Integer count,
       @RequestParam(value = "scrollId", required = false) String scrollId) {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    if (!AuthUtil.isAPIAuthorized(authentication, authorizationChain, RELATIONSHIP, READ)) {
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(),
+                    request,
+                    "getRelationshipsByType",
+                    List.of()),
+            authorizationChain,
+            authentication,
+            true);
+
+    if (!AuthUtil.isAPIAuthorized(opContext, RELATIONSHIP, READ)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr()
               + " is unauthorized to "
@@ -76,8 +98,7 @@ public abstract class GenericRelationshipController {
             null);
 
     if (!AuthUtil.isAPIAuthorizedUrns(
-        authentication,
-        authorizationChain,
+        opContext,
         RELATIONSHIP,
         READ,
         result.getEntities().stream()
@@ -114,6 +135,7 @@ public abstract class GenericRelationshipController {
   @GetMapping(value = "/{entityName}/{entityUrn}", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Scroll relationships from a given entity.")
   public ResponseEntity<GenericScrollResult<GenericRelationship>> getRelationshipsByEntity(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @RequestParam(value = "relationshipType[]", required = false, defaultValue = "*")
@@ -125,12 +147,21 @@ public abstract class GenericRelationshipController {
     final RelatedEntitiesScrollResult result;
 
     Authentication authentication = AuthenticationContext.getAuthentication();
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(),
+                    request,
+                    "getRelationshipsByEntity",
+                    List.of()),
+            authorizationChain,
+            authentication,
+            true);
+
     if (!AuthUtil.isAPIAuthorizedUrns(
-        authentication,
-        authorizationChain,
-        RELATIONSHIP,
-        READ,
-        List.of(UrnUtils.getUrn(entityUrn)))) {
+        opContext, RELATIONSHIP, READ, List.of(UrnUtils.getUrn(entityUrn)))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr()
               + " is unauthorized to "
@@ -178,8 +209,7 @@ public abstract class GenericRelationshipController {
     }
 
     if (!AuthUtil.isAPIAuthorizedUrns(
-        authentication,
-        authorizationChain,
+        opContext,
         RELATIONSHIP,
         READ,
         result.getEntities().stream()

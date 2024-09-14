@@ -211,11 +211,7 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
       @Nonnull final Urn urn,
       @Nonnull final DisjunctivePrivilegeGroup orPrivilegesGroup) {
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        urn.getEntityType(),
-        urn.toString(),
-        orPrivilegesGroup);
+        context, urn.getEntityType(), urn.toString(), orPrivilegesGroup);
   }
 
   private void checkLineageEdgePrivileges(

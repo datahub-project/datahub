@@ -1,0 +1,112 @@
+.col {
+  padding: 0 2rem;
+}
+
+.hero {
+  .button {
+    margin: 0rem 1rem 2rem 1rem;
+  }
+
+  .hero__title {
+    font-size: 3rem;
+    text-align: left;
+  }
+
+  .hero__secondtitle {
+    font-size: 2rem;
+    font-weight: 300;
+    margin-bottom: 2rem;
+    text-align: left;
+  }
+
+  .hero__subtitle {
+    margin-bottom: 2rem;
+    font-size: 1.75rem;
+    line-height: 2.5rem;
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .buttonLightBlue {
+    color: #1990FF !important;
+    background: #EAF3FF;
+    border-color: #EAF3FF;
+
+    &:hover {
+      background: #D6E7FF;
+    }
+  }
+  .productTourButton {
+    background-color: transparent;
+    border: 0;
+    color: #1990FF !important;
+    text-align: left;
+  }
+
+}
+
+.hero__cta {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.formContainer {
+  padding: 2rem;
+  margin: 0 auto;
+  background-color:#F3F3F3;
+  border: 1px solid #DDD;
+  align-items: center;
+  max-width: 540px;
+  border-radius: 16px;
+
+  .formContent {
+    width: 90%;
+    margin: 0 auto;
+  }
+
+  .formHeader {
+    justify-content: space-between;
+    text-align: left;
+
+    .formTitle {
+      font-size: 24px;
+      font-weight: 600;
+      color: #000;
+      line-height: 28px;
+      margin-bottom: 12px;
+    }
+  
+    .formSubtitle {
+      font-size: 14px;
+      color: #666;
+      line-height: 14px;
+      margin-bottom: 8px;
+    }
+  }
+
+}
+
+.bookButton {
+  display: none;
+}
+
+@media screen and (max-width: 999px) {
+  .bookButton {
+    display: block;
+  }
+  .formContainer {
+    display: none;
+  }
+  .productTourButton {
+    text-align: center!important;
+  }
+}
+
+@media screen  and (min-width: 1000px){
+  .productTourButton {
+    padding-left: 0!important;
+    margin-left: 0!important;
+  }
+}

@@ -39,6 +39,13 @@ RUN apt-get update -y && \
 RUN ln -svT "/usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture)" /usr/lib/jvm/default-jvm
 ENV JAVA_HOME=/usr/lib/jvm/default-jvm
 
+# Separate curl + git installation
+RUN apt-get update \
+    && apt-get install -y curl git \
+    && apt-get clean \
+    && rm -rf /var/lib/{apt,dpkg,cache,log}/
+
+# Install Microsoft SQL Server ODBC driver
 RUN <<EOF
 set -e
 
@@ -71,6 +78,7 @@ odbcinst -q -d -n "ODBC Driver 18 for SQL Server" || { echo 'ODBC Driver 18 for 
 
 EOF
 
+# Install Oracle Instant Client based on architecture
 RUN if [ $(arch) = "x86_64" ]; then \
     mkdir -p /opt/oracle && \
     cd /opt/oracle && \
@@ -89,10 +97,8 @@ RUN if [ $(arch) = "x86_64" ]; then \
     ldconfig; \
     fi;
 
-USER datahub
-RUN uv pip install --no-cache -e .
 
-WORKDIR /datahub-ingestion
+USER datahub
 RUN uv pip install --no-cache -e .
 
 ## Production Image Built From Build Image

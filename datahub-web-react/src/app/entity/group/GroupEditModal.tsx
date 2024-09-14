@@ -11,7 +11,7 @@ type PropsData = {
 };
 
 type Props = {
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
     onSave: () => void;
     editModalData: PropsData;
@@ -19,7 +19,7 @@ type Props = {
 /** Regex Validations */
 export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
-export default function GroupEditModal({ visible, onClose, onSave, editModalData }: Props) {
+export default function GroupEditModal({ open, onClose, onSave, editModalData }: Props) {
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
     const [form] = Form.useForm();
 
@@ -76,7 +76,7 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
     return (
         <Modal
             title="Edit Profile"
-            visible={visible}
+            open={open}
             onCancel={onClose}
             footer={
                 <>

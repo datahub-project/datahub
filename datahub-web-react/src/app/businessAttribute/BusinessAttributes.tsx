@@ -246,7 +246,7 @@ export const BusinessAttributes = () => {
                 />
             </PaginationContainer>
             <CreateBusinessAttributeModal
-                visible={isCreatingBusinessAttribute}
+                open={isCreatingBusinessAttribute}
                 onClose={() => setIsCreatingBusinessAttribute(false)}
                 onCreateBusinessAttribute={() => {
                     businessAttributeRefetch?.();

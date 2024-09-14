@@ -355,4 +355,28 @@ public class ProtobufFieldTest {
 
     assertEquals("test comment 14", msg3Field14.getDescription());
   }
+
+  @Test
+  public void timestampUnitEnumDescriptionTest() throws IOException {
+    ProtobufDataset test = getTestProtobufDataset("extended_protobuf", "messageE");
+    SchemaMetadata testMetadata = test.getSchemaMetadata();
+
+    SchemaField timestampField =
+        testMetadata.getFields().stream()
+            .filter(
+                v ->
+                    v.getFieldPath()
+                        .equals(
+                            "[version=2.0].[type=extended_protobuf_TimestampUnitMessage].[type=enum].timestamp_unit_type"))
+            .findFirst()
+            .orElseThrow();
+
+    assertEquals(
+        "timestamp unit\n"
+            + "\n"
+            + "0: MILLISECOND - 10^-3 seconds\n"
+            + "1: MICROSECOND - 10^-6 seconds\n"
+            + "2: NANOSECOND - 10^-9 seconds\n",
+        timestampField.getDescription());
+  }
 }

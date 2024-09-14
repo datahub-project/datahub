@@ -191,7 +191,7 @@ export const AdvancedFilterSelectValueModal = ({
             <EditTagTermsModal
                 resources={[]}
                 type={EntityType.Tag}
-                visible
+                open
                 onCloseModal={onCloseModal}
                 onOkOverride={(urns) => {
                     onSelect(urns);
@@ -248,7 +248,7 @@ export const AdvancedFilterSelectValueModal = ({
             <EditTagTermsModal
                 resources={[]}
                 type={EntityType.GlossaryTerm}
-                visible
+                open
                 onCloseModal={onCloseModal}
                 onOkOverride={(urns) => {
                     onSelect(urns);

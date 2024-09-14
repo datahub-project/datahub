@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import boto3
@@ -73,6 +74,8 @@ class AwsConnectionConfig(ConfigModel):
         - dbt source
     """
 
+    _credentials_expiration: Optional[datetime] = None
+
     aws_access_key_id: Optional[str] = Field(
         default=None,
         description=f"AWS access key ID. {AUTODETECT_CREDENTIALS_DOC_LINK}",
@@ -88,7 +91,7 @@ class AwsConnectionConfig(ConfigModel):
     aws_role: Optional[Union[str, List[Union[str, AwsAssumeRoleConfig]]]] = Field(
         default=None,
         description="AWS roles to assume. If using the string format, the role ARN can be specified directly. "
-        "If using the object format, the role can be specified in the RoleArn field and additional available arguments are documented at https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html?highlight=assume_role#STS.Client.assume_role",
+        "If using the object format, the role can be specified in the RoleArn field and additional available arguments are the same as [boto3's STS.Client.assume_role](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html?highlight=assume_role#STS.Client.assume_role).",
     )
     aws_profile: Optional[str] = Field(
         default=None,
@@ -114,6 +117,11 @@ class AwsConnectionConfig(ConfigModel):
         default_factory=dict,
         description="Advanced AWS configuration options. These are passed directly to [botocore.config.Config](https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html).",
     )
+
+    def allowed_cred_refresh(self) -> bool:
+        if self._normalized_aws_roles():
+            return True
+        return False
 
     def _normalized_aws_roles(self) -> List[AwsAssumeRoleConfig]:
         if not self.aws_role:
@@ -153,11 +161,14 @@ class AwsConnectionConfig(ConfigModel):
             }
 
             for role in self._normalized_aws_roles():
-                credentials = assume_role(
-                    role,
-                    self.aws_region,
-                    credentials=credentials,
-                )
+                if self._should_refresh_credentials():
+                    credentials = assume_role(
+                        role,
+                        self.aws_region,
+                        credentials=credentials,
+                    )
+                    if isinstance(credentials["Expiration"], datetime):
+                        self._credentials_expiration = credentials["Expiration"]
 
             session = Session(
                 aws_access_key_id=credentials["AccessKeyId"],
@@ -167,6 +178,12 @@ class AwsConnectionConfig(ConfigModel):
             )
 
         return session
+
+    def _should_refresh_credentials(self) -> bool:
+        if self._credentials_expiration is None:
+            return True
+        remaining_time = self._credentials_expiration - datetime.now(timezone.utc)
+        return remaining_time < timedelta(minutes=5)
 
     def get_credentials(self) -> Dict[str, Optional[str]]:
         credentials = self.get_session().get_credentials()

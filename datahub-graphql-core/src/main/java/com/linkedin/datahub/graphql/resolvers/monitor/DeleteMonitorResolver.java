@@ -94,15 +94,10 @@ public class DeleteMonitorResolver implements DataFetcher<CompletableFuture<Bool
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_MONITORS.getType()))));
     return AuthUtil.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
+            context.getOperationContext(),
             PoliciesConfig.MANAGE_MONITORS,
             new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()))
         || isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
-            entityUrn.getEntityType(),
-            entityUrn.toString(),
-            orPrivilegeGroups);
+            context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
   }
 }

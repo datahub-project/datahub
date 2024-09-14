@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.TransactionContext;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.event.EventProducer;
 import io.datahubproject.metadata.context.OperationContext;
@@ -69,14 +70,14 @@ public class EntitiesControllerTest {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     AspectDao aspectDao = Mockito.mock(AspectDao.class);
     when(aspectDao.runInTransactionWithRetry(
-            ArgumentMatchers.<Function<Transaction, List<UpdateAspectResult>>>any(),
+            ArgumentMatchers.<Function<TransactionContext, List<UpdateAspectResult>>>any(),
             any(AspectsBatch.class),
             anyInt()))
         .thenAnswer(
             i ->
                 List.of(
-                    ((Function<Transaction, List<UpdateAspectResult>>) i.getArgument(0))
-                        .apply(Mockito.mock(Transaction.class))));
+                    ((Function<TransactionContext, List<UpdateAspectResult>>) i.getArgument(0))
+                        .apply(TransactionContext.empty(Mockito.mock(Transaction.class), 0))));
 
     EventProducer mockEntityEventProducer = Mockito.mock(EventProducer.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();

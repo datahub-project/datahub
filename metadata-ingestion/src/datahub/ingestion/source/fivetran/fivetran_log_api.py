@@ -251,6 +251,7 @@ class FivetranLogAPI:
     def get_allowed_connectors_list(
         self,
         connector_patterns: AllowDenyPattern,
+        destination_patterns: AllowDenyPattern,
         report: FivetranSourceReport,
         syncs_interval: int,
     ) -> List[Connector]:
@@ -259,6 +260,9 @@ class FivetranLogAPI:
             connector_list = self._query(self.fivetran_log_query.get_connectors_query())
             for connector in connector_list:
                 if not connector_patterns.allowed(connector[Constant.CONNECTOR_NAME]):
+                    report.report_connectors_dropped(connector[Constant.CONNECTOR_NAME])
+                    continue
+                if not destination_patterns.allowed(connector[Constant.DESTINATION_ID]):
                     report.report_connectors_dropped(connector[Constant.CONNECTOR_NAME])
                     continue
                 connectors.append(

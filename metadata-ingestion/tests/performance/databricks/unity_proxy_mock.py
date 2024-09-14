@@ -120,9 +120,9 @@ class UnityCatalogApiProxyMock:
                 updated_at=None,
                 updated_by=None,
                 table_id="",
-                view_definition=table.definition
-                if isinstance(table, data_model.View)
-                else None,
+                view_definition=(
+                    table.definition if isinstance(table, data_model.View) else None
+                ),
                 properties={},
             )
 

@@ -52,7 +52,7 @@ import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 
 @Slf4j
 public class SearchQueryBuilder {
-  public static final String STRUCTURED_QUERY_PREFIX = "\\\\/q ";
+  public static final String STRUCTURED_QUERY_PREFIX = "\\/q ";
   private final ExactMatchConfiguration exactMatchConfiguration;
   private final PartialConfiguration partialConfiguration;
   private final WordGramConfiguration wordGramConfiguration;

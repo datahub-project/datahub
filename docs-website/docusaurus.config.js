@@ -23,6 +23,9 @@ module.exports = {
       src: "/scripts/rb2b.js",
       async: true,
       defer: true,
+    },
+    {
+      src: "https://app.revenuehero.io/scheduler.min.js"
     }
   ],
   noIndex: isSaas,
@@ -79,7 +82,7 @@ module.exports = {
         {
           to: "/cloud",
           activeBasePath: "cloud",
-          label: "Cloud",
+          html: "Cloud",
           position: "right",
         },
         {

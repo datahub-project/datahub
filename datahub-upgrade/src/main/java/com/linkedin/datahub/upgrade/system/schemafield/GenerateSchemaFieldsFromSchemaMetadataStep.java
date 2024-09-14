@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.system.schemafield;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -89,8 +90,9 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
     return "schema-field-from-schema-metadata-v1";
   }
 
+  @VisibleForTesting
   @Nullable
-  protected String getUrnLike() {
+  public String getUrnLike() {
     return "urn:li:" + DATASET_ENTITY_NAME + ":%";
   }
 

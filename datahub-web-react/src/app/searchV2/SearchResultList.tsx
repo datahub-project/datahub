@@ -134,6 +134,7 @@ type Props = {
     suggestions: SearchSuggestion[];
     highlightedIndex: number | null;
     setHighlightedIndex: (val: number | null) => void;
+    pageNumber: number;
     previewType?: PreviewType;
     onCardClick?: (any: any) => any;
     setAreAllEntitiesSelected?: (areAllSelected: boolean) => void;
@@ -150,6 +151,7 @@ export const SearchResultList = ({
     suggestions,
     highlightedIndex,
     setHighlightedIndex,
+    pageNumber,
     previewType,
     onCardClick,
     setAreAllEntitiesSelected,
@@ -196,6 +198,7 @@ export const SearchResultList = ({
             entityType: result.entity.type,
             index,
             total: totalResultCount,
+            pageNumber,
         });
         setHighlightedIndex(index);
     };

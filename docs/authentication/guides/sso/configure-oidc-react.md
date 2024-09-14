@@ -48,7 +48,7 @@ Select `Web` as the **Platform**, and `OpenID Connect` as the **Sign on method**
 Click **Create** and name your application under **General Settings** and save.
 
 - **Login Redirect URI** : `https://your-datahub-domain.com/callback/oidc`.
-- **Logout Redirect URI**. `https://your-datahub-domain.com`
+- **Logout Redirect URI**. `https://your-datahub-domain.com/login`
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/okta-setup-2.png"/>
@@ -79,7 +79,12 @@ At this point, your app registration should look like the following. Finally, cl
 
 :::note Optional
 Once registration is done, you will land on the app registration **Overview** tab.  
-On the left-side navigation bar, click on **Authentication** under **Manage** and add extra redirect URIs if need be (if you want to support both local testing and Azure deployments). Finally, click **Save**.
+On the left-side navigation bar, click on **Authentication** under **Manage** and add extra redirect URIs if need be (if you want to support both local testing and Azure deployments).
+
+For logout URI:
+- **Front-channel logout URL**. `https://your-datahub-domain.com/login`
+
+Finally, click **Save**.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-authentication.png"/>

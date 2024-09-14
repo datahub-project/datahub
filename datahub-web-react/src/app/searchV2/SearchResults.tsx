@@ -358,6 +358,7 @@ export const SearchResults = ({
                                                 selectedEntities={selectedEntities}
                                                 setSelectedEntities={setSelectedEntities}
                                                 suggestions={suggestions}
+                                                pageNumber={page}
                                                 previewType={previewType}
                                                 onCardClick={onCardClick}
                                                 setAreAllEntitiesSelected={setAreAllEntitiesSelected}

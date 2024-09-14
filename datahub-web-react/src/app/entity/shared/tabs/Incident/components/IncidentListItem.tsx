@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Dropdown, List, Menu, message, Popover, Tag, Tooltip, Typography } from 'antd';
+import { Button, Dropdown, List, message, Popover, Tag, Tooltip, Typography } from 'antd';
 import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { EntityType, IncidentState, IncidentType } from '../../../../../../types.generated';
@@ -13,6 +13,7 @@ import analytics, { EntityActionType, EventType } from '../../../../../analytics
 import { useUpdateIncidentStatusMutation } from '../../../../../../graphql/mutations.generated';
 import { ResolveIncidentModal } from './ResolveIncidentModal';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
+import { MenuItemStyle } from '../../../../view/menu/item/styledComponent';
 
 type Props = {
     incident: any;
@@ -141,13 +142,6 @@ const MenuIcon = styled(MoreOutlined)`
     margin-left: 5px;
 `;
 
-const MenuItem = styled.div`
-    font-size: 12px;
-    padding-left: 12px;
-    padding-right: 12px;
-    color: rgba(0, 0, 0, 0.85);
-`;
-
 export default function IncidentListItem({ incident, refetch }: Props) {
     const { entityType } = useEntityData();
     const refetchEntity = useRefetch();
@@ -203,15 +197,19 @@ export default function IncidentListItem({ incident, refetch }: Props) {
         setIsResolvedModalVisible(!isResolvedModalVisible);
     };
 
-    const menu = (
-        <Menu>
-            <Menu.Item key="0">
-                <MenuItem onClick={() => updateIncidentStatus(IncidentState.Active, '')} data-testid="reopen-incident">
+    const items = [
+        {
+            key: 0,
+            label: (
+                <MenuItemStyle
+                    onClick={() => updateIncidentStatus(IncidentState.Active, '')}
+                    data-testid="reopen-incident"
+                >
                     Reopen incident
-                </MenuItem>
-            </Menu.Item>
-        </Menu>
-    );
+                </MenuItemStyle>
+            ),
+        },
+    ];
 
     return (
         <>
@@ -296,7 +294,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             <CheckCircleFilled
                                 style={{ fontSize: '28px', color: SUCCESS_COLOR_HEX, marginLeft: '16px' }}
                             />
-                            <Dropdown overlay={menu} trigger={['click']}>
+                            <Dropdown menu={{ items }} trigger={['click']}>
                                 <MenuIcon data-testid="incident-menu" />
                             </Dropdown>
                         </IncidentResolvedTextContainer>

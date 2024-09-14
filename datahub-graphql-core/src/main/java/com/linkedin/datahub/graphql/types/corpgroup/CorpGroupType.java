@@ -188,11 +188,7 @@ public class CorpGroupType
     // Decide whether the current principal should be allowed to update the Dataset.
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(input);
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        PoliciesConfig.CORP_GROUP_PRIVILEGES.getResourceType(),
-        urn,
-        orPrivilegeGroups);
+        context, PoliciesConfig.CORP_GROUP_PRIVILEGES.getResourceType(), urn, orPrivilegeGroups);
   }
 
   private DisjunctivePrivilegeGroup getAuthorizedPrivileges(

@@ -1032,3 +1032,30 @@ def test_field_tag_ingest(pytestconfig, tmp_path, mock_time):
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_drop_hive(pytestconfig, tmp_path, mock_time):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "drop_hive_dot.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/drop_hive_dot",
+    )
+
+    new_recipe["source"]["config"]["connection_to_platform_map"] = {
+        "my_connection": "hive"
+    }
+
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    golden_path = test_resources_dir / "drop_hive_dot_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )

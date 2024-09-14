@@ -53,21 +53,6 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   @ConditionalOnProperty(
-      name = "metadataChangeProposal.validation.extensions.enabled",
-      havingValue = "true")
-  public MutationHook extendedModelStructuredPropertyMutator(
-      ConfigurationProvider configurationProvider) throws Exception {
-    ExtendedModelValidationConfiguration config =
-        configurationProvider
-            .getMetadataChangeProposal()
-            .getValidation()
-            .getExtensions()
-            .resolve(new YAMLMapper());
-    return new ExtendedModelStructuredPropertyMutator(config, extensionsEnabled);
-  }
-
-  @Bean
-  @ConditionalOnProperty(
       name = "metadataChangeProposal.sideEffects.schemaField.enabled",
       havingValue = "true")
   public MCPSideEffect schemaFieldSideEffect() {
@@ -98,5 +83,20 @@ public class SpringStandardPluginConfiguration {
     return new SchemaFieldSideEffect()
         .setConfig(config)
         .setEntityChangeEventGeneratorRegistry(entityChangeEventGeneratorRegistry);
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.extensions.enabled",
+      havingValue = "true")
+  public MutationHook extendedModelStructuredPropertyMutator(
+      ConfigurationProvider configurationProvider) throws Exception {
+    ExtendedModelValidationConfiguration config =
+        configurationProvider
+            .getMetadataChangeProposal()
+            .getValidation()
+            .getExtensions()
+            .resolve(new YAMLMapper());
+    return new ExtendedModelStructuredPropertyMutator(config, extensionsEnabled);
   }
 }

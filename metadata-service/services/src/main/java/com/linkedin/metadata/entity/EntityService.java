@@ -26,6 +26,7 @@ import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
@@ -458,7 +459,7 @@ public interface EntityService<U extends ChangeMCP> {
 
   void setRetentionService(RetentionService<U> retentionService);
 
-  default RollbackResult deleteAspect(
+  default Optional<RollbackResult> deleteAspect(
       @Nonnull OperationContext opContext,
       String urn,
       String aspectName,
@@ -468,7 +469,8 @@ public interface EntityService<U extends ChangeMCP> {
         new AspectRowSummary().setUrn(urn).setAspectName(aspectName);
     return rollbackWithConditions(opContext, List.of(aspectRowSummary), conditions, hardDelete)
         .getRollbackResults()
-        .get(0);
+        .stream()
+        .findFirst();
   }
 
   RollbackRunResult deleteUrn(@Nonnull OperationContext opContext, Urn urn);

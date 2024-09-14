@@ -24,7 +24,7 @@ import com.linkedin.dataset.DatasetUserUsageCountsArray;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.UsageServiceUtil;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
@@ -100,22 +100,23 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   @WithSpan
   public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets) {
     log.info("Ingesting {} usage stats aggregations", buckets.length);
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
           final Authentication auth = AuthenticationContext.getAuthentication();
           Set<Urn> urns = Arrays.stream(buckets).sequential().map(UsageAggregation::getResource).collect(Collectors.toSet());
+          final OperationContext opContext = OperationContext.asSession(
+                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                          ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList())), _authorizer,
+                  auth, true);
+
           if (!isAPIAuthorizedEntityUrns(
-                  auth,
-                  _authorizer,
+                  opContext,
                   UPDATE,
                   urns)) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to edit entities.");
           }
-          final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_BATCH_INGEST, urns.stream()
-                          .map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
 
           for (UsageAggregation agg : buckets) {
             this.ingest(opContext, agg);
@@ -139,21 +140,22 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     log.info(
         "Querying usage stats for resource: {}, duration: {}, start time: {}, end time: {}, max buckets: {}",
         resource, duration, startTime, endTime, maxBuckets);
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
           Urn resourceUrn = UrnUtils.getUrn(resource);
           final Authentication auth = AuthenticationContext.getAuthentication();
+          final OperationContext opContext = OperationContext.asSession(
+                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                          ACTION_QUERY, resourceUrn.getEntityType()), _authorizer, auth, true);
+
           if (!isAPIAuthorized(
-                  auth,
-                  _authorizer,
+                  opContext,
                   PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE,
                   new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()))) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
           }
-          final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_QUERY, resourceUrn.getEntityType()), _authorizer, auth, true);
 
           return UsageServiceUtil.query(opContext, _timeseriesAspectService, resource, duration, startTime, endTime, maxBuckets);
         },
@@ -170,19 +172,20 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
     Urn resourceUrn = UrnUtils.getUrn(resource);
     final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    ACTION_QUERY_RANGE, resourceUrn.getEntityType()), _authorizer, auth, true);
+
+
     if (!isAPIAuthorized(
-            auth,
-            _authorizer,
+            opContext,
             PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE,
             new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
     }
 
-    final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_QUERY_RANGE, resourceUrn.getEntityType()), _authorizer, auth, true);
-
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
             () -> UsageServiceUtil.queryRange(opContext, _timeseriesAspectService, resource, duration, range), MetricRegistry.name(this.getClass(), "queryRange"));
   }
 

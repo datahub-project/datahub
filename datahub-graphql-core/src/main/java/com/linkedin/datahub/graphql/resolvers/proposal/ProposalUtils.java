@@ -111,11 +111,7 @@ public class ProposalUtils {
                             : PoliciesConfig.PROPOSE_ENTITY_TAGS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean isAuthorizedToProposeTerms(
@@ -136,11 +132,7 @@ public class ProposalUtils {
                             : PoliciesConfig.PROPOSE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean isAuthorizedToProposeDescription(
@@ -161,11 +153,7 @@ public class ProposalUtils {
                             : PoliciesConfig.PROPOSE_ENTITY_DOCS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean isAuthorizedToAcceptProposal(
@@ -203,11 +191,7 @@ public class ProposalUtils {
                             : PoliciesConfig.MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean isAuthorizedToAcceptTags(
@@ -228,11 +212,7 @@ public class ProposalUtils {
                             : PoliciesConfig.MANAGE_ENTITY_TAGS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean isAuthorizedToAcceptDescriptionProposals(
@@ -267,11 +247,7 @@ public class ProposalUtils {
     // TODO: Add these new privileges to default places like superuser as well as roles
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean isAuthorizedToAcceptDataContractProposals(
@@ -286,11 +262,7 @@ public class ProposalUtils {
                         List.of(PoliciesConfig.EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE.getType())))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean proposeTag(
@@ -307,7 +279,7 @@ public class ProposalUtils {
     if (subResource != null && subResource.length() > 0) {
       actors =
           opContext
-              .getAuthorizerContext()
+              .getAuthorizationContext()
               .getAuthorizer()
               .authorizedActors(
                   PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType(), Optional.of(spec));
@@ -317,7 +289,7 @@ public class ProposalUtils {
     } else {
       actors =
           opContext
-              .getAuthorizerContext()
+              .getAuthorizationContext()
               .getAuthorizer()
               .authorizedActors(
                   PoliciesConfig.MANAGE_ENTITY_TAGS_PRIVILEGE.getType(), Optional.of(spec));
@@ -406,7 +378,7 @@ public class ProposalUtils {
       EntitySpec spec = new EntitySpec(targetUrn.getEntityType(), targetUrn.toString());
       actors =
           opContext
-              .getAuthorizerContext()
+              .getAuthorizationContext()
               .getAuthorizer()
               .authorizedActors(
                   PoliciesConfig.MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType(),
@@ -418,7 +390,7 @@ public class ProposalUtils {
       EntitySpec spec = new EntitySpec(targetUrn.getEntityType(), targetUrn.toString());
       actors =
           opContext
-              .getAuthorizerContext()
+              .getAuthorizationContext()
               .getAuthorizer()
               .authorizedActors(
                   PoliciesConfig.MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType(),

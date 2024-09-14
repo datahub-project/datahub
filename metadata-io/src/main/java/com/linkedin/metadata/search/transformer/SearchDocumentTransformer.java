@@ -287,8 +287,10 @@ public class SearchDocumentTransformer {
           .forEach(
               fieldValue -> {
                 String[] keyValues = fieldValue.toString().split("=");
-                String key = keyValues[0];
-                String value = keyValues[1];
+                String key = keyValues[0], value = "";
+                if (keyValues.length > 1) {
+                  value = keyValues[1];
+                }
                 dictDoc.put(key, value);
               });
       searchDocument.set(fieldName, dictDoc);

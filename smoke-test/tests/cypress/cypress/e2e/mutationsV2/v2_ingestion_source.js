@@ -18,6 +18,7 @@ describe("ingestion source creation flow", () => {
     cy.get('[data-node-key="Sources"]').click();
     cy.contains("Loading ingestion sources...").should("not.exist");
     cy.clickOptionWithTestId("create-ingestion-source-button");
+    cy.get('[placeholder="Search data sources..."]').type("snowflake");
     cy.clickOptionWithText("Snowflake");
     cy.waitTextVisible("Account");
     cy.get("#account_id").type(accound_id);

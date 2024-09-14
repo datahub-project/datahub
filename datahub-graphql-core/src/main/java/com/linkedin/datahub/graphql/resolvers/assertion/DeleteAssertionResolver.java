@@ -97,4 +97,14 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
 
     return true;
   }
+
+  private Urn getAsserteeUrnFromInfo(final AssertionInfo info) {
+    switch (info.getType()) {
+      case DATASET:
+        return info.getDatasetAssertion().getDataset();
+      default:
+        throw new RuntimeException(
+            String.format("Unsupported Assertion Type %s provided", info.getType()));
+    }
+  }
 }
