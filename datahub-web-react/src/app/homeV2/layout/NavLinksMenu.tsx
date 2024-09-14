@@ -1,26 +1,26 @@
 import React, { useState } from 'react';
 import styled, { useTheme } from 'styled-components/macro';
 
-import { Link } from 'react-router-dom';
 import { Tooltip } from 'antd';
+import { Link } from 'react-router-dom';
 
-import { useAppConfig } from '../../useAppConfig';
-import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
-import { useUserContext } from '../../context/useUserContext';
 import { HelpLinkRoutes, PageRoutes } from '../../../conf/Global';
+import { useUserContext } from '../../context/useUserContext';
+import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 import { useUpdateEducationStepsAllowList } from '../../onboarding/useUpdateEducationStepsAllowList';
+import { useAppConfig } from '../../useAppConfig';
 
-import InboxMenuIcon from '../../../images/inboxMenuIcon.svg?react';
 import AnalyticsMenuIcon from '../../../images/analyticsMenuIcon.svg?react';
 import GovernMenuIcon from '../../../images/governMenuIcon.svg?react';
-import ObserveMenuIcon from '../../../images/observeMenuIcon.svg?react';
-import IngestionMenuIcon from '../../../images/ingestionMenuIcon.svg?react';
-import SettingsMenuIcon from '../../../images/settingsMenuIcon.svg?react';
 import HelpMenuIcon from '../../../images/help-icon.svg?react';
+import InboxMenuIcon from '../../../images/inboxMenuIcon.svg?react';
+import IngestionMenuIcon from '../../../images/ingestionMenuIcon.svg?react';
+import ObserveMenuIcon from '../../../images/observeMenuIcon.svg?react';
+import SettingsMenuIcon from '../../../images/settingsMenuIcon.svg?react';
 import { useGlobalSettingsContext } from '../../context/GlobalSettings/GlobalSettingsContext';
+import { useHandleOnboardingTour } from '../../onboarding/useHandleOnboardingTour';
 import CustomNavLink from './CustomNavLink';
 import { NavMenuItem, NavSubMenuItem } from './types';
-import { useHandleOnboardingTour } from '../../onboarding/useHandleOnboardingTour';
 
 const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
     opacity: 1;
@@ -147,6 +147,8 @@ export function NavLinksMenu(props: Props) {
     const showDocumentationCenter =
         config?.featureFlags?.documentationFormsEnabled && me?.platformPrivileges?.manageDocumentationForms;
     const showAutomations = config?.classificationConfig.enabled && me?.platformPrivileges?.manageIngestion; // TODO: Add a dedicated permission for automations.
+    const showStructuredProperties =
+        config?.featureFlags?.showManageStructuredProperties && me.platformPrivileges?.manageStructuredProperties;
 
     // Update education steps allow list
     useUpdateEducationStepsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
@@ -218,6 +220,12 @@ export function NavLinksMenu(props: Props) {
                         description: 'Manage compliance initiatives for your data assets',
                         link: PageRoutes.GOVERN_DASHBOARD,
                         isHidden: !showDocumentationCenter,
+                    },
+                    {
+                        title: 'Structured Properties',
+                        description: `Manage your organization's structured properties`,
+                        link: PageRoutes.STRUCTURED_PROPERTIES,
+                        isHidden: !showStructuredProperties,
                     },
                 ],
             },

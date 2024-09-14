@@ -36,6 +36,7 @@ import { ManageDomainsPage as ManageDomainsPageV2 } from './domainV2/ManageDomai
 import { GovernDashboard } from './govern/Dashboard/Dashboard';
 import CreateForm from './govern/Dashboard/Forms/CreateForm';
 import { LoadingPermissions } from './govern/Dashboard/charts/AuxViews';
+import StructuredProperties from './govern/structuredProperties/StructuredProperties';
 import { TaskCenter } from './taskCenter/TaskCenter';
 import { useIsThemeV2 } from './useIsThemeV2';
 
@@ -113,6 +114,7 @@ export const SearchRoutes = (): JSX.Element => {
                     path={`${PageRoutes.GLOSSARY}*`}
                     render={() => (isThemeV2 ? <GlossaryRoutesV2 /> : <GlossaryRoutes />)}
                 />
+                <Route path={PageRoutes.STRUCTURED_PROPERTIES} render={() => <StructuredProperties />} />
                 <Route
                     path={PageRoutes.BUSINESS_ATTRIBUTE}
                     render={() => {

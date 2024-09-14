@@ -11,6 +11,9 @@ import {
     GlobalOutlined,
     EyeOutlined,
     DatabaseOutlined,
+    FormOutlined,
+    UnorderedListOutlined,
+    FileDoneOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Menu, Tooltip } from 'antd';
@@ -112,6 +115,8 @@ export function HeaderLinks(props: Props) {
     const showObserve = showDatasetHealth;
     const showDocumentationCenter =
         config?.featureFlags?.documentationFormsEnabled && me.platformPrivileges?.manageDocumentationForms;
+    const showStructuredProperties =
+        config?.featureFlags?.showManageStructuredProperties && me.platformPrivileges?.manageStructuredProperties;
 
     useToggleEducationStepIdsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
@@ -173,7 +178,7 @@ export function HeaderLinks(props: Props) {
                       label: (
                           <Link to="/tests">
                               <NavTitleContainer>
-                                  <GlobalOutlined
+                                  <FileDoneOutlined
                                       style={{
                                           fontSize: 14,
                                           fontWeight: 'bold',
@@ -196,7 +201,7 @@ export function HeaderLinks(props: Props) {
                       label: (
                           <Link to="/govern/dashboard">
                               <NavTitleContainer>
-                                  <GlobalOutlined
+                                  <FormOutlined
                                       style={{
                                           fontSize: 14,
                                           fontWeight: 'bold',
@@ -206,6 +211,24 @@ export function HeaderLinks(props: Props) {
                               </NavTitleContainer>
                               <NavTitleDescription>
                                   Manage compliance initiatives for your data assets
+                              </NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+        ...(showStructuredProperties
+            ? [
+                  {
+                      key: 4,
+                      label: (
+                          <Link to={PageRoutes.STRUCTURED_PROPERTIES}>
+                              <NavTitleContainer>
+                                  <UnorderedListOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                                  <NavTitleText>Structured Properties</NavTitleText>
+                              </NavTitleContainer>
+                              <NavTitleDescription>
+                                  Manage your organization&apos;s structured properties
                               </NavTitleDescription>
                           </Link>
                       ),
