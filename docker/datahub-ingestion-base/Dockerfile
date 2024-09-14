@@ -43,7 +43,9 @@ RUN apt-get update && apt-get upgrade -y \
     krb5-user \
     krb5-config \
     libkrb5-dev \
+    librdkafka-dev \
     wget \
+    curl \
     zip \
     unzip \
     ldap-utils \
