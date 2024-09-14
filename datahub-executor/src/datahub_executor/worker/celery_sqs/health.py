@@ -13,5 +13,5 @@ def kube_health_check() -> None:
     try:
         Path(DATAHUB_EXECUTOR_LIVENESS_HEARTBEAT_FILE).touch()
         Path(DATAHUB_EXECUTOR_READINESS_HEARTBEAT_FILE).touch()
-    except Exception:
-        logger.error("Failed to update health check file")
+    except Exception as e:
+        logger.error(f"Failed to update health check file: {e}")
