@@ -247,17 +247,21 @@ class BigQueryQueriesExtractor:
                         self.report.num_queries_by_project[project.id] += 1
                         queries.append(entry)
         self.report.num_total_queries = len(queries)
+        logger.info(f"Found {self.report.num_total_queries} total queries")
 
         with self.report.audit_log_preprocessing_timer:
             # Preprocessing stage that deduplicates the queries using query hash per usage bucket
+            # Note: FileBackedDict is an ordered dictionary, so the order of execution of
+            # queries is inherently maintained
             queries_deduped: FileBackedDict[Dict[int, ObservedQuery]]
             queries_deduped = self.deduplicate_queries(queries)
             self.report.num_unique_queries = len(queries_deduped)
+            logger.info(f"Found {self.report.num_unique_queries} unique queries")
 
         with self.report.audit_log_load_timer:
             i = 0
-            for query_instances in queries_deduped.values():
-                for _, query in query_instances.items():
+            for _, query_instances in queries_deduped.items():
+                for query in query_instances.values():
                     if i > 0 and i % 10000 == 0:
                         logger.info(f"Added {i} query log entries to SQL aggregator")
 

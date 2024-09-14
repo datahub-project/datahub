@@ -91,9 +91,7 @@ public class PlatformEntitiesController {
       Ingest Authorization Checks
     */
     List<Pair<com.linkedin.mxe.MetadataChangeProposal, Integer>> exceptions =
-        isAPIAuthorized(
-                authentication, _authorizerChain, ENTITY, opContext.getEntityRegistry(), proposals)
-            .stream()
+        isAPIAuthorized(opContext, ENTITY, opContext.getEntityRegistry(), proposals).stream()
             .filter(p -> p.getSecond() != com.linkedin.restli.common.HttpStatus.S_200_OK.getCode())
             .collect(Collectors.toList());
     if (!exceptions.isEmpty()) {

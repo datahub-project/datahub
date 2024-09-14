@@ -343,27 +343,31 @@ class DataProduct(ConfigModel):
         tags: Optional[GlobalTagsClass] = graph.get_aspect(id, GlobalTagsClass)
         return DataProduct(
             id=id,
-            display_name=data_product_properties.name
-            if data_product_properties
-            else None,
+            display_name=(
+                data_product_properties.name if data_product_properties else None
+            ),
             domain=domains.domains[0],
-            description=data_product_properties.description
-            if data_product_properties
-            else None,
-            assets=[e.destinationUrn for e in data_product_properties.assets or []]
-            if data_product_properties
-            else None,
+            description=(
+                data_product_properties.description if data_product_properties else None
+            ),
+            assets=(
+                [e.destinationUrn for e in data_product_properties.assets or []]
+                if data_product_properties
+                else None
+            ),
             owners=yaml_owners,
-            terms=[term.urn for term in glossary_terms.terms]
-            if glossary_terms
-            else None,
+            terms=(
+                [term.urn for term in glossary_terms.terms] if glossary_terms else None
+            ),
             tags=[tag.tag for tag in tags.tags] if tags else None,
-            properties=data_product_properties.customProperties
-            if data_product_properties
-            else None,
-            external_url=data_product_properties.externalUrl
-            if data_product_properties
-            else None,
+            properties=(
+                data_product_properties.customProperties
+                if data_product_properties
+                else None
+            ),
+            external_url=(
+                data_product_properties.externalUrl if data_product_properties else None
+            ),
         )
 
     def _patch_ownership(

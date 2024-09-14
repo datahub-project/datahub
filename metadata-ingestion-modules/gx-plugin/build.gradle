@@ -23,7 +23,7 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
       "${python_executable} -m venv ${venv_name} && " +
-      "${venv_name}/bin/python -m pip install --upgrade pip uv wheel 'setuptools>=63.0.0' && " +
+      "${venv_name}/bin/python -m pip install --upgrade uv && " +
       "touch ${sentinel_file}"
 }
 
@@ -77,29 +77,15 @@ task installDevTest(type: Exec, dependsOn: [installDev]) {
       "touch ${sentinel_file}"
 }
 
-def testFile = hasProperty('testFile') ? testFile : 'unknown'
-task testSingle(dependsOn: [installDevTest]) {
-  doLast {
-  if (testFile != 'unknown')  {
-  exec {
-    commandLine 'bash', '-x', '-c',
-     "source ${venv_name}/bin/activate && pytest ${testFile}"
-    }
-  } else {
-   throw new GradleException("No file provided. Use -PtestFile=<test_file>")
-    }
-  }
-}
-
 task testQuick(type: Exec, dependsOn: installDevTest) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
   outputs.dir("${venv_name}")
-  commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
-
 
 task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " +
