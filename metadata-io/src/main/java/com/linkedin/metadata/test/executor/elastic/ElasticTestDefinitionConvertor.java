@@ -9,6 +9,7 @@ import com.linkedin.metadata.test.definition.operator.OperatorType;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.test.query.TestQuery;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,7 +52,7 @@ public class ElasticTestDefinitionConvertor {
 
     Set<TestQuery> queries =
         Predicate.extractQueriesForPredicate(testDefinition.getOn().getConditions());
-    if (isSearchable(queries, searchableFieldPaths)) {
+    if (!isSearchable(queries, searchableFieldPaths)) {
       log.warn(
           "Unable to select for queries: {}, available fieldPaths: {} for entity types {}",
           queries,
@@ -63,7 +64,7 @@ public class ElasticTestDefinitionConvertor {
   }
 
   private static boolean isSearchable(Set<TestQuery> queries, Map<PathSpec, String> fieldPaths) {
-    return !queries.stream()
+    return queries.stream()
         .filter(q -> !q.getQuery().equals("_entityType") && !q.getQuery().equals("urn"))
         .map(TestQuery::getQueryParts)
         .map(PathSpec::new)
@@ -103,18 +104,18 @@ public class ElasticTestDefinitionConvertor {
   public boolean canEvaluate(TestDefinition testDefinition) {
     if ((testDefinition.getRules() != null)
         && (testDefinition.getRules().getOperands().size() != 0)) {
+      Map<PathSpec, String> fieldPaths = new HashMap<>();
       for (String entityType : testDefinition.getOn().getEntityTypes()) {
-        Set<TestQuery> queries = Predicate.extractQueriesForPredicate(testDefinition.getRules());
-        Map<PathSpec, String> fieldPaths =
-            entityRegistry.getEntitySpec(entityType).getSearchableFieldPathMap();
-        if (isSearchable(queries, fieldPaths)) {
-          log.warn(
-              "Unable to evaluate for queries: {}, available fieldPaths: {} for entity {}",
-              queries,
-              fieldPaths,
-              entityType);
-          return false;
-        }
+        fieldPaths.putAll(entityRegistry.getEntitySpec(entityType).getSearchableFieldPathMap());
+      }
+      Set<TestQuery> queries = Predicate.extractQueriesForPredicate(testDefinition.getRules());
+      if (!isSearchable(queries, fieldPaths)) {
+        log.warn(
+            "Unable to evaluate for queries: {}, available fieldPaths: {} for entities {}",
+            queries,
+            fieldPaths,
+            testDefinition.getOn().getEntityTypes());
+        return false;
       }
     }
     return true;

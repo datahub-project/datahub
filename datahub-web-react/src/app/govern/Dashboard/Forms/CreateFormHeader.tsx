@@ -19,18 +19,18 @@ const CreateFormHeader = () => {
         <>
             <BreadcrumbContainer>
                 <Link to={`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`}>
-                    <Text size="sm" color="gray">
-                        Forms
+                    <Text size="lg" color="gray">
+                        Compliance Forms
                     </Text>
                 </Link>
                 <Icon icon="ChevronRight" size="xl" color="gray" />
-                <Text size="sm" color="gray">
+                <Text size="lg" color="gray">
                     {formMode === 'create' ? 'Create' : 'Edit'}
                 </Text>
             </BreadcrumbContainer>
             <Header>
                 <Text size="2xl" weight="bold">
-                    Forms
+                    Compliance Forms
                 </Text>
                 <Pill
                     size="sm"
@@ -39,7 +39,7 @@ const CreateFormHeader = () => {
                 />
             </Header>
             <Text size="md" color="gray">
-                {`${formMode === 'create' ? 'Create' : 'Edit'} forms to be utilized`}
+                {`${formMode === 'create' ? 'Create a new' : 'Edit a'} compliance requirements form`}
             </Text>
         </>
     );

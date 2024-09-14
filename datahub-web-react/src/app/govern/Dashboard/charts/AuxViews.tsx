@@ -82,11 +82,9 @@ export const IntegrationServiceOffline = () => (
         <Body>
             <FlexWrapper>
                 <div style={{ textAlign: 'center', fontSize: '18px' }}>
-                    <PrimaryHeading>Your Documentation Initiatives</PrimaryHeading>
-                    <p style={{ marginTop: '1rem' }}>Oops! It seems like documentation metrics are missing 🤔</p>
-                    <p>
-                        Either you haven&apos;t set up your documentation forms and reporting, or our systems are down.
-                    </p>
+                    <PrimaryHeading>Your Compliance Form Initiatives</PrimaryHeading>
+                    <p style={{ marginTop: '1rem' }}>Oops! It seems like compliance form metrics are missing 🤔</p>
+                    <p>Either you haven&apos;t set up your compliance forms and reporting, or our systems are down.</p>
                     <p>Please try again later!</p>
                 </div>
             </FlexWrapper>
@@ -100,7 +98,7 @@ export const MissingPermissions = () => (
         <Body>
             <FlexWrapper>
                 <div style={{ textAlign: 'center', fontSize: '18px' }}>
-                    <PrimaryHeading>Your Documentation Initiatives</PrimaryHeading>
+                    <PrimaryHeading>Your Compliance Form Initiatives</PrimaryHeading>
                     <p style={{ marginTop: '1rem' }}>
                         Oops! It seems like you don&apos;t have permission to view this page
                     </p>

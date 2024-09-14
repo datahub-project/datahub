@@ -325,7 +325,6 @@ const AcrylInstances = () => {
                 handleConfirm={handleDeleteConfirm}
                 modalTitle="Confirm Delete"
                 modalText="Are you sure you want to delete the connection?"
-                isDeleteModal
             />
         </Container>
     );

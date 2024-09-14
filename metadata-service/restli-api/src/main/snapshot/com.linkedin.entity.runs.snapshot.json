@@ -990,6 +990,10 @@
       "Relationship" : {
         "entityTypes" : [ "ownershipType" ],
         "name" : "ownershipType"
+      },
+      "Searchable" : {
+        "fieldName" : "ownershipTypeUrn",
+        "fieldType" : "URN"
       }
     }, {
       "name" : "source",

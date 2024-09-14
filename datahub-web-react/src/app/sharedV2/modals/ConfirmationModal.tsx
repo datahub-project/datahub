@@ -36,7 +36,6 @@ interface Props {
     modalText?: string;
     closeButtonText?: string;
     confirmButtonText?: string;
-    isDeleteModal?: boolean;
 }
 
 export const ConfirmationModal = ({
@@ -47,7 +46,6 @@ export const ConfirmationModal = ({
     modalText,
     closeButtonText,
     confirmButtonText,
-    isDeleteModal,
 }: Props) => {
     return (
         <StyledModal
@@ -56,10 +54,10 @@ export const ConfirmationModal = ({
             centered
             footer={
                 <ButtonsContainer>
-                    <Button variant={isDeleteModal ? 'filled' : 'text'} onClick={handleClose}>
+                    <Button variant="text" onClick={handleClose}>
                         {closeButtonText || 'Cancel'}
                     </Button>
-                    <Button variant={!isDeleteModal ? 'filled' : 'text'} onClick={handleConfirm}>
+                    <Button variant="filled" onClick={handleConfirm}>
                         {confirmButtonText || 'Yes'}
                     </Button>
                 </ButtonsContainer>

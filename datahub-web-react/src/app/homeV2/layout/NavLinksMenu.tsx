@@ -214,8 +214,8 @@ export function NavLinksMenu(props: Props) {
                         isHidden: !showAutomations,
                     },
                     {
-                        title: 'Documentation',
-                        description: 'Manage your documentation standards',
+                        title: 'Compliance Forms',
+                        description: 'Manage compliance initiatives for your data assets',
                         link: PageRoutes.GOVERN_DASHBOARD,
                         isHidden: !showDocumentationCenter,
                     },

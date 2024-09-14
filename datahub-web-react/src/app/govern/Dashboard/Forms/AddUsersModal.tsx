@@ -177,7 +177,7 @@ const AddUsersModal = ({ showUsersModal, setShowUsersModal }: Props) => {
         <StyledModal
             title={
                 <Text color="gray" size="lg" weight="bold">
-                    Add Users
+                    Assign Users or Groups
                 </Text>
             }
             open={showUsersModal}
@@ -193,7 +193,7 @@ const AddUsersModal = ({ showUsersModal, setShowUsersModal }: Props) => {
         >
             <Form form={form}>
                 <FormFieldsContainer>
-                    <FieldLabel> Individual User</FieldLabel>
+                    <FieldLabel> Users</FieldLabel>
                     <Form.Item name="users">
                         <UserOrGroupSelect
                             onSelect={onSelectUser}
@@ -205,7 +205,7 @@ const AddUsersModal = ({ showUsersModal, setShowUsersModal }: Props) => {
                         />
                     </Form.Item>
 
-                    <FieldLabel> User Group</FieldLabel>
+                    <FieldLabel> Groups</FieldLabel>
                     <Form.Item name="groups">
                         <UserOrGroupSelect
                             onSelect={onSelectGroup}

@@ -10,6 +10,8 @@ const Wrapper = styled.div`
     margin-top: 24px;
 `;
 
+const NONE_OWNERSHIP_TYPE = 'urn:li:ownershipType:__system__none';
+
 const OwnershipTypeSelector = () => {
     const form = Form.useFormInstance();
     const initialAllowedOwnershipTypes = form.getFieldValue(['ownershipParams', 'allowedOwnershipTypes']) || [];
@@ -30,12 +32,14 @@ const OwnershipTypeSelector = () => {
     }, [ownershipTypesData]);
 
     const options =
-        ownershipTypes.map((ownershipType) => ({
-            value: ownershipType.urn,
-            label: ownershipType.info?.name || ownershipType.urn || '',
-            id: ownershipType.urn,
-            entity: ownershipType,
-        })) || [];
+        ownershipTypes
+            .filter((type) => type.urn !== NONE_OWNERSHIP_TYPE)
+            .map((ownershipType) => ({
+                value: ownershipType.urn,
+                label: ownershipType.info?.name || ownershipType.urn || '',
+                id: ownershipType.urn,
+                entity: ownershipType,
+            })) || [];
 
     function handleUpdate(values: SelectOption[]) {
         if (values.length) {

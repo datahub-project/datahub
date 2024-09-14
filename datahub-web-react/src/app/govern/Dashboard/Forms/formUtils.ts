@@ -50,12 +50,17 @@ export const handleInputChange = (setFormValues) => (event) => {
 
 export const questionTypes = [
     {
+        label: 'Ownership',
+        value: 'OWNERSHIP',
+        description: 'This question applies ownership to assets',
+    },
+    {
         label: 'Documentation',
         value: 'DOCUMENTATION',
         description: 'This question applies documentation to assets',
     },
     {
-        label: 'Documentation - Column',
+        label: 'Column Documentation',
         value: 'FIELDS_DOCUMENTATION',
         description: 'This question applies documentation to columns of assets',
     },
@@ -65,19 +70,9 @@ export const questionTypes = [
         description: 'This question applies glossary terms to assets',
     },
     {
-        label: 'Glossary Terms - Column',
+        label: 'Column Glossary Terms',
         value: 'FIELDS_GLOSSARY_TERMS',
         description: 'This question applies glossary terms to columns of assets',
-    },
-    {
-        label: 'Domain',
-        value: 'DOMAIN',
-        description: 'This question applies domain to assets',
-    },
-    {
-        label: 'Ownership',
-        value: 'OWNERSHIP',
-        description: 'This question applies ownership to assets',
     },
     {
         label: 'Structured Property',
@@ -86,9 +81,14 @@ export const questionTypes = [
     },
 
     {
-        label: 'Structured Property - Column',
+        label: 'Column Structured Property',
         value: 'FIELDS_STRUCTURED_PROPERTY',
         description: 'This question applies structured property to columns of assets',
+    },
+    {
+        label: 'Domain',
+        value: 'DOMAIN',
+        description: 'This question applies domain to assets',
     },
 ];
 

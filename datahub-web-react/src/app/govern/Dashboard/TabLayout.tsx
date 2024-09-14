@@ -53,6 +53,17 @@ export const PageHeading = styled(Typography.Text)`
     color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
 `;
 
+export const SubHeader = styled(Typography.Text)`
+    font-size: 14px;
+    color: ${REDESIGN_COLORS.SUB_TEXT};
+`;
+
+const StyledHeader = styled(Header)`
+    flex-direction: column;
+    justify-content: center;
+    align-items: unset;
+`;
+
 const documentationTabs = [
     {
         name: 'Forms',
@@ -115,9 +126,10 @@ export const TabLayout = () => {
     // Render the dashboard
     return (
         <Layout>
-            <Header>
-                <PageHeading>Documentation</PageHeading>
-            </Header>
+            <StyledHeader>
+                <PageHeading>Compliance Forms</PageHeading>
+                <SubHeader>Create and manage compliance initiatives for your data assets</SubHeader>
+            </StyledHeader>
             {formCreationEnabled ? (
                 <StyledTabs activeKey={currentTab} isThemeV2={isThemeV2} onChange={handleTabChange}>
                     {documentationTabs.map((tab) => {

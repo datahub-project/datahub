@@ -16,4 +16,5 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     isReadOnly?: boolean;
     isPassword?: boolean;
     isRequired?: boolean;
+    id?: string;
 }

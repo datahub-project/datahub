@@ -111,6 +111,7 @@ const GlossaryTermsSelector = () => {
             <NestedSelect
                 label="Glossary Terms"
                 placeholder="Select allowed glossary terms"
+                searchPlaceholder="Search all glossary terms..."
                 areParentsSelectable={false}
                 options={useSearch ? autoCompleteOptions : [...options, ...childOptions]}
                 initialValues={initialOptions}

@@ -101,6 +101,7 @@ const DomainsSelector = () => {
             <NestedSelect
                 label="Domains"
                 placeholder="Select allowed domains"
+                searchPlaceholder="Search all domains..."
                 options={useSearch ? autoCompleteOptions : defaultOptions}
                 initialValues={initialOptions}
                 loadData={handleLoad}

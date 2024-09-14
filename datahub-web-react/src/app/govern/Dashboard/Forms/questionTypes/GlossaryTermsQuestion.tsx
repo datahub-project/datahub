@@ -36,7 +36,7 @@ export default function GlossaryTermsQuestion() {
                 </StyledRadioGroup>
                 {!anyTermsSelected && <GlossaryTermsSelector />}
             </AllowedTermsWrapper>
-            <CardinalityField paramsField="glossaryTermsParams" />
+            <CardinalityField paramsField="glossaryTermsParams" inputType="glossary terms" />
         </>
     );
 }

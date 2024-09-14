@@ -132,7 +132,10 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
                                         .setCondition(Condition.EQUAL)
                                         .setValues(
                                             new StringArray(
-                                                ImmutableList.of("FORMS", "BULK_FORM_SUBMISSION")))
+                                                ImmutableList.of(
+                                                    "FORMS",
+                                                    "BULK_FORM_SUBMISSION",
+                                                    "FORM_PROMPT")))
                                         .setValue("FORMS")
                                         .setNegated(true)))))));
   }

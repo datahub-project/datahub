@@ -94,8 +94,8 @@ export default function StructuredPropertyPrompt({
             <PromptWrapper displayBulkStyles={displayBulkPromptStyles}>
                 <PromptInputWrapper>
                     <PromptHeader
-                        title={displayName || prompt.title}
-                        description={description}
+                        title={prompt.title || displayName || ''}
+                        description={prompt.description || description}
                         promptNumber={promptNumber}
                         required={prompt.required}
                     />

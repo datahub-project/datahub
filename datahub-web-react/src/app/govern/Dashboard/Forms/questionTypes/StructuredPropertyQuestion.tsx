@@ -17,7 +17,7 @@ const StructuredPropertyQuestion = () => {
         types: [EntityType.StructuredProperty],
         query: '*',
         start: 0,
-        count: 100,
+        count: 500,
         searchFlags: { skipCache: true },
     };
 

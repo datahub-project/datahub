@@ -35,6 +35,7 @@ export const Input = ({
     isReadOnly = inputDefaults.isReadOnly,
     isPassword = inputDefaults.isPassword,
     isRequired = inputDefaults.isRequired,
+    id,
     ...props
 }: InputProps) => {
     // Invalid state is always true if error is present
@@ -70,6 +71,7 @@ export const Input = ({
                     readOnly={isReadOnly}
                     disabled={isDisabled}
                     required={isRequired}
+                    id={id}
                 />
                 {!isPassword && (
                     <>

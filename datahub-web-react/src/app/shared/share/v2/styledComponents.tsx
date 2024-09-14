@@ -46,6 +46,7 @@ export const StyledCheckbox = styled(Checkbox)<{ $color?: string }>`
 
 export const StyledButton = styled(Button)<{ $type?: string; $color?: string; $hoverColor?: string }>`
     && {
+        font-size: 14px;
         border-radius: 6px;
         height: auto;
         width: max-content;

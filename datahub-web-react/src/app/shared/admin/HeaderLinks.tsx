@@ -202,9 +202,11 @@ export function HeaderLinks(props: Props) {
                                           fontWeight: 'bold',
                                       }}
                                   />
-                                  <NavTitleText>Documentation</NavTitleText>
+                                  <NavTitleText>Compliance Forms</NavTitleText>
                               </NavTitleContainer>
-                              <NavTitleDescription>Manage your documentation standards</NavTitleDescription>
+                              <NavTitleDescription>
+                                  Manage compliance initiatives for your data assets
+                              </NavTitleDescription>
                           </Link>
                       ),
                   },

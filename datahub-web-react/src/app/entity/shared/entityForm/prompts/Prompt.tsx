@@ -31,12 +31,13 @@ interface Props {
     prompt: PromptEntity;
     field?: SchemaField;
     associatedUrn?: string;
+    schemaFields?: SchemaField[];
 }
 
-export default function Prompt({ promptNumber, prompt, field, associatedUrn }: Props) {
+export default function Prompt({ promptNumber, prompt, field, associatedUrn, schemaFields }: Props) {
     const { refetch } = useEntityContext();
     const [optimisticCompletedTimestamp, setOptimisticCompletedTimestamp] = useState<number | null>(null);
-    const columnSelectorProps = useColumnSelector();
+    const columnSelectorProps = useColumnSelector(schemaFields);
     const { isBulkApplyingFieldPath, selectedFieldPaths, setIsBulkApplyingFieldPath, setSelectedFieldPaths } =
         columnSelectorProps;
     const [submitFormPrompt] = useSubmitFormPromptMutation();
