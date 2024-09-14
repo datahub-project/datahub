@@ -582,7 +582,8 @@ public class ESUtils {
           QueryBuilders.wildcardQuery(
                   toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
                   String.format(wildcardPattern, ESUtils.escapeReservedCharacters(value.trim())))
-              .queryName(queryName != null ? queryName : fieldName).caseInsensitive(true));
+              .queryName(queryName != null ? queryName : fieldName)
+              .caseInsensitive(true));
     }
     return boolQuery;
   }
