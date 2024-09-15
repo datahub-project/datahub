@@ -23,6 +23,7 @@ from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.api.source import SourceReport
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     SchemaMetadataClass,
@@ -1092,6 +1093,12 @@ class HanaSource(SQLAlchemySource):
             for mcp in dataset_snapshot:
                 self.report.report_workunit(mcp.as_workunit())
                 yield mcp.as_workunit()
+
+    def get_report(self) -> SourceReport:
+        return self.report
+
+    def close(self) -> None:
+        pass
 
 
 def _sql_dialect(platform: str) -> str:
