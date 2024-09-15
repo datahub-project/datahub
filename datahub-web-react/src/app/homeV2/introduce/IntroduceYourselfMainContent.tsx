@@ -7,6 +7,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useListGlobalViewsQuery } from '@src/graphql/view.generated';
 import { useListRecommendationsQuery } from '../../../graphql/recommendations.generated';
 import { DataHubViewType, DataPlatform, EntityType, ScenarioType } from '../../../types.generated';
@@ -23,7 +24,6 @@ import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
 import Loading from '../../shared/Loading';
 import OnboardingContext from '../../onboarding/OnboardingContext';
 import { PersonaSelector } from './PersonaSelector';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 const Container = styled.div`
     flex: 1;
