@@ -1,5 +1,5 @@
 import * as React from 'react';
-
+import TabFullsizedContext from '@src/app/shared/TabFullsizedContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
@@ -20,6 +20,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.ANNOUNCE]);
+
 export class SchemaFieldEntity implements Entity<SchemaField> {
     type: EntityType = EntityType.SchemaField;
 
@@ -45,25 +46,32 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
     useEntityQuery = useGetSchemaFieldQuery;
 
     renderProfile = (urn: string) => (
-        <EntityProfile
-            urn={urn}
-            entityType={EntityType.SchemaField}
-            useEntityQuery={useGetSchemaFieldQuery}
-            headerDropdownItems={headerDropdownItems}
-            tabs={[
-                {
-                    name: 'Lineage',
-                    component: LineageTab,
-                    icon: PartitionOutlined,
-                },
-                {
-                    name: 'Properties',
-                    component: PropertiesTab,
-                    icon: UnorderedListOutlined,
-                },
-            ]}
-            sidebarSections={this.getSidebarSections()}
-        />
+        <TabFullsizedContext.Provider
+            value={{
+                isTabFullsize: true,
+                setTabFullsize: () => {},
+            }}
+        >
+            <EntityProfile
+                urn={urn}
+                entityType={EntityType.SchemaField}
+                useEntityQuery={useGetSchemaFieldQuery}
+                headerDropdownItems={headerDropdownItems}
+                tabs={[
+                    {
+                        name: 'Lineage',
+                        component: LineageTab,
+                        icon: PartitionOutlined,
+                    },
+                    {
+                        name: 'Properties',
+                        component: PropertiesTab,
+                        icon: UnorderedListOutlined,
+                    },
+                ]}
+                sidebarSections={this.getSidebarSections()}
+            />
+        </TabFullsizedContext.Provider>
     );
 
     getSidebarSections = () => [{ component: SidebarEntityHeader }, { component: SidebarNotesSection }];
@@ -99,7 +107,7 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
             name: entity?.fieldPath,
             expandedName: `${parent?.name}.${entity?.fieldPath}`,
             icon: parent?.platform?.properties?.logoUrl ?? undefined,
-            parents: parent ? [parent] : undefined,
+            parent: parent ?? undefined,
         };
     };
 

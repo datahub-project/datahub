@@ -29,6 +29,7 @@ import { DisplayedColumns, LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './use
 
 const NodeWrapper = styled.div<{
     selected: boolean;
+    dragging: boolean;
     expandHeight?: number;
     color: string;
     $transitionDuration: number;
@@ -51,7 +52,11 @@ const NodeWrapper = styled.div<{
     overflow-y: hidden;
     transition: max-height ${({ $transitionDuration }) => $transitionDuration}ms ease-in-out;
     width: ${LINEAGE_NODE_WIDTH}px;
-    cursor: ${({ isGhost }) => (isGhost ? 'not-allowed' : 'pointer')};
+    cursor: ${({ isGhost, dragging }) => {
+        if (isGhost) return 'not-allowed';
+        if (dragging) return 'grabbing';
+        return 'pointer';
+    }};
 `;
 
 const CARD_HEIGHT = LINEAGE_NODE_HEIGHT - 2; // Inside border
@@ -209,6 +214,7 @@ interface Props {
     urn: string;
     type: EntityType;
     selected: boolean;
+    dragging: boolean;
     entity?: FetchedEntityV2;
     transitionDuration: number;
     rootUrn: string;
@@ -233,6 +239,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         urn,
         type,
         selected,
+        dragging,
         entity,
         fetchStatus,
         isExpanded,
@@ -304,6 +311,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 type={type}
                 rootUrn={rootUrn}
                 selected={selected}
+                dragging={dragging}
                 isGhost={isGhost}
                 hasUpstreamChildren={hasUpstreamChildren}
                 hasDownstreamChildren={hasDownstreamChildren}
@@ -320,6 +328,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     const contents = (
         <NodeWrapper
             selected={selected}
+            dragging={dragging}
             expandHeight={expandHeight}
             color={nodeColor}
             $transitionDuration={transitionDuration}
@@ -401,7 +410,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 <VerticalDivider margin={8} />
                 {entity && (
                     <MainTextWrapper>
-                        <ContainerPath parents={entity?.parents} />
+                        <ContainerPath parents={entity?.containers} />
                         <TitleWrapper>
                             <TitleLine>
                                 <OverflowTitle title={entity?.name} />

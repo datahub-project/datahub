@@ -22,11 +22,12 @@ interface Return {
     total?: number;
 }
 
-export default function useFetchFilterNodeContents(parent: string, direction: LineageDirection): Return {
+export default function useFetchFilterNodeContents(parent: string, direction: LineageDirection, skip: boolean): Return {
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
     const orFilters = useGetOrFilters();
     const { data } = useAggregateAcrossLineageQuery({
+        skip,
         fetchPolicy: 'cache-first',
         variables: {
             input: {

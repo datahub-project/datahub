@@ -36,7 +36,13 @@ const HomeNodeBubble = styled.div`
     top: -26px;
 `;
 
-const NodeWrapper = styled.div<{ selected: boolean; opacity: number; isGhost: boolean }>`
+const NodeWrapper = styled.div<{
+    selected: boolean;
+    dragging: boolean;
+    opacity: number;
+    isGhost: boolean;
+    type: EntityType;
+}>`
     background-color: white;
     border: ${({ selected }) => (selected ? 2 : 1)}px solid;
     border-color: ${({ selected }) => (selected ? LINEAGE_COLORS.PURPLE_3 : LINEAGE_COLORS.NODE_BORDER)};
@@ -48,7 +54,12 @@ const NodeWrapper = styled.div<{ selected: boolean; opacity: number; isGhost: bo
     justify-content: center;
     height: ${TRANSFORMATION_NODE_SIZE}px;
     width: ${TRANSFORMATION_NODE_SIZE}px;
-    cursor: ${({ isGhost }) => (isGhost ? 'not-allowed' : 'pointer')};
+    cursor: ${({ isGhost, dragging, type }) => {
+        if (isGhost) return 'not-allowed';
+        if (dragging) return 'grabbing';
+        if (type === EntityType.SchemaField) return 'grab';
+        return 'pointer';
+    }};
 `;
 
 const IconWrapper = styled.div<{ isGhost: boolean }>`
@@ -74,7 +85,7 @@ const CustomIcon = styled.img`
 `;
 
 export default function LineageTransformationNode(props: NodeProps<LineageEntity>) {
-    const { data, selected } = props;
+    const { data, selected, dragging } = props;
     const { urn, type, entity, fetchStatus } = data;
     const isQuery = type === EntityType.Query;
 
@@ -97,9 +108,11 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
         <NodeWrapper
             opacity={opacity}
             selected={selected}
+            dragging={dragging}
             onMouseEnter={() => setHoveredNode(urn)}
             onMouseLeave={() => setHoveredNode(null)}
             isGhost={isGhost}
+            type={type}
         >
             {urn === rootUrn && (
                 <HomeNodeBubble>

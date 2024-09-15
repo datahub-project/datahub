@@ -1,15 +1,16 @@
+import { EntityType } from '@types';
 import React, { useContext } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
+import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
 import { getFilterIconAndLabel } from '../../searchV2/filters/utils';
 import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '../../searchV2/utils/constants';
 import { useEntityRegistryV2 } from '../../useEntityRegistry';
-import { LineageFilter, LineageNodesContext } from '../common';
+import { LineageFilter, LineageNodesContext, useIgnoreSchemaFieldStatus } from '../common';
 import { useAvoidIntersectionsOften } from '../LineageEntityNode/useAvoidIntersections';
 import { LINEAGE_NODE_WIDTH } from '../LineageEntityNode/useDisplayedColumns';
-import useFetchFilterNodeContents, { PlatformAggregate, SubtypeAggregate } from './useFetchFilterNodeContents';
-import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
 import { ShowMoreButton } from './ShowMoreButton';
+import useFetchFilterNodeContents, { PlatformAggregate, SubtypeAggregate } from './useFetchFilterNodeContents';
 
 export const LINEAGE_FILTER_NODE_NAME = 'lineage-filter';
 
@@ -75,8 +76,13 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
     const { id, data } = props;
     const { parent, direction, contents, shown, allChildren, numShown, limit } = data;
 
-    const { showGhostEntities } = useContext(LineageNodesContext);
-    const { total, platforms, subtypes } = useFetchFilterNodeContents(parent, direction);
+    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
+    const { showGhostEntities, rootType } = useContext(LineageNodesContext);
+    const { total, platforms, subtypes } = useFetchFilterNodeContents(
+        parent,
+        direction,
+        showGhostEntities && ignoreSchemaFieldStatus && rootType === EntityType.SchemaField,
+    );
 
     useAvoidIntersectionsOften(id, 52);
 

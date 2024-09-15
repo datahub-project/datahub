@@ -35,7 +35,7 @@ const HomeNodeBubble = styled.div`
 `;
 
 export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
-    const { data, selected } = props;
+    const { data, selected, dragging } = props;
     const { urn, type, entity, id, fetchStatus, isExpanded } = data;
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const { rootUrn } = useContext(LineageNodesContext);
@@ -77,6 +77,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
                 urn={urn}
                 type={type}
                 selected={selected}
+                dragging={dragging}
                 entity={entity}
                 fetchStatus={fetchStatus}
                 isExpanded={isExpanded}

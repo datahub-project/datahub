@@ -1,7 +1,7 @@
 import { useAppConfig } from '@app/useAppConfig';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useGetBulkEntityLineageV2Query } from '../../graphql/lineage.generated';
-import { LineageDirection } from '../../types.generated';
+import { EntityType, LineageDirection } from '../../types.generated';
 import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
 import usePrevious from '../shared/usePrevious';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
@@ -10,11 +10,13 @@ import {
     FetchStatus,
     getEdgeId,
     isQuery,
+    isTransformational,
     LineageEdge,
     LineageEntity,
     LineageNodesContext,
     NodeContext,
     setDefault,
+    useIgnoreSchemaFieldStatus,
 } from './common';
 import { FetchedEntityV2Relationship } from './types';
 import { addQueryNodes, entityNodeDefault, pruneDuplicateEdges } from './useSearchAcrossLineage';
@@ -23,8 +25,18 @@ const BATCH_SIZE = 10;
 
 export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
     const flags = useAppConfig().config.featureFlags;
-    const { nodes, edges, adjacencyList, showGhostEntities, dataVersion, setDataVersion, setDisplayVersion } =
-        useContext(LineageNodesContext);
+    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
+    const {
+        rootType,
+        nodes,
+        edges,
+        adjacencyList,
+        hideTransformations,
+        showGhostEntities,
+        dataVersion,
+        setDataVersion,
+        setDisplayVersion,
+    } = useContext(LineageNodesContext);
     shownUrns.sort();
     const prevShownUrns = usePrevious(shownUrns);
 
@@ -39,18 +51,36 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
     const [urnsToFetch, setUrnsToFetch] = useState<string[]>([]);
     useEffect(() => {
         setUrnsToFetch((oldUrnsToFetch) => {
-            const newUrnsToFetch = memoizedShownUrns
+            let newUrnsToFetch = memoizedShownUrns
                 .filter((urn) => {
                     const node = nodes.get(urn);
                     return !node?.entity;
                 })
                 .slice(0, BATCH_SIZE);
+            if (
+                !newUrnsToFetch.length &&
+                rootType === EntityType.SchemaField &&
+                ignoreSchemaFieldStatus &&
+                hideTransformations
+            ) {
+                newUrnsToFetch = Array.from(nodes.values())
+                    .filter((node) => isTransformational(node) && !node.entity)
+                    .map((node) => node.urn);
+            }
             if (JSON.stringify(oldUrnsToFetch) !== JSON.stringify(newUrnsToFetch)) {
                 return newUrnsToFetch;
             }
             return oldUrnsToFetch;
         });
-    }, [nodes, dataVersion, memoizedShownUrns, showGhostEntities]);
+    }, [
+        nodes,
+        dataVersion,
+        memoizedShownUrns,
+        showGhostEntities,
+        rootType,
+        ignoreSchemaFieldStatus,
+        hideTransformations,
+    ]);
 
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 

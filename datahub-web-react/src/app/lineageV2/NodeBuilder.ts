@@ -434,7 +434,7 @@ export default class NodeBuilder {
                 y: info.y || 0,
             },
             data: transformData(node),
-            selectable,
+            selectable: selectable && node.type !== EntityType.SchemaField,
         };
     }
 
