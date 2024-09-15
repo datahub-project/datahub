@@ -7,8 +7,8 @@ export interface SelectOption {
 
 export interface SelectProps {
     options: SelectOption[];
-    label: string;
-    value?: string;
+    label?: string;
+    values?: string[];
     onCancel?: () => void;
     onUpdate?: (selectedValues: string[]) => void;
     size?: SelectSizeOptions;
@@ -17,6 +17,8 @@ export interface SelectProps {
     isReadOnly?: boolean;
     isRequired?: boolean;
     width?: number | 'full';
+    isMultiSelect?: boolean;
+    placeholder?: string;
 }
 
 export interface SelectStyleProps {
@@ -29,7 +31,7 @@ export interface SelectStyleProps {
 
 export interface ActionButtonsProps {
     fontSize?: SelectSizeOptions;
-    selectedValue: string;
+    selectedValues: string[];
     isOpen: boolean;
     isDisabled: boolean;
     isReadOnly: boolean;
@@ -37,9 +39,11 @@ export interface ActionButtonsProps {
 }
 
 export interface SelectLabelDisplayProps {
-    selectedValue: string;
+    selectedValues: string[];
     options: SelectOption[];
     placeholder: string;
+    isMultiSelect?: boolean;
+    removeOption?: (option: SelectOption) => void;
 }
 
 export interface SearchInputProps extends React.InputHTMLAttributes<HTMLInputElement> {

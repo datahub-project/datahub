@@ -1,5 +1,5 @@
-import { HTMLAttributes } from 'react';
 import { ColorOptions, SizeOptions, VariantOptions } from '@src/alchemy-components/theme/config';
+import { HTMLAttributes } from 'react';
 
 export interface PillStyleProps {
     colorScheme?: ColorOptions; // need to keep colorScheme because HTMLAttributes also have color property

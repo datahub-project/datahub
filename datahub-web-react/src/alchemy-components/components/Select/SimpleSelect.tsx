@@ -1,40 +1,60 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Icon } from '@components';
+import { Icon, Pill } from '@components';
 
 import {
-    SelectBase,
-    OptionList,
-    OptionLabel,
+    ActionButtonsContainer,
     Container,
     Dropdown,
-    SearchInputContainer,
-    SearchInput,
-    SelectLabel,
-    SearchIcon,
-    SelectValue,
+    LabelContainer,
+    LabelsWrapper,
+    OptionLabel,
+    OptionList,
     Placeholder,
-    ActionButtonsContainer,
+    SearchIcon,
+    SearchInput,
+    SearchInputContainer,
+    SelectBase,
+    SelectLabel,
+    SelectValue,
+    StyledCheckbox,
     StyledClearButton,
 } from './components';
 
-import { SelectProps, SelectOption, ActionButtonsProps, SelectLabelDisplayProps } from './types';
+import { ActionButtonsProps, SelectLabelDisplayProps, SelectOption, SelectProps } from './types';
 
-const SelectLabelDisplay = ({ selectedValue, options, placeholder }: SelectLabelDisplayProps) => {
-    const selectedOption = options.find((opt) => opt.value === selectedValue);
+const SelectLabelDisplay = ({
+    selectedValues,
+    options,
+    placeholder,
+    isMultiSelect,
+    removeOption,
+}: SelectLabelDisplayProps) => {
+    const selectedOptions = options.filter((opt) => selectedValues.includes(opt.value));
     return (
-        <div>
-            {selectedOption ? (
-                <SelectValue>{selectedOption.label}</SelectValue>
-            ) : (
-                <Placeholder>{placeholder}</Placeholder>
-            )}
-        </div>
+        <LabelsWrapper>
+            {!!selectedOptions.length &&
+                isMultiSelect &&
+                selectedOptions.map((o) => (
+                    <Pill
+                        label={o.label}
+                        rightIcon="Close"
+                        size="sm"
+                        key={o.value}
+                        onClickRightIcon={(e) => {
+                            e.stopPropagation();
+                            removeOption?.(o);
+                        }}
+                    />
+                ))}
+            {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
+            {!isMultiSelect && <SelectValue>{selectedOptions[0]?.label}</SelectValue>}
+        </LabelsWrapper>
     );
 };
 
 const SelectActionButtons = ({
-    selectedValue,
+    selectedValues,
     isOpen,
     isDisabled,
     isReadOnly,
@@ -43,7 +63,7 @@ const SelectActionButtons = ({
 }: ActionButtonsProps) => {
     return (
         <ActionButtonsContainer>
-            {selectedValue && !isDisabled && !isReadOnly && (
+            {selectedValues.length > 0 && !isDisabled && !isReadOnly && (
                 <StyledClearButton icon="Close" isCircle onClick={handleClearSelection} size={fontSize} />
             )}
             <Icon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size="xl" color="gray" />
@@ -60,23 +80,27 @@ export const selectDefaults: SelectProps = {
     isReadOnly: false,
     isRequired: false,
     width: 255,
+    isMultiSelect: false,
+    placeholder: 'Select an option ',
 };
 
 export const SimpleSelect = ({
     options = selectDefaults.options,
     label = selectDefaults.label,
-    value = '',
+    values = [],
     onUpdate,
     showSearch = selectDefaults.showSearch,
     isDisabled = selectDefaults.isDisabled,
     isReadOnly = selectDefaults.isReadOnly,
     isRequired = selectDefaults.isRequired,
     size = selectDefaults.size,
+    isMultiSelect = selectDefaults.isMultiSelect,
+    placeholder = selectDefaults.placeholder,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
-    const [selectedValue, setSelectedValue] = useState<string>(value);
+    const [selectedValues, setSelectedValues] = useState<string[]>(values);
     const selectRef = useRef<HTMLDivElement>(null);
 
     const filteredOptions = useMemo(
@@ -105,17 +129,21 @@ export const SimpleSelect = ({
 
     const handleOptionChange = useCallback(
         (option: SelectOption) => {
-            setSelectedValue(option.value);
-            setIsOpen(false);
+            const updatedValues = selectedValues.includes(option.value)
+                ? selectedValues.filter((val) => val !== option.value)
+                : [...selectedValues, option.value];
+
+            setSelectedValues(isMultiSelect ? updatedValues : [option.value]);
             if (onUpdate) {
-                onUpdate([option.value]);
+                onUpdate(isMultiSelect ? updatedValues : [option.value]);
             }
+            if (!isMultiSelect) setIsOpen(false);
         },
-        [onUpdate],
+        [onUpdate, isMultiSelect, selectedValues],
     );
 
     const handleClearSelection = useCallback(() => {
-        setSelectedValue('');
+        setSelectedValues([]);
         setIsOpen(false);
         if (onUpdate) {
             onUpdate([]);
@@ -134,9 +162,15 @@ export const SimpleSelect = ({
                 fontSize={size}
                 {...props}
             >
-                <SelectLabelDisplay selectedValue={selectedValue} options={options} placeholder="Select an option" />
+                <SelectLabelDisplay
+                    selectedValues={selectedValues}
+                    options={options}
+                    placeholder={placeholder || 'Select an option'}
+                    isMultiSelect={isMultiSelect}
+                    removeOption={handleOptionChange}
+                />
                 <SelectActionButtons
-                    selectedValue={selectedValue}
+                    selectedValues={selectedValues}
                     isOpen={isOpen}
                     isDisabled={!!isDisabled}
                     isReadOnly={!!isReadOnly}
@@ -162,10 +196,21 @@ export const SimpleSelect = ({
                         {filteredOptions.map((option) => (
                             <OptionLabel
                                 key={option.value}
-                                onClick={() => handleOptionChange(option)}
-                                isSelected={option.value === selectedValue}
+                                onClick={() => !isMultiSelect && handleOptionChange(option)}
+                                isSelected={selectedValues.includes(option.value)}
+                                isMultiSelect={isMultiSelect}
                             >
-                                {option.label}
+                                {isMultiSelect ? (
+                                    <LabelContainer>
+                                        <span>{option.label}</span>
+                                        <StyledCheckbox
+                                            onClick={() => handleOptionChange(option)}
+                                            checked={selectedValues.includes(option.value)}
+                                        />
+                                    </LabelContainer>
+                                ) : (
+                                    <>{option.label}</>
+                                )}
                             </OptionLabel>
                         ))}
                     </OptionList>

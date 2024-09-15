@@ -1,5 +1,5 @@
-import React from 'react';
 import { Icon } from '@components';
+import React from 'react';
 
 import { PillContainer } from './components';
 import { PillProps } from './types';

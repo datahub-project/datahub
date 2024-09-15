@@ -1,13 +1,10 @@
-import styled from 'styled-components';
-
-import { spacing, colors, borders, shadows, transition, typography, radius } from '@components/theme';
-
 import { Button, Icon } from '@components';
-
-import { formLabelTextStyles, inputValueTextStyles, inputPlaceholderTextStyles } from '../commonStyles';
-
+import { borders, colors, radius, shadows, spacing, transition, typography } from '@components/theme';
+import { Checkbox } from 'antd';
+import styled from 'styled-components';
+import { formLabelTextStyles, inputPlaceholderTextStyles, inputValueTextStyles } from '../commonStyles';
 import { SelectSizeOptions, SelectStyleProps } from './types';
-import { getSelectStyle, getOptionLabelStyle, getSelectFontStyles } from './utils';
+import { getOptionLabelStyle, getSelectFontStyles, getSelectStyle } from './utils';
 
 const sharedTransition = `${transition.property.colors} ${transition.easing['ease-in-out']} ${transition.duration.normal}`;
 
@@ -61,6 +58,8 @@ export const Dropdown = styled.div({
     flexDirection: 'column',
     gap: '8px',
     marginTop: '4px',
+    maxHeight: '360px',
+    overflow: 'auto',
 });
 
 export const SearchInputContainer = styled.div({
@@ -127,9 +126,23 @@ export const OptionList = styled.div({
     flexDirection: 'column' as const,
 });
 
-export const OptionLabel = styled.label<{ isSelected: boolean }>(({ isSelected }) => ({
-    ...getOptionLabelStyle(isSelected),
-}));
+export const LabelContainer = styled.div({
+    display: 'flex',
+    justifyContent: 'space-between',
+    width: '100%',
+});
+
+export const LabelsWrapper = styled.div({
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: spacing.xxsm,
+});
+
+export const OptionLabel = styled.label<{ isSelected: boolean; isMultiSelect?: boolean }>(
+    ({ isSelected, isMultiSelect }) => ({
+        ...getOptionLabelStyle(isSelected, isMultiSelect),
+    }),
+);
 
 export const SelectLabel = styled.label({
     ...formLabelTextStyles,
@@ -183,3 +196,10 @@ export const ArrowIcon = styled.span<{ isOpen: boolean }>(({ isOpen }) => ({
     padding: '3px',
     transform: isOpen ? 'rotate(-135deg)' : 'rotate(45deg)',
 }));
+
+export const StyledCheckbox = styled(Checkbox)({
+    '.ant-checkbox-checked .ant-checkbox-inner': {
+        backgroundColor: colors.violet[500],
+        borderColor: `${colors.violet[500]} !important`,
+    },
+});

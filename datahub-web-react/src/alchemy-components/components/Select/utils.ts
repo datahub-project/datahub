@@ -1,16 +1,17 @@
-import { colors, borders, radius, typography, spacing } from '@components/theme';
+import { borders, colors, radius, spacing, typography } from '@components/theme';
 import { getFontSize } from '@components/theme/utils';
 
 import { SelectStyleProps } from './types';
 
-export const getOptionLabelStyle = (isSelected: boolean) => ({
+export const getOptionLabelStyle = (isSelected: boolean, isMultiSelect?: boolean) => ({
     cursor: 'pointer',
     padding: spacing.xsm,
     borderRadius: radius.md,
     lineHeight: typography.lineHeights.normal,
-    backgroundColor: isSelected ? colors.violet[100] : 'transparent',
-    color: isSelected ? colors.violet[700] : colors.gray[400],
-    fontWeight: typography.fontWeights.normal,
+    backgroundColor: isSelected && !isMultiSelect ? colors.violet[100] : 'transparent',
+    color: isSelected ? colors.violet[700] : colors.gray[500],
+    fontWeight: typography.fontWeights.medium,
+    fontSize: typography.fontSizes.md,
     display: 'flex',
     alignItems: 'center',
 
