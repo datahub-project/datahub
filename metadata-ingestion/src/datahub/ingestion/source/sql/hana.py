@@ -780,6 +780,8 @@ class HanaSource(SQLAlchemySource):
             schema=schema,
         )
 
+        subtype = SubTypesClass(["Table"])
+
         dataset_snapshot = MetadataChangeProposalWrapper.construct_many(
             entityUrn=entity,
             aspects=[
@@ -788,6 +790,7 @@ class HanaSource(SQLAlchemySource):
                 platform,
                 browse_path,
                 container,
+                subtype,
             ]
         )
 
