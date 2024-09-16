@@ -927,9 +927,7 @@ class HanaSource(SQLAlchemySource):
                         upstreams.append(f"{column_object.get('schemaName')}.{column_object.get('columnObjectName')}")
 
         except Exception as e:
-            logging.warning(
-                f"No lineage found for Calculation View {dataset_path}/{dataset_name}. Parsing error: {e}"
-            )
+            logging.error(e)
 
         if not upstreams:
             return None
