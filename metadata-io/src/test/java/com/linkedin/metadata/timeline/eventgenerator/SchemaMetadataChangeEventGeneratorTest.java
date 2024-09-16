@@ -4,6 +4,7 @@ import static org.testng.AssertJUnit.assertEquals;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.dataset.SchemaFieldModificationCategory;
 import com.linkedin.mxe.SystemMetadata;
@@ -179,6 +180,38 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
             SchemaFieldModificationCategory.OTHER.toString(),
             SchemaFieldModificationCategory.TYPE_CHANGE.toString()),
         actual);
+  }
+
+  @Test
+  public void testSchemaFieldPrimaryKeyChange() throws Exception {
+    // When a rename cannot be detected, treated as drop -> add
+    SchemaMetadataChangeEventGenerator test = new SchemaMetadataChangeEventGenerator();
+
+    Urn urn = getTestUrn();
+    String entity = "dataset";
+    String aspect = "schemaMetadata";
+    AuditStamp auditStamp = getTestAuditStamp();
+
+    Aspect<SchemaMetadata> from =
+        getSchemaMetadata(
+            List.of(
+                new SchemaField().setFieldPath("ID").setNativeDataType("NUMBER(16,1)"),
+                new SchemaField().setFieldPath("ID2").setNativeDataType("NUMBER(16,1)")));
+    from.getValue().setPrimaryKeys(new StringArray(List.of("ID")));
+    Aspect<SchemaMetadata> to3 =
+        getSchemaMetadata(
+            List.of(
+                new SchemaField().setFieldPath("ID").setNativeDataType("NUMBER(16,1)"),
+                new SchemaField().setFieldPath("ID2").setNativeDataType("NUMBER(16,1)")));
+    to3.getValue().setPrimaryKeys(new StringArray(List.of("ID2")));
+    List<ChangeEvent> actual = test.getChangeEvents(urn, entity, aspect, from, to3, auditStamp);
+    compareDescriptions(
+        Set.of(
+            "A backwards incompatible change due to a primary key constraint change. "
+                + "The following fields were removed: 'ID'. The following fields were added: 'ID2'."),
+        actual);
+    assertEquals(1, actual.size());
+    compareModificationCategories(Set.of(SchemaFieldModificationCategory.OTHER.toString()), actual);
   }
 
   @Test

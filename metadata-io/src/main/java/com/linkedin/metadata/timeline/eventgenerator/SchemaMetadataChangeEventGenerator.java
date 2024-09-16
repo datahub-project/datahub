@@ -324,10 +324,10 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
 
     // Handle primary key constraint change events.
     List<ChangeEvent> primaryKeyChangeEvents =
-        getPrimaryKeyChangeEvents(baseSchema, targetSchema, datasetUrn, auditStamp);
+        getPrimaryKeyChangeEvents(changeCategory, baseSchema, targetSchema, datasetUrn, auditStamp);
     changeEvents.addAll(primaryKeyChangeEvents);
 
-    // Handle foreign key constraint change events.
+    // Handle foreign key constraint change events, currently no-op due to field not being utilized.
     List<ChangeEvent> foreignKeyChangeEvents = getForeignKeyChangeEvents();
     changeEvents.addAll(foreignKeyChangeEvents);
 
@@ -505,61 +505,70 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   }
 
   private static List<ChangeEvent> getPrimaryKeyChangeEvents(
+      ChangeCategory changeCategory,
       SchemaMetadata baseSchema,
       SchemaMetadata targetSchema,
       Urn datasetUrn,
       AuditStamp auditStamp) {
-    List<ChangeEvent> primaryKeyChangeEvents = new ArrayList<>();
-    Set<String> basePrimaryKeys =
-        (baseSchema != null && baseSchema.getPrimaryKeys() != null)
-            ? new HashSet<>(baseSchema.getPrimaryKeys())
-            : new HashSet<>();
-    Set<String> targetPrimaryKeys =
-        (targetSchema != null && targetSchema.getPrimaryKeys() != null)
-            ? new HashSet<>(targetSchema.getPrimaryKeys())
-            : new HashSet<>();
-    Set<String> removedBaseKeys =
-        basePrimaryKeys.stream()
-            .filter(key -> !targetPrimaryKeys.contains(key))
-            .collect(Collectors.toSet());
-    for (String removedBaseKeyField : removedBaseKeys) {
-      primaryKeyChangeEvents.add(
-          ChangeEvent.builder()
-              .category(ChangeCategory.TECHNICAL_SCHEMA)
-              .modifier(getSchemaFieldUrn(datasetUrn.toString(), removedBaseKeyField).toString())
-              .entityUrn(datasetUrn.toString())
-              .operation(ChangeOperation.MODIFY)
-              .semVerChange(SemanticChangeType.MAJOR)
-              .description(
-                  BACKWARDS_INCOMPATIBLE_DESC
-                      + " removal of the primary key field '"
-                      + removedBaseKeyField
-                      + "'")
-              .auditStamp(auditStamp)
-              .build());
-    }
+    if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
+      List<ChangeEvent> primaryKeyChangeEvents = new ArrayList<>();
+      Set<String> basePrimaryKeys =
+          (baseSchema != null && baseSchema.getPrimaryKeys() != null)
+              ? new HashSet<>(baseSchema.getPrimaryKeys())
+              : new HashSet<>();
+      Set<String> targetPrimaryKeys =
+          (targetSchema != null && targetSchema.getPrimaryKeys() != null)
+              ? new HashSet<>(targetSchema.getPrimaryKeys())
+              : new HashSet<>();
+      Set<String> removedBaseKeys =
+          basePrimaryKeys.stream()
+              .filter(key -> !targetPrimaryKeys.contains(key))
+              .collect(Collectors.toSet());
 
-    Set<String> addedTargetKeys =
-        targetPrimaryKeys.stream()
-            .filter(key -> !basePrimaryKeys.contains(key))
-            .collect(Collectors.toSet());
-    for (String addedTargetKeyField : addedTargetKeys) {
-      primaryKeyChangeEvents.add(
-          ChangeEvent.builder()
-              .category(ChangeCategory.TECHNICAL_SCHEMA)
-              .modifier(getSchemaFieldUrn(datasetUrn, addedTargetKeyField).toString())
-              .entityUrn(datasetUrn.toString())
-              .operation(ChangeOperation.MODIFY)
-              .semVerChange(SemanticChangeType.MAJOR)
-              .description(
-                  BACKWARDS_INCOMPATIBLE_DESC
-                      + " addition of the primary key field '"
-                      + addedTargetKeyField
-                      + "'")
-              .auditStamp(auditStamp)
-              .build());
+      Set<String> addedTargetKeys =
+          targetPrimaryKeys.stream()
+              .filter(key -> !basePrimaryKeys.contains(key))
+              .collect(Collectors.toSet());
+      if (!removedBaseKeys.isEmpty() || !addedTargetKeys.isEmpty()) {
+        String keyChangeTarget;
+        // Just pick the first schema field we can find for the change event
+        if (!removedBaseKeys.isEmpty()) {
+          keyChangeTarget = removedBaseKeys.stream().findFirst().get();
+        } else {
+          keyChangeTarget = addedTargetKeys.stream().findFirst().get();
+        }
+
+        StringBuilder description =
+            new StringBuilder(BACKWARDS_INCOMPATIBLE_DESC + " a primary key constraint change.");
+        if (!removedBaseKeys.isEmpty()) {
+          description.append(" The following fields were removed:");
+          removedBaseKeys.forEach(
+              removedBaseKey -> description.append(" '").append(removedBaseKey).append("'"));
+          description.append(".");
+        }
+        if (!addedTargetKeys.isEmpty()) {
+          description.append(" The following fields were added:");
+          addedTargetKeys.forEach(
+              addedTargetKey -> description.append(" '").append(addedTargetKey).append("'"));
+          description.append(".");
+        }
+        primaryKeyChangeEvents.add(
+            DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
+                .category(ChangeCategory.TECHNICAL_SCHEMA)
+                .fieldUrn(getSchemaFieldUrn(datasetUrn, keyChangeTarget))
+                .fieldPath(keyChangeTarget)
+                .modifier(getSchemaFieldUrn(datasetUrn, keyChangeTarget).toString())
+                .entityUrn(datasetUrn.toString())
+                .operation(ChangeOperation.MODIFY)
+                .semVerChange(SemanticChangeType.MAJOR)
+                .description(description.toString())
+                .modificationCategory(SchemaFieldModificationCategory.OTHER)
+                .auditStamp(auditStamp)
+                .build());
+        return primaryKeyChangeEvents;
+      }
     }
-    return primaryKeyChangeEvents;
+    return Collections.emptyList();
   }
 
   @Override
