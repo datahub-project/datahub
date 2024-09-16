@@ -35,14 +35,14 @@ with DAG(
         task_id="datahub_emitter_operator_jinja_template_dag_task",
         mces=[
             MetadataChangeProposalWrapper(
-                entityUrn="urn:li:dataset:(urn:li:dataPlatform:hive,foursquare.example.mcpw_example,DEV)",
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.mcpw_example,DEV)",
                 aspect=BrowsePathsV2Class(
                     path=[BrowsePathEntryClass("mcpw_example {{ ds }}")],
                 ),
             ),
             MetadataChangeEvent(
                 proposedSnapshot=DatasetSnapshotClass(
-                    urn="urn:li:dataset:(urn:li:dataPlatform:hive,foursquare.example.lineage_example,DEV)",
+                    urn="urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.lineage_example,DEV)",
                     aspects=[
                         DatasetPropertiesClass(
                             customProperties={"jinjaTemplate": "{{ ds }}"}
