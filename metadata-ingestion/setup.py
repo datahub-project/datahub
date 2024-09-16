@@ -589,6 +589,7 @@ base_dev_requirements = {
             "clickhouse-usage",
             "cockroachdb",
             "delta-lake",
+            "dremio"
             "druid",
             "elasticsearch",
             "feast",
@@ -687,6 +688,7 @@ entry_points = {
         "s3 = datahub.ingestion.source.s3:S3Source",
         "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",
         "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
+        "dremio" = datahub.ingestion.source.dremio.DremioSource"
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "dynamodb = datahub.ingestion.source.dynamodb.dynamodb:DynamoDBSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
