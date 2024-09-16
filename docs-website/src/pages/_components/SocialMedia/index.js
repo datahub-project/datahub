@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import Link from "@docusaurus/Link";
 import styles from "./socialmedia.module.scss";
@@ -14,8 +14,32 @@ import {
 import { Carousel } from "antd";
 
 
+const VideoItem = ({ isActive, src }) => {
+  const ref = useRef();
+
+  useEffect(() => {
+    if (isActive) {
+      ref.current?.play();
+    } else {
+      ref.current?.pause();
+    }
+  }, [isActive])
+
+  return <video
+    ref={ref}
+    muted
+    loop
+    // autoPlay
+    preload="auto"
+    src={src}
+    className={styles.video}
+  />
+
+}
+
 const SocialMedia = ({}) => {
-const sliderVideos = [
+
+  const sliderVideos = [
     {
         videoUrl: useBaseUrl("/img/home-social-media/kathleen.webm"),
         title: "Insider Secrets: Building Bulletproof Analytics Teams w/ Kathleen Maley",
@@ -24,14 +48,14 @@ const sliderVideos = [
         date: "Jun 13, 2024",
         viewerCount: "100+",
     },
-    {
-        videoUrl: useBaseUrl("/img/home-social-media/visa_speaker.webm"),
-        link: 'https://www.youtube.com/watch?v=B6CplqnIkFw',
-        title: "The VISA Team's vision for Logical Datasets",
-        // description: "VP Data Analytics, Experian",
-        date: "Apr 18, 2024",
-        viewerCount: "900+",
-    },
+    // {
+    //     videoUrl: useBaseUrl("/img/home-social-media/visa_speaker.webm"),
+    //     link: 'https://www.youtube.com/watch?v=B6CplqnIkFw',
+    //     title: "The VISA Team's vision for Logical Datasets",
+    //     // description: "VP Data Analytics, Experian",
+    //     date: "Apr 18, 2024",
+    //     viewerCount: "900+",
+    // },
     {
       videoUrl: useBaseUrl("/img/home-social-media/linkedin.webm"),
       link: 'https://www.youtube.com/watch?v=3alQ9e6Lf2Y',
@@ -47,7 +71,13 @@ const sliderVideos = [
         date: "July 2024",
         viewerCount: "300+",
     },
-    ];
+  ];
+  
+  const [activeSliderIndex, setActiveSliderIndex] = useState(0);
+
+  const onChange = (currentSlide, nextSlideRaw) => {
+    setActiveSliderIndex((nextSlideRaw + 1) % sliderVideos.length)
+  };
       
   return (
     <div className={styles.container}>
@@ -147,16 +177,14 @@ const sliderVideos = [
       </div>
       <div className={styles.carousalContainer}>
         <div className={styles.carousalWrapper}>
-        <Carousel slidesToShow={3} dots={false} dotPosition="left" infinite autoplay speed={300} autoplaySpeed={4000}>
+        <Carousel slidesToShow={3} initialSlide={2} dots={false} dotPosition="left" infinite autoplay speed={300} autoplaySpeed={4000}
+        beforeChange={onChange}
+        >
           {sliderVideos.map((video, idx) => (
-            <Link className={styles.videoContainer} to={video.link} key={idx}>
-              <video
-                autoPlay
-                muted
-                infinite
+            <Link className={styles.videoContainer} to={video.link} key={video.link}>
+              <VideoItem
+                isActive={activeSliderIndex === idx}
                 src={video.videoUrl}
-                className={styles.video}
-                controls={false}
               />
               <div className={styles.videoItemFooter}>
                 <div className={styles.videoTitle}>{video.title}</div>

@@ -18,16 +18,38 @@ const QuickstartContent = ({}) => {
     target: scrollableElement,
     offset: ["start end", "end end"]
   })
-  const scaleBar = useTransform(scrollYProgress, [0, .9, 1], [0, .8, 1])
+  const scaleBar = useTransform(scrollYProgress, [0, .9, 1], [0, .8, 1]);
+  const opacityBar = useTransform(scrollYProgress, [0, 0.2, 0.5], [0, 0, 1]);
 
   return (
     <div className={clsx("quickstart", styles.quickstart)}>
-      <div className="quickstart__header">
+      <motion.div className="quickstart__header"
+        initial={{
+          opacity: 0,
+          scale: .8,
+          y: 50,
+        }}
+        exit={{
+          opacity: 0,
+          scale: .9,
+          y: -50
+        }}
+        whileInView={{
+          opacity: 1,
+          scale: 1,
+          y: 0,
+          transition: {
+            delay: 0,
+            duration: .75
+          }
+        }}
+        viewport={{ once: true, amount: 'full' }}
+      >
         <div className="quickstart__title">The only platform you need</div>
         <div className="quickstart__subtitle">
           Unified Discovery, Observability, and Governance for Data and AI.
         </div>
-      </div>
+      </motion.div>
       <div
         className="quickstart__container"
         id="quickstart__container"
@@ -35,10 +57,10 @@ const QuickstartContent = ({}) => {
       >
         <motion.div
           className="quickstart__bar"
-          style={{  scaleY: scaleBar }}
+          style={{  scaleY: scaleBar, opacity: opacityBar }}
         />
         {quickstartContent.map((data, idx) => (
-          <motion.div key={idx} className="quickstart__content" key={idx}
+          <motion.div key={idx} className="quickstart__content"
             initial={{
               opacity: 0,
               scale: .9,
