@@ -889,22 +889,25 @@ class HanaSource(SQLAlchemySource):
                 if isinstance(row_item[0], str) and isinstance(row_item[1], str):
                     upstream_tables.append(f"{row_item[0].lower()}.{row_item[1].lower()}")
 
-            self.aggregator.add_known_query_lineage(
-                KnownQueryLineageInfo(
-                    query_text=view_definition,
-                    upstreams=[
-                        make_dataset_urn_with_platform_instance(
-                            platform=self.get_platform(),
-                            name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{row}",
-                            platform_instance=self.config.platform_instance,
-                            env=self.config.env
-                        ) for row in upstream_tables
-                    ],
-                    downstream=entity,
-                    query_type=QueryType.SELECT
-                ),
-                merge_lineage=True,
-            )
+            try:
+                self.aggregator.add_known_query_lineage(
+                    KnownQueryLineageInfo(
+                        query_text=view_definition,
+                        upstreams=[
+                            make_dataset_urn_with_platform_instance(
+                                platform=self.get_platform(),
+                                name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{row}",
+                                platform_instance=self.config.platform_instance,
+                                env=self.config.env
+                            ) for row in upstream_tables
+                        ],
+                        downstream=entity,
+                        query_type=QueryType.SELECT
+                    ),
+                    merge_lineage=True,
+                )
+            except Exception as e:
+                logging.error(e)
 
         for mcp in dataset_snapshot:
             self.report.report_workunit(mcp.as_workunit())
