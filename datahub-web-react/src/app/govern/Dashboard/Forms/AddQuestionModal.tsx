@@ -1,23 +1,25 @@
 import { Button, Text } from '@src/alchemy-components';
-import { FormPromptType, FormState } from '@src/types.generated';
+import { FormPrompt, FormPromptType, FormState } from '@src/types.generated';
 import { Form, Select } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { FormQuestion, questionTypes } from './formUtils';
+import { questionTypes } from './formUtils';
 import ManageFormContext from './ManageFormContext';
 import CommonQuestionFields from './questionTypes/CommonQuestionFields';
 import OwnershipQuestion from './questionTypes/OwnershipQuestion';
 import StructuredPropertyQuestion from './questionTypes/StructuredPropertyQuestion';
 import { FieldLabel, FormFieldsContainer, ModalFooter, SelectOptionContainer, StyledModal } from './styledComponents';
+import GlossaryTermsQuestion from './questionTypes/GlossaryTermsQuestion';
+import DomainsQuestion from './questionTypes/DomainQuestion';
 
 interface Props {
     showQuestionModal: boolean;
     setShowQuestionModal: React.Dispatch<React.SetStateAction<boolean>>;
-    setCurrentQuestion: React.Dispatch<React.SetStateAction<FormQuestion | undefined>>;
-    question?: FormQuestion;
+    setCurrentQuestion: React.Dispatch<React.SetStateAction<FormPrompt | undefined>>;
+    question?: FormPrompt;
 }
 
-const DEPENDENT_FIELDS = ['structuredPropertyParams', 'ownershipParams'];
+const DEPENDENT_FIELDS = ['structuredPropertyParams', 'ownershipParams', 'glossaryTermsParams', 'domainParams'];
 
 const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQuestion, question }: Props) => {
     const { formValues, setFormValues } = useContext(ManageFormContext);
@@ -27,24 +29,19 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
     const isFormDisabled = formValues.state !== FormState.Draft;
 
     useEffect(() => {
-        form.setFieldsValue(
-            question || {
-                required: false,
-            },
-        );
+        form.setFieldsValue(question || {});
         setSelectedType(question?.type);
     }, [form, question]);
 
     const handleCreateOrUpdateQuestion = () => {
-        const formData = form.getFieldsValue();
+        const formData = form.getFieldsValue(true);
         const questions = formValues.questions || [];
 
         form.validateFields().then(() => {
             // Editing an existing question
             if (question) {
-                const index = questions?.indexOf(question);
-                const updatedQuestions = questions?.map((ques, ind) =>
-                    ind === index ? { id: ques.id, ...formData } : ques,
+                const updatedQuestions = questions?.map((ques) =>
+                    ques.id === question.id ? { id: ques.id, ...formData } : ques,
                 );
                 setFormValues({ ...formValues, questions: updatedQuestions });
             } else {
@@ -105,6 +102,7 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                     )}
                 </ModalFooter>
             }
+            destroyOnClose
         >
             <Form form={form} disabled={isFormDisabled}>
                 <FormFieldsContainer>
@@ -123,6 +121,13 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                             onChange={(value) => {
                                 resetDependentFields();
                                 setSelectedType(value);
+                                form.setFieldsValue(
+                                    question
+                                        ? { ...question, required: !(value as string).startsWith('FIELD') }
+                                        : {
+                                              required: !(value as string).startsWith('FIELD'),
+                                          },
+                                );
                             }}
                         >
                             {questionTypes.map((questionType) => {
@@ -146,6 +151,9 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                         selectedType === FormPromptType.FieldsStructuredProperty) && <StructuredPropertyQuestion />}
 
                     {selectedType === FormPromptType.Ownership && <OwnershipQuestion />}
+                    {selectedType === FormPromptType.GlossaryTerms && <GlossaryTermsQuestion />}
+                    {selectedType === FormPromptType.FieldsGlossaryTerms && <GlossaryTermsQuestion />}
+                    {selectedType === FormPromptType.Domain && <DomainsQuestion />}
 
                     {selectedType && <CommonQuestionFields isFormDisabled={isFormDisabled} />}
                 </FormFieldsContainer>

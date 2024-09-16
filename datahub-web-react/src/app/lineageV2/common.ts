@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { Maybe } from 'graphql/jsutils/Maybe';
@@ -78,12 +79,19 @@ export function useIgnoreSchemaFieldStatus(): boolean {
     return useAppConfig().config.featureFlags.schemaFieldLineageIgnoreStatus;
 }
 
-export function isGhostEntity(node: FetchedEntityV2 | undefined, ignoreSchemaFieldStatus: boolean): boolean {
+export function isGhostEntity(
+    node: FetchedEntityV2 | GenericEntityProperties | undefined | null,
+    ignoreSchemaFieldStatus: boolean,
+): boolean {
     return (
         !!node &&
         (!node?.exists || !!node.status?.removed) &&
         node.type !== EntityType.Query &&
-        !(ignoreSchemaFieldStatus && node.type === EntityType.SchemaField)
+        !(
+            ignoreSchemaFieldStatus &&
+            node.type === EntityType.SchemaField &&
+            !isGhostEntity(node.parent, ignoreSchemaFieldStatus)
+        )
     );
 }
 
@@ -187,6 +195,7 @@ export type NeighborMap = Map<Urn, Set<Urn>>;
 
 export interface NodeContext {
     rootUrn: string;
+    rootType: EntityType;
     nodes: Map<Urn, LineageEntity>;
     edges: Map<EdgeId, LineageEdge>;
     adjacencyList: Record<LineageDirection, NeighborMap>;
@@ -204,6 +213,7 @@ export interface NodeContext {
 
 export const LineageNodesContext = React.createContext<NodeContext>({
     rootUrn: '',
+    rootType: EntityType.Dataset,
     nodes: new Map(),
     edges: new Map(),
     adjacencyList: {

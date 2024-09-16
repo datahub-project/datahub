@@ -31,6 +31,7 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
+    ObservedQuery,
     SqlParsingAggregator,
 )
 from datahub.utilities.perf_timer import PerfTimer
@@ -118,11 +119,13 @@ class RedshiftSqlLineageV2:
         if self.config.resolve_temp_table_in_lineage:
             for temp_row in self._lineage_v1.get_temp_tables(connection=connection):
                 self.aggregator.add_observed_query(
-                    query=temp_row.query_text,
-                    default_db=self.database,
-                    default_schema=self.config.default_schema,
-                    session_id=temp_row.session_id,
-                    query_timestamp=temp_row.start_time,
+                    ObservedQuery(
+                        query=temp_row.query_text,
+                        default_db=self.database,
+                        default_schema=self.config.default_schema,
+                        session_id=temp_row.session_id,
+                        timestamp=temp_row.start_time,
+                    ),
                     # The "temp table" query actually returns all CREATE TABLE statements, even if they
                     # aren't explicitly a temp table. As such, setting is_known_temp_table=True
                     # would not be correct. We already have mechanisms to autodetect temp tables,
@@ -263,11 +266,13 @@ class RedshiftSqlLineageV2:
         # TODO actor
 
         self.aggregator.add_observed_query(
-            query=ddl,
-            default_db=self.database,
-            default_schema=self.config.default_schema,
-            query_timestamp=lineage_row.timestamp,
-            session_id=lineage_row.session_id,
+            ObservedQuery(
+                query=ddl,
+                default_db=self.database,
+                default_schema=self.config.default_schema,
+                timestamp=lineage_row.timestamp,
+                session_id=lineage_row.session_id,
+            )
         )
 
     def _make_filtered_target(self, lineage_row: LineageRow) -> Optional[DatasetUrn]:

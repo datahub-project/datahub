@@ -1,7 +1,6 @@
 package com.linkedin.gms.factory.kafka;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import java.time.Duration;
 import java.util.Arrays;
@@ -9,7 +8,6 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
@@ -21,7 +19,6 @@ import org.springframework.kafka.listener.CommonContainerStoppingErrorHandler;
 import org.springframework.kafka.listener.CommonDelegatingErrorHandler;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.DeserializationException;
-import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 
 @Slf4j
 @Configuration
@@ -33,7 +30,8 @@ public class KafkaEventConsumerFactory {
   protected DefaultKafkaConsumerFactory<String, GenericRecord> createConsumerFactory(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
       KafkaProperties baseKafkaProperties,
-      @Qualifier("schemaRegistryConfig") SchemaRegistryConfig schemaRegistryConfig) {
+      @Qualifier("schemaRegistryConfig")
+          KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
     kafkaEventConsumerConcurrency = provider.getKafka().getListener().getConcurrency();
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
@@ -47,7 +45,8 @@ public class KafkaEventConsumerFactory {
   protected DefaultKafkaConsumerFactory<String, GenericRecord> duheKafkaConsumerFactory(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
       KafkaProperties baseKafkaProperties,
-      @Qualifier("duheSchemaRegistryConfig") SchemaRegistryConfig schemaRegistryConfig) {
+      @Qualifier("duheSchemaRegistryConfig")
+          KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Map<String, Object> customizedProperties =
@@ -59,7 +58,7 @@ public class KafkaEventConsumerFactory {
   private static Map<String, Object> buildCustomizedProperties(
       KafkaProperties baseKafkaProperties,
       KafkaConfiguration kafkaConfiguration,
-      SchemaRegistryConfig schemaRegistryConfig) {
+      KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
     KafkaProperties.Consumer consumerProps = baseKafkaProperties.getConsumer();
 
     // Records will be flushed every 10 seconds.
@@ -74,19 +73,12 @@ public class KafkaEventConsumerFactory {
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
     Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties(null);
-    customizedProperties.put(
-        ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-    customizedProperties.put(
-        ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
-    customizedProperties.put(
-        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-    customizedProperties.put(
-        ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, schemaRegistryConfig.getDeserializer());
+    customizedProperties.putAll(
+        kafkaConfiguration.getSerde().getEvent().getConsumerProperties(schemaRegistryConfig));
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
-    schemaRegistryConfig.getProperties().entrySet().stream()
-        .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isEmpty())
-        .forEach(entry -> customizedProperties.put(entry.getKey(), entry.getValue()));
+    customizedProperties.putAll(
+        kafkaConfiguration.getSerde().getEvent().getProperties(schemaRegistryConfig));
 
     customizedProperties.put(
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,

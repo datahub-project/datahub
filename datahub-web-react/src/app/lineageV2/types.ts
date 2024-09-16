@@ -66,5 +66,6 @@ export interface FetchedEntityV2 {
     health?: Health[];
     lineageAssets?: LineageAsset[];
     lineageSiblingIcon?: string;
-    parents?: GenericEntityProperties[];
+    containers?: GenericEntityProperties[];
+    parent?: GenericEntityProperties; // Schema field parent
 }

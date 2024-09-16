@@ -36,9 +36,8 @@ record SearchEntity {
    */
   restrictedAspects: optional array[string]
 
-  /**
+   /**
     * Extra fields from the search document based on what is requested in the search request
-  */
-  extraFields: optional map[string, string]
-
+    */
+   extraFields: optional map[string, string]
 }

@@ -1,43 +1,63 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button, Icon } from '@components';
+import { Button, Icon, Pill } from '@components';
 
 import {
-    SelectBase,
-    OptionList,
-    OptionLabel,
-    FooterBase,
+    ActionButtonsContainer,
     Container,
     Dropdown,
-    SearchInputContainer,
-    StyledCancelButton,
-    SearchInput,
-    SelectLabel,
-    SearchIcon,
-    StyledClearButton,
-    SelectValue,
+    FooterBase,
+    LabelContainer,
+    LabelsWrapper,
+    OptionLabel,
+    OptionList,
     Placeholder,
-    ActionButtonsContainer,
+    SearchIcon,
+    SearchInput,
+    SearchInputContainer,
+    SelectBase,
+    SelectLabel,
+    SelectValue,
+    StyledCancelButton,
+    StyledCheckbox,
+    StyledClearButton,
 } from './components';
 
-import { SelectProps, SelectOption, ActionButtonsProps, SelectLabelDisplayProps } from './types';
+import { ActionButtonsProps, SelectLabelDisplayProps, SelectOption, SelectProps } from './types';
 import { getFooterButtonSize } from './utils';
 
-const SelectLabelDisplay = ({ selectedValue, options, placeholder }: SelectLabelDisplayProps) => {
-    const selectedOption = options.find((opt) => opt.value === selectedValue);
+const SelectLabelDisplay = ({
+    selectedValues,
+    options,
+    placeholder,
+    isMultiSelect,
+    removeOption,
+}: SelectLabelDisplayProps) => {
+    const selectedOptions = options.filter((opt) => selectedValues.includes(opt.value));
     return (
-        <div>
-            {selectedOption ? (
-                <SelectValue>{selectedOption.label}</SelectValue>
-            ) : (
-                <Placeholder>{placeholder}</Placeholder>
-            )}
-        </div>
+        <LabelsWrapper>
+            {!!selectedOptions.length &&
+                isMultiSelect &&
+                selectedOptions.map((o) => (
+                    <Pill
+                        label={o.label}
+                        rightIcon="Close"
+                        size="sm"
+                        key={o.value}
+                        onClickRightIcon={(e) => {
+                            e.stopPropagation();
+                            removeOption?.(o);
+                        }}
+                    />
+                ))}
+            {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
+            {!isMultiSelect && <SelectValue>{selectedOptions[0]?.label}</SelectValue>}
+        </LabelsWrapper>
     );
 };
 
 const SelectActionButtons = ({
-    selectedValue,
+    selectedValues,
     isOpen,
     isDisabled,
     isReadOnly,
@@ -46,7 +66,7 @@ const SelectActionButtons = ({
 }: ActionButtonsProps) => {
     return (
         <ActionButtonsContainer>
-            {selectedValue && !isDisabled && !isReadOnly && (
+            {selectedValues.length > 0 && !isDisabled && !isReadOnly && (
                 <StyledClearButton icon="Close" isCircle onClick={handleClearSelection} size={fontSize} />
             )}
             <Icon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size="xl" color="gray" />
@@ -63,12 +83,14 @@ export const selectDefaults: SelectProps = {
     isDisabled: false,
     isReadOnly: false,
     isRequired: false,
+    isMultiSelect: false,
+    placeholder: 'Select an option',
 };
 
 export const BasicSelect = ({
     options = selectDefaults.options,
     label = selectDefaults.label,
-    value = '',
+    values = [],
     onCancel,
     onUpdate,
     showSearch = selectDefaults.showSearch,
@@ -76,12 +98,14 @@ export const BasicSelect = ({
     isReadOnly = selectDefaults.isReadOnly,
     isRequired = selectDefaults.isRequired,
     size = selectDefaults.size,
+    isMultiSelect = selectDefaults.isMultiSelect,
+    placeholder = selectDefaults.placeholder,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
-    const [selectedValue, setSelectedValue] = useState<string>(value);
-    const [tempValue, setTempValue] = useState<string>(value);
+    const [selectedValues, setSelectedValues] = useState<string[]>(values);
+    const [tempValues, setTempValues] = useState<string[]>(values);
     const selectRef = useRef<HTMLDivElement>(null);
 
     const filteredOptions = useMemo(
@@ -104,34 +128,49 @@ export const BasicSelect = ({
 
     const handleSelectClick = useCallback(() => {
         if (!isDisabled && !isReadOnly) {
-            setTempValue(selectedValue);
+            setTempValues(selectedValues);
             setIsOpen((prev) => !prev);
         }
-    }, [isDisabled, isReadOnly, selectedValue]);
+    }, [isDisabled, isReadOnly, selectedValues]);
 
-    const handleOptionChange = useCallback((option: SelectOption) => {
-        setTempValue(option.value);
-    }, []);
+    const handleOptionChange = useCallback(
+        (option: SelectOption) => {
+            const updatedValues = tempValues.includes(option.value)
+                ? tempValues.filter((val) => val !== option.value)
+                : [...tempValues, option.value];
+
+            setTempValues(isMultiSelect ? updatedValues : [option.value]);
+        },
+        [tempValues, isMultiSelect],
+    );
+
+    const removeOption = useCallback(
+        (option: SelectOption) => {
+            const updatedValues = selectedValues.filter((val) => val !== option.value);
+            setSelectedValues(updatedValues);
+        },
+        [selectedValues],
+    );
 
     const handleUpdateClick = useCallback(() => {
-        setSelectedValue(tempValue);
+        setSelectedValues(tempValues);
         setIsOpen(false);
         if (onUpdate) {
-            onUpdate([tempValue]);
+            onUpdate(tempValues);
         }
-    }, [tempValue, onUpdate]);
+    }, [tempValues, onUpdate]);
 
     const handleCancelClick = useCallback(() => {
         setIsOpen(false);
-        setTempValue(selectedValue);
+        setTempValues(selectedValues);
         if (onCancel) {
             onCancel();
         }
-    }, [selectedValue, onCancel]);
+    }, [selectedValues, onCancel]);
 
     const handleClearSelection = useCallback(() => {
-        setSelectedValue('');
-        setTempValue('');
+        setSelectedValues([]);
+        setTempValues([]);
         setIsOpen(false);
         if (onUpdate) {
             onUpdate([]);
@@ -150,9 +189,15 @@ export const BasicSelect = ({
                 fontSize={size}
                 {...props}
             >
-                <SelectLabelDisplay selectedValue={selectedValue} options={options} placeholder="Select an option" />
+                <SelectLabelDisplay
+                    selectedValues={selectedValues}
+                    options={options}
+                    placeholder={placeholder || 'Select an option'}
+                    isMultiSelect={isMultiSelect}
+                    removeOption={removeOption}
+                />
                 <SelectActionButtons
-                    selectedValue={selectedValue}
+                    selectedValues={selectedValues}
                     isOpen={isOpen}
                     isDisabled={!!isDisabled}
                     isReadOnly={!!isReadOnly}
@@ -178,10 +223,21 @@ export const BasicSelect = ({
                         {filteredOptions.map((option) => (
                             <OptionLabel
                                 key={option.value}
-                                onClick={() => handleOptionChange(option)}
-                                isSelected={option.value === tempValue}
+                                onClick={() => !isMultiSelect && handleOptionChange(option)}
+                                isSelected={tempValues.includes(option.value)}
+                                isMultiSelect={isMultiSelect}
                             >
-                                {option.label}
+                                {isMultiSelect ? (
+                                    <LabelContainer>
+                                        <span>{option.label}</span>
+                                        <StyledCheckbox
+                                            onClick={() => handleOptionChange(option)}
+                                            checked={tempValues.includes(option.value)}
+                                        />
+                                    </LabelContainer>
+                                ) : (
+                                    <>{option.label}</>
+                                )}
                             </OptionLabel>
                         ))}
                     </OptionList>

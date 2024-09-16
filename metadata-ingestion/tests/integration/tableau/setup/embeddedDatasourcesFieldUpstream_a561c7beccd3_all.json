@@ -1,0 +1,588 @@
+{
+    "data": {
+        "fieldsConnection": {
+            "nodes":  [
+                        {
+                            "id": "06922989-6ee4-81bb-79d4-f9f9faf17819",
+                            "upstreamFields": [
+                                {
+                                    "name": "Delivered Email",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                },
+                                {
+                                    "name": "Sent Email",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "0e1a7126-7f89-6bcd-d3ac-bc7a36dbe206",
+                            "upstreamFields": [],
+                            "upstreamColumns": [
+                                {
+                                    "name": "id",
+                                    "table": {
+                                        "__typename": "DatabaseTable",
+                                        "id": "82c42950-210b-ba3f-b2e9-53240474a8fd"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "0e9630ee-e141-bff1-d33b-f3ea9241d4b9",
+                            "upstreamFields": [],
+                            "upstreamColumns": [
+                                {
+                                    "name": "Platform",
+                                    "table": {
+                                        "__typename": "DatabaseTable",
+                                        "id": "38f106d0-5219-2663-2647-bbbf5fca3866"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "0fe12d2b-ad7c-3862-dbed-6cf000ada134",
+                            "upstreamFields": [],
+                            "upstreamColumns": [
+                                {
+                                    "name": "updatedAt",
+                                    "table": {
+                                        "__typename": "DatabaseTable",
+                                        "id": "82c42950-210b-ba3f-b2e9-53240474a8fd"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "18b72ab1-374b-9740-47f4-57de5a14043a",
+                            "upstreamFields": [],
+                            "upstreamColumns": [
+                                {
+                                    "name": "programName",
+                                    "table": {
+                                        "__typename": "DatabaseTable",
+                                        "id": "82c42950-210b-ba3f-b2e9-53240474a8fd"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "1e38aa00-9f8c-e489-0024-2e5d3ab8a9b7",
+                            "upstreamFields": [],
+                            "upstreamColumns": [
+                                {
+                                    "name": "Mailing_ID",
+                                    "table": {
+                                        "__typename": "DatabaseTable",
+                                        "id": "1704c7c3-4bb9-e6c6-6ea0-23f76e7560db"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "1e9d01cd-e6e0-91e8-bd07-3690017cf233",
+                             "upstreamFields": [],
+                            "upstreamColumns": [
+                                {
+                                    "name": "Campaign_ID",
+                                    "table": {
+                                        "__typename": "DatabaseTable",
+                                        "id": "1704c7c3-4bb9-e6c6-6ea0-23f76e7560db"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "1fada5ed-ca53-8478-40cf-820309ca45ed",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "2026c0f6-96e1-4a84-9555-b80926aaed36",
+                            "upstreamFields": [],
+                            "upstreamColumns": [
+                                {
+                                    "name": "Campaign_Run_ID",
+                                    "table": {
+                                        "__typename": "DatabaseTable",
+                                        "id": "1704c7c3-4bb9-e6c6-6ea0-23f76e7560db"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "21493acc-8046-5cf8-fcb1-e3ab328bf7b4",
+                            "upstreamFields": [],
+                            "upstreamColumns": [
+                                {
+                                    "name": "User_Agent",
+                                    "table": {
+                                        "__typename": "DatabaseTable",
+                                        "id": "38f106d0-5219-2663-2647-bbbf5fca3866"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "26c360a8-b8fc-efb8-85f0-107d2d63913a",
+                            "upstreamFields": [],
+                            "upstreamColumns": [
+                                {
+                                    "name": "Choice_Number",
+                                    "table": {
+                                        "__typename": "DatabaseTable",
+                                        "id": "1704c7c3-4bb9-e6c6-6ea0-23f76e7560db"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "26c37c0a-c970-3a28-c375-fd6c54113a3e",
+                            "upstreamFields": [],
+                            "upstreamColumns": [
+                                {
+                                    "name": "Campaign_ID",
+                                    "table": {
+                                        "__typename": "DatabaseTable",
+                                        "id": "1704c7c3-4bb9-e6c6-6ea0-23f76e7560db"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "xxxdc8ee-30e5-644b-cf76-48a3dea79cda",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "277dc8ee-30e5-644b-cf76-48a3dea79cda",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "292ebda7-49ee-589f-b8ba-6d44443158ea",
+                            "upstreamFields": [],
+                            "upstreamColumns": [
+                                {
+                                    "name": "Has_Predictive",
+                                    "table": {
+                                        "__typename": "DatabaseTable",
+                                        "id": "1704c7c3-4bb9-e6c6-6ea0-23f76e7560db"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "299d8cdf-75ed-5dff-1e97-f11f7023cd2a",
+                            "upstreamFields": [],
+                            "upstreamColumns": [
+                                {
+                                    "name": "Campaign_ID",
+                                    "table": {
+                                        "__typename": "DatabaseTable",
+                                        "id": "38f106d0-5219-2663-2647-bbbf5fca3866"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "337cbc32-3695-427f-57a8-945a9d66cb46",
+                            "upstreamFields": [],
+                            "upstreamColumns": [
+                                {
+                                    "name": "Activity_Date",
+                                    "table": {
+                                        "__typename": "DatabaseTable",
+                                        "id": "38f106d0-5219-2663-2647-bbbf5fca3866"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "33c19e7e-c7a8-17ce-b1c5-03075d81e718",
+                            "aggregation": null,
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "3b3f6466-37a8-de90-a113-d7fc889de010",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "3bd91e15-44e4-bfa9-c495-e64a481c6a99",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "3c6caacf-8292-4a0e-a569-f01a50c48fde",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "42bf8d99-1c09-1ffa-14b8-f99f20940b4d",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "43a93841-c04b-8a60-57b5-82de870cc156",
+                            "upstreamFields": [
+                                {
+                                    "name": "Delivered Email",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                },
+                                {
+                                    "name": "Clickthrough Emails",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "497f7a5a-7c57-2073-4b2e-a780ed0777f3",
+                            "upstreamFields": [
+                                {
+                                    "name": "Delivered Email",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                },
+                                {
+                                    "name": "Opened Email",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "4d2e3b25-336d-e842-ac42-f947f6e65eb3",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "4dd95bc1-8c08-92e5-09ae-cac7d0736c38",
+                            "upstreamFields": [
+                                {
+                                    "name": "Id",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "4ea37317-863a-b8f7-3451-2ff1dcd43d5c",
+                            "upstreamFields": [
+                                {
+                                    "name": "Activity",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                },
+                                {
+                                    "name": "Email Delivered",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "51b4731a-f7ef-70ec-2db0-b39182d54542",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "53de4a7f-9930-b05f-ead3-6d628495c5bd",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "58d3a137-aada-cb54-0782-c3f8cf0c30bb",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "5ca9f540-c492-7e3b-744b-a78a5a977719",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "5cf0d0ab-fc2d-a46a-b9ad-5128b441158c",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "5d21c9b0-ac28-8d20-4307-9c342c0f238d",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "5f513df7-b73b-2d6b-6b67-74a50e3f1e56",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "602064a0-c2db-e057-6b72-ff40f5e6ffdf",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "64f96cfa-91d2-55b7-62ea-ca05175a7a1b",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "66d4994a-6a37-e8cb-1ced-37926f73b765",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "67d4ac88-0fab-6f51-edd2-9e3cd6f681e8",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "716fddff-5012-3c14-8105-be4625a0c02d",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "722ecf66-c49b-5ad2-bc88-cd59b26d6fab",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "7693149f-424a-371b-0b7a-723a80ef12ef",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "7bc8c737-3ca5-956e-c23f-0fb878748b5e",
+                            "upstreamFields": [
+                                {
+                                    "name": "Activity",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                },
+                                {
+                                    "name": "Click Email",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "7c875ed5-6106-1eec-4a1e-103673cde0ef",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "7fd1eac6-cf7f-2480-6e91-05a31d47aa5b",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "856fd651-a544-2429-4bf8-bc4c8eee3046",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "86c8aef9-f3af-3a82-49a8-453b3fc69057",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "8711ae44-5b7c-b5c4-0c63-9bbb6f8d55d3",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "8b9b1f51-9485-afcf-b323-ba3cb8953183",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "8c4140cf-c6cc-b43d-9621-3ffa8d3dae26",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "908fa927-f78d-0314-4fa4-88307c21e73c",
+                            "upstreamFields": [
+                                {
+                                    "name": "Clickthrough Emails",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                },
+                                {
+                                    "name": "Opened Email",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "91a0b832-5abf-95df-e292-be9e58e91404",
+                            "upstreamFields": [
+                                {
+                                    "name": "Activity",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                },
+                                {
+                                    "name": "Open Email",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "9720c532-6085-7d96-82ff-f30b14ca391e",
+                            "upstreamFields": []
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "984bcf14-8a6b-2579-51ae-816d5db9821a",
+                            "name": "Lead ID",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "ORDINAL",
+                            "role": "DIMENSION",
+                            "dataType": "INTEGER",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "upstreamFields": []
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "9af0b32d-9e82-419e-c522-c4ac4a0e40d0",
+                            "name": "Campaign Run ID (Activity - Open Email)",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "ORDINAL",
+                            "role": "DIMENSION",
+                            "dataType": "INTEGER",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "a4d2164a-2ef5-4d76-62e1-468bb135b4c2",
+                            "upstreamFields": [
+                                {
+                                    "name": "Opened Email",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                },
+                                {
+                                    "name": "Clickthrough Emails",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "a68a43a9-03f4-bad3-74f1-7ce668c536bc",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "a8fbfef2-2ffd-77a9-0f63-a1d5e6944f24",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "abf83860-1adf-8a92-a4ea-9ce9d3945ad7",
+                            "upstreamFields": [
+                                {
+                                    "name": "Delivered Email",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                },
+                                {
+                                    "name": "Clickthrough Emails",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "acd62e88-e4e9-e0e5-bd00-da2d20e74dd1",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "ae7d7692-b175-447a-a74b-c4f85f236be8",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "af24ee3e-18ae-b2d0-7371-9dd596145f38",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "b143e310-f7e1-7f49-82f5-141ae733c043",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "b4bf1bbe-a8b8-b363-e4fd-0b8cd82871a1",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "b6b7479a-ce63-9308-d0e3-70d8af828f36",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "be574861-0e55-a0be-1143-2e10ea611e9f",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "bfcf48dd-e42a-8693-72c2-9b84efc53172",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "c4998733-5988-3cb6-444c-674059fddfd9",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "e84f0fe4-882b-772f-a8c4-4ea89b97bff3",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "e915db4c-d33b-9f5d-a5bd-6022ae85118d",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "eb18ef87-d48d-fefa-1fd7-98834a304ece",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "f06b3901-4f28-acd5-a724-9a3b18198528",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "f509397e-7e11-4f86-4ae8-2e861df69d46",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "f6dffbe7-aa6f-5acb-25a7-fdf0bf3ab507",
+                            "upstreamFields": [
+                                {
+                                    "name": "Sent Email",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                },
+                                {
+                                    "name": "Delivered Email",
+                                    "datasource": {
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "fe556978-d213-2f6c-2950-ec6ce30a63b1",
+                            "upstreamFields": []
+                        },
+                        {
+                            "id": "ffd5c589-6741-450b-bbe6-b21f6a31670e",
+                            "upstreamFields": []
+                        }
+                    ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 8
+        }
+    }
+}

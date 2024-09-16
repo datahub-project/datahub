@@ -16,7 +16,7 @@ import SearchFiltersLoadingSection from './SearchFiltersLoadingSection';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { FilterPredicate } from './types';
 
-const NUM_VISIBLE_FILTER_DROPDOWNS = 5;
+const NUM_VISIBLE_FILTER_DROPDOWNS = 6;
 
 const FiltersText = styled.div`
     font-size: 16px;

@@ -1,5 +1,5 @@
 import React, { useContext, useState } from 'react';
-import { Button, Select, message } from 'antd';
+import { Button, Select, Tooltip, message } from 'antd';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { orderBy } from 'lodash';
@@ -7,9 +7,10 @@ import CheckIcon from '@mui/icons-material/Check';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useListGlobalViewsQuery } from '@src/graphql/view.generated';
 import { useListRecommendationsQuery } from '../../../graphql/recommendations.generated';
-import { DataHubViewType, DataPlatform, ScenarioType } from '../../../types.generated';
+import { DataHubViewType, DataPlatform, EntityType, ScenarioType } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
 import { PLATFORMS_MODULE_ID } from '../content/tabs/discovery/sections/platform/useGetPlatforms';
 import { PERSONA_TYPE_TO_VIEW_URN, ROLE_TO_PERSONA_TYPE } from '../shared/types';
@@ -139,7 +140,7 @@ const SelectWrapper = styled.div`
     }
 
     .ant-select-selection-overflow {
-        padding-left: 36px !important;
+        padding-left: 30px !important;
 
         .ant-select-selection-search {
             padding-left: 0px !important;
@@ -251,6 +252,7 @@ export const IntroduceYourselfMainContent = () => {
     const history = useHistory();
     const authenticatedUser = useUserContext();
     const currentUserUrn = authenticatedUser?.user?.urn || '';
+    const entityRegistry = useEntityRegistry();
 
     const [selectedPersona, setSelectedPersona] = useState('');
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
@@ -433,25 +435,32 @@ export const IntroduceYourselfMainContent = () => {
                 <SelectWrapper>
                     <SettingsOutlinedIcon />
                     <Select
-                        placeholder="Select your Data Tools"
+                        placeholder="Optional - Select your Data Tools"
                         size="large"
                         style={selectStyles}
                         onChange={(value) => setSelectedPlatforms(value)}
                         options={platforms.map((platform) => {
                             const { urn } = platform.platform;
                             const isChecked = !!selectedPlatforms.includes(urn);
+
+                            const displayName = entityRegistry.getDisplayName(
+                                EntityType.DataPlatform,
+                                platform.platform,
+                            );
                             return {
                                 value: platform.platform.urn,
                                 label: (
                                     <SelectOption>
-                                        <PsuedoCheckBox checked={isChecked}>
-                                            {isChecked && <CheckIcon />}
-                                        </PsuedoCheckBox>
-                                        <PlatformIcon
-                                            platform={platform.platform}
-                                            size={24}
-                                            styles={{ width: '40px', height: '40px' }}
-                                        />
+                                        <Tooltip title={displayName} placement="left" mouseEnterDelay={0.5}>
+                                            <PsuedoCheckBox checked={isChecked}>
+                                                {isChecked && <CheckIcon />}
+                                            </PsuedoCheckBox>
+                                            <PlatformIcon
+                                                platform={platform.platform}
+                                                size={24}
+                                                styles={{ width: '40px', height: '40px' }}
+                                            />
+                                        </Tooltip>
                                     </SelectOption>
                                 ),
                             };

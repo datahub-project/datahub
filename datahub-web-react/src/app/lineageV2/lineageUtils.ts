@@ -1,3 +1,5 @@
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useLocation } from 'react-router-dom';
 import { EntityType, SchemaField } from '../../types.generated';
 import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '../entity/dataset/profile/schema/utils/constants';
 import EntityRegistry from '../entityV2/EntityRegistry';
@@ -108,4 +110,14 @@ function splitEntityId(entity_id: string): string[] {
     parts.push(entity_id.slice(partStart, -1));
 
     return parts;
+}
+
+export function useGetLineageUrl(urn?: string, type?: EntityType) {
+    const location = useLocation();
+    const entityRegistry = useEntityRegistry();
+
+    if (!urn || !type) {
+        return '';
+    }
+    return `${entityRegistry.getEntityUrl(type, urn)}/Lineage${location.search}`;
 }

@@ -4,7 +4,6 @@ import logging
 import os
 from typing import Iterable, List, Optional
 
-from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -21,15 +20,12 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
-    BigqueryTableIdentifier,
-    BigQueryTableRef,
-)
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
-    BigqueryProject,
     BigQuerySchemaApi,
+    get_projects,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
@@ -37,8 +33,16 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
 from datahub.ingestion.source.bigquery_v2.bigquery_test_connection import (
     BigQueryTestConnection,
 )
+from datahub.ingestion.source.bigquery_v2.common import (
+    BigQueryFilter,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+    BigQueryQueriesExtractor,
+    BigQueryQueriesExtractorConfig,
+)
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -51,6 +55,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_report.ingestion_stage import QUERIES_EXTRACTION
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
@@ -109,12 +114,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
             self.config.sharded_table_pattern
         )
-        if self.config.enable_legacy_sharded_table_support:
-            BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
 
         self.bigquery_data_dictionary = BigQuerySchemaApi(
-            self.report.schema_api_perf,
-            self.config.get_bigquery_client(),
+            report=self.report.schema_api_perf,
+            projects_client=config.get_projects_client(),
+            client=config.get_bigquery_client(),
         )
         if self.config.extract_policy_tags_from_catalog:
             self.bigquery_data_dictionary.datacatalog_client = (
@@ -122,6 +126,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
 
         self.sql_parser_schema_resolver = self._init_schema_resolver()
+        self.filters = BigQueryFilter(self.config, self.report)
+        self.identifiers = BigQueryIdentifierBuilder(self.config, self.report)
 
         redundant_lineage_run_skip_handler: Optional[
             RedundantLineageRunSkipHandler
@@ -138,7 +144,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.lineage_extractor = BigqueryLineageExtractor(
             config,
             self.report,
-            dataset_urn_builder=self.gen_dataset_urn_from_raw_ref,
+            schema_resolver=self.sql_parser_schema_resolver,
+            identifiers=self.identifiers,
             redundant_run_skip_handler=redundant_lineage_run_skip_handler,
         )
 
@@ -155,7 +162,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             config,
             self.report,
             schema_resolver=self.sql_parser_schema_resolver,
-            dataset_urn_builder=self.gen_dataset_urn_from_raw_ref,
+            identifiers=self.identifiers,
             redundant_run_skip_handler=redundant_usage_run_skip_handler,
         )
 
@@ -178,7 +185,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.domain_registry,
             self.sql_parser_schema_resolver,
             self.profiler,
-            self.gen_dataset_urn,
+            self.identifiers,
         )
 
         self.add_config_to_report()
@@ -195,7 +202,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def _init_schema_resolver(self) -> SchemaResolver:
         schema_resolution_required = (
-            self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser
+            self.config.use_queries_v2
+            or self.config.lineage_parse_view_ddl
+            or self.config.lineage_use_sql_parser
         )
         schema_ingestion_enabled = (
             self.config.include_schema_metadata
@@ -231,89 +240,72 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        projects = self._get_projects()
+        projects = get_projects(
+            self.bq_schema_extractor.schema_api,
+            self.report,
+            self.filters,
+        )
         if not projects:
             return
 
-        if self.config.include_schema_metadata:
-            for project in projects:
-                yield from self.bq_schema_extractor.get_project_workunits(project)
+        for project in projects:
+            yield from self.bq_schema_extractor.get_project_workunits(project)
 
-        if self.config.include_usage_statistics:
-            yield from self.usage_extractor.get_usage_workunits(
-                [p.id for p in projects], self.bq_schema_extractor.table_refs
-            )
+        if self.config.use_queries_v2:
+            # Always ingest View and Snapshot lineage with schema ingestion
+            self.report.set_ingestion_stage("*", "View and Snapshot Lineage")
 
-        if self.config.include_table_lineage:
-            yield from self.lineage_extractor.get_lineage_workunits(
+            yield from self.lineage_extractor.get_lineage_workunits_for_views_and_snapshots(
                 [p.id for p in projects],
-                self.sql_parser_schema_resolver,
                 self.bq_schema_extractor.view_refs_by_project,
                 self.bq_schema_extractor.view_definitions,
                 self.bq_schema_extractor.snapshot_refs_by_project,
                 self.bq_schema_extractor.snapshots_by_ref,
-                self.bq_schema_extractor.table_refs,
             )
 
-    def _get_projects(self) -> List[BigqueryProject]:
-        logger.info("Getting projects")
-        if self.config.project_ids or self.config.project_id:
-            project_ids = self.config.project_ids or [self.config.project_id]  # type: ignore
-            return [
-                BigqueryProject(id=project_id, name=project_id)
-                for project_id in project_ids
-            ]
-        else:
-            return list(self._query_project_list())
-
-    def _query_project_list(self) -> Iterable[BigqueryProject]:
-        try:
-            projects = self.bigquery_data_dictionary.get_projects()
-
+            # if both usage and lineage are disabled then skip queries extractor piece
             if (
-                not projects
-            ):  # Report failure on exception and if empty list is returned
-                self.report.failure(
-                    title="Get projects didn't return any project. ",
-                    message="Maybe resourcemanager.projects.get permission is missing for the service account. "
-                    "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
-                )
-        except Exception as e:
-            self.report.failure(
-                title="Failed to get BigQuery Projects",
-                message="Maybe resourcemanager.projects.get permission is missing for the service account. "
-                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
-                exc=e,
+                not self.config.include_usage_statistics
+                and not self.config.include_table_lineage
+            ):
+                return
+
+            self.report.set_ingestion_stage("*", QUERIES_EXTRACTION)
+
+            queries_extractor = BigQueryQueriesExtractor(
+                connection=self.config.get_bigquery_client(),
+                schema_api=self.bq_schema_extractor.schema_api,
+                config=BigQueryQueriesExtractorConfig(
+                    window=self.config,
+                    user_email_pattern=self.config.usage.user_email_pattern,
+                    include_lineage=self.config.include_table_lineage,
+                    include_usage_statistics=self.config.include_usage_statistics,
+                    include_operations=self.config.usage.include_operational_stats,
+                    top_n_queries=self.config.usage.top_n_queries,
+                ),
+                structured_report=self.report,
+                filters=self.filters,
+                identifiers=self.identifiers,
+                schema_resolver=self.sql_parser_schema_resolver,
+                discovered_tables=self.bq_schema_extractor.table_refs,
             )
-            projects = []
+            self.report.queries_extractor = queries_extractor.report
+            yield from queries_extractor.get_workunits_internal()
+        else:
+            if self.config.include_usage_statistics:
+                yield from self.usage_extractor.get_usage_workunits(
+                    [p.id for p in projects], self.bq_schema_extractor.table_refs
+                )
 
-        for project in projects:
-            if self.config.project_id_pattern.allowed(project.id):
-                yield project
-            else:
-                self.report.report_dropped(project.id)
-
-    def gen_dataset_urn(
-        self, project_id: str, dataset_name: str, table: str, use_raw_name: bool = False
-    ) -> str:
-        datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
-        return make_dataset_urn(
-            self.platform,
-            (
-                str(datahub_dataset_name)
-                if not use_raw_name
-                else datahub_dataset_name.raw_table_name()
-            ),
-            self.config.env,
-        )
-
-    def gen_dataset_urn_from_raw_ref(self, ref: BigQueryTableRef) -> str:
-        return self.gen_dataset_urn(
-            ref.table_identifier.project_id,
-            ref.table_identifier.dataset,
-            ref.table_identifier.table,
-            use_raw_name=True,
-        )
+            if self.config.include_table_lineage:
+                yield from self.lineage_extractor.get_lineage_workunits(
+                    [p.id for p in projects],
+                    self.bq_schema_extractor.view_refs_by_project,
+                    self.bq_schema_extractor.view_definitions,
+                    self.bq_schema_extractor.snapshot_refs_by_project,
+                    self.bq_schema_extractor.snapshots_by_ref,
+                    self.bq_schema_extractor.table_refs,
+                )
 
     def get_report(self) -> BigQueryV2Report:
         return self.report

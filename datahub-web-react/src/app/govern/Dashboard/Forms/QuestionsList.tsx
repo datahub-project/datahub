@@ -1,15 +1,15 @@
 import { DndContext, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { FormPrompt } from '@src/types.generated';
 import React, { useContext } from 'react';
 import ManageFormContext from './ManageFormContext';
 import QuestionCard from './QuestionCard';
-import { FormQuestion } from './formUtils';
 import { CardsList } from './styledComponents';
 
 interface Props {
     setShowQuestionModal: React.Dispatch<React.SetStateAction<boolean>>;
-    setCurrentQuestion: React.Dispatch<React.SetStateAction<FormQuestion | undefined>>;
+    setCurrentQuestion: React.Dispatch<React.SetStateAction<FormPrompt | undefined>>;
 }
 
 const QuestionsList = ({ setShowQuestionModal, setCurrentQuestion }: Props) => {

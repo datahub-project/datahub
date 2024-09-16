@@ -63,7 +63,7 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
             </Button>
             <Modal
                 title="Add Link"
-                visible={isModalVisible}
+                open={isModalVisible}
                 destroyOnClose
                 onCancel={handleClose}
                 footer={[

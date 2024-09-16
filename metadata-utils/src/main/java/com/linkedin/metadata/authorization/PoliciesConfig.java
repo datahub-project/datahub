@@ -182,6 +182,12 @@ public class PoliciesConfig {
       Privilege.of(
           "MANAGE_FEATURES", "Manage Features", "Umbrella privilege to manage all features.");
 
+  public static final Privilege MANAGE_SYSTEM_OPERATIONS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_SYSTEM_OPERATIONS",
+          "Manage System Operations",
+          "Allow access to system operations APIs and controls.");
+
   // Acryl-Main only.
   public static final Privilege MANAGE_MONITORS =
       Privilege.of(
@@ -219,6 +225,7 @@ public class PoliciesConfig {
           MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE,
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
+          MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
           MANAGE_GLOBAL_SETTINGS,
           MANAGE_MONITORS);
 

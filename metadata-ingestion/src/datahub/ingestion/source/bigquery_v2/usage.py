@@ -26,7 +26,6 @@ from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     get_time_bucket,
 )
-from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
@@ -44,7 +43,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit_log_api import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
+from datahub.ingestion.source.bigquery_v2.common import (
+    BQ_DATETIME_FORMAT,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.queries import (
     BQ_FILTER_RULE_TEMPLATE_V2_USAGE,
     bigquery_audit_metadata_query_template_usage,
@@ -313,13 +315,13 @@ class BigQueryUsageExtractor:
         report: BigQueryV2Report,
         *,
         schema_resolver: SchemaResolver,
-        dataset_urn_builder: Callable[[BigQueryTableRef], str],
+        identifiers: BigQueryIdentifierBuilder,
         redundant_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None,
     ):
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = report
         self.schema_resolver = schema_resolver
-        self.dataset_urn_builder = dataset_urn_builder
+        self.identifiers = identifiers
         # Replace hash of query with uuid if there are hash conflicts
         self.uuid_to_query: Dict[str, str] = {}
 
@@ -404,7 +406,9 @@ class BigQueryUsageExtractor:
                         bucket_duration=self.config.bucket_duration,
                     ),
                     dataset_urns={
-                        self.dataset_urn_builder(BigQueryTableRef.from_string_name(ref))
+                        self.identifiers.gen_dataset_urn_from_raw_ref(
+                            BigQueryTableRef.from_string_name(ref)
+                        )
                         for ref in table_refs
                     },
                 )
@@ -535,7 +539,7 @@ class BigQueryUsageExtractor:
                     user_freq=entry.user_freq,
                     column_freq=entry.column_freq,
                     bucket_duration=self.config.bucket_duration,
-                    resource_urn_builder=self.dataset_urn_builder,
+                    resource_urn_builder=self.identifiers.gen_dataset_urn_from_raw_ref,
                     top_n_queries=self.config.usage.top_n_queries,
                     format_sql_queries=self.config.usage.format_sql_queries,
                     queries_character_limit=self.config.usage.queries_character_limit,
@@ -710,12 +714,14 @@ class BigQueryUsageExtractor:
         affected_datasets = []
         if event.query_event and event.query_event.referencedTables:
             for table in event.query_event.referencedTables:
-                affected_datasets.append(table.to_urn(self.config.env))
+                affected_datasets.append(
+                    self.identifiers.gen_dataset_urn_from_raw_ref(table)
+                )
 
         operation_aspect = OperationClass(
             timestampMillis=reported_time,
             lastUpdatedTimestamp=operational_meta.last_updated_timestamp,
-            actor=make_user_urn(operational_meta.actor_email.split("@")[0]),
+            actor=self.identifiers.gen_user_urn(operational_meta.actor_email),
             operationType=operational_meta.statement_type,
             customOperationType=operational_meta.custom_type,
             affectedDatasets=affected_datasets,
@@ -729,7 +735,7 @@ class BigQueryUsageExtractor:
                 operation_aspect.numAffectedRows = event.query_event.numAffectedRows
 
         return MetadataChangeProposalWrapper(
-            entityUrn=destination_table.to_urn(env=self.config.env),
+            entityUrn=self.identifiers.gen_dataset_urn_from_raw_ref(destination_table),
             aspect=operation_aspect,
         ).as_workunit()
 

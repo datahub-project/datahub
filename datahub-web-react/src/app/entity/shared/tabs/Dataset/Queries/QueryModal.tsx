@@ -72,7 +72,7 @@ type Props = {
 export default function QueryModal({ query, title, description, showDetails = true, onClose }: Props) {
     return (
         <StyledModal
-            visible
+            open
             width={MODAL_WIDTH}
             title={null}
             closable={false}

@@ -6,13 +6,14 @@ import {
     InboxOutlined,
     BookOutlined,
     SettingOutlined,
-    FileDoneOutlined,
     SolutionOutlined,
     DownOutlined,
     GlobalOutlined,
     EyeOutlined,
     DatabaseOutlined,
     FormOutlined,
+    UnorderedListOutlined,
+    FileDoneOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Menu, Tooltip } from 'antd';
@@ -64,6 +65,7 @@ const NavTitleContainer = styled.span`
 
 const NavTitleText = styled.span`
     margin-left: 6px;
+    font-weight: bold;
 `;
 
 const NavTitleDescription = styled.div`
@@ -113,8 +115,127 @@ export function HeaderLinks(props: Props) {
     const showObserve = showDatasetHealth;
     const showDocumentationCenter =
         config?.featureFlags?.documentationFormsEnabled && me.platformPrivileges?.manageDocumentationForms;
+    const showStructuredProperties =
+        config?.featureFlags?.showManageStructuredProperties && me.platformPrivileges?.manageStructuredProperties;
 
     useToggleEducationStepIdsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
+
+    const items = [
+        {
+            key: 0,
+            label: (
+                <Link to="/glossary">
+                    <NavTitleContainer>
+                        <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                        <NavTitleText>Glossary</NavTitleText>
+                    </NavTitleContainer>
+                    <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
+                </Link>
+            ),
+        },
+        {
+            key: 1,
+            label: (
+                <Link to="/domains">
+                    <NavTitleContainer>
+                        <DomainIcon
+                            style={{
+                                fontSize: 14,
+                                fontWeight: 'bold',
+                            }}
+                        />
+                        <NavTitleText>Domains</NavTitleText>
+                    </NavTitleContainer>
+                    <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
+                </Link>
+            ),
+        },
+        ...(businessAttributesFlag
+            ? [
+                  {
+                      key: 2,
+                      label: (
+                          <Link to="/business-attribute">
+                              <NavTitleContainer>
+                                  <GlobalOutlined
+                                      style={{
+                                          fontSize: 14,
+                                          fontWeight: 'bold',
+                                      }}
+                                  />
+                                  <NavTitleText>Business Attribute</NavTitleText>
+                              </NavTitleContainer>
+                              <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+        ...(showTests
+            ? [
+                  {
+                      key: 3,
+                      label: (
+                          <Link to="/tests">
+                              <NavTitleContainer>
+                                  <FileDoneOutlined
+                                      style={{
+                                          fontSize: 14,
+                                          fontWeight: 'bold',
+                                      }}
+                                  />
+                                  <NavTitleText>Tests</NavTitleText>
+                              </NavTitleContainer>
+                              <NavTitleDescription>
+                                  Monitor policies & automate actions across data assets
+                              </NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+        ...(showDocumentationCenter
+            ? [
+                  {
+                      key: 4,
+                      label: (
+                          <Link to="/govern/dashboard">
+                              <NavTitleContainer>
+                                  <FormOutlined
+                                      style={{
+                                          fontSize: 14,
+                                          fontWeight: 'bold',
+                                      }}
+                                  />
+                                  <NavTitleText>Compliance Forms</NavTitleText>
+                              </NavTitleContainer>
+                              <NavTitleDescription>
+                                  Manage compliance initiatives for your data assets
+                              </NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+        ...(showStructuredProperties
+            ? [
+                  {
+                      key: 4,
+                      label: (
+                          <Link to={PageRoutes.STRUCTURED_PROPERTIES}>
+                              <NavTitleContainer>
+                                  <UnorderedListOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                                  <NavTitleText>Structured Properties</NavTitleText>
+                              </NavTitleContainer>
+                              <NavTitleDescription>
+                                  Manage your organization&apos;s structured properties
+                              </NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+    ];
 
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
@@ -142,76 +263,7 @@ export function HeaderLinks(props: Props) {
                 </LinkWrapper>
             )}
             {isDocumentationFormsEnabled && <TaskCenterLink />}
-            <Dropdown
-                trigger={['click']}
-                overlay={
-                    <Menu>
-                        <MenuItem key="0">
-                            <Link to="/glossary">
-                                <NavTitleContainer>
-                                    <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
-                                    <NavTitleText>Glossary</NavTitleText>
-                                </NavTitleContainer>
-                                <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
-                            </Link>
-                        </MenuItem>
-                        <MenuItem key="1">
-                            <Link to="/domains">
-                                <NavTitleContainer>
-                                    <DomainIcon
-                                        style={{
-                                            fontSize: 14,
-                                            fontWeight: 'bold',
-                                        }}
-                                    />
-                                    <NavTitleText>Domains</NavTitleText>
-                                </NavTitleContainer>
-                                <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
-                            </Link>
-                        </MenuItem>
-                        {businessAttributesFlag && (
-                            <MenuItem key="2">
-                                <Link to="/business-attribute">
-                                    <NavTitleContainer>
-                                        <GlobalOutlined
-                                            style={{
-                                                fontSize: 14,
-                                                fontWeight: 'bold',
-                                            }}
-                                        />
-                                        <NavTitleText>Business Attribute</NavTitleText>
-                                    </NavTitleContainer>
-                                    <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
-                                </Link>
-                            </MenuItem>
-                        )}
-                        {showTests && (
-                            <MenuItem key="2">
-                                <Link to="/tests">
-                                    <NavTitleContainer>
-                                        <FileDoneOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
-                                        <NavTitleText>Tests</NavTitleText>
-                                    </NavTitleContainer>
-                                    <NavTitleDescription>
-                                        Monitor policies & automate actions across data assets
-                                    </NavTitleDescription>
-                                </Link>
-                            </MenuItem>
-                        )}
-                        {showDocumentationCenter && (
-                            <MenuItem key="3">
-                                <Link to="/govern/dashboard">
-                                    <NavTitleContainer>
-                                        <FormOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
-                                        <NavTitleText>Documentation</NavTitleText>
-                                    </NavTitleContainer>
-                                    <NavTitleDescription>Manage your documentation standards</NavTitleDescription>
-                                </Link>
-                            </MenuItem>
-                        )}
-                    </Menu>
-                }
-            >
+            <Dropdown trigger={['click']} menu={{ items }}>
                 <LinkWrapper>
                     <Button type="text">
                         <SolutionOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />

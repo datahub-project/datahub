@@ -3753,6 +3753,7 @@ export const mocks = [
                         createBusinessAttributes: true,
                         manageBusinessAttributes: true,
                         manageDocumentationForms: true,
+                        manageStructuredProperties: true,
                     },
                 },
             },
@@ -4036,6 +4037,7 @@ export const platformPrivileges: PlatformPrivileges = {
     createBusinessAttributes: true,
     manageBusinessAttributes: true,
     manageDocumentationForms: true,
+    manageStructuredProperties: true,
 };
 
 export const DomainMock1 = {

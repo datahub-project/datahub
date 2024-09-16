@@ -1,21 +1,23 @@
 import { LogicalPredicate } from '@src/app/tests/builder/steps/definition/builder/types';
-import { CorpGroup, CorpUser, FormState, FormType, PromptCardinality } from '../../../../types.generated';
+import {
+    AndFilterInput,
+    CorpGroup,
+    CorpUser,
+    CreatePromptInput,
+    DomainParams,
+    DomainParamsInput,
+    FormState,
+    FormType,
+    FormPrompt,
+    GlossaryTermsParams,
+    GlossaryTermsParamsInput,
+    OwnershipParams,
+    OwnershipParamsInput,
+    StructuredPropertyParams,
+    StructuredPropertyParamsInput,
+} from '../../../../types.generated';
 
 export type FormMode = 'create' | 'edit';
-
-export type FormQuestion = {
-    id: string;
-    type: string;
-    title: string;
-    description?: string;
-    required: boolean;
-    structuredPropertyParams?: {
-        urn: string;
-    };
-    ownershipParams?: {
-        cardinality: PromptCardinality;
-    };
-};
 
 export type FormActors = {
     owners?: boolean;
@@ -23,14 +25,19 @@ export type FormActors = {
     groups?: CorpGroup[];
 };
 
+export type FormAssets = {
+    orFilters?: AndFilterInput[];
+    logicalPredicate?: LogicalPredicate;
+};
+
 export type FormFields = {
     formType?: FormType;
     formName?: string;
     formDescription?: string | undefined;
-    questions: FormQuestion[];
+    questions: FormPrompt[];
     actors?: FormActors;
     state?: FormState;
-    filters?: LogicalPredicate;
+    assets?: FormAssets;
 };
 
 export const handleInputChange = (setFormValues) => (event) => {
@@ -43,12 +50,17 @@ export const handleInputChange = (setFormValues) => (event) => {
 
 export const questionTypes = [
     {
+        label: 'Ownership',
+        value: 'OWNERSHIP',
+        description: 'This question applies ownership to assets',
+    },
+    {
         label: 'Documentation',
         value: 'DOCUMENTATION',
         description: 'This question applies documentation to assets',
     },
     {
-        label: 'Documentation - Column',
+        label: 'Column Documentation',
         value: 'FIELDS_DOCUMENTATION',
         description: 'This question applies documentation to columns of assets',
     },
@@ -58,19 +70,9 @@ export const questionTypes = [
         description: 'This question applies glossary terms to assets',
     },
     {
-        label: 'Glossary Terms - Column',
+        label: 'Column Glossary Terms',
         value: 'FIELDS_GLOSSARY_TERMS',
         description: 'This question applies glossary terms to columns of assets',
-    },
-    {
-        label: 'Domain',
-        value: 'DOMAIN',
-        description: 'This question applies domain to assets',
-    },
-    {
-        label: 'Ownership',
-        value: 'OWNERSHIP',
-        description: 'This question applies ownership to assets',
     },
     {
         label: 'Structured Property',
@@ -79,8 +81,52 @@ export const questionTypes = [
     },
 
     {
-        label: 'Structured Property - Column',
+        label: 'Column Structured Property',
         value: 'FIELDS_STRUCTURED_PROPERTY',
         description: 'This question applies structured property to columns of assets',
     },
+    {
+        label: 'Domain',
+        value: 'DOMAIN',
+        description: 'This question applies domain to assets',
+    },
 ];
+
+function mapStructuredPropertyParams(params: StructuredPropertyParams): StructuredPropertyParamsInput {
+    return { urn: params.structuredProperty.urn };
+}
+
+function mapGlossaryTermsParams(params: GlossaryTermsParams): GlossaryTermsParamsInput {
+    const allowedTerms = params.allowedTerms ? params.allowedTerms : params.resolvedAllowedTerms;
+    return { cardinality: params.cardinality, allowedTerms: allowedTerms?.map((t) => t.urn) };
+}
+
+function mapOwnershipParams(params: OwnershipParams): OwnershipParamsInput {
+    return {
+        cardinality: params.cardinality,
+        allowedOwners: params.allowedOwners?.map((o) => o.urn),
+        allowedOwnershipTypes: params.allowedOwnershipTypes?.map((o) => o.urn),
+    };
+}
+
+function mapDomainParams(params: DomainParams): DomainParamsInput {
+    return { allowedDomains: params.allowedDomains?.map((o) => o.urn) };
+}
+
+export function mapPromptsToCreatePromptInput(prompts: FormPrompt[]): CreatePromptInput[] {
+    return prompts.map((prompt) => ({
+        id: prompt.id,
+        description: prompt.description,
+        type: prompt.type,
+        title: prompt.title,
+        required: prompt.required,
+        structuredPropertyParams: prompt.structuredPropertyParams
+            ? mapStructuredPropertyParams(prompt.structuredPropertyParams)
+            : undefined,
+        ownershipParams: prompt.ownershipParams ? mapOwnershipParams(prompt.ownershipParams) : undefined,
+        glossaryTermsParams: prompt.glossaryTermsParams
+            ? mapGlossaryTermsParams(prompt.glossaryTermsParams)
+            : undefined,
+        domainParams: prompt.domainParams ? mapDomainParams(prompt.domainParams) : undefined,
+    }));
+}

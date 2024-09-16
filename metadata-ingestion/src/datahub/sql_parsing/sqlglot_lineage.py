@@ -198,7 +198,7 @@ def _table_level_lineage(
                 sqlglot.exp.Update,
                 sqlglot.exp.Delete,
                 sqlglot.exp.Merge,
-                sqlglot.exp.AlterTable,
+                sqlglot.exp.Alter,
             )
             # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
             # the `this` on the INSERT part isn't a table.
@@ -837,7 +837,10 @@ def _translate_internal_column_lineage(
                 raw_column_lineage.downstream.column_type.sql(dialect=dialect)
                 if raw_column_lineage.downstream.column_type
                 and raw_column_lineage.downstream.column_type.this
-                != sqlglot.exp.DataType.Type.UNKNOWN
+                not in {
+                    sqlglot.exp.DataType.Type.UNKNOWN,
+                    sqlglot.exp.DataType.Type.NULL,
+                }
                 else None
             ),
         ),

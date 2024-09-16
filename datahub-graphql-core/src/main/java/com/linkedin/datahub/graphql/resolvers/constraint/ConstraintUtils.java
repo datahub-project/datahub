@@ -319,8 +319,6 @@ public class ConstraintUtils {
 
   public static boolean isAuthorizedToCreateConstraints(final @Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        PoliciesConfig.CREATE_CONSTRAINTS_PRIVILEGE);
+        context.getOperationContext(), PoliciesConfig.CREATE_CONSTRAINTS_PRIVILEGE);
   }
 }

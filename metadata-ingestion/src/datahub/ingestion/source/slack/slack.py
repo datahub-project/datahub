@@ -1,7 +1,6 @@
 import json
 import logging
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from pydantic import BaseModel, Field, SecretStr
@@ -39,6 +38,7 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.utilities.ratelimiter import RateLimiter
+from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import Urn
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ def is_slack_image(picture_link: Optional[str]) -> bool:
     return "slack-edge.com" in picture_link
 
 
-class ResourceType(str, Enum):
+class ResourceType(StrEnum):
     USER_INFO = "user-info"
     CHANNEL_INFO = "channel-info"
 

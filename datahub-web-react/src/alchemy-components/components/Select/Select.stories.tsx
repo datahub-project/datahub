@@ -1,13 +1,10 @@
-import React from 'react';
-
-import type { Meta, StoryObj } from '@storybook/react';
-import { BADGE } from '@geometricpanda/storybook-addon-badges';
-
 import { GridList } from '@components/.docs/mdx-components';
-
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import type { Meta, StoryObj } from '@storybook/react';
+import React from 'react';
 import { Select, selectDefaults } from './Select';
-import { SelectSizeOptions } from './types';
 import { SimpleSelect } from './SimpleSelect';
+import { SelectSizeOptions } from './types';
 
 // Auto Docs
 const meta: Meta = {
@@ -43,13 +40,13 @@ const meta: Meta = {
                 defaultValue: { summary: selectDefaults.label },
             },
         },
-        value: {
-            description: 'Selected value for the Select component.',
+        values: {
+            description: 'Selected values for the Select component.',
             control: {
-                type: 'text',
+                type: 'object',
             },
             table: {
-                defaultValue: { summary: selectDefaults.value },
+                defaultValue: { summary: selectDefaults.values?.toString() },
             },
         },
         showSearch: {
@@ -107,6 +104,24 @@ const meta: Meta = {
                 defaultValue: { summary: `${selectDefaults.width}` },
             },
         },
+        isMultiSelect: {
+            description: 'Whether the Select component allows multiple values to be selected.',
+            control: {
+                type: 'boolean',
+            },
+            table: {
+                defaultValue: { summary: selectDefaults.isMultiSelect?.toString() },
+            },
+        },
+        placeholder: {
+            description: 'Placeholder for the Select component.',
+            control: {
+                type: 'text',
+            },
+            table: {
+                defaultValue: { summary: selectDefaults.placeholder },
+            },
+        },
     },
 
     // Define defaults
@@ -117,7 +132,7 @@ const meta: Meta = {
             { label: 'Option 3', value: '3' },
         ],
         label: 'Select Label',
-        value: undefined,
+        values: undefined,
         showSearch: selectDefaults.showSearch,
         isDisabled: selectDefaults.isDisabled,
         isReadOnly: selectDefaults.isReadOnly,
@@ -126,6 +141,8 @@ const meta: Meta = {
         onUpdate: (selectedValues: string[]) => console.log('Update clicked', selectedValues),
         size: 'md', // Default size
         width: 255,
+        isMultiSelect: selectDefaults.isMultiSelect,
+        placeholder: selectDefaults.placeholder,
     },
 } satisfies Meta<typeof Select>;
 
@@ -144,7 +161,7 @@ export const simpleSelectSandbox: Story = {
         <SimpleSelect
             options={props.options}
             label={props.label}
-            value={props.value}
+            values={props.values}
             showSearch={props.showSearch}
             isDisabled={props.isDisabled}
             isReadOnly={props.isReadOnly}
@@ -152,6 +169,8 @@ export const simpleSelectSandbox: Story = {
             size={props.size}
             width={props.width}
             onUpdate={props.onUpdate} // Optional: to log the selected value
+            isMultiSelect={props.isMultiSelect}
+            placeholder={props.placeholder}
         />
     ),
 };
@@ -159,18 +178,18 @@ export const simpleSelectSandbox: Story = {
 export const simpleSelectStates = () => (
     <GridList isVertical>
         <>
-            <SimpleSelect options={[{ label: 'Default', value: 'default' }]} label="Default" value="default" />
+            <SimpleSelect options={[{ label: 'Default', value: 'default' }]} label="Default" values={['default']} />
             <SimpleSelect
                 options={[{ label: 'Disabled State', value: 'disabled' }]}
                 label="Disabled State"
                 isDisabled
-                value="disabled"
+                values={['disabled']}
             />
             <SimpleSelect
                 options={[{ label: 'Read Only State', value: 'readonly' }]}
                 label="Read Only State"
                 isReadOnly
-                value="readonly"
+                values={['readonly']}
             />
         </>
     </GridList>
@@ -185,7 +204,21 @@ export const simpleSelectWithSearch = () => (
         ]}
         label="Simple Select with Search"
         showSearch
-        value="2"
+        values={['2']}
+    />
+);
+
+export const simpleSelectWithMultiSelect = () => (
+    <SimpleSelect
+        options={[
+            { label: 'Option 1', value: '1' },
+            { label: 'Option 2', value: '2' },
+            { label: 'Option 3', value: '3' },
+        ]}
+        label="Simple Select with multi-select"
+        showSearch
+        values={['2', '3']}
+        isMultiSelect
     />
 );
 
@@ -200,7 +233,7 @@ export const simpleSelectSizes = () => (
                     { label: 'Option 3', value: '3' },
                 ]}
                 label={`Simple Select - Font Size: ${size}, Width: ${255 + 50 * index}px`}
-                value="3"
+                values={['3']}
                 size={size}
                 width={255 + 50 * index}
             />
@@ -217,7 +250,7 @@ export const BasicSelectSandbox: Story = {
         <Select
             options={props.options}
             label={props.label}
-            value={props.value}
+            values={props.values}
             onCancel={props.onCancel}
             onUpdate={props.onUpdate}
             showSearch={props.showSearch}
@@ -226,6 +259,8 @@ export const BasicSelectSandbox: Story = {
             isRequired={props.isRequired}
             size={props.size}
             width={props.width}
+            isMultiSelect={props.isMultiSelect}
+            placeholder={props.placeholder}
         />
     ),
 };
@@ -233,18 +268,18 @@ export const BasicSelectSandbox: Story = {
 export const states = () => (
     <GridList isVertical>
         <>
-            <Select options={[{ label: 'Default', value: 'default' }]} label="Default" value="default" />
+            <Select options={[{ label: 'Default', value: 'default' }]} label="Default" values={['default']} />
             <Select
                 options={[{ label: 'Disabled State', value: 'disabled' }]}
                 label="Disabled State"
                 isDisabled
-                value="disabled"
+                values={['disabled']}
             />
             <Select
                 options={[{ label: 'Read Only State', value: 'readonly' }]}
                 label="Read Only State"
                 isReadOnly
-                value="readonly"
+                values={['readonly']}
             />
         </>
     </GridList>
@@ -259,7 +294,21 @@ export const withSearch = () => (
         ]}
         label="Select with Search"
         showSearch
-        value="2"
+        values={['2']}
+    />
+);
+
+export const withMultiSelect = () => (
+    <Select
+        options={[
+            { label: 'Option 1', value: '1' },
+            { label: 'Option 2', value: '2' },
+            { label: 'Option 3', value: '3' },
+        ]}
+        label="Select with multi-select"
+        showSearch
+        values={['2', '3']}
+        isMultiSelect
     />
 );
 
@@ -274,7 +323,7 @@ export const sizes = () => (
                     { label: 'Option 3', value: '3' },
                 ]}
                 label={`Select - Font Size: ${size}, Width: ${255 + 50 * index}px`}
-                value="3"
+                values={['3']}
                 onCancel={() => alert('Cancel clicked')}
                 onUpdate={(selectedValues) => alert(`Update clicked with values: ${selectedValues}`)}
                 size={size}
@@ -293,7 +342,7 @@ export const footerActions = () => (
                 { label: 'Option 3', value: '3' },
             ]}
             label="Select with Footer Actions"
-            value="3"
+            values={['3']}
             onCancel={() => alert('Cancel clicked')}
             onUpdate={(selectedValues) => alert(`Update clicked with values: ${selectedValues}`)}
             size="md"

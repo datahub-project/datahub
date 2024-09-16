@@ -8,6 +8,7 @@ import { EntityType, Maybe } from '../../types.generated';
 import { GlossaryPreviewCardDecoration } from '../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 import { generateColorFromPalette } from './colorUtils';
 import { GenericEntityProperties } from '../entity/shared/types';
+import { Editor } from '../entityV2/shared/tabs/Documentation/components/editor/Editor';
 
 const { Paragraph } = Typography;
 
@@ -17,6 +18,7 @@ const SmallDescription = styled(Paragraph)`
     font-weight: 600;
     line-height: 20px;
     margin-top: 10px;
+    overflow: auto;
 `;
 
 const EntityDetailsLeftColumn = styled.div`
@@ -170,7 +172,7 @@ const GlossaryTermItem = (props: Props) => {
 
             {description && (
                 <SmallDescription>
-                    {isExpanded ? <>{description}</> : <>{truncatedDescription}...</>}
+                    {isExpanded ? <Editor content={description} readOnly /> : <>{truncatedDescription}...</>}
                     {isDescriptionTruncated && (
                         <ExpandCollapseButton
                             type="link"

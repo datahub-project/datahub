@@ -1,23 +1,25 @@
 import React from 'react';
-import { SelectProps } from './types';
 import { BasicSelect } from './BasicSelect';
+import { SelectProps } from './types';
 
 export const selectDefaults: SelectProps = {
     options: [],
     label: '',
     showSearch: false,
-    value: undefined,
+    values: undefined,
     size: 'md',
     isDisabled: false,
     isReadOnly: false,
     isRequired: false,
     width: 255,
+    isMultiSelect: false,
+    placeholder: 'Select an option',
 };
 
 export const Select = ({
     options = selectDefaults.options,
     label = selectDefaults.label,
-    value = '',
+    values = [],
     onCancel,
     onUpdate,
     showSearch = selectDefaults.showSearch,
@@ -26,6 +28,8 @@ export const Select = ({
     isRequired = selectDefaults.isRequired,
     size = selectDefaults.size,
     width = selectDefaults.width,
+    isMultiSelect = selectDefaults.isMultiSelect,
+    placeholder = selectDefaults.placeholder,
     ...props
 }: SelectProps) => {
     return (
@@ -33,7 +37,7 @@ export const Select = ({
             options={options}
             size={size}
             label={label}
-            value={value}
+            values={values}
             showSearch={showSearch}
             isDisabled={isDisabled}
             isReadOnly={isReadOnly}
@@ -41,6 +45,8 @@ export const Select = ({
             onCancel={onCancel}
             onUpdate={onUpdate}
             width={width}
+            isMultiSelect={isMultiSelect}
+            placeholder={placeholder}
             {...props}
         />
     );

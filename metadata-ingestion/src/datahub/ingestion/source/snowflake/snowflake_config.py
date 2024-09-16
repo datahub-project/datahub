@@ -1,7 +1,6 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from enum import Enum
 from typing import Dict, List, Optional, Set, cast
 
 import pydantic
@@ -29,8 +28,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulProfilingConfigMixin,
     StatefulUsageConfigMixin,
 )
-from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsageConfig
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.utilities.global_warning_util import add_global_warning
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.Logger(__name__)
 
@@ -48,7 +48,7 @@ DEFAULT_TEMP_TABLES_PATTERNS = [
 ]
 
 
-class TagOption(str, Enum):
+class TagOption(StrEnum):
     with_lineage = "with_lineage"
     without_lineage = "without_lineage"
     skip = "skip"
@@ -132,6 +132,17 @@ class SnowflakeIdentifierConfig(
     convert_urns_to_lowercase: bool = Field(
         default=True,
         description="Whether to convert dataset urns to lowercase.",
+    )
+
+
+class SnowflakeUsageConfig(BaseUsageConfig):
+    email_domain: Optional[str] = pydantic.Field(
+        default=None,
+        description="Email domain of your organization so users can be displayed on UI appropriately.",
+    )
+    apply_view_usage_to_tables: bool = pydantic.Field(
+        default=False,
+        description="Whether to apply view's usage to its base tables. If set to True, usage is applied to base tables only.",
     )
 
 

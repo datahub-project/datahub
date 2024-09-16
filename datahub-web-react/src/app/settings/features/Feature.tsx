@@ -104,6 +104,8 @@ export interface FeatureType {
         title: string;
         description: string;
         isAvailable: boolean;
+        isDisabled: boolean;
+        disabledMessage?: string;
         checked: boolean;
         onChange?: (checked: boolean) => void;
     }>;
@@ -134,22 +136,6 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
             </div>
         </FeatureRow>
         <Divider style={{ margin: `8px 0 24px 0` }} />
-        {settings.map((option) => (
-            <>
-                <SettingsOptionRow key={option.key}>
-                    <span>
-                        <OptionTitle>
-                            <span>{option.title}</span>
-                        </OptionTitle>
-                    </span>
-                    <Tooltip title={option.isAvailable ? '' : 'Only available on DataHub Cloud'}>
-                        <Button onClick={option.onClick} disabled={!option.isAvailable}>
-                            {option.buttonText}
-                        </Button>
-                    </Tooltip>
-                </SettingsOptionRow>
-            </>
-        ))}
         <Card style={{ margin: `16px auto` }}>
             {options.map((option, index) => (
                 <>
@@ -165,15 +151,34 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
                                 <DescriptionText>{option.description}</DescriptionText>
                             </div>
                         </span>
-                        <Switch
-                            checked={option.checked}
-                            onChange={(checked) => (option.onChange ? option.onChange(checked) : null)}
-                            disabled={!option.isAvailable}
-                        />
+                        <Tooltip title={option.disabledMessage}>
+                            <Switch
+                                checked={option.checked}
+                                onChange={(checked) => (option.onChange ? option.onChange(checked) : null)}
+                                disabled={!option.isAvailable || option.isDisabled}
+                            />
+                        </Tooltip>
                     </FeatureOptionRow>
                     {index !== options.length - 1 && <Divider />}
                 </>
             ))}
         </Card>
+        {settings.map((option) => (
+            <>
+                <SettingsOptionRow key={option.key}>
+                    <span>
+                        <OptionTitle>
+                            <span>{option.title}</span>
+                            <DataHubOnlyTag>Only available on DataHub Cloud</DataHubOnlyTag>
+                        </OptionTitle>
+                    </span>
+                    <Tooltip title={option.isAvailable ? '' : 'Only available on DataHub Cloud'}>
+                        <Button onClick={option.onClick} disabled={!option.isAvailable}>
+                            {option.buttonText}
+                        </Button>
+                    </Tooltip>
+                </SettingsOptionRow>
+            </>
+        ))}
     </Card>
 );

@@ -2,16 +2,17 @@ import { Button, Icon, Text } from '@components';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
-import { FormState } from '@src/types.generated';
+import { FormPrompt, FormState } from '@src/types.generated';
+import { Tooltip } from 'antd';
 import React, { useContext, useState } from 'react';
-import { FormQuestion, questionTypes } from './formUtils';
+import { questionTypes } from './formUtils';
 import ManageFormContext from './ManageFormContext';
 import { CardContainer, CardData, CardIcons, DragIcon, MandatoryTag } from './styledComponents';
 
 interface Props {
-    question: FormQuestion;
+    question: FormPrompt;
     setShowQuestionModal: React.Dispatch<React.SetStateAction<boolean>>;
-    setCurrentQuestion: React.Dispatch<React.SetStateAction<FormQuestion | undefined>>;
+    setCurrentQuestion: React.Dispatch<React.SetStateAction<FormPrompt | undefined>>;
 }
 
 const QuestionCard = ({ question, setShowQuestionModal, setCurrentQuestion }: Props) => {
@@ -57,26 +58,32 @@ const QuestionCard = ({ question, setShowQuestionModal, setCurrentQuestion }: Pr
                 <CardData width="20%">{question.required ? <MandatoryTag> Mandatory</MandatoryTag> : <></>}</CardData>
                 {formValues.state === FormState.Draft ? (
                     <CardIcons>
-                        <Icon icon="Delete" size="md" onClick={() => setShowConfirmDelete(true)} />
-                        <Icon
-                            icon="Edit"
-                            size="md"
+                        <Tooltip title="Delete question">
+                            <Icon icon="Delete" size="md" onClick={() => setShowConfirmDelete(true)} />
+                        </Tooltip>
+                        <Tooltip title="Edit question">
+                            <Icon
+                                icon="Edit"
+                                size="md"
+                                onClick={() => {
+                                    setCurrentQuestion(question);
+                                    setShowQuestionModal(true);
+                                }}
+                            />
+                        </Tooltip>
+                    </CardIcons>
+                ) : (
+                    <Tooltip title=" Questions cannot be edited once a form has been published. To edit questions create a new compliance form.">
+                        <Button
+                            variant="text"
                             onClick={() => {
                                 setCurrentQuestion(question);
                                 setShowQuestionModal(true);
                             }}
-                        />
-                    </CardIcons>
-                ) : (
-                    <Button
-                        variant="text"
-                        onClick={() => {
-                            setCurrentQuestion(question);
-                            setShowQuestionModal(true);
-                        }}
-                    >
-                        View
-                    </Button>
+                        >
+                            View
+                        </Button>
+                    </Tooltip>
                 )}
             </CardContainer>
             <ConfirmationModal
@@ -85,7 +92,6 @@ const QuestionCard = ({ question, setShowQuestionModal, setCurrentQuestion }: Pr
                 handleConfirm={handleDeleteQuestion}
                 modalTitle="Confirm Delete"
                 modalText="Are you sure you want to delete the question?"
-                isDeleteModal
             />
         </>
     );

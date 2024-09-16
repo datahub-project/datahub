@@ -17,7 +17,7 @@ const StructuredPropertyQuestion = () => {
         types: [EntityType.StructuredProperty],
         query: '*',
         start: 0,
-        count: 100,
+        count: 500,
         searchFlags: { skipCache: true },
     };
 
@@ -37,11 +37,12 @@ const StructuredPropertyQuestion = () => {
         });
         setStructuredProperties(properties);
     }, [data]);
+
     return (
         <>
             <FieldLabel> Select Structured Property</FieldLabel>
             <Form.Item
-                name={['structuredPropertyParams', 'urn']}
+                name={['structuredPropertyParams', 'structuredProperty', 'urn']}
                 rules={[
                     {
                         required: true,

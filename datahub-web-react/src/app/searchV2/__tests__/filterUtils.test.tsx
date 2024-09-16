@@ -1,5 +1,6 @@
+import { FilterOperator } from '@src/types.generated';
 import { UnionType } from '../utils/constants';
-import { mergeFilterSets } from '../utils/filterUtils';
+import { combineOrFilters, mergeFilterSets } from '../utils/filterUtils';
 
 describe('filterUtils', () => {
     describe('mergeFilterSets', () => {
@@ -213,6 +214,90 @@ describe('filterUtils', () => {
                 }),
             ).toEqual([]);
             expect(mergeFilterSets(null!, null!)).toEqual([]);
+        });
+    });
+
+    describe('combineOrFilters', () => {
+        it('should combine two basic orFilters', () => {
+            const orFilter1 = [
+                {
+                    and: [
+                        { field: 'test1', condition: FilterOperator.Equal, values: ['dataset1'] },
+                        { field: 'test2', condition: FilterOperator.Equal, values: ['dataset2'] },
+                    ],
+                },
+            ];
+            const orFilter2 = [
+                {
+                    and: [
+                        { field: 'test3', condition: FilterOperator.Equal, values: ['dataset3'] },
+                        { field: 'test4', condition: FilterOperator.Equal, values: ['dataset4'] },
+                    ],
+                },
+            ];
+            const expectedOrFilter = [
+                {
+                    and: [
+                        { field: 'test1', condition: FilterOperator.Equal, values: ['dataset1'] },
+                        { field: 'test2', condition: FilterOperator.Equal, values: ['dataset2'] },
+                        { field: 'test3', condition: FilterOperator.Equal, values: ['dataset3'] },
+                        { field: 'test4', condition: FilterOperator.Equal, values: ['dataset4'] },
+                    ],
+                },
+            ];
+
+            expect(combineOrFilters(orFilter1, orFilter2)).toEqual(expectedOrFilter);
+        });
+        it('should combine more complex orFilters', () => {
+            const orFilter1 = [
+                {
+                    and: [{ field: 'test1', condition: FilterOperator.Equal, values: ['dataset1'] }],
+                },
+                {
+                    and: [{ field: 'test2', condition: FilterOperator.Equal, values: ['dataset2'] }],
+                },
+            ];
+            const orFilter2 = [
+                {
+                    and: [
+                        { field: 'test3', condition: FilterOperator.Equal, values: ['dataset3'] },
+                        { field: 'test4', condition: FilterOperator.Equal, values: ['dataset4'] },
+                    ],
+                },
+                {
+                    and: [{ field: 'test5', condition: FilterOperator.Equal, values: ['dataset5'] }],
+                },
+            ];
+            const expectedOrFilter = [
+                {
+                    and: [
+                        { field: 'test1', condition: FilterOperator.Equal, values: ['dataset1'] },
+                        { field: 'test3', condition: FilterOperator.Equal, values: ['dataset3'] },
+                        { field: 'test4', condition: FilterOperator.Equal, values: ['dataset4'] },
+                    ],
+                },
+                {
+                    and: [
+                        { field: 'test1', condition: FilterOperator.Equal, values: ['dataset1'] },
+                        { field: 'test5', condition: FilterOperator.Equal, values: ['dataset5'] },
+                    ],
+                },
+                {
+                    and: [
+                        { field: 'test2', condition: FilterOperator.Equal, values: ['dataset2'] },
+                        { field: 'test3', condition: FilterOperator.Equal, values: ['dataset3'] },
+                        { field: 'test4', condition: FilterOperator.Equal, values: ['dataset4'] },
+                    ],
+                },
+                {
+                    and: [
+                        { field: 'test2', condition: FilterOperator.Equal, values: ['dataset2'] },
+                        { field: 'test5', condition: FilterOperator.Equal, values: ['dataset5'] },
+                    ],
+                },
+            ];
+
+            expect(combineOrFilters(orFilter1, orFilter2)).toEqual(expectedOrFilter);
         });
     });
 });

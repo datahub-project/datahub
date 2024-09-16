@@ -161,6 +161,10 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for connectors to filter in ingestion.",
     )
+    destination_patterns: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for destinations to filter in ingestion.",
+    )
     include_column_lineage: bool = Field(
         default=True,
         description="Populates table->table column lineage.",

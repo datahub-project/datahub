@@ -1601,6 +1601,10 @@
       "Relationship" : {
         "entityTypes" : [ "ownershipType" ],
         "name" : "ownershipType"
+      },
+      "Searchable" : {
+        "fieldName" : "ownershipTypeUrn",
+        "fieldType" : "URN"
       }
     }, {
       "name" : "source",
@@ -4925,7 +4929,11 @@
                     "name" : "description",
                     "type" : "string",
                     "doc" : "Documentation of the MLPrimaryKey",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "TEXT",
+                      "hasValuesFieldName" : "hasDescription"
+                    }
                   }, {
                     "name" : "dataType",
                     "type" : "com.linkedin.common.MLFeatureDataType",

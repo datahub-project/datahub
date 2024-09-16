@@ -5,17 +5,151 @@ import static org.testng.AssertJUnit.assertEquals;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
+import com.linkedin.metadata.timeline.data.dataset.SchemaFieldModificationCategory;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.restli.internal.server.util.DataMapUtils;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaMetadata;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.commons.io.IOUtils;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
 public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpringContextTests {
+
+  private static Urn getTestUrn() throws URISyntaxException {
+    return Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)");
+  }
+
+  private static AuditStamp getTestAuditStamp() throws URISyntaxException {
+    return new AuditStamp()
+        .setActor(Urn.createFromString("urn:li:corpuser:__datahub_system"))
+        .setTime(1683829509553L);
+  }
+
+  private static void compareDescriptions(
+      Set<String> expectedDescriptions, List<ChangeEvent> actual) {
+    Set<String> actualDescriptions = new HashSet<>();
+    actual.forEach(
+        changeEvent -> {
+          actualDescriptions.add(changeEvent.getDescription());
+        });
+    assertEquals(expectedDescriptions, actualDescriptions);
+  }
+
+  private static void compareModificationCategories(
+      Set<String> expectedCategories, List<ChangeEvent> actual) {
+    Set<String> actualModificationCategories = new HashSet<>();
+    actual.forEach(
+        changeEvent -> {
+          actualModificationCategories.add(
+              changeEvent.getParameters().get("modificationCategory").toString());
+        });
+    assertEquals(expectedCategories, actualModificationCategories);
+  }
+
+  private static Aspect<SchemaMetadata> getSchemaMetadata(List<SchemaField> schemaFieldList) {
+    return new Aspect<>(
+        new SchemaMetadata().setFields(new SchemaFieldArray(schemaFieldList)),
+        new SystemMetadata());
+  }
+
+  @Test
+  public void testNativeSchemaBackwardIncompatibleChange() throws Exception {
+    SchemaMetadataChangeEventGenerator test = new SchemaMetadataChangeEventGenerator();
+
+    Urn urn = getTestUrn();
+    String entity = "dataset";
+    String aspect = "schemaMetadata";
+    AuditStamp auditStamp = getTestAuditStamp();
+
+    Aspect<SchemaMetadata> from =
+        getSchemaMetadata(
+            List.of(new SchemaField().setFieldPath("ID").setNativeDataType("NUMBER(16,1)")));
+    Aspect<SchemaMetadata> to =
+        getSchemaMetadata(
+            List.of(new SchemaField().setFieldPath("ID").setNativeDataType("NUMBER(10,1)")));
+    List<ChangeEvent> actual = test.getChangeEvents(urn, entity, aspect, from, to, auditStamp);
+    // Test single field going from NUMBER(16,1) -> NUMBER(10,1)
+    assertEquals(1, actual.size());
+    compareDescriptions(
+        Set.of(
+            "A backwards incompatible change due to native datatype of the field 'ID' changed from 'NUMBER(16,1)' to 'NUMBER(10,1)'."),
+        actual);
+    compareModificationCategories(
+        Set.of(SchemaFieldModificationCategory.TYPE_CHANGE.toString()), actual);
+    List<ChangeEvent> actual2 = test.getChangeEvents(urn, entity, aspect, to, from, auditStamp);
+    // Test single field going from NUMBER(10,1) -> NUMBER(16,1)
+    assertEquals(1, actual2.size());
+    compareDescriptions(
+        Set.of(
+            "A backwards incompatible change due to native datatype of the field 'ID' changed from 'NUMBER(10,1)' to 'NUMBER(16,1)'."),
+        actual2);
+    compareModificationCategories(
+        Set.of(SchemaFieldModificationCategory.TYPE_CHANGE.toString()), actual);
+  }
+
+  @Test
+  public void testNativeSchemaFieldAddition() throws Exception {
+    SchemaMetadataChangeEventGenerator test = new SchemaMetadataChangeEventGenerator();
+
+    Urn urn = getTestUrn();
+    String entity = "dataset";
+    String aspect = "schemaMetadata";
+    AuditStamp auditStamp = getTestAuditStamp();
+
+    Aspect<SchemaMetadata> from =
+        getSchemaMetadata(
+            List.of(new SchemaField().setFieldPath("ID").setNativeDataType("NUMBER(16,1)")));
+    Aspect<SchemaMetadata> to3 =
+        getSchemaMetadata(
+            List.of(
+                new SchemaField().setFieldPath("aa").setNativeDataType("NUMBER(10,1)"),
+                new SchemaField().setFieldPath("ID").setNativeDataType("NUMBER(10,1)")));
+    List<ChangeEvent> actual = test.getChangeEvents(urn, entity, aspect, from, to3, auditStamp);
+    assertEquals(2, actual.size());
+    compareDescriptions(
+        Set.of(
+            "A backwards incompatible change due to native datatype of the field 'ID' changed from 'NUMBER(16,1)' to 'NUMBER(10,1)'.",
+            "A forwards & backwards compatible change due to the newly added field 'aa'."),
+        actual);
+    compareModificationCategories(
+        Set.of(
+            SchemaFieldModificationCategory.TYPE_CHANGE.toString(),
+            SchemaFieldModificationCategory.OTHER.toString()),
+        actual);
+  }
+
+  @Test
+  public void testSchemaFieldRename() throws Exception {
+    SchemaMetadataChangeEventGenerator test = new SchemaMetadataChangeEventGenerator();
+
+    Urn urn = getTestUrn();
+    String entity = "dataset";
+    String aspect = "schemaMetadata";
+    AuditStamp auditStamp = getTestAuditStamp();
+
+    Aspect<SchemaMetadata> from =
+        getSchemaMetadata(
+            List.of(new SchemaField().setFieldPath("ID").setNativeDataType("NUMBER(16,1)")));
+    Aspect<SchemaMetadata> to3 =
+        getSchemaMetadata(
+            List.of(new SchemaField().setFieldPath("ID2").setNativeDataType("NUMBER(16,1)")));
+    List<ChangeEvent> actual = test.getChangeEvents(urn, entity, aspect, from, to3, auditStamp);
+    compareDescriptions(
+        Set.of(
+            "A forwards & backwards compatible change due to renaming of the field 'ID to ID2'."),
+        actual);
+    assertEquals(1, actual.size());
+    compareModificationCategories(
+        Set.of(SchemaFieldModificationCategory.RENAME.toString()), actual);
+  }
 
   @Test
   public void testDelete() throws Exception {

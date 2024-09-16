@@ -28,7 +28,6 @@ If you want to create and manage group-level Subscriptions for your team, you wi
 - Manage Group Subscriptions
 
 And to manage other user's subscriptions:
-
 - Manage User Subscriptions
 
 ## Using DataHub’s Subscriptions and Notifications Feature

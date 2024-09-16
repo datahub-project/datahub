@@ -113,11 +113,11 @@ type DetailsContainerProps = {
 
 type Props = {
     urn: string;
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
 };
 
-export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
+export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     const [showExpandedLogs, setShowExpandedLogs] = useState(false);
     const [showExpandedRecipe, setShowExpandedRecipe] = useState(false);
 
@@ -178,7 +178,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                     <StyledTitle level={4}>Sync Details</StyledTitle>
                 </HeaderSection>
             }
-            visible={visible}
+            open={open}
             onCancel={onClose}
         >
             {!data && loading && <Message type="loading" content="Loading sync details..." />}

@@ -1,12 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Announcements } from '../action/announcement/Announcements';
-import { Resources } from '../action/learn/Resources';
 import { PendingTasks } from '../action/task/PendingTasks';
 
 const Container = styled.div`
-    flex: 1;
-    max-width: 380px;
     overflow-y: auto;
     padding: 0px 12px 12px 12px;
     /* Hide scrollbar for Chrome, Safari, and Opera */
@@ -28,7 +25,6 @@ export const RightSidebar = () => {
             <Content>
                 <Announcements />
                 <PendingTasks />
-                <Resources />
             </Content>
         </Container>
     );

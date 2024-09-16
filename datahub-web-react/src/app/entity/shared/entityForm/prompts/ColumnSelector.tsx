@@ -34,6 +34,7 @@ interface Props {
     selectedFieldPaths: string[];
     setIsBulkApplyingFieldPath: (isBulkApply: boolean) => void;
     setSelectedFieldPaths: (fieldPaths: string[]) => void;
+    schemaFields?: SchemaField[];
 }
 
 export default function ColumnSelector({
@@ -42,9 +43,10 @@ export default function ColumnSelector({
     setIsBulkApplyingFieldPath,
     selectedFieldPaths,
     setSelectedFieldPaths,
+    schemaFields,
 }: Props) {
-    const { entityWithSchema } = useGetEntityWithSchema();
-    const fields = entityWithSchema?.schemaMetadata?.fields;
+    const { entityWithSchema } = useGetEntityWithSchema(!!schemaFields?.length);
+    const fields = schemaFields?.length ? schemaFields : entityWithSchema?.schemaMetadata?.fields;
     const allFieldsExceptCurrent =
         (fields as any)?.filter((obj) => obj.fieldPath !== field.fieldPath).map((f) => f.fieldPath) || [];
 

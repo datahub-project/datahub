@@ -62,7 +62,7 @@ export const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; ma
 `;
 
 type EditAttributeModalProps = {
-    visible: boolean;
+    open: boolean;
     onCloseModal: () => void;
     resources: ResourceRefInput[];
     type?: EntityType;
@@ -71,7 +71,7 @@ type EditAttributeModalProps = {
 };
 
 export default function EditBusinessAttributeModal({
-    visible,
+    open,
     type = EntityType.BusinessAttribute,
     operationType = OperationType.ADD,
     onCloseModal,
@@ -316,7 +316,7 @@ export default function EditBusinessAttributeModal({
     return (
         <Modal
             title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} ${entityRegistry.getEntityName(type)}s`}
-            visible={visible}
+            open={open}
             onCancel={onCloseModal}
             footer={
                 <>

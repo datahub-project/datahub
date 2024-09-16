@@ -58,12 +58,13 @@ public class DeleteSubscriptionResolverTest {
       expectedExceptions = DataHubGraphQLException.class,
       expectedExceptionsMessageRegExp = ".* missing MANAGE_USER_SUBSCRIPTIONS privilege")
   public void testDeleteSubscriptionUnauthorizedForOtherUser() throws Throwable {
+    final String requestUserUrn = USER_2_URN_STRING;
+
     final AuthorizationRequest request =
-        new AuthorizationRequest(USER_2_URN_STRING, "MANAGE_USER_SUBSCRIPTIONS", Optional.empty());
-    final QueryContext mockContext = getMockDenyContext(USER_URN_STRING, request);
+        new AuthorizationRequest(requestUserUrn, "MANAGE_USER_SUBSCRIPTIONS", Optional.empty());
+    final QueryContext mockContext = getMockDenyContext(requestUserUrn, request);
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
-    when(mockContext.getAuthentication()).thenReturn(_authentication);
-    when(mockContext.getActorUrn()).thenReturn(USER_2_URN_STRING);
+
     when(_subscriptionService.getSubscriptionInfo(
             any(OperationContext.class), eq(SUBSCRIPTION_URN_1)))
         .thenReturn(SUBSCRIPTION_INFO_1);
@@ -75,12 +76,13 @@ public class DeleteSubscriptionResolverTest {
 
   @Test
   public void testDeleteSubscriptionAuthorizedForOtherUser() throws Exception {
+    final String requestUserUrn = USER_2_URN_STRING;
+
     final AuthorizationRequest request =
-        new AuthorizationRequest(USER_2_URN_STRING, "MANAGE_USER_SUBSCRIPTIONS", Optional.empty());
-    final QueryContext mockContext = getMockAllowContext(USER_URN_STRING, request);
+        new AuthorizationRequest(requestUserUrn, "MANAGE_USER_SUBSCRIPTIONS", Optional.empty());
+    final QueryContext mockContext = getMockAllowContext(requestUserUrn, request);
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
-    when(mockContext.getAuthentication()).thenReturn(_authentication);
-    when(mockContext.getActorUrn()).thenReturn(USER_2_URN_STRING);
+
     when(_subscriptionService.getSubscriptionInfo(
             any(OperationContext.class), eq(SUBSCRIPTION_URN_1)))
         .thenReturn(SUBSCRIPTION_INFO_1);

@@ -579,9 +579,21 @@ type Mutation {
     acceptProposal(urn: String!): Boolean
 
     """
+    Accepts a set of proposals. Returns true if all proposals have been successfully accepted,
+    false otherwise.
+    """
+    acceptProposals(urns: [String!]!): Boolean
+
+    """
     Rejects a proposal for a given entity or subresource
     """
     rejectProposal(urn: String!): Boolean
+
+    """
+    Rejects a set of proposals. Returns true if all proposals have been successfully rejected,
+    false otherwise.
+    """
+    rejectProposals(urns: [String!]!): Boolean
 
     """
     Adds a term proposal for a given entity or subresource

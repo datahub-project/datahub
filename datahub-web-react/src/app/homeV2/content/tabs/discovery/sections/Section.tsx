@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
+import { Tooltip } from 'antd';
 import { ANTD_GRAY } from '../../../../../entity/shared/constants';
 
 const Header = styled.div`
@@ -39,16 +40,19 @@ const Action = styled.div`
 
 type Props = {
     title: string;
+    tip?: string;
     children: React.ReactNode;
     actionText?: string;
     onClickAction?: () => void;
 };
 
-export const Section = ({ title, actionText, onClickAction, children }: Props) => {
+export const Section = ({ title, tip, actionText, onClickAction, children }: Props) => {
     return (
         <>
             <Header>
-                <Title>{title}</Title>
+                <Tooltip title={tip}>
+                    <Title>{title}</Title>
+                </Tooltip>
                 {actionText && <Action onClick={onClickAction}>{actionText}</Action>}
             </Header>
             <Content>{children}</Content>

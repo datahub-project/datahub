@@ -6,12 +6,12 @@ from datetime import timedelta
 import humanfriendly
 import psutil
 
-from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryUsageConfig,
     BigQueryV2Config,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilder
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.perf_timer import PerfTimer
@@ -49,9 +49,7 @@ def run_test():
         config,
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
-        dataset_urn_builder=lambda ref: make_dataset_urn(
-            "bigquery", str(ref.table_identifier)
-        ),
+        identifiers=BigQueryIdentifierBuilder(config, report),
     )
     report.set_ingestion_stage("All", "Event Generation")
 

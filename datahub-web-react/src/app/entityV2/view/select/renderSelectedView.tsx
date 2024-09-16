@@ -1,14 +1,16 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button } from 'antd';
+import { Button, Tooltip } from 'antd';
 import LanguageIcon from '@mui/icons-material/Language';
 import CloseIcon from '@mui/icons-material/Close';
 import { ANTD_GRAY, SEARCH_COLORS } from '../../shared/constants';
+import { ViewLabel } from './styledComponents';
 
 const SelectButton = styled(Button)<{ $selectedViewName: string }>`
     background-color: ${(props) => (props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
     border-color: ${(props) => (props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
     color: ${ANTD_GRAY[1]};
+    max-width: 150px;
 
     &: hover {
         background: ${SEARCH_COLORS.TITLE_PURPLE};
@@ -68,7 +70,9 @@ export const renderSelectedView = ({ selectedViewName, onClear }: Props) => {
     return (
         <SelectButtonContainer>
             <SelectButton $selectedViewName={selectedViewName}>
-                {selectedViewName || <LanguageIconStyle />}
+                <Tooltip title={selectedViewName} placement="bottom">
+                    <ViewLabel>{selectedViewName || <LanguageIconStyle />}</ViewLabel>
+                </Tooltip>
             </SelectButton>
             {selectedViewName && (
                 <CloseButtonContainer

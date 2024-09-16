@@ -59,4 +59,19 @@ enum Condition {
    * Represent the relation: String field starts with value, e.g. name starts with PageView
    */
   START_WITH
+
+  /**
+   * Represent the relation: URN field any nested children in addition to the given URN
+   */
+  DESCENDANTS_INCL
+
+  /**
+   * Represent the relation: URN field matches any nested parent in addition to the given URN
+   */
+  ANCESTORS_INCL
+
+  /**
+   * Represent the relation: URN field matches any nested child or parent in addition to the given URN
+   */
+  RELATED_INCL
 }

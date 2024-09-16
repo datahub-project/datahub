@@ -1,11 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useGetMeLazyQuery } from '../../graphql/me.generated';
 import { useGetGlobalViewsSettingsLazyQuery } from '../../graphql/app.generated';
-import { ActionRequestStatus, CorpUser, EntityRelationshipsResult, PlatformPrivileges } from '../../types.generated';
+import {
+    ActionRequestStatus,
+    CorpUser,
+    EntityRelationshipsResult,
+    FormForActor,
+    PlatformPrivileges,
+} from '../../types.generated';
 import { UserContext, LocalState, DEFAULT_STATE, State } from './userContext';
 
 import { useListActionRequestsQuery } from '../../graphql/actionRequest.generated';
 import { useGetFormsForActorQuery } from '../../graphql/form.generated';
+import { filterFormsForUser } from '../taskCenter/requests/utils';
 
 // TODO: Migrate all usage of useAuthenticatedUser to using this provider.
 
@@ -149,8 +156,8 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
      */
     useEffect(() => {
         const unfinishedProposalCount = unfinishedProposals?.listActionRequests?.total || 0;
-        const unfinishedFormCount = (unfinishedForms?.getFormsForActor.formsForActor || []).filter(
-            (form) => form!.numEntitiesToComplete! > 0,
+        const unfinishedFormCount = (unfinishedForms?.getFormsForActor.formsForActor || []).filter((form) =>
+            filterFormsForUser(form as FormForActor),
         ).length;
 
         const unfinishedTaskCount = unfinishedProposalCount + unfinishedFormCount || 0;

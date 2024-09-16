@@ -40,9 +40,9 @@ public class SystemUpdateSchemaRegistryFactory {
 
   /** Configure Kafka Producer/Consumer processes with a custom schema registry. */
   @Bean("duheSchemaRegistryConfig")
-  protected SchemaRegistryConfig duheSchemaRegistryConfig(
+  protected KafkaConfiguration.SerDeKeyValueConfig duheSchemaRegistryConfig(
       final ConfigurationProvider provider, final SchemaRegistryService schemaRegistryService) {
-    Map<String, Object> props = new HashMap<>();
+    Map<String, String> props = new HashMap<>();
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
 
     props.put(
@@ -67,7 +67,13 @@ public class SystemUpdateSchemaRegistryFactory {
             schemaRegistryService.getSchemaIdForTopic(mcpTopicName).get().toString()));
 
     log.info("DataHub System Update Registry");
-    return new SchemaRegistryConfig(
-        MockSystemUpdateSerializer.class, MockSystemUpdateDeserializer.class, props);
+    return kafkaConfiguration.getSerde().getEvent().toBuilder()
+        .value(
+            KafkaConfiguration.SerDeProperties.builder()
+                .serializer(MockSystemUpdateSerializer.class.getName())
+                .deserializer(MockSystemUpdateDeserializer.class.getName())
+                .build())
+        .properties(props)
+        .build();
   }
 }

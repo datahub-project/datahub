@@ -1,0 +1,109 @@
+{
+    "data": {
+        "fieldsConnection": {
+            "nodes": [
+                {
+                    "id": "0fe30270-b1b9-9310-3c16-520b2a4824cb",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "payment_date",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "4fb670d5-3e19-9656-e684-74aa9729cf18"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "2b8a4156-7554-9ec1-a5ba-3316ab7d4ee2",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "staff_first_name",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "4fb670d5-3e19-9656-e684-74aa9729cf18"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "740b3cfe-ff17-c957-1e1b-f322d61f9b25",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "customer_id",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "4fb670d5-3e19-9656-e684-74aa9729cf18"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "9481e156-2775-f5fa-5aa3-be174224d4fb",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "amount",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "4fb670d5-3e19-9656-e684-74aa9729cf18"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "b2e77a9b-8961-0637-0907-940a5fcfb643",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "b950a9fd-ddb8-2a1d-ddbe-91000a3953e1",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "customer_last_name",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "4fb670d5-3e19-9656-e684-74aa9729cf18"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "ca23efe0-5a93-344a-3f69-ec777ee1b318",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "customer_first_name",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "4fb670d5-3e19-9656-e684-74aa9729cf18"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "cab66386-799c-d9b6-812b-d3931b626f3b",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "staff_last_name",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "4fb670d5-3e19-9656-e684-74aa9729cf18"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 8
+        }
+    }
+}

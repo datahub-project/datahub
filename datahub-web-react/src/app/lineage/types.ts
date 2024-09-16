@@ -63,6 +63,7 @@ export type FetchedEntity = {
     canEditLineage?: boolean;
     health?: Maybe<Health[]>;
     parents?: GenericEntityProperties[];
+    parent?: GenericEntityProperties;
 };
 
 export type NodeData = {

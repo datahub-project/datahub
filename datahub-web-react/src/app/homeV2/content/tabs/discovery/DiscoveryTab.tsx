@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { PinnedLinks } from '@src/app/homeV2/reference/sections/pinned/PinnedLinks';
 import { Domains } from './sections/domains/Domains';
 import { DataProducts } from './sections/dataProducts/DataProducts';
 import { Insights } from './sections/insight/Insights';
@@ -15,6 +16,7 @@ const Container = styled.div`
 export const DiscoveryTab = () => {
     return (
         <Container>
+            <PinnedLinks hideIfEmpty />
             <Domains />
             <DataProducts />
             <Insights />

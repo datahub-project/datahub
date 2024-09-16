@@ -19,8 +19,8 @@ import {
 } from '../../../../../../../../types.generated';
 import { DataContractProposalDescription } from './DataContractProposalDescription';
 import {
-    useAcceptProposalMutation,
-    useRejectProposalMutation,
+    useAcceptProposalsMutation,
+    useRejectProposalsMutation,
 } from '../../../../../../../../graphql/actionRequest.generated';
 import { ANTD_GRAY } from '../../../../../constants';
 import { FAILURE_COLOR_HEX } from '../../../../Incident/incidentUtils';
@@ -121,8 +121,8 @@ type Props = {
  */
 export const DataContractProposal = ({ showContractBuilder, refetch, entityUrn, entityType }: Props) => {
     const { urn } = useEntityData();
-    const [acceptProposalMutation] = useAcceptProposalMutation();
-    const [rejectProposalMutation] = useRejectProposalMutation();
+    const [acceptProposalsMutation] = useAcceptProposalsMutation();
+    const [rejectProposalsMutation] = useRejectProposalsMutation();
     const { data, refetch: contractRefetch } = useGetContractProposalsQuery({
         variables: {
             urn,
@@ -139,7 +139,7 @@ export const DataContractProposal = ({ showContractBuilder, refetch, entityUrn, 
             content: 'Are you sure you want to accept this proposal? New assertions will be created for this dataset.',
             okText: 'Yes',
             onOk() {
-                acceptProposalMutation({ variables: { urn: actionRequestUrn } })
+                acceptProposalsMutation({ variables: { urns: [actionRequestUrn] } })
                     .then(() => {
                         analytics.event({
                             type: EventType.EntityActionEvent,
@@ -166,7 +166,7 @@ export const DataContractProposal = ({ showContractBuilder, refetch, entityUrn, 
                 'Are you sure you want to reject this proposal? Proposals will no longer be created for this dataset.',
             okText: 'Yes',
             onOk() {
-                rejectProposalMutation({ variables: { urn: actionRequestUrn } })
+                rejectProposalsMutation({ variables: { urns: [actionRequestUrn] } })
                     .then(() => {
                         analytics.event({
                             type: EventType.EntityActionEvent,

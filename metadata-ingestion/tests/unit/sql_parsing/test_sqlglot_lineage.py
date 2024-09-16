@@ -618,7 +618,7 @@ def test_bigquery_view_from_union():
         """
 CREATE VIEW my_view as
 select * from my_project_2.my_dataset_2.sometable
-union
+union all
 select * from my_project_2.my_dataset_2.sometable2 as a
 """,
         dialect="bigquery",

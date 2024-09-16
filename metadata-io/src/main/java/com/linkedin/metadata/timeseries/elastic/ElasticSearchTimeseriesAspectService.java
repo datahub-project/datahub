@@ -20,6 +20,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -100,18 +101,21 @@ public class ElasticSearchTimeseriesAspectService
   private final TimeseriesAspectIndexBuilders indexBuilders;
   private final RestHighLevelClient searchClient;
   private final ESAggregatedStatsDAO esAggregatedStatsDAO;
+  private final QueryFilterRewriteChain queryFilterRewriteChain;
 
   public ElasticSearchTimeseriesAspectService(
       @Nonnull RestHighLevelClient searchClient,
       @Nonnull TimeseriesAspectIndexBuilders indexBuilders,
       @Nonnull ESBulkProcessor bulkProcessor,
-      int numRetries) {
+      int numRetries,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     this.indexBuilders = indexBuilders;
     this.searchClient = searchClient;
     this.bulkProcessor = bulkProcessor;
     this.numRetries = numRetries;
+    this.queryFilterRewriteChain = queryFilterRewriteChain;
 
-    esAggregatedStatsDAO = new ESAggregatedStatsDAO(searchClient);
+    esAggregatedStatsDAO = new ESAggregatedStatsDAO(searchClient, queryFilterRewriteChain);
   }
 
   private static EnvelopedAspect parseDocument(@Nonnull SearchHit doc) {
@@ -298,7 +302,8 @@ public class ElasticSearchTimeseriesAspectService
                         .getEntityRegistry()
                         .getEntitySpec(entityName)
                         .getSearchableFieldTypes(),
-                    opContext.getAspectRetriever()));
+                    opContext,
+                    queryFilterRewriteChain));
     CountRequest countRequest = new CountRequest();
     countRequest.query(filterQueryBuilder);
     countRequest.indices(indexName);
@@ -328,7 +333,7 @@ public class ElasticSearchTimeseriesAspectService
         QueryBuilders.boolQuery()
             .must(
                 ESUtils.buildFilterQuery(
-                    filter, true, searchableFieldTypes, opContext.getAspectRetriever()));
+                    filter, true, searchableFieldTypes, opContext, queryFilterRewriteChain));
     filterQueryBuilder.must(QueryBuilders.matchQuery("urn", urn.toString()));
     // NOTE: We are interested only in the un-exploded rows as only they carry the `event` payload.
     filterQueryBuilder.mustNot(QueryBuilders.termQuery(MappingsBuilder.IS_EXPLODED_FIELD, true));
@@ -340,7 +345,7 @@ public class ElasticSearchTimeseriesAspectService
               .setValue(startTimeMillis.toString());
       filterQueryBuilder.must(
           ESUtils.getQueryBuilderFromCriterion(
-              startTimeCriterion, true, searchableFieldTypes, opContext.getAspectRetriever()));
+              startTimeCriterion, true, searchableFieldTypes, opContext, queryFilterRewriteChain));
     }
     if (endTimeMillis != null) {
       Criterion endTimeCriterion =
@@ -350,7 +355,7 @@ public class ElasticSearchTimeseriesAspectService
               .setValue(endTimeMillis.toString());
       filterQueryBuilder.must(
           ESUtils.getQueryBuilderFromCriterion(
-              endTimeCriterion, true, searchableFieldTypes, opContext.getAspectRetriever()));
+              endTimeCriterion, true, searchableFieldTypes, opContext, queryFilterRewriteChain));
     }
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQueryBuilder);
@@ -435,7 +440,8 @@ public class ElasticSearchTimeseriesAspectService
             filter,
             true,
             opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
-            opContext.getAspectRetriever());
+            opContext,
+            queryFilterRewriteChain);
 
     final Optional<DeleteAspectValuesResult> result =
         bulkProcessor
@@ -471,7 +477,8 @@ public class ElasticSearchTimeseriesAspectService
             filter,
             true,
             opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
-            opContext.getAspectRetriever());
+            opContext,
+            queryFilterRewriteChain);
     final int batchSize = options.getBatchSize() > 0 ? options.getBatchSize() : DEFAULT_LIMIT;
     TimeValue timeout =
         options.getTimeoutSeconds() > 0
@@ -505,7 +512,8 @@ public class ElasticSearchTimeseriesAspectService
             filter,
             true,
             opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
-            opContext.getAspectRetriever());
+            opContext,
+            queryFilterRewriteChain);
     try {
       return this.reindexAsync(indexName, filterQueryBuilder, options);
     } catch (Exception e) {
@@ -563,7 +571,7 @@ public class ElasticSearchTimeseriesAspectService
         QueryBuilders.boolQuery()
             .filter(
                 ESUtils.buildFilterQuery(
-                    filter, true, searchableFieldTypes, opContext.getAspectRetriever()));
+                    filter, true, searchableFieldTypes, opContext, queryFilterRewriteChain));
 
     if (startTimeMillis != null) {
       Criterion startTimeCriterion =
@@ -573,7 +581,7 @@ public class ElasticSearchTimeseriesAspectService
               .setValue(startTimeMillis.toString());
       filterQueryBuilder.filter(
           ESUtils.getQueryBuilderFromCriterion(
-              startTimeCriterion, true, searchableFieldTypes, opContext.getAspectRetriever()));
+              startTimeCriterion, true, searchableFieldTypes, opContext, queryFilterRewriteChain));
     }
     if (endTimeMillis != null) {
       Criterion endTimeCriterion =
@@ -583,7 +591,7 @@ public class ElasticSearchTimeseriesAspectService
               .setValue(endTimeMillis.toString());
       filterQueryBuilder.filter(
           ESUtils.getQueryBuilderFromCriterion(
-              endTimeCriterion, true, searchableFieldTypes, opContext.getAspectRetriever()));
+              endTimeCriterion, true, searchableFieldTypes, opContext, queryFilterRewriteChain));
     }
 
     SearchResponse response =

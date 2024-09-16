@@ -11,6 +11,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
 import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.timeseries.AggregationSpec;
@@ -61,9 +62,13 @@ public class ESAggregatedStatsDAO {
       ES_AGGREGATION_PREFIX + ES_MAX_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
   private static final int MAX_TERM_BUCKETS = 24 * 60; // minutes in a day.
   private final RestHighLevelClient searchClient;
+  @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
 
-  public ESAggregatedStatsDAO(@Nonnull RestHighLevelClient searchClient) {
+  public ESAggregatedStatsDAO(
+      @Nonnull RestHighLevelClient searchClient,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     this.searchClient = searchClient;
+    this.queryFilterRewriteChain = queryFilterRewriteChain;
   }
 
   private static String toEsAggName(final String aggName) {
@@ -375,7 +380,8 @@ public class ESAggregatedStatsDAO {
             filter,
             true,
             opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
-            opContext.getAspectRetriever());
+            opContext,
+            queryFilterRewriteChain);
 
     AspectSpec aspectSpec = getTimeseriesAspectSpec(opContext, entityName, aspectName);
     // Build and attach the grouping aggregations

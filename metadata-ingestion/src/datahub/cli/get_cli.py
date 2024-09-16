@@ -48,16 +48,28 @@ def urn(ctx: Any, urn: Optional[str], aspect: List[str], details: bool) -> None:
 
     client = get_default_graph()
 
+    if aspect:
+        # If aspects are specified, we need to do the existence check first.
+        if not client.exists(urn):
+            raise click.ClickException(f"urn {urn} not found")
+
+    aspect_data = get_aspects_for_entity(
+        session=client._session,
+        gms_host=client.config.server,
+        entity_urn=urn,
+        aspects=aspect,
+        typed=False,
+        details=details,
+    )
+
+    if not aspect:
+        # If no aspects are specified and we only get a key aspect back, yield an error instead.
+        if len(aspect_data) == 1 and "key" in next(iter(aspect_data)).lower():
+            raise click.ClickException(f"urn {urn} not found")
+
     click.echo(
         json.dumps(
-            get_aspects_for_entity(
-                session=client._session,
-                gms_host=client.config.server,
-                entity_urn=urn,
-                aspects=aspect,
-                typed=False,
-                details=details,
-            ),
+            aspect_data,
             sort_keys=True,
             indent=2,
         )

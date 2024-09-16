@@ -1,11 +1,11 @@
+import { useGetLineageUrl } from '@app/lineageV2/lineageUtils';
 import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import LinkOut from '@images/link-out.svg?react';
 import { Tooltip, Typography } from 'antd';
 import React, { useContext, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
-import LinkOut from '@images/link-out.svg?react';
 import { EntityType } from '../../../types.generated';
 import { EventType } from '../../analytics';
 import analytics from '../../analytics/analytics';
@@ -91,7 +91,6 @@ type Props = LineageDisplayColumn & { urn: string; entityType: EntityType };
 
 export default function Column({ urn, entityType, fieldPath, highlighted, hasLineage, type, nativeDataType }: Props) {
     const { config } = useAppConfig();
-    const entityRegistry = useEntityRegistry();
     const { selectedColumn, setSelectedColumn, setHoveredColumn } = useContext(LineageDisplayContext);
     const id = useMemo(() => createColumnRef(urn, fieldPath), [urn, fieldPath]);
 
@@ -103,6 +102,7 @@ export default function Column({ urn, entityType, fieldPath, highlighted, hasLin
     }
 
     const schemaFieldUrn = generateSchemaFieldUrn(fieldPath, urn) || '';
+    const lineageUrl = useGetLineageUrl(schemaFieldUrn, EntityType.SchemaField);
 
     // TODO: Add hover text if overflowed
     return (
@@ -137,9 +137,9 @@ export default function Column({ urn, entityType, fieldPath, highlighted, hasLin
                 </TypeWrapper>
             )}
             <ColumnText ellipsis={{ tooltip: { showArrow: false } }}>{columnName}</ColumnText>
-            {config.featureFlags.schemaFieldCLLEnabled && hasLineage && (
+            {config.featureFlags.schemaFieldCLLEnabled && (
                 <ColumnLinkWrapper
-                    to={`${entityRegistry.getEntityUrl(EntityType.SchemaField, schemaFieldUrn)}/Lineage`}
+                    to={lineageUrl}
                     onClick={(e) => e.stopPropagation()}
                     target="_blank"
                     rel="noopener noreferrer"

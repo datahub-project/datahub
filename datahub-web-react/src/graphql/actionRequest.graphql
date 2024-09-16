@@ -243,10 +243,10 @@ query listActionRequests($input: ListActionRequestsInput!) {
     }
 }
 
-mutation acceptProposal($urn: String!) {
-    acceptProposal(urn: $urn)
+mutation acceptProposals($urns: [String!]!) {
+    acceptProposals(urns: $urns)
 }
 
-mutation rejectProposal($urn: String!) {
-    rejectProposal(urn: $urn)
+mutation rejectProposals($urns: [String!]!) {
+    rejectProposals(urns: $urns)
 }

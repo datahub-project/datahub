@@ -11,13 +11,13 @@ export type AssertionsSummary = {
 
 type Props = {
     logic: string;
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
 };
 
-export const DatasetAssertionLogicModal = ({ logic, visible, onClose }: Props) => {
+export const DatasetAssertionLogicModal = ({ logic, open, onClose }: Props) => {
     return (
-        <Modal visible={visible} onCancel={onClose} footer={<Button onClick={onClose}>Close</Button>}>
+        <Modal open={open} onCancel={onClose} footer={<Button onClick={onClose}>Close</Button>}>
             <Query query={logic} />
         </Modal>
     );

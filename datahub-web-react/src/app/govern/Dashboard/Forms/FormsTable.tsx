@@ -8,9 +8,11 @@ import { PageRoutes } from '@src/conf/Global';
 import { useDeleteFormMutation } from '@src/graphql/form.generated';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType, FormState } from '@src/types.generated';
-import { Dropdown, Typography } from 'antd';
+import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
+import { Dropdown, Tooltip, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import EmptyForms from './EmptyForms';
 import { CardIcons } from './styledComponents';
@@ -22,6 +24,10 @@ const FormName = styled(Typography.Text)`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+
+    &:hover {
+        text-decoration: underline;
+    }
 `;
 
 const FormDescription = styled(Typography.Text)`
@@ -126,7 +132,9 @@ const FormsTable = () => {
             render: (record) => {
                 return (
                     <CellContainer>
-                        <FormName>{record.entity.formInfo.name}</FormName>
+                        <Link to={`/govern/dashboard/edit-form/${record.entity.urn}`}>
+                            <FormName>{record.entity.formInfo.name}</FormName>
+                        </Link>
                         <FormDescription> {record.entity.formInfo.description}</FormDescription>
                     </CellContainer>
                 );
@@ -146,7 +154,11 @@ const FormsTable = () => {
                 else if (status === FormState.Unpublished) colorScheme = 'blue';
                 return (
                     <StatusContainer>
-                        <Pill label={status.charAt(0) + status.slice(1).toLowerCase()} colorScheme={colorScheme} />
+                        <Pill
+                            label={status.charAt(0) + status.slice(1).toLowerCase()}
+                            colorScheme={colorScheme}
+                            clickable={false}
+                        />
                     </StatusContainer>
                 );
             },
@@ -161,7 +173,11 @@ const FormsTable = () => {
                 const publishedTime =
                     record.entity.formInfo.status.state === FormState.Published &&
                     record.entity.formInfo.status?.lastModified?.time;
-                return <CellContainer>{publishedTime ? toRelativeTimeString(publishedTime) : '-'}</CellContainer>;
+                return (
+                    <CellContainer>
+                        {publishedTime ? capitalizeFirstLetter(toRelativeTimeString(publishedTime)) : '-'}
+                    </CellContainer>
+                );
             },
             sorter: (sourceA, sourceB) => {
                 const timeA =
@@ -214,15 +230,19 @@ const FormsTable = () => {
                 return (
                     <>
                         <CardIcons>
-                            <Icon
-                                icon="TrendingUp"
-                                size="md"
-                                onClick={() => {
-                                    history.push(
-                                        `${PageRoutes.GOVERN_DASHBOARD}?documentationTab=analytics&tab=byForm&filter=${record.entity.urn}`,
-                                    );
-                                }}
-                            />
+                            {record.entity.formInfo.status.state !== FormState.Draft && (
+                                <Tooltip title="View analytics for this form">
+                                    <Icon
+                                        icon="TrendingUp"
+                                        size="md"
+                                        onClick={() => {
+                                            history.push(
+                                                `${PageRoutes.GOVERN_DASHBOARD}?documentationTab=analytics&tab=byForm&filter=${record.entity.urn}`,
+                                            );
+                                        }}
+                                    />
+                                </Tooltip>
+                            )}
                             <Dropdown menu={{ items }} trigger={['click']}>
                                 <Icon icon="MoreVert" size="md" />
                             </Dropdown>
@@ -242,7 +262,6 @@ const FormsTable = () => {
                 handleConfirm={() => handleDeleteForm(currentForm)}
                 modalTitle="Confirm Delete"
                 modalText="Are you sure you want to delete the form?"
-                isDeleteModal
             />
         </>
     );

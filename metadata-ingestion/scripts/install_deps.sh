@@ -20,6 +20,12 @@ else
             libxml2-devel \
             libxslt-devel \
             krb5-devel
+    elif command -v apk; then
+        $sudo_cmd apk add \
+            build-base \
+            openldap-dev \
+            xz-dev \
+            krb5-dev
     else
         $sudo_cmd apt-get update && $sudo_cmd apt-get install -y \
             python3-ldap \

@@ -1,9 +1,12 @@
 package com.linkedin.metadata;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** Static class containing commonly-used constants across DataHub services. */
@@ -53,8 +56,8 @@ public class Constants {
 
   // App sources
   public static final String UI_SOURCE = "ui";
-  public static final String METADATA_TESTS_SOURCE = "metadataTests";
   public static final String SYSTEM_UPDATE_SOURCE = "systemUpdate";
+  public static final String METADATA_TESTS_SOURCE = "metadataTests";
 
   /** Entities */
   public static final String CORP_USER_ENTITY_NAME = "corpuser";
@@ -552,6 +555,30 @@ public class Constants {
   // Metrics
   public static final String NOTIFICATIONS_GRAPH_CALL_COUNT = "notifications_graph_call_count";
   public static final String NOTIFICATIONS_SEARCH_CALL_COUNT = "notifications_search_call_count";
+
+  // Search Config
+  // we use this to make sure we filter for editable & non-editable fields. Also expands out
+  // top-level properties to field level properties
+  public static final Map<String, List<String>> FIELDS_TO_EXPANDED_FIELDS_LIST =
+      new HashMap<String, List<String>>() {
+        {
+          put("tags", ImmutableList.of("tags", "fieldTags", "editedFieldTags"));
+          put(
+              "glossaryTerms",
+              ImmutableList.of("glossaryTerms", "fieldGlossaryTerms", "editedFieldGlossaryTerms"));
+          put("fieldTags", ImmutableList.of("fieldTags", "editedFieldTags"));
+          put(
+              "fieldGlossaryTerms",
+              ImmutableList.of("fieldGlossaryTerms", "editedFieldGlossaryTerms"));
+          put(
+              "fieldDescriptions",
+              ImmutableList.of("fieldDescriptions", "editedFieldDescriptions"));
+          put("description", ImmutableList.of("description", "editedDescription"));
+          put(
+              "businessAttribute",
+              ImmutableList.of("businessAttributeRef", "businessAttributeRef.urn"));
+        }
+      };
 
   private Constants() {}
 }

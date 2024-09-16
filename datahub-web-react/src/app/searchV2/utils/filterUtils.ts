@@ -193,3 +193,23 @@ export function getAutoCompleteInputFromQuickFilter(selectedQuickFilter: QuickFi
 
     return { filters, types };
 }
+
+/**
+ * Takes in two different orFilters inputs and combines them into a singular orFilters
+ */
+export function combineOrFilters(orFilter1: AndFilterInput[], orFilter2: AndFilterInput[]): AndFilterInput[] {
+    if (orFilter1.length === 0) return orFilter2;
+    if (orFilter2.length === 0) return orFilter1;
+
+    const mergedFilter: AndFilterInput[] = [];
+
+    orFilter1.forEach((filter1And) => {
+        orFilter2.forEach((filter2And) => {
+            mergedFilter.push({
+                and: [...(filter1And.and || []), ...(filter2And.and || [])],
+            });
+        });
+    });
+
+    return mergedFilter;
+}

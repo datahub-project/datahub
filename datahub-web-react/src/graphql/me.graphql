@@ -76,6 +76,7 @@ query getMe {
             createBusinessAttributes
             manageBusinessAttributes
             manageDocumentationForms
+            manageStructuredProperties
         }
     }
 }

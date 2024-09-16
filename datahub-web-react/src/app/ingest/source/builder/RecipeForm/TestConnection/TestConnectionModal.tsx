@@ -101,7 +101,7 @@ function TestConnectionModal({
 
     return (
         <Modal
-            visible
+            open
             onCancel={hideModal}
             footer={<Button onClick={hideModal}>Done</Button>}
             title={

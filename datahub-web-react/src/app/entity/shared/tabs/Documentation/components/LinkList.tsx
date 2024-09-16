@@ -109,7 +109,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
         <>
             <Modal
                 title="Edit Link"
-                visible={editModalVisble}
+                open={editModalVisble}
                 destroyOnClose
                 onCancel={handleClose}
                 footer={[

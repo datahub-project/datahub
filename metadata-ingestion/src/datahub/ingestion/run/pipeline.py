@@ -221,7 +221,6 @@ class Pipeline:
         preview_mode: bool = False,
         preview_workunits: int = 10,
         report_to: Optional[str] = None,
-        no_default_report: bool = False,
         no_progress: bool = False,
     ):
         self.config = config
@@ -279,7 +278,7 @@ class Pipeline:
 
         with set_graph_context(self.graph):
             with _add_init_error_context("configure reporters"):
-                self._configure_reporting(report_to, no_default_report)
+                self._configure_reporting(report_to)
 
             with _add_init_error_context(
                 f"find a registered source for type {self.source_type}"
@@ -326,15 +325,19 @@ class Pipeline:
         # Add the system metadata transformer at the end of the list.
         self.transformers.append(SystemMetadataTransformer(self.ctx))
 
-    def _configure_reporting(
-        self, report_to: Optional[str], no_default_report: bool
-    ) -> None:
-        if report_to == "datahub":
+    def _configure_reporting(self, report_to: Optional[str]) -> None:
+        if self.dry_run:
+            # In dry run mode, we don't want to report anything.
+            return
+
+        if not report_to:
+            # Reporting is disabled.
+            pass
+        elif report_to == "datahub":
             # we add the default datahub reporter unless a datahub reporter is already configured
-            if not no_default_report and (
-                not self.config.reporting
-                or "datahub" not in [x.type for x in self.config.reporting]
-            ):
+            if not self.config.reporting or "datahub" not in [
+                reporter.type for reporter in self.config.reporting
+            ]:
                 self.config.reporting.append(
                     ReporterConfig.parse_obj({"type": "datahub"})
                 )
@@ -409,7 +412,6 @@ class Pipeline:
         preview_mode: bool = False,
         preview_workunits: int = 10,
         report_to: Optional[str] = "datahub",
-        no_default_report: bool = False,
         no_progress: bool = False,
         raw_config: Optional[dict] = None,
     ) -> "Pipeline":
@@ -420,7 +422,6 @@ class Pipeline:
             preview_mode=preview_mode,
             preview_workunits=preview_workunits,
             report_to=report_to,
-            no_default_report=no_default_report,
             no_progress=no_progress,
         )
 

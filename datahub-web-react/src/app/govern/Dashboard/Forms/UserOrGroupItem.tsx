@@ -3,6 +3,7 @@ import { CustomAvatar } from '@src/app/shared/avatar';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { CorpGroup, CorpUser, EntityType } from '@src/types.generated';
+import { Tooltip } from 'antd';
 import React, { useContext, useState } from 'react';
 import ManageFormContext from './ManageFormContext';
 import { CardData, CardIcons, ItemDivider, ListItem, NameColumn, VerticalFlexBox } from './styledComponents';
@@ -62,10 +63,12 @@ const UserOrGroupItem = ({ userOrGroup, isGroup }: Props) => {
                     </NameColumn>
                 </CardData>
                 <CardData width="20%">
-                    <Text color="gray"> {isGroup ? 'Group' : 'Individual'}</Text>
+                    <Text color="gray"> {isGroup ? 'Group' : 'User'}</Text>
                 </CardData>
                 <CardIcons>
-                    <Icon icon="Delete" size="md" onClick={() => setShowConfirmDelete(true)} />
+                    <Tooltip title={isGroup ? 'Remove group' : 'Remove user'}>
+                        <Icon icon="Delete" size="md" onClick={() => setShowConfirmDelete(true)} />
+                    </Tooltip>
                 </CardIcons>
             </ListItem>
 
@@ -76,7 +79,6 @@ const UserOrGroupItem = ({ userOrGroup, isGroup }: Props) => {
                 handleConfirm={handleDeleteUser}
                 modalTitle="Confirm Delete"
                 modalText={`Are you sure you want to remove the ${isGroup ? 'group' : 'user'}?`}
-                isDeleteModal
             />
         </>
     );

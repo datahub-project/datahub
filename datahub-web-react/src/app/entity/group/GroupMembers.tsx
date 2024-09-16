@@ -243,7 +243,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
             {isEditingMembers && (
                 <AddGroupMembersModal
                     urn={urn}
-                    visible={isEditingMembers}
+                    open={isEditingMembers}
                     onSubmit={onAddMembers}
                     onCloseModal={() => setIsEditingMembers(false)}
                 />

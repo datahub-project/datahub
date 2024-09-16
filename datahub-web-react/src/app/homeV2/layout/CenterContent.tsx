@@ -4,7 +4,7 @@ import { RecentActions } from '../content/recent/RecentActions';
 import { CenterTabs } from '../content/tabs/CenterTabs';
 
 const Container = styled.div`
-    flex: 2;
+    flex: 1;
     overflow: hidden;
     overflow-y: auto;
     padding: 10px;
@@ -13,7 +13,6 @@ const Container = styled.div`
     display: flex;
     flex-direction: column;
     /* Hide scrollbar for Chrome, Safari, and Opera */
-
     &::-webkit-scrollbar {
         display: none;
     }

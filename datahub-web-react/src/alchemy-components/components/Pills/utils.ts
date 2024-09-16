@@ -118,13 +118,13 @@ const getPillActiveStyles = (styleColors) => ({
  * Main function to generate styles for pill
  */
 export const getPillStyle = (props: PillStyleProps) => {
-    const { variant, colorScheme = 'gray', size } = props;
+    const { variant, colorScheme = 'gray', size, clickable = true } = props;
 
     // Get map of colors
     const colorStyles = getPillColorStyles(variant, colorScheme);
 
     // Define styles for pill
-    const styles = {
+    let styles = {
         ...getPillVariantStyles(variant, colorStyles),
         ...getPillFontStyles(size),
         '&:focus': {
@@ -135,6 +135,12 @@ export const getPillStyle = (props: PillStyleProps) => {
             ...getPillActiveStyles(colorStyles),
         },
     };
+    if (!clickable) {
+        styles = {
+            ...styles,
+            pointerEvents: 'none',
+        };
+    }
 
     return styles;
 };

@@ -43,6 +43,7 @@ export default function LineageExplorer(props: Props) {
 
     const context = {
         rootUrn: urn,
+        rootType: type,
         nodes,
         edges,
         adjacencyList,

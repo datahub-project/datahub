@@ -49,7 +49,7 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
                 </Header>
             }
             width="75vw"
-            visible
+            open
             onCancel={hideModal}
             onOk={hideModal}
             footer={null}

@@ -83,12 +83,6 @@ public class MetadataTestsController {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-
-    if (!AuthUtil.isAPIAuthorized(
-        authentication, authorizerChain, PoliciesConfig.VIEW_TESTS_PRIVILEGE)) {
-      log.error("{} is not authorized to get explain tests", actorUrnStr);
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
-    }
     OperationContext opContext =
         systemOperationContext.asSession(
             RequestContext.builder()
@@ -99,6 +93,12 @@ public class MetadataTestsController {
                     Collections.emptyList()),
             authorizerChain,
             authentication);
+
+    if (!AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.VIEW_TESTS_PRIVILEGE)) {
+      log.error("{} is not authorized to get explain tests", actorUrnStr);
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    }
+
     TestDefinition testDefinition = testEngine.getParser().deserialize(DUMMY_TEST_URN, testJson);
     List<String> elasticSearchExplainSelect =
         testEngine.getElasticSearchTestExecutor().explainSelect(testDefinition);

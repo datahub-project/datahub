@@ -1,5 +1,5 @@
-import React from 'react';
 import { Icon } from '@components';
+import React from 'react';
 
 import { PillContainer } from './components';
 import { PillProps } from './types';
@@ -8,6 +8,7 @@ export const pillDefault: PillProps = {
     label: 'Label',
     size: 'md',
     variant: 'filled',
+    clickable: true,
 };
 
 export function Pill({
@@ -17,12 +18,15 @@ export function Pill({
     rightIcon,
     colorScheme,
     variant = pillDefault.variant,
+    clickable = pillDefault.clickable,
+    onClickRightIcon,
+    onClickLeftIcon,
 }: PillProps) {
     return (
-        <PillContainer variant={variant} colorScheme={colorScheme} size={size}>
-            {leftIcon && <Icon icon={leftIcon} size={size} />}
+        <PillContainer variant={variant} colorScheme={colorScheme} size={size} clickable={clickable}>
+            {leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />}
             {label}
-            {rightIcon && <Icon icon={rightIcon} size={size} />}
+            {rightIcon && <Icon icon={rightIcon} size={size} onClick={onClickRightIcon} />}
         </PillContainer>
     );
 }

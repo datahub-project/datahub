@@ -90,6 +90,7 @@ export const DEFAULT_APP_CONFIG = {
         hideDbtSourceInLineage: false,
         showBulkFormByDefault: false,
         schemaFieldLineageIgnoreStatus: false,
+        showManageStructuredProperties: false,
     },
     chromeExtensionConfig: {
         enabled: false,

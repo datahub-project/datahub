@@ -289,7 +289,7 @@ def test_bigquery_sql_lineage_create_or_replace_view_name_with_hyphens_is_accept
             CREATE OR REPLACE VIEW test-project.dataset.test_view AS
             SELECT *
             FROM project.dataset.src_table_a
-            UNION
+            UNION ALL
             SELECT * FROM `project.dataset.src_table_b`
         """,
         schema_resolver=SchemaResolver(platform="bigquery"),

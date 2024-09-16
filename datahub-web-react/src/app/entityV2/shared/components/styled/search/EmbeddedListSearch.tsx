@@ -1,4 +1,5 @@
 import { ApolloError } from '@apollo/client';
+import { combineOrFilters } from '@src/app/searchV2/utils/filterUtils';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { SearchCfg } from '../../../../../../conf';
@@ -8,6 +9,7 @@ import {
 } from '../../../../../../graphql/search.generated';
 import { useGetViewQuery } from '../../../../../../graphql/view.generated';
 import {
+    AndFilterInput,
     EntityType,
     FacetFilterInput,
     FacetMetadata,
@@ -100,6 +102,7 @@ type Props = {
     onTotalChanged?: (newTotal: number) => void;
     emptySearchQuery?: string | null;
     fixedFilters?: FilterSet;
+    fixedOrFilters?: AndFilterInput[];
     fixedQuery?: string | null;
     placeholderText?: string | null;
     defaultShowFilters?: boolean;
@@ -143,6 +146,7 @@ export const EmbeddedListSearch = ({
     onTotalChanged,
     emptySearchQuery,
     fixedFilters,
+    fixedOrFilters,
     fixedQuery,
     placeholderText,
     defaultShowFilters,
@@ -171,8 +175,11 @@ export const EmbeddedListSearch = ({
         filters,
     };
 
-    const finalFilters =
+    let finalFilters =
         (fixedFilters && mergeFilterSets(fixedFilters, baseFilters)) || generateOrFilters(unionType, filters);
+    if (fixedOrFilters) {
+        finalFilters = combineOrFilters(fixedOrFilters, finalFilters);
+    }
 
     const [showFilters, setShowFilters] = useState(defaultShowFilters || false);
     const [isSelectMode, setIsSelectMode] = useState(false);

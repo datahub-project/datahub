@@ -19,7 +19,6 @@ record SchemaProposal {
         "/*" : {
             "fieldName": "proposedSchemaTags",
             "fieldType": "URN",
-            "addToFilters": true,
             "filterNameOverride": "Proposed Schema Tag"
         }
     }
@@ -32,7 +31,6 @@ record SchemaProposal {
         "/*" : {
             "fieldName": "proposedSchemaGlossaryTerms",
             "fieldType": "URN",
-            "addToFilters": true,
             "filterNameOverride": "Proposed Schema Glossary Term"
         }
     }

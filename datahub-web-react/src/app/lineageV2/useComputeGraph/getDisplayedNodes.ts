@@ -110,6 +110,8 @@ function applyFilters(
     const limit = filters?.limit || filteredChildren.length;
     const shownNodes = filteredChildren.slice(Math.max(0, filteredChildren.length - limit));
     const allShownNodes = [...getTransformationalNodes(node, shownNodes, direction, context), ...shownNodes];
+
+    // Build parent map
     allShownNodes.forEach((child) => setDefault(parents, child.urn, new Set<string>()).add(urn));
 
     const result: LineageNode[] = [];

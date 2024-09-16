@@ -2,25 +2,20 @@ import { Button } from '@components';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import { useCreateFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
-import { CreatePromptInput, FormState, FormType } from '@src/types.generated';
+import { FormState, FormType } from '@src/types.generated';
+import { useIsThemeV2 } from '@src/app/useIsThemeV2';
+import { Tooltip } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
-import { useParams } from 'react-router';
+import { useHistory, useParams } from 'react-router';
+import { Link } from 'react-router-dom';
+import { PageRoutes } from '@src/conf/Global';
 import ManageFormContext from './ManageFormContext';
 import { FooterContainer } from './styledComponents';
-
-// Need to replace this after converting filters to DNF orFilters
-const SAMPLE_DNF_FILTERS = [
-    {
-        and: [
-            {
-                field: 'domains',
-                values: ['urn:li:domain:51c4fa83-7edb-4a53-9c0a-a2cfaedb1659'],
-            },
-        ],
-    },
-];
+import { mapPromptsToCreatePromptInput } from './formUtils';
 
 const FormFooter = () => {
+    const history = useHistory();
+    const isThemeV2 = useIsThemeV2();
     const { form, formValues, setFormValues, setIsFormLoading } = useContext(ManageFormContext);
     const [createForm] = useCreateFormMutation();
     const [updateForm] = useUpdateFormMutation();
@@ -55,7 +50,7 @@ const FormFooter = () => {
         }));
     };
 
-    const saveForm = (state?: FormState) => {
+    const saveForm = (state?: FormState, returnToForms?: boolean) => {
         if (form) {
             form.validateFields().then(() => {
                 if (formUrn) {
@@ -64,17 +59,21 @@ const FormFooter = () => {
                         type: formValues.formType,
                         name: formValues.formName,
                         description: formValues.formDescription,
-                        prompts: formValues.questions as CreatePromptInput[],
+                        prompts: mapPromptsToCreatePromptInput(formValues.questions),
                         actors: {
                             owners: formValues.actors?.owners,
                             users: formValues.actors?.users?.map((user) => user.urn),
                             groups: formValues.actors?.groups?.map((group) => group.urn),
                         },
                         state: state || formValues.state,
-                        formAssetAssignment: {
-                            orFilters: SAMPLE_DNF_FILTERS,
-                            json: JSON.stringify(formValues.filters),
-                        },
+                        formAssetAssignment: formValues.assets?.orFilters
+                            ? {
+                                  orFilters: formValues.assets?.orFilters,
+                                  json: formValues.assets?.logicalPredicate
+                                      ? JSON.stringify(formValues.assets.logicalPredicate)
+                                      : undefined,
+                              }
+                            : undefined,
                     };
                     setIsFormLoading(true);
 
@@ -86,6 +85,7 @@ const FormFooter = () => {
                         .then(() => {
                             showSuccessMessage();
                             if (state) updateFormState(state);
+                            if (returnToForms) history.push(`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`);
                         })
                         .catch(() => {
                             showErrorMessage();
@@ -98,17 +98,21 @@ const FormFooter = () => {
                         type: formValues.formType || FormType.Completion,
                         name: formValues.formName || '',
                         description: formValues.formDescription,
-                        prompts: formValues.questions as CreatePromptInput[],
+                        prompts: mapPromptsToCreatePromptInput(formValues.questions),
                         actors: {
                             owners: formValues.actors?.owners,
                             users: formValues.actors?.users?.map((user) => user.urn),
                             groups: formValues.actors?.groups?.map((group) => group.urn),
                         },
                         state: state || formValues.state,
-                        formAssetAssignment: {
-                            orFilters: SAMPLE_DNF_FILTERS,
-                            json: JSON.stringify(formValues.filters),
-                        },
+                        formAssetAssignment: formValues.assets?.orFilters
+                            ? {
+                                  orFilters: formValues.assets?.orFilters,
+                                  json: formValues.assets?.logicalPredicate
+                                      ? JSON.stringify(formValues.assets.logicalPredicate)
+                                      : undefined,
+                              }
+                            : undefined,
                     };
                     setIsFormLoading(true);
 
@@ -121,6 +125,7 @@ const FormFooter = () => {
                             setFormUrn(res.data?.createForm.urn);
                             showSuccessMessage();
                             if (state) updateFormState(state);
+                            if (returnToForms) history.push(`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`);
                         })
                         .catch(() => {
                             showErrorMessage();
@@ -134,24 +139,37 @@ const FormFooter = () => {
         }
     };
 
+    const publishExplanation = 'Publishing will assign the form to the selected assets and users.';
+    const publishModalText = `Are you sure? ${publishExplanation}`;
+    const unpublishExplanation = 'Unpublishing will hide this form from selected assets and users.';
+    const unpublishModalText = `Are you sure? ${unpublishExplanation}`;
+
     return (
-        <FooterContainer>
-            <Button variant="outline" onClick={() => saveForm()}>
-                Save
-            </Button>
-            <Button variant="outline" onClick={() => form?.validateFields().then(() => setShowConfirmationModal(true))}>
-                {formValues.state === FormState.Published ? 'Unpublish' : 'Publish'}
-            </Button>
+        <FooterContainer $showV1Styles={!isThemeV2}>
+            <Link to={`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`}>
+                <Button variant="outline">Cancel</Button>
+            </Link>
+            <Tooltip title="Save the current state of your compliance form.">
+                <Button variant="outline" onClick={() => saveForm()}>
+                    {formValues.state === FormState.Draft ? 'Save Draft' : 'Save'}
+                </Button>
+            </Tooltip>
+            <Tooltip title={formValues.state === FormState.Published ? unpublishExplanation : publishExplanation}>
+                <Button onClick={() => form?.validateFields().then(() => setShowConfirmationModal(true))}>
+                    {formValues.state === FormState.Published ? 'Unpublish' : 'Publish'}
+                </Button>
+            </Tooltip>
             <ConfirmationModal
                 isOpen={showConfirmationModal}
                 handleClose={handleModalClose}
                 handleConfirm={() =>
-                    saveForm(formValues.state === FormState.Published ? FormState.Unpublished : FormState.Published)
+                    saveForm(
+                        formValues.state === FormState.Published ? FormState.Unpublished : FormState.Published,
+                        true,
+                    )
                 }
                 modalTitle={`Confirm ${formValues.state === FormState.Published ? 'Unpublish' : 'Publish'}`}
-                modalText={`Are you sure you want to ${
-                    formValues.state === FormState.Published ? 'unpublish' : 'publish'
-                } the form?`}
+                modalText={formValues.state === FormState.Published ? unpublishModalText : publishModalText}
                 confirmButtonText={formValues.state === FormState.Published ? 'Unpublish' : 'Publish'}
             />
         </FooterContainer>

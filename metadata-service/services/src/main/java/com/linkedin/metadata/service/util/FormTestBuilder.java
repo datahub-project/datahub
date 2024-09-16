@@ -72,7 +72,9 @@ public class FormTestBuilder {
           DATA_PRODUCT_ENTITY_NAME);
 
   public static TestInfo buildFormAssignmentTest(
-      @Nonnull final Urn formUrn, @Nonnull final DynamicFormAssignment assignment) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn formUrn,
+      @Nonnull final DynamicFormAssignment assignment) {
     final TestInfo testInfo = new TestInfo();
     testInfo.setName(String.format("Form Assignment Test - %s", formUrn.toString()));
     testInfo.setCategory(FORM_TEST_CATEGORY);
@@ -80,7 +82,7 @@ public class FormTestBuilder {
         String.format(
             "This test was auto-generated to implement form assignment for form with urn %s",
             formUrn));
-    testInfo.setDefinition(buildFormAssignmentTestDefinition(formUrn, assignment));
+    testInfo.setDefinition(buildFormAssignmentTestDefinition(opContext, formUrn, assignment));
     testInfo.setCreated(createSystemAuditStamp());
     testInfo.setLastUpdated(createSystemAuditStamp());
     testInfo.setSource(new TestSource().setType(TestSourceType.FORMS).setSourceEntity(formUrn));
@@ -103,17 +105,20 @@ public class FormTestBuilder {
     testInfo.setDefinition(buildFormPromptCompletionTestDefinition(opContext, formUrn, prompt));
     testInfo.setCreated(createSystemAuditStamp());
     testInfo.setLastUpdated(createSystemAuditStamp());
-    testInfo.setSource(new TestSource().setType(TestSourceType.FORMS).setSourceEntity(formUrn));
+    testInfo.setSource(
+        new TestSource().setType(TestSourceType.FORM_PROMPT).setSourceEntity(formUrn));
     return testInfo;
   }
 
   public static TestDefinition buildFormAssignmentTestDefinition(
-      @Nonnull final Urn formUrn, @Nonnull final DynamicFormAssignment assignment) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn formUrn,
+      @Nonnull final DynamicFormAssignment assignment) {
     TestDefinition definition = new TestDefinition();
     definition.setType(TestDefinitionType.JSON);
     try {
       // Convert completion test to JSON.
-      definition.setJson(buildFormAssignmentTestDefinitionJson(formUrn, assignment));
+      definition.setJson(buildFormAssignmentTestDefinitionJson(opContext, formUrn, assignment));
     } catch (Exception e) {
       throw new RuntimeException("Failed to generate JSON test definition for form assignment!", e);
     }
@@ -139,7 +144,9 @@ public class FormTestBuilder {
   }
 
   private static String buildFormAssignmentTestDefinitionJson(
-      @Nonnull final Urn formUrn, @Nonnull final DynamicFormAssignment assignment)
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn formUrn,
+      @Nonnull final DynamicFormAssignment assignment)
       throws JsonProcessingException {
 
     ObjectNode definitionNode = OBJECT_MAPPER.createObjectNode();
@@ -181,9 +188,17 @@ public class FormTestBuilder {
             .add(completeFormsAssignmentNode));
 
     // Case 2: Target Entities which do not have the form applied, but need it.
+    // First, get searchable fields to aspect paths map so we can convert a filter to metadata test
+    // aspect path specs
+    final @Nullable Map<String, List<PathSpec>> searchableFieldsToPathSpecs =
+        EntitySpecUtils.getSearchableFieldsToPathSpecs(
+            opContext.getEntityRegistry(), new ArrayList<>(FORM_ASSIGNMENT_ENTITY_TYPES));
+
     ObjectNode entityFiltersNode = orConditions.addObject();
     ArrayNode orArray = entityFiltersNode.putArray("or");
-    orArray.addAll(MetadataTestServiceUtils.convertFilterToTestConditions(assignment.getFilter()));
+    orArray.addAll(
+        MetadataTestServiceUtils.convertFilterToTestConditions(
+            assignment.getFilter(), searchableFieldsToPathSpecs));
 
     // Build Test Rule Set: We verify that entities match the dynamic filter set that is currently
     // required for the form.
@@ -191,7 +206,9 @@ public class FormTestBuilder {
     // the test.
     ObjectNode rulesNode = definitionNode.putObject("rules");
     orArray = rulesNode.putArray("or");
-    orArray.addAll(MetadataTestServiceUtils.convertFilterToTestConditions(assignment.getFilter()));
+    orArray.addAll(
+        MetadataTestServiceUtils.convertFilterToTestConditions(
+            assignment.getFilter(), searchableFieldsToPathSpecs));
 
     // Build Test Actions: Two important things happen here.
     //     1. We assign the form for any entities matching the current filter set.

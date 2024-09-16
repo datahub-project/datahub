@@ -1,10 +1,7 @@
-import { useEffect, useState } from 'react';
 import { EntityRegistry } from '../../../../entityRegistryContext';
 import {
-    AggregateAcrossEntitiesQuery,
-    GetSearchResultsForMultipleQuery,
-    useAggregateAcrossEntitiesLazyQuery,
-    useGetSearchResultsForMultipleLazyQuery,
+    useAggregateAcrossEntitiesQuery,
+    useGetAutoCompleteMultipleResultsQuery,
 } from '../../../../graphql/search.generated';
 import { EntityType } from '../../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
@@ -16,44 +13,7 @@ import { filterOptionsWithSearch } from '../utils';
 const MAX_AGGREGATION_COUNT = 40;
 
 /**
- * Simply maps the autocomplete results to the standard FilterValueOption to be used in the dropdown.
- */
-const mapAutoCompleteOptions = (field: FilterField, result: GetSearchResultsForMultipleQuery): FilterValueOption[] => {
-    return (
-        result?.searchAcrossEntities?.searchResults?.map((res) => {
-            const { entity } = res;
-            return {
-                value: entity.urn,
-                entity,
-                icon: field.icon,
-            };
-        }) || []
-    );
-};
-
-/**
- * Simply maps the autocomplete results to the standard FilterValueOption to be used in the dropdown.
- */
-const mapAggregateAcrossEntitiesOptions = (
-    field: FilterField,
-    result: AggregateAcrossEntitiesQuery,
-    includeCounts: boolean,
-): FilterValueOption[] => {
-    const requestedAgg = result?.aggregateAcrossEntities?.facets?.find((facet: any) => facet.field === field.field);
-    return (
-        requestedAgg?.aggregations?.map((aggregation: any) => {
-            return {
-                value: aggregation.value,
-                entity: aggregation.entity,
-                icon: field.icon,
-                count: includeCounts ? aggregation.count : undefined,
-            };
-        }) || []
-    );
-};
-
-/**
- * Simpliy removes the baseOptions from moreOptions parameters in case the same filter option
+ * Simply removes the baseOptions from moreOptions parameters in case the same filter option
  * appears in both lists.
  */
 export const deduplicateOptions = (baseOptions: FilterValueOption[], moreOptions: FilterValueOption[]) => {
@@ -77,34 +37,34 @@ export const mapFilterCountsToZero = (options: FilterValueOption[]) => {
  * TODO: Determine if we need to provide an option context that would help with filtering.
  */
 export const useLoadAggregationOptions = (field: FilterField, visible: boolean, includeCounts: boolean) => {
-    const [options, setOptions] = useState<FilterValueOption[]>([]);
-
-    const [aggregateAcrossEntities, { loading }] = useAggregateAcrossEntitiesLazyQuery({
-        onCompleted: (result) => setOptions(mapAggregateAcrossEntitiesOptions(field, result, includeCounts)),
+    const { data, loading } = useAggregateAcrossEntitiesQuery({
+        skip: !visible,
+        variables: {
+            input: {
+                query: '*',
+                facets: [field.field],
+                searchFlags: {
+                    maxAggValues: MAX_AGGREGATION_COUNT,
+                },
+            },
+        },
         fetchPolicy: 'cache-first',
     });
-
-    useEffect(() => {
-        if (visible) {
-            aggregateAcrossEntities({
-                variables: {
-                    input: {
-                        query: '*',
-                        facets: [field.field],
-                        searchFlags: {
-                            maxAggValues: MAX_AGGREGATION_COUNT,
-                        },
-                    },
-                },
-            });
-        }
-    }, [visible, field.field, aggregateAcrossEntities]);
 
     if (!visible) {
         return { loading: false, options: [] };
     }
 
-    return { options, loading };
+    const requestedAgg = data?.aggregateAcrossEntities?.facets?.find((facet: any) => facet.field === field.field);
+    const options = requestedAgg?.aggregations?.map((aggregation): FilterValueOption => {
+        return {
+            value: aggregation.value,
+            entity: aggregation.entity,
+            icon: field.icon,
+            count: includeCounts ? aggregation.count : undefined,
+        };
+    });
+    return { options: options || [], loading };
 };
 
 /**
@@ -112,33 +72,32 @@ export const useLoadAggregationOptions = (field: FilterField, visible: boolean, 
  * search bar.
  */
 export const useLoadSearchOptions = (field: FilterField, query?: string, skip?: boolean) => {
-    const [options, setOptions] = useState<FilterValueOption[]>([]);
-
-    const [searchAcrossEntities, { loading }] = useGetSearchResultsForMultipleLazyQuery({
-        onCompleted: (result) => setOptions(mapAutoCompleteOptions(field, result)),
+    const { data, loading } = useGetAutoCompleteMultipleResultsQuery({
+        skip: skip || !query,
+        variables: {
+            input: {
+                query: query || '',
+                types: field.entityTypes,
+                limit: 20,
+            },
+        },
         fetchPolicy: 'cache-first',
     });
 
-    useEffect(() => {
-        if (query && !skip) {
-            searchAcrossEntities({
-                variables: {
-                    input: {
-                        query,
-                        types: field.entityTypes,
-                        start: 0,
-                        count: 20,
-                    },
-                },
-            });
-        }
-    }, [query, skip, field.entityTypes, searchAcrossEntities]);
-
-    if (!query || skip) {
+    if (skip) {
         return { loading: false, options: [] };
     }
 
-    return { options, loading };
+    const options = data?.autoCompleteForMultiple?.suggestions
+        ?.flatMap((suggestion) => suggestion.entities)
+        .map((entity): FilterValueOption => {
+            return {
+                value: entity.urn,
+                entity,
+                icon: field.icon,
+            };
+        });
+    return { options: options || [], loading };
 };
 
 /**

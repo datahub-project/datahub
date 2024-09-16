@@ -6,15 +6,13 @@ import { PinnedLinkLogo } from './PinnedLinkLogo';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 
 const LinkButton = styled.a`
-    padding: 2px;
+    padding: 16px;
     height: auto;
     border-radius: 8px;
     display: flex;
     align-items: center;
     line-height: 16px;
-    :hover {
-        background-color: ${ANTD_GRAY[3]};
-    }
+    background-color: #fff;
 `;
 
 const IconColumn = styled.div`
@@ -28,14 +26,13 @@ const TextColumn = styled.div`
     align-items: flex-start;
     flex-direction: column;
     justify-content: center;
-    width: 100%;
     > div {
         overflow: hidden;
         text-overflow: ellipsis;
         text-wrap: nowrap;
-        max-width: 80%;
-        font-size: 12px;
+        font-size: 14px;
         font-weight: 400;
+        max-width: 220px;
     }
 `;
 

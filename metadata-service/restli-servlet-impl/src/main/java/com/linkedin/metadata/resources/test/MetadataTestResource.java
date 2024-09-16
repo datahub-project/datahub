@@ -11,7 +11,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -77,21 +77,20 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
         testUrns == null
             ? null
             : Arrays.stream(testUrns).map(UrnUtils::getUrn).collect(Collectors.toSet());
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
             Authentication auth = AuthenticationContext.getAuthentication();
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            ACTION_EVALUATE, List.of()), _authorizer, auth, true);
+
             if (!isAPIAuthorized(
-                    auth,
-                    _authorizer,
+                    opContext,
                     MANAGE_TESTS_PRIVILEGE)) {
                 throw new RestLiServiceException(
                         HttpStatus.S_403_FORBIDDEN, "User is unauthorized for tests");
             }
-
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            ACTION_EVALUATE, List.of()), _authorizer, auth, true);
 
             if (tests == null) {
             return _testEngine.evaluateTests(opContext,
@@ -126,21 +125,19 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
         testUrns == null
             ? null
             : Arrays.stream(testUrns).map(UrnUtils::getUrn).collect(Collectors.toSet());
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
             Authentication auth = AuthenticationContext.getAuthentication();
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_EVALUATE, List.of()), _authorizer, auth, true);
+
             if (!isAPIAuthorized(
-                    auth,
-                    _authorizer,
+                    opContext,
                     MANAGE_TESTS_PRIVILEGE)) {
                 throw new RestLiServiceException(
                         HttpStatus.S_403_FORBIDDEN, "User is unauthorized for tests");
             }
-
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_EVALUATE, List.of()), _authorizer, auth, true);
-
 
             BatchedTestResults results = new BatchedTestResults().setResults(new TestResultsMap());
           if (tests == null) {
@@ -175,19 +172,20 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
       throws URISyntaxException {
     log.info("Evaluate single test called with urn: {}, shouldPush: {}", testUrnStr, shouldPush);
     final Urn testUrn = Urn.createFromString(testUrnStr);
-    return RestliUtil.toTask(() -> {
+    return RestliUtils.toTask(() -> {
 
         Authentication auth = AuthenticationContext.getAuthentication();
+        final OperationContext opContext = OperationContext.asSession(
+                systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_EVALUATE, List.of()), _authorizer, auth, true);
+
         if (!isAPIAuthorized(
-                auth,
-                _authorizer,
+                opContext,
                 MANAGE_TESTS_PRIVILEGE)) {
             throw new RestLiServiceException(
                     HttpStatus.S_403_FORBIDDEN, "User is unauthorized for tests");
         }
 
-        final OperationContext opContext = OperationContext.asSession(
-                systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_EVALUATE, List.of()), _authorizer, auth, true);
+
 
         TestResultsMap testResultsMap = new TestResultsMap();
           _testEngine.evaluateSingleTest(opContext, testUrn,

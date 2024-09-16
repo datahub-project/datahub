@@ -3,7 +3,7 @@ import { Tag as AntTag, Tooltip, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
+import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
 import { ActionRequest, Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '../../../types.generated';
 import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import { EMPTY_MESSAGES } from '../../entity/shared/constants';
@@ -161,8 +161,8 @@ export default function TagTermGroup({
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
 
-    const [acceptProposalMutation] = useAcceptProposalMutation();
-    const [rejectProposalMutation] = useRejectProposalMutation();
+    const [acceptProposalsMutation] = useAcceptProposalsMutation();
+    const [rejectProposalsMutation] = useRejectProposalsMutation();
     const [showProposalDecisionModal, setShowProposalDecisionModal] = useState(false);
 
     const onCloseProposalDecisionModal = (e) => {
@@ -172,7 +172,7 @@ export default function TagTermGroup({
     };
 
     const onProposalAcceptance = (actionRequest: ActionRequest) => {
-        acceptProposalMutation({ variables: { urn: actionRequest.urn } })
+        acceptProposalsMutation({ variables: { urns: [actionRequest.urn] } })
             .then(() => {
                 message.success('Successfully accepted the proposal!');
             })
@@ -184,7 +184,7 @@ export default function TagTermGroup({
     };
 
     const onProposalRejection = (actionRequest: ActionRequest) => {
-        rejectProposalMutation({ variables: { urn: actionRequest.urn } })
+        rejectProposalsMutation({ variables: { urns: [actionRequest.urn] } })
             .then(() => {
                 message.info('Proposal declined.');
             })

@@ -10,7 +10,6 @@ import { ReferenceSectionProps } from '../reference/types';
 import { PersonaType } from '../shared/types';
 import { useUserPersona } from '../persona/useUserPersona';
 import { UserHeader } from '../reference/header/UserHeader';
-import { PinnedLinks } from '../reference/sections/pinned/PinnedLinks';
 import { V2_HOME_PAGE_PERSONAL_SIDEBAR_ID } from '../../onboarding/configV2/HomePageOnboardingConfig';
 
 const Container = styled.div`
@@ -104,18 +103,6 @@ const ALL_SECTIONS: ReferenceSection[] = [
             PersonaType.TECHNICAL_USER,
             PersonaType.DATA_ENGINEER,
             PersonaType.DATA_STEWARD,
-        ],
-    },
-    {
-        id: 'PinnedLinks',
-        component: PinnedLinks,
-        hideIfEmpty: true,
-        personas: [
-            PersonaType.BUSINESS_USER,
-            PersonaType.TECHNICAL_USER,
-            PersonaType.DATA_STEWARD,
-            PersonaType.DATA_LEADER,
-            PersonaType.DATA_ENGINEER,
         ],
     },
 ];

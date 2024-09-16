@@ -33,7 +33,9 @@ public class DocPropagationSettingsResolver
             final GlobalSettingsInfo globalSettings =
                 _settingsService.getGlobalSettings(context.getOperationContext());
             final DocPropagationSettings defaultSettings = new DocPropagationSettings();
-            defaultSettings.setDocColumnPropagation(true);
+            // TODO: Enable by default. Currently the automation trusts the settings aspect, which
+            // does not have this.
+            defaultSettings.setDocColumnPropagation(false);
             return globalSettings != null && globalSettings.hasDocPropagation()
                 ? mapDocPropagationSettings(globalSettings.getDocPropagation())
                 : defaultSettings;

@@ -9,6 +9,8 @@ public class AcrylConstants {
   public static final String ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL =
       "CREATE_GLOSSARY_TERM";
   public static final String ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL = "UPDATE_DESCRIPTION";
+  public static final String ACTION_REQUEST_TYPE_DATA_CONTRACT_PROPOSAL = "DATA_CONTRACT";
+
   public static final String ACTION_REQUEST_STATUS_PENDING = "PENDING";
   public static final String ACTION_REQUEST_STATUS_COMPLETE = "COMPLETED";
   public static final String ACTION_REQUEST_RESULT_ACCEPTED = "ACCEPTED";

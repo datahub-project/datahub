@@ -18,16 +18,15 @@ import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 import LinkOut from '@images/link-out.svg?react';
-import { downgradeV2FieldPath } from '../lineageUtils';
+import { downgradeV2FieldPath, useGetLineageUrl } from '../lineageUtils';
 
 export const SCHEMA_FIELD_NODE_HEIGHT = 80;
 export const SCHEMA_FIELD_NODE_WIDTH = 240;
 const NODE_COLOR = COLORS.blue_7;
 
-const LinkOutIcon = styled(LinkOut)``;
-
 const NodeWrapper = styled.div<{
     selected: boolean;
+    dragging: boolean;
     color: string;
     isGhost: boolean;
 }>`
@@ -46,7 +45,11 @@ const NodeWrapper = styled.div<{
     flex-direction: column;
     overflow-y: hidden;
     width: ${SCHEMA_FIELD_NODE_WIDTH}px;
-    cursor: ${({ isGhost }) => (isGhost ? 'not-allowed' : 'pointer')};
+    cursor: ${({ isGhost, dragging }) => {
+        if (isGhost) return 'not-allowed';
+        if (dragging) return 'grabbing';
+        return 'grab';
+    }};
 `;
 
 const CARD_HEIGHT = SCHEMA_FIELD_NODE_HEIGHT - 2; // Inside border
@@ -138,14 +141,33 @@ const ParentLine = styled.span`
     font-weight: 600;
 `;
 
-const SchemaFieldLine = styled.span`
+const InvalidSchemaFieldLine = styled.span`
     display: flex;
     align-items: center;
     height: min-content;
+    width: max-content;
     gap: 4px;
 
     font-size: 1.1em;
     font-weight: 700;
+    color: inherit;
+`;
+
+const SchemaFieldLine = styled(Link)`
+    display: flex;
+    align-items: center;
+    height: min-content;
+    width: max-content;
+    gap: 4px;
+
+    font-size: 1.1em;
+    font-weight: 700;
+    color: inherit;
+
+    :hover {
+        color: inherit;
+        text-decoration: underline;
+    }
 `;
 
 const SkeletonImage = styled(Skeleton.Avatar)`
@@ -174,6 +196,7 @@ interface Props {
     type: EntityType;
     rootUrn: string;
     selected: boolean;
+    dragging: boolean;
     isGhost: boolean;
     hasUpstreamChildren: boolean;
     hasDownstreamChildren: boolean;
@@ -190,6 +213,7 @@ export default function SchemaFieldNodeContents({
     type,
     rootUrn,
     selected,
+    dragging,
     isGhost,
     hasUpstreamChildren,
     hasDownstreamChildren,
@@ -208,10 +232,11 @@ export default function SchemaFieldNodeContents({
         fetchStatus[LineageDirection.Downstream] === FetchStatus.COMPLETE && !isExpandedDownstream;
     const isUpstreamHidden = fetchStatus[LineageDirection.Upstream] === FetchStatus.COMPLETE && !isExpandedUpstream;
 
-    const parent = entity?.parents?.[0];
-
+    const parent = entity?.parent;
+    const parentLineageUrl = useGetLineageUrl(parent?.urn, parent?.type);
+    const lineageUrl = useGetLineageUrl(urn, EntityType.SchemaField);
     const contents = (
-        <NodeWrapper selected={selected} isGhost={isGhost} color={NODE_COLOR}>
+        <NodeWrapper selected={selected} dragging={dragging} isGhost={isGhost} color={NODE_COLOR}>
             <EntityTypeShadow color={NODE_COLOR} />
             <FakeCard />
             <FakeCard style={{ position: 'absolute' }}>
@@ -281,44 +306,53 @@ export default function SchemaFieldNodeContents({
                     )}
                 </IconsWrapper>
                 <VerticalDivider margin={8} />
-                {!!entity && (
-                    <MainTextWrapper>
-                        <ParentContainerPath parents={entity?.parents?.[0].parentContainers?.containers} />
-                        {parent && (
-                            <TitleWrapper>
-                                <ParentLine>
-                                    <OverflowTitle title={parent?.name ?? undefined} />
-                                    {!!parent.urn && !!parent.type && (
-                                        <ColumnLinkWrapper
-                                            to={`${entityRegistry.getEntityUrl(parent.type, parent.urn)}/Lineage`}
-                                            onClick={(e) => e.stopPropagation()}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                        >
-                                            <Tooltip title="Explore parent lineage" mouseEnterDelay={0.5}>
-                                                <LinkOutIcon />
-                                            </Tooltip>
-                                        </ColumnLinkWrapper>
-                                    )}
-                                </ParentLine>
-                            </TitleWrapper>
-                        )}
-                        {!!entity && (
-                            <TitleWrapper>
-                                <SchemaFieldLine>
+                <MainTextWrapper>
+                    <ParentContainerPath parents={parent?.parentContainers?.containers} />
+                    {!!parent && (
+                        <TitleWrapper>
+                            <ParentLine>
+                                <OverflowTitle title={parent?.name ?? undefined} />
+                                {!!parent.urn && !!parent.type && (
+                                    <ColumnLinkWrapper
+                                        to={parentLineageUrl}
+                                        onClick={(e) => e.stopPropagation()}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <Tooltip title="Explore parent lineage" mouseEnterDelay={0.5}>
+                                            <LinkOut />
+                                        </Tooltip>
+                                    </ColumnLinkWrapper>
+                                )}
+                            </ParentLine>
+                        </TitleWrapper>
+                    )}
+                    {!!entity && (
+                        <TitleWrapper>
+                            {isGhost || urn === rootUrn ? (
+                                <InvalidSchemaFieldLine>
                                     <OverflowTitle title={downgradeV2FieldPath(entity.name)} />
-                                </SchemaFieldLine>
-                            </TitleWrapper>
-                        )}
-                    </MainTextWrapper>
-                )}
+                                </InvalidSchemaFieldLine>
+                            ) : (
+                                <Tooltip title="Change home node" mouseEnterDelay={0.3}>
+                                    <SchemaFieldLine to={lineageUrl}>
+                                        <OverflowTitle title={downgradeV2FieldPath(entity.name)} />
+                                    </SchemaFieldLine>
+                                </Tooltip>
+                            )}
+                        </TitleWrapper>
+                    )}
+                </MainTextWrapper>
                 {!entity && <StyledNodeSkeleton numRows={2} />}
             </CardWrapper>
         </NodeWrapper>
     );
 
     if (isGhost) {
-        const message = entity?.status?.removed ? 'has been deleted' : 'does not exist in DataHub';
+        const message =
+            entity?.status?.removed || entity?.parent?.status?.removed
+                ? 'has been deleted'
+                : 'does not exist in DataHub';
         return (
             <Tooltip title={`This entity ${message}`} mouseEnterDelay={0.3}>
                 {contents}

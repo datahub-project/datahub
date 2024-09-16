@@ -1,8 +1,7 @@
 source:
   type: bigquery
   config:
-    # `schema_pattern` for BQ Datasets
-    schema_pattern:
+    dataset_pattern:
       allow:
         - finance_bq_dataset
     table_pattern:

@@ -146,11 +146,11 @@ export const PostList = () => {
             <PostsContainer>
                 <TabToolbar>
                     <Button id="posts-create-post" type="text" onClick={() => setIsCreatingPost(true)}>
-                        <PlusOutlined /> New Post
+                        <PlusOutlined /> New
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search posts..."
+                        placeholderText="Search..."
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
