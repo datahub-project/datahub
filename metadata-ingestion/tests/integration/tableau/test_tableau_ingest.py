@@ -8,12 +8,11 @@ from unittest import mock
 import pytest
 from freezegun import freeze_time
 from requests.adapters import ConnectionError
-from tableauserverclient import Server
-from tableauserverclient import PermissionsRule
+from tableauserverclient import PermissionsRule, Server
 from tableauserverclient.models import (
     DatasourceItem,
-    ProjectItem,
     GroupItem,
+    ProjectItem,
     SiteItem,
     ViewItem,
     WorkbookItem,
@@ -138,35 +137,35 @@ def side_effect_group_data(*arg, **kwargs):
     mock_pagination = mock.MagicMock()
     mock_pagination.total_available = None
 
-    group1: GroupItem = GroupItem(name="AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer")
+    group1: GroupItem = GroupItem(
+        name="AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer"
+    )
     group1._id = "79d02655-88e5-45a6-9f9b-eeaf5fe54903-group1"
-    group2: GroupItem = GroupItem(name="AB_XY00-Tableau-Access_A_123_PROJECT_XY_Analyst")
+    group2: GroupItem = GroupItem(
+        name="AB_XY00-Tableau-Access_A_123_PROJECT_XY_Analyst"
+    )
     group2._id = "79d02655-88e5-45a6-9f9b-eeaf5fe54903-group2"
 
     return [group1, group2], mock_pagination
 
+
 def side_effect_workbook_permissions(*arg, **kwargs):
-    project_capabilities1 = {
-        "Read": "Allow",
-        "ViewComments": "Allow"
-    }
-    reference: ResourceReference = ResourceReference(id_="79d02655-88e5-45a6-9f9b-eeaf5fe54903-group1", tag_name="group")
-    rule1 = PermissionsRule(
-        grantee=reference,
-        capabilities=project_capabilities1
+    project_capabilities1 = {"Read": "Allow", "ViewComments": "Allow"}
+    reference: ResourceReference = ResourceReference(
+        id_="79d02655-88e5-45a6-9f9b-eeaf5fe54903-group1", tag_name="group"
     )
+    rule1 = PermissionsRule(grantee=reference, capabilities=project_capabilities1)
 
     project_capabilities2 = {
         "Read": "Allow",
         "ViewComments": "Allow",
         "Delete": "Allow",
-        "Write": "Allow"
+        "Write": "Allow",
     }
-    reference2: ResourceReference = ResourceReference(id_="79d02655-88e5-45a6-9f9b-eeaf5fe54903-group2", tag_name="group")
-    rule2 = PermissionsRule(
-        grantee=reference2,
-        capabilities=project_capabilities2
+    reference2: ResourceReference = ResourceReference(
+        id_="79d02655-88e5-45a6-9f9b-eeaf5fe54903-group2", tag_name="group"
     )
+    rule2 = PermissionsRule(grantee=reference2, capabilities=project_capabilities2)
 
     return [rule1, rule2]
 
@@ -302,7 +301,9 @@ def mock_sdk_client(
     mock_client.workbooks = mock.Mock()
     mock_client.workbooks.get.side_effect = side_effect_workbook_data
     workbook_mock = mock.create_autospec(WorkbookItem, instance=True)
-    type(workbook_mock).permissions = mock.PropertyMock(return_value=side_effect_workbook_permissions())
+    type(workbook_mock).permissions = mock.PropertyMock(
+        return_value=side_effect_workbook_permissions()
+    )
     mock_client.workbooks.get_by_id.return_value = workbook_mock
 
     mock_client.views.get.side_effect = side_effect_usage_stat
@@ -1145,8 +1146,8 @@ def test_access_role_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
             "role_description": "IAM Role required to access this Tableau asset.",
             "displayed_capabilities": ["Read", "Write", "Delete"],
             "request_url": "https://iam.example.com/accessRequest?role=$ROLE_NAME",
-            "group_name_pattern": {"allow": [ "^.*_Consumer$" ]}
-        }
+            "group_name_pattern": {"allow": ["^.*_Consumer$"]},
+        },
     }
     tableau_ingest_common(
         pytestconfig,
