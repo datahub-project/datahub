@@ -55,7 +55,7 @@ class DremioSourceConfig(ConfigModel):
     )
 
     password: Optional[str] = Field(
-        default=9047,
+        default="9047",
         description="Dremio REST API port",
     )
 

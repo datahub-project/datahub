@@ -1,14 +1,7 @@
 """"This module contains datahub workunits and metadata change events"""
 
 import logging
-from typing import Dict, Iterable, Optional, Union
-
-from dremio_connector.dremio_config import (
-    DremioFolderKey,
-    DremioSourceConfig,
-    DremioSpaceKey,
-)
-from dremio_connector.dremio_source_controller import DremioController
+from typing import Dict, Iterable, List, Optional, Union
 
 from datahub.emitter import mcp_builder
 from datahub.emitter.mce_builder import (
@@ -28,6 +21,12 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.dremio.dremio_config import (
+    DremioFolderKey,
+    DremioSourceConfig,
+    DremioSpaceKey,
+)
+from datahub.ingestion.source.dremio.dremio_source_controller import DremioController
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata._urns.urn_defs import CorpUserUrn
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -97,14 +96,18 @@ class DremioSource(Source):
     def __init__(self, config: DremioSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.ctx = ctx
+        assert self.ctx.graph is not None
         self.graph: DataHubGraph = self.ctx.graph
         self.config = config
+        assert self.config.env is not None
+        self.env = self.config.env
+
         self.dremio_source: DremioController = self.create_controller()
         self.platform_instance = config.platform_instance
         self.aggregator = SqlParsingAggregator(
             platform=make_data_platform_urn(self.get_platform()),
             platform_instance=self.platform_instance,
-            env=self.config.env,
+            env=self.env,
             graph=self.ctx.graph,
             generate_usage_statistics=True,
             generate_operations=True,
@@ -118,7 +121,7 @@ class DremioSource(Source):
 
         self.schema_resolver = self.graph.initialize_schema_resolver_from_datahub(
             platform=self.get_platform(),
-            env=self.config.env,
+            env=self.env,
             platform_instance=config.platform_instance,
         )
 
@@ -156,14 +159,14 @@ class DremioSource(Source):
                     parent_folder=schema[-2].lower(),
                     platform=make_data_platform_urn("dremio"),
                     platform_instance=self.platform_instance,
-                    env=self.config.env,
+                    env=self.env,
                 )
             else:
                 lst_con_key = DremioSpaceKey(
                     space_name=space_name.lower(),
                     platform=make_data_platform_urn("dremio"),
                     platform_instance=self.platform_instance,
-                    env=self.config.env,
+                    env=self.env,
                 )
 
             yield from self.generate_containers(space_name, sub_type, schema[1:])
@@ -194,7 +197,7 @@ class DremioSource(Source):
                         platform=make_data_platform_urn("dremio"),
                         name=f"{'.'.join(schema)}.{table}".lower(),
                         platform_instance=self.platform_instance,
-                        env=self.config.env,
+                        env=self.env,
                     ),
                     view_definition=definition,
                     default_db=schema[0].lower() if len(schema) > 0 else "",
@@ -210,7 +213,7 @@ class DremioSource(Source):
                             platform=make_data_platform_urn("dremio"),
                             name=ds.lower(),
                             platform_instance=self.platform_instance,
-                            env=self.config.env,
+                            env=self.env,
                         )
                     )
 
@@ -221,7 +224,7 @@ class DremioSource(Source):
                         platform=make_data_platform_urn("dremio"),
                         name=query.get("affected_datasets").lower(),
                         platform_instance=self.platform_instance,
-                        env=self.config.env,
+                        env=self.env,
                     )
 
                     self.aggregator.add_known_query_lineage(
@@ -255,7 +258,7 @@ class DremioSource(Source):
             space_name=space_name.lower(),
             platform=make_data_platform_urn("dremio"),
             platform_instance=self.platform_instance,
-            env=self.config.env,
+            env=self.env,
         )
         con_wu_s = mcp_builder.gen_containers(
             container_key=db_key,
@@ -276,7 +279,7 @@ class DremioSource(Source):
                     parent_folder=rest_of_schema_items[i - 1].lower(),
                     platform=make_data_platform_urn("dremio"),
                     platform_instance=self.platform_instance,
-                    env=self.config.env,
+                    env=self.env,
                 )
             else:
                 schema_key = DremioFolderKey(
@@ -284,7 +287,7 @@ class DremioSource(Source):
                     parent_folder=space_name.lower(),
                     platform=make_data_platform_urn("dremio"),
                     platform_instance=self.platform_instance,
-                    env=self.config.env,
+                    env=self.env,
                 )
             con_wu_s = mcp_builder.gen_containers(
                 container_key=schema_key,
@@ -308,7 +311,7 @@ class DremioSource(Source):
                     platform=make_data_platform_urn("dremio"),
                     name=upstream_dataset.lower(),
                     platform_instance=self.platform_instance,
-                    env=self.config.env,
+                    env=self.env,
                 )
             )
 
@@ -320,7 +323,7 @@ class DremioSource(Source):
                     downstream=make_dataset_urn_with_platform_instance(
                         platform=make_data_platform_urn("dremio"),
                         name=f"{'.'.join(schema)}.{table}".lower(),
-                        env=self.config.env,
+                        env=self.env,
                         platform_instance=self.platform_instance,
                     ),
                 ),
@@ -339,7 +342,7 @@ class DremioSource(Source):
         else:
             dataset = table
 
-        env = self.config.env
+        env = self.env
 
         mce.proposedSnapshot = DatasetSnapshotClass._construct_with_defaults()
         mce.proposedSnapshot.urn = make_dataset_urn_with_platform_instance(
@@ -374,12 +377,16 @@ class DremioSource(Source):
                 spec = specs.get(dataset)
                 sp_tags = self.val_and_get_param(spec, "sp_tags", list)
                 sp_paths = self.val_and_get_param(spec, "sp_browse_paths", list)
-                self.dremio_source.populate_tag_aspects(mce, sp_tags)
-                self.dremio_source.populate_path_aspects(mce, sp_paths)
+                if sp_tags is not None:
+                    self.dremio_source.populate_tag_aspects(mce, sp_tags)
+                if sp_paths is not None:
+                    self.dremio_source.populate_path_aspects(mce, sp_paths)
 
         return True
 
-    def val_and_get_param(self, spec_map: dict, param_name: str, param_type: type):
+    def val_and_get_param(
+        self, spec_map: dict, param_name: str, param_type: type
+    ) -> Optional[List]:
         if param_name in spec_map and isinstance(param_type, spec_map[param_name]):
             return spec_map[param_name]
 

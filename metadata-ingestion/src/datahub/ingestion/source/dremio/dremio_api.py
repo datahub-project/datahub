@@ -9,8 +9,9 @@ from typing import Dict, List, Optional
 from urllib.parse import quote
 
 import requests
-from dremio_connector.dremio_sql_queries import DremioSQLQueries
 from sqlglot import parse_one
+
+from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,7 @@ class DremioQuery:
         affected_datasets: Optional[str] = None,
     ):
         self.job_id = job_id
-        self.username = (username,)
+        self.username = username
         self.submitted_ts = self._get_submitted_ts(submitted_ts)
         self.query = self._get_query(query)
         self.query_without_comments = self.get_raw_query(query)
@@ -215,14 +216,14 @@ class DremioAPIOperations:
                     "Credentials cannot be refreshed. Please check your username and password"
                 )
 
-    def execute_get_request(self, url: str) -> json:
+    def execute_get_request(self, url: str) -> Dict:
         """execute a get request on dremio"""
         response = requests.get(
             url=(self.base_url + url), headers=self.headers, verify=self._verify
         )
         return response.json()
 
-    def execute_post_request(self, url: str, data: str) -> json:
+    def execute_post_request(self, url: str, data: str) -> Dict:
         """execute a get request on dremio"""
         response = requests.post(
             url=(self.base_url + url),
@@ -232,7 +233,7 @@ class DremioAPIOperations:
         )
         return response.json()
 
-    def _execute_post_request_to_get_headers(self, headers: Dict, data: str) -> json:
+    def _execute_post_request_to_get_headers(self, headers: Dict, data: str) -> Dict:
         """execute a get request on dremio"""
         response = requests.post(
             url=f"{self.dremio_url}/apiv2/login",

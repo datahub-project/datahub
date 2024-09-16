@@ -4,11 +4,10 @@ import re
 import time
 from typing import Dict, List, Optional
 
-from dremio_connector.dremio_api import DremioAPIOperations
-from dremio_connector.dremio_sql_queries import DremioSQLQueries
-
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter import mce_builder
+from datahub.ingestion.source.dremio.dremio_api import DremioAPIOperations
+from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     AuditStampClass,
