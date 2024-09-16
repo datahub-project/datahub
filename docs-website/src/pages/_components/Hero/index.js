@@ -42,16 +42,12 @@ const Hero = ({}) => {
       ease: "easeIn",
       repeat: Infinity,
       repeatType: "reverse",
-      repeatDelay: 0,
+      repeatDelay: 0.1,
       onUpdate(latest) {
         if (updatedThisRound.get() === true && latest > 0) {
           updatedThisRound.set(false);
         } else if (updatedThisRound.get() === false && latest === 0) {
-          if (textIndex.get() === SOLUTION_TEXTS.length - 1) {
-            textIndex.set(0);
-          } else {
-            textIndex.set(textIndex.get() + 1);
-          }
+          textIndex.set((textIndex.get() + 1) % SOLUTION_TEXTS.length);
           updatedThisRound.set(true);
         }
       },
