@@ -7,14 +7,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
-import org.springframework.web.HttpRequestHandler;
+import org.springframework.web.context.support.HttpRequestHandlerServlet;
 
 @ComponentScan(basePackages = {"com.linkedin.restli.server"})
 @PropertySource(value = "classpath:/application.yaml", factory = YamlPropertySourceFactory.class)
 @Configuration
 public class RestliServletConfig {
   @Bean("restliRequestHandler")
-  public HttpRequestHandler restliHandlerServlet(final RAPJakartaServlet r2Servlet) {
+  public HttpRequestHandlerServlet restliHandlerServlet(final RAPJakartaServlet r2Servlet) {
     return new RestliHandlerServlet(r2Servlet);
   }
 }
