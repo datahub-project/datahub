@@ -56,12 +56,8 @@
 }
   
 .socialStats {
-    display: grid;
-    gap: 10px;
-    width: fit-content;
-    height: fit-content;
-    grid-template-columns: 260px 260px;
-    grid-column-gap: 50px;
+    display: flex;
+    flex-wrap: wrap;
     margin-top: 20px;
 }
   
@@ -101,6 +97,7 @@
     border-radius: 20px;
     padding: 12px 8px;
     width: 20rem;
+    margin-right: 8px;
     height: fit-content;
     display: flex;
     justify-content: flex-start;
