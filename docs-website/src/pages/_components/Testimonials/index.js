@@ -71,7 +71,7 @@ const Testimonials = ({}) => {
                   />
                 </svg>
               </div>
-              We rely on Acryl to gain insights and ensure our critical data is
+              We rely on DataHub Cloud to gain insights and ensure our critical data is
               reliable. Acryl's managed product takes DataHub to the next level
               through automation and emphasis on time-to-value.
             </div>

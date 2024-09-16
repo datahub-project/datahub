@@ -102,7 +102,9 @@ const Community = () => {
                   {[...Array(2)].map((_, i) => (
                     <React.Fragment key={i}>
                       {[1, 2, 3, 4, 5, 6].map((item, index) => (
-                        <div className={styles.slide} key={index} style={{ backgroundImage: `url(/img/slack/slack-community-user-${item}.png)` }} />
+                        <div className={styles.slide} key={index} style={{ backgroundImage: `url(${useBaseUrl(`/img/slack/slack-community-user-${item}.png`)})` }}>
+                          <div className={styles.slideCrown} style={{ backgroundImage: `url(${useBaseUrl('/img/slack/Crown.png')})` }} />
+                          </div>
                       ))}
                     </React.Fragment>
                   ))}
