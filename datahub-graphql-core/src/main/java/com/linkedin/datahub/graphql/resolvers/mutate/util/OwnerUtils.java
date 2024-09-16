@@ -205,11 +205,7 @@ public class OwnerUtils {
 
     boolean authorized =
         AuthorizationUtils.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
-            resourceUrn.getEntityType(),
-            resourceUrn.toString(),
-            orPrivilegeGroups);
+            context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
     if (!authorized) {
       throw new AuthorizationException(
           "Unauthorized to update owners. Please contact your DataHub administrator.");

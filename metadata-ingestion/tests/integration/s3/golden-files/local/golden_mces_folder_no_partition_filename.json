@@ -7,9 +7,9 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv/part2.csv",
+                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv/part3.csv",
                 "number_of_files": "3",
-                "size_in_bytes": "3446"
+                "size_in_bytes": "3539"
             },
             "name": "folder_aaa.food_csv",
             "description": "",
@@ -56,18 +56,6 @@
                         }
                     },
                     "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "healthy",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.BooleanType": {}
-                        }
-                    },
-                    "nativeDataType": "boolean",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -1101,288 +1089,115 @@
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
-            "rowCount": 70,
-            "columnCount": 5,
+            "rowCount": 4,
+            "columnCount": 4,
             "fieldProfiles": [
                 {
                     "fieldPath": "name",
-                    "uniqueCount": 9,
-                    "uniqueProportion": 0.13043478260869565,
-                    "nullCount": 1,
-                    "nullProportion": 0.014285714285714285,
-                    "distinctValueFrequencies": [
-                        {
-                            "value": "NullValue",
-                            "frequency": 1
-                        },
-                        {
-                            "value": "apple",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "chicken",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "cookie",
-                            "frequency": 6
-                        },
-                        {
-                            "value": "hamburger",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "lasagna",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "orange",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "pasta",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "spinach",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "sushi",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "water",
-                            "frequency": 7
-                        }
-                    ],
-                    "sampleValues": [
-                        "apple",
-                        "apple",
-                        "apple",
-                        "chicken",
-                        "cookie",
-                        "cookie",
-                        "cookie",
-                        "lasagna",
-                        "lasagna",
-                        "orange",
-                        "orange",
-                        "pasta",
-                        "pasta",
-                        "pasta",
-                        "pasta",
-                        "spinach",
-                        "spinach",
-                        "spinach",
-                        "water",
-                        "water"
-                    ]
-                },
-                {
-                    "fieldPath": "weight",
-                    "uniqueCount": 9,
-                    "uniqueProportion": 0.12857142857142856,
+                    "uniqueCount": 4,
+                    "uniqueProportion": 1.0,
                     "nullCount": 0,
                     "nullProportion": 0.0,
                     "distinctValueFrequencies": [
                         {
-                            "value": "10",
-                            "frequency": 7
+                            "value": "apple",
+                            "frequency": 1
                         },
                         {
-                            "value": "2",
-                            "frequency": 7
+                            "value": "cookie",
+                            "frequency": 1
                         },
                         {
-                            "value": "23",
-                            "frequency": 7
+                            "value": "lasagna",
+                            "frequency": 1
                         },
                         {
-                            "value": "32",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "36",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "43",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "49",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "50",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "53",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "72",
-                            "frequency": 7
+                            "value": "pasta",
+                            "frequency": 1
                         }
                     ],
                     "sampleValues": [
-                        "10",
-                        "10",
-                        "10",
+                        "apple",
+                        "cookie",
+                        "lasagna",
+                        "pasta"
+                    ]
+                },
+                {
+                    "fieldPath": "weight",
+                    "uniqueCount": 4,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "23",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "49",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "50",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "72",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
                         "23",
-                        "23",
-                        "23",
-                        "32",
-                        "32",
-                        "36",
-                        "43",
-                        "43",
                         "49",
-                        "49",
                         "50",
-                        "50",
-                        "50",
-                        "72",
-                        "72",
-                        "72",
                         "72"
                     ]
                 },
                 {
                     "fieldPath": "height",
-                    "uniqueCount": 4,
-                    "uniqueProportion": 0.05714285714285714,
+                    "uniqueCount": 1,
+                    "uniqueProportion": 0.25,
                     "nullCount": 0,
                     "nullProportion": 0.0,
                     "distinctValueFrequencies": [
                         {
                             "value": "4",
-                            "frequency": 24
-                        },
-                        {
-                            "value": "5",
-                            "frequency": 15
-                        },
-                        {
-                            "value": "6",
-                            "frequency": 23
-                        },
-                        {
-                            "value": "7",
-                            "frequency": 8
+                            "frequency": 4
                         }
                     ],
                     "sampleValues": [
                         "4",
                         "4",
                         "4",
-                        "4",
-                        "4",
-                        "4",
-                        "4",
-                        "5",
-                        "5",
-                        "5",
-                        "5",
-                        "5",
-                        "6",
-                        "6",
-                        "6",
-                        "6",
-                        "6",
-                        "6",
-                        "7",
-                        "7"
+                        "4"
                     ]
                 },
                 {
                     "fieldPath": "color",
-                    "uniqueCount": 7,
-                    "uniqueProportion": 0.1,
+                    "uniqueCount": 3,
+                    "uniqueProportion": 0.75,
                     "nullCount": 0,
                     "nullProportion": 0.0,
                     "distinctValueFrequencies": [
                         {
-                            "value": "blue",
-                            "frequency": 7
-                        },
-                        {
                             "value": "brown",
-                            "frequency": 14
-                        },
-                        {
-                            "value": "green",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "orange",
-                            "frequency": 14
+                            "frequency": 1
                         },
                         {
                             "value": "red",
-                            "frequency": 14
-                        },
-                        {
-                            "value": "white",
-                            "frequency": 7
+                            "frequency": 2
                         },
                         {
                             "value": "yellow",
-                            "frequency": 7
+                            "frequency": 1
                         }
                     ],
                     "sampleValues": [
-                        "blue",
-                        "blue",
                         "brown",
-                        "brown",
-                        "brown",
-                        "green",
-                        "green",
-                        "green",
-                        "orange",
-                        "orange",
                         "red",
                         "red",
-                        "red",
-                        "red",
-                        "red",
-                        "white",
-                        "yellow",
-                        "yellow",
-                        "yellow",
                         "yellow"
-                    ]
-                },
-                {
-                    "fieldPath": "healthy",
-                    "uniqueCount": 2,
-                    "uniqueProportion": 0.028985507246376812,
-                    "nullCount": 1,
-                    "nullProportion": 0.014285714285714285,
-                    "sampleValues": [
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "None",
-                        "True",
-                        "True",
-                        "True",
-                        "True",
-                        "True",
-                        "True",
-                        "True",
-                        "True",
-                        "True",
-                        "True"
                     ]
                 }
             ]

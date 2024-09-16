@@ -1323,7 +1323,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 dashboard_object.folder.is_personal
                 or dashboard_object.folder.is_personal_descendant
             ):
-                self.reporter.report_warning(
+                self.reporter.info(
                     title="Dropped Dashboard",
                     message="Dropped due to being a personal folder",
                     context=f"Dashboard ID: {dashboard_id}",
@@ -1334,6 +1334,17 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         looker_dashboard = self._get_looker_dashboard(dashboard_object)
 
         workunits = []
+        if (
+            looker_dashboard.folder_path is not None
+            and not self.source_config.folder_path_pattern.allowed(
+                looker_dashboard.folder_path
+            )
+        ):
+            logger.debug(
+                f"Folder path {looker_dashboard.folder_path} is denied in folder_path_pattern"
+            )
+            return [], None, dashboard_id, start_time, datetime.datetime.now()
+
         if looker_dashboard.folder:
             workunits += list(
                 self._get_folder_and_ancestors_workunits(looker_dashboard.folder)

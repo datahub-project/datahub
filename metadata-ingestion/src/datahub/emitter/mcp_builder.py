@@ -211,9 +211,9 @@ def gen_containers(
             externalUrl=external_url,
             qualifiedName=qualified_name,
             created=TimeStamp(time=created) if created is not None else None,
-            lastModified=TimeStamp(time=last_modified)
-            if last_modified is not None
-            else None,
+            lastModified=(
+                TimeStamp(time=last_modified) if last_modified is not None else None
+            ),
             env=env if env is not None else None,
         ),
     ).as_workunit()
@@ -228,9 +228,11 @@ def gen_containers(
         entityUrn=f"{container_urn}",
         aspect=DataPlatformInstance(
             platform=f"{make_data_platform_urn(container_key.platform)}",
-            instance=f"{make_dataplatform_instance_urn(container_key.platform, container_key.instance)}"
-            if container_key.instance
-            else None,
+            instance=(
+                f"{make_dataplatform_instance_urn(container_key.platform, container_key.instance)}"
+                if container_key.instance
+                else None
+            ),
         ),
     ).as_workunit()
 

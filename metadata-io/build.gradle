@@ -27,8 +27,9 @@ dependencies {
 
   implementation externalDependency.guava
   implementation externalDependency.reflections
+  // https://mvnrepository.com/artifact/nl.basjes.parse.useragent/yauaa
+  implementation 'nl.basjes.parse.useragent:yauaa:7.27.0'
 
-  implementation 'com.github.java-json-tools:json-patch:1.13' // TODO: Replace with jakarta.json
   api(externalDependency.dgraph4j) {
     exclude group: 'com.google.guava', module: 'guava'
     exclude group: 'io.grpc', module: 'grpc-protobuf'
