@@ -8,21 +8,21 @@ const TabbedComponent = () => {
 
   const tabs = [
     {
-      title: 'Data Discovery',
+      title: 'Discovery',
       description: 'All the search and discovery features of DataHub Core you already love, enhanced.',
       icon: "/img/assets/data-discovery.svg",
       link: "https://www.acryldata.io/acryl-datahub",
       image: 'https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/demo/discovery.webm',
     },
     {
-      title: 'Data Observability',
+      title: 'Observability',
       description: 'Detect, resolve, and prevent data quality issues before they impact your business. Unify data health signals from all your data quality tools, including dbt tests and more.',
       icon: "/img/assets/data-ob.svg",
       link: "https://www.acryldata.io/observe",
       image: 'https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/demo/observe.webm',
     },
     {
-      title: 'Data Governance',
+      title: 'Governance',
       description: 'Powerful Automation, Reporting and Organizational tools to help you govern effectively.',
       icon: "/img/assets/data-governance.svg",
       link: "https://www.acryldata.io/acryl-datahub#governance",
@@ -32,7 +32,7 @@ const TabbedComponent = () => {
 
   return (
     <div className={clsx(styles.tabbedComponent)}>
-      <div className={clsx(styles.title)}><span>One platform to rule them all</span></div>
+      <div className={clsx(styles.title)}><span>The metadata platform for Data and AI</span></div>
       <div className={clsx(styles.container, 'shadow--lw')}>
         <div className={clsx(styles.tabs)}>
           {tabs.map((tab, index) => (
