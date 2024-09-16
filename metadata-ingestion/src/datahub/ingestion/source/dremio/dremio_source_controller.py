@@ -1,42 +1,38 @@
 """This Module contains controller functions for dremio source"""
 
-__author__ = "Shabbir Mohammed Hussain, Shehroz Abdullah, Hamza Rehman"
-
 import re
 import time
-from typing import List, Dict, Optional
-
-import datahub.emitter.mce_builder as mce_builder
-from datahub.configuration.common import AllowDenyPattern
-from datahub.metadata.schema_classes import (
-    MySqlDDLClass,
-    AuditStampClass,
-    GlobalTagsClass,
-    BrowsePathsV2Class,
-    SchemaFieldClass,
-    SchemaMetadataClass,
-    TagAssociationClass,
-    DatasetPropertiesClass,
-    MetadataChangeEventClass,
-    SchemaFieldDataTypeClass,
-    InstitutionalMemoryClass,
-    InstitutionalMemoryMetadataClass,
-    BooleanTypeClass,
-    DateTypeClass,
-    NullTypeClass,
-    NumberTypeClass,
-    StringTypeClass,
-    TimeTypeClass,
-    BytesTypeClass,
-    RecordTypeClass,
-    ArrayTypeClass,
-    BrowsePathEntryClass,
-    ViewPropertiesClass,
-    SubTypesClass,
-)
+from typing import Dict, List, Optional
 
 from dremio_connector.dremio_api import DremioAPIOperations
 from dremio_connector.dremio_sql_queries import DremioSQLQueries
+
+from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter import mce_builder
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    AuditStampClass,
+    BooleanTypeClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
+    BytesTypeClass,
+    DatasetPropertiesClass,
+    DateTypeClass,
+    GlobalTagsClass,
+    MetadataChangeEventClass,
+    MySqlDDLClass,
+    NullTypeClass,
+    NumberTypeClass,
+    RecordTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+    SubTypesClass,
+    TagAssociationClass,
+    TimeTypeClass,
+    ViewPropertiesClass,
+)
 
 
 class DremioController:
@@ -58,25 +54,17 @@ class DremioController:
         allowed_datasets_query = DremioSQLQueries.QUERY_DATASETS.format(
             table_allow=self.table_allow,
             collect_pds=self.collect_pds,
-            collect_system_tables=self.collect_system_tables
+            collect_system_tables=self.collect_system_tables,
         )
 
-        filtered_datasets = self.dremio_api.execute_query(
-            query=allowed_datasets_query
-        )
+        filtered_datasets = self.dremio_api.execute_query(query=allowed_datasets_query)
 
-        schema_allow = self._compile_expressions(
-            expressions=self.schema_pattern.allow
-        )
-        schema_deny = self._compile_expressions(
-            expressions=self.schema_pattern.deny
-        )
+        schema_allow = self._compile_expressions(expressions=self.schema_pattern.allow)
+        schema_deny = self._compile_expressions(expressions=self.schema_pattern.deny)
 
         distinct_schemas = list({d.get("TABLE_SCHEMA") for d in filtered_datasets})
 
-        schemas = self.get_validated_schemas(
-            schemas=distinct_schemas
-        )
+        schemas = self.get_validated_schemas(schemas=distinct_schemas)
 
         for row in filtered_datasets:
             schema = row["TABLE_SCHEMA"]
@@ -91,9 +79,7 @@ class DremioController:
             )
 
             proceed = proceed and not any(
-                [
-                    regex.match(schema) for regex in schema_deny
-                ]
+                [regex.match(schema) for regex in schema_deny]
             )
 
             for sch in schemas:
@@ -109,20 +95,17 @@ class DremioController:
         formatted_schemas: List[Dict] = []
         for schema in schemas:
             formatted_schemas.append(
-                self.dremio_api.validate_schema_format(
-                    schema=schema
-                )
+                self.dremio_api.validate_schema_format(schema=schema)
             )
         return formatted_schemas
 
-
     def populate_dataset_aspects(
-            self,
-            mce: MetadataChangeEventClass,
-            schema,
-            folder_path,
-            table_name,
-            all_tables_and_columns
+        self,
+        mce: MetadataChangeEventClass,
+        schema,
+        folder_path,
+        table_name,
+        all_tables_and_columns,
     ):
         """Create dataset entity for Acryl"""
 
@@ -159,9 +142,7 @@ class DremioController:
             return False, []
 
     @staticmethod
-    def populate_tag_aspects(
-            mce: MetadataChangeEventClass,
-            tag_urns: list):
+    def populate_tag_aspects(mce: MetadataChangeEventClass, tag_urns: list):
         """Apply tags as per recipe"""
         if not tag_urns:
             return
@@ -174,9 +155,7 @@ class DremioController:
         aspect.tags.extend(tags)
 
     @staticmethod
-    def populate_path_aspects(
-            mce: MetadataChangeEventClass,
-            paths: list):
+    def populate_path_aspects(mce: MetadataChangeEventClass, paths: list):
         """Apply dataset browse path"""
 
         paths = [path for path in paths if path]
@@ -186,30 +165,30 @@ class DremioController:
 
     @staticmethod
     def _add_view_definition_aspect(
-            mce: MetadataChangeEventClass,
-            view_definition: str,
+        mce: MetadataChangeEventClass,
+        view_definition: str,
     ):
 
         mce_builder.get_or_add_aspect(
-            mce, ViewPropertiesClass(
+            mce,
+            ViewPropertiesClass(
                 materialized=False,
                 viewLanguage="SQL",
                 viewLogic=view_definition,
-            )
+            ),
         )
 
         mce_builder.get_or_add_aspect(
-            mce, SubTypesClass(
+            mce,
+            SubTypesClass(
                 typeNames=[
                     "View",
                 ]
-            )
+            ),
         )
 
     @staticmethod
-    def _compile_expressions(
-            expressions: list
-    ):
+    def _compile_expressions(expressions: list):
         return (
             [re.compile(pattern, re.IGNORECASE) for pattern in expressions if pattern]
             if expressions
@@ -217,43 +196,34 @@ class DremioController:
         )
 
     @staticmethod
-    def __add_names_aspect(
-            mce: MetadataChangeEventClass,
-            schema: str,
-            table_name: str
-    ):
+    def __add_names_aspect(mce: MetadataChangeEventClass, schema: str, table_name: str):
         aspect = mce_builder.get_or_add_aspect(mce, DatasetPropertiesClass())
         aspect.name = table_name
         aspect.qualifiedName = f"{schema}.{table_name}"
 
     @staticmethod
     def _add_data_product_link_aspect(
-            mce: MetadataChangeEventClass,
-            dremio_url: str,
-            schema: str,
-            table_name: str,
-            typ: str
+        mce: MetadataChangeEventClass,
+        dremio_url: str,
+        schema: str,
+        table_name: str,
+        typ: str,
     ):
-        domain, *rest_of_schema = schema.split(".")
-        dp_dremio_link = (
-            f"{dremio_url}/{typ}/{domain}",
-            f"{'/' if rest_of_schema else ''}",
-            f"""{'.'.join([f'"{elem}"' for elem in rest_of_schema])}""",
-            f""".{table_name if '.' not in table_name else f'"{table_name}"'}"""
-        )
+        pass
+        # TODO Uncomment when this is properly implemented
+        # domain, *rest_of_schema = schema.split(".")
+        # dp_dremio_link = (
+        #     f"{dremio_url}/{typ}/{domain}",
+        #     f"{'/' if rest_of_schema else ''}",
+        #     f"""{'.'.join([f'"{elem}"' for elem in rest_of_schema])}""",
+        #     f""".{table_name if '.' not in table_name else f'"{table_name}"'}""",
+        # )
 
-        aspect = mce_builder.get_or_add_aspect(
-            mce,
-            InstitutionalMemoryClass(
-                []
-            )
-        )
+        # aspect = mce_builder.get_or_add_aspect(mce, InstitutionalMemoryClass([]))
 
     @staticmethod
     def __add_schema_aspect(
-            mce: MetadataChangeEventClass,
-            schema: str,
-            table_name: str
+        mce: MetadataChangeEventClass, schema: str, table_name: str
     ):
         aspect = mce_builder.get_or_add_aspect(
             mce, SchemaMetadataClass._construct_with_defaults()
@@ -272,18 +242,15 @@ class DremioController:
         return aspect
 
     @staticmethod
-    def __add_browse_path_aspect(
-            mce: MetadataChangeEventClass,
-            folder_path: List
-    ):
+    def __add_browse_path_aspect(mce: MetadataChangeEventClass, folder_path: List):
         return mce_builder.get_or_add_aspect(
-            mce, BrowsePathsV2Class(path=[BrowsePathEntryClass(id=folder) for folder in folder_path])
+            mce,
+            BrowsePathsV2Class(
+                path=[BrowsePathEntryClass(id=folder) for folder in folder_path]
+            ),
         )
 
-    def __create_schema_field(
-            self,
-            row: dict
-    ) -> SchemaFieldClass:
+    def __create_schema_field(self, row: dict) -> SchemaFieldClass:
         fp_type, type_cls, raw_type = self.__get_schema_field_type(
             row["DATA_TYPE"], row["COLUMN_SIZE"]
         )
@@ -298,31 +265,27 @@ class DremioController:
         return self.dremio_api.get_view_parents(schema, dataset)
 
     @staticmethod
-    def __get_schema_field_type(
-            data_type: str,
-            data_size: str
-    ):
+    def __get_schema_field_type(data_type: str, data_size: str):
         data_type = data_type.lower()
         data_size = f"({data_size})" if data_size else ""
-        match data_type:
-            case "boolean":
-                return data_type, BooleanTypeClass(), f"{data_type}{data_size}"
-            case "binary varying":
-                return data_type, BytesTypeClass(), f"{data_type}{data_size}"
-            case "decimal" | "integer" | "bigint" | "float" | "double":
-                return data_type, NumberTypeClass(), f"{data_type}{data_size}"
-            case "timestamp" | "date":
-                return data_type, DateTypeClass(), f"{data_type}{data_size}"
-            case "time":
-                return data_type, TimeTypeClass(), f"{data_type}{data_size}"
-            case "char" | "character" | "character varying":
-                return data_type, StringTypeClass(), f"{data_type}{data_size}"
-            case "row" | "struct" | "list" | "map":
-                return data_type, RecordTypeClass(), f"{data_type}{data_size}"
-            case "array":
-                return data_type, ArrayTypeClass(), f"{data_type}{data_size}"
-            case _:
-                return data_type, NullTypeClass(), f"{data_type}{data_size}"
+        if data_type == "boolean":
+            return data_type, BooleanTypeClass(), f"{data_type}{data_size}"
+        elif data_type == "binary varying":
+            return data_type, BytesTypeClass(), f"{data_type}{data_size}"
+        elif data_type in ["decimal", "integer", "bigint", "float", "double"]:
+            return data_type, NumberTypeClass(), f"{data_type}{data_size}"
+        elif data_type in ["timestamp", "date"]:
+            return data_type, DateTypeClass(), f"{data_type}{data_size}"
+        elif data_type == "time":
+            return data_type, TimeTypeClass(), f"{data_type}{data_size}"
+        elif data_type in ["char", "character", "character varying"]:
+            return data_type, StringTypeClass(), f"{data_type}{data_size}"
+        elif data_type in ["row", "struct", "list", "map"]:
+            return data_type, RecordTypeClass(), f"{data_type}{data_size}"
+        elif data_type == "array":
+            return data_type, ArrayTypeClass(), f"{data_type}{data_size}"
+        else:
+            return data_type, NullTypeClass(), f"{data_type}{data_size}"
 
 
 class DremioHelper:
@@ -335,7 +298,5 @@ class DremioHelper:
         for dataset_part in range(len(dataset_parts)):
             alternatives.append(".".join(dataset_parts[:-dataset_part]))
         cls.dremio_dataset_catalog.append(
-            {
-                "dataset_name": dataset_name.lower(),
-                "alternatives": alternatives
-            })
+            {"dataset_name": dataset_name.lower(), "alternatives": alternatives}
+        )

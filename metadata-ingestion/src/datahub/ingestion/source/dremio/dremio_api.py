@@ -1,19 +1,16 @@
 """This Module contains utility functions for dremio source"""
-__author__ = "Shabbir Mohammed Hussain, Shehroz Abdullah, Hamza Rehman, Jonathan Dixon"
 
-import re
 import json
-from time import sleep
-from typing import List, Dict, Optional
-from urllib.parse import quote
+import logging
+import re
 from datetime import datetime
+from time import sleep
+from typing import Dict, List, Optional
+from urllib.parse import quote
 
 import requests
-import logging
-
-from sqlglot import parse_one
-
 from dremio_connector.dremio_sql_queries import DremioSQLQueries
+from sqlglot import parse_one
 
 logger = logging.getLogger(__name__)
 
@@ -73,11 +70,7 @@ _select_queries = [
     "SELECT",
     "WITH",
 ]
-_data_manipulation_queries = [
-    "INSERT INTO",
-    "MERGE INTO",
-    "CREATE TABLE"
-]
+_data_manipulation_queries = ["INSERT INTO", "MERGE INTO", "CREATE TABLE"]
 
 
 class DremioQuery:
@@ -98,15 +91,13 @@ class DremioQuery:
         submitted_ts: str,
         query: str,
         queried_datasets: str,
-        affected_datasets: Optional[str] = None
+        affected_datasets: Optional[str] = None,
     ):
         self.job_id = job_id
-        self.username = username,
+        self.username = (username,)
         self.submitted_ts = self._get_submitted_ts(submitted_ts)
         self.query = self._get_query(query)
-        self.query_without_comments = self.get_raw_query(
-            query
-        )
+        self.query_without_comments = self.get_raw_query(query)
         self.query_type = self._get_query_type()
         self.query_subtype = self._get_query_subtype()
         self.queried_datasets = self._get_queried_datasets(queried_datasets)
@@ -119,29 +110,27 @@ class DremioQuery:
         return getattr(self, attr, None)
 
     def _get_submitted_ts(self, timestamp: str) -> datetime:
-        return datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+        return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
 
     def _get_query(self, query: str) -> str:
-        return str(query).replace("\'", "'")
+        return str(query).replace("'", "'")
 
     def _get_query_type(self) -> str:
         query_operator = re.split(
-            pattern=r'\s+',
+            pattern=r"\s+",
             string=self.query_without_comments.strip(),
             maxsplit=1,
         )[0]
 
         if query_operator in _select_queries:
-            return 'SELECT'
+            return "SELECT"
         elif query_operator in _dml_queries:
-            return 'DML'
+            return "DML"
         else:
-            return 'DDL'
+            return "DDL"
 
     def _get_query_subtype(self) -> str:
-        for query_operator in _select_queries + \
-                              _dml_queries + \
-                              _ddl_queries:
+        for query_operator in _select_queries + _dml_queries + _ddl_queries:
             if self.query_without_comments.upper().startswith(query_operator):
                 return query_operator
         return "UNDEFINED"
@@ -185,15 +174,21 @@ class DremioAPIOperations:
             port=connection_args.get("port"),
             tls=connection_args.get("tls"),
         )
-        self.base_url = self.dremio_url + "/api/v3" \
-            if not connection_args.get("is_dremio_cloud", False) \
+        self.base_url = (
+            self.dremio_url + "/api/v3"
+            if not connection_args.get("is_dremio_cloud", False)
             else f"https://api.{(connection_args.get('dremio_cloud_region') + '.') if connection_args.get('dremio_cloud_region') else ''}.dremio.cloud:443"
+        )
         self.username = connection_args.get("username")
         self._password = connection_args.get("password")
-        self._is_PAT = True if connection_args.get("authentication_method") == "PAT" else False
+        self._is_PAT = (
+            True if connection_args.get("authentication_method") == "PAT" else False
+        )
         self.is_dremio_cloud: bool = connection_args.get("is_dremio_cloud")
 
-        self._verify: bool = connection_args.get("tls") and not connection_args.get("disable_certificate_verification")
+        self._verify: bool = connection_args.get("tls") and not connection_args.get(
+            "disable_certificate_verification"
+        )
         self.set_credentials()
         self.all_tables = []
         self.all_tables_and_columns = self._get_all_tables_and_columns()
@@ -216,14 +211,14 @@ class DremioAPIOperations:
                     pass
                 break
             else:
-                raise "Credentials cannot be refreshed. Please check your username and password"
+                raise RuntimeError(
+                    "Credentials cannot be refreshed. Please check your username and password"
+                )
 
     def execute_get_request(self, url: str) -> json:
         """execute a get request on dremio"""
         response = requests.get(
-            url=(self.base_url + url),
-            headers=self.headers,
-            verify=self._verify
+            url=(self.base_url + url), headers=self.headers, verify=self._verify
         )
         return response.json()
 
@@ -233,7 +228,7 @@ class DremioAPIOperations:
             url=(self.base_url + url),
             headers=self.headers,
             data=data,
-            verify=self._verify
+            verify=self._verify,
         )
         return response.json()
 
@@ -243,7 +238,8 @@ class DremioAPIOperations:
             url=f"{self.dremio_url}/apiv2/login",
             headers=headers,
             data=data,
-            verify=self._verify)
+            verify=self._verify,
+        )
         response.raise_for_status()
         return response.json()
 
@@ -257,7 +253,9 @@ class DremioAPIOperations:
         else:
             response = self._execute_post_request_to_get_headers(
                 headers={"content-type": "application/json"},
-                data=json.dumps({"userName": self.username, "password": self._password}),
+                data=json.dumps(
+                    {"userName": self.username, "password": self._password}
+                ),
             )
             self.headers = {
                 "content-type": "application/json",
@@ -267,8 +265,7 @@ class DremioAPIOperations:
     def execute_query(self, query: str) -> List[Dict]:
         """Execute sql query"""
         response = self.execute_post_request(
-            url="/sql",
-            data=json.dumps({"sql": query})
+            url="/sql", data=json.dumps({"sql": query})
         )
         return self.fetch_results(response["id"])
 
@@ -307,14 +304,7 @@ class DremioAPIOperations:
         increment_val = 1
         last_val = 0
         while increment_val <= len(schema_split):
-            url_encoded = quote(
-                ".".join(
-                    schema_split[
-                        last_val:increment_val
-                    ]
-                ),
-                safe=''
-            )
+            url_encoded = quote(".".join(schema_split[last_val:increment_val]), safe="")
             response = self.execute_get_request(
                 f"/catalog/by-path/{schema_str}/{url_encoded}",
             )
@@ -346,17 +336,13 @@ class DremioAPIOperations:
 
         schema_list = []
         for record in all_tables_and_columns:
-            schema_list.append(
-                record.get("TABLE_SCHEMA")
-            )
+            schema_list.append(record.get("TABLE_SCHEMA"))
         distinct_schemas = set(schema_list)
 
         distinct_schemas_dict_lookup = []
 
         for ds in distinct_schemas:
-            distinct_schemas_dict_lookup.append(
-                self.validate_schema_format(ds)
-            )
+            distinct_schemas_dict_lookup.append(self.validate_schema_format(ds))
 
         tables_list = []
 
@@ -364,19 +350,26 @@ class DremioAPIOperations:
             for schemas in distinct_schemas_dict_lookup:
                 if record.get("TABLE_SCHEMA") == schemas.get("original_path"):
                     tables_list.append(
-                        '"' +
-                        "\".\"".join(schemas.get("formatted_path")) +
-                        "." +
-                        record.get("TABLE_NAME") +
                         '"'
+                        + '"."'.join(schemas.get("formatted_path"))
+                        + "."
+                        + record.get("TABLE_NAME")
+                        + '"'
                     )
 
         self.all_tables = list(set(tables_list))
 
         for record in all_tables_and_columns:
-            if f"{record.get('TABLE_SCHEMA')}.{record.get('TABLE_NAME')}" not in all_tables_and_columns_dict:
-                all_tables_and_columns_dict[f"{record.get('TABLE_SCHEMA')}.{record.get('TABLE_NAME')}"] = []
-            all_tables_and_columns_dict[f"{record.get('TABLE_SCHEMA')}.{record.get('TABLE_NAME')}"].append(record)
+            if (
+                f"{record.get('TABLE_SCHEMA')}.{record.get('TABLE_NAME')}"
+                not in all_tables_and_columns_dict
+            ):
+                all_tables_and_columns_dict[
+                    f"{record.get('TABLE_SCHEMA')}.{record.get('TABLE_NAME')}"
+                ] = []
+            all_tables_and_columns_dict[
+                f"{record.get('TABLE_SCHEMA')}.{record.get('TABLE_NAME')}"
+            ].append(record)
 
         return all_tables_and_columns_dict
 
@@ -384,22 +377,17 @@ class DremioAPIOperations:
 
         if "." in schema:
             schema_path = self.execute_get_request(
-                f"/catalog/{self.get_dataset_id(schema=schema, dataset='')}").get("path")
-            return {
-                "original_path": schema,
-                "formatted_path": schema_path
-            }
+                f"/catalog/{self.get_dataset_id(schema=schema, dataset='')}"
+            ).get("path")
+            return {"original_path": schema, "formatted_path": schema_path}
         else:
-            return {
-                "original_path": schema,
-                "formatted_path": [schema]
-            }
+            return {"original_path": schema, "formatted_path": [schema]}
 
     def test_for_enterprise_edition(self):
         response = requests.get(
             url=f"{self.base_url}/catalog/privileges",
             headers=self.headers,
-            verify=self._verify
+            verify=self._verify,
         )
 
         if response.status_code == 200:
@@ -411,10 +399,7 @@ class DremioAPIOperations:
         parents_list = []
 
         if not self.is_dremio_cloud:
-            dataset_id = self.get_dataset_id(
-                schema=".".join(schema),
-                dataset=dataset
-            )
+            dataset_id = self.get_dataset_id(schema=".".join(schema), dataset=dataset)
             parents = self.execute_get_request(
                 f"/catalog/{dataset_id}/graph",
             ).get("parents")
@@ -425,25 +410,21 @@ class DremioAPIOperations:
                 for path_part in parent.get("path"):
                     parent_path += f".{path_part}"
 
-                parents_list.append(
-                    parent_path[1:]
-                )
+                parents_list.append(parent_path[1:])
 
         return parents_list
 
     def extract_all_queries(self):
         queries: List[DremioQuery] = []
 
-        for query in self.execute_query(
-                query=DremioSQLQueries.QUERY_ALL_JOBS
-        ):
+        for query in self.execute_query(query=DremioSQLQueries.QUERY_ALL_JOBS):
             queries.append(
                 DremioQuery(
                     job_id=query.get("job_id"),
                     username=query.get("user_name"),
                     submitted_ts=query.get("submitted_ts"),
                     query=query.get("query"),
-                    queried_datasets=query.get("queried_datasets")
+                    queried_datasets=query.get("queried_datasets"),
                 )
             )
 

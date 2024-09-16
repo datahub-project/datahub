@@ -86,10 +86,10 @@ class DremioSQLQueries:
 
     QUERY_ALL_JOBS = """
     SELECT
-        * 
-    FROM 
+        *
+    FROM
         SYS.jobs_recent
-    WHERE 
+    WHERE
         status = 'COMPLETED'
         AND LENGTH(queried_datasets)>0
         AND user_name != '$dremio$'
@@ -105,5 +105,5 @@ class DremioSQLQueries:
         "DROP TABLE",
         "DROP VIEW",
         "SELECT",
-        "WITH"
+        "WITH",
     ]

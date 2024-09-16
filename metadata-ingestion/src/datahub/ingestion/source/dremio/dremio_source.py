@@ -1,44 +1,44 @@
 """"This module contains datahub workunits and metadata change events"""
 
-__author__ = "Shabbir Mohammed Hussain, Shehroz Abdullah, Hamza Rehman, Jonathan Dixon"
-
 import logging
-
-from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
-from datahub.ingestion.api.decorators import config_class, platform_name, SupportStatus, support_status, capability
-from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.metadata._urns.urn_defs import CorpUserUrn
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator, KnownQueryLineageInfo, SqlAggregatorReport
-from datahub.ingestion.graph.client import DataHubGraph
+from typing import Dict, Iterable, Optional, Union
 
 from dremio_connector.dremio_config import (
+    DremioFolderKey,
     DremioSourceConfig,
     DremioSpaceKey,
-    DremioFolderKey,
 )
-
 from dremio_connector.dremio_source_controller import DremioController
 
-from datahub.configuration.pattern_utils import is_schema_allowed
-
+from datahub.emitter import mcp_builder
 from datahub.emitter.mce_builder import (
-    make_dataset_urn_with_platform_instance,
     make_data_platform_urn,
-    make_user_urn
+    make_dataset_urn_with_platform_instance,
+    make_user_urn,
 )
-import datahub.emitter.mcp_builder as mcp_builder
-
-from typing import Iterable, Union, Dict, Optional
-
+from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceReport, SourceCapability
-from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
-    MetadataChangeEvent,
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
 )
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.metadata._urns.urn_defs import CorpUserUrn
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
+)
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    KnownQueryLineageInfo,
+    SqlAggregatorReport,
+    SqlParsingAggregator,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,11 +71,23 @@ class DremioSourceReport(SourceReport):
 @platform_name("Dremio", id="dremio")
 @config_class(DremioSourceConfig)
 @support_status(SupportStatus.TESTING)
-@capability(capability_name=SourceCapability.CONTAINERS, description="Enabled by default")
-@capability(capability_name=SourceCapability.DOMAINS, description="Supported via the `domain` config field")
-@capability(capability_name=SourceCapability.DATA_PROFILING, description="Optionally enabled via configuration")
-@capability(capability_name=SourceCapability.PLATFORM_INSTANCE, description="Enabled by default")
-@capability(capability_name=SourceCapability.SCHEMA_METADATA, description="Enabled by default")
+@capability(
+    capability_name=SourceCapability.CONTAINERS, description="Enabled by default"
+)
+@capability(
+    capability_name=SourceCapability.DOMAINS,
+    description="Supported via the `domain` config field",
+)
+@capability(
+    capability_name=SourceCapability.DATA_PROFILING,
+    description="Optionally enabled via configuration",
+)
+@capability(
+    capability_name=SourceCapability.PLATFORM_INSTANCE, description="Enabled by default"
+)
+@capability(
+    capability_name=SourceCapability.SCHEMA_METADATA, description="Enabled by default"
+)
 class DremioSource(Source):
     config: DremioSourceConfig
     report: DremioSourceReport = DremioSourceReport()
@@ -96,11 +108,13 @@ class DremioSource(Source):
             graph=self.ctx.graph,
             generate_usage_statistics=True,
             generate_operations=True,
-            usage_config=BaseUsageConfig()
+            usage_config=BaseUsageConfig(),
         )
         self.report.sql_aggregator = self.aggregator.report
         self.builder = SqlParsingBuilder(usage_config=BaseUsageConfig())
-        self.is_enterprise_edition = self.dremio_source.dremio_api.test_for_enterprise_edition()
+        self.is_enterprise_edition = (
+            self.dremio_source.dremio_api.test_for_enterprise_edition()
+        )
 
         self.schema_resolver = self.graph.initialize_schema_resolver_from_datahub(
             platform=self.get_platform(),
@@ -119,7 +133,6 @@ class DremioSource(Source):
     def create_controller(self):
         return DremioController(self.config.__dict__)
 
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         dp_iter = self.dremio_source.get_datasets()
 
@@ -132,10 +145,10 @@ class DremioSource(Source):
             space_name = schema[0] if schema else ""
             lst_con_key: Union[DremioFolderKey, DremioSpaceKey]
 
-            if typ in ('TABLE', 'SYSTEM_TABLE'):
-                sub_type = 'Dremio Source'
+            if typ in ("TABLE", "SYSTEM_TABLE"):
+                sub_type = "Dremio Source"
             else:
-                sub_type = 'Dremio Space'
+                sub_type = "Dremio Space"
 
             if len(schema) > 1:
                 lst_con_key = DremioFolderKey(
@@ -143,21 +156,20 @@ class DremioSource(Source):
                     parent_folder=schema[-2].lower(),
                     platform=make_data_platform_urn("dremio"),
                     platform_instance=self.platform_instance,
-                    env=self.config.env
-                    )
+                    env=self.config.env,
+                )
             else:
                 lst_con_key = DremioSpaceKey(
                     space_name=space_name.lower(),
                     platform=make_data_platform_urn("dremio"),
                     platform_instance=self.platform_instance,
-                    env=self.config.env
+                    env=self.config.env,
                 )
 
             yield from self.generate_containers(space_name, sub_type, schema[1:])
 
             wu_s = mcp_builder.add_dataset_to_container(
-                container_key=lst_con_key,
-                dataset_urn=item.proposedSnapshot.urn
+                container_key=lst_con_key, dataset_urn=item.proposedSnapshot.urn
             )
 
             for con_tbl_wu in wu_s:
@@ -170,13 +182,11 @@ class DremioSource(Source):
             self.report.report_workunit(wu)
             yield wu
 
-            if typ == 'VIEW':
+            if typ == "VIEW":
 
                 if self.is_enterprise_edition:
                     self.generate_view_table_lineage(
-                        schema=schema,
-                        table=table,
-                        definition=definition
+                        schema=schema, table=table, definition=definition
                     )
 
                 self.aggregator.add_view_definition(
@@ -184,11 +194,11 @@ class DremioSource(Source):
                         platform=make_data_platform_urn("dremio"),
                         name=f"{'.'.join(schema)}.{table}".lower(),
                         platform_instance=self.platform_instance,
-                        env=self.config.env
+                        env=self.config.env,
                     ),
                     view_definition=definition,
                     default_db=schema[0].lower() if len(schema) > 0 else "",
-                    default_schema=".".join(schema[1:]) if len(schema) > 1 else ""
+                    default_schema=".".join(schema[1:]) if len(schema) > 1 else "",
                 )
 
         for query in self.dremio_source.dremio_api.extract_all_queries():
@@ -200,7 +210,7 @@ class DremioSource(Source):
                             platform=make_data_platform_urn("dremio"),
                             name=ds.lower(),
                             platform_instance=self.platform_instance,
-                            env=self.config.env
+                            env=self.config.env,
                         )
                     )
 
@@ -211,7 +221,7 @@ class DremioSource(Source):
                         platform=make_data_platform_urn("dremio"),
                         name=query.get("affected_datasets").lower(),
                         platform_instance=self.platform_instance,
-                        env=self.config.env
+                        env=self.config.env,
                     )
 
                     self.aggregator.add_known_query_lineage(
@@ -219,19 +229,15 @@ class DremioSource(Source):
                             query_text=definition,
                             upstreams=upstream,
                             downstream=downstream,
-                            query_type=query.get("operation_type")
+                            query_type=query.get("operation_type"),
                         ),
-                        merge_lineage=True
+                        merge_lineage=True,
                     )
 
                     self.aggregator.add_observed_query(
                         query=definition,
                         query_timestamp=query.get("submitted_ts"),
-                        user=CorpUserUrn(
-                            make_user_urn(
-                                query.get("user_name")
-                            )
-                        ),
+                        user=CorpUserUrn(make_user_urn(query.get("user_name"))),
                     )
                     self.report.num_tables_with_known_upstreams += 1
 
@@ -249,7 +255,7 @@ class DremioSource(Source):
             space_name=space_name.lower(),
             platform=make_data_platform_urn("dremio"),
             platform_instance=self.platform_instance,
-            env=self.config.env
+            env=self.config.env,
         )
         con_wu_s = mcp_builder.gen_containers(
             container_key=db_key,
@@ -294,14 +300,15 @@ class DremioSource(Source):
 
     def generate_view_table_lineage(self, table, schema, definition) -> None:
         upstream = []
-        for upstream_dataset in self.dremio_source.get_parents(schema=schema,
-                                                               dataset=table):
+        for upstream_dataset in self.dremio_source.get_parents(
+            schema=schema, dataset=table
+        ):
             upstream.append(
                 make_dataset_urn_with_platform_instance(
                     platform=make_data_platform_urn("dremio"),
                     name=upstream_dataset.lower(),
                     platform_instance=self.platform_instance,
-                    env=self.config.env
+                    env=self.config.env,
                 )
             )
 
@@ -315,17 +322,17 @@ class DremioSource(Source):
                         name=f"{'.'.join(schema)}.{table}".lower(),
                         env=self.config.env,
                         platform_instance=self.platform_instance,
-                    )
+                    ),
                 ),
-                merge_lineage=True
+                merge_lineage=True,
             )
             self.report.num_tables_with_known_upstreams += 1
 
     def construct_metadata_changes(
-            self,
-            mce: MetadataChangeEventClass,
-            schema: list,
-            table: str,
+        self,
+        mce: MetadataChangeEventClass,
+        schema: list,
+        table: str,
     ) -> bool:
         if schema:
             dataset = f"{'.'.join(schema)}.{table}"
@@ -344,7 +351,7 @@ class DremioSource(Source):
 
         pop_res, table_metadata = self.dremio_source.populate_dataset_aspects(
             mce=mce,
-            schema='.'.join(schema) if schema else "",
+            schema=".".join(schema) if schema else "",
             folder_path=[self.platform_instance] + schema if schema else [],
             table_name=table,
             all_tables_and_columns=self.dremio_source.dremio_api.all_tables_and_columns,
@@ -358,8 +365,7 @@ class DremioSource(Source):
             return True
         else:
             self.aggregator.register_schema(
-                urn=mce.proposedSnapshot.urn,
-                schema=table_metadata
+                urn=mce.proposedSnapshot.urn, schema=table_metadata
             )
 
         if self.config.data_product_specs:
@@ -389,5 +395,3 @@ class DremioSource(Source):
 
     def close(self) -> None:
         pass
-
-

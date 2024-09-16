@@ -1,13 +1,14 @@
-from typing import Optional, Dict
+import logging
+from typing import Optional
 
 import certifi
-from datahub.emitter.mcp_builder import ContainerKey
-from pydantic import Field, root_validator
+from pydantic import Field
 
-from datahub.configuration.common import ConfigModel, AllowDenyPattern
-import logging
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.emitter.mcp_builder import ContainerKey
 
 logger = logging.Logger(__name__)
+
 
 class DremioSpaceKey(ContainerKey):
     space_name: str
@@ -18,6 +19,7 @@ class DremioFolderKey(ContainerKey):
     folder_name: str
     parent_folder: str
     platform_instance: str
+
 
 class DremioSourceConfig(ConfigModel):
     # Dremio Connection Details
@@ -59,7 +61,7 @@ class DremioSourceConfig(ConfigModel):
 
     path_to_certificates: str = certifi.where()
 
-    #Datahub Environment details
+    # Datahub Environment details
 
     env: Optional[str] = Field(
         default="PROD",
@@ -77,8 +79,7 @@ class DremioSourceConfig(ConfigModel):
     table_allow: bool = True
 
     collect_system_tables: bool = Field(
-        default=False,
-        description="Ingest Dremio system tables in catalog"
+        default=False, description="Ingest Dremio system tables in catalog"
     )
 
     match_fully_qualified_names: bool = Field(
@@ -92,5 +93,3 @@ class DremioSourceConfig(ConfigModel):
     data_product_specs: dict = None
     include_table_rename_lineage: bool = True
     include_copy_lineage: bool = True
-
-

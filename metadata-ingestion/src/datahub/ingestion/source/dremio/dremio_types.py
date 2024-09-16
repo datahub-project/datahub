@@ -1,6 +1,6 @@
-from typing import Union, Type, Dict
+from typing import Dict
 
 DREMIO_DATASET_TYPE_MAPPINGS: Dict[str, str] = {
-        "PDS": "Physical Dataset",
-        "VDS": "Virtual Dataset",
-    }
+    "PDS": "Physical Dataset",
+    "VDS": "Virtual Dataset",
+}
