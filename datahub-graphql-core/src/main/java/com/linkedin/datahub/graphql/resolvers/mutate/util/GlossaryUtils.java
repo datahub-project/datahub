@@ -33,7 +33,7 @@ public class GlossaryUtils {
    */
   public static boolean canManageGlossaries(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
+        context.getOperationContext(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
   }
 
   /**
@@ -79,11 +79,7 @@ public class GlossaryUtils {
             ImmutableList.of(new ConjunctivePrivilegeGroup(ImmutableList.of(privilege.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        parentNodeUrn.getEntityType(),
-        parentNodeUrn.toString(),
-        orPrivilegeGroups);
+        context, parentNodeUrn.getEntityType(), parentNodeUrn.toString(), orPrivilegeGroups);
   }
 
   /**
