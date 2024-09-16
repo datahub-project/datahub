@@ -17,8 +17,8 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
-import AccessManagement from "../shared/tabs/Dataset/AccessManagement/AccessManagement";
-import { useAppConfig } from "../../useAppConfig";
+import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
+import { useAppConfig } from '../../useAppConfig';
 
 /**
  * Definition of the DataHub Container entity.
@@ -94,7 +94,10 @@ export class ContainerEntity implements Entity<Container> {
                     component: AccessManagement,
                     display: {
                         visible: (_, container: GetContainerQuery) => {
-                            return this.appconfig().config.featureFlags.showAccessManagement && !!container?.container?.access
+                            return (
+                                this.appconfig().config.featureFlags.showAccessManagement &&
+                                !!container?.container?.access
+                            );
                         },
                         enabled: (_, container: GetContainerQuery) => {
                             const accessAspect = container?.container?.access;

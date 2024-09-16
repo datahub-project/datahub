@@ -60,12 +60,12 @@ query getContainer($urn: String!) {
             removed
         }
         access {
-			roles {
-				role {
-					urn
-				}
-			}
-		}
+            roles {
+                role {
+                    urn
+                }
+            }
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }
