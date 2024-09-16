@@ -14,7 +14,7 @@
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
-      height: 70vh;
+      height: 76vh;
       min-height: 600px;
     }
 
@@ -42,7 +42,9 @@
     .hero__img,
     .hero__text {
       color: white;
-      width: 60%;
+    }
+    .hero__img {
+      width: 45%;
     }
 
     .hero__text {

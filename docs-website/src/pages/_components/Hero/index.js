@@ -59,7 +59,7 @@ const Hero = ({}) => {
         <div className="hero__content">
           <div className="hero__text">
             <div className="hero__title">
-              The <strong>#1 open source</strong> metadata platform.
+              The <strong>#1 open source</strong><br/>metadata platform.
             </div>
             <div className="hero__subtitle">
               A unified platform for
