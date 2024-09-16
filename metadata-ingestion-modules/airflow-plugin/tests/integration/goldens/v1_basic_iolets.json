@@ -18,7 +18,8 @@
                 "timezone": "Timezone('UTC')"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=basic_iolets",
-            "name": "basic_iolets"
+            "name": "basic_iolets",
+            "env": "PROD"
         }
     }
 },
@@ -92,7 +93,8 @@
             "name": "run_data_task",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "env": "PROD"
         }
     }
 },
@@ -572,8 +574,8 @@
         "json": {
             "timestampMillis": 1717180290951,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 2
@@ -589,8 +591,8 @@
         "json": {
             "timestampMillis": 1717180291140,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {

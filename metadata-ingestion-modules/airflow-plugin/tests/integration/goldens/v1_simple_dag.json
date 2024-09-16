@@ -19,7 +19,8 @@
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=simple_dag",
             "name": "simple_dag",
-            "description": "A simple DAG that runs a few fake data tasks."
+            "description": "A simple DAG that runs a few fake data tasks.",
+            "env": "PROD"
         }
     }
 },
@@ -93,7 +94,8 @@
             "name": "task_1",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "env": "PROD"
         }
     }
 },
@@ -447,8 +449,8 @@
         "json": {
             "timestampMillis": 1717180227827,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 2
@@ -464,8 +466,8 @@
         "json": {
             "timestampMillis": 1717180228022,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
@@ -558,7 +560,8 @@
             "name": "run_another_data_task",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "env": "PROD"
         }
     }
 },
@@ -758,8 +761,8 @@
         "json": {
             "timestampMillis": 1717180231676,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 2
@@ -775,8 +778,8 @@
         "json": {
             "timestampMillis": 1717180231824,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {

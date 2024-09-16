@@ -19,7 +19,8 @@
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=custom_operator_dag",
             "name": "custom_operator_dag",
-            "description": "An example dag with custom operator"
+            "description": "An example dag with custom operator",
+            "env": "PROD"
         }
     }
 },
@@ -129,13 +130,14 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.18.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"CustomOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"execution_timeout\": \"<<non-serializable: timedelta>>\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"mapped\": false, \"operator_class\": \"custom_operator.CustomOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"custom_task_id\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.18.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"CustomOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"execution_timeout\": \"<<non-serializable: timedelta>>\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"mapped\": false, \"operator_class\": \"unusual_prefix_eab30e0aa660e38948d8dc30c6e600c764319a2e_custom_operator_dag.CustomOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"custom_task_id\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=custom_operator_dag&_flt_3_task_id=custom_task_id",
             "name": "custom_task_id",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "env": "PROD"
         }
     }
 },
@@ -274,13 +276,14 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None), Dataset(platform='snowflake', name='mydb.schema.tableB', env='PROD', platform_instance=None)]",
                 "outlets": "[Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None)]",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.18.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"CustomOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"execution_timeout\": \"<<non-serializable: timedelta>>\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"mapped\": false, \"operator_class\": \"custom_operator.CustomOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"custom_task_id\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.18.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"CustomOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"execution_timeout\": \"<<non-serializable: timedelta>>\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"mapped\": false, \"operator_class\": \"unusual_prefix_eab30e0aa660e38948d8dc30c6e600c764319a2e_custom_operator_dag.CustomOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"custom_task_id\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=custom_operator_dag&_flt_3_task_id=custom_task_id",
             "name": "custom_task_id",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "env": "PROD"
         }
     }
 },
