@@ -18,7 +18,7 @@ import {
     ActionsButtonContainer,
 } from './components';
 
-import { AssetTypeSelect } from '../inputs/AssetTypeSelect';
+import { EntityTypeSelector } from '../EntityTypeSelector';
 
 import { ACTION_TYPES } from './action';
 
@@ -53,10 +53,10 @@ const ActionSelector = ({ ...props }: any) => {
             {selectedAction?.valueOptions.mode === SelectInputMode.NONE && <div>{selectedAction?.description}</div>}
             {selectedAction?.valueOptions.mode !== SelectInputMode.NONE && (
                 <div>
-                    <AssetTypeSelect
-                        entityTypes={selectedAction?.valueOptions.entityTypes}
-                        mode={selectedAction?.valueOptions.mode}
-                        selected={props.values}
+                    <EntityTypeSelector
+                        state={props.values}
+                        props={selectedAction?.valueOptions}
+                        passStateToParent={(values: any) => props.updateValues(values, props.id)}
                     />
                 </div>
             )}

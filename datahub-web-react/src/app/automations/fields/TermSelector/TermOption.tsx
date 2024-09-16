@@ -1,11 +1,11 @@
-import React, { useRef, useEffect, useState } from 'react';
-
+import React, { useState, useEffect } from 'react';
 import { Radio } from 'antd';
 import styled from 'styled-components';
 
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { sharedStyles } from '@app/automations/sharedComponents';
 
+import { EntityType } from '@src/types.generated';
 import type { SelectDropdownProps, RadioValue } from './types';
 import { SelectDropdown } from './SelectDropdown';
 
@@ -60,40 +60,65 @@ type Props = {
     radio: {
         preselectedValue: RadioValue;
     };
-    onChange: (value: any) => void;
+    onChange: (value: any, entity: EntityType) => void;
 };
 
 export const TermOption = ({ shortType, selects, radio, onChange }: Props) => {
     const { preselectedValue } = radio;
 
-    const [selectedOptions, setSelectedOptions] = useState<any>({
-        [shortType.toLowerCase()]: [],
+    // Internal state for selected options
+    const [selectedOptions, setSelectedOptions] = useState(() => {
+        const initialSelected = {};
+        selects.forEach((select) => {
+            initialSelected[select.type] = select.preselectedOptions || [];
+        });
+        return initialSelected;
     });
+
+    // Internal state for radio value
     const [radioValue, setRadioValue] = useState<RadioValue>(preselectedValue);
 
     // Handle the change of the selected terms
-    const handleTermsChange = (values: any) => {
-        setSelectedOptions({
+    const handleTermsChange = (values: any, entity: EntityType) => {
+        const newSelectedOptions = {
             ...selectedOptions,
             ...values,
-        });
+        };
+        setSelectedOptions(newSelectedOptions);
+        onChange(
+            {
+                selectionType: radioValue,
+                selected: newSelectedOptions,
+            },
+            entity,
+        );
     };
 
-    const prevProps = useRef(selectedOptions);
-
-    // Send the data back to the parent component
-    // Only sends the data if the form data has changed
-    useEffect(() => {
-        const prevData = prevProps.current;
-        const hasChanged = JSON.stringify(prevData) !== JSON.stringify({ selectedOptions, selectedType: radioValue });
-        if (hasChanged) {
-            onChange({
-                selectionType: radioValue,
+    // Handle the change of the radio value
+    const handleRadioChange = (value: RadioValue) => {
+        setRadioValue(value);
+        onChange(
+            {
+                selectionType: value,
                 selected: selectedOptions,
-            });
-        }
-        prevProps.current = { selectedOptions, selectedType: radioValue };
-    }, [selectedOptions, radioValue, onChange]);
+            },
+            shortType === 'terms' ? EntityType.GlossaryTerm : EntityType.Tag,
+        );
+    };
+
+    // Update the radio value when the preselectedValue prop changes
+    useEffect(() => {
+        setRadioValue(preselectedValue);
+    }, [preselectedValue]);
+
+    // Set the selected options based on the preselected options
+    useEffect(() => {
+        const updatedSelectedOptions = {};
+        selects.forEach((select) => {
+            updatedSelectedOptions[select.type] = select.preselectedOptions || [];
+        });
+        setSelectedOptions(updatedSelectedOptions);
+    }, [selects]);
 
     return (
         <Wrapper>
@@ -102,12 +127,12 @@ export const TermOption = ({ shortType, selects, radio, onChange }: Props) => {
                 <Label>Allowed {shortType}</Label>
                 <StyledRadioGroup
                     options={[
+                        { label: `All ${shortType}`, value: 'all' }, // this is the default
                         { label: `${capitalizeFirstLetterOnly(shortType)} in a specific set`, value: 'some' },
-                        { label: `All ${shortType}`, value: 'all' },
                         { label: 'None', value: 'none' },
                     ]}
                     value={radioValue}
-                    onChange={(e) => setRadioValue(e.target.value)}
+                    onChange={(e) => handleRadioChange(e.target.value)}
                 />
             </div>
             {/* Select dropdown for selecting options */}
@@ -122,7 +147,7 @@ export const TermOption = ({ shortType, selects, radio, onChange }: Props) => {
                             <SelectDropdown
                                 key={select.type}
                                 placeholder={`Select ${select.label}…`}
-                                onChange={(value) => handleTermsChange(value)}
+                                onChange={(value) => handleTermsChange(value, select.type)}
                                 {...select}
                             />
                         ))}

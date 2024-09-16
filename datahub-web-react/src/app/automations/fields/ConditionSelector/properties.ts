@@ -2,7 +2,7 @@
  * The file contains a set of well-supported properties,
  * which the UI deeply understands.
  */
-import { EntityType } from '../../../../../types.generated';
+import { EntityType } from '@types';
 import { SelectInputMode, ValueTypeId } from '../types/values';
 
 /**

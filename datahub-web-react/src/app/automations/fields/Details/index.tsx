@@ -1,0 +1,82 @@
+import React from 'react';
+import styled from 'styled-components';
+import { Input } from 'antd';
+
+import type { ComponentBaseProps } from '@app/automations/types';
+
+import { CategorySelector } from '../CategorySelector';
+
+const Container = styled.div`
+    display: grid;
+    gap: 8px;
+
+    & span {
+        padding-left: 4px;
+    }
+`;
+
+// State Type (ensures the state is correctly applied across templates)
+export type DetailsStateType = {
+    name?: string;
+    description?: string;
+    category?: string;
+};
+
+// Component
+export const Details = ({ state, props, passStateToParent }: ComponentBaseProps) => {
+    // Defined in @app/automations/fields/index
+    const { name: nameProps, description: descriptionProps, category: categoryProps } = props;
+
+    // Defined in @app/automations/fields/index
+    const { name, description, category } = state as DetailsStateType;
+
+    // Handle passing state to parent
+    const handleChange = (key: string, value: string) => {
+        const newState = { name, description, category, [key]: value };
+        passStateToParent(newState);
+    };
+
+    return (
+        <Container>
+            <div>
+                <label aria-required={nameProps.isRequired} htmlFor="name">
+                    {nameProps.label}
+                    {nameProps.isRequired && <span style={{ color: 'red' }}>*</span>}
+                </label>
+                <Input
+                    type="text"
+                    name="name"
+                    value={name}
+                    placeholder={nameProps.placeholder}
+                    onChange={(e) => handleChange('name', e.target.value)}
+                    required={nameProps.isRequired}
+                />
+            </div>
+            <div>
+                <label aria-required={descriptionProps.isRequired} htmlFor="description">
+                    {descriptionProps.label}
+                    {descriptionProps.isRequired && <span style={{ color: 'red' }}>*</span>}
+                </label>
+                <Input.TextArea
+                    name="description"
+                    value={description}
+                    placeholder={descriptionProps.placeholder}
+                    onChange={(e) => handleChange('description', e.target.value)}
+                    required={descriptionProps.isRequired}
+                />
+            </div>
+            {!categoryProps.isHidden && (
+                <div>
+                    <label aria-required={categoryProps.isRequired} htmlFor="category">
+                        {categoryProps.label}
+                        {categoryProps.isRequired && <span style={{ color: 'red' }}>*</span>}
+                    </label>
+                    <CategorySelector
+                        categorySelected={category}
+                        setCategorySelected={(value) => handleChange('category', value)}
+                    />
+                </div>
+            )}
+        </Container>
+    );
+};

@@ -1,17 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 import { Modal, Button } from 'antd';
 
 import { YamlEditor } from '../../ingest/source/builder/YamlEditor';
 
-import { Configure } from '../Configure';
+import { Configure } from '../fields/configure';
 import { AutomationTypes } from '../constants';
 import { getYaml } from '../utils';
 
 import { useAutomationContext } from './AutomationProvider';
-
-import { updateFormData } from './utils/updateFormData';
-import { updateRecipe } from './utils/updateRecipe';
 
 import { AutomationsModalHeader, AutomationModalFooter, AutomationsDescription, AutomationLogo } from './components';
 
@@ -21,21 +18,7 @@ type AutomationEditModalProps = {
 };
 
 export const AutomationEditModal = ({ isOpen, setIsOpen }: AutomationEditModalProps) => {
-    const { type, name, localTemplate, definition, formData, recipe, setRecipe, setFormData, updateAutomation } =
-        useAutomationContext();
-
-    // Update context formData on mount
-    // This is necessary to ensure the form data is updated
-    useEffect(() => {
-        const newFormData = updateFormData(definition, formData);
-        const newRecipe = updateRecipe(definition, recipe);
-        setFormData?.(newFormData);
-        setRecipe?.(newRecipe);
-
-        // NOTE: Run effect once on component mount, please recheck dependencies if effect is updated.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
+    const { type, name, localTemplate, formData, recipe, updateAutomation } = useAutomationContext();
     const [showYaml, setShowYaml] = useState(false);
 
     // Check if the form is disabled

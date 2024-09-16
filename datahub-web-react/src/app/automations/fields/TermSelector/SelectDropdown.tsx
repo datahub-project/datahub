@@ -62,7 +62,7 @@ export const SelectDropdown = ({
     return (
         <div>
             <Label>
-                {selectedOptions.length} {label?.toLowerCase()} selected for propagation
+                {selectedOptions?.length || 0} {label?.toLowerCase()} selected for propagation
             </Label>
             <Select
                 mode="multiple"

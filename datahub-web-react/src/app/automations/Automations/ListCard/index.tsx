@@ -21,9 +21,9 @@ export const AutomationsListCard = ({ automation }: any) => {
             context={{
                 urn: urn || automation.key,
                 type,
-                name,
-                category,
-                description,
+                name: definition.name || name,
+                category: definition.category || category,
+                description: definition.description || description,
                 definition,
                 localTemplate: getTemplate(definition.action?.type) || ({} as any),
             }}
