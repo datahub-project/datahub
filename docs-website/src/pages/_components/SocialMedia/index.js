@@ -31,6 +31,7 @@ const VideoItem = ({ isActive, src }) => {
     loop
     // autoPlay
     preload="auto"
+    controls={false}
     src={src}
     className={styles.video}
   />
