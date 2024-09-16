@@ -7,11 +7,11 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union, cast
 from lark import Tree
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     DataBricksPlatformDetail,
     DataPlatformPair,
-    PlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
     PowerBIPlatformDetail,
