@@ -15,6 +15,7 @@ import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import com.linkedin.metadata.timeline.data.dataset.DatasetSchemaFieldChangeEvent;
+import com.linkedin.metadata.timeline.data.dataset.SchemaFieldModificationCategory;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaMetadata;
@@ -246,6 +247,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
                 .fieldPath(curBaseField.getFieldPath())
                 .fieldUrn(getSchemaFieldUrn(datasetUrn, curBaseField))
                 .nullable(curBaseField.isNullable())
+                .modificationCategory(SchemaFieldModificationCategory.TYPE_CHANGE)
                 .auditStamp(auditStamp)
                 .build());
       }
@@ -483,6 +485,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
         .fieldPath(curBaseField.getFieldPath())
         .fieldUrn(getSchemaFieldUrn(datasetUrn, curBaseField))
         .nullable(curBaseField.isNullable())
+        .modificationCategory(SchemaFieldModificationCategory.RENAME)
         .auditStamp(auditStamp)
         .build();
   }

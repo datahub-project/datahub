@@ -1,4 +1,4 @@
-package com.datahub.metadata.dao.producer;
+package com.datahub.metadata.dao.throttle;
 
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -14,6 +14,8 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
+import com.linkedin.metadata.dao.throttle.ThrottleControl;
+import com.linkedin.metadata.dao.throttle.ThrottleType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.Topics;
 import com.linkedin.util.Pair;
@@ -34,7 +36,7 @@ import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
 import org.testng.annotations.Test;
 
-public class KafkaProducerThrottleTest {
+public class KafkaThrottleSensorTest {
   private static final List<String> STANDARD_TOPICS =
       List.of(Topics.METADATA_CHANGE_LOG_VERSIONED, Topics.METADATA_CHANGE_LOG_TIMESERIES);
   private static final String STANDARD_MCL_CONSUMER_GROUP_ID = "generic-mae-consumer-job-client";
@@ -54,16 +56,16 @@ public class KafkaProducerThrottleTest {
                 topicPart -> ((long) topicPart.partition() + 1) * 2,
                 3));
 
-    KafkaProducerThrottle test =
-        KafkaProducerThrottle.builder()
+    KafkaThrottleSensor test =
+        KafkaThrottleSensor.builder()
             .config(noSchedulerConfig().getThrottle())
             .kafkaAdmin(mockAdmin)
             .versionedTopicName(STANDARD_TOPICS.get(0))
             .timeseriesTopicName(STANDARD_TOPICS.get(1))
             .entityRegistry(mock(EntityRegistry.class))
             .mclConsumerGroupId(STANDARD_MCL_CONSUMER_GROUP_ID)
-            .pauseConsumer(mock(Consumer.class))
-            .build();
+            .build()
+            .addCallback((throttleEvent -> ThrottleControl.NONE));
 
     // Refresh calculations
     test.refresh();
@@ -71,8 +73,8 @@ public class KafkaProducerThrottleTest {
     assertEquals(
         test.getLag(),
         Map.of(
-            KafkaProducerThrottle.MclType.VERSIONED, 2L,
-            KafkaProducerThrottle.MclType.TIMESERIES, 2L));
+            ThrottleType.MCL_VERSIONED_LAG, 2L,
+            ThrottleType.MCL_TIMESERIES_LAG, 2L));
   }
 
   @Test
@@ -111,45 +113,52 @@ public class KafkaProducerThrottleTest {
 
     Consumer<Boolean> pauseFunction = mock(Consumer.class);
 
-    KafkaProducerThrottle test =
-        KafkaProducerThrottle.builder()
+    KafkaThrottleSensor test =
+        KafkaThrottleSensor.builder()
             .config(noThrottleConfig)
             .kafkaAdmin(mockAdmin)
             .versionedTopicName(STANDARD_TOPICS.get(0))
             .timeseriesTopicName(STANDARD_TOPICS.get(1))
             .entityRegistry(mock(EntityRegistry.class))
             .mclConsumerGroupId(STANDARD_MCL_CONSUMER_GROUP_ID)
-            .pauseConsumer(pauseFunction)
-            .build();
+            .build()
+            .addCallback(
+                (throttleEvent -> {
+                  pauseFunction.accept(throttleEvent.isThrottled());
+                  return ThrottleControl.builder()
+                      .callback(
+                          throttleResume -> pauseFunction.accept(throttleResume.isThrottled()))
+                      .build();
+                }));
 
     // Refresh calculations
     test.refresh();
     assertEquals(
         test.getLag(),
         Map.of(
-            KafkaProducerThrottle.MclType.VERSIONED, 2L,
-            KafkaProducerThrottle.MclType.TIMESERIES, 2L));
+            ThrottleType.MCL_VERSIONED_LAG, 2L,
+            ThrottleType.MCL_TIMESERIES_LAG, 2L));
     assertFalse(
-        test.isThrottled(KafkaProducerThrottle.MclType.VERSIONED),
+        test.isThrottled(ThrottleType.MCL_VERSIONED_LAG),
         "Expected not throttling, lag is below threshold");
-    assertFalse(test.isThrottled(KafkaProducerThrottle.MclType.TIMESERIES));
+    assertFalse(test.isThrottled(ThrottleType.MCL_TIMESERIES_LAG));
     test.throttle();
     verifyNoInteractions(pauseFunction);
     reset(pauseFunction);
 
-    KafkaProducerThrottle test2 = test.toBuilder().config(throttleConfig).build();
+    KafkaThrottleSensor test2 = test.toBuilder().config(throttleConfig).build();
     // Refresh calculations
     test2.refresh();
     assertEquals(
         test2.getLag(),
         Map.of(
-            KafkaProducerThrottle.MclType.VERSIONED, 2L,
-            KafkaProducerThrottle.MclType.TIMESERIES, 2L));
+            ThrottleType.MCL_VERSIONED_LAG, 2L,
+            ThrottleType.MCL_TIMESERIES_LAG, 2L));
     assertTrue(
-        test2.isThrottled(KafkaProducerThrottle.MclType.VERSIONED),
+        test2.isThrottled(ThrottleType.MCL_VERSIONED_LAG),
         "Expected throttling, lag is above threshold.");
     assertFalse(
-        test2.isThrottled(KafkaProducerThrottle.MclType.TIMESERIES),
+        test2.isThrottled(ThrottleType.MCL_TIMESERIES_LAG),
         "Expected not throttling. Timeseries is disabled");
     test2.throttle();
 
@@ -183,56 +192,48 @@ public class KafkaProducerThrottleTest {
                 topicPart -> ((long) topicPart.partition() + 1) * 2,
                 3));
 
-    KafkaProducerThrottle test =
-        KafkaProducerThrottle.builder()
+    KafkaThrottleSensor test =
+        KafkaThrottleSensor.builder()
             .config(throttleConfig)
             .kafkaAdmin(mockAdmin)
             .versionedTopicName(STANDARD_TOPICS.get(0))
             .timeseriesTopicName(STANDARD_TOPICS.get(1))
             .entityRegistry(mock(EntityRegistry.class))
             .mclConsumerGroupId(STANDARD_MCL_CONSUMER_GROUP_ID)
-            .pauseConsumer(mock(Consumer.class))
-            .build();
+            .build()
+            .addCallback((throttleEvent -> ThrottleControl.NONE));
 
     // Refresh calculations
     test.refresh();
     assertEquals(
         test.getLag(),
         Map.of(
-            KafkaProducerThrottle.MclType.VERSIONED, 2L,
-            KafkaProducerThrottle.MclType.TIMESERIES, 2L));
+            ThrottleType.MCL_VERSIONED_LAG, 2L,
+            ThrottleType.MCL_TIMESERIES_LAG, 2L));
     assertTrue(
-        test.isThrottled(KafkaProducerThrottle.MclType.VERSIONED),
+        test.isThrottled(ThrottleType.MCL_VERSIONED_LAG),
         "Expected throttling, lag is above threshold.");
     assertFalse(
-        test.isThrottled(KafkaProducerThrottle.MclType.TIMESERIES),
+        test.isThrottled(ThrottleType.MCL_TIMESERIES_LAG),
         "Expected no throttling. Timeseries is disabled");
 
     assertEquals(
-        test.computeNextBackOff(KafkaProducerThrottle.MclType.TIMESERIES),
+        test.computeNextBackOff(ThrottleType.MCL_TIMESERIES_LAG),
         0L,
         "Expected no backoff. Timeseries is disabled.");
 
+    assertEquals(test.computeNextBackOff(ThrottleType.MCL_VERSIONED_LAG), 1L, "Expected initial 1");
     assertEquals(
-        test.computeNextBackOff(KafkaProducerThrottle.MclType.VERSIONED), 1L, "Expected initial 1");
+        test.computeNextBackOff(ThrottleType.MCL_VERSIONED_LAG), 2L, "Expected second 2^1");
+    assertEquals(test.computeNextBackOff(ThrottleType.MCL_VERSIONED_LAG), 4L, "Expected third 2^2");
     assertEquals(
-        test.computeNextBackOff(KafkaProducerThrottle.MclType.VERSIONED),
-        2L,
-        "Expected second 2^1");
+        test.computeNextBackOff(ThrottleType.MCL_VERSIONED_LAG), 8L, "Expected fourth 2^3");
     assertEquals(
-        test.computeNextBackOff(KafkaProducerThrottle.MclType.VERSIONED), 4L, "Expected third 2^2");
-    assertEquals(
-        test.computeNextBackOff(KafkaProducerThrottle.MclType.VERSIONED),
-        8L,
-        "Expected fourth 2^3");
-    assertEquals(
-        test.computeNextBackOff(KafkaProducerThrottle.MclType.VERSIONED),
+        test.computeNextBackOff(ThrottleType.MCL_VERSIONED_LAG),
         8L,
         "Expected fifth max interval at 8");
     assertEquals(
-        test.computeNextBackOff(KafkaProducerThrottle.MclType.VERSIONED),
-        -1L,
-        "Expected max attempts");
+        test.computeNextBackOff(ThrottleType.MCL_VERSIONED_LAG), -1L, "Expected max attempts");
   }
 
   @Test
@@ -253,16 +254,16 @@ public class KafkaProducerThrottleTest {
     AdminClient mockAdmin =
         mockKafka(generateLag(STANDARD_TOPICS, topicPart -> 1L, topicPart -> 2L, 1));
 
-    KafkaProducerThrottle test =
-        KafkaProducerThrottle.builder()
+    KafkaThrottleSensor test =
+        KafkaThrottleSensor.builder()
             .config(throttlesConfig)
             .kafkaAdmin(mockAdmin)
             .versionedTopicName(STANDARD_TOPICS.get(0))
             .timeseriesTopicName(STANDARD_TOPICS.get(1))
             .entityRegistry(mock(EntityRegistry.class))
             .mclConsumerGroupId(STANDARD_MCL_CONSUMER_GROUP_ID)
-            .pauseConsumer(mock(Consumer.class))
-            .build();
+            .build()
+            .addCallback((throttleEvent -> ThrottleControl.NONE));
 
     try {
       test.start();
@@ -270,8 +271,8 @@ public class KafkaProducerThrottleTest {
       assertEquals(
           test.getLag(),
           Map.of(
-              KafkaProducerThrottle.MclType.VERSIONED, 1L,
-              KafkaProducerThrottle.MclType.TIMESERIES, 1L),
+              ThrottleType.MCL_VERSIONED_LAG, 1L,
+              ThrottleType.MCL_TIMESERIES_LAG, 1L),
           "Expected lag updated");
     } finally {
       test.stop();

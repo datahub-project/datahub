@@ -12,7 +12,7 @@ public class PolicyAuthUtils {
 
   static boolean canManagePolicies(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorizedEntityType(
-        context.getActorUrn(), context.getAuthorizer(), MANAGE, List.of(POLICY_ENTITY_NAME));
+        context.getOperationContext(), MANAGE, List.of(POLICY_ENTITY_NAME));
   }
 
   private PolicyAuthUtils() {}

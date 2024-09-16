@@ -472,6 +472,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             upstream_nodes=upstream_nodes,
             materialization=materialization,
             catalog_type=catalog_type,
+            missing_from_catalog=False,  # This doesn't really apply to dbt Cloud.
             meta=meta,
             query_tag={},  # TODO: Get this from the dbt API.
             tags=tags,
