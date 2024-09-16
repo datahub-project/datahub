@@ -152,6 +152,36 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
   }
 
   @Test
+  public void testSchemaFieldDropAdd() throws Exception {
+    // When a rename cannot be detected, treated as drop -> add
+    SchemaMetadataChangeEventGenerator test = new SchemaMetadataChangeEventGenerator();
+
+    Urn urn = getTestUrn();
+    String entity = "dataset";
+    String aspect = "schemaMetadata";
+    AuditStamp auditStamp = getTestAuditStamp();
+
+    Aspect<SchemaMetadata> from =
+        getSchemaMetadata(
+            List.of(new SchemaField().setFieldPath("ID").setNativeDataType("NUMBER(16,1)")));
+    Aspect<SchemaMetadata> to3 =
+        getSchemaMetadata(
+            List.of(new SchemaField().setFieldPath("ID2").setNativeDataType("NUMBER(10,1)")));
+    List<ChangeEvent> actual = test.getChangeEvents(urn, entity, aspect, from, to3, auditStamp);
+    compareDescriptions(
+        Set.of(
+            "A forwards & backwards compatible change due to the newly added field 'ID2'.",
+            "A backwards incompatible change due to removal of field: 'ID'."),
+        actual);
+    assertEquals(2, actual.size());
+    compareModificationCategories(
+        Set.of(
+            SchemaFieldModificationCategory.OTHER.toString(),
+            SchemaFieldModificationCategory.TYPE_CHANGE.toString()),
+        actual);
+  }
+
+  @Test
   public void testDelete() throws Exception {
     SchemaMetadataChangeEventGenerator test = new SchemaMetadataChangeEventGenerator();
 
