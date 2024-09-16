@@ -242,7 +242,7 @@
             "name": "datahub_emitter_operator_jinja_template_dag_datahub_emitter_operator_jinja_template_dag_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1726471924787,
+                "time": 1726473074519,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -267,7 +267,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1726471924787,
+            "timestampMillis": 1726473074519,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -296,6 +296,23 @@
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.lineage_example,DEV)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "jinjaTemplate": "2023-09-27"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.lineage_example_20230927T213438,DEV)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -409,7 +426,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1726471924940,
+            "timestampMillis": 1726473074625,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

@@ -75,9 +75,9 @@ class DatahubEmitterOperator(DatahubBaseOperator):
             for item in field_value:
                 self._render_template_fields(item, context, jinja_env)
         elif isinstance(field_value, str):
-            return self.render_template(field_value, context, jinja_env)
+            return super().render_template(field_value, context, jinja_env)
         else:
-            return self.render_template(field_value, context, jinja_env)
+            return super().render_template(field_value, context, jinja_env)
         return field_value
 
     def execute(self, context):

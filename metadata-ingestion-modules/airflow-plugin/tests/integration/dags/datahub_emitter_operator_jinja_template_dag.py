@@ -50,6 +50,16 @@ with DAG(
                     ],
                 ),
             ),
+            MetadataChangeEvent(
+                proposedSnapshot=DatasetSnapshotClass(
+                    urn="urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.lineage_example_{{ ts_nodash }},DEV)",
+                    aspects=[
+                        DatasetPropertiesClass(
+                            customProperties={"jinjaTemplate": "{{ ds }}"}
+                        )
+                    ],
+                ),
+            ),
         ],
         datahub_conn_id="datahub_file_default",
     )
