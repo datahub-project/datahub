@@ -22,11 +22,12 @@ import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 //   </div>
 // );
 
+const SOLUTION_TEXTS = ["AI Governance", "Data Discovery", "AI Collaboration", "Data Governance", "Data Democratization", "Data Observability"];
+
 const Hero = ({}) => {
   // const { colorMode } = useColorMode();
   const textIndex = useMotionValue(0);
-  const texts = ["AI Governance", "AI Discovery", "AI Observability"];
-  const baseText = useTransform(textIndex, (latest) => texts[latest] || "");
+  const baseText = useTransform(textIndex, (latest) => SOLUTION_TEXTS[latest] || "");
   const count = useMotionValue(0);
   const rounded = useTransform(count, (latest) => Math.round(latest));
   const displayText = useTransform(rounded, (latest) =>
@@ -41,12 +42,12 @@ const Hero = ({}) => {
       ease: "easeIn",
       repeat: Infinity,
       repeatType: "reverse",
-      repeatDelay: 0.5,
+      repeatDelay: 0,
       onUpdate(latest) {
         if (updatedThisRound.get() === true && latest > 0) {
           updatedThisRound.set(false);
         } else if (updatedThisRound.get() === false && latest === 0) {
-          if (textIndex.get() === texts.length - 1) {
+          if (textIndex.get() === SOLUTION_TEXTS.length - 1) {
             textIndex.set(0);
           } else {
             textIndex.set(textIndex.get() + 1);
@@ -65,7 +66,7 @@ const Hero = ({}) => {
               The <strong>#1 open source</strong> metadata platform.
             </div>
             <div className="hero__subtitle">
-              A unified platform for{" "}
+              A unified platform for
               <span>
                 <motion.span>{displayText}</motion.span>
               </span>
