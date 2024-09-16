@@ -257,7 +257,17 @@ public class OpenAPIV3Generator {
                         .in(NAME_PATH)
                         .name("urn")
                         .description("The entity's unique URN id.")
-                        .schema(new Schema().type(TYPE_STRING))))
+                        .schema(new Schema().type(TYPE_STRING)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name("clear")
+                        .description("Delete all aspects, preserving the entity's key aspect.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
+                    new Parameter()
+                        .$ref(
+                            String.format(
+                                "#/components/parameters/%s",
+                                aspectParameterName + MODEL_VERSION))))
             .tags(List.of(entity.getName() + " Entity"))
             .responses(new ApiResponses().addApiResponse("200", successDeleteResponse));
 
@@ -507,13 +517,13 @@ public class OpenAPIV3Generator {
             .items(
                 new Schema()
                     .type(TYPE_STRING)
-                    ._enum(aspectNames)
+                    ._enum(aspectNames.stream().sorted().toList())
                     ._default(aspectNames.stream().findFirst().orElse(null)));
     return new Parameter()
         .in(NAME_QUERY)
         .name("aspects")
         .explode(true)
-        .description("Aspects to include in response.")
+        .description("Aspects to include.")
         .example(aspectNames)
         .schema(schema);
   }

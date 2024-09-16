@@ -68,7 +68,9 @@ class LookerQuery:
             model=cast(str, self.model.value),  # the cast is jut to silent the lint
             view=cast(str, self.explore.value),
             fields=[cast(str, field.value) for field in self.fields],
-            filters={filter_.value: self.filters[filter_] for filter_ in self.filters}
-            if self.filters is not None
-            else {},
+            filters=(
+                {filter_.value: self.filters[filter_] for filter_ in self.filters}
+                if self.filters is not None
+                else {}
+            ),
         )

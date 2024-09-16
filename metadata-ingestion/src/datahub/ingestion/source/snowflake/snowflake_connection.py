@@ -237,9 +237,11 @@ class SnowflakeConnectionConfig(ConfigModel):
 
             p_key = serialization.load_pem_private_key(
                 pkey_bytes,
-                password=self.private_key_password.get_secret_value().encode()
-                if self.private_key_password is not None
-                else None,
+                password=(
+                    self.private_key_password.get_secret_value().encode()
+                    if self.private_key_password is not None
+                    else None
+                ),
                 backend=default_backend(),
             )
 

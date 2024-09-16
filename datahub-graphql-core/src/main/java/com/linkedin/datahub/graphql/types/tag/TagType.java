@@ -164,8 +164,7 @@ public class TagType
     // Decide whether the current principal should be allowed to update the Dataset.
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
+        context,
         PoliciesConfig.TAG_PRIVILEGES.getResourceType(),
         update.getUrn(),
         orPrivilegeGroups);

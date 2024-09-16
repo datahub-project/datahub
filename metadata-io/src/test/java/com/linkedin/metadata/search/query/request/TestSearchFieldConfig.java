@@ -1,8 +1,9 @@
-package com.linkedin.metadata.search.elasticsearch.query.request;
+package com.linkedin.metadata.search.query.request;
 
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Assertions;

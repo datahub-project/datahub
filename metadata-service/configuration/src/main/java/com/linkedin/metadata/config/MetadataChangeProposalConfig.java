@@ -14,8 +14,28 @@ public class MetadataChangeProposalConfig {
   @Accessors(chain = true)
   public static class ThrottlesConfig {
     Integer updateIntervalMs;
+    ComponentsThrottleConfig components;
     ThrottleConfig versioned;
     ThrottleConfig timeseries;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class ComponentsThrottleConfig {
+    MceConsumerThrottleConfig mceConsumer;
+    ApiRequestsThrottleConfig apiRequests;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class MceConsumerThrottleConfig {
+    boolean enabled;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class ApiRequestsThrottleConfig {
+    boolean enabled;
   }
 
   @Data

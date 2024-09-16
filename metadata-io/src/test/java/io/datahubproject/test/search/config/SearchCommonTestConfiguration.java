@@ -7,6 +7,7 @@ import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -54,5 +55,10 @@ public class SearchCommonTestConfiguration {
   @Bean(name = "queryOperationContext")
   public OperationContext queryOperationContext() {
     return TestOperationContexts.systemContextNoSearchAuthorization();
+  }
+
+  @Bean
+  public QueryFilterRewriteChain queryFilterRewriteChain() {
+    return QueryFilterRewriteChain.EMPTY;
   }
 }
