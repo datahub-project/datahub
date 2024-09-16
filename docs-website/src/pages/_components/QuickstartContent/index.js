@@ -18,8 +18,8 @@ const QuickstartContent = ({}) => {
     target: scrollableElement,
     offset: ["start end", "end end"]
   })
-  const scaleBar = useTransform(scrollYProgress, [0, .9, 1], [0, .8, 1]);
-  const opacityBar = useTransform(scrollYProgress, [0, 0.2, 0.5], [0, 0, 1]);
+  const scaleBar = useTransform(scrollYProgress, [0, 0.2, .9, 1], [0, 0, .8, 1]);
+  const opacityBar = useTransform(scrollYProgress, [0, 0.2, 0.4], [0, 0, 1]);
 
   return (
     <div className={clsx("quickstart", styles.quickstart)}>
