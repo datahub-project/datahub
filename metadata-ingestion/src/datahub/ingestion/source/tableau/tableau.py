@@ -3318,7 +3318,8 @@ class TableauSiteSource:
         if self.config.extract_usage_stats:
             self._populate_usage_stat_registry()
 
-        self._fetch_groups()
+        if self.config.access_role_ingestion:
+            self._fetch_groups()
 
         # Populate the map of database names and database hostnames to be used later to map
         # databases to platform instances.
