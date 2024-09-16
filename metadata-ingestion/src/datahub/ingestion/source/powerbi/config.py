@@ -9,7 +9,7 @@ from pydantic.class_validators import root_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -230,19 +230,6 @@ def default_for_dataset_type_mapping() -> Dict[str, str]:
         ] = item.value.datahub_data_platform_name
 
     return dict_
-
-
-class PlatformDetail(ConfigModel):
-    platform_instance: Optional[str] = pydantic.Field(
-        default=None,
-        description="DataHub platform instance name. To generate correct urn for upstream dataset, this should match "
-        "with platform instance name used in ingestion "
-        "recipe of other datahub sources.",
-    )
-    env: str = pydantic.Field(
-        default=builder.DEFAULT_ENV,
-        description="The environment that all assets produced by DataHub platform ingestion source belong to",
-    )
 
 
 class DataBricksPlatformDetail(PlatformDetail):
