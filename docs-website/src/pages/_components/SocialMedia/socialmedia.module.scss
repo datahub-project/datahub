@@ -98,7 +98,7 @@
     border-radius: 20px;
     padding: 12px 8px;
     width: 20rem;
-    margin-right: 1rem;
+    margin-right: .25rem;
     height: fit-content;
     display: flex;
     justify-content: flex-start;
@@ -197,10 +197,10 @@
     display: flex!important;
     flex-direction: column;
     text-decoration: none!important;
-    border: 1px solid transparent;
-    transition: border .3s ease-in-out;
+    // border: 1px solid transparent;
+    transition: border .2s ease-in-out;
     &:hover {
-        border: 1px solid #999;
+        // border: 1px solid #999;
         
         .videoItemFooter {
             opacity: 1;
@@ -220,16 +220,19 @@
 
 .videoItemFooter {
     padding: 20px;
+    padding-top: 40px;
     position: absolute;
     bottom: 0;
     line-height: 1.25rem;
     opacity: .7;
-    transition: opacity .3s ease-in-out;
+    transition: opacity .2s ease-in-out;
     background: linear-gradient(#00000000 0%, #000000 100%);
+    text-shadow: 0 2px 12px #000;
 }
   
 .videoTitle {
     font-size: 1.1rem;
+    line-height: 1.4rem;
     font-weight: 400;
     display: inline-block;
     color: #EEE;

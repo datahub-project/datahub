@@ -62,7 +62,7 @@ const SocialMedia = ({}) => {
       link: 'https://www.youtube.com/watch?v=3alQ9e6Lf2Y',
       title: 'AI and Data: The LinkedIn Story w/ Kapil Surlaker',
       date: "Apr 11, 2024",
-      viewerCount: "150+",
+      viewerCount: "100+",
     },
     {
         videoUrl: useBaseUrl("/img/home-social-media/hashi.mp4"),

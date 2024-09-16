@@ -143,8 +143,8 @@
           /* Label */
           font-family: 'Manrope';
           font-style: normal;
-          font-weight: 600;
-          font-size: 1.1rem;
+          font-weight: 500;
+          font-size: 1rem;
           line-height: 1.2rem;
           letter-spacing: 0.4em;
           text-transform: uppercase;
@@ -162,12 +162,12 @@
           line-height: 2rem;
 
           color: #171B2B;
-          margin-top: 1.5rem;
+          margin-top: 1rem;
         }
 
         .quickstart__text__desc {
 
-          margin-top: 1.5rem;
+          margin-top: 1rem;
           font-family: 'Manrope';
           font-style: normal;
           font-weight: 400;
@@ -178,6 +178,10 @@
 
           p {
             margin-bottom: 1rem;
+            span {
+              margin-bottom: .75rem;
+              display: block;
+            }
           }
 
           .learn_more {
