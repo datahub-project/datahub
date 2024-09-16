@@ -1673,5 +1673,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 yield usage_mcp.as_workunit()
             self.reporter.report_stage_end("usage_extraction")
 
+        # Dump looker user resource mappings.
+        logger.info("Ingesting looker user resource mapping workunits")
+        self.reporter.report_stage_start("user_resource_extraction")
+        yield from auto_workunit(
+            self.user_registry.to_platform_resource(
+                self.source_config.platform_instance, self.source_config.env
+            )
+        )
+
     def get_report(self) -> SourceReport:
         return self.reporter
