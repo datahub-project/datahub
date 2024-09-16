@@ -250,34 +250,6 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
     "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "depends_on_past": "False",
-                "email": "None",
-                "label": "'run_data_task'",
-                "execution_timeout": "None",
-                "sla": "None",
-                "task_id": "'run_data_task'",
-                "trigger_rule": "'all_success'",
-                "wait_for_downstream": "False",
-                "downstream_task_ids": "[]",
-                "inlets": "[]",
-                "outlets": "[]"
-            },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=basic_iolets&_flt_3_task_id=run_data_task",
-            "name": "run_data_task",
-            "type": {
-                "string": "COMMAND"
-            }
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
-    "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
