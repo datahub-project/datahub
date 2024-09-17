@@ -57,7 +57,7 @@ class RestSinkMode(ConfigEnum):
 
 
 _DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
-    RestSinkMode, os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE", RestSinkMode.ASYNC)
+    RestSinkMode, os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE", RestSinkMode.ASYNC_BATCH)
 )
 
 
@@ -77,6 +77,8 @@ class DataHubRestSinkReport(SinkReport):
     max_threads: Optional[int] = None
     gms_version: Optional[str] = None
     pending_requests: int = 0
+
+    async_batches_split: int = 0
 
     main_thread_blocking_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
@@ -255,7 +257,13 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             else:
                 events.append(event)
 
-        self.emitter.emit_mcps(events)
+        chunks = self.emitter.emit_mcps(events)
+        if chunks > 1:
+            self.report.async_batches_split += chunks
+            logger.info(
+                f"In async_batch mode, the payload was split into {chunks} batches. "
+                "If there's many of these issues, consider decreasing `max_per_batch`."
+            )
 
     def write_record_async(
         self,
