@@ -182,12 +182,12 @@
       }
     }
 
-    .card_row_wrapper {
-      padding: 0 5vw;
-    }
-
     .card_row {
       margin-top: 24px;
+
+      .card_row_wrapper {
+        padding: 0 5vw;
+      }
     }
 
     .bottom_line {
