@@ -21,6 +21,7 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
     wait_for_healthcheck_util()
+    wait_for_writes_to_sync()
     yield
 
 
