@@ -32,7 +32,7 @@ const TabbedComponent = () => {
 
   return (
     <div className={clsx(styles.tabbedComponent)}>
-      <div className={clsx(styles.title)}><span>The metadata platform for Data and AI</span></div>
+      <div className={clsx(styles.title)}><span>The only platform you need</span></div>
       <div className={clsx(styles.container, 'shadow--lw')}>
         <div className={clsx(styles.tabs)}>
           {tabs.map((tab, index) => (

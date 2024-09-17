@@ -164,7 +164,7 @@
     width: 50%;
     min-width: 280px;
 }
-  
+
 .carousalWrapper::before,
 .carousalWrapper::after {
     content: '';
@@ -268,4 +268,115 @@
     height: 2px;
     width: 2px;
     border-radius: 2px;
+}
+
+@media only screen and (max-width: 800px) {
+    .container {
+        height: auto;
+        width: 100%;
+        border-radius: 0;
+        margin-top: 0;
+        margin-bottom: 0;
+        flex-direction: column;
+        justify-content: flex-start;
+    }
+    .upperBox {
+        position: relative;
+        background-color: transparent;
+        box-shadow: none;
+        color: white;
+        margin-top: 36px;
+        height: auto;
+        width: 100%;
+        top: 0;
+        left: 0;
+        padding: 8px 24px;
+        div{
+            width: 100%;
+            text-align: center;
+        }
+    }
+    .mainBox {
+        height: auto;
+        padding: 0 24px;
+    }
+    .socialMediaSection {
+        padding-top: 0;
+        width: 100%;
+        align-items: center;
+        .socialSubText {
+            font-size: 1.2rem;
+            font-weight: 400;
+            opacity: .75;
+            text-align: center;
+        }
+        .socialStats {
+            width: auto;
+            margin-top: 12px;
+        }
+        .statItem {
+            width: 50%;
+            margin: 0;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .statName {
+            font-size: 1.3rem;
+            line-height: 1.4rem;
+            align-items: center;
+        }
+        .followerCount {
+            font-size: 1rem;
+        }
+    }
+
+    .carousalContainer {
+        height: 300px;
+        overflow: hidden;
+    }
+    .carousalWrapper {
+        width: 100%;
+    }
+
+    .carousalWrapper::before,
+    .carousalWrapper::after {
+        width: 100%;
+        transform: none;
+        left: 0;
+    }
+    .carousalWrapper::before {
+        top: -1px;
+    }
+    .videoContainer {
+        height: 240px;
+        min-height: 0;
+        background-color: transparent;
+        margin-bottom: 16px;
+        justify-content: center;
+        align-items: center;
+        video {
+            width: 180px;
+            border-radius: 16px;
+        }
+    }
+    .videoItemFooter {
+        width: 180px;
+        border-radius: 16px;
+        padding: 12px;
+        padding-bottom: 8px;
+        background: linear-gradient(#00000000 0%, #000000 80%, #000000 100%);
+        opacity: 1;
+        .videoDetails {
+            gap: 2px;
+            margin-top: 0;
+        }
+        .videoTitle {
+            font-size: .9rem;
+            line-height: 1rem;
+        }
+        .videoDescription {
+            font-size: .6rem;
+        }
+    }
 }
