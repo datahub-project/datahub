@@ -396,7 +396,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
               .fieldPath(baseField.getFieldPath())
               .fieldUrn(getSchemaFieldUrn(datasetUrn, baseField))
               .nullable(baseField.isNullable())
-              .modificationCategory(SchemaFieldModificationCategory.TYPE_CHANGE)
+              .modificationCategory(SchemaFieldModificationCategory.OTHER)
               .auditStamp(auditStamp)
               .build());
     }

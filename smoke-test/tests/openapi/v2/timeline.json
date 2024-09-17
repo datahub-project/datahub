@@ -473,7 +473,7 @@
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.name)",
                 "nullable": true,
-                "modificationCategory": "TYPE_CHANGE"
+                "modificationCategory": "OTHER"
               },
               "semVerChange": "MAJOR",
               "description": "A backwards incompatible change due to removal of field: 'service.provider.name'."
@@ -510,7 +510,7 @@
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id3",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.id3)",
                 "nullable": true,
-                "modificationCategory": "TYPE_CHANGE"
+                "modificationCategory": "OTHER"
               },
               "semVerChange": "MAJOR",
               "description": "A backwards incompatible change due to removal of field: 'service.provider.id3'."
