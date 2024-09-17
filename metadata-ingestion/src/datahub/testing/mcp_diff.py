@@ -220,8 +220,6 @@ class MCPDiff:
             for ga in aspect_diff.aspects_added.values():
                 golden.insert(ga.delta_info.idx, ga.delta_info.original)
 
-        return True
-
     def pretty(self, verbose: bool = False) -> str:
         """The pretty human-readable string output of the diff between golden and output."""
         s = []
