@@ -1,0 +1,260 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    background: #fafafa;
+    width: 100%;
+}
+
+.footer_wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 82%;
+    margin: auto;
+    padding-bottom: 5rem;
+
+    .footer_upper {
+        display: flex;
+        height: 350px;
+        align-items: center;
+        justify-content: space-between;
+
+        .footer_upper_left {
+            width: 70%;
+            height: 55%;
+            display: flex;
+            justify-content: space-between;
+
+            >div {
+                width: 30%;
+                display: flex;
+                flex-direction: column;
+                gap: 0px;
+                align-items: start;
+
+                >h5 {
+                    font-size: 1.2rem;
+                    color: #4c4c4e;
+                }
+
+                a {
+                    cursor: pointer;
+                    color: rgb(142, 142, 146);
+                    font-size: 1.1rem;
+                }
+            }
+        }
+
+        .footer_upper_right {
+            background: #ffffff;
+            width: 28%;
+            height: 75%;
+            border-radius: 1rem;
+            padding: 2rem;
+
+            .footer_subscribe_heading {
+                font-weight: 500;
+            }
+
+            .footer_subscribe_input_div {
+                border: 1px solid rgb(228, 221, 235);
+                border-radius: 0.5rem;
+                display: flex;
+                justify-content: space-between;
+                margin-top: 1rem;
+
+                >input {
+                    flex-grow: 1;
+                    border: none;
+                    outline: none;
+                    margin-left: 0.5rem;
+                    padding: 0.8rem 0.4rem;
+                }
+
+                >button {
+                    padding: 0.5rem 0.7rem;
+                    border-radius: 0 0.5rem 0.5rem 0;
+                    border: none;
+                    outline: none;
+                    background: #1890ff;
+                    color: #ffffff;
+                    font-size: 2rem;
+                }
+            }
+
+            .footer_subscribe_content {
+                margin-top: 1rem;
+                color: rgb(167, 167, 168);
+            }
+        }
+    }
+
+    .footer_lower {
+        display: flex;
+        justify-content: space-between;
+        padding-top: 4rem;
+        border: none;
+        border-top: 2px solid rgb(238, 238, 240);
+
+        .footer_logo {
+            color: #4c4c4e;
+            font-weight: 500;
+        }
+
+        .footer_terms_privacy_div {
+            display: flex;
+            gap: 2rem;
+
+            p {
+                color: #4c4c4e;
+                font-weight: 500;
+            }
+        }
+
+        .footer_social_media_icon_div {
+            display: flex;
+            gap: 1rem;
+
+            >div {
+                width: 25px;
+                height: 25px;
+                border-radius: 12.5px;
+                border: 1px solid gray;
+            }
+        }
+    }
+}
+
+@media (max-width: 768px) {
+
+    .container {
+        display: flex;
+        flex-direction: column;
+        background: #fafafa;
+        width: 100%;
+    }
+
+    .footer_wrapper {
+        display: flex;
+        flex-direction: column;
+        width: 90%;
+        margin: auto;
+        padding-bottom: 5rem;
+
+        .footer_upper {
+            display: flex;
+            flex-direction: column;
+            height: auto;
+            align-items: center;
+            justify-content: space-between;
+
+            .footer_upper_left {
+                width: 100%;
+                height: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 2rem;
+                padding-top: 5rem;
+
+                >div {
+                    width: 100%;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    gap: 0px;
+                    align-items: center;
+
+                    >h5 {
+                        font-size: 1.1rem;
+                        color: #4c4c4e;
+                    }
+
+                    a {
+                        cursor: pointer;
+                        color: rgb(142, 142, 146);
+                        font-size: 1rem;
+                    }
+                }
+            }
+
+            .footer_upper_right {
+                background: #ffffff;
+                width: 100%;
+                height: auto;
+                margin-top: 2rem;
+                margin-bottom: 3rem;
+                border-radius: 1rem;
+                padding: 2rem;
+
+                .footer_subscribe_heading {
+                    font-weight: 500;
+                }
+
+                .footer_subscribe_input_div {
+                    border: 1px solid rgb(228, 221, 235);
+                    border-radius: 0.5rem;
+                    display: flex;
+                    justify-content: space-between;
+                    margin-top: 1rem;
+
+                    >input {
+                        flex-grow: 1;
+                        border: none;
+                        outline: none;
+                        margin-left: 0.5rem;
+                        padding: 0.8rem 0.4rem;
+                    }
+
+                    >button {
+                        padding: 0.5rem 0.7rem;
+                        border-radius: 0 0.5rem 0.5rem 0;
+                        border: none;
+                        outline: none;
+                        background: #1890ff;
+                        color: #ffffff;
+                        font-size: 2rem;
+                    }
+                }
+
+                .footer_subscribe_content {
+                    margin-top: 1rem;
+                    color: rgb(167, 167, 168);
+                }
+            }
+        }
+
+        .footer_lower {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            align-items: center;
+            padding-top: 1rem;
+            border: none;
+
+            .footer_logo {
+                color: #4c4c4e;
+                font-weight: 500;
+            }
+
+            .footer_terms_privacy_div {
+                display: flex;
+                gap: 2rem;
+
+                p {
+                    color: #4c4c4e;
+                    font-weight: 500;
+                }
+            }
+
+            .footer_social_media_icon_div {
+                display: flex;
+                gap: 1rem;
+
+                >div {
+                    width: 25px;
+                    height: 25px;
+                    border-radius: 12.5px;
+                    border: 1px solid gray;
+                }
+            }
+        }
+    }
+}

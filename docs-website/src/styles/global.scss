@@ -17,9 +17,11 @@
   --ifm-code-font-size: 0.9em;
   --ifm-heading-color: #000000;
   --ifm-heading-font-family: "Manrope", sans-serif;
-  --ifm-font-family-base: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji",
+  --ifm-font-family-base: system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji",
     "Segoe UI Emoji", "Segoe UI Symbol";
-  --ifm-font-family-monospace: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --ifm-font-family-monospace: SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 
   /* Buttons */
   --ifm-button-border-radius: 1000em;
@@ -83,7 +85,7 @@ main {
 }
 
 .markdown,
-main>h1 {
+main > h1 {
   margin-top: 1rem;
 }
 
@@ -113,16 +115,16 @@ div[class^="announcementBar"] {
     justify-content: space-between;
     font-size: 1rem;
 
-    >div {
+    > div {
       display: flex;
       align-items: center;
 
-      >p {
+      > p {
         text-align: left;
         line-height: 1.1rem;
         margin: 0;
 
-        >span {
+        > span {
           @media (max-width: 780px) {
             display: none;
           }
@@ -161,7 +163,7 @@ div[class^="announcementBar"] {
     border-bottom: 2px solid transparent;
   }
 
-  .dropdown>.navbar__link:after {
+  .dropdown > .navbar__link:after {
     top: -1px;
     border-width: 0.3em 0.3em 0;
     margin-left: 0.4em;
@@ -313,21 +315,30 @@ div[class^="announcementBar"] {
 
   .menu__link {
     font-weight: 400;
-    padding: calc(var(--ifm-menu-link-padding-vertical) + 0.2rem) calc(var(--ifm-menu-link-padding-horizontal) + 0.2rem) calc(var(--ifm-menu-link-padding-vertical) + 0.2rem) calc(var(--ifm-menu-link-padding-horizontal) + 1rem);
+    padding: calc(var(--ifm-menu-link-padding-vertical) + 0.2rem)
+      calc(var(--ifm-menu-link-padding-horizontal) + 0.2rem)
+      calc(var(--ifm-menu-link-padding-vertical) + 0.2rem)
+      calc(var(--ifm-menu-link-padding-horizontal) + 1rem);
   }
 
   .menu__link--active {
     font-weight: 400;
-    padding: calc(var(--ifm-menu-link-padding-vertical) + 0.2rem) calc(var(--ifm-menu-link-padding-horizontal) + 0.2rem) calc(var(--ifm-menu-link-padding-vertical) + 0.2rem) calc(var(--ifm-menu-link-padding-horizontal) + 1rem);
+    padding: calc(var(--ifm-menu-link-padding-vertical) + 0.2rem)
+      calc(var(--ifm-menu-link-padding-horizontal) + 0.2rem)
+      calc(var(--ifm-menu-link-padding-vertical) + 0.2rem)
+      calc(var(--ifm-menu-link-padding-horizontal) + 1rem);
   }
 
-  .theme-doc-sidebar-item-category-level-1>div>a:first-child {
+  .theme-doc-sidebar-item-category-level-1 > div > a:first-child {
     font-weight: 400;
     color: var(--ifm-menu-color);
-    padding: calc(var(--ifm-menu-link-padding-vertical) + 0.2rem) calc(var(--ifm-menu-link-padding-horizontal) + 0.2rem) calc(var(--ifm-menu-link-padding-vertical) + 0.2rem) calc(var(--ifm-menu-link-padding-horizontal) + 1rem);
+    padding: calc(var(--ifm-menu-link-padding-vertical) + 0.2rem)
+      calc(var(--ifm-menu-link-padding-horizontal) + 0.2rem)
+      calc(var(--ifm-menu-link-padding-vertical) + 0.2rem)
+      calc(var(--ifm-menu-link-padding-horizontal) + 1rem);
   }
 
-  .theme-doc-sidebar-item-category-level-1>div>a.menu__link--active {
+  .theme-doc-sidebar-item-category-level-1 > div > a.menu__link--active {
     color: var(--ifm-menu-color);
     font-weight: 400;
   }
@@ -379,7 +390,11 @@ div[class^="announcementBar"] {
   --docsearch-hit-background: var(--ifm-color-emphasis-100);
   /* Footer */
   --docsearch-footer-background: var(--ifm-background-surface-color);
-  --docsearch-key-gradient: linear-gradient(-26.5deg, var(--ifm-color-emphasis-200) 0%, var(--ifm-color-emphasis-100) 100%);
+  --docsearch-key-gradient: linear-gradient(
+    -26.5deg,
+    var(--ifm-color-emphasis-200) 0%,
+    var(--ifm-color-emphasis-100) 100%
+  );
 }
 
 .comapny__logos {
@@ -409,21 +424,50 @@ div[class^="announcementBar"] {
     max-width: 80px;
     max-height: 36px;
     filter: brightness(0) grayscale(1);
-    opacity: .4;
-    transition: opacity .3s ease-in-out;
+    opacity: 0.4;
+    transition: opacity 0.3s ease-in-out;
     &:hover {
       opacity: 0.6;
     }
   }
+
+  @media (max-width: 768px) {
+    display: flex;
+    flex-direction: column;
+    min-width: 90%;
+    width: 90vw;
+    margin: 2rem auto;
+    align-items: center;
+    justify-content: center;
+
+    .text {
+      text-align: center;
+      padding: 0 4rem;
+      color: #9ea3b6;
+      font-size: 1rem;
+    }
+
+    .company_logos_list_wrapper {
+      flex-direction: row;
+      display: flex;
+      align-items: center;
+      flex-grow: 1;
+      gap: 3rem;
+      overflow: hidden;
+    }
+
+  }
 }
-
-
 
 @keyframes expand-on-scroll {
   from {
-      transform: scaleY(0);
+    transform: scaleY(0);
   }
   to {
-      transform: scaleY(1);
+    transform: scaleY(1);
   }
 }
+
+
+
+

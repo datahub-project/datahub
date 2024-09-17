@@ -2,7 +2,9 @@
   display: flex;
   flex-direction: column;
   background: #fafafa;
+  width: 90vw;
 }
+
 .ecosystem_section {
   position: relative;
   background: white;
@@ -37,12 +39,14 @@
         font-weight: 500;
         font-family: Manrope;
       }
+
       .ecosystem_section_subtitle {
         font-size: 1.25rem;
         margin-top: 2rem;
         line-height: normal;
         font-family: Manrope;
       }
+
       .bottom_line_cta {
         color: #12b0fb;
         font-size: 1rem;
@@ -52,6 +56,7 @@
         cursor: pointer;
       }
     }
+
     .ecosystem_section_lower_content {
       height: 380px;
       margin-top: 48px;
@@ -63,17 +68,21 @@
         flex-direction: column;
         margin-right: 8px;
       }
+
       .itemWrappersRow {
         display: flex;
         flex-direction: row;
         height: 50%;
       }
+
       .itemWrappers>.itemWrappersRow:first-child {
         padding-bottom: 4px;
       }
+
       .itemWrappers>.itemWrappersRow:last-child {
         padding-top: 4px;
       }
+
       .itemWrappersRow>a:nth-child(2) {
         margin-left: 8px;
       }
@@ -91,7 +100,6 @@
         background-repeat: no-repeat;
         background-position: center;
       }
-
     }
 
     .item1,
@@ -112,14 +120,17 @@
 
       &:hover {
         box-shadow: 0px 2px 12px 0px #00000040;
+
         .itemLinkOpenArrow {
           opacity: 1;
         }
       }
     }
+
     .itemLinkOpenArrow {
       position: absolute;
-      top: 12px; right: 12px;
+      top: 12px;
+      right: 12px;
       height: 36px;
       width: 36px;
       opacity: 0.75;
@@ -128,22 +139,22 @@
 
     .item1 {
       flex-basis: 40%;
-      background-color: #77B750;
+      background-color: #77b750;
     }
 
     .item2 {
       flex-grow: 1;
-      background-color: #FC5263;
+      background-color: #fc5263;
     }
 
     .item3 {
       flex-grow: 1;
-      background-color: #EFB300;
+      background-color: #efb300;
     }
 
     .item4 {
       flex-basis: 40%;
-      background-color: #1890FF;
+      background-color: #1890ff;
     }
 
     /* Additional: Control image size */
@@ -157,7 +168,8 @@
     /* Additional: Limit text height with ellipsis */
     .item_content span {
       display: -webkit-box;
-      -webkit-line-clamp: 3; /* Show only 2 lines */
+      -webkit-line-clamp: 3;
+      /* Show only 2 lines */
       -webkit-box-orient: vertical;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -169,6 +181,183 @@
 }
 
 // Responsiveness
-@media (max-width: 480px) {
+@media (max-width: 768px) {
+  .container {
+    display: flex;
+    flex-direction: column;
+    background: #fafafa;
+    width: 100vw !important;
+  }
 
+  .ecosystem_section {
+    width: 100%;
+    padding: 1rem;
+    position: relative;
+    background: white;
+    height: auto;
+
+    .ecosystem_section_content {
+      min-width: 100%;
+      height: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0rem;
+
+      .ecosystem_section_upper_content {
+        width: 100%;
+        height: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding-top: 1rem;
+
+        .ecosystem_section_heading {
+          font-size: 2rem;
+          line-height: 2.25rem;
+          font-weight: 500;
+          font-family: Manrope;
+        }
+
+        .ecosystem_section_subtitle {
+          font-size: 1rem;
+          margin-top: 1rem;
+          line-height: normal;
+          font-family: Manrope;
+        }
+
+        .bottom_line_cta {
+          color: #12b0fb;
+          font-size: 1rem;
+          font-weight: 500;
+          margin-top: 1rem;
+          margin-bottom: 2.5rem;
+          cursor: pointer;
+        }
+      }
+
+      .ecosystem_section_lower_content {
+        height: auto;
+        margin-top: 0;
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 1rem;
+
+        .itemWrappers {
+          display: flex;
+          flex-direction: column;
+          margin-right: 0;
+          height: 300px;
+        }
+
+        .itemWrappersRow {
+          display: flex;
+          flex-direction: row;
+          height: 50%;
+        }
+
+        .itemWrappers>.itemWrappersRow:first-child {
+          padding-bottom: 0.4rem;
+        }
+
+        .itemWrappers>.itemWrappersRow:last-child {
+          padding-top: 0.4rem;
+        }
+
+        .itemWrappersRow>a:nth-child(2) {
+          margin-left: 0.8rem;
+        }
+
+        .diagramItem {
+          display: flex;
+          border-radius: 20px;
+          overflow: hidden;
+          aspect-ratio: 1;
+          height: auto;
+          background-color: #f6f8fb;
+          justify-content: center;
+          background-size: contain;
+          background-repeat: no-repeat;
+          background-position: center;
+        }
+      }
+
+      .item1,
+      .item2,
+      .item3,
+      .item4 {
+        border-radius: 20px;
+        display: flex;
+        align-items: end;
+        justify-content: start;
+        position: relative;
+        padding: 1rem 1rem;
+        overflow: hidden;
+        white-space: normal;
+        cursor: pointer;
+        transition: box-shadow 0.3s ease-in-out;
+        text-decoration: none;
+
+        &:hover {
+          box-shadow: 0px 2px 12px 0px #00000040;
+
+          .itemLinkOpenArrow {
+            opacity: 1;
+          }
+        }
+      }
+
+      .itemLinkOpenArrow {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        height: 2rem;
+        width: 2rem;
+        opacity: 0.75;
+        transition: opacity 0.3s ease-in-out;
+      }
+
+      .item1 {
+        flex-basis: 40%;
+        background-color: #77b750;
+      }
+
+      .item2 {
+        flex-grow: 1;
+        background-color: #fc5263;
+      }
+
+      .item3 {
+        flex-grow: 1;
+        background-color: #efb300;
+      }
+
+      .item4 {
+        flex-basis: 40%;
+        background-color: #1890ff;
+      }
+
+      /* Additional: Control image size */
+      .item_content img {
+        width: 1rem;
+        height: 1rem;
+        // make it all white
+        filter: brightness(0) invert(1);
+      }
+
+      /* Additional: Limit text height with ellipsis */
+      .item_content span {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        /* Show only 2 lines */
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: white;
+        font-size: 1rem;
+        line-height: 1.3rem;
+      }
+    }
+  }
 }

@@ -12,16 +12,17 @@
     position: relative;
     overflow: hidden;
 }
+
 .containerBG {
     position: absolute;
     background-size: cover;
     background-color: #545765;
-    top: 0; left: 0;
+    top: 0;
+    left: 0;
     height: 100%;
     width: 100%;
     z-index: -1;
 }
-
 
 .upperBox {
     border-radius: 24px;
@@ -54,26 +55,26 @@
     font-weight: 400;
     text-align: left;
 }
-  
+
 .socialStats {
     display: flex;
     flex-wrap: wrap;
     margin-top: 20px;
     width: 43rem;
 }
-  
-.mediaIcons > svg {
+
+.mediaIcons>svg {
     color: white;
     width: 38px;
     height: 38px;
 }
-  
+
 .followerCount {
     font-size: 1.2rem;
     font-weight: 400;
-    opacity: .75;
+    opacity: 0.75;
 }
-  
+
 .styledIcon {
     min-width: 74px;
     min-height: 74px;
@@ -83,17 +84,17 @@
     justify-content: center;
     align-items: center;
 }
-  
+
 .visitPageIcon {
     position: absolute;
     top: 10px;
     right: 10px;
 }
-  
-.visitPageIcon > svg {
+
+.visitPageIcon>svg {
     color: white;
 }
-  
+
 .statItem {
     border-radius: 20px;
     padding: 12px 8px;
@@ -109,7 +110,7 @@
     color: white;
     text-decoration: none;
 }
-  
+
 .statItem:hover {
     background-color: #83889a80;
     border-color: #ffffff;
@@ -117,16 +118,16 @@
     color: white;
     text-decoration: none;
 }
-  
+
 .visitPageIcon {
     opacity: 0;
     transition: opacity 0.3s ease;
 }
-  
+
 .statItem:hover .visitPageIcon {
     opacity: 1;
 }
-  
+
 .statName {
     font-size: 1.75rem;
     font-weight: 500;
@@ -136,7 +137,7 @@
     flex-direction: column;
     align-items: flex-start;
 }
-  
+
 .socialMediaSection {
     display: flex;
     justify-content: center;
@@ -144,14 +145,14 @@
     align-items: flex-start;
     padding-top: 200px;
 }
-  
+
 .videoStyles {
     height: 100%;
     width: 35%;
     gap: 10px;
 }
-  
-.carousalContainer{
+
+.carousalContainer {
     height: 100%;
     width: 45%;
     display: flex;
@@ -159,15 +160,15 @@
     align-items: center;
     position: relative;
 }
-  
-.carousalWrapper{
+
+.carousalWrapper {
     width: 50%;
     min-width: 280px;
 }
-  
+
 .carousalWrapper::before,
 .carousalWrapper::after {
-    content: '';
+    content: "";
     position: absolute;
     left: 50%;
     right: 0;
@@ -176,16 +177,17 @@
     z-index: 9;
     transform: translateX(-50%);
 }
+
 .carousalWrapper::before {
     top: 0;
     background: linear-gradient(180deg, #545765 0%, #54576500 100%);
 }
-  
+
 .carousalWrapper::after {
     bottom: 0;
     background: linear-gradient(0deg, #545765 0%, #54576500 100%);
 }
-  
+
 .videoContainer {
     position: relative;
     height: 60vh;
@@ -194,19 +196,21 @@
     border-radius: 24px;
     overflow: hidden;
     background: #111;
-    display: flex!important;
+    display: flex !important;
     flex-direction: column;
-    text-decoration: none!important;
+    text-decoration: none !important;
     // border: 1px solid transparent;
     transition: border .2s ease-in-out;
+
     &:hover {
         // border: 1px solid #999;
-        
+
         .videoItemFooter {
             opacity: 1;
         }
+
         .videoTitle {
-            color: white!important;
+            color: white !important;
         }
     }
 }
@@ -229,7 +233,7 @@
     background: linear-gradient(#00000000 0%, #000000 100%);
     text-shadow: 0 2px 12px #000;
 }
-  
+
 .videoTitle {
     font-size: 1.1rem;
     line-height: 1.4rem;
@@ -245,7 +249,7 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
 }
-  
+
 .videoDetails {
     display: flex;
     justify-content: flex-start;
@@ -253,13 +257,13 @@
     gap: 8px;
     margin-top: 4px;
 }
-  
+
 .videoDescription {
     font-size: .8rem;
     font-weight: 400;
     color: #999;
 }
-  
+
 .divider {
     display: flex;
     justify-content: center;
@@ -268,4 +272,173 @@
     height: 2px;
     width: 2px;
     border-radius: 2px;
+}
+
+//Responsiveness
+@media (max-width: 768px) {
+    .container {
+        font-family: "Manrope";
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        margin: 0px auto;
+        width: 100vw;
+        height: auto;
+        min-height: 720px;
+        border-radius: 0px;
+        background-color: #545765cc;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .upperBox {
+        border-radius: 0px;
+        width: 100%;
+        height: auto;
+        background-color: inherit;
+        color: #ffffff;
+        font-size: 1.4rem;
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        padding: 5rem 1rem 0rem 1rem;
+        position: absolute;
+        top: 0px;
+        left: 0px;
+        box-shadow: none;
+    }
+
+    .mainBox {
+        width: 100%;
+        height: auto;
+        margin: auto;
+        color: #fff;
+        display: flex;
+        justify-content: flex-start;
+        padding: 1rem;
+    }
+
+    .socialMediaSection {
+        width: 100% !important;
+        display: flex;
+        justify-content: center;
+        flex-direction: column;
+        align-items: flex-start;
+        padding-top: 9rem;
+    }
+
+    .socialSubText {
+        font-size: 1rem;
+        line-height: normal;
+        color: #beb6b6;
+        font-weight: 400;
+        text-align: left;
+    }
+
+    .socialStats {
+        width: 100%;
+        display: grid;
+        gap: 10px;
+        grid-template-columns: 48% 48%;
+        grid-column-gap: 4%;
+        margin-top: 1rem;
+    }
+
+    .statItem {
+        border-radius: 20px;
+        border: 1px solid #92959e80;
+        background: #75798880;
+        padding: 1.2rem 0.8rem;
+        width: 100%;
+        height: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: start;
+        gap: 5px;
+        transition: background-color 0.3s ease, border-color 0.3s ease;
+        color: white;
+        text-decoration: none;
+    }
+
+    .styledIcon {
+        min-width: 50px;
+        min-height: 50px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .mediaIcons>svg {
+        color: white;
+        width: 30px;
+        height: 30px;
+    }
+
+    .statName {
+        font-size: 1.5rem;
+        font-weight: 500;
+        line-height: 2rem;
+        display: flex;
+        justify-content: flex-start;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .followerCount {
+        font-size: 1rem;
+        font-weight: 400;
+        opacity: 0.75;
+    }
+
+    .container {
+        font-family: "Manrope";
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        margin: 0px auto;
+        width: 100vw;
+        height: auto;
+        min-height: 720px;
+        border-radius: 0px;
+        background-color: #545765cc;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .socialMediaSection {
+        width: 100% !important;
+        display: flex;
+        justify-content: center;
+        flex-direction: column;
+        align-items: flex-start;
+        padding-top: 9rem;
+    }
+
+    .socialStats {
+        width: 100%;
+        display: grid;
+        gap: 10px;
+        grid-template-columns: 48% 48%;
+        grid-column-gap: 4%;
+        margin-top: 1rem;
+    }
+
+    .carousalContainer {
+        width: 100%;
+        height: auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 0;
+        position: relative;
+    }
+
+    .carousalWrapper {
+        width: 80%;
+        padding: 10px;
+    }
 }

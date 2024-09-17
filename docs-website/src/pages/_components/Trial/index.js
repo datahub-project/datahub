@@ -11,13 +11,19 @@ const Trial = () => {
           <div className={styles.left_content}>
             <span className="">Discover. Observe. Govern.</span>
             <p className="">
-              Get a free trial of<br/><b>DataHub</b> cloud today
+              Get a free trial of
+              <br />
+              <b>DataHub</b> cloud today
             </p>
             <div className={styles.btn_div}>
               <Link to="/cloud">Book a Demo</Link>
-              <Link to="https://www.acryldata.io/tour">Product Tour</Link>
+              <Link to="https://www.acryldata.io/tour">
+                Product Tour <span>→</span>
+              </Link>
             </div>
-            <Link className={styles.start_arrow} to="/docs">Get started with Core →</Link>
+            <Link className={styles.start_arrow} to="/docs">
+              Get started with Core →
+            </Link>
           </div>
         </div>
         <div className={styles.trial_right}>
@@ -29,7 +35,9 @@ const Trial = () => {
                   height={60}
                   src={useBaseUrl("/img/lock-soc.svg")}
                 />
-                Secure<br/> out of box with <br/>SOC2 compliance.
+                Secure
+                <br /> out of box with <br />
+                SOC2 compliance.
               </div>
               <div className={styles.cost}>
                 <img

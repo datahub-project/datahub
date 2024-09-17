@@ -1,23 +1,47 @@
-import React from "react";
+import React, { useRef } from "react";
 import styles from "./case-study.module.scss";
-import Link from '@docusaurus/Link'
+import Link from "@docusaurus/Link";
 
 const CaseStudy = () => {
+  const cardRowRef = useRef(null);
+
+  const handleScrollRight = () => {
+    const slider = cardRowRef.current;
+    slider.scrollBy({
+      left: 300,
+      behavior: "smooth",
+    });
+  };
+
+  const handleScrollLeft = () => {
+    const slider = cardRowRef.current;
+    slider.scrollBy({
+      left: -300,
+      behavior: "smooth",
+    });
+  };
+
   return (
     <div className={styles.container}>
-      {/* Section-1 */}
       <div className={styles.case_study}>
         <div className={styles.case_study_heading}>
           <div>See how Industry leaders use the Datahub</div>
-          <p>Across finance, healthcare, e-commerce and countless more.</p>
+          <p>Across finance, healthcare, e-commerce and more.</p>
         </div>
 
-        <div className={styles.card_row}>
+        <button
+          className={`${styles.arrow} ${styles.left_arrow}`}
+          onClick={handleScrollLeft}
+        >
+          ←
+        </button>
+
+        <div className={styles.card_row} ref={cardRowRef}>
           <div className={styles.card}>
             <span className={styles.card_tag}>ENTERTAINMENT</span>
             <img
               src="https://i0.wp.com/picjumbo.com/wp-content/uploads/logo-netflix-free-photo.jpg"
-              alt=""
+              alt="Netflix Case Study"
             />
             <div className={styles.card_heading_div}>
               <div className={styles.card_heading}>
@@ -94,6 +118,14 @@ const CaseStudy = () => {
             </div>
           </div>
         </div>
+
+        {/* Right Arrow */}
+        <button
+          className={`${styles.arrow} ${styles.right_arrow}`}
+          onClick={handleScrollRight}
+        >
+          →
+        </button>
 
         <Link className={styles.bottom_line} to="/adoption-stories">
           See all adoption stories →

@@ -17,6 +17,7 @@ import Community from "./_components/Community";
 import SocialMedia from "./_components/SocialMedia";
 import CaseStudy from "./_components/CaseStudy";
 import Trial from "./_components/Trial";
+import Footer from "./_components/Footer";
 
 const companyIndexes = require("../../adoptionStoriesIndexes.json");
 const companies = companyIndexes.companies;
@@ -74,6 +75,7 @@ function Home() {
       <SocialMedia />
       <CaseStudy />
       <Trial />
+      <Footer />
       {/* <Section>
         <div className="container">
           <div className="row row--centered">

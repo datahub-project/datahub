@@ -43,6 +43,7 @@
     .hero__text {
       color: white;
     }
+
     .hero__img {
       width: 45%;
     }
@@ -117,6 +118,7 @@
           font-weight: 600;
           text-decoration: none;
           transition: background-color .2s ease-in-out;
+
           &:hover {
             background-color: #FFFFFFEE;
           }
@@ -127,6 +129,7 @@
           color: white;
           border: 1px solid white;
           transition: background-color .2s ease-in-out;
+
           &:hover {
             background-color: rgba($color: #fff, $alpha: .3);
           }
@@ -181,5 +184,122 @@
     //     }
     //   }
     // }
+
+    //Responsiveness CSS
+    @media (max-width: 768px) {
+      .container {
+        background-color: #1890ff;
+        border-radius: 25px;
+        max-width: 90vw !important;
+        height: auto !important;
+      }
+
+      .hero__content {
+        padding: 2rem 0;
+        height: 100%;
+        display: flex !important;
+        flex-direction: column !important;
+
+        .hero__text {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: start;
+
+          >* {
+            margin-left: 0%;
+            text-align: left;
+            width: 90%;
+          }
+
+          .hero__title {
+            font-size: 2rem;
+            line-height: normal;
+            font-family: Manrope;
+          }
+
+          .hero__subtitle {
+            font-size: 1rem;
+            line-height: 1rem;
+            font-family: Manrope;
+            margin-top: 1rem;
+            font-weight: 400;
+            width: 100%;
+            display: flex;
+            gap: 0.5rem;
+
+            span {
+              background: white;
+              display: inline-flex;
+              align-items: center;
+              border-radius: 4px;
+
+              span {
+                /* AI Governance */
+                padding: 0 7px;
+                font-size: 0.8rem;
+                font-family: "Manrope";
+                font-style: normal;
+                font-weight: 700;
+
+                background: linear-gradient(90deg,
+                    #3b20d9 0%,
+                    #c713c6 31%,
+                    #dd567d 64.5%,
+                    #d7ac27 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+                text-fill-color: transparent;
+              }
+            }
+          }
+
+          .hero__cta {
+            margin-top: 1rem;
+            width: 100%;
+            display: flex;
+
+            a {
+              cursor: pointer;
+              display: inline-block;
+              font-size: 0.8rem;
+              background-color: white;
+              padding: 2px 15px;
+              border-radius: 50px;
+            }
+
+            .cta__secondary {
+              background-color: rgba($color: #fff, $alpha: 0.2);
+              color: white;
+              border: 1px solid white;
+            }
+          }
+
+          .hero__footer_cta {
+            margin-top: 0.5rem;
+            margin-bottom: 1rem;
+            font-weight: 400;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 1rem;
+            color: white;
+          }
+        }
+
+        .hero__img {
+          display: flex;
+          align-items: center;
+          justify-content: start;
+          width: 100%;
+
+          img {
+            width: 100%;
+          }
+        }
+      }
+    }
   }
 }
