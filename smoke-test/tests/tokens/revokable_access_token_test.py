@@ -23,6 +23,7 @@ def wait_for_healthchecks():
     wait_for_healthcheck_util()
     yield
 
+
 @pytest.fixture(autouse=True)
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
