@@ -34,14 +34,16 @@ interface Props {
 export default function FieldProperties({ expandedField }: Props) {
     const { schemaFieldEntity } = expandedField;
     const { refetch } = useGetEntityWithSchema(true);
+    const properties =
+        schemaFieldEntity?.structuredProperties?.properties?.filter((prop) => prop.structuredProperty.exists) || [];
 
-    if (!schemaFieldEntity?.structuredProperties?.properties?.length) return null;
+    if (!schemaFieldEntity || !properties.length) return null;
 
     return (
         <>
             <SectionHeader>Properties</SectionHeader>
             <PropertiesWrapper>
-                {schemaFieldEntity.structuredProperties.properties.map((structuredProp) => {
+                {properties.map((structuredProp) => {
                     const isRichText =
                         structuredProp.structuredProperty.definition.valueType?.info.type === StdDataType.RichText;
                     const valuesData = mapStructuredPropertyValues(structuredProp);
