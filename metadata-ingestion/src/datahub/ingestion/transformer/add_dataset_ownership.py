@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, List, Optional, Union, cast
+from typing import Callable, Dict, List, Optional, Union, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -16,9 +16,9 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.transformer.dataset_transformer import (
     DatasetOwnershipTransformer,
 )
-from datahub.metadata._schema_classes import MetadataChangeProposalClass
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
+    MetadataChangeProposalClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -86,9 +86,7 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
             return []
 
         logger.debug("Generating Ownership for containers")
-
-        ownership_container: List[DashboardPatchBuilder] = []
-
+        ownership_container_mapping: Dict[str, List[OwnerClass]] = {}
         for entity_urn, data_ownerships in (
             (urn, self.config.get_owners_to_add(urn)) for urn in self.entity_map.keys()
         ):
@@ -108,17 +106,22 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
                 ):
                     continue
 
-                patch_builder = DashboardPatchBuilder(container_urn)
-                for data_ownership in data_ownerships:
-                    patch_builder.add_owner(data_ownership)
-                ownership_container.append(patch_builder)
+                if container_urn not in ownership_container_mapping:
+                    ownership_container_mapping[container_urn] = data_ownerships
+                else:
+                    ownership_container_mapping[container_urn] = list(
+                        ownership_container_mapping[container_urn] + data_ownerships
+                    )
 
         mcps: List[
             Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
         ] = []
 
-        for owner in ownership_container:
-            mcps.extend(list(owner.build()))
+        for urn, owners in ownership_container_mapping.items():
+            patch_builder = DashboardPatchBuilder(urn)
+            for owner in owners:
+                patch_builder.add_owner(owner)
+            mcps.extend(list(patch_builder.build()))
 
         return mcps
 

@@ -13,11 +13,11 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.transformer.dataset_transformer import DatasetDomainTransformer
-from datahub.metadata._schema_classes import (
+from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
+    DomainsClass,
     MetadataChangeProposalClass,
 )
-from datahub.metadata.schema_classes import DomainsClass
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
