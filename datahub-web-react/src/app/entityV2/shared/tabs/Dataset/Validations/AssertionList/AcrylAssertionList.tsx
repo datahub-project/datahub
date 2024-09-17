@@ -16,7 +16,7 @@ import { AssertionListTitleContainer } from './AssertionListTitleContainer';
 import { AcrylAssertionListFilters } from './AcrylAssertionListFilters';
 import { AcrylAssertionListTable } from './AcrylAssertionListTable';
 import { useSetFilterFromURLParams } from './hooks';
-import { ASSERTION_DEFAULT_FILTERS } from './constant';
+import { ASSERTION_DEFAULT_FILTERS, ASSERTION_DEFAULT_RAW_DATA } from './constant';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
@@ -25,11 +25,9 @@ export const AcrylAssertionList = () => {
     const { urn, entityData, entityType } = useEntityData();
 
     const [showAssertionBuilder, setShowAssertionBuilder] = useState<boolean>(false);
-
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const [visibleAssertions, setVisibleAssertions] = useState<AssertionTable>({
-        assertions: [],
-        groupBy: { type: [], status: [] },
+        ...ASSERTION_DEFAULT_RAW_DATA,
     });
     // TODO we need to create setter function to set the filter as per the filter component
     const [filter, setFilters] = useState<AssertionListFilter>(ASSERTION_DEFAULT_FILTERS);
@@ -108,9 +106,9 @@ export const AcrylAssertionList = () => {
             {assertionMonitorData?.length > 0 && (
                 <AcrylAssertionListFilters
                     filterOptions={visibleAssertions?.filterOptions}
+                    originalFilterOptions={visibleAssertions?.originalFilterOptions}
                     setFilters={setFilters}
                     filter={filter}
-                    allAssertionCount={assertionMonitorData?.length || 0}
                     filteredAssertions={visibleAssertions}
                 />
             )}

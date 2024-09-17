@@ -54,7 +54,7 @@ export const AcrylAssertionFilters: React.FC<AcrylAssertionFiltersProps> = ({
                             checked={checkIsSelected(filter)}
                             onChange={(e) => handleFilterChange(filter, e.target.checked)}
                         >
-                            {filter.displayName} ({filter.count})
+                            {filter.displayName}
                         </Checkbox>
                     </Menu.Item>
                 ))}
@@ -69,7 +69,8 @@ export const AcrylAssertionFilters: React.FC<AcrylAssertionFiltersProps> = ({
     return (
         <Dropdown overlay={menu} trigger={['click']} placement="bottomLeft">
             <Button>
-                Filters <DownOutlined />
+                Filters {selectedFilters.length ? <>&nbsp;({selectedFilters.length})</> : null}
+                <DownOutlined />
             </Button>
         </Dropdown>
     );

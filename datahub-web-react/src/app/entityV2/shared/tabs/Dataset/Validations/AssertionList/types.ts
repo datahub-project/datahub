@@ -20,8 +20,8 @@ export type AssertionListFilter = {
         status: AssertionResultType[];
         type: AssertionType[];
         tags: string[];
-        columns: string[];
-        others: AssertionSourceType[];
+        column: string[];
+        source: AssertionSourceType[];
     };
 };
 
@@ -56,15 +56,26 @@ export type AssertionStatusGroup = {
     groupName?: JSX.Element;
 };
 
+export type AssertionColumnGroup = {
+    name: string;
+    assertions: AssertionListTableRow[];
+    summary?: { [key: string]: number };
+};
+
 type AssertionGroupBy = {
     type: any[];
     status: AssertionStatusGroup[];
+    column: AssertionColumnGroup[];
 };
 
 export type AssertionTable = {
     assertions: AssertionListTableRow[];
     groupBy: AssertionGroupBy;
     filterOptions?: any;
+    originalFilterOptions?: any;
+    filteredCount?: number;
+    searchMatchesCount?: number;
+    totalCount?: number;
 };
 
 export type AssertionFilterOptions = {
@@ -73,13 +84,14 @@ export type AssertionFilterOptions = {
         status: AssertionResultType[];
         column: string[];
         tags: string[];
+        source: AssertionSourceType[];
     };
     recommendedFilters: AssertionRecommendedFilter[];
 };
 
 export type AssertionRecommendedFilter = {
     name: string;
-    category: 'status' | 'type' | 'others';
+    category: 'status' | 'type' | 'source';
     count: number;
     displayName: string;
 };

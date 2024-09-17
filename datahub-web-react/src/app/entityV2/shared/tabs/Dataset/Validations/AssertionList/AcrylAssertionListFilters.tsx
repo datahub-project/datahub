@@ -16,9 +16,9 @@ interface FilterItem {
 
 interface AcrylAssertionListFiltersProps {
     filterOptions: any;
+    originalFilterOptions: any;
     setFilters: React.Dispatch<React.SetStateAction<AssertionListFilter>>;
     filter: AssertionListFilter;
-    allAssertionCount: number;
     filteredAssertions: AssertionTable;
 }
 
@@ -42,9 +42,9 @@ const StyledFilterContainer = styled.div`
 
 export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps> = ({
     filterOptions,
+    originalFilterOptions,
     setFilters,
     filter,
-    allAssertionCount,
     filteredAssertions,
 }) => {
     const [appliedFilters, setAppliedFilters] = useState<FilterItem[]>([]);
@@ -64,14 +64,14 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
     };
 
     const handleFilterChange = (updatedFilters: FilterItem[]) => {
-        /** Set Recommended Filters when there is value in type,status or others if not then set it as empty to clear the filter */
+        /** Set Recommended Filters when there is value in type,status or source if not then set it as empty to clear the filter */
         const selectedRecommendedFilters = updatedFilters.reduce<Record<string, string[]>>(
             (acc, selectedfilter) => {
                 acc[selectedfilter.category] = acc[selectedfilter.category] || [];
                 acc[selectedfilter.category].push(selectedfilter.name);
                 return acc;
             },
-            { type: [], status: [], others: [] },
+            { type: [], status: [], source: [], column: [] },
         );
 
         setFilters((prev) => ({
@@ -85,14 +85,19 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
      * This hook is for setting applied filter when we are getting it from selected Filter state
      */
     useEffect(() => {
-        const { status, type, others } = filter.filterCriteria || ASSERTION_DEFAULT_FILTERS.filterCriteria;
-        const recommendedFilters = filterOptions?.recommendedFilters || [];
+        const { status, type, source, column } = filter.filterCriteria || ASSERTION_DEFAULT_FILTERS.filterCriteria;
+        const recommendedFilters = originalFilterOptions?.recommendedFilters || [];
         // just set recommended filters for status, type & Others as of right now
         const appliedRecommendedFilters = recommendedFilters.filter(
-            (item) => status.includes(item.name) || type.includes(item.name) || others.includes(item.name),
+            (item) =>
+                status.includes(item.name) ||
+                type.includes(item.name) ||
+                source.includes(item.name) ||
+                column.includes(item.name),
         );
         setAppliedFilters(appliedRecommendedFilters);
         setSelectedGroupBy(filter.groupBy);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filter, filterOptions]);
 
     return (
@@ -102,14 +107,14 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                 <AcrylAssertionListSearch
                     searchText={filter.filterCriteria.searchText}
                     debouncedSetFilterText={handleSearchTextChange}
-                    matchResultCount={filteredAssertions.assertions?.length || 0}
-                    numRows={allAssertionCount}
+                    matchResultCount={filteredAssertions.searchMatchesCount || 0}
+                    numRows={filteredAssertions.totalCount || 0}
                 />
 
                 {/* ************Render Filter Component ************************* */}
                 <StyledFilterContainer>
                     <AcrylAssertionFilters
-                        filterOptions={filterOptions?.filterGroupOptions || []}
+                        filterOptions={originalFilterOptions?.filterGroupOptions || []}
                         selectedFilters={appliedFilters}
                         onFilterChange={handleFilterChange}
                     />
