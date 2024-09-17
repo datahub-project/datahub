@@ -14,7 +14,7 @@ const Ecosystem = () => {
             </div>
             <div className={styles.ecosystem_section_subtitle}>
               DataHub is built on an extensible, scalable and secure foundation.
-              <br/>It's hardened and ready for the toughest challenges large enterprises face.
+              <br/>It is hardened and ready for the toughest challenges large enterprises face.
             </div>
             <Link className={styles.bottom_line_cta} to="/adoption-stories#netflix">
               See how Netflix uses DataHub at scale&nbsp;→

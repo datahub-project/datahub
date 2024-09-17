@@ -11,7 +11,7 @@
   font-family: "Manrope";
 
   .community_section_left {
-    padding: 40px 0;
+    padding: 20px 0;
     width: 60%;
     height: 100%;
     background: #3e2644;
@@ -21,7 +21,7 @@
     justify-content: center;
 
     .community_section_left_content {
-      margin: 5rem auto;
+      margin: 2rem auto;
 
       .community_section_heading {
         color: rgba($color: #fff, $alpha: 0.4);
@@ -207,12 +207,6 @@
 }
 
 
-.numberContainer {
-  display: inline-block;
-  width: 11rem;
-  text-align: right;
-}
-
 @keyframes slideIn {
   0% {
     opacity: 0;
@@ -225,8 +219,61 @@
   }
 }
 
+.numberContainer {
+  display: inline-block;
+  width: 11rem;
+  text-align: right;
+}
+
 .numberChange {
   display: inline-block;
   animation: slideIn 0.5s ease-in-out;
   width: 11rem;
+}
+
+
+@media only screen and (max-width: 800px) {
+  .community_section {
+    flex-direction: column;
+
+    .community_section_left {
+      width: 100%;
+      padding: 20px 24px;
+      
+      .community_section_left_content {
+
+        .community_section_heading {
+          font-size: 2rem;
+
+          img {
+            height: 24px;
+            width: 24px;
+          }
+        }
+        p {
+          font-size: 1rem;
+          line-height: 1.2rem;
+          margin-top: 8px;
+          margin-bottom: 12px;
+        }
+        a {
+          padding: 4px 8px;
+          font-size: 1rem;
+        }
+        .numberChange, .numberContainer {
+          width: 6.5rem;
+        }
+      }
+    }
+
+    .community_section_right {
+      width: 100%;
+      .community_section_subText {
+        padding: 32px 52px 16px;
+      }
+      .carouselContainer {
+        margin-bottom: 24px;
+      }
+    }
+  }
 }

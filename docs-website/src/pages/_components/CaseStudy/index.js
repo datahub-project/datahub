@@ -6,12 +6,6 @@ import caseStudyData from "./caseStudyContent";
 
 
 const CaseStudy = () => {
-  const detectDeviceType = () =>
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-      navigator.userAgent
-    )
-      ? "Mobile"
-      : "Desktop";
   return (
     <div className={styles.container}>
       {/* Section-1 */}

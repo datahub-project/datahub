@@ -66,6 +66,12 @@
 //   }
 // }
 
+
+@media only screen and (max-width: 800px) {
+  .quickstart {
+    margin: 6rem auto!important;
+  }
+}
 .quickstart {
   width: 80vw;
   min-height: 100vh;
@@ -208,6 +214,7 @@
     @media only screen and (max-width: 800px) {
       .quickstart__bar {
         width: 4px;
+        left: -4px;
       }
       .quickstart__header {
         width: 95%;

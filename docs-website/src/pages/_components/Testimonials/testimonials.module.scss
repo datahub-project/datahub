@@ -109,13 +109,14 @@
 
     @media only screen and (max-width: 800px) {
       .testimonials__content {
-        width: 95vw;
-        padding: 28px 0;
+        width: 100vw;
+        padding: 20px 0;
         .testimonials__card {
           flex-direction: column;
+          margin: 2rem 3rem;
 
           .testimonials__logo {
-            max-width: 48px;
+            max-width: 40px;
             margin-bottom: 16px;
           }
 

@@ -170,7 +170,7 @@
   // Responsiveness
   @media only screen and (max-width: 800px) {
     .ecosystem_section_content {
-      width: 80%;
+      width: 90%;
       min-width: 0;
       height: auto!important;
       padding-bottom: 48px;
@@ -180,11 +180,11 @@
         height: auto!important;
 
         .ecosystem_section_heading {
-          font-size: 2rem;
+          font-size: 1.75rem;
           line-height: 2.25rem;
         }
         .ecosystem_section_subtitle {
-          font-size: .9rem;
+          font-size: 1rem;
           line-height: 1.3rem;
           margin-top: 1rem;
           opacity: .75;
@@ -200,6 +200,17 @@
 
         .diagramItem {
           margin-bottom: 12px;
+        }
+
+        .item1,
+        .item2,
+        .item3,
+        .item4 {
+          padding: 24px 16px;
+        }
+        .item_content span {
+          font-size: .8rem;
+          line-height: 1.1rem;
         }
       }
     }
