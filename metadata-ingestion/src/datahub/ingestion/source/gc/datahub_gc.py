@@ -84,6 +84,7 @@ class DataHubGcSource(Source):
     3. Cleans up data processes and soft-deleted entities if configured.
 
     """
+
     def __init__(self, ctx: PipelineContext, config: DataHubGcSourceConfig):
         self.ctx = ctx
         self.config = config
