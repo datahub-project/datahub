@@ -78,7 +78,7 @@
             font-style: normal;
             font-weight: 400;
             font-size: 1.8rem;
-            line-height: 48px;
+            line-height: 3rem;
             position: relative;
 
             .quote {
@@ -105,6 +105,35 @@
           }
         }
       }
+    }
+
+    @media only screen and (max-width: 800px) {
+      .testimonials__content {
+        width: 95vw;
+        padding: 28px 0;
+        .testimonials__card {
+          flex-direction: column;
+
+          .testimonials__logo {
+            max-width: 48px;
+            margin-bottom: 16px;
+          }
+
+          .testimonials__text {
+            width: 100%;
+            padding-left: 24px;
+            max-width: 100%;
+            .testimonials__quote {
+              font-size: 1.1rem;
+              line-height: 1.75rem;
+            }
+            .testimonials__company {
+              font-size: 1rem;
+            }
+          }
+        }
+      }
+      
     }
   }
 }

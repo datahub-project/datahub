@@ -72,17 +72,19 @@
   margin: 12rem auto;
   display: flex;
   flex-direction: column;
-  gap: 100px;
 
   :global {
     .quickstart__header {
       text-align: center;
+      margin-bottom: 100px;
 
       .quickstart__title,
       .quickstart__subtitle {
-        font-size: 3.5rem;
         line-height: normal;
         font-family: Manrope;
+      }
+      .quickstart__title {
+        font-size: 3.5rem;
       }
 
       .quickstart__subtitle {
@@ -92,8 +94,6 @@
     }
 
     .quickstart__bar {
-        content: "";
-
         width: 10px;
         height: 100%;
         position: absolute;
@@ -205,114 +205,50 @@
     }
 
 
-    @media (max-width: 480px) {
-      width: 90vw;
-      margin: 2rem auto;
-
+    @media only screen and (max-width: 800px) {
+      .quickstart__bar {
+        width: 4px;
+      }
       .quickstart__header {
-        text-align: center;
-        width: 80%;
-        margin: auto;
-  
-        .quickstart__title,
-        .quickstart__subtitle {
+        width: 95%;
+        margin-bottom: 40px;
+
+        .quickstart__title {
           font-size: 2rem;
-          line-height: normal;
-          font-family: Manrope;
         }
-  
         .quickstart__subtitle {
-          font-size: 1rem;
+          font-size: 1.25rem;
         }
       }
 
       .quickstart__content {
-        display: flex;
         flex-direction: column;
-        margin-top: 3rem;
-  
+
         .quickstart__text {
-          &::before {
-            content: "";
-  
-            height: 398px;
-            width: 10px;
-            position: absolute;
-  
-            background: linear-gradient(180deg, #29B5E8 18.71%, #FFBF4C 143.37%);
-            border-radius: 10px;
-  
-            /* Inside auto layout */
-            display: block;
-          }
-  
+          min-width: 0;
+          width: 100%;
+          padding-left: 20px;
+
           div {
-            padding-left: 8%;
+            padding-left: 0;
           }
-  
+
           .quickstart__text__label {
-  
-            /* Label */
-            font-family: 'Manrope';
-            font-style: normal;
-            font-weight: 700;
-            font-size: 1rem;
-            line-height: normal;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-  
-            color: #999EB3;
+            font-size: .8rem;
           }
-  
           .quickstart__text__head {
-  
-            /* H4 | Semibold */
-            font-family: 'Manrope';
-            font-style: normal;
-            font-weight: 600;
-            font-size: 1.5rem;
-            line-height: normal;
-  
-            color: #171B2B;
-            margin-top: 0.5rem;
+            font-size: 1.4rem;
           }
-  
           .quickstart__text__desc {
-  
-            margin-top: 1rem;
-            font-family: 'Manrope';
-            font-style: normal;
-            font-weight: 400;
-            font-size: 1rem;
-            line-height: normal;
-            /* Text|Light */
-            color: #838BA8;
-  
-            p {
-              margin-bottom: 0.5rem;
-            }
-  
-            .learn_more {
-              color: #1890FF;
-              font-weight: 500;
-              font-size: 0.8rem;
-            }
+            font-size: .9rem;
+            line-height: 1.3rem;
           }
         }
-  
         .quickstart__img {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-  
-          img {
-            width: 100%;
-            object-fit: cover;
-          }
+          min-width: 0;
+          width: 100%;
         }
       }
-
     }
-
   }
 }

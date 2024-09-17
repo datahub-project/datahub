@@ -76,7 +76,7 @@ const Testimonials = ({}) => {
               through automation and emphasis on time-to-value.
             </div>
             <div className="testimonials__company">
-              Notion Labs, Inc. <span>on DataHub Cloud</span>
+              Notion Labs, Inc. <span>DataHub Cloud</span>
             </div>
           </div>
         </div>
