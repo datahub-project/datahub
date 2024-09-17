@@ -5,7 +5,9 @@ import { useUserContext } from '../../../../../../context/useUserContext';
 const DOMAINS_MODULE_ID = 'Domains';
 const MAX_DOMAINS = 5;
 
-export const useGetDomains = (user?: CorpUser | null): { domains: Domain[]; loading: boolean } => {
+export const useGetDomains = (
+    user?: CorpUser | null,
+): { domains: { entity: Domain; assetCount: number }[]; loading: boolean } => {
     const { localState } = useUserContext();
     const { selectedViewUrn } = localState;
     const { data, loading } = useListRecommendationsQuery({
@@ -27,7 +29,10 @@ export const useGetDomains = (user?: CorpUser | null): { domains: Domain[]; load
     const domains =
         domainsModule?.content
             ?.filter((content) => content.entity)
-            .map((content) => content.entity as Domain)
+            .map((content) => ({
+                entity: content.entity as Domain,
+                assetCount: content.params?.contentParams?.count || 0,
+            }))
             ?.slice(0, MAX_DOMAINS) || [];
     return { domains, loading };
 };
