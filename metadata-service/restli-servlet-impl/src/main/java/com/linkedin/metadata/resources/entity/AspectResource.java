@@ -29,7 +29,7 @@ import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.resources.operations.Utils;
-import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -133,7 +133,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       throws URISyntaxException {
     log.info("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
     final Urn urn = Urn.createFromString(urnStr);
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
             Authentication auth = AuthenticationContext.getAuthentication();
@@ -153,7 +153,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
               _entityService.getVersionedAspect(opContext, urn, aspectName, version);
           if (aspect == null) {
               log.warn("Did not find urn: {} aspect: {} version: {}", urn, aspectName, version);
-              throw RestliUtil.nonExceptionResourceNotFound();
+              throw RestliUtils.nonExceptionResourceNotFound();
           }
           return new AnyRecord(aspect.data());
         },
@@ -183,7 +183,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         endTimeMillis,
         limit);
     final Urn urn = Urn.createFromString(urnStr);
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
             Authentication auth = AuthenticationContext.getAuthentication();
@@ -298,7 +298,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 
-    return RestliUtil.toTask(() -> {
+    return RestliUtils.toTask(() -> {
       log.debug("Proposals: {}", metadataChangeProposals);
       try {
         final AspectsBatch batch = AspectsBatchImpl.builder()
@@ -332,7 +332,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   public Task<Integer> getCount(
       @ActionParam(PARAM_ASPECT) @Nonnull String aspectName,
       @ActionParam(PARAM_URN_LIKE) @Optional @Nullable String urnLike) {
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
             Authentication authentication = AuthenticationContext.getAuthentication();
@@ -364,7 +364,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam("limit") @Optional @Nullable Integer limit,
       @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
       @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
             Authentication authentication = AuthenticationContext.getAuthentication();
