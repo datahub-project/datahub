@@ -83,11 +83,29 @@ class DatahubEmitterOperator(DatahubBaseOperator):
     def execute(self, context):
         if context:
             jinja_env = self.get_template_env()
+
+            """
+            The `_render_template_fields` method is called in the `execute` method to ensure that all template fields
+            are rendered with the current execution context, which includes runtime variables and other dynamic data,
+            is only available during the execution of the task.
+
+            The `render_template` method is not overridden because the `_render_template_fields` method is used to
+            handle the rendering of template fields recursively.
+            This approach allows for more granular control over how each field is rendered,
+            especially when dealing with complex data structures like `DictWrapper` and lists.
+
+            By not overriding `render_template`, the code leverages the existing functionality
+            provided by the base class while adding custom logic for specific cases.
+            """
             for item in self.metadata:
                 if isinstance(item, MetadataChangeProposalWrapper):
                     for key in item.__dict__.keys():
                         value = getattr(item, key)
-                        self._render_template_fields(value, context, jinja_env)
+                        setattr(
+                            item,
+                            key,
+                            self._render_template_fields(value, context, jinja_env),
+                        )
                 if isinstance(item, MetadataChangeEvent):
                     self._render_template_fields(item, context, jinja_env)
 

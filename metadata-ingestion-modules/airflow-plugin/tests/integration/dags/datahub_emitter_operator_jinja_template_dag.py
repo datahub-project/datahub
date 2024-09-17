@@ -40,6 +40,12 @@ with DAG(
                     path=[BrowsePathEntryClass("mcpw_example {{ ds }}")],
                 ),
             ),
+            MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.mcpw_example_{{ ts_nodash }},DEV)",
+                aspect=BrowsePathsV2Class(
+                    path=[BrowsePathEntryClass("mcpw_example {{ ds }}")],
+                ),
+            ),
             MetadataChangeEvent(
                 proposedSnapshot=DatasetSnapshotClass(
                     urn="urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.lineage_example,DEV)",
