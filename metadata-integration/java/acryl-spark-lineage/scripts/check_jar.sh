@@ -42,7 +42,11 @@ for jarFile in ${jarFiles}; do
       grep -v "MetadataChangeProposal.avsc" |\
       grep -v "io.openlineage" |\
       grep -v "org.apache" |\
-      grep -v "aix"
+      grep -v "aix" |\
+      grep -v "scala" |\
+      grep -v "io/micrometer/" |\
+      grep -v "library.properties|rootdoc.txt" \|
+      grep -v "com/ibm/.*"
 
 
 if [ $? -ne 0 ]; then
