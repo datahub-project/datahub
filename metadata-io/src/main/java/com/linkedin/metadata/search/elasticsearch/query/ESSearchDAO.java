@@ -120,6 +120,7 @@ public class ESSearchDAO {
       return transformIndexIntoEntityName(
           opContext.getSearchContext().getIndexConvention(),
           SearchRequestHandler.getBuilder(
+                  opContext.getEntityRegistry(),
                   entitySpec,
                   searchConfiguration,
                   customSearchConfiguration,
@@ -220,6 +221,7 @@ public class ESSearchDAO {
       return transformIndexIntoEntityName(
           opContext.getSearchContext().getIndexConvention(),
           SearchRequestHandler.getBuilder(
+                  opContext.getEntityRegistry(),
                   entitySpecs,
                   searchConfiguration,
                   customSearchConfiguration,
@@ -267,6 +269,7 @@ public class ESSearchDAO {
     // Step 1: construct the query
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(
+                opContext.getEntityRegistry(),
                 entitySpecs,
                 searchConfiguration,
                 customSearchConfiguration,
@@ -304,7 +307,11 @@ public class ESSearchDAO {
     Filter transformedFilters = transformFilterForEntities(filters, indexConvention);
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(
-                entitySpec, searchConfiguration, customSearchConfiguration, queryFilterRewriteChain)
+                opContext.getEntityRegistry(),
+                entitySpec,
+                searchConfiguration,
+                customSearchConfiguration,
+                queryFilterRewriteChain)
             .getFilterRequest(opContext, transformedFilters, sortCriteria, from, size);
 
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
@@ -384,6 +391,7 @@ public class ESSearchDAO {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(
+                opContext.getEntityRegistry(),
                 entitySpecs,
                 searchConfiguration,
                 customSearchConfiguration,
@@ -502,7 +510,11 @@ public class ESSearchDAO {
     }
 
     return SearchRequestHandler.getBuilder(
-            entitySpecs, searchConfiguration, customSearchConfiguration, queryFilterRewriteChain)
+            opContext.getEntityRegistry(),
+            entitySpecs,
+            searchConfiguration,
+            customSearchConfiguration,
+            queryFilterRewriteChain)
         .getSearchRequest(
             opContext, finalInput, postFilters, sortCriteria, sort, pitId, keepAlive, size, facets);
   }
