@@ -166,9 +166,44 @@
       line-height: 1.3rem;
     }
   }
-}
 
-// Responsiveness
-@media (max-width: 480px) {
+  // Responsiveness
+  @media only screen and (max-width: 800px) {
+    .ecosystem_section_content {
+      width: 80%;
+      min-width: 0;
+      height: auto!important;
+      padding-bottom: 48px;
+      padding-top: 48px;
+
+      .ecosystem_section_upper_content {
+        height: auto!important;
+
+        .ecosystem_section_heading {
+          font-size: 2rem;
+          line-height: 2.25rem;
+        }
+        .ecosystem_section_subtitle {
+          font-size: .9rem;
+          line-height: 1.3rem;
+          margin-top: 1rem;
+          opacity: .75;
+        }
+        .bottom_line_cta {
+          margin-top: .5rem;
+        }
+      }
+      .ecosystem_section_lower_content {
+        height: auto;
+        margin-top: 8px;
+        flex-direction: column-reverse;
+
+        .diagramItem {
+          margin-bottom: 12px;
+        }
+      }
+    }
+
+  }
 
 }
