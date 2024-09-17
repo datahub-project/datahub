@@ -89,7 +89,6 @@ def assert_metadata_files_equal(
             write_metadata_file(pathlib.Path(golden_path), golden)
         else:
             # Fallback: just overwrite the golden file
-            logger.info("Overwriting golden file!!!")
             shutil.copyfile(str(output_path), str(golden_path))
         return
 
