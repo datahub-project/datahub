@@ -306,7 +306,7 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR",
+                                "nativeDataType": "JSON",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
