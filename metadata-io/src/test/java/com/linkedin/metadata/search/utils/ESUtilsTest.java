@@ -15,8 +15,10 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -87,7 +89,11 @@ public class ESUtilsTest {
 
     QueryBuilder result =
         ESUtils.getQueryBuilderFromCriterion(
-            singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+            singleValueCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
     String expected =
         "{\n"
             + "  \"terms\" : {\n"
@@ -108,7 +114,11 @@ public class ESUtilsTest {
 
     result =
         ESUtils.getQueryBuilderFromCriterion(
-            multiValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+            multiValueCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
     expected =
         "{\n"
             + "  \"terms\" : {\n"
@@ -130,7 +140,11 @@ public class ESUtilsTest {
 
     result =
         ESUtils.getQueryBuilderFromCriterion(
-            timeseriesField, true, new HashMap<>(), mock(AspectRetriever.class));
+            timeseriesField,
+            true,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
     expected =
         "{\n"
             + "  \"terms\" : {\n"
@@ -152,7 +166,11 @@ public class ESUtilsTest {
 
     QueryBuilder result =
         ESUtils.getQueryBuilderFromCriterion(
-            singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+            singleValueCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            mock(QueryFilterRewriteChain.class));
 
     String expected =
         "{\n"
@@ -175,7 +193,11 @@ public class ESUtilsTest {
 
     result =
         ESUtils.getQueryBuilderFromCriterion(
-            multiValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+            multiValueCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            mock(QueryFilterRewriteChain.class));
 
     expected =
         "{\n"
@@ -218,7 +240,11 @@ public class ESUtilsTest {
 
     QueryBuilder result =
         ESUtils.getQueryBuilderFromCriterion(
-            singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+            singleValueCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            mock(QueryFilterRewriteChain.class));
 
     String expected =
         "{\n"
@@ -241,7 +267,11 @@ public class ESUtilsTest {
 
     result =
         ESUtils.getQueryBuilderFromCriterion(
-            multiValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+            multiValueCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            mock(QueryFilterRewriteChain.class));
 
     expected =
         "{\n"
@@ -281,7 +311,11 @@ public class ESUtilsTest {
 
     QueryBuilder result =
         ESUtils.getQueryBuilderFromCriterion(
-            singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+            singleValueCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            mock(QueryFilterRewriteChain.class));
 
     String expected =
         "{\n"
@@ -303,7 +337,11 @@ public class ESUtilsTest {
 
     result =
         ESUtils.getQueryBuilderFromCriterion(
-            multiValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+            multiValueCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            mock(QueryFilterRewriteChain.class));
 
     expected =
         "{\n"
@@ -343,7 +381,11 @@ public class ESUtilsTest {
 
     QueryBuilder result =
         ESUtils.getQueryBuilderFromCriterion(
-            singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+            singleValueCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
     String expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -368,7 +410,11 @@ public class ESUtilsTest {
 
     result =
         ESUtils.getQueryBuilderFromCriterion(
-            timeseriesField, true, new HashMap<>(), mock(AspectRetriever.class));
+            timeseriesField,
+            true,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
     expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -395,7 +441,11 @@ public class ESUtilsTest {
 
     QueryBuilder result =
         ESUtils.getQueryBuilderFromCriterion(
-            singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+            singleValueCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
     String expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -420,7 +470,11 @@ public class ESUtilsTest {
 
     result =
         ESUtils.getQueryBuilderFromCriterion(
-            timeseriesField, true, new HashMap<>(), mock(AspectRetriever.class));
+            timeseriesField,
+            true,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
     expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -453,7 +507,11 @@ public class ESUtilsTest {
     // Ensure that the query is expanded!
     QueryBuilder result =
         ESUtils.getQueryBuilderFromCriterion(
-            singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+            singleValueCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
     String expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -493,7 +551,11 @@ public class ESUtilsTest {
     // Ensure that the query is expanded without keyword.
     result =
         ESUtils.getQueryBuilderFromCriterion(
-            timeseriesField, true, new HashMap<>(), mock(AspectRetriever.class));
+            timeseriesField,
+            true,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
     expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -535,9 +597,11 @@ public class ESUtilsTest {
             .setCondition(Condition.EQUAL)
             .setValues(new StringArray(ImmutableList.of("value1")));
 
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
     QueryBuilder result =
         ESUtils.getQueryBuilderFromCriterion(
-            singleValueCriterion, false, new HashMap<>(), aspectRetriever);
+            singleValueCriterion, false, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY);
     String expected =
         "{\n"
             + "  \"terms\" : {\n"
@@ -560,9 +624,15 @@ public class ESUtilsTest {
             .setCondition(Condition.EQUAL)
             .setValues(new StringArray(ImmutableList.of("value1")));
 
+    OperationContext opContextV1 = mock(OperationContext.class);
+    when(opContextV1.getAspectRetriever()).thenReturn(aspectRetrieverV1);
     QueryBuilder result =
         ESUtils.getQueryBuilderFromCriterion(
-            singleValueCriterion, false, new HashMap<>(), aspectRetrieverV1);
+            singleValueCriterion,
+            false,
+            new HashMap<>(),
+            opContextV1,
+            QueryFilterRewriteChain.EMPTY);
     String expected =
         "{\n"
             + "  \"terms\" : {\n"
@@ -581,9 +651,11 @@ public class ESUtilsTest {
     final Criterion singleValueCriterion =
         new Criterion().setField("structuredProperties.ab.fgh.ten").setCondition(Condition.EXISTS);
 
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
     QueryBuilder result =
         ESUtils.getQueryBuilderFromCriterion(
-            singleValueCriterion, false, new HashMap<>(), aspectRetriever);
+            singleValueCriterion, false, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY);
     String expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -608,7 +680,7 @@ public class ESUtilsTest {
 
     result =
         ESUtils.getQueryBuilderFromCriterion(
-            timeseriesField, true, new HashMap<>(), aspectRetriever);
+            timeseriesField, true, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY);
     expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -633,9 +705,15 @@ public class ESUtilsTest {
     final Criterion singleValueCriterion =
         new Criterion().setField("structuredProperties.ab.fgh.ten").setCondition(Condition.EXISTS);
 
+    OperationContext opContextV1 = mock(OperationContext.class);
+    when(opContextV1.getAspectRetriever()).thenReturn(aspectRetrieverV1);
     QueryBuilder result =
         ESUtils.getQueryBuilderFromCriterion(
-            singleValueCriterion, false, new HashMap<>(), aspectRetrieverV1);
+            singleValueCriterion,
+            false,
+            new HashMap<>(),
+            opContextV1,
+            QueryFilterRewriteChain.EMPTY);
     String expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -660,7 +738,7 @@ public class ESUtilsTest {
 
     result =
         ESUtils.getQueryBuilderFromCriterion(
-            timeseriesField, true, new HashMap<>(), aspectRetrieverV1);
+            timeseriesField, true, new HashMap<>(), opContextV1, QueryFilterRewriteChain.EMPTY);
     expected =
         "{\n"
             + "  \"bool\" : {\n"

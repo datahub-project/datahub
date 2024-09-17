@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.opensearch.SearchDAOOpenSearchTest;
 import com.linkedin.metadata.utils.SearchUtil;
 import io.datahubproject.metadata.context.OperationContext;
@@ -233,7 +234,8 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getSearchConfiguration(),
-            null);
+            null,
+            QueryFilterRewriteChain.EMPTY);
     // Empty aggregations
     final SearchResultMetadata searchResultMetadata =
         new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
@@ -323,7 +325,8 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getSearchConfiguration(),
-            null);
+            null,
+            QueryFilterRewriteChain.EMPTY);
     // One nested facet
     Map<String, Long> entityTypeMap =
         Map.of(
@@ -461,7 +464,8 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
                 ? ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH
                 : ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getSearchConfiguration(),
-            null);
+            null,
+            QueryFilterRewriteChain.EMPTY);
     ExplainResponse explainResponse =
         searchDAO.explain(
             getOperationContext()

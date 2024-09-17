@@ -18,7 +18,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.IngestionRunSummary;
@@ -108,7 +108,7 @@ public class BatchIngestionRunResource
           "Both Safe & hardDelete flags were defined, honouring safe flag as hardDelete is deprecated");
     }
     try {
-      return RestliUtil.toTask(
+      return RestliUtils.toTask(
           () -> {
 
               try {
@@ -136,7 +136,7 @@ public class BatchIngestionRunResource
       @ActionParam("includeSoft") @Optional @Nullable Boolean includeSoft) {
     log.info("LIST RUNS offset: {} size: {}", pageOffset, pageSize);
 
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
           List<IngestionRunSummary> summaries =
               systemMetadataService.listRuns(
@@ -160,7 +160,7 @@ public class BatchIngestionRunResource
       @ActionParam("includeAspect") @Optional @Nullable Boolean includeAspect) {
     log.info("DESCRIBE RUN runId: {}, start: {}, count: {}", runId, start, count);
 
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
             Authentication auth = AuthenticationContext.getAuthentication();
