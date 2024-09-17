@@ -192,10 +192,18 @@ class MCPDiff:
             path,
         )
 
-    def apply_delta(self, golden: List[Dict[str, Any]]) -> None:
+    def apply_delta(self, golden: List[Dict[str, Any]]) -> bool:
+        """Update a golden file to match an output file based on the diff.
+
+        :param golden: Golden file represented as a list of MCPs, altered in-place.
+        :return: Whether the delta was successfully applied. If false, fallback to copying file when updating golden.
+        """
         aspect_diffs = [v for d in self.aspect_changes.values() for v in d.values()]
         for aspect_diff in aspect_diffs:
-            for (_, old, new), diffs in aspect_diff.aspects_changed.items():
+            if len(aspect_diff.aspects_changed) > 1:
+                return False
+
+            for (_, old, new) in aspect_diff.aspects_changed.keys():
                 golden[old.delta_info.idx] = new.delta_info.original
 
         indices_to_remove = set()
@@ -208,6 +216,8 @@ class MCPDiff:
         for aspect_diff in aspect_diffs:  # Ideally would have smarter way to do this
             for ga in aspect_diff.aspects_added.values():
                 golden.insert(ga.delta_info.idx, ga.delta_info.original)
+
+        return True
 
     def pretty(self, verbose: bool = False) -> str:
         """The pretty human-readable string output of the diff between golden and output."""
@@ -268,7 +278,7 @@ class MCPDiff:
             suffix = "rd"
         else:
             suffix = "th"
-        ordinal = f"{(idx+1)}{suffix} " if idx else ""
+        ordinal = f"{(idx + 1)}{suffix} " if idx else ""
         return f"{ordinal}<{ga.aspect_name}> {msg}"
 
     @staticmethod
