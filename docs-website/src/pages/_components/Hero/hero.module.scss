@@ -181,5 +181,47 @@
     //     }
     //   }
     // }
+
+
+
+
+    @media only screen and (max-width: 800px) {
+      .hero__content {
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .hero__img {
+        width: 100%;
+        margin-top: 12px;
+      }
+      .hero__text {
+        width: 100%;
+        padding-left: 24px;
+        align-items: start;
+        >* {
+          margin-left: 0;
+          width: auto;
+        }
+        .hero__title {
+          font-size: 2rem;
+        }
+        .hero__subtitle {
+          margin-top: .5rem;
+          font-size: 1rem;
+          span {
+            font-size: .8rem;
+            height: 1.2rem;
+            padding-left: 0px;
+          }
+        }
+        .hero__cta {
+          margin-top: 12px;
+        }
+        .hero__footer_cta {
+          margin-top: 12px;
+        }
+      }
+    }
   }
 }
