@@ -17,7 +17,6 @@ import com.linkedin.datahub.graphql.generated.ListQueriesResult;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -61,17 +60,12 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
     final Filter inputFilter =
         input.getOrFilters() != null
-            ? buildFilter(
-                Collections.emptyList(),
-                input.getOrFilters(),
-                context.getOperationContext().getAspectRetriever())
+            ? buildFilter(Collections.emptyList(), input.getOrFilters())
             : null;
     final Filter finalFilter =
         inputFilter != null
-            ? SearchUtils.combineFilters(
-                inputFilter,
-                buildFilters(input, context.getOperationContext().getAspectRetriever()))
-            : buildFilters(input, context.getOperationContext().getAspectRetriever());
+            ? SearchUtils.combineFilters(inputFilter, buildFilters(input))
+            : buildFilters(input);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -131,8 +125,7 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
   }
 
   @Nullable
-  private Filter buildFilters(
-      @Nonnull final ListQueriesInput input, @Nullable AspectRetriever aspectRetriever) {
+  private Filter buildFilters(@Nonnull final ListQueriesInput input) {
     final AndFilterInput criteria = new AndFilterInput();
     List<FacetFilterInput> andConditions = new ArrayList<>();
 
@@ -159,6 +152,6 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
     }
 
     criteria.setAnd(andConditions);
-    return buildFilter(Collections.emptyList(), ImmutableList.of(criteria), aspectRetriever);
+    return buildFilter(Collections.emptyList(), ImmutableList.of(criteria));
   }
 }

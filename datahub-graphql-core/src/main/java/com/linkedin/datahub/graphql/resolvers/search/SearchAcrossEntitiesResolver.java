@@ -63,10 +63,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                   : null;
 
           final Filter inputFilter =
-              ResolverUtils.buildFilter(
-                  input.getFilters(),
-                  input.getOrFilters(),
-                  context.getOperationContext().getAspectRetriever());
+              ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
           final Filter formFilter =
               SearchUtils.getFormFilter(
                   context.getOperationContext(), input.getFormFilter(), _formService);

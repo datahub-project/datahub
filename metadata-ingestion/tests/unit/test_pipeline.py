@@ -142,7 +142,9 @@ class TestPipeline:
                         "token": "foo",
                     },
                 },
-            }
+            },
+            # We don't want to make actual API calls during this test.
+            report_to=None,
         )
         # assert that the default sink config is for a DatahubRestSink
         assert isinstance(pipeline.config.sink, DynamicTypedConfig)

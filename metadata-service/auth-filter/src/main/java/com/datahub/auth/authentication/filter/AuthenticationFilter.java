@@ -77,6 +77,7 @@ public class AuthenticationFilter implements Filter {
   public void init(FilterConfig filterConfig) throws ServletException {
     SpringBeanAutowiringSupport.processInjectionBasedOnCurrentContext(this);
     buildAuthenticatorChain();
+    log.info("AuthenticationFilter initialized.");
   }
 
   @Override
