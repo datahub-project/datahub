@@ -9,7 +9,6 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useListGlobalViewsQuery } from '@src/graphql/view.generated';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useListRecommendationsQuery } from '../../../graphql/recommendations.generated';
 import { DataHubViewType, DataPlatform, EntityType, ScenarioType } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
