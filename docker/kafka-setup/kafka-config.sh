@@ -9,7 +9,7 @@
 : ${DATAHUB_ANALYTICS_ENABLED:=true}
 
 : ${KAFKA_HEAP_OPTS:=-Xmx64M}
-export KAFKA_HEAP_OPT
+export KAFKA_HEAP_OPTS
 
 CONNECTION_PROPERTIES_PATH=/tmp/connection.properties
 
