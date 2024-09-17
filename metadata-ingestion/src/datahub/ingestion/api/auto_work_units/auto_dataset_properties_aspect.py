@@ -13,7 +13,9 @@ from datahub.utilities.urns.urn import guess_entity_type
 
 @dataclasses.dataclass
 class TimestampPair:
-    last_modified: Optional[TimeStampClass]  # last_modified of datasetProperties aspect
+    last_modified_dataset_properties: Optional[
+        TimeStampClass
+    ]  # last_modified of datasetProperties aspect
     last_updated_timestamp: Optional[
         int
     ]  # lastUpdatedTimestamp of the operation aspect
@@ -47,7 +49,9 @@ def auto_patch_last_modified(
         if timestamp_pair:
             # Update the timestamp_pair
             if dataset_properties_aspect and dataset_properties_aspect.lastModified:
-                timestamp_pair.last_modified = dataset_properties_aspect.lastModified
+                timestamp_pair.last_modified_dataset_properties = (
+                    dataset_properties_aspect.lastModified
+                )
 
             if (
                 dataset_operation_aspect
@@ -60,17 +64,19 @@ def auto_patch_last_modified(
 
         else:
             # Create new TimestampPair
-            last_modified: Optional[TimeStampClass] = None
+            last_modified_dataset_properties: Optional[TimeStampClass] = None
             last_updated_timestamp: Optional[int] = None
 
             if dataset_properties_aspect:
-                last_modified = dataset_properties_aspect.lastModified
+                last_modified_dataset_properties = (
+                    dataset_properties_aspect.lastModified
+                )
 
             if dataset_operation_aspect:
                 last_updated_timestamp = dataset_operation_aspect.lastUpdatedTimestamp
 
             candidate_dataset_for_patch[wu.get_urn()] = TimestampPair(
-                last_modified=last_modified,
+                last_modified_dataset_properties=last_modified_dataset_properties,
                 last_updated_timestamp=last_updated_timestamp,
             )
 
@@ -80,7 +86,7 @@ def auto_patch_last_modified(
     for entity_urn, timestamp_pair in candidate_dataset_for_patch.items():
         # Emit patch if last_modified is not set and last_updated_timestamp is set
         if (
-            timestamp_pair.last_modified is None
+            timestamp_pair.last_modified_dataset_properties is None
             and timestamp_pair.last_updated_timestamp
         ):
             dataset_patch_builder = DatasetPatchBuilder(urn=entity_urn)

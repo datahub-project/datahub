@@ -151,7 +151,6 @@ def _make_browse_path_entries(path: List[str]) -> List[models.BrowsePathEntryCla
 def prepend_platform_instance(
     path: List[models.BrowsePathEntryClass],
 ) -> List[models.BrowsePathEntryClass]:
-
     platform = "platform"
     instance = "instance"
     return _prepend_platform_instance(path, platform, instance)
@@ -663,8 +662,46 @@ def test_auto_empty_dataset_usage_statistics_invalid_timestamp(
     ]
 
 
+def get_sample_mcps(mcps_to_append: List = []) -> List[MetadataChangeProposalWrapper]:
+    mcps = [
+        MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:dbt,abc.foo.bar,PROD)",
+            aspect=models.OperationClass(
+                timestampMillis=10,
+                lastUpdatedTimestamp=12,
+                operationType=OperationTypeClass.CREATE,
+            ),
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:dbt,abc.foo.bar,PROD)",
+            aspect=models.OperationClass(
+                timestampMillis=11,
+                lastUpdatedTimestamp=20,
+                operationType=OperationTypeClass.CREATE,
+            ),
+        ),
+    ]
+    mcps.extend(mcps_to_append)
+    return mcps
+
+
+def get_auto_generated_wu() -> List[MetadataWorkUnit]:
+    dataset_patch_builder = DatasetPatchBuilder(
+        urn="urn:li:dataset:(urn:li:dataPlatform:dbt,abc.foo.bar,PROD)"
+    ).set_last_modified(TimeStampClass(time=20))
+
+    auto_generated_work_units = [
+        MetadataWorkUnit(
+            id=MetadataWorkUnit.generate_workunit_id(patch_mcp), mcp_raw=patch_mcp
+        )
+        for patch_mcp in dataset_patch_builder.build()
+    ]
+
+    return auto_generated_work_units
+
+
 @freeze_time("2023-01-02 00:00:00")
-def test_auto_patch_last_modified():
+def test_auto_patch_last_modified_no_change():
     mcps = [
         MetadataChangeProposalWrapper(
             entityUrn="urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
@@ -680,40 +717,14 @@ def test_auto_patch_last_modified():
         list(auto_patch_last_modified(initial_wu)) == expected
     )  # There should be no change
 
-    mcps.append(
-        MetadataChangeProposalWrapper(
-            entityUrn="urn:li:dataset:a.b.c",
-            aspect=models.OperationClass(
-                timestampMillis=10,
-                lastUpdatedTimestamp=12,
-                operationType=OperationTypeClass.CREATE,
-            ),
-        )
-    )
 
-    mcps.append(
-        MetadataChangeProposalWrapper(
-            entityUrn="urn:li:dataset:a.b.c",
-            aspect=models.OperationClass(
-                timestampMillis=11,
-                lastUpdatedTimestamp=20,
-                operationType=OperationTypeClass.CREATE,
-            ),
-        )
-    )
+@freeze_time("2023-01-02 00:00:00")
+def test_auto_patch_last_modified_max_last_updated_timestamp():
+    mcps = get_sample_mcps()
 
     expected = list(auto_workunit(mcps))
 
-    dataset_patch_builder = DatasetPatchBuilder(
-        urn="urn:li:dataset:a.b.c"
-    ).set_last_modified(TimeStampClass(time=20))
-
-    auto_generated_work_units = [
-        MetadataWorkUnit(
-            id=MetadataWorkUnit.generate_workunit_id(patch_mcp), mcp_raw=patch_mcp
-        )
-        for patch_mcp in dataset_patch_builder.build()
-    ]
+    auto_generated_work_units = get_auto_generated_wu()
 
     expected.extend(auto_generated_work_units)
 
@@ -721,8 +732,18 @@ def test_auto_patch_last_modified():
     # i.e., 20
     assert list(auto_patch_last_modified(auto_workunit(mcps))) == expected
 
+
+@freeze_time("2023-01-02 00:00:00")
+def test_auto_patch_last_modified_multi_patch():
+    mcps = get_sample_mcps()
+
+    dataset_patch_builder = DatasetPatchBuilder(
+        urn="urn:li:dataset:(urn:li:dataPlatform:dbt,abc.foo.bar,PROD)"
+    )
+
     dataset_patch_builder.set_display_name("foo")
     dataset_patch_builder.set_description("it is fake")
+
     patch_work_units = [
         MetadataWorkUnit(
             id=MetadataWorkUnit.generate_workunit_id(patch_mcp), mcp_raw=patch_mcp
@@ -731,6 +752,8 @@ def test_auto_patch_last_modified():
     ]
 
     work_units = [*list(auto_workunit(mcps)), *patch_work_units]
+
+    auto_generated_work_units = get_auto_generated_wu()
 
     expected = [*work_units, *auto_generated_work_units]
 
