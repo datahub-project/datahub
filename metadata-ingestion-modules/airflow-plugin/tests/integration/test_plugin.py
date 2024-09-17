@@ -165,6 +165,10 @@ def _run_airflow(
             conn_type="sqlite",
             host=str(tmp_path / "my_sqlite.db"),
         ).get_uri(),
+        # Ensure that the plugin waits for metadata to be written.
+        # Note that we could also disable the RUN_IN_THREAD entirely,
+        # but I want to minimize the difference between CI and prod.
+        "DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT": "30",
         # Convenience settings.
         "AIRFLOW__DATAHUB__LOG_LEVEL": "DEBUG",
         "AIRFLOW__DATAHUB__DEBUG_EMITTER": "True",
