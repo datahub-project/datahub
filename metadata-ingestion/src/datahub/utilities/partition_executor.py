@@ -7,6 +7,7 @@ import logging
 import queue
 import threading
 import time
+import weakref
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from threading import BoundedSemaphore
@@ -27,7 +28,6 @@ from datahub.ingestion.api.closeable import Closeable
 
 logger = logging.getLogger(__name__)
 _R = TypeVar("_R")
-_Args = TypeVar("_Args", bound=tuple)
 _PARTITION_EXECUTOR_FLUSH_SLEEP_INTERVAL = 0.05
 _DEFAULT_BATCHER_MIN_PROCESS_INTERVAL = timedelta(seconds=30)
 
@@ -174,6 +174,53 @@ def _now() -> datetime:
     return datetime.now(tz=timezone.utc)
 
 
+_live_executors: weakref.WeakSet[BatchPartitionExecutor] = weakref.WeakSet()
+
+
+def _shutdown_executors() -> None:
+    # Create a copy of the set, to avoid issues with the set being mutated while we're iterating over it.
+    executors = list(_live_executors)
+
+    for executor in executors:
+        executor.shutdown()
+
+
+# The order of Python shutdown hooks is:
+# 1. threading._register_atexit (only exists in Python 3.9+)
+# 2. Main thread calls `thread.join` on all non-daemon threads.
+# 3. atexit handlers run.
+#
+# There was also discussion of making the threading._register_atexit method public,
+# but that hasn't happened yet. See https://github.com/python/cpython/issues/86128.
+#
+# The BatchPartitionExecutor uses a ThreadPoolExecutor internally.
+# As of Python 3.9, the ThreadPoolExecutor no longer uses daemon threads.
+# See https://bugs.python.org/issue39812. In 3.9+, it uses the newly
+# added threading._register_atexit method to register its own shutdown
+# logic, and uses the standard atexit module on prior versions of Python.
+#
+# Our main requirement is that our shutdown logic must run before
+# the thread pool executor's shutdown logic. We need this because the
+# clearinghouse thread must get a signal to shut down before it is
+# joined. Otherwise it'll stall indefinitely while waiting for work items.
+# For all shutdown hooks, they're executed in reverse order of registration.
+# As long as we use the same shutdown method as the ThreadPoolExecutor and
+# register our shutdown hook after the ThreadPoolExecutor's shutdown hook,
+# we're guaranteed that our shutdown logic runs first.
+#
+# Some other posts had suggested using threading.main_thread().join().
+# See https://stackoverflow.com/a/63075281.
+# I couldn't get this to work reliably, and so opted for this approach.
+#
+# This entire shutdown hook is largely a backstop mechanism to protect against
+# improper usage of the BatchPartitionExecutor. In proper usage that uses
+# a context manager or calls shutdown() explicitly, this will be a no-op.
+if hasattr(threading, "_register_atexit"):
+    threading._register_atexit(_shutdown_executors)
+else:
+    atexit.register(_shutdown_executors)
+
+
 class BatchPartitionExecutor(Closeable):
     def __init__(
         self,
@@ -227,9 +274,7 @@ class BatchPartitionExecutor(Closeable):
         # If this is true, that means shutdown() has been called and self._pending is empty.
         self._queue_empty_for_shutdown = False
 
-        # Note: It's not totally clear that this is necessary, but it did seem to help
-        # when shutdown wasn't explicitly called.
-        atexit.register(self.shutdown)
+        _live_executors.add(self)
 
     def _clearinghouse_worker(self) -> None:  # noqa: C901
         # This worker will pull items off the queue, and submit them into the executor
@@ -438,7 +483,7 @@ class BatchPartitionExecutor(Closeable):
 
         self._executor.shutdown(wait=True)
         assert not self._clearinghouse_started
-        atexit.unregister(self.shutdown)
+        _live_executors.remove(self)
 
     def close(self) -> None:
         self.shutdown()
