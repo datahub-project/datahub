@@ -135,6 +135,7 @@ const CustomSwitch = styled.div`
     padding: 2px;
     width: fit-content;
     justify-content: space-between;
+    margin-left: 8px;
 }
 `;
 
@@ -286,6 +287,15 @@ export const SearchResults = ({
                                                     </Typography.Text>
                                                 </LeftControlsContainer>
                                                 <SearchMenuContainer>
+                                                    <SearchSortSelect />
+                                                    <SearchMenuItems
+                                                        downloadSearchResults={downloadSearchResults}
+                                                        filters={generateOrFilters(unionType, selectedFilters)}
+                                                        query={query}
+                                                        viewUrn={viewUrn}
+                                                        setShowSelectMode={setIsSelectMode}
+                                                        totalResults={totalResults}
+                                                    />
                                                     <CustomSwitch>
                                                         <IconContainer
                                                             isActive={isFullViewCard}
@@ -312,15 +322,6 @@ export const SearchResults = ({
                                                             </Tooltip>
                                                         </IconContainer>
                                                     </CustomSwitch>
-                                                    <SearchSortSelect />
-                                                    <SearchMenuItems
-                                                        downloadSearchResults={downloadSearchResults}
-                                                        filters={generateOrFilters(unionType, selectedFilters)}
-                                                        query={query}
-                                                        viewUrn={viewUrn}
-                                                        setShowSelectMode={setIsSelectMode}
-                                                        totalResults={totalResults}
-                                                    />
                                                 </SearchMenuContainer>
                                             </PaginationInfoContainer>
                                             {totalResults > 0 && <SearchQuerySuggester suggestions={suggestions} />}

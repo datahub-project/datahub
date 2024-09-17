@@ -109,6 +109,7 @@ query appConfig {
             hideDbtSourceInLineage
             showBulkFormByDefault
             schemaFieldLineageIgnoreStatus
+            showDatasetFeaturesSearchSortOptions
             showManageStructuredProperties
         }
         chromeExtensionConfig {

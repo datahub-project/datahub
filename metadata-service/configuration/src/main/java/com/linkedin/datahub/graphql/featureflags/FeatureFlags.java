@@ -45,5 +45,6 @@ public class FeatureFlags {
   private boolean hideDbtSourceInLineage = false;
   private boolean showBulkFormByDefault = false;
   private boolean schemaFieldLineageIgnoreStatus = false;
+  private boolean showDatasetFeaturesSearchSortOptions = false;
   private boolean showManageStructuredProperties = false;
 }
