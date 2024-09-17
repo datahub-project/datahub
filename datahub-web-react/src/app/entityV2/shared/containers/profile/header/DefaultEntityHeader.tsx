@@ -43,7 +43,7 @@ export const TitleWrapper = styled.div`
 const EntityDetailsContainer = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 0px;
 `;
 
 const HeaderRow = styled.div`
@@ -69,11 +69,12 @@ export const Row = styled.div`
 
 export const LeftColumn = styled.div`
     flex: 1;
-    width: 70%;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: start;
+    flex-grow: 1;
+    flex-shrink: 1;
 `;
 
 export const RightColumn = styled.div`
@@ -87,6 +88,7 @@ export const TopButtonsWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
     gap: 8px;
+    max-width: 100%;
 `;
 
 export const StyledDivider = styled(Divider)`
@@ -167,7 +169,7 @@ export const DefaultEntityHeader = ({
                                     <div
                                         style={{
                                             cursor: 'pointer',
-                                            marginRight: 8,
+                                            marginRight: 12,
                                         }}
                                     >
                                         <DomainColoredIcon

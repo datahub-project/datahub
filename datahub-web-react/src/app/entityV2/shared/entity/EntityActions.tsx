@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, message } from 'antd';
+import { Button, Tooltip, message } from 'antd';
 import styled from 'styled-components/macro';
 import { LinkOutlined, PlusOutlined } from '@ant-design/icons';
 import { SearchSelectModal } from '../components/styled/search/SearchSelectModal';
@@ -36,7 +36,11 @@ export enum EntityActionItem {
 }
 
 const ButtonWrapper = styled.div`
-    margin-left: 8;
+    gap: 8px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
     & button:hover {
         opacity: 0.9;
     }
@@ -63,7 +67,6 @@ const PrimaryButton = styled(Button)`
     box-shadow: none;
     border-color: #533fd1;
     background-color: #533fd1;
-    margin-left: 9px;
     padding: 10px 20px;
 
     &:hover {
@@ -216,29 +219,49 @@ function EntityActions(props: Props) {
         <>
             <ButtonWrapper>
                 {actionItems.has(EntityActionItem.BATCH_ADD_GLOSSARY_TERM) && (
-                    <TransparentButton size="large" onClick={() => setIsBatchAddGlossaryTermModalVisible(true)}>
-                        <LinkOutlined /> Add to Assets
-                    </TransparentButton>
+                    <Tooltip title="Add Glossary Term to Assets" showArrow={false} placement="bottom">
+                        <TransparentButton size="large" onClick={() => setIsBatchAddGlossaryTermModalVisible(true)}>
+                            <LinkOutlined /> Add to Assets
+                        </TransparentButton>
+                    </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DOMAIN) && (
-                    <TransparentButton size="large" onClick={() => setIsBatchSetDomainModalVisible(true)}>
-                        <LinkOutlined /> Add Assets
-                    </TransparentButton>
+                    <Tooltip title="Add Assets to Domain" showArrow={false} placement="bottom">
+                        <TransparentButton size="large" onClick={() => setIsBatchSetDomainModalVisible(true)}>
+                            <LinkOutlined /> Add to Assets
+                        </TransparentButton>
+                    </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DATA_PRODUCT) && (
-                    <TransparentButton size="large" onClick={() => setIsBatchSetDataProductModalVisible(true)}>
-                        <LinkOutlined /> Add Assets
-                    </TransparentButton>
-                )}
-                {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_TERM) && (
-                    <TransparentButton size="large" onClick={() => setIsCreateNodeModalVisible(true)}>
-                        <StyledPlusOutlined /> Add Term Group
-                    </TransparentButton>
+                    <Tooltip title="Add Assets to Data Product" showArrow={false} placement="bottom">
+                        <TransparentButton size="large" onClick={() => setIsBatchSetDataProductModalVisible(true)}>
+                            <LinkOutlined />
+                            Add Assets
+                        </TransparentButton>
+                    </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_NODE) && (
-                    <PrimaryButton type="primary" size="large" onClick={() => setIsCreateTermModalVisible(true)}>
-                        <StyledPlusOutlined /> Add Glossary Term
-                    </PrimaryButton>
+                    <Tooltip title="Create New Term Group" showArrow={false} placement="bottom">
+                        <TransparentButton
+                            data-testid="add-term-group-button"
+                            size="large"
+                            onClick={() => setIsCreateNodeModalVisible(true)}
+                        >
+                            <StyledPlusOutlined /> Add Term Group
+                        </TransparentButton>
+                    </Tooltip>
+                )}
+                {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_TERM) && (
+                    <Tooltip title="Create New Glossary Term" showArrow={false} placement="bottom">
+                        <PrimaryButton
+                            data-testid="add-term-button"
+                            type="primary"
+                            size="large"
+                            onClick={() => setIsCreateTermModalVisible(true)}
+                        >
+                            <StyledPlusOutlined /> Add Term
+                        </PrimaryButton>
+                    </Tooltip>
                 )}
             </ButtonWrapper>
             {isBatchAddGlossaryTermModalVisible && (

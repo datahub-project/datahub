@@ -49,7 +49,7 @@ describe("glossary", () => {
       "glossary-entity-modal-create-button",
     );
     cy.clickOptionWithText(glossaryTermGroup);
-    cy.clickOptionWithText("Add Glossary Term");
+    cy.clickOptionWithTestId("add-term-button");
     cy.addViaModal(
       glossaryTerm,
       "Create Glossary Term",

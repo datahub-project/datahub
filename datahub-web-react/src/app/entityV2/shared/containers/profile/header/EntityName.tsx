@@ -27,7 +27,7 @@ const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
     `}
     &&& {
         margin-bottom: 0;
-        word-break: break-all;
+        word-break: break-word;
         overflow: hidden;
         text-overflow: ellipsis;
     }

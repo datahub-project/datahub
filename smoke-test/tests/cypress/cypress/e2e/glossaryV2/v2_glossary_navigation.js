@@ -73,7 +73,7 @@ describe("glossary sidebar navigation test", () => {
       .should("be.visible");
     cy.waitTextVisible(`Created Term Group!`);
     cy.clickOptionWithText(glossaryTermGroup);
-    cy.clickOptionWithText("Add Glossary Term");
+    cy.clickOptionWithTestId("add-term-button");
     createTerm(glossaryTerm);
     moveGlossaryEntityToGroup(
       glossaryTerm,
@@ -85,7 +85,7 @@ describe("glossary sidebar navigation test", () => {
     // Create another term and move it to the same term group
     cy.clickOptionWithText(glossaryTermGroup);
     cy.contains("Moved Glossary Term!").should("not.exist");
-    cy.contains("Add Glossary Term").click();
+    cy.clickOptionWithTestId("add-term-button");
     createTerm(glossarySecondTerm);
     moveGlossaryEntityToGroup(
       glossarySecondTerm,

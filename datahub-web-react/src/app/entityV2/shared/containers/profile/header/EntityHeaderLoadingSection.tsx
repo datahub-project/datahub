@@ -14,6 +14,7 @@ const NameSkeleton = styled(Skeleton.Input)`
         width: 240px;
         border-radius: 4px;
         background-color: ${ANTD_GRAY[3]};
+        margin-right: 12px;
     }
 `;
 
