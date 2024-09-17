@@ -16,11 +16,12 @@ dependencies = [
 	"fastapi>=0.103.1",
 	"uvicorn[standard]>=0.23.2",
 	"loguru",
+	"build",
 	# Slack.
 	"slack-bolt",
 	"inflect",
 	# Actions.
-	"acryl-datahub-actions==0.0.18",
+	"acryl-datahub-actions==0.1.1",
 	"httpx",
 	# Our usage of anyio currently requires 3.x because of the way it handles exception groups.
 	"anyio>=3,<4",
