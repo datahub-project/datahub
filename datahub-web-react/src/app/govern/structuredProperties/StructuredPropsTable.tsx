@@ -2,9 +2,8 @@ import { Icon, Pill, Table, Text } from '@components';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import TableIcon from '@src/images/table-icon.svg?react';
-import { EntityType } from '@src/types.generated';
 import { Dropdown, Tooltip } from 'antd';
 import React from 'react';
 import { CardIcons } from '../Dashboard/Forms/styledComponents';
@@ -22,24 +21,12 @@ import { getDisplayName } from './utils';
 
 interface Props {
     searchQuery: string;
+    data: GetSearchResultsForMultipleQuery | undefined;
+    loading: boolean;
 }
 
-const StructuredPropsTable = ({ searchQuery }: Props) => {
+const StructuredPropsTable = ({ searchQuery, data, loading }: Props) => {
     const entityRegistry = useEntityRegistryV2();
-    const inputs = {
-        types: [EntityType.StructuredProperty],
-        query: '',
-        start: 0,
-        count: 500,
-        searchFlags: { skipCache: true },
-    };
-
-    // Execute search
-    const { data, loading } = useGetSearchResultsForMultipleQuery({
-        variables: {
-            input: inputs,
-        },
-    });
 
     const structuredProperties = data?.searchAcrossEntities?.searchResults || [];
 

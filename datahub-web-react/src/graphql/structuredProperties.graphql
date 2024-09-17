@@ -121,3 +121,10 @@ mutation upsertStructuredProperties($input: UpsertStructuredPropertiesInput!) {
         }
     }
 }
+
+mutation createStructuredProperty($input: CreateStructuredPropertyInput!) {
+    createStructuredProperty(input: $input) {
+        urn
+        type
+    }
+}
