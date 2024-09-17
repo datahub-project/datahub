@@ -953,7 +953,7 @@ Then define your class to return a list of custom properties, for example:
           add_properties_resolver_class: "<your_module>.<your_class>"
     ```
 
-## Replace ExternalUrl
+## Replace ExternalUrl Dataset
 ### Config Details
 | Field                       | Required | Type    | Default       | Description                                 |
 |-----------------------------|----------|---------|---------------|---------------------------------------------|
@@ -966,6 +966,24 @@ Matches the full/partial string in the externalUrl of the dataset properties and
 ```yaml
 transformers:
   - type: "replace_external_url"
+    config:
+      input_pattern: '\b\w*hub\b'
+      replacement: "sub"
+```
+
+## Replace ExternalUrl Container
+### Config Details
+| Field                       | Required | Type    | Default       | Description                                 |
+|-----------------------------|----------|---------|---------------|---------------------------------------------|
+| `input_pattern`                 | ✅         | string    |    | String or pattern to replace |
+| `replacement`                 | ✅         | string    |    | Replacement string |
+
+
+Matches the full/partial string in the externalUrl of the container properties and replace that with the replacement string
+
+```yaml
+transformers:
+  - type: "replace_external_url_container"
     config:
       input_pattern: '\b\w*hub\b'
       replacement: "sub"
@@ -1189,11 +1207,16 @@ The config, which we’d append to our ingestion recipe YAML, would look like th
 | Field                                 | Required | Type                 | Default     | Description                                                                                 |
 |---------------------------------------|----------|----------------------|-------------|---------------------------------------------------------------------------------------------|
 | `dataset_to_data_product_urns_pattern`| ✅       | map[regx, urn]       |             | Dataset Entity urn with regular expression and dataproduct urn apply to matching entity urn.|
+| `is_container`      |          | bool    | `false`   | Whether to also consider a container or not. If true, the data product will be attached to both the dataset and its container. |
 
-Let’s suppose we’d like to append a series of dataproducts with specific datasets as its assets. To do so, we can use the `pattern_add_dataset_dataproduct` module that’s included in the ingestion framework.  This will match the regex pattern to `urn` of the dataset and create the data product entity with given urn and matched datasets as its assets. 
+
+Let’s suppose we’d like to append a series of data products with specific datasets or their containers as assets. To do so, we can use the pattern_add_dataset_dataproduct module that’s included in the ingestion framework. This module matches a regex pattern to the urn of the dataset and creates a data product entity with the given urn, associating the matched datasets as its assets.
+
+If the is_container field is set to true, the module will not only attach the data product to the matching datasets but will also find and attach the containers associated with those datasets. This means that both the datasets and their containers will be associated with the specified data product.
 
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 
+- Add Product to dataset
   ```yaml
   transformers:
     - type: "pattern_add_dataset_dataproduct"
@@ -1203,6 +1226,32 @@ The config, which we’d append to our ingestion recipe YAML, would look like th
             ".*example1.*": "urn:li:dataProduct:first"
             ".*example2.*": "urn:li:dataProduct:second"
   ```
+- Add Product to dataset container
+  ```yaml
+  transformers:
+    - type: "pattern_add_dataset_dataproduct"
+      config:
+        is_container: true
+        dataset_to_data_product_urns_pattern:
+          rules:
+            ".*example1.*": "urn:li:dataProduct:first"
+            ".*example2.*": "urn:li:dataProduct:second"
+  ```
+⚠️ Warning:
+When working with two datasets in the same container but with different data products, only one data product can be attached to the container.
+
+For example:
+```yaml
+transformers:
+  - type: "pattern_add_dataset_dataproduct"
+    config:
+      is_container: true
+      dataset_to_data_product_urns_pattern:
+        rules:
+          ".*example1.*": "urn:li:dataProduct:first"
+          ".*example2.*": "urn:li:dataProduct:second"
+```
+If example1 and example2 are in the same container, only urn:li:dataProduct:first will be added. However, if they are in separate containers, the system works as expected and assigns the correct data product URNs.
 
 ## Add Dataset dataProduct
 ### Config Details

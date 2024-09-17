@@ -10,8 +10,9 @@ fi
 
 source venv/bin/activate
 
-export KAFKA_BROKER_CONTAINER="datahub-kafka-broker-1"
-export KAFKA_BOOTSTRAP_SERVER="broker:9092"
+# set environment variables for the test
+source ./set-test-env-vars.sh
+
 python -c 'from tests.cypress.integration_test import ingest_data; ingest_data()'
 
 cd tests/cypress

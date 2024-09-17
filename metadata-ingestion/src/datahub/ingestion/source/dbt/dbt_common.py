@@ -154,7 +154,7 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
         default_factory=LossyList
     )
 
-    in_manifest_but_missing_catalog: LossyList[str] = field(default_factory=LossyList)
+    nodes_filtered: LossyList[str] = field(default_factory=LossyList)
 
 
 class EmitDirective(ConfigEnum):
@@ -275,6 +275,12 @@ class DBTCommonConfig(
     entities_enabled: DBTEntitiesEnabled = Field(
         DBTEntitiesEnabled(),
         description="Controls for enabling / disabling metadata emission for different dbt entities (models, test definitions, test results, etc.)",
+    )
+    prefer_sql_parser_lineage: bool = Field(
+        default=False,
+        description="Normally we use dbt's metadata to generate table lineage. When enabled, we prefer results from the SQL parser when generating lineage instead. "
+        "This can be useful when dbt models reference tables directly, instead of using the ref() macro. "
+        "This requires that `skip_sources_in_lineage` is enabled.",
     )
     skip_sources_in_lineage: bool = Field(
         default=False,
@@ -431,15 +437,27 @@ class DBTCommonConfig(
 
         return include_column_lineage
 
-    @validator("skip_sources_in_lineage")
+    @validator("skip_sources_in_lineage", always=True)
     def validate_skip_sources_in_lineage(
         cls, skip_sources_in_lineage: bool, values: Dict
     ) -> bool:
-        entites_enabled: Optional[DBTEntitiesEnabled] = values.get("entities_enabled")
+        entities_enabled: Optional[DBTEntitiesEnabled] = values.get("entities_enabled")
+        prefer_sql_parser_lineage: Optional[bool] = values.get(
+            "prefer_sql_parser_lineage"
+        )
+
+        if prefer_sql_parser_lineage and not skip_sources_in_lineage:
+            raise ValueError(
+                "`prefer_sql_parser_lineage` requires that `skip_sources_in_lineage` is enabled."
+            )
+
         if (
             skip_sources_in_lineage
-            and entites_enabled
-            and entites_enabled.sources == EmitDirective.YES
+            and entities_enabled
+            and entities_enabled.sources == EmitDirective.YES
+            # When `prefer_sql_parser_lineage` is enabled, it's ok to have `skip_sources_in_lineage` enabled
+            # without also disabling sources.
+            and not prefer_sql_parser_lineage
         ):
             raise ValueError(
                 "When `skip_sources_in_lineage` is enabled, `entities_enabled.sources` must be set to NO."
@@ -510,12 +528,16 @@ class DBTNode:
     materialization: Optional[str]  # table, view, ephemeral, incremental, snapshot
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
     catalog_type: Optional[str]
+    missing_from_catalog: bool  # indicates if the node was missing from the catalog.json
 
     owner: Optional[str]
 
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_nodes: List[str] = field(default_factory=list)  # list of upstream dbt_name
     upstream_cll: List[DBTColumnLineageInfo] = field(default_factory=list)
+    raw_sql_parsing_result: Optional[
+        SqlParsingResult
+    ] = None  # only set for nodes that don't depend on ephemeral models
     cll_debug_info: Optional[SqlParsingDebugInfo] = None
 
     meta: Dict[str, Any] = field(default_factory=dict)
@@ -749,23 +771,30 @@ def make_mapping_upstream_lineage(
     downstream_urn: str,
     node: DBTNode,
     convert_column_urns_to_lowercase: bool,
+    skip_sources_in_lineage: bool,
 ) -> UpstreamLineageClass:
     cll = []
-    for column in node.columns or []:
-        field_name = column.name
-        if convert_column_urns_to_lowercase:
-            field_name = field_name.lower()
+    if not (node.node_type == "source" and skip_sources_in_lineage):
+        # If `skip_sources_in_lineage` is enabled, we want to generate table lineage (for siblings)
+        # but not CLL. That's because CLL will make it look like the warehouse node has downstream
+        # column lineage, but it's really just empty.
+        for column in node.columns or []:
+            field_name = column.name
+            if convert_column_urns_to_lowercase:
+                field_name = field_name.lower()
 
-        cll.append(
-            FineGrainedLineage(
-                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                upstreams=[mce_builder.make_schema_field_urn(upstream_urn, field_name)],
-                downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                downstreams=[
-                    mce_builder.make_schema_field_urn(downstream_urn, field_name)
-                ],
+            cll.append(
+                FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=[
+                        mce_builder.make_schema_field_urn(upstream_urn, field_name)
+                    ],
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=[
+                        mce_builder.make_schema_field_urn(downstream_urn, field_name)
+                    ],
+                )
             )
-        )
 
     return UpstreamLineageClass(
         upstreams=[
@@ -825,12 +854,18 @@ def get_column_type(
             TypeClass = resolve_postgres_modified_type(column_type)
         elif dbt_adapter == "vertica":
             TypeClass = resolve_vertica_modified_type(column_type)
+        elif dbt_adapter == "snowflake":
+            # Snowflake types are uppercase, so we check that.
+            TypeClass = _field_type_mapping.get(column_type.upper())
 
     # if still not found, report the warning
     if TypeClass is None:
         if column_type:
-            report.report_warning(
-                dataset_name, f"unable to map type {column_type} to metadata schema"
+            report.info(
+                title="Unable to map column types to DataHub types",
+                message="Got an unexpected column type. The column's parsed field type will not be populated.",
+                context=f"{dataset_name} - {column_type}",
+                log=False,
             )
         TypeClass = NullTypeClass
 
@@ -1003,6 +1038,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             key = node.dbt_name
 
             if not self.config.node_name_pattern.allowed(key):
+                self.report.nodes_filtered.append(key)
                 continue
 
             nodes.append(node)
@@ -1130,6 +1166,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # Run sql parser to infer the schema + generate column lineage.
             sql_result = None
+            depends_on_ephemeral_models = False
             if node.node_type in {"source", "test", "seed"}:
                 # For sources, we generate CLL as a 1:1 mapping.
                 # We don't support CLL for tests (assertions) or seeds.
@@ -1148,6 +1185,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         upstream_node.name, schema_resolver.platform
                     )
                 }
+                if cte_mapping:
+                    depends_on_ephemeral_models = True
 
                 sql_result = self._parse_cll(node, cte_mapping, schema_resolver)
             else:
@@ -1155,8 +1194,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # Save the column lineage.
             if self.config.include_column_lineage and sql_result:
-                # We only save the debug info here. We'll report errors based on it later, after
-                # applying the configured node filters.
+                # We save the raw info here. We use this for supporting `prefer_sql_parser_lineage`.
+                if not depends_on_ephemeral_models:
+                    node.raw_sql_parsing_result = sql_result
+
+                # We use this for error reporting. However, we only want to report errors
+                # after node filters are applied.
                 node.cll_debug_info = sql_result.debug_info
 
                 if sql_result.column_lineage:
@@ -1171,6 +1214,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         for column_lineage_info in sql_result.column_lineage
                         for upstream_column in column_lineage_info.upstreams
                         # Only include the CLL if the table in in the upstream list.
+                        # TODO: Add some telemetry around this - how frequently does it filter stuff out?
                         if target_platform_urn_to_dbt_name.get(upstream_column.table)
                         in node.upstream_nodes
                     ]
@@ -1445,6 +1489,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     downstream_urn=node_datahub_urn,
                     node=node,
                     convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
+                    skip_sources_in_lineage=self.config.skip_sources_in_lineage,
                 )
                 if self.config.incremental_lineage:
                     # We only generate incremental lineage for non-dbt nodes.
@@ -1790,6 +1835,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 downstream_urn=node_urn,
                 node=node,
                 convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
+                skip_sources_in_lineage=self.config.skip_sources_in_lineage,
             )
         else:
             upstream_urns = get_upstreams(
@@ -1813,33 +1859,76 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             if node.cll_debug_info and node.cll_debug_info.error:
                 self.report.report_warning(
-                    node.dbt_name,
-                    f"Error parsing SQL to generate column lineage: {node.cll_debug_info.error}",
+                    "Error parsing SQL to generate column lineage",
+                    context=node.dbt_name,
+                    exc=node.cll_debug_info.error,
                 )
-            cll = [
-                FineGrainedLineage(
-                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                    downstreamType=FineGrainedLineageDownstreamType.FIELD_SET,
-                    upstreams=[
-                        mce_builder.make_schema_field_urn(
-                            _translate_dbt_name_to_upstream_urn(
-                                upstream_column.upstream_dbt_name
-                            ),
-                            upstream_column.upstream_col,
+
+            cll = None
+            if self.config.prefer_sql_parser_lineage and node.raw_sql_parsing_result:
+                sql_parsing_result = node.raw_sql_parsing_result
+                if sql_parsing_result and not sql_parsing_result.debug_info.table_error:
+                    # If we have some table lineage from SQL parsing, use that.
+                    upstream_urns = sql_parsing_result.in_tables
+
+                    cll = []
+                    for column_lineage in sql_parsing_result.column_lineage or []:
+                        cll.append(
+                            FineGrainedLineage(
+                                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                                upstreams=[
+                                    mce_builder.make_schema_field_urn(
+                                        upstream.table, upstream.column
+                                    )
+                                    for upstream in column_lineage.upstreams
+                                ],
+                                downstreams=[
+                                    mce_builder.make_schema_field_urn(
+                                        node_urn, column_lineage.downstream.column
+                                    )
+                                ],
+                                confidenceScore=sql_parsing_result.debug_info.confidence,
+                            )
                         )
-                        for upstream_column in upstreams
-                    ],
-                    downstreams=[
-                        mce_builder.make_schema_field_urn(node_urn, downstream)
-                    ],
-                    confidenceScore=(
-                        node.cll_debug_info.confidence if node.cll_debug_info else None
-                    ),
-                )
-                for downstream, upstreams in itertools.groupby(
-                    node.upstream_cll, lambda x: x.downstream_col
-                )
-            ]
+
+            else:
+                if self.config.prefer_sql_parser_lineage:
+                    if node.upstream_cll:
+                        self.report.report_warning(
+                            "SQL parser lineage is not available for this node, falling back to dbt-based column lineage.",
+                            context=node.dbt_name,
+                        )
+                    else:
+                        # SQL parsing failed entirely, which is already reported above.
+                        pass
+
+                cll = [
+                    FineGrainedLineage(
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        upstreams=[
+                            mce_builder.make_schema_field_urn(
+                                _translate_dbt_name_to_upstream_urn(
+                                    upstream_column.upstream_dbt_name
+                                ),
+                                upstream_column.upstream_col,
+                            )
+                            for upstream_column in upstreams
+                        ],
+                        downstreams=[
+                            mce_builder.make_schema_field_urn(node_urn, downstream)
+                        ],
+                        confidenceScore=(
+                            node.cll_debug_info.confidence
+                            if node.cll_debug_info
+                            else None
+                        ),
+                    )
+                    for downstream, upstreams in itertools.groupby(
+                        node.upstream_cll, lambda x: x.downstream_col
+                    )
+                ]
 
             if not upstream_urns:
                 return None

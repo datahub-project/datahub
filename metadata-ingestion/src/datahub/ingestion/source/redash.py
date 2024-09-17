@@ -18,12 +18,13 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
 from datahub.ingestion.api.registry import import_path
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -308,6 +309,7 @@ class RedashSourceReport(SourceReport):
 @platform_name("Redash")
 @config_class(RedashConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class RedashSource(Source):
     """
     This plugin extracts the following:

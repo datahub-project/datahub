@@ -160,7 +160,7 @@ public class KafkaEmitter implements Emitter {
     return builder.build();
   }
 
-  public Properties getKafkaConfgiProperties() {
+  public Properties getKafkaConfigProperties() {
     return kafkaConfigProperties;
   }
 }

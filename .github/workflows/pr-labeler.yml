@@ -30,14 +30,13 @@ jobs:
                 "treff7es",
                 "yoonhyejin",
                 "eboneil",
-                "ethan-cartwright",
                 "gabe-lyons",
                 "hsheth2",
                 "jjoyce0510",
                 "maggiehays",
-                "mrjefflewis",
                 "pedro93",
                 "RyanHolstien",
+                "sakethvarma397",
                 "Kunal-kankriya",
                 "purnimagarg1",
                 "dushayntAW",
@@ -45,7 +44,8 @@ jobs:
                 "kushagra-apptware",
                 "Salman-Apptware",
                 "mayurinehate",
-                "noggi"
+                "noggi",
+                "skrydal"
               ]'), 
               github.actor
             ) 
@@ -60,7 +60,6 @@ jobs:
           ${{ 
             contains(
               fromJson('[
-                "skrydal",
                 "siladitya2",
                 "sgomezvillamor",
                 "ngamanda",

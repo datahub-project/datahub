@@ -150,6 +150,8 @@ record SchemaField {
 
   /**
    * For Datasets which are partitioned, this determines the partitioning key.
+   * Note that multiple columns can be part of a partitioning key, but currently we do not support
+   * rendering the ordered partitioning key.
    */
   isPartitioningKey: optional boolean
 

@@ -402,11 +402,13 @@ class ConfluentJDBCSourceConnector:
         # List of Tuple containing (schema, table)
         tables: List[Tuple] = [
             (
-                unquote(
-                    table_id.split(sep)[-2], leading_quote_char, trailing_quote_char
-                )
-                if len(table_id.split(sep)) > 1
-                else "",
+                (
+                    unquote(
+                        table_id.split(sep)[-2], leading_quote_char, trailing_quote_char
+                    )
+                    if len(table_id.split(sep)) > 1
+                    else ""
+                ),
                 unquote(
                     table_id.split(sep)[-1], leading_quote_char, trailing_quote_char
                 ),
@@ -593,9 +595,11 @@ class MongoSourceConnector:
             source_platform="mongodb",
             database_name=connector_manifest.config.get("database"),
             topic_prefix=connector_manifest.config.get("topic_prefix"),
-            transforms=connector_manifest.config["transforms"].split(",")
-            if "transforms" in connector_manifest.config
-            else [],
+            transforms=(
+                connector_manifest.config["transforms"].split(",")
+                if "transforms" in connector_manifest.config
+                else []
+            ),
         )
 
         return parser
@@ -1125,6 +1129,7 @@ def transform_connector_config(
 @config_class(KafkaConnectSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class KafkaConnectSource(StatefulIngestionSourceBase):
     config: KafkaConnectSourceConfig

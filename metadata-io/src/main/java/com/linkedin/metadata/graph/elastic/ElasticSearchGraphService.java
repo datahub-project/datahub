@@ -4,7 +4,6 @@ import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.models.graph.Edge;
@@ -65,6 +64,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   private final ESGraphWriteDAO _graphWriteDAO;
   private final ESGraphQueryDAO _graphReadDAO;
   private final ESIndexBuilder _indexBuilder;
+  private final String idHashAlgo;
   public static final String INDEX_NAME = "graph_service_v1";
   private static final Map<String, Object> EMPTY_HASH = new HashMap<>();
 
@@ -126,7 +126,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
   @Override
   public void addEdge(@Nonnull final Edge edge) {
-    String docId = edge.toDocId();
+    String docId = edge.toDocId(idHashAlgo);
     String edgeDocument = toDocument(edge);
     _graphWriteDAO.upsertDocument(docId, edgeDocument);
   }
@@ -138,7 +138,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
   @Override
   public void removeEdge(@Nonnull final Edge edge) {
-    String docId = edge.toDocId();
+    String docId = edge.toDocId(idHashAlgo);
     _graphWriteDAO.deleteDocument(docId);
   }
 
@@ -296,7 +296,6 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
             Collections.emptyMap()));
   }
 
-  @VisibleForTesting
   @Override
   public void clear() {
     _esBulkProcessor.deleteByQuery(
@@ -317,7 +316,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       @Nullable Filter destinationEntityFilter,
       @Nonnull List<String> relationshipTypes,
       @Nonnull RelationshipFilter relationshipFilter,
-      @Nonnull List<SortCriterion> sortCriterion,
+      @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       int count,
       @Nullable Long startTimeMillis,
@@ -333,7 +332,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
             destinationEntityFilter,
             relationshipTypes,
             relationshipFilter,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             count);
 

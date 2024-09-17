@@ -26,6 +26,10 @@ record DomainProperties includes CustomProperties {
   /**
    * Description of the Domain
    */
+   @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
   description: optional string
 
   /**

@@ -15,6 +15,7 @@ import com.google.inject.name.Named;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
 import io.datahubproject.metadata.context.OperationContext;
@@ -51,6 +52,8 @@ public class GraphQLController {
 
   @Inject AuthorizerChain _authorizerChain;
 
+  @Inject ConfigurationProvider configurationProvider;
+
   @Nonnull
   @Inject
   @Named("systemOperationContext")
@@ -75,7 +78,7 @@ public class GraphQLController {
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error("Failed to parse json {}", jsonStr);
+      log.error("Failed to parse json ", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
 
@@ -122,6 +125,7 @@ public class GraphQLController {
             authentication,
             _authorizerChain,
             systemOperationContext,
+            configurationProvider,
             request,
             operationName,
             query,

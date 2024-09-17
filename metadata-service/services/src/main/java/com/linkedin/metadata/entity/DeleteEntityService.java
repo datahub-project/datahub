@@ -49,6 +49,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -342,9 +343,9 @@ public class DeleteEntityService {
    */
   private void deleteAspect(
       @Nonnull OperationContext opContext, Urn urn, String aspectName, RecordTemplate prevAspect) {
-    final RollbackResult rollbackResult =
+    final Optional<RollbackResult> rollbackResult =
         _entityService.deleteAspect(opContext, urn.toString(), aspectName, new HashMap<>(), true);
-    if (rollbackResult == null || rollbackResult.getNewValue() != null) {
+    if (rollbackResult.isEmpty() || rollbackResult.get().getNewValue() != null) {
       log.error(
           "Failed to delete aspect with references. Before {}, after: null, please check GMS logs"
               + " logs for more information",
@@ -729,11 +730,11 @@ public class DeleteEntityService {
             .collect(Collectors.toList());
     List<FormAssociation> completedForms =
         formsAspect.getCompletedForms().stream()
-            .filter(completedForm -> completedForm.getUrn() != deletedUrn)
+            .filter(completedForm -> !completedForm.getUrn().equals(deletedUrn))
             .collect(Collectors.toList());
     final List<FormVerificationAssociation> verifications =
         formsAspect.getVerifications().stream()
-            .filter(verification -> verification.getForm() != deletedUrn)
+            .filter(verification -> !verification.getForm().equals(deletedUrn))
             .collect(Collectors.toList());
 
     updatedAspect.get().setIncompleteForms(new FormAssociationArray(incompleteForms));

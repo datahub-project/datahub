@@ -106,3 +106,6 @@ pegasus.main.idlOptions.addIdlItem([
 ])
 
 ext.apiProject = project(':metadata-service:restli-api')
+
+spotlessJava.dependsOn generateTestDataTemplate
+spotlessJava.dependsOn generateIntegTestDataTemplate

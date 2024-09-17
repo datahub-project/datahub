@@ -11,12 +11,12 @@ import handleGraphQLError from '../../../../../shared/handleGraphQLError';
 import { useUserContext } from '../../../../../context/useUserContext';
 
 type AddIncidentProps = {
-    visible: boolean;
+    open: boolean;
     onClose?: () => void;
     refetch?: () => Promise<any>;
 };
 
-export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps) => {
+export const AddIncidentModal = ({ open, onClose, refetch }: AddIncidentProps) => {
     const { urn, entityType } = useEntityData();
     const { user } = useUserContext();
     const incidentTypes = INCIDENT_DISPLAY_TYPES;
@@ -109,7 +109,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
         <>
             <Modal
                 title="Raise Incident"
-                visible={visible}
+                open={open}
                 destroyOnClose
                 onCancel={handleClose}
                 footer={[

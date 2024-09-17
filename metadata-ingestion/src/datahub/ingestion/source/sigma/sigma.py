@@ -86,8 +86,12 @@ logger = logging.getLogger(__name__)
 @platform_name("Sigma")
 @config_class(SigmaSourceConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default.")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
+@capability(SourceCapability.TAGS, "Enabled by default")
 @capability(
     SourceCapability.OWNERSHIP,
     "Enabled by default, configured using `ingest_owner`",
@@ -171,9 +175,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             container_key=self._gen_workspace_key(workspace.workspaceId),
             name=workspace.name,
             sub_types=[BIContainerSubTypes.SIGMA_WORKSPACE],
-            owner_urn=builder.make_user_urn(owner_username)
-            if self.config.ingest_owner and owner_username
-            else None,
+            owner_urn=(
+                builder.make_user_urn(owner_username)
+                if self.config.ingest_owner and owner_username
+                else None
+            ),
             created=int(workspace.createdAt.timestamp() * 1000),
             last_modified=int(workspace.updatedAt.timestamp() * 1000),
         )
@@ -530,16 +536,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             container_key=workbook_key,
             name=workbook.name,
             sub_types=[BIContainerSubTypes.SIGMA_WORKBOOK],
-            parent_container_key=self._gen_workspace_key(workbook.workspaceId)
-            if workbook.workspaceId
-            else None,
+            parent_container_key=(
+                self._gen_workspace_key(workbook.workspaceId)
+                if workbook.workspaceId
+                else None
+            ),
             extra_properties={
                 "path": workbook.path,
                 "latestVersion": str(workbook.latestVersion),
             },
-            owner_urn=builder.make_user_urn(owner_username)
-            if self.config.ingest_owner and owner_username
-            else None,
+            owner_urn=(
+                builder.make_user_urn(owner_username)
+                if self.config.ingest_owner and owner_username
+                else None
+            ),
             external_url=workbook.url,
             tags=[workbook.badge] if workbook.badge else None,
             created=int(workbook.createdAt.timestamp() * 1000),

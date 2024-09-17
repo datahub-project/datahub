@@ -266,6 +266,11 @@ class AthenaConfig(SQLCommonConfig):
         "queries executed by DataHub."
     )
 
+    extract_partitions: bool = pydantic.Field(
+        default=True,
+        description="Extract partitions for tables. Partition extraction needs to run a query (`select * from table$partitions`) on the table. Disable this if you don't want to grant select permission.",
+    )
+
     _s3_staging_dir_population = pydantic_renamed_field(
         old_name="s3_staging_dir",
         new_name="query_result_location",
@@ -460,6 +465,11 @@ class AthenaSource(SQLAlchemySource):
     ) -> List[str]:
         partitions = []
 
+        athena_config = typing.cast(AthenaConfig, self.config)
+
+        if not athena_config.extract_partitions:
+            return []
+
         if not self.cursor:
             return []
 
@@ -499,6 +509,7 @@ class AthenaSource(SQLAlchemySource):
         self,
         dataset_name: str,
         column: Dict,
+        inspector: Inspector,
         pk_constraints: Optional[dict] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
@@ -506,6 +517,7 @@ class AthenaSource(SQLAlchemySource):
         fields = get_schema_fields_for_sqlalchemy_column(
             column_name=column["name"],
             column_type=column["type"],
+            inspector=inspector,
             description=column.get("comment", None),
             nullable=column.get("nullable", True),
             is_part_of_key=(

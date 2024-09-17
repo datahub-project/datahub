@@ -335,6 +335,7 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
         ...dataPlatformInstanceFields
     }
     editableProperties {
+        name
         description
     }
     access {
@@ -974,6 +975,12 @@ fragment entityField on SchemaFieldEntity {
     parent {
         urn
         type
+        ...entityDisplayNameFields
+        ... on Dataset {
+            platform {
+                ...platformFields
+            }
+        }
     }
     fieldPath
     structuredProperties {

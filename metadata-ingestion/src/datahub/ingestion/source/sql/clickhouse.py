@@ -229,9 +229,11 @@ def _get_all_table_comments_and_properties(self, connection, **kw):
     for table in result:
         all_table_comments[(table.database, table.table_name)] = {
             "text": table.comment,
-            "properties": {k: str(v) for k, v in json.loads(table.properties).items()}
-            if table.properties
-            else {},
+            "properties": (
+                {k: str(v) for k, v in json.loads(table.properties).items()}
+                if table.properties
+                else {}
+            ),
         }
     return all_table_comments
 

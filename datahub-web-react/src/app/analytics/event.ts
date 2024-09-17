@@ -191,6 +191,7 @@ export interface SearchResultClickEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     index: number;
     total: number;
+    pageNumber: number;
 }
 
 export interface SearchFiltersClearAllEvent extends BaseEvent {

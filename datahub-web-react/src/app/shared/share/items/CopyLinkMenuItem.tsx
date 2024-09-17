@@ -2,17 +2,11 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
-import MenuItem from 'antd/lib/menu/MenuItem';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 
-interface CopyLinkMenuItemProps {
-    key: string;
-}
-
-const StyledMenuItem = styled(MenuItem)`
+const StyledMenuItem = styled.div`
     && {
         color: ${ANTD_GRAY[8]};
-        background-color: ${ANTD_GRAY[1]};
     }
 `;
 
@@ -24,7 +18,7 @@ const StyledLinkOutlined = styled(LinkOutlined)`
     font-size: 14px;
 `;
 
-export default function CopyLinkMenuItem({ key }: CopyLinkMenuItemProps) {
+export default function CopyLinkMenuItem() {
     /**
      * Whether button has been clicked
      */
@@ -32,7 +26,6 @@ export default function CopyLinkMenuItem({ key }: CopyLinkMenuItemProps) {
 
     return (
         <StyledMenuItem
-            key={key}
             onClick={() => {
                 navigator.clipboard.writeText(window.location.href);
                 setIsClicked(true);

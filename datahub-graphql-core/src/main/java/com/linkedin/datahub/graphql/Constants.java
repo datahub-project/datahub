@@ -24,6 +24,7 @@ public class Constants {
   public static final String PROPERTIES_SCHEMA_FILE = "properties.graphql";
   public static final String FORMS_SCHEMA_FILE = "forms.graphql";
   public static final String ASSERTIONS_SCHEMA_FILE = "assertions.graphql";
+  public static final String COMMON_SCHEMA_FILE = "common.graphql";
   public static final String INCIDENTS_SCHEMA_FILE = "incident.graphql";
   public static final String CONTRACTS_SCHEMA_FILE = "contract.graphql";
   public static final String CONNECTIONS_SCHEMA_FILE = "connection.graphql";

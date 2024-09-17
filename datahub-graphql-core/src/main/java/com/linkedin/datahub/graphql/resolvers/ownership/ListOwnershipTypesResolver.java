@@ -67,7 +67,7 @@ public class ListOwnershipTypesResolver
                         filters,
                         Collections.emptyList(),
                         context.getOperationContext().getAspectRetriever()),
-                    DEFAULT_SORT_CRITERION,
+                    Collections.singletonList(DEFAULT_SORT_CRITERION),
                     start,
                     count);
 

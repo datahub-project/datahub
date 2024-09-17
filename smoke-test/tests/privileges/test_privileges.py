@@ -4,11 +4,13 @@ import tenacity
 from tests.privileges.utils import (
     assign_role,
     assign_user_to_group,
+    clear_polices,
     create_group,
     create_user,
     create_user_policy,
     remove_group,
     remove_policy,
+    remove_secret,
     remove_user,
     set_base_platform_privileges_policy_status,
     set_view_dataset_sensitive_info_policy_status,
@@ -64,6 +66,12 @@ def privileges_and_test_user_setup(admin_session):
 
     # Remove test user
     remove_user(admin_session, "urn:li:corpuser:user")
+
+    # Remove secret
+    remove_secret(admin_session, "urn:li:dataHubSecret:TestSecretName")
+
+    # Remove test policies
+    clear_polices(admin_session)
 
     # Restore All users privileges
     set_base_platform_privileges_policy_status("ACTIVE", admin_session)

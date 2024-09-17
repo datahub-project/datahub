@@ -148,3 +148,11 @@ def test_batch_partition_executor_max_batch_size():
     assert len(batches_processed) == 3
     for batch in batches_processed:
         assert len(batch) <= 2, "Batch size exceeded max_per_batch limit"
+
+
+def test_empty_batch_partition_executor():
+    # We want to test that even if no submit() calls are made, cleanup works fine.
+    with BatchPartitionExecutor(
+        max_workers=5, max_pending=20, process_batch=lambda batch: None, max_per_batch=2
+    ) as executor:
+        assert executor is not None

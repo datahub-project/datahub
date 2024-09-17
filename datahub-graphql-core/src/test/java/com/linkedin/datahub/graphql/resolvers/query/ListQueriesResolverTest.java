@@ -69,9 +69,10 @@ public class ListQueriesResolverTest {
                         : input.getQuery()),
                 Mockito.eq(buildFilter(input.getSource(), input.getDatasetUrn())),
                 Mockito.eq(
-                    new SortCriterion()
-                        .setField(ListQueriesResolver.CREATED_AT_FIELD)
-                        .setOrder(SortOrder.DESCENDING)),
+                    Collections.singletonList(
+                        new SortCriterion()
+                            .setField(ListQueriesResolver.CREATED_AT_FIELD)
+                            .setOrder(SortOrder.DESCENDING))),
                 Mockito.eq(input.getStart()),
                 Mockito.eq(input.getCount())))
         .thenReturn(
