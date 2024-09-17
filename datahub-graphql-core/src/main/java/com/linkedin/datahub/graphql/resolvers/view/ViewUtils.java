@@ -141,7 +141,7 @@ public class ViewUtils {
                     .setAnd(
                         new CriterionArray(
                             input.stream()
-                                .map(f -> ResolverUtils.criterionFromFilter(f, aspectRetriever))
+                                .map(ResolverUtils::criterionFromFilter)
                                 .collect(Collectors.toList()))))));
     return result;
   }
@@ -157,9 +157,7 @@ public class ViewUtils {
                         new ConjunctiveCriterion()
                             .setAnd(
                                 new CriterionArray(
-                                    ImmutableList.of(
-                                        ResolverUtils.criterionFromFilter(
-                                            filter, aspectRetriever)))))
+                                    ImmutableList.of(ResolverUtils.criterionFromFilter(filter)))))
                 .collect(Collectors.toList())));
     return result;
   }
