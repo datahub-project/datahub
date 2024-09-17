@@ -178,7 +178,7 @@ const SocialMedia = ({}) => {
       </div>
       <div className={styles.carousalContainer}>
         <div className={styles.carousalWrapper}>
-        <Carousel slidesToShow={3} initialSlide={2} dots={false} dotPosition="left" infinite autoplay speed={300} autoplaySpeed={4000}
+        <Carousel slidesToShow={3} initialSlide={2} dots={false} dotPosition="left" infinite autoplay speed={300} autoplaySpeed={3000}
         beforeChange={onChange}
         >
           {sliderVideos.map((video, idx) => (

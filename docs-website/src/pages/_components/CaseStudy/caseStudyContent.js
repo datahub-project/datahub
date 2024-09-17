@@ -1,103 +1,73 @@
 const caseStudyData = [
   {
-    title: "Make data democratization a reality",
+    title: "Enhancing Extensibility",
     description:
-      "Enable everyone in your organization to effortlessly discover trustworthy data, with experiences tailored for each persona.<span></span>Eliminate breaking changes with detailed cross-platform and column-level lineage. <span></span> Build confidence in your data with a comprehensive view of business, operational, and technical context, all in one place.",
-    tag: "Entertainment",
+      "How Netflix is Collaborating with DataHub to Enhance its Extensibility.",
+    tag: "Technology",
     backgroundImage:
-      "https://i0.wp.com/picjumbo.com/wp-content/uploads/logo-netflix-free-photo.jpg",
-    image: "./Netflix.png",
-    link: "",
+      "https://miro.medium.com/v2/resize:fit:1400/format:webp/1*iUnFujzVqMBpK41z32-Ctw.png",
+    image: "https://datahubproject.io/img/logos/companies/netflix.png",
+    link: "https://datahubproject.io/adoption-stories/#netflix",
   },
   {
-    title: "Build trust in your data",
+    title: "Scaling Data Governance",
     description:
-      "Effortlessly detect data quality issues with automated checks and AI-driven anomaly detection. <span></span> Notify your team where they work when issues arise and keep stakeholders in the loop with centralized incident tracking. <span></span> Spend minutes, not days, resolving issues with detailed lineage, documentation, and ownership information all in one place.",
+      "How VISA Uses DataHub to Scale Data Governance.",
     tag: "Finance",
     backgroundImage:
-      "https://cdn.pmnewsnigeria.com/wp-content/uploads/2021/09/bitcoin-255x175.jpg",
-    image: "",
-    link: "",
+      "https://miro.medium.com/v2/resize:fit:2000/format:webp/1*mtC4j8J-jumJKWg8RuR6xQ@2x.png",
+    image: "https://datahubproject.io/img/logos/companies/visa.png",
+    link: "https://datahubproject.io/adoption-stories/#visa",
   },
   {
-    title: "Minimize compliance risk, effortlessly",
+    title: "Ensuring Data Reliability",
     description:
-      "Ensure every data asset is accounted for and responsibility governed by defining and enforcing documentation standards. <span></span> Automate your governance program to automatically classify assets as they evolve over time. <span></span> Minimize redundant, manual work with GenAI documentation, AI-driven classification, smart propagation, and more.",
-    tag: "Medical",
+      "How Notion Uses DataHub Cloud to Ensure Data Reliability.",
+    tag: "Technology",
     backgroundImage:
-      "https://static.vecteezy.com/system/resources/thumbnails/002/414/650/small/hand-with-protective-gloves-holding-a-blood-samples-for-covid-test-free-photo.jpg",
-    image: "",
-    link: "",
+      "https://www.notion.so/cdn-cgi/image/format=webp,width=1920/front-static/pages/product/super-duper/hero-illo.png",
+    image: "https://boost.space/wp-content/uploads/2023/08/notion.png",
+    link: "https://datahubproject.io/adoption-stories/#notion",
   },
   {
-    title: "Minimize compliance risk, effortlessly",
+    title: "Working with Petabyte Scale Healthcare Data",
     description:
-      "Ensure every data asset is accounted for and responsibility governed by defining and enforcing documentation standards. <span></span> Automate your governance program to automatically classify assets as they evolve over time. <span></span> Minimize redundant, manual work with GenAI documentation, AI-driven classification, smart propagation, and more.",
-    tag: "E-Learning",
+      "Enabling the Data Mesh via DataHub to do work on some of healthcare’s more impactful problems.",
+    tag: "Healthcare",
     backgroundImage:
-      "https://static.vecteezy.com/system/resources/thumbnails/002/414/650/small/hand-with-protective-gloves-holding-a-blood-samples-for-covid-test-free-photo.jpg",
-    image: "",
-    link: "",
+      "https://opensource.optum.com/static/images/mesh-overview-e26ea2aaa8d3dbb1f1771b50f4e31449.png",
+    image: "/img/logos/companies/optum.png",
+    link: "https://datahubproject.io/adoption-stories/#optum",
   },
   {
-    title: "Minimize compliance risk, effortlessly",
+    title: "Exploring Airtel's shift to a decentralized data architecture.",
     description:
-      "Ensure every data asset is accounted for and responsibility governed by defining and enforcing documentation standards. <span></span> Automate your governance program to automatically classify assets as they evolve over time. <span></span> Minimize redundant, manual work with GenAI documentation, AI-driven classification, smart propagation, and more.",
-    tag: "E-Learning",
+      "Discover how DataHub has become integral to Airtel's datamesh architecture.",
+    tag: "Telecommunications",
     backgroundImage:
-      "https://static.vecteezy.com/system/resources/thumbnails/002/414/650/small/hand-with-protective-gloves-holding-a-blood-samples-for-covid-test-free-photo.jpg",
-    image: "",
-    link: "",
+      "https://upload.wikimedia.org/wikipedia/commons/3/3a/Airtel_logo-01.png",
+    image: "/img/logos/companies/airtel.png",
+    link: "https://datahubproject.io/adoption-stories/#airtel",
   },
   {
-    title: "Make data democratization a reality",
+    title: "Leveling Up Data Management.",
     description:
-      "Enable everyone in your organization to effortlessly discover trustworthy data, with experiences tailored for each persona.<span></span>Eliminate breaking changes with detailed cross-platform and column-level lineage. <span></span> Build confidence in your data with a comprehensive view of business, operational, and technical context, all in one place.",
-    tag: "Entertainment",
+      "DataHub's role in improving data management, tracing data lineage, and ensuring quality.",
+    tag: "Gaming",
     backgroundImage:
-      "https://i0.wp.com/picjumbo.com/wp-content/uploads/logo-netflix-free-photo.jpg",
-    image: "",
-    link: "",
+      "https://upload.wikimedia.org/wikipedia/en/thumb/7/7b/Zynga.svg/1200px-Zynga.svg.png",
+    image: "/img/logos/companies/zynga.png",
+    link: "https://datahubproject.io/adoption-stories/#zynga",
   },
   {
-    title: "Build trust in your data",
+    title: "And many more...",
     description:
-      "Effortlessly detect data quality issues with automated checks and AI-driven anomaly detection. <span></span> Notify your team where they work when issues arise and keep stakeholders in the loop with centralized incident tracking. <span></span> Spend minutes, not days, resolving issues with detailed lineage, documentation, and ownership information all in one place.",
-    tag: "Finance",
+      "See our adoption stories page for more.",
+    tag: "",
     backgroundImage:
-      "https://cdn.pmnewsnigeria.com/wp-content/uploads/2021/09/bitcoin-255x175.jpg",
+      "",
     image: "",
-    link: "",
-  },
-  {
-    title: "Minimize compliance risk, effortlessly",
-    description:
-      "Ensure every data asset is accounted for and responsibility governed by defining and enforcing documentation standards. <span></span> Automate your governance program to automatically classify assets as they evolve over time. <span></span> Minimize redundant, manual work with GenAI documentation, AI-driven classification, smart propagation, and more.",
-    tag: "Medical",
-    backgroundImage:
-      "https://static.vecteezy.com/system/resources/thumbnails/002/414/650/small/hand-with-protective-gloves-holding-a-blood-samples-for-covid-test-free-photo.jpg",
-    image: "",
-    link: "",
-  },
-  {
-    title: "Minimize compliance risk, effortlessly",
-    description:
-      "Ensure every data asset is accounted for and responsibility governed by defining and enforcing documentation standards. <span></span> Automate your governance program to automatically classify assets as they evolve over time. <span></span> Minimize redundant, manual work with GenAI documentation, AI-driven classification, smart propagation, and more.",
-    tag: "E-Learning",
-    backgroundImage:
-      "https://static.vecteezy.com/system/resources/thumbnails/002/414/650/small/hand-with-protective-gloves-holding-a-blood-samples-for-covid-test-free-photo.jpg",
-    image: "",
-    link: "",
-  },
-  {
-    title: "Minimize compliance risk, effortlessly",
-    description:
-      "Ensure every data asset is accounted for and responsibility governed by defining and enforcing documentation standards. <span></span> Automate your governance program to automatically classify assets as they evolve over time. <span></span> Minimize redundant, manual work with GenAI documentation, AI-driven classification, smart propagation, and more.",
-    tag: "E-Learning",
-    backgroundImage:
-      "https://cdn.pmnewsnigeria.com/wp-content/uploads/2021/09/bitcoin-255x175.jpg",
-    image: "",
-    link: "",
+    link: "https://datahubproject.io/adoption-stories/",
   },
 ];
 

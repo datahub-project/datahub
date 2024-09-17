@@ -7,7 +7,7 @@
 .case_study {
   display: flex;
   flex-direction: column;
-  width: 90vw;
+  width: 100vw;
   margin: 5rem auto;
 
   .case_study_heading {
@@ -15,18 +15,32 @@
     font-family: "Manrope";
 
     div {
-      font-size: 3.5rem;
+      font-size: 2.5rem;
       line-height: normal;
     }
     p {
-      font-size: 1.8rem;
+      font-size: 1.25rem;
       margin-top: 10px;
     }
   }
 
+  .card_row::-webkit-scrollbar {
+    display: none;
+  }
   .card_row {
-    margin-top: 30px;
+    margin-top: 8px;
+    overflow-x: scroll;
+    width: 100vw;
+    scrollbar-width: none;
+    display: flex;
 
+    .card_row_wrapper {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      padding: 0 10vw;
+      flex: 1;
+    }
     .cardLink {
       color: #000;
       
@@ -37,47 +51,73 @@
     
     .card {
       display: flex !important;
+      flex-shrink: 0;
       justify-content: space-between;
       flex-direction: column;
       position: relative;
-      width: 22rem !important;
-      min-height: 23.5rem !important;
-      border-radius: 23px;
+      width: 340px !important;
+      height: 320px !important;
+      border-radius: 24px;
       background: white;
-      padding: 0 0.2rem;
-      padding-bottom: 15px;
+      padding: 8px;
+      margin-right: 20px;
 
-      img {
-        min-width: 100%;
-        min-height: 40%;
-        object-fit: cover;
+      .card_image  {
+        width: 100%;
+        height: 14rem;
+        
         border-radius: 16px;
-        padding: 5px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+        background-color: #25252e;
+
+        img {
+          object-fit: center;
+          max-width: 50%;
+          max-height: 50%;
+          z-index: 10;
+        }
+        .cardImageBackground {
+          position: absolute;
+          height: 100%;
+          width: 100%;
+          z-index: 0;
+          background-size: cover;
+          opacity: .1;
+        }
       }
+
       .card_tag {
         position: absolute;
         right: 1.2rem;
-        top: 0.8rem;
-        background: #edf2ff;
-        color: rgb(58, 57, 57);
+        top: 1.2rem;
+        background-color: #edf2ff80;
+        color: #FFF;
         font-size: 0.75rem;
         font-family: 'Manrope';
         font-weight: 600;
-        padding: 0.3rem;
+        padding: 0.1rem 0.5rem;
         border-radius: 0.5rem;
+        z-index: 10;
       }
       .card_heading_div {
-        padding: 0 10px 10px;
         text-align: start;
+        padding: 12px;
 
         .card_heading {
           font-family: "Manrope";
-          font-size: 1.25rem;
-          font-weight: bold;
+          font-size: 1.1rem;
+          font-weight: 600;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+          margin-bottom: 2px;
         }
         .card_para {
-          font-size: 1rem;
-          margin-top: 5px;
+          font-size: .9rem;
           line-height: normal;
           display: -webkit-box;
           line-clamp: 2;
@@ -85,6 +125,7 @@
           -webkit-box-orient: vertical;
           overflow: hidden;
           text-overflow: ellipsis;
+          opacity: .75;
         }
       }
     }
@@ -138,7 +179,6 @@
     }
 
     .card_row {
-      margin-top: 30px;
 
       .card {
         position: relative;
