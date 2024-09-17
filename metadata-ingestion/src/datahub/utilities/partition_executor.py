@@ -186,9 +186,9 @@ def _shutdown_executors() -> None:
 
 
 # The order of Python shutdown hooks is:
-# 1. threading._register_atexit (only exists in Python 3.9+)
-# 2. Main thread calls `thread.join` on all non-daemon threads.
-# 3. atexit handlers run.
+# 1. execute threading._register_atexit handlers (only exists in Python 3.9+)
+# 2. calls `thread.join` on all non-daemon threads.
+# 3. interpreter shutdown: atexit handlers run.
 #
 # There was also discussion of making the threading._register_atexit method public,
 # but that hasn't happened yet. See https://github.com/python/cpython/issues/86128.
@@ -211,6 +211,8 @@ def _shutdown_executors() -> None:
 # Some other posts had suggested using threading.main_thread().join().
 # See https://stackoverflow.com/a/63075281.
 # I couldn't get this to work reliably, and so opted for this approach.
+# Based on my reading of https://github.com/python/cpython/pull/19149,
+# it should've worked. But not worth the effort to debug.
 #
 # This entire shutdown hook is largely a backstop mechanism to protect against
 # improper usage of the BatchPartitionExecutor. In proper usage that uses
