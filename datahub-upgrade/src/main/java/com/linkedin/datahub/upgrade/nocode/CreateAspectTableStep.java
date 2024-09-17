@@ -77,7 +77,7 @@ public class CreateAspectTableStep implements UpgradeStep {
       }
 
       try {
-        _server.execute(_server.createSqlUpdate(sqlUpdateStr));
+        _server.execute(_server.sqlUpdate(sqlUpdateStr));
       } catch (Exception e) {
         context.report().addLine("Failed to create table metadata_aspect_v2", e);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);

@@ -16,8 +16,9 @@
 }
 
 .card_button {
- padding: 1rem;
+ padding: 1.5rem;
  text-align: center;
+ margin-top: auto;
 }
 
 .card {
@@ -53,6 +54,7 @@
 
 .featureBody {
   padding: 0 2rem;
+  flex-grow: 1;
 }
 
 .card_image {

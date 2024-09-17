@@ -114,6 +114,33 @@ record TestEntityInfo includes CustomProperties {
   }
   removed: optional boolean
 
+   @Searchable = {
+      "/*": {
+        "name": "esObjectFieldLong",
+        "fieldType": "OBJECT",
+        "queryByDefault": true
+     }
+  }
+  esObjectFieldLong: optional map[string, long]
+
+   @Searchable = {
+      "/*": {
+          "name": "esObjectFieldBoolean",
+          "fieldType": "OBJECT",
+          "queryByDefault": true
+      }
+  }
+  esObjectFieldBoolean: optional map[string, boolean]
+
+  @Searchable = {
+      "/*": {
+        "name": "esObjectFieldFloat",
+        "fieldType": "OBJECT",
+        "queryByDefault": true
+    }
+  }
+  esObjectFieldFloat: optional map[string, float]
+
   @Searchable = {
     "/$key": {
       "fieldType": "MAP_ARRAY",
@@ -121,4 +148,23 @@ record TestEntityInfo includes CustomProperties {
     }
   }
   mapArrayField: optional map[string, array[Urn]]
+
+  @Searchable = {
+       "/*": {
+        "name": "esObjectFieldDouble",
+        "fieldType": "OBJECT",
+        "queryByDefault": true
+     }
+  }
+  esObjectFieldDouble: optional map[string, double]
+
+  @Searchable = {
+      "/*": {
+        "name": "esObjectFieldInteger",
+        "fieldType": "OBJECT",
+        "queryByDefault": true
+      }
+  }
+  esObjectFieldInteger: optional map[string, int]
+
 }
