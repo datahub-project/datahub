@@ -87,10 +87,6 @@ public class EntityController
     List<Urn> urns = request.getUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(authentication, authorizationChain, READ, urns)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
-    }
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -103,6 +99,11 @@ public class EntityController
             authorizationChain,
             authentication,
             true);
+
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, urns)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
+    }
 
     return ResponseEntity.of(
         Optional.of(

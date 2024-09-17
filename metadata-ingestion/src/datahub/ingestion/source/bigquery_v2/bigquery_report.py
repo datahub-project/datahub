@@ -59,6 +59,18 @@ class BigQueryProcessingPerfReport(Report):
 
 
 @dataclass
+class BigQueryQueriesExtractorReport(Report):
+    query_log_fetch_timer: PerfTimer = field(default_factory=PerfTimer)
+    audit_log_preprocessing_timer: PerfTimer = field(default_factory=PerfTimer)
+    audit_log_load_timer: PerfTimer = field(default_factory=PerfTimer)
+    sql_aggregator: Optional[SqlAggregatorReport] = None
+    num_queries_by_project: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+
+    num_total_queries: int = 0
+    num_unique_queries: int = 0
+
+
+@dataclass
 class BigQueryV2Report(
     ProfilingSqlReport,
     IngestionStageReport,
@@ -143,10 +155,8 @@ class BigQueryV2Report(
 
     snapshots_scanned: int = 0
 
-    num_view_definitions_parsed: int = 0
-    num_view_definitions_failed_parsing: int = 0
-    num_view_definitions_failed_column_parsing: int = 0
-    view_definitions_parsing_failures: LossyList[str] = field(default_factory=LossyList)
+    # view lineage
+    sql_aggregator: Optional[SqlAggregatorReport] = None
 
     read_reasons_stat: Counter[str] = field(default_factory=collections.Counter)
     operation_types_stat: Counter[str] = field(default_factory=collections.Counter)
@@ -171,8 +181,7 @@ class BigQueryV2Report(
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
 
-    # lineage/usage v2
-    sql_aggregator: Optional[SqlAggregatorReport] = None
+    queries_extractor: Optional[BigQueryQueriesExtractorReport] = None
 
     def set_ingestion_stage(self, project_id: str, stage: str) -> None:
         self.report_ingestion_stage_start(f"{project_id}: {stage}")

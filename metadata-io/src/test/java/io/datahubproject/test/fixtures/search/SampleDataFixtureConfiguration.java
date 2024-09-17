@@ -28,6 +28,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilde
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SearchRanker;
@@ -74,6 +75,8 @@ public class SampleDataFixtureConfiguration {
 
   @Autowired private CustomSearchConfiguration _customSearchConfiguration;
 
+  @Autowired private QueryFilterRewriteChain queryFilterRewriteChain;
+
   @Bean(name = "sampleDataPrefix")
   protected String sampleDataPrefix() {
     return "smpldat";
@@ -86,12 +89,20 @@ public class SampleDataFixtureConfiguration {
 
   @Bean(name = "sampleDataIndexConvention")
   protected IndexConvention indexConvention(@Qualifier("sampleDataPrefix") String prefix) {
-    return new IndexConventionImpl(prefix, "MD5");
+    return new IndexConventionImpl(
+        IndexConventionImpl.IndexConventionConfig.builder()
+            .prefix(prefix)
+            .hashIdAlgo("MD5")
+            .build());
   }
 
   @Bean(name = "longTailIndexConvention")
   protected IndexConvention longTailIndexConvention(@Qualifier("longTailPrefix") String prefix) {
-    return new IndexConventionImpl(prefix, "MD5");
+    return new IndexConventionImpl(
+        IndexConventionImpl.IndexConventionConfig.builder()
+            .prefix(prefix)
+            .hashIdAlgo("MD5")
+            .build());
   }
 
   @Bean(name = "sampleDataFixtureName")
@@ -189,9 +200,14 @@ public class SampleDataFixtureConfiguration {
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             _searchConfiguration,
-            customSearchConfiguration);
+            customSearchConfiguration,
+            queryFilterRewriteChain);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(_searchClient, _searchConfiguration, _customSearchConfiguration);
+        new ESBrowseDAO(
+            _searchClient,
+            _searchConfiguration,
+            _customSearchConfiguration,
+            queryFilterRewriteChain);
     ESWriteDAO writeDAO = new ESWriteDAO(_searchClient, _bulkProcessor, 1);
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }

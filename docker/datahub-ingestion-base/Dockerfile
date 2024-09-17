@@ -29,6 +29,7 @@ ENV UV_INDEX_URL=${PIP_MIRROR_URL}
 
 RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y -qq \
+    lsb-release \
     python3 \
     python3-pip \
     python3-venv \
@@ -42,19 +43,20 @@ RUN apt-get update && apt-get upgrade -y \
     krb5-user \
     krb5-config \
     libkrb5-dev \
+    librdkafka-dev \
     wget \
+    curl \
     zip \
     unzip \
     ldap-utils \
     unixodbc \
     libodbc2 \
-    && python -m pip install --no-cache --upgrade pip uv>=0.1.10 wheel setuptools \
+    && python -m pip install --no-cache --upgrade pip 'uv>=0.1.10' wheel setuptools \
     && apt-get clean \
     && rm -rf /var/lib/{apt,dpkg,cache,log}/
 
-COPY --from=dockerize-binary /usr/local/bin/dockerize /usr/local/bin
+COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 
-COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
 
 RUN addgroup --gid 1000 datahub && \
@@ -66,7 +68,14 @@ ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 ENV VIRTUAL_ENV=/datahub-ingestion/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 RUN python3 -m venv $VIRTUAL_ENV && \
-    uv pip install --no-cache -r requirements.txt
+    uv pip install --no-cache --upgrade pip setuptools wheel
+
+# Note: Normally uv will create hardlinks from the cache directory to the venv.
+# In our docker files, we normally use `RUN --mount=type=cache,... uv pip install ...`,
+# which means the cache directory is on a separate filesystem. uv will emit a warning:
+#   Failed to hardlink files; falling back to full copy. This may lead to degraded performance.
+#   If the cache and target directories are on different filesystems, hardlinking may not be supported.
+#   If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.
 
 ENTRYPOINT [ "/entrypoint.sh" ]
 

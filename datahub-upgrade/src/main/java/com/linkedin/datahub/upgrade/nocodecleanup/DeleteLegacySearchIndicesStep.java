@@ -5,6 +5,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
@@ -43,9 +44,9 @@ public class DeleteLegacySearchIndicesStep implements UpgradeStep {
         _searchClient.indices().delete(request, RequestOptions.DEFAULT);
       } catch (Exception e) {
         context.report().addLine("Failed to delete legacy search index: %s", e);
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 }

@@ -205,6 +205,11 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
                                 "postgres",
                             ]
                         },
+                        "destination_patterns": {
+                            "allow": [
+                                "interval_unconstitutional",
+                            ]
+                        },
                         "sources_to_database": {
                             "calendar_elected": "postgres_db",
                         },
@@ -289,6 +294,11 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                         "connector_patterns": {
                             "allow": [
                                 "postgres",
+                            ]
+                        },
+                        "destination_patterns": {
+                            "allow": [
+                                "interval_unconstitutional",
                             ]
                         },
                         "sources_to_database": {

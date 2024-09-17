@@ -37,6 +37,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
@@ -126,7 +127,12 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
-            entityRegistry, new IndexConventionImpl("es_timeseries_aspect_service_test", "MD5"));
+            entityRegistry,
+            new IndexConventionImpl(
+                IndexConventionImpl.IndexConventionConfig.builder()
+                    .prefix("es_timeseries_aspect_service_test")
+                    .hashIdAlgo("MD5")
+                    .build()));
 
     elasticSearchTimeseriesAspectService = buildService();
     elasticSearchTimeseriesAspectService.reindexAll(Collections.emptySet());
@@ -143,7 +149,8 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
             opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention()),
         getBulkProcessor(),
-        1);
+        1,
+        QueryFilterRewriteChain.EMPTY);
   }
 
   /*
