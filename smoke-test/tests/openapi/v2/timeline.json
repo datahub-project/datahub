@@ -338,7 +338,7 @@
       ],
       "json": [
         {
-          "timestamp": 1723245258298,
+          "timestamp": 1726608877854,
           "actor": "urn:li:corpuser:__datahub_system",
           "semVer": "0.0.0-computed",
           "semVerChange": "MINOR",
@@ -431,7 +431,7 @@
           "versionStamp": "browsePathsV2:0;dataPlatformInstance:0;datasetKey:0;schemaMetadata:1"
         },
         {
-          "timestamp": 1723245269788,
+          "timestamp": 1726608915493,
           "actor": "urn:li:corpuser:__datahub_system",
           "semVer": "1.0.0-computed",
           "semVerChange": "MAJOR",
@@ -473,7 +473,7 @@
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.name)",
                 "nullable": true,
-                "modificationCategory": "OTHER"
+                "modificationCategory": "TYPE_CHANGE"
               },
               "semVerChange": "MAJOR",
               "description": "A backwards incompatible change due to removal of field: 'service.provider.name'."
@@ -482,7 +482,7 @@
           "versionStamp": "browsePathsV2:0;dataPlatformInstance:0;datasetKey:0;schemaMetadata:2"
         },
         {
-          "timestamp": 1723245279320,
+          "timestamp": 1726608930642,
           "actor": "urn:li:corpuser:__datahub_system",
           "semVer": "2.0.0-computed",
           "semVerChange": "MAJOR",
@@ -510,7 +510,7 @@
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id3",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.id3)",
                 "nullable": true,
-                "modificationCategory": "OTHER"
+                "modificationCategory": "TYPE_CHANGE"
               },
               "semVerChange": "MAJOR",
               "description": "A backwards incompatible change due to removal of field: 'service.provider.id3'."
