@@ -164,7 +164,7 @@ public class SearchAcrossEntitiesResolverTest {
                             new CriterionArray(
                                 ImmutableList.of(
                                     new Criterion()
-                                        .setField("baseField.keyword")
+                                        .setField("baseField")
                                         .setValue("baseTest")
                                         .setCondition(Condition.EQUAL)
                                         .setNegated(false)
