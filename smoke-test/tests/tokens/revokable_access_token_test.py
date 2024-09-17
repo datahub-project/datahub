@@ -26,9 +26,8 @@ def wait_for_healthchecks():
 
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
-    wait_for_writes_to_sync()
     # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
+    wait_for_writes_to_sync()
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
