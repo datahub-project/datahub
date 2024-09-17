@@ -43,12 +43,13 @@ public class EntityIndexBuilders implements ElasticSearchIndexed {
   public List<ReindexConfig> buildReindexConfigs(
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     Map<String, Object> settings = settingsBuilder.getSettings();
-    MappingsBuilder.setEntityRegistry(entityRegistry);
+
     return entityRegistry.getEntitySpecs().values().stream()
         .map(
             entitySpec -> {
               try {
-                Map<String, Object> mappings = MappingsBuilder.getMappings(entitySpec, properties);
+                Map<String, Object> mappings =
+                    MappingsBuilder.getMappings(entityRegistry, entitySpec, properties);
                 return indexBuilder.buildReindexState(
                     indexConvention.getIndexName(entitySpec), mappings, settings);
               } catch (IOException e) {
@@ -68,13 +69,14 @@ public class EntityIndexBuilders implements ElasticSearchIndexed {
   public List<ReindexConfig> buildReindexConfigsWithNewStructProp(
       Urn urn, StructuredPropertyDefinition property) {
     Map<String, Object> settings = settingsBuilder.getSettings();
-    MappingsBuilder.setEntityRegistry(entityRegistry);
+
     return entityRegistry.getEntitySpecs().values().stream()
         .map(
             entitySpec -> {
               try {
                 Map<String, Object> mappings =
-                    MappingsBuilder.getMappings(entitySpec, List.of(Pair.of(urn, property)));
+                    MappingsBuilder.getMappings(
+                        entityRegistry, entitySpec, List.of(Pair.of(urn, property)));
                 return indexBuilder.buildReindexState(
                     indexConvention.getIndexName(entitySpec), mappings, settings, true);
               } catch (IOException e) {
