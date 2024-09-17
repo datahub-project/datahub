@@ -74,7 +74,7 @@ export type AssertionTable = {
     filterOptions?: any;
     originalFilterOptions?: any;
     filteredCount?: number;
-    searchCount?: number;
+    searchMatchesCount?: number;
     totalCount?: number;
 };
 
