@@ -396,9 +396,11 @@ class PathSpec(ConfigModel):
                             partition_keys.append(
                                 (
                                     named_vars.named["partition_key"][key],
-                                    named_vars.named["partition_value"][key]
-                                    if "partition_value" in named_vars.named
-                                    else named_vars.named["partition"][key],
+                                    (
+                                        named_vars.named["partition_value"][key]
+                                        if "partition_value" in named_vars.named
+                                        else named_vars.named["partition"][key]
+                                    ),
                                 )
                             )
                     return partition_keys

@@ -9,6 +9,7 @@ from freezegun import freeze_time
 from datahub.ingestion.source.bigquery_v2.bigquery_queries import (
     BigQueryQueriesSourceReport,
 )
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
 from tests.test_helpers import mce_helpers
@@ -30,6 +31,9 @@ def _generate_queries_cached_file(tmp_path: Path, queries_json_path: Path) -> No
         assert isinstance(queries, list)
         for query in queries:
             query["timestamp"] = datetime.fromisoformat(query["timestamp"])
+            query["user"] = (
+                CorpUserUrn.from_string(query["user"]) if query["user"] else None
+            )
             query_cache.append(ObservedQuery(**query))
 
         query_cache.close()

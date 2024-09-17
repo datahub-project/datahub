@@ -77,6 +77,11 @@ public class RequestContext implements ContextInterface {
     }
 
     public RequestContext buildRestli(
+        @Nonnull String actorUrn, @Nullable ResourceContext resourceContext, String action) {
+      return buildRestli(actorUrn, resourceContext, action, (String) null);
+    }
+
+    public RequestContext buildRestli(
         @Nonnull String actorUrn,
         @Nullable ResourceContext resourceContext,
         String action,

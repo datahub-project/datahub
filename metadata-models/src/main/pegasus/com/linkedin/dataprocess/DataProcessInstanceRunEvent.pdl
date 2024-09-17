@@ -15,6 +15,9 @@ import com.linkedin.common.Urn
 record DataProcessInstanceRunEvent includes TimeseriesAspectBase, ExternalReference {
 
   @TimeseriesField = {}
+  @Searchable = {
+    "hasValuesFieldName": "hasRunEvents"
+  }
   status: enum DataProcessRunStatus {
     /**
      * The status where the Data processing run is in.
