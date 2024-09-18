@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "database": "DemoData"
             },
-            "name": "DemoData"
+            "name": "DemoData",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -112,11 +113,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "a7684ed9-7d4c-46f2-b8bd-1dc5941345d0",
+                "job_id": "ba144ff3-f6f8-4a61-a8a5-5cf1ed172738",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2024-09-03 11:56:19.400000",
-                "date_modified": "2024-09-03 11:56:19.580000",
+                "date_created": "2024-09-16 15:59:53.077000",
+                "date_modified": "2024-09-16 15:59:53.217000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
@@ -166,7 +167,8 @@
                 "database": "DemoData",
                 "schema": "db_accessadmin"
             },
-            "name": "db_accessadmin"
+            "name": "db_accessadmin",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -275,7 +277,8 @@
                 "database": "DemoData",
                 "schema": "db_backupoperator"
             },
-            "name": "db_backupoperator"
+            "name": "db_backupoperator",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -384,7 +387,8 @@
                 "database": "DemoData",
                 "schema": "db_datareader"
             },
-            "name": "db_datareader"
+            "name": "db_datareader",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -493,7 +497,8 @@
                 "database": "DemoData",
                 "schema": "db_datawriter"
             },
-            "name": "db_datawriter"
+            "name": "db_datawriter",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -602,7 +607,8 @@
                 "database": "DemoData",
                 "schema": "db_ddladmin"
             },
-            "name": "db_ddladmin"
+            "name": "db_ddladmin",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -711,7 +717,8 @@
                 "database": "DemoData",
                 "schema": "db_denydatareader"
             },
-            "name": "db_denydatareader"
+            "name": "db_denydatareader",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -820,7 +827,8 @@
                 "database": "DemoData",
                 "schema": "db_denydatawriter"
             },
-            "name": "db_denydatawriter"
+            "name": "db_denydatawriter",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -929,7 +937,8 @@
                 "database": "DemoData",
                 "schema": "db_owner"
             },
-            "name": "db_owner"
+            "name": "db_owner",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -1038,7 +1047,8 @@
                 "database": "DemoData",
                 "schema": "db_securityadmin"
             },
-            "name": "db_securityadmin"
+            "name": "db_securityadmin",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -1147,7 +1157,8 @@
                 "database": "DemoData",
                 "schema": "dbo"
             },
-            "name": "dbo"
+            "name": "dbo",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -1388,7 +1399,8 @@
                 "database": "DemoData",
                 "schema": "Foo"
             },
-            "name": "Foo"
+            "name": "Foo",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -1961,8 +1973,8 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2024-09-03 11:56:19.310000",
-                "date_modified": "2024-09-03 11:56:19.310000"
+                "date_created": "2024-09-16 15:59:53.010000",
+                "date_modified": "2024-09-16 15:59:53.010000"
             },
             "externalUrl": "",
             "name": "DemoData.Foo.Proc.With.SpecialChar",
@@ -2008,7 +2020,8 @@
                 "database": "DemoData",
                 "schema": "guest"
             },
-            "name": "guest"
+            "name": "guest",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -2117,7 +2130,8 @@
                 "database": "DemoData",
                 "schema": "INFORMATION_SCHEMA"
             },
-            "name": "INFORMATION_SCHEMA"
+            "name": "INFORMATION_SCHEMA",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -2226,7 +2240,8 @@
                 "database": "DemoData",
                 "schema": "sys"
             },
-            "name": "sys"
+            "name": "sys",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -2334,7 +2349,8 @@
                 "env": "PROD",
                 "database": "NewData"
             },
-            "name": "NewData"
+            "name": "NewData",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -2422,7 +2438,8 @@
                 "database": "NewData",
                 "schema": "db_accessadmin"
             },
-            "name": "db_accessadmin"
+            "name": "db_accessadmin",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -2531,7 +2548,8 @@
                 "database": "NewData",
                 "schema": "db_backupoperator"
             },
-            "name": "db_backupoperator"
+            "name": "db_backupoperator",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -2640,7 +2658,8 @@
                 "database": "NewData",
                 "schema": "db_datareader"
             },
-            "name": "db_datareader"
+            "name": "db_datareader",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -2749,7 +2768,8 @@
                 "database": "NewData",
                 "schema": "db_datawriter"
             },
-            "name": "db_datawriter"
+            "name": "db_datawriter",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -2858,7 +2878,8 @@
                 "database": "NewData",
                 "schema": "db_ddladmin"
             },
-            "name": "db_ddladmin"
+            "name": "db_ddladmin",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -2967,7 +2988,8 @@
                 "database": "NewData",
                 "schema": "db_denydatareader"
             },
-            "name": "db_denydatareader"
+            "name": "db_denydatareader",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -3076,7 +3098,8 @@
                 "database": "NewData",
                 "schema": "db_denydatawriter"
             },
-            "name": "db_denydatawriter"
+            "name": "db_denydatawriter",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -3185,7 +3208,8 @@
                 "database": "NewData",
                 "schema": "db_owner"
             },
-            "name": "db_owner"
+            "name": "db_owner",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -3294,7 +3318,8 @@
                 "database": "NewData",
                 "schema": "db_securityadmin"
             },
-            "name": "db_securityadmin"
+            "name": "db_securityadmin",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -3403,7 +3428,8 @@
                 "database": "NewData",
                 "schema": "dbo"
             },
-            "name": "dbo"
+            "name": "dbo",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -3656,7 +3682,8 @@
                 "database": "NewData",
                 "schema": "FooNew"
             },
-            "name": "FooNew"
+            "name": "FooNew",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -4065,7 +4092,8 @@
                 "database": "NewData",
                 "schema": "guest"
             },
-            "name": "guest"
+            "name": "guest",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -4174,7 +4202,8 @@
                 "database": "NewData",
                 "schema": "INFORMATION_SCHEMA"
             },
-            "name": "INFORMATION_SCHEMA"
+            "name": "INFORMATION_SCHEMA",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -4283,7 +4312,8 @@
                 "database": "NewData",
                 "schema": "sys"
             },
-            "name": "sys"
+            "name": "sys",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
