@@ -68,6 +68,8 @@ const StructuredProperties = () => {
                     loading={loading}
                     setIsDrawerOpen={setIsDrawerOpen}
                     setCurrentProperty={setCurrentProperty}
+                    currentProperty={currentProperty}
+                    refetch={refetch}
                 />
             </TableContainer>
             <StructuredPropsDrawer

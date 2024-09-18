@@ -1,12 +1,15 @@
 import { Icon, Pill, Table, Text } from '@components';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { toRelativeTimeString } from '@src/app/shared/time/timeUtils';
+import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
+import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
 import TableIcon from '@src/images/table-icon.svg?react';
 import { SearchResult } from '@src/types.generated';
 import { Dropdown, Tooltip } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 import { CardIcons } from '../Dashboard/Forms/styledComponents';
 import {
     DataContainer,
@@ -25,10 +28,20 @@ interface Props {
     data: GetSearchResultsForMultipleQuery | undefined;
     loading: boolean;
     setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    currentProperty?: SearchResult;
     setCurrentProperty: React.Dispatch<React.SetStateAction<SearchResult | undefined>>;
+    refetch: () => void;
 }
 
-const StructuredPropsTable = ({ searchQuery, data, loading, setIsDrawerOpen, setCurrentProperty }: Props) => {
+const StructuredPropsTable = ({
+    searchQuery,
+    data,
+    loading,
+    setIsDrawerOpen,
+    currentProperty,
+    setCurrentProperty,
+    refetch,
+}: Props) => {
     const entityRegistry = useEntityRegistryV2();
 
     const structuredProperties = data?.searchAcrossEntities?.searchResults || [];
@@ -37,6 +50,37 @@ const StructuredPropsTable = ({ searchQuery, data, loading, setIsDrawerOpen, set
     const filteredProperties = structuredProperties.filter((prop: any) =>
         prop.entity.definition.displayName?.toLowerCase().includes(searchQuery.toLowerCase()),
     );
+
+    const [deleteStructuredProperty] = useDeleteStructuredPropertyMutation();
+
+    const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
+
+    const handleDeleteProperty = (property) => {
+        showToastMessage(ToastType.LOADING, 'Deleting structured property', 1);
+        deleteStructuredProperty({
+            variables: {
+                input: {
+                    urn: property.entity.urn,
+                },
+            },
+        })
+            .then(() => {
+                showToastMessage(ToastType.SUCCESS, 'Structured property deleted successfully!', 3);
+                refetch();
+            })
+            .catch(() => {
+                showToastMessage(ToastType.ERROR, 'Failed to delete structured property', 3);
+            })
+            .finally(() => {
+                setShowConfirmDelete(false);
+                setCurrentProperty(undefined);
+            });
+    };
+
+    const handleDeleteClose = () => {
+        setShowConfirmDelete(false);
+        setCurrentProperty(undefined);
+    };
 
     const columns = [
         {
@@ -131,7 +175,16 @@ const StructuredPropsTable = ({ searchQuery, data, loading, setIsDrawerOpen, set
                     },
                     {
                         key: '1',
-                        label: <MenuItem>Delete</MenuItem>,
+                        label: (
+                            <MenuItem
+                                onClick={() => {
+                                    setCurrentProperty(record);
+                                    setShowConfirmDelete(true);
+                                }}
+                            >
+                                Delete
+                            </MenuItem>
+                        ),
                     },
                 ];
                 return (
@@ -146,7 +199,18 @@ const StructuredPropsTable = ({ searchQuery, data, loading, setIsDrawerOpen, set
             },
         },
     ];
-    return <Table columns={columns} data={filteredProperties} isLoading={loading} isScrollable />;
+    return (
+        <>
+            <Table columns={columns} data={filteredProperties} isLoading={loading} isScrollable />
+            <ConfirmationModal
+                isOpen={showConfirmDelete}
+                handleClose={handleDeleteClose}
+                handleConfirm={() => handleDeleteProperty(currentProperty)}
+                modalTitle="Confirm Delete"
+                modalText="Are you sure you want to delete the structured property?"
+            />
+        </>
+    );
 };
 
 export default StructuredPropsTable;
