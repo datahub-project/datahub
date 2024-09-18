@@ -175,11 +175,7 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
             "A backwards incompatible change due to removal of field: 'ID'."),
         actual);
     assertEquals(2, actual.size());
-    compareModificationCategories(
-        Set.of(
-            SchemaFieldModificationCategory.OTHER.toString(),
-            SchemaFieldModificationCategory.TYPE_CHANGE.toString()),
-        actual);
+    compareModificationCategories(Set.of(SchemaFieldModificationCategory.OTHER.toString()), actual);
   }
 
   @Test
