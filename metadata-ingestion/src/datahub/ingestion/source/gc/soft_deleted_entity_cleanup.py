@@ -113,7 +113,7 @@ class SoftDeletedEntitiesCleanup:
             entity_urn.entity_type
         ].append(urn)
 
-        self.ctx.graph.delete_entity(urn, True)
+        self.ctx.graph.delete_entity(urn=urn, hard=True)
 
     def delete_soft_deleted_entity(self, urn: str) -> None:
         assert self.ctx.graph
