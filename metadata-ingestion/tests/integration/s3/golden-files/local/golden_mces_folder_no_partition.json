@@ -138,7 +138,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests"
             },
-            "name": "tests"
+            "name": "tests",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -225,7 +226,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration"
             },
-            "name": "integration"
+            "name": "integration",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -333,7 +335,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/s3"
             },
-            "name": "s3"
+            "name": "s3",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -445,7 +448,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/s3/test_data"
             },
-            "name": "test_data"
+            "name": "test_data",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -561,7 +565,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system"
             },
-            "name": "local_system"
+            "name": "local_system",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -681,7 +686,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a"
             },
-            "name": "folder_a"
+            "name": "folder_a",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -805,7 +811,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa"
             },
-            "name": "folder_aa"
+            "name": "folder_aa",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -933,7 +940,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa"
             },
-            "name": "folder_aaa"
+            "name": "folder_aaa",
+            "env": "UAT"
         }
     },
     "systemMetadata": {

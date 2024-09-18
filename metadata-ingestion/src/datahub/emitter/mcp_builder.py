@@ -23,6 +23,7 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DomainsClass,
     EmbedClass,
+    FabricTypeClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnerClass,
@@ -190,6 +191,12 @@ def gen_containers(
     created: Optional[int] = None,
     last_modified: Optional[int] = None,
 ) -> Iterable[MetadataWorkUnit]:
+    # because of backwards compatibility with a past issue, container_key.env may be a valid env or an instance name
+    env = (
+        container_key.env
+        if container_key.env in vars(FabricTypeClass).values()
+        else None
+    )
     container_urn = container_key.as_urn()
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
@@ -207,6 +214,7 @@ def gen_containers(
             lastModified=(
                 TimeStamp(time=last_modified) if last_modified is not None else None
             ),
+            env=env if env is not None else None,
         ),
     ).as_workunit()
 
