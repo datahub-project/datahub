@@ -17,10 +17,10 @@ from datahub.utilities.urns.urn import guess_entity_type
 
 @dataclasses.dataclass
 class TimestampPair:
-    last_modified_dataset_properties: Optional[
+    last_modified_dataset_props: Optional[
         TimeStampClass
     ]  # last_modified of datasetProperties aspect
-    last_updated_timestamp: Optional[
+    last_updated_timestamp_dataset_props: Optional[
         int
     ]  # lastUpdatedTimestamp of the operation aspect
 
@@ -76,7 +76,7 @@ def auto_patch_last_modified(
         if timestamp_pair:
             # Update the timestamp_pair
             if dataset_properties_aspect and dataset_properties_aspect.lastModified:
-                timestamp_pair.last_modified_dataset_properties = (
+                timestamp_pair.last_modified_dataset_props = (
                     dataset_properties_aspect.lastModified
                 )
 
@@ -84,27 +84,27 @@ def auto_patch_last_modified(
                 dataset_operation_aspect
                 and dataset_operation_aspect.lastUpdatedTimestamp
             ):
-                timestamp_pair.last_updated_timestamp = max(
-                    timestamp_pair.last_updated_timestamp or 0,
+                timestamp_pair.last_updated_timestamp_dataset_props = max(
+                    timestamp_pair.last_updated_timestamp_dataset_props or 0,
                     dataset_operation_aspect.lastUpdatedTimestamp,
                 )
 
         else:
             # Create new TimestampPair
-            last_modified_dataset_properties: Optional[TimeStampClass] = None
-            last_updated_timestamp: Optional[int] = None
+            last_modified_dataset_props: Optional[TimeStampClass] = None
+            last_updated_timestamp_dataset_props: Optional[int] = None
 
             if dataset_properties_aspect:
-                last_modified_dataset_properties = (
-                    dataset_properties_aspect.lastModified
-                )
+                last_modified_dataset_props = dataset_properties_aspect.lastModified
 
             if dataset_operation_aspect:
-                last_updated_timestamp = dataset_operation_aspect.lastUpdatedTimestamp
+                last_updated_timestamp_dataset_props = (
+                    dataset_operation_aspect.lastUpdatedTimestamp
+                )
 
             candidate_dataset_for_patch[wu.get_urn()] = TimestampPair(
-                last_modified_dataset_properties=last_modified_dataset_properties,
-                last_updated_timestamp=last_updated_timestamp,
+                last_modified_dataset_props=last_modified_dataset_props,
+                last_updated_timestamp_dataset_props=last_updated_timestamp_dataset_props,
             )
 
         yield wu
@@ -113,13 +113,15 @@ def auto_patch_last_modified(
     for entity_urn, timestamp_pair in candidate_dataset_for_patch.items():
         # Emit patch if last_modified is not set and last_updated_timestamp is set
         if (
-            timestamp_pair.last_modified_dataset_properties is None
-            and timestamp_pair.last_updated_timestamp
+            timestamp_pair.last_modified_dataset_props is None
+            and timestamp_pair.last_updated_timestamp_dataset_props
         ):
             dataset_patch_builder = DatasetPatchBuilder(urn=entity_urn)
 
             dataset_patch_builder.set_last_modified(
-                timestamp=TimeStampClass(time=timestamp_pair.last_updated_timestamp)
+                timestamp=TimeStampClass(
+                    time=timestamp_pair.last_updated_timestamp_dataset_props
+                )
             )
 
             yield from [
