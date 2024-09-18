@@ -1,98 +1,136 @@
-import { Button, Input, SimpleSelect, Text, TextArea } from '@src/alchemy-components';
+import { LoadingOutlined } from '@ant-design/icons';
+import { Button, Text } from '@src/alchemy-components';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { useCreateStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
-import { EntityType, PropertyCardinality } from '@src/types.generated';
+import {
+    useCreateStructuredPropertyMutation,
+    useUpdateStructuredPropertyMutation,
+} from '@src/graphql/structuredProperties.generated';
+import {
+    PropertyCardinality,
+    SearchResult,
+    StructuredPropertyEntity,
+    UpdateStructuredPropertyInput,
+} from '@src/types.generated';
 import { Form } from 'antd';
 import React, { useState } from 'react';
-import AdvancedOptions from './AdvancedOptions';
-import { DrawerHeader, FieldLabel, FooterContainer, RowContainer, StyledDrawer, StyledIcon } from './styledComponents';
-import { APPLIES_TO_ENTITIES, getEntityTypeUrn, SEARCHABLE_ENTITY_TYPES, valueTypes } from './utils';
+import StructuredPropsForm from './StructuredPropsForm';
+import { DrawerHeader, FooterContainer, StyledDrawer, StyledIcon, StyledSpin } from './styledComponents';
+import { getNewAllowedTypes, getNewEntityTypes, StructuredProp } from './utils';
 
 interface Props {
     isDrawerOpen: boolean;
     setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    currentProperty?: SearchResult;
+    setCurrentProperty: React.Dispatch<React.SetStateAction<SearchResult | undefined>>;
     refetch: () => void;
 }
 
-const StructuredPropsDrawer = ({ isDrawerOpen, setIsDrawerOpen, refetch }: Props) => {
+const StructuredPropsDrawer = ({
+    isDrawerOpen,
+    setIsDrawerOpen,
+    currentProperty,
+    setCurrentProperty,
+    refetch,
+}: Props) => {
     const [form] = Form.useForm();
 
-    const entityRegistry = useEntityRegistryV2();
-
-    const [selectedValueType, setSelectedValueType] = useState<string>('');
-    const [cardinality, setCardinality] = useState<PropertyCardinality>(PropertyCardinality.Single);
-
-    const getEntitiesListOptions = (entitiesList: EntityType[]) => {
-        const listOptions: { label: string; value: string }[] = [];
-        entitiesList.forEach((type) => {
-            const entity = {
-                label: entityRegistry.getEntityName(type) || '',
-                value: getEntityTypeUrn(type),
-            };
-            listOptions.push(entity);
-        });
-        return listOptions;
-    };
-
     const [createStructuredProperty] = useCreateStructuredPropertyMutation();
+    const [updateStructuredProperty] = useUpdateStructuredPropertyMutation();
+
+    const [cardinality, setCardinality] = useState<PropertyCardinality>(PropertyCardinality.Single);
+    const [formValues, setFormValues] = useState<StructuredProp>();
+    const [selectedValueType, setSelectedValueType] = useState<string>('');
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+
+    const isEditMode = !!currentProperty;
 
     const handleClose = () => {
         setIsDrawerOpen(false);
+        setCurrentProperty(undefined);
         form.resetFields();
+        setFormValues(undefined);
+        setSelectedValueType('');
     };
 
     const showErrorMessage = () => {
-        showToastMessage(ToastType.ERROR, `Failed to create structured property.`, 3);
+        showToastMessage(ToastType.ERROR, `Failed to ${isEditMode ? 'update' : 'create'} structured property.`, 3);
     };
 
     const showSuccessMessage = () => {
-        showToastMessage(ToastType.SUCCESS, `Structured property created!`, 3);
+        showToastMessage(ToastType.SUCCESS, `Structured property ${isEditMode ? 'updated' : 'created'}!`, 3);
     };
 
-    const handleSelectChange = (field, values) => {
-        form.setFieldValue(field, values);
-    };
-
-    const handleTypeUpdate = (values: string[]) => {
-        const typeOption = valueTypes.find((type) => type.value === values[0]);
-        const typeUrn = typeOption?.key || '';
-        setSelectedValueType(typeUrn);
-        handleSelectChange('valueType', typeUrn);
-
-        const isList = typeOption?.label.includes('List');
-        if (isList) setCardinality(PropertyCardinality.Multiple);
-        else setCardinality(PropertyCardinality.Single);
-    };
-
-    const onSubmit = () => {
+    const handleSubmit = () => {
         const formData = form.getFieldsValue();
 
-        // Add default qualified name based on the displayName
-        if (!formData.qualifiedName)
-            form.setFieldValue('qualifiedName', formData.displayName?.replace(/\s/g, '').toLowerCase());
+        if (isEditMode) {
+            form.validateFields().then(() => {
+                const values: StructuredProp = form.getFieldsValue();
 
-        form.validateFields().then(() => {
-            createStructuredProperty({
-                variables: {
-                    input: {
-                        ...form.getFieldsValue(),
-                        cardinality,
+                const editInput: UpdateStructuredPropertyInput = {
+                    urn: currentProperty.entity.urn,
+                    displayName: values.displayName,
+                    description: values.description,
+                    typeQualifier: {
+                        newAllowedTypes: getNewAllowedTypes(currentProperty.entity as StructuredPropertyEntity, values),
                     },
-                },
-            })
-                .then(() => {
-                    showSuccessMessage();
-                    refetch();
+                    newEntityTypes: getNewEntityTypes(currentProperty.entity as StructuredPropertyEntity, values),
+                    setCardinalityAsMultiple: cardinality === PropertyCardinality.Multiple,
+                };
+                setIsLoading(true);
+                updateStructuredProperty({
+                    variables: {
+                        input: editInput,
+                    },
                 })
-                .catch(() => {
-                    showErrorMessage();
+                    .then(() => {
+                        refetch();
+                        showSuccessMessage();
+                    })
+                    .catch(() => {
+                        showErrorMessage();
+                    })
+                    .finally(() => {
+                        setIsLoading(false);
+                        form.resetFields();
+                        setIsDrawerOpen(false);
+                        setCurrentProperty(undefined);
+                        setFormValues(undefined);
+                        setSelectedValueType('');
+                    });
+            });
+        } else {
+            // Add default qualified name based on the displayName
+            if (!formData.qualifiedName)
+                form.setFieldValue('qualifiedName', formData.displayName?.replace(/\s/g, '').toLowerCase());
+
+            form.validateFields().then(() => {
+                setIsLoading(true);
+                createStructuredProperty({
+                    variables: {
+                        input: {
+                            ...form.getFieldsValue(),
+                            cardinality,
+                        },
+                    },
                 })
-                .finally(() => {
-                    form.resetFields();
-                    setIsDrawerOpen(false);
-                });
-        });
+                    .then(() => {
+                        showSuccessMessage();
+                        refetch();
+                    })
+                    .catch(() => {
+                        showErrorMessage();
+                    })
+                    .finally(() => {
+                        setIsLoading(false);
+                        form.resetFields();
+                        setIsDrawerOpen(false);
+                        setCurrentProperty(undefined);
+                        setFormValues(undefined);
+                        setSelectedValueType('');
+                    });
+            });
+        }
     };
 
     return (
@@ -103,88 +141,31 @@ const StructuredPropsDrawer = ({ isDrawerOpen, setIsDrawerOpen, refetch }: Props
             title={
                 <DrawerHeader>
                     <Text color="gray" weight="bold">
-                        Create Structured Property
+                        {`${isEditMode ? 'Edit' : 'Create'} Structured Property`}
                     </Text>
                     <StyledIcon icon="Close" color="gray" onClick={handleClose} />
                 </DrawerHeader>
             }
             footer={
                 <FooterContainer>
-                    <Button style={{ display: 'block', width: '100%' }} onClick={onSubmit}>
-                        Create
+                    <Button style={{ display: 'block', width: '100%' }} onClick={handleSubmit} isDisabled={isLoading}>
+                        {isEditMode ? 'Update' : 'Create'}
                     </Button>
                 </FooterContainer>
             }
         >
-            <Form form={form}>
-                <Form.Item
-                    name="displayName"
-                    rules={[
-                        {
-                            required: true,
-                            message: 'Please enter the name',
-                        },
-                    ]}
-                >
-                    <Input label="Name" placeholder="Enter name" />
-                </Form.Item>
-                <Form.Item name="description">
-                    <TextArea label="Description" placeholder="Add description here" />
-                </Form.Item>
-                <RowContainer>
-                    <FieldLabel> Property Type</FieldLabel>
-                    <Form.Item
-                        name="valueType"
-                        rules={[
-                            {
-                                required: true,
-                                message: 'Please select the property type',
-                            },
-                        ]}
-                    >
-                        <SimpleSelect
-                            options={valueTypes}
-                            onUpdate={(values) => handleTypeUpdate(values)}
-                            placeholder="Select Property Type"
-                        />
-                    </Form.Item>
-                </RowContainer>
-                {selectedValueType === 'urn:li:dataType:datahub.urn' && (
-                    <RowContainer>
-                        <FieldLabel> Allowed Entity Types</FieldLabel>
-                        <Form.Item name={['typeQualifier', 'allowedTypes']}>
-                            <SimpleSelect
-                                options={getEntitiesListOptions(SEARCHABLE_ENTITY_TYPES)}
-                                onUpdate={(values) => handleSelectChange(['typeQualifier', 'allowedTypes'], values)}
-                                placeholder="Select Allowed Entity Types"
-                                isMultiSelect
-                            />
-                        </Form.Item>
-                    </RowContainer>
-                )}
-                <RowContainer>
-                    <FieldLabel> Applies to</FieldLabel>
-
-                    <Form.Item
-                        name="entityTypes"
-                        rules={[
-                            {
-                                required: true,
-                                message: 'Please select the applies to entities',
-                            },
-                        ]}
-                    >
-                        <SimpleSelect
-                            options={getEntitiesListOptions(APPLIES_TO_ENTITIES)}
-                            onUpdate={(values) => handleSelectChange('entityTypes', values)}
-                            placeholder="Select Entity Types"
-                            isMultiSelect
-                        />
-                    </Form.Item>
-                </RowContainer>
-
-                <AdvancedOptions />
-            </Form>
+            <StyledSpin spinning={isLoading} indicator={<LoadingOutlined />}>
+                <StructuredPropsForm
+                    currentProperty={currentProperty}
+                    form={form}
+                    formValues={formValues}
+                    setFormValues={setFormValues}
+                    setCardinality={setCardinality}
+                    isEditMode={isEditMode}
+                    selectedValueType={selectedValueType}
+                    setSelectedValueType={setSelectedValueType}
+                />
+            </StyledSpin>
         </StyledDrawer>
     );
 };

@@ -1,6 +1,6 @@
 import { Button, Text } from '@src/alchemy-components';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType } from '@src/types.generated';
+import { EntityType, SearchResult } from '@src/types.generated';
 import React, { useState } from 'react';
 import StructuredPropsDrawer from './StructuredPropsDrawer';
 import StructuredPropsTable from './StructuredPropsTable';
@@ -16,6 +16,7 @@ import {
 const StructuredProperties = () => {
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+    const [currentProperty, setCurrentProperty] = useState<SearchResult | undefined>();
 
     const handleSearch = (value) => {
         setSearchQuery(value);
@@ -26,6 +27,7 @@ const StructuredProperties = () => {
         query: '',
         start: 0,
         count: 500,
+        searchFlags: { skipCache: true },
     };
 
     // Execute search
@@ -60,9 +62,21 @@ const StructuredProperties = () => {
             />
 
             <TableContainer>
-                <StructuredPropsTable searchQuery={searchQuery} data={data} loading={loading} />
+                <StructuredPropsTable
+                    searchQuery={searchQuery}
+                    data={data}
+                    loading={loading}
+                    setIsDrawerOpen={setIsDrawerOpen}
+                    setCurrentProperty={setCurrentProperty}
+                />
             </TableContainer>
-            <StructuredPropsDrawer isDrawerOpen={isDrawerOpen} setIsDrawerOpen={setIsDrawerOpen} refetch={refetch} />
+            <StructuredPropsDrawer
+                isDrawerOpen={isDrawerOpen}
+                setIsDrawerOpen={setIsDrawerOpen}
+                refetch={refetch}
+                currentProperty={currentProperty}
+                setCurrentProperty={setCurrentProperty}
+            />
         </PageContainer>
     );
 };

@@ -124,7 +124,12 @@ mutation upsertStructuredProperties($input: UpsertStructuredPropertiesInput!) {
 
 mutation createStructuredProperty($input: CreateStructuredPropertyInput!) {
     createStructuredProperty(input: $input) {
-        urn
-        type
+        ...structuredPropertyFields
+    }
+}
+
+mutation updateStructuredProperty($input: UpdateStructuredPropertyInput!) {
+    updateStructuredProperty(input: $input) {
+        ...structuredPropertyFields
     }
 }

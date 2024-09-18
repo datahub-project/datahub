@@ -1,45 +1,66 @@
-import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
+import { EntityType, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
+
+export type StructuredProp = {
+    id?: string;
+    displayName?: string;
+    qualifiedName?: string;
+    cardinality?: PropertyCardinality;
+    description?: string | null;
+    valueType?: string;
+    entityTypes?: string[];
+    typeQualifier?: {
+        allowedTypes?: string[];
+    };
+};
 
 export const valueTypes = [
     {
         key: 'urn:li:dataType:datahub.string',
         label: 'String',
         value: 'string',
+        cardinality: PropertyCardinality.Single,
     },
     {
         key: 'urn:li:dataType:datahub.string',
         label: 'String - List',
         value: 'stringList',
+        cardinality: PropertyCardinality.Multiple,
     },
     {
         key: 'urn:li:dataType:datahub.number',
         label: 'Number',
         value: 'number',
+        cardinality: PropertyCardinality.Single,
     },
     {
         key: 'urn:li:dataType:datahub.number',
         label: 'Number - List',
         value: 'numberList',
+        cardinality: PropertyCardinality.Multiple,
     },
     {
         key: 'urn:li:dataType:datahub.urn',
         label: 'Entity',
         value: 'entity',
+        cardinality: PropertyCardinality.Single,
     },
     {
         key: 'urn:li:dataType:datahub.urn',
         label: 'Entity - List',
         value: 'entityList',
+        cardinality: PropertyCardinality.Multiple,
     },
     {
         key: 'urn:li:dataType:datahub.rich_text',
         label: 'Rich Text',
         value: 'richText',
+        cardinality: PropertyCardinality.Single,
     },
     {
         key: 'urn:li:dataType:datahub.date',
         label: 'Date',
         value: 'date',
+        cardinality: PropertyCardinality.Single,
     },
 ];
 
@@ -154,3 +175,22 @@ export const getEntityTypeUrn = (entityType: EntityType) => {
 export function getDisplayName(structuredProperty: StructuredPropertyEntity) {
     return structuredProperty.definition.displayName || structuredProperty.definition.qualifiedName;
 }
+
+export const getValueType = (valueUrn: string, cardinality: PropertyCardinality) => {
+    return valueTypes.find((valueType) => valueType.key === valueUrn && valueType.cardinality === cardinality)?.value;
+};
+
+export const getNewAllowedTypes = (entity: StructuredPropertyEntity, values: StructuredProp) => {
+    const currentTypeUrns = entity.definition.typeQualifier?.allowedTypes?.map((type) => type.urn);
+    return values.typeQualifier?.allowedTypes?.filter((type) => !currentTypeUrns?.includes(type));
+};
+
+export const getNewEntityTypes = (entity: StructuredPropertyEntity, values: StructuredProp) => {
+    const currentTypeUrns = entity.definition.entityTypes?.map((type) => type.urn);
+    return values.entityTypes?.filter((type) => !currentTypeUrns.includes(type));
+};
+
+export const isEntityTypeSelected = (selectedType: string) => {
+    if (selectedType === 'urn:li:dataType:datahub.urn') return true;
+    return false;
+};

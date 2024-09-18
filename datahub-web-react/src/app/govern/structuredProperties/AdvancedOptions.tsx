@@ -3,7 +3,11 @@ import { Collapse, Form } from 'antd';
 import React from 'react';
 import { CollapseHeader, StyledCollapse } from './styledComponents';
 
-const AdvancedOptions = () => {
+interface Props {
+    isEditMode: boolean;
+}
+
+const AdvancedOptions = ({ isEditMode }: Props) => {
     return (
         <StyledCollapse
             ghost
@@ -24,10 +28,10 @@ const AdvancedOptions = () => {
                 }
             >
                 <Form.Item name="qualifiedName">
-                    <Input label="Namespace" placeholder="Optional - Namespace" />
+                    <Input label="Namespace" placeholder="Optional - Namespace" isDisabled={isEditMode} />
                 </Form.Item>
                 <Form.Item name="id">
-                    <Input label="ID" placeholder="Optional - Unique ID" />
+                    <Input label="ID" placeholder="Optional - Unique ID" isDisabled={isEditMode} />
                 </Form.Item>
             </Collapse.Panel>
         </StyledCollapse>

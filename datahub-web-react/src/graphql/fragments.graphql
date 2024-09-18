@@ -1585,12 +1585,16 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
         cardinality
         immutable
         valueType {
+            urn
+            type
             info {
                 type
                 displayName
             }
         }
         entityTypes {
+            urn
+            type
             info {
                 type
             }

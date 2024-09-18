@@ -4,6 +4,7 @@ import { toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import TableIcon from '@src/images/table-icon.svg?react';
+import { SearchResult } from '@src/types.generated';
 import { Dropdown, Tooltip } from 'antd';
 import React from 'react';
 import { CardIcons } from '../Dashboard/Forms/styledComponents';
@@ -23,16 +24,18 @@ interface Props {
     searchQuery: string;
     data: GetSearchResultsForMultipleQuery | undefined;
     loading: boolean;
+    setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    setCurrentProperty: React.Dispatch<React.SetStateAction<SearchResult | undefined>>;
 }
 
-const StructuredPropsTable = ({ searchQuery, data, loading }: Props) => {
+const StructuredPropsTable = ({ searchQuery, data, loading, setIsDrawerOpen, setCurrentProperty }: Props) => {
     const entityRegistry = useEntityRegistryV2();
 
     const structuredProperties = data?.searchAcrossEntities?.searchResults || [];
 
     // Filter the table data based on the search query
     const filteredProperties = structuredProperties.filter((prop: any) =>
-        prop.entity.definition.displayName.toLowerCase().includes(searchQuery.toLowerCase()),
+        prop.entity.definition.displayName?.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
     const columns = [
@@ -111,11 +114,20 @@ const StructuredPropsTable = ({ searchQuery, data, loading }: Props) => {
             title: '',
             key: 'actions',
             alignment: 'right' as AlignmentOptions,
-            render: () => {
+            render: (record) => {
                 const items = [
                     {
                         key: '0',
-                        label: <MenuItem>Edit</MenuItem>,
+                        label: (
+                            <MenuItem
+                                onClick={() => {
+                                    setIsDrawerOpen(true);
+                                    setCurrentProperty(record);
+                                }}
+                            >
+                                Edit
+                            </MenuItem>
+                        ),
                     },
                     {
                         key: '1',

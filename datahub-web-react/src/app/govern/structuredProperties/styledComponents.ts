@@ -1,5 +1,5 @@
 import { colors, Icon, typography } from '@src/alchemy-components';
-import { Collapse, Drawer, Input, Typography } from 'antd';
+import { Collapse, Drawer, Input, Spin, Typography } from 'antd';
 import styled from 'styled-components';
 
 export const PageContainer = styled.div`
@@ -187,4 +187,9 @@ export const CollapseHeader = styled.div`
     margin-left: -16px;
     width: calc(100% + 32px);
     padding: 16px;
+`;
+
+export const StyledSpin = styled(Spin)`
+    max-height: 100% !important;
+    color: ${colors.violet[500]};
 `;

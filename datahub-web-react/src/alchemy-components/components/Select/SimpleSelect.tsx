@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
 import { Icon, Pill } from '@components';
-
+import { isEqual } from 'lodash';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActionButtonsContainer,
     Container,
@@ -20,7 +19,6 @@ import {
     StyledCheckbox,
     StyledClearButton,
 } from './components';
-
 import { ActionButtonsProps, SelectLabelDisplayProps, SelectOption, SelectProps } from './types';
 
 const SelectLabelDisplay = ({
@@ -102,6 +100,12 @@ export const SimpleSelect = ({
     const [isOpen, setIsOpen] = useState(false);
     const [selectedValues, setSelectedValues] = useState<string[]>(values);
     const selectRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isEqual(selectedValues, values)) {
+            setSelectedValues(values);
+        }
+    }, [values, selectedValues]);
 
     const filteredOptions = useMemo(
         () => options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase())),
