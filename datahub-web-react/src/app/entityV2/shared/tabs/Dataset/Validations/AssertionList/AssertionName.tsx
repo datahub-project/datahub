@@ -64,7 +64,9 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
     const monitorSchedule = monitor?.info?.assertionMonitor?.assertions.find(
         (assrn) => assrn.assertion.urn === assertion.urn,
     )?.schedule;
-    const { primaryLabel } = useBuildAssertionDescriptionLabels(record?.assertion?.info, monitorSchedule);
+    const { primaryLabel } = useBuildAssertionDescriptionLabels(record?.assertion?.info, monitorSchedule, {
+        showColumnTag: true,
+    });
     let name = primaryLabel;
 
     // if it is group header then just display group name instead of other fields

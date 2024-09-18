@@ -34,6 +34,7 @@ import { ANTD_GRAY_V2 } from '../../../../../../constants';
 const useBuildPrimaryLabel = (
     assertionInfo?: Maybe<AssertionInfo>,
     monitorSchedule?: Maybe<CronSchedule>,
+    options?: { showColumnTag?: boolean },
 ): JSX.Element => {
     let primaryLabel = <Typography.Text>No description found</Typography.Text>;
     if (assertionInfo?.description && assertionInfo?.type !== AssertionType.Field) {
@@ -67,7 +68,7 @@ const useBuildPrimaryLabel = (
                 primaryLabel = (
                     <FieldAssertionDescription
                         assertionInfo={assertionInfo.fieldAssertion as FieldAssertionInfo}
-                        showColumnTag
+                        showColumnTag={options?.showColumnTag}
                     />
                 );
                 break;
@@ -182,12 +183,13 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
 export const useBuildAssertionDescriptionLabels = (
     assertionInfo?: Maybe<AssertionInfo>,
     monitorSchedule?: Maybe<CronSchedule>,
+    options?: { showColumnTag?: boolean },
 ): {
     primaryLabel: JSX.Element;
     secondaryLabel: JSX.Element | null;
 } => {
     // ------- Primary label with assertion description ------ //
-    const primaryLabel = useBuildPrimaryLabel(assertionInfo, monitorSchedule);
+    const primaryLabel = useBuildPrimaryLabel(assertionInfo, monitorSchedule, options);
 
     // ----------- Try displaying secondary label showing creator/updater context ------------ //
     const secondaryLabel = useBuildSecondaryLabel(assertionInfo);

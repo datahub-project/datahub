@@ -84,7 +84,11 @@ export const AssertionProfileHeader = ({
             <Container>
                 <Title>
                     {(assertion && (
-                        <AssertionDescription assertion={assertion} monitor={monitor} noSecondarySpacing />
+                        <AssertionDescription
+                            assertion={assertion}
+                            monitor={monitor}
+                            options={{ noSecondarySpacing: true, showColumnTag: true }}
+                        />
                     )) ||
                         'Assertion details'}
                 </Title>
