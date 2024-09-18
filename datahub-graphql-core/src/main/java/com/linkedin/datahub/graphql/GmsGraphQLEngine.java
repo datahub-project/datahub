@@ -623,7 +623,7 @@ public class GmsGraphQLEngine {
     this.glossaryTermType = new GlossaryTermType(entityClient);
     this.glossaryNodeType = new GlossaryNodeType(entityClient);
     this.aspectType = new AspectType(entityClient);
-    this.connectionType = new DataHubConnectionType(entityClient, secretService);
+    this.connectionType = new DataHubConnectionType(entityClient, secretService, featureFlags);
     this.containerType = new ContainerType(entityClient);
     this.domainType = new DomainType(entityClient);
     this.notebookType = new NotebookType(entityClient);
@@ -3365,10 +3365,10 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "upsertConnection",
                     new UpsertConnectionResolver(
-                        connectionService, secretService, integrationsService))
+                        connectionService, secretService, integrationsService, featureFlags))
                 .dataFetcher(
                     "updateConnection",
-                    new UpdateConnectionResolver(connectionService, secretService))
+                    new UpdateConnectionResolver(connectionService, secretService, featureFlags))
                 .dataFetcher(
                     "createNotificationConnectionTest",
                     new CreateNotificationConnectionTestResolver(entityClient))

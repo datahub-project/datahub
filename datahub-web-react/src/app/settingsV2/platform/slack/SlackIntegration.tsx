@@ -113,6 +113,8 @@ const NewInstallButton = styled(Button)`
     color: ${blue[4]};
 `;
 
+const OBFUSCATED_STARS = '***';
+
 export const SlackIntegration = () => {
     const appConfig = useAppConfig();
 
@@ -213,9 +215,23 @@ export const SlackIntegration = () => {
         const isOnBotTokenTab = selectTypeValue === BOT_TOKEN_SELECT_ID;
         const isOnAppConfigTab = selectTypeValue === APP_CONFIG_SELECT_ID;
 
+        // check if the input values are obfuscated so we can disable the connect button
+        // NOTE: if user has manually entered new values then this will be set to false
+        let isInputValuesObfuscated = false;
+        if (isOnAppConfigTab) {
+            isInputValuesObfuscated =
+                !!connection.appConfigToken?.includes(OBFUSCATED_STARS) ||
+                !!connection.appConfigRefreshToken?.includes(OBFUSCATED_STARS);
+        } else {
+            isInputValuesObfuscated =
+                !!connection.botToken?.includes(OBFUSCATED_STARS) ||
+                !!connection.signingSecret?.includes(OBFUSCATED_STARS);
+        }
+
         // disable slack button if there is no app & refresh token for only App config tab
         const disableSlackButton =
-            isOnAppConfigTab && (!connection.appConfigToken || !connection.appConfigRefreshToken);
+            (isOnAppConfigTab && (!connection.appConfigToken || !connection.appConfigRefreshToken)) ||
+            isInputValuesObfuscated;
 
         let slackButtonName = isConnected ? 'Reconnect to Slack' : 'Connect to Slack';
         if (isOnBotTokenTab && isConnected) {

@@ -12,6 +12,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.connection.DataHubConnectionDetails;
 import com.linkedin.connection.DataHubJsonConnection;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.DataHubConnectionDetailsType;
 import com.linkedin.datahub.graphql.generated.DataHubJsonConnectionInput;
@@ -38,6 +39,7 @@ public class UpsertConnectionResolverTest {
   private ConnectionService connectionService;
   private SecretService secretService;
   private IntegrationsService integrationsService;
+  private FeatureFlags featureFlags;
   private UpsertConnectionResolver resolver;
 
   @BeforeMethod
@@ -45,9 +47,13 @@ public class UpsertConnectionResolverTest {
     connectionService = Mockito.mock(ConnectionService.class);
     secretService = Mockito.mock(SecretService.class);
     integrationsService = Mockito.mock(IntegrationsService.class);
+    featureFlags = Mockito.mock(FeatureFlags.class);
+    Mockito.when(featureFlags.isSlackBotTokensObfuscationEnabled()).thenReturn(false);
     Mockito.when(secretService.encrypt("{}")).thenReturn("encrypted");
     Mockito.when(secretService.decrypt("encrypted")).thenReturn("{}");
-    resolver = new UpsertConnectionResolver(connectionService, secretService, integrationsService);
+    resolver =
+        new UpsertConnectionResolver(
+            connectionService, secretService, integrationsService, featureFlags);
   }
 
   @Test

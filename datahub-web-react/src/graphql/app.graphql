@@ -102,6 +102,7 @@ query appConfig {
             documentationFormsEnabled
             emailNotificationsEnabled
             slackBotTokensConfigEnabled
+            slackBotTokensObfuscationEnabled
             showSeparateSiblings
             formCreationEnabled
             schemaFieldCLLEnabled

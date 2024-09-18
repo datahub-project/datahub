@@ -1182,6 +1182,11 @@ type FeatureFlagsConfig {
   slackBotTokensConfigEnabled: Boolean!
 
   """
+  Enables the ability to configure slack bot tokens via the integrations settings UI
+  """
+  slackBotTokensObfuscationEnabled: Boolean!
+
+  """
   Enables the form creation workflow feature on the documentation page
   """
   formCreationEnabled: Boolean!

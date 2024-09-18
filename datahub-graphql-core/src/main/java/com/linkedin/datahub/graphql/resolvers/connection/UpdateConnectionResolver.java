@@ -8,6 +8,7 @@ import com.linkedin.connection.DataHubConnectionDetailsType;
 import com.linkedin.connection.DataHubJsonConnection;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.UpdateDataHubConnectionInput;
 import com.linkedin.entity.EntityResponse;
@@ -25,13 +26,16 @@ public class UpdateConnectionResolver implements DataFetcher<CompletableFuture<D
 
   private final ConnectionService _connectionService;
   private final SecretService _secretService;
+  private final FeatureFlags _featureFlags;
 
   public UpdateConnectionResolver(
       @Nonnull final ConnectionService connectionService,
-      @Nonnull final SecretService secretService) {
+      @Nonnull final SecretService secretService,
+      @Nonnull final FeatureFlags featureFlags) {
     _connectionService =
         Objects.requireNonNull(connectionService, "connectionService cannot be null");
     _secretService = Objects.requireNonNull(secretService, "secretService cannot be null");
+    _featureFlags = Objects.requireNonNull(featureFlags, "featureFlags cannot be null");
   }
 
   @Override
@@ -73,7 +77,7 @@ public class UpdateConnectionResolver implements DataFetcher<CompletableFuture<D
             final EntityResponse connectionResponse =
                 _connectionService.getConnectionEntityResponse(
                     context.getOperationContext(), updatedConnectionUrn);
-            return ConnectionMapper.map(context, connectionResponse, _secretService);
+            return ConnectionMapper.map(context, connectionResponse, _secretService, _featureFlags);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to update a Connection from input %s", input), e);

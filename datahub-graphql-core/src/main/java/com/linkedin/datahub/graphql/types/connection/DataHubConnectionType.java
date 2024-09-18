@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -32,11 +33,15 @@ public class DataHubConnectionType
           Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
   private final EntityClient _entityClient;
   private final SecretService _secretService;
+  private final FeatureFlags _featureFlags;
 
   public DataHubConnectionType(
-      @Nonnull final EntityClient entityClient, @Nonnull final SecretService secretService) {
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final SecretService secretService,
+      @Nonnull final FeatureFlags featureFlags) {
     _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
     _secretService = Objects.requireNonNull(secretService, "secretService must not be null");
+    _featureFlags = Objects.requireNonNull(featureFlags, "featureFlags must not be null");
   }
 
   @Override
@@ -77,7 +82,9 @@ public class DataHubConnectionType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataHubConnection>newResult()
-                          .data(ConnectionMapper.map(context, gmsResult, _secretService))
+                          .data(
+                              ConnectionMapper.map(
+                                  context, gmsResult, _secretService, _featureFlags))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

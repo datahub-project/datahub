@@ -18,6 +18,7 @@ public class FeatureFlags {
   private boolean lineageGraphV2 = false;
   private boolean subscriptionsEnabled = false;
   private boolean slackBotTokensConfigEnabled = false;
+  private boolean slackBotTokensObfuscationEnabled = false;
   private boolean datasetHealthDashboardEnabled = false;
   private PreProcessHooks preProcessHooks;
   private boolean showAcrylInfo = false;

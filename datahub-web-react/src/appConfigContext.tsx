@@ -83,6 +83,7 @@ export const DEFAULT_APP_CONFIG = {
         documentationFormsEnabled: false,
         emailNotificationsEnabled: false,
         slackBotTokensConfigEnabled: false,
+        slackBotTokensObfuscationEnabled: false,
         showSeparateSiblings: false,
         formCreationEnabled: false,
         schemaFieldCLLEnabled: false,

@@ -10,6 +10,7 @@ import com.linkedin.connection.DataHubConnectionDetailsType;
 import com.linkedin.connection.DataHubJsonConnection;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.UpsertDataHubConnectionInput;
 import com.linkedin.entity.EntityResponse;
@@ -34,17 +35,20 @@ public class UpsertConnectionResolver implements DataFetcher<CompletableFuture<D
       ImmutableSet.of(SLACK_CONNECTION_URN);
   private final ConnectionService _connectionService;
   private final SecretService _secretService;
+  private final FeatureFlags _featureFlags;
   private final IntegrationsService _integrationsService;
 
   public UpsertConnectionResolver(
       @Nonnull final ConnectionService connectionService,
       @Nonnull final SecretService secretService,
-      @Nonnull final IntegrationsService integrationsService) {
+      @Nonnull final IntegrationsService integrationsService,
+      @Nonnull final FeatureFlags featureFlags) {
     _connectionService =
         Objects.requireNonNull(connectionService, "connectionService cannot be null");
     _secretService = Objects.requireNonNull(secretService, "secretService cannot be null");
     _integrationsService =
         Objects.requireNonNull(integrationsService, "integrationsService cannot be null");
+    _featureFlags = Objects.requireNonNull(featureFlags, "featureFlags cannot be null");
   }
 
   @Override
@@ -83,7 +87,7 @@ public class UpsertConnectionResolver implements DataFetcher<CompletableFuture<D
 
             performPostUpsertActions(connectionUrn);
 
-            return ConnectionMapper.map(context, connectionResponse, _secretService);
+            return ConnectionMapper.map(context, connectionResponse, _secretService, _featureFlags);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to upsert a Connection from input %s", input), e);
