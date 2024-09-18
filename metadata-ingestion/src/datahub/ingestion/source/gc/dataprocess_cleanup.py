@@ -185,6 +185,7 @@ class DataProcessCleanup:
         ctx: PipelineContext,
         config: DataProcessCleanupConfig,
         report: DataProcessCleanupReport,
+        dry_run: bool = False,
     ):
         if not ctx.graph:
             raise ValueError("MetadataCleanupSource needs a datahub_api")
@@ -193,6 +194,7 @@ class DataProcessCleanup:
         self.ctx = ctx
         self.config = config
         self.report = report
+        self.dry_run = dry_run
 
     def get_report(self) -> DataProcessCleanupReport:
         return self.report
@@ -262,6 +264,12 @@ class DataProcessCleanup:
         if type not in self.report.sample_removed_aspects_by_type:
             self.report.sample_removed_aspects_by_type[type] = LossyList()
         self.report.sample_removed_aspects_by_type[type].append(urn)
+
+        if self.dry_run:
+            logger.info(
+                f"Dry run is on otherwise it would have deleted {urn} with hard deletion is{self.config.hard_delete_entities}"
+            )
+            return
 
         self.ctx.graph.delete_entity(urn, self.config.hard_delete_entities)
 
