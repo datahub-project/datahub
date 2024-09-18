@@ -24,7 +24,7 @@ import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEnt
 import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
-const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION]);
+const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.UPDATE_DEPRECATION]);
 
 /**
  * Definition of the DataHub MlModel entity.
