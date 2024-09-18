@@ -56,7 +56,7 @@ const TabbedComponent = () => {
               {activeTab === index && (
                 <div className={clsx(styles.imageContainer, styles.mobileImageContainer)}>
                   <div className={clsx(styles.tabImage)}>
-                    <video src={tabs[activeTab].image} controls={false} autoPlay muted loop />
+                    <video playsInline src={tabs[activeTab].image} controls={false} autoPlay muted loop />
                   </div>
                 </div>
               )}

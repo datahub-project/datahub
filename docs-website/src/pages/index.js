@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import Layout from "@theme/Layout";
 import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
@@ -17,6 +17,7 @@ import Community from "./_components/Community";
 import SocialMedia from "./_components/SocialMedia";
 import CaseStudy from "./_components/CaseStudy";
 import Trial from "./_components/Trial";
+import CloseButton from "@ant-design/icons/CloseCircleFilled";
 
 const companyIndexes = require("../../adoptionStoriesIndexes.json");
 const companies = companyIndexes.companies;
@@ -33,12 +34,27 @@ function Home() {
     window.location.replace("/docs");
   }
 
+  const [isTourModalVisible, setIsTourModalVisible] = useState(false);
+  const onOpenTourModal = () => {
+    setIsTourModalVisible(true);
+  };
+  const onCloseTourModal = () => {
+    setIsTourModalVisible(false);
+  };
   return !siteConfig.customFields.isSaas ? (
     <Layout
       title={siteConfig.tagline}
       description="DataHub is a data discovery application built on an extensible data catalog that helps you tame the complexity of diverse data ecosystems."
     >
-      <Hero />
+      {isTourModalVisible ? (
+        <div className="tourModal">
+          <div className="closeButtonWrapper" onClick={onCloseTourModal}>
+            <CloseButton />
+          </div>
+          <iframe src="https://www.acryldata.io/tour" />
+        </div>
+      ) : null}
+      <Hero onOpenTourModal={onOpenTourModal} />
       <div className="comapny__logos">
         <div className="text">
           Trusted by industry leaders&nbsp;
@@ -73,7 +89,7 @@ function Home() {
       <Community />
       <SocialMedia />
       <CaseStudy />
-      <Trial />
+      <Trial onOpenTourModal={onOpenTourModal} />
       {/* <Section>
         <div className="container">
           <div className="row row--centered">
