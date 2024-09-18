@@ -6,7 +6,8 @@
 .ecosystem_section {
   position: relative;
   background: white;
-  min-height: 100vh;
+  padding: 4vh 0;
+  max-height: 1000px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -19,12 +20,12 @@
     height: 100%;
     display: flex;
     flex-direction: column;
+    justify-content: center;
     align-items: center;
     padding: 2rem 0rem;
 
     .ecosystem_section_upper_content {
       width: 100%;
-      height: 45%;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -206,7 +207,10 @@
         .item2,
         .item3,
         .item4 {
-          padding: 24px 16px;
+          padding: 24px 12px;
+        }
+        .item1, .item4 {
+          flex-basis: 45%;
         }
         .item_content span {
           font-size: .8rem;

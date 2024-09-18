@@ -12,7 +12,7 @@ const CaseStudy = () => {
       <div className={styles.case_study}>
         <div className={styles.case_study_heading}>
           <div>See how industry leaders use Datahub</div>
-          <p>Across finance, healthcare, e-commerce and countless more.</p>
+          <p>Across finance, healthcare, e-commerce, and countless more.</p>
         </div>
 
         <div className={styles.card_row}>

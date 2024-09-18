@@ -423,11 +423,14 @@ div[class^="announcementBar"] {
     min-width: 0;
     .text {
       padding-right: 0;
-      font-size: .8rem;
-      line-height: 1rem;
+      font-size: .9rem;
+      line-height: 1.2rem;
       text-align: center;
       margin-bottom: 12px;
       opacity: .75;
+      br {
+        display: none;
+      }
     }
     .company_logos_list_wrapper {
       width: 100%;

@@ -273,10 +273,13 @@
 @media only screen and (max-width: 800px) {
     .container {
         height: auto;
+        min-height: 0;
         width: 100%;
         border-radius: 0;
         margin-top: 0;
         margin-bottom: 0;
+        padding-bottom: 80px;
+        padding-top: 40px;
         flex-direction: column;
         justify-content: flex-start;
     }
@@ -332,6 +335,9 @@
     }
 
     .carousalContainer {
+        // Disabling for now for streamlining
+        display: none;
+
         height: 300px;
         overflow: hidden;
     }

@@ -87,7 +87,7 @@ const SocialMedia = ({}) => {
         <div className={styles.upperBox}>
           <div>
             Built <strong>for</strong> Data Practitioners,<br/><strong>by</strong>{" "}
-            Data Practitioners
+            Data Practitioners.
           </div>
         </div>
       <div className={styles.mainBox}>

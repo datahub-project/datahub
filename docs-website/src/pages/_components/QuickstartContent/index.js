@@ -45,7 +45,7 @@ const QuickstartContent = ({}) => {
         }}
         viewport={{ once: true, amount: 'full' }}
       >
-        <div className="quickstart__title">The only platform you need</div>
+        <div className="quickstart__title">The only platform you need.</div>
         <div className="quickstart__subtitle">
           Unified Discovery, Observability, and Governance for Data and AI.
         </div>
@@ -80,7 +80,7 @@ const QuickstartContent = ({}) => {
                 duration: .75
               }
             }}
-            viewport={{ once: true, amount: .9 }}
+            viewport={{ once: true, amount: .5 }}
           >
             <div className="quickstart__text">
               <div className="quickstart__text__label">{data.heading}</div>

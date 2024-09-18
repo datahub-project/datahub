@@ -41,7 +41,7 @@ function Home() {
       <Hero />
       <div className="comapny__logos">
         <div className="text">
-          Trusted by industry leaders
+          Trusted by industry leaders&nbsp;
           <br />
           around the world.
         </div>
