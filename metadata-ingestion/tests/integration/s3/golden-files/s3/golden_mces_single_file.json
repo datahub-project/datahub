@@ -128,7 +128,8 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
             },
-            "name": "folder_aa"
+            "name": "folder_aa",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -244,7 +245,8 @@
                 "env": "PROD",
                 "bucket_name": "my-test-bucket"
             },
-            "name": "my-test-bucket"
+            "name": "my-test-bucket",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -265,7 +267,8 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a"
             },
-            "name": "folder_a"
+            "name": "folder_a",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -480,7 +483,8 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
             },
-            "name": "folder_aaa"
+            "name": "folder_aaa",
+            "env": "PROD"
         }
     },
     "systemMetadata": {

@@ -107,7 +107,8 @@
                 "env": "UAT",
                 "folder_abs_path": "delta_tables"
             },
-            "name": "delta_tables"
+            "name": "delta_tables",
+            "env": "UAT"
         }
     },
     "systemMetadata": {

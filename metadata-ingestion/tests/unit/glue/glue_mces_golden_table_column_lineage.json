@@ -16,7 +16,8 @@
                 "CreateTime": "June 09, 2021 at 14:14:19"
             },
             "name": "flights-database-lineage",
-            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/flights-database-lineage"
+            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/flights-database-lineage",
+            "env": "PROD"
         }
     }
 },

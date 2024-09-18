@@ -551,7 +551,8 @@
                 "env": "DEV",
                 "bucket_name": "my-test-bucket"
             },
-            "name": "my-test-bucket"
+            "name": "my-test-bucket",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
@@ -799,7 +800,8 @@
                 "env": "DEV",
                 "folder_abs_path": "my-test-bucket/folder_a"
             },
-            "name": "folder_a"
+            "name": "folder_a",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
@@ -853,7 +855,8 @@
                 "env": "DEV",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
             },
-            "name": "folder_aa"
+            "name": "folder_aa",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
@@ -1443,7 +1446,8 @@
                 "env": "DEV",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
             },
-            "name": "folder_aaa"
+            "name": "folder_aaa",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
