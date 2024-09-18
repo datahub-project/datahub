@@ -3,7 +3,7 @@ const isSaas = process.env.DOCUSAURUS_IS_SAAS === "true";
 
 module.exports = {
   title: process.env.DOCUSAURUS_CONFIG_TITLE || "DataHub",
-  tagline: "A Metadata Platform for the Modern Data Stack",
+  tagline: "The #1 Open Source Metadata Platform",
   url: process.env.DOCUSAURUS_CONFIG_URL || "https://datahubproject.io",
   baseUrl: process.env.DOCUSAURUS_CONFIG_BASE_URL || "/",
   onBrokenLinks: "throw",
@@ -55,16 +55,16 @@ module.exports = {
   },
 
   themeConfig: {
-    ...(!isSaas && {
-      announcementBar: {
-        id: "announcement",
-        content:
-          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>DataHub Cloud</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for DataHub Cloud&nbsp;→</a>',
-        backgroundColor: "#070707",
-        textColor: "#ffffff",
-        isCloseable: false,
-      },
-    }),
+    // ...(!isSaas && {
+    //   announcementBar: {
+    //     id: "announcement",
+    //     content:
+    //       '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>DataHub Cloud</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for DataHub Cloud&nbsp;→</a>',
+    //     backgroundColor: "#070707",
+    //     textColor: "#ffffff",
+    //     isCloseable: false,
+    //   },
+    // }),
     navbar: {
       title: null,
       logo: {
