@@ -34,6 +34,11 @@ logger = logging.getLogger(__name__)
 
 
 class DataHubGcSourceConfig(ConfigModel):
+    dry_run: bool = Field(
+        default=False,
+        description="Whether to perform a dry run or not. This is only supported for dataprocess cleanup and soft deleted entities cleanup.",
+    )
+
     cleanup_expired_tokens: bool = Field(
         default=True,
         description="Whether to clean up expired tokens or not",
@@ -95,11 +100,14 @@ class DataHubGcSource(Source):
 
         if self.config.dataprocess_cleanup:
             self.dataprocess_cleanup = DataProcessCleanup(
-                ctx, self.config.dataprocess_cleanup, self.report
+                ctx, self.config.dataprocess_cleanup, self.report, self.config.dry_run
             )
         if self.config.soft_deleted_entities_cleanup:
             self.soft_deleted_entities_cleanup = SoftDeletedEntitiesCleanup(
-                ctx, self.config.soft_deleted_entities_cleanup, self.report
+                ctx,
+                self.config.soft_deleted_entities_cleanup,
+                self.report,
+                self.config.dry_run,
             )
 
     @classmethod
