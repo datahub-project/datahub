@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 
@@ -23,7 +22,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PropertyCardinality;
 import com.linkedin.structured.PropertyValue;
-import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -59,7 +57,8 @@ public class UpdateStructuredPropertyResolver
                   "Unable to update structured property. Please contact your admin.");
             }
             final Urn propertyUrn = UrnUtils.getUrn(input.getUrn());
-            StructuredPropertyDefinition existingDefinition = getExistingStructuredProperty(context, propertyUrn);
+            StructuredPropertyDefinition existingDefinition =
+                getExistingStructuredProperty(context, propertyUrn);
             StructuredPropertyDefinitionPatchBuilder builder =
                 new StructuredPropertyDefinitionPatchBuilder().urn(propertyUrn);
 
@@ -73,7 +72,7 @@ public class UpdateStructuredPropertyResolver
               builder.setImmutable(input.getImmutable());
             }
             if (input.getTypeQualifier() != null) {
-              buildTypeQualifier(input, builder);
+              buildTypeQualifier(input, builder, existingDefinition);
             }
             if (input.getNewAllowedValues() != null) {
               buildAllowedValues(input, builder);
@@ -109,7 +108,9 @@ public class UpdateStructuredPropertyResolver
     if (input.getTypeQualifier().getNewAllowedTypes() != null) {
       final StringArrayMap typeQualifier = new StringArrayMap();
       StringArray allowedTypes = new StringArray();
-      if (existingDefinition != null && existingDefinition.getTypeQualifier() != null && existingDefinition.getTypeQualifier().get(ALLOWED_TYPES) != null) {
+      if (existingDefinition != null
+          && existingDefinition.getTypeQualifier() != null
+          && existingDefinition.getTypeQualifier().get(ALLOWED_TYPES) != null) {
         allowedTypes.addAll(existingDefinition.getTypeQualifier().get(ALLOWED_TYPES));
       }
       allowedTypes.addAll(input.getTypeQualifier().getNewAllowedTypes());
@@ -140,18 +141,15 @@ public class UpdateStructuredPropertyResolver
   }
 
   private StructuredPropertyDefinition getExistingStructuredProperty(
-      @Nonnull final QueryContext context,
-      @Nonnull final Urn propertyUrn) throws Exception {
+      @Nonnull final QueryContext context, @Nonnull final Urn propertyUrn) throws Exception {
     EntityResponse response =
         _entityClient.getV2(
-            context.getOperationContext(),
-            STRUCTURED_PROPERTY_ENTITY_NAME,
-            propertyUrn,
-            null);
+            context.getOperationContext(), STRUCTURED_PROPERTY_ENTITY_NAME, propertyUrn, null);
 
-    if (response != null && response.getAspects().containsKey(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)) {
+    if (response != null
+        && response.getAspects().containsKey(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)) {
       return new StructuredPropertyDefinition(
-              response.getAspects().get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME).getValue().data());
+          response.getAspects().get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME).getValue().data());
     }
     return null;
   }
