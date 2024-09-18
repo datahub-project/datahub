@@ -48,16 +48,20 @@ class SweeperJob:
                     # because of e.g. an interim network issue or kafka topic lag. Cancellation request ensures that
                     # job either no longer exists or get killed as soon as we mark the job as ABORTED.
 
-                    self.graph.abort_execution_request(
-                        ingestion.execution_request_id,
-                        "Ingestion was aborted due to worker pod eviction, crash, or restart.",
-                    )
-                    self.graph.cancel_ingestion_execution(
-                        ingestion.ingestion_source_urn, ingestion.execution_request_urn
-                    )
+                    try:
+                        self.graph.abort_execution_request(
+                            ingestion.execution_request_id,
+                            "Ingestion was aborted due to worker pod eviction, crash, or restart.",
+                        )
+                        self.graph.cancel_ingestion_execution(
+                            ingestion.ingestion_source_urn,
+                            ingestion.execution_request_urn,
+                        )
+                    except Exception as e:
+                        logger.error(f"Sweeper: error while cancelling stale jobs: {e}")
 
             logger.info(
                 f"Sweeper: done processing ingestions. Total ingestions processed: {ingestions_processed}."
             )
         except Exception as e:
-            logger.error(f"Sweeper: error while cancelling stale jobs: {e}")
+            logger.error(f"Sweeper: error while processing stale jobs: {e}")
