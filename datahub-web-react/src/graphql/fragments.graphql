@@ -1314,6 +1314,7 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
 
 fragment structuredPropertiesFields on StructuredPropertiesEntry {
     structuredProperty {
+        exists
         ...structuredPropertyFields
     }
     values {
