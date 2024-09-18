@@ -1,9 +1,13 @@
 import dataclasses
+import json
 from typing import Dict, Iterable, Optional
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     DatasetPropertiesClass,
+    GenericAspectClass,
+    MetadataChangeProposalClass,
     OperationClass,
     TimeStampClass,
 )
@@ -19,6 +23,27 @@ class TimestampPair:
     last_updated_timestamp: Optional[
         int
     ]  # lastUpdatedTimestamp of the operation aspect
+
+
+def try_aspect_from_metadata_change_proposal_class(
+    wu: MetadataWorkUnit,
+) -> Optional[DatasetPropertiesClass]:
+    if (
+        isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == "datasetProperties"
+        and wu.metadata.changeType == ChangeTypeClass.PATCH
+        and isinstance(wu.metadata.aspect, GenericAspectClass)
+    ):
+        patch_dataset_properties = json.loads(wu.metadata.aspect.value)
+        for operation in patch_dataset_properties:
+            if operation.get("path") == "/lastModified":
+                # Deserializing `lastModified` as the `auto_patch_last_modified` function relies on this property
+                # to decide if a patch aspect for the datasetProperties aspect should be generated
+                return DatasetPropertiesClass(
+                    lastModified=TimeStampClass(time=operation["value"]["time"])
+                )
+
+    return None
 
 
 def auto_patch_last_modified(
@@ -41,7 +66,9 @@ def auto_patch_last_modified(
             yield wu
             continue
 
-        dataset_properties_aspect = wu.get_aspect_of_type(DatasetPropertiesClass)
+        dataset_properties_aspect = wu.get_aspect_of_type(
+            DatasetPropertiesClass
+        ) or try_aspect_from_metadata_change_proposal_class(wu)
         dataset_operation_aspect = wu.get_aspect_of_type(OperationClass)
 
         timestamp_pair = candidate_dataset_for_patch.get(wu.get_urn())
