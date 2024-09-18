@@ -107,6 +107,7 @@ class DataHubGcSource(Source):
         config = DataHubGcSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
+    # auto_work_unit_report is overriden to disable a couple of automation like auto status aspect, etc. which is not needed her.
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [partial(auto_workunit_reporter, self.get_report())]
 
