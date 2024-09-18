@@ -82,6 +82,7 @@ class SoftDeletedEntitiesCleanup:
         ctx: PipelineContext,
         config: SoftDeletedEntitiesCleanupConfig,
         report: SoftDeletedEntitiesReport,
+        dry_run: bool = False,
     ):
         if not ctx.graph:
             raise ValueError(" Datahub API is required")
@@ -90,6 +91,7 @@ class SoftDeletedEntitiesCleanup:
         self.ctx = ctx
         self.config = config
         self.report = report
+        self.dry_run = dry_run
 
     def delete_entity(self, urn: str) -> None:
         assert self.ctx.graph
@@ -113,12 +115,18 @@ class SoftDeletedEntitiesCleanup:
             entity_urn.entity_type
         ].append(urn)
 
+        if self.dry_run:
+            logger.info(
+                f"Dry run is on otherwise it would have deleted {urn} with hard deletion"
+            )
+            return
+
         self.ctx.graph.delete_entity(urn=urn, hard=True)
 
     def delete_soft_deleted_entity(self, urn: str) -> None:
         assert self.ctx.graph
 
-        if not self.config.retention_days:
+        if self.config.retention_days is None:
             logger.info("Retention days is not set, skipping soft delete cleanup")
             return
 
