@@ -145,4 +145,13 @@ public class MapperUtils {
         path.stream().map(p -> UrnToEntityMapper.map(context, p)).collect(Collectors.toList()));
     return entityPath;
   }
+
+  public static ResolvedAuditStamp createResolvedAuditStamp(AuditStamp auditStamp) {
+    final ResolvedAuditStamp resolvedAuditStamp = new ResolvedAuditStamp();
+    final CorpUser emptyCreatedUser = new CorpUser();
+    emptyCreatedUser.setUrn(auditStamp.getActor().toString());
+    resolvedAuditStamp.setActor(emptyCreatedUser);
+    resolvedAuditStamp.setTime(auditStamp.getTime());
+    return resolvedAuditStamp;
+  }
 }

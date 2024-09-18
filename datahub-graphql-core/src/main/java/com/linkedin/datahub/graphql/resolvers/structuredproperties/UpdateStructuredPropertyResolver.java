@@ -76,6 +76,7 @@ public class UpdateStructuredPropertyResolver
             if (input.getNewEntityTypes() != null) {
               input.getNewEntityTypes().forEach(builder::addEntityType);
             }
+            builder.setLastModified(context.getOperationContext().getAuditStamp());
 
             MetadataChangeProposal mcp = builder.build();
             _entityClient.ingestProposal(context.getOperationContext(), mcp, false);
