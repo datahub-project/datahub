@@ -180,7 +180,7 @@ class MCPDiff:
                 )
                 if diff:
                     aspect_changes[urn][aspect_name] = MCPAspectDiff.create(diff)
-                if len(t1) > 1 and len(t2) > 1:
+                if len(t1) > 1 or len(t2) > 1:
                     is_delta_valid = False
 
         return cls(
