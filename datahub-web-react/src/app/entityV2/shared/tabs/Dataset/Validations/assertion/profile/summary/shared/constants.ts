@@ -43,26 +43,24 @@ export const ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX = [
     AssertionStdOperator.In,
     AssertionStdOperator.NotIn,
 ];
-export const ASSERTION_OPERATOR_TO_DESCRIPTION: Record<AssertionStdOperator, string | undefined> = {
-    [AssertionStdOperator.EqualTo]: 'Is equal to',
-    [AssertionStdOperator.NotEqualTo]: 'Is not equal to',
+
+export const GET_ASSERTION_OPERATOR_TO_DESCRIPTION_MAP = ({ isPlural }) => ({
+    [AssertionStdOperator.EqualTo]: `${isPlural ? 'are' : 'Is'} equal to`,
+    [AssertionStdOperator.NotEqualTo]: `${isPlural ? 'are' : 'Is'} not equal to`,
     [AssertionStdOperator.Contain]: 'Contains',
     [AssertionStdOperator.RegexMatch]: 'Matches',
     [AssertionStdOperator.StartWith]: 'Starts with',
     [AssertionStdOperator.EndWith]: 'Ends with',
-    [AssertionStdOperator.In]: 'Is in',
-    [AssertionStdOperator.NotIn]: 'Is not in',
-
-    [AssertionStdOperator.IsFalse]: 'Is False',
-    [AssertionStdOperator.IsTrue]: 'Is True',
-    [AssertionStdOperator.Null]: 'Is NULL',
-    [AssertionStdOperator.NotNull]: 'Is not NULL',
-
-    [AssertionStdOperator.GreaterThan]: 'Is greater than',
-    [AssertionStdOperator.GreaterThanOrEqualTo]: 'Is greater than or equal to',
-    [AssertionStdOperator.LessThan]: 'Is less than',
-    [AssertionStdOperator.LessThanOrEqualTo]: 'Is less than or equal to',
-    [AssertionStdOperator.Between]: 'Is within a range',
-
+    [AssertionStdOperator.In]: `${isPlural ? 'are' : 'Is'} in`,
+    [AssertionStdOperator.NotIn]: `${isPlural ? 'are' : 'Is'} not in`,
+    [AssertionStdOperator.IsFalse]: `${isPlural ? 'are' : 'Is'} False`,
+    [AssertionStdOperator.IsTrue]: `${isPlural ? 'are' : 'Is'} True`,
+    [AssertionStdOperator.Null]: `${isPlural ? 'are' : 'Is'} NULL`,
+    [AssertionStdOperator.NotNull]: `${isPlural ? 'are' : 'Is'} not NULL`,
+    [AssertionStdOperator.GreaterThan]: `${isPlural ? 'are' : 'Is'} greater than`,
+    [AssertionStdOperator.GreaterThanOrEqualTo]: `${isPlural ? 'are' : 'Is'} greater than or equal to`,
+    [AssertionStdOperator.LessThan]: `${isPlural ? 'are' : 'Is'} less than`,
+    [AssertionStdOperator.LessThanOrEqualTo]: `${isPlural ? 'are' : 'Is'} less than or equal to`,
+    [AssertionStdOperator.Between]: `${isPlural ? 'are' : 'Is'} within a range`,
     [AssertionStdOperator.Native]: undefined,
-};
+});

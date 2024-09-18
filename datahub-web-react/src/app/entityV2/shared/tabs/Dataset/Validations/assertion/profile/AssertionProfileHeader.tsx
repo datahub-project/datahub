@@ -83,7 +83,9 @@ export const AssertionProfileHeader = ({
             </NavBar>
             <Container>
                 <Title>
-                    {(assertion && <AssertionDescription assertion={assertion} monitor={monitor} />) ||
+                    {(assertion && (
+                        <AssertionDescription assertion={assertion} monitor={monitor} noSecondarySpacing />
+                    )) ||
                         'Assertion details'}
                 </Title>
                 <Status>

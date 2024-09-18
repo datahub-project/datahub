@@ -36,7 +36,7 @@ const useBuildPrimaryLabel = (
     monitorSchedule?: Maybe<CronSchedule>,
 ): JSX.Element => {
     let primaryLabel = <Typography.Text>No description found</Typography.Text>;
-    if (assertionInfo?.description) {
+    if (assertionInfo?.description && assertionInfo?.type !== AssertionType.Field) {
         primaryLabel = <Typography.Text>{assertionInfo.description}</Typography.Text>;
     } else {
         switch (assertionInfo?.type) {
@@ -65,7 +65,10 @@ const useBuildPrimaryLabel = (
                 break;
             case AssertionType.Field:
                 primaryLabel = (
-                    <FieldAssertionDescription assertionInfo={assertionInfo.fieldAssertion as FieldAssertionInfo} />
+                    <FieldAssertionDescription
+                        assertionInfo={assertionInfo.fieldAssertion as FieldAssertionInfo}
+                        showColumnTag
+                    />
                 );
                 break;
             case AssertionType.DataSchema:
@@ -169,7 +172,7 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
                 </>
             }
         >
-            <Typography.Text style={{ color: ANTD_GRAY_V2['6'], marginLeft: 12, fontSize: 12 }}>
+            <Typography.Text style={{ color: ANTD_GRAY_V2['6'], fontSize: 12 }}>
                 {secondaryLabelMessage}
             </Typography.Text>
         </Tooltip>
