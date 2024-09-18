@@ -581,7 +581,8 @@
                 "env": "PROD",
                 "folder_id": "personal-folder-id"
             },
-            "name": "Personal"
+            "name": "Personal",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -921,7 +922,8 @@
                 "env": "PROD",
                 "model_name": "order_model"
             },
-            "name": "order_model"
+            "name": "order_model",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
