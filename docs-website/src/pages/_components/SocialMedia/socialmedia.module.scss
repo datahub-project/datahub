@@ -7,6 +7,7 @@
     width: 90vw;
     height: calc(90vh - 70px);
     min-height: 720px;
+    max-height: 1000px;
     border-radius: 50px;
     background-color: #545765cc;
     position: relative;
@@ -189,6 +190,7 @@
 .videoContainer {
     position: relative;
     height: 60vh;
+    max-height: 680px;
     min-height: 400px;
     margin-bottom: 40px;
     border-radius: 24px;
@@ -273,6 +275,7 @@
 @media only screen and (max-width: 800px) {
     .container {
         height: auto;
+        max-height: none!important;
         min-height: 0;
         width: 100%;
         border-radius: 0;
