@@ -37,6 +37,33 @@ const VideoItem = ({ isActive, src }) => {
   />
 
 }
+function useWindowDimensions() {
+
+  const hasWindow = typeof window !== 'undefined';
+
+  function getWindowDimensions() {
+    const width = hasWindow ? window.innerWidth : null;
+    const height = hasWindow ? window.innerHeight : null;
+    return {
+      width,
+      height,
+    };
+  }
+
+  const [windowDimensions, setWindowDimensions] = useState(getWindowDimensions());
+
+  useEffect(() => {
+    function handleResize() {
+      setWindowDimensions(getWindowDimensions());
+    }
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return windowDimensions;
+}
+
 
 const SocialMedia = ({}) => {
 
@@ -75,6 +102,8 @@ const SocialMedia = ({}) => {
   ];
   
   const [activeSliderIndex, setActiveSliderIndex] = useState(0);
+  const { width } = useWindowDimensions();
+  const isMobileView = width <= 800;
 
   const onChange = (currentSlide, nextSlideRaw) => {
     setActiveSliderIndex((nextSlideRaw + 1) % sliderVideos.length)
@@ -176,34 +205,36 @@ const SocialMedia = ({}) => {
           </div>
         </div>
       </div>
-      <div className={styles.carousalContainer}>
-        <div className={styles.carousalWrapper}>
-          <Carousel slidesToShow={3} initialSlide={2} dots={false} dotPosition="left" infinite autoplay speed={300} autoplaySpeed={3000}
-            beforeChange={onChange}
-          >
-            {sliderVideos.map((video, idx) => (
-              <Link className={styles.videoContainer} to={video.link} key={video.link}>
-                <VideoItem
-                  isActive={activeSliderIndex === idx}
-                  src={video.videoUrl}
-                />
-                <div className={styles.videoItemFooter}>
-                  <div className={styles.videoTitle}>{video.title}</div>
-                  <div className={styles.videoDetails}>
-                      {/* <div className={styles.videoDescription}>
-                      {video.description}
-                      </div>
-                      <div className={styles.divider}/> */}
-                      <div className={styles.videoDescription}>{video.date}</div>
-                      <div className={styles.divider}/>
-                      <div className={styles.videoDescription}>{video.viewerCount} views</div>
+      {isMobileView ? null :
+        <div className={styles.carousalContainer}>
+          <div className={styles.carousalWrapper}>
+            <Carousel slidesToShow={3} initialSlide={2} dots={false} dotPosition="left" infinite autoplay speed={300} autoplaySpeed={3000}
+              beforeChange={onChange}
+            >
+              {sliderVideos.map((video, idx) => (
+                <Link className={styles.videoContainer} to={video.link} key={video.link}>
+                  <VideoItem
+                    isActive={activeSliderIndex === idx}
+                    src={video.videoUrl}
+                  />
+                  <div className={styles.videoItemFooter}>
+                    <div className={styles.videoTitle}>{video.title}</div>
+                    <div className={styles.videoDetails}>
+                        {/* <div className={styles.videoDescription}>
+                        {video.description}
+                        </div>
+                        <div className={styles.divider}/> */}
+                        <div className={styles.videoDescription}>{video.date}</div>
+                        <div className={styles.divider}/>
+                        <div className={styles.videoDescription}>{video.viewerCount} views</div>
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
-          </Carousel>
+                </Link>
+              ))}
+            </Carousel>
+          </div>
         </div>
-      </div>
+      }
     </div>
   );
 };
