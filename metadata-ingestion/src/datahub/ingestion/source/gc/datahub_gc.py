@@ -3,7 +3,8 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from typing import Dict, Iterable
+from functools import partial
+from typing import Dict, Iterable, List, Optional
 
 from pydantic import Field
 
@@ -15,8 +16,19 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.gc.dataprocess_cleanup import (
+    DataProcessCleanup,
+    DataProcessCleanupConfig,
+    DataProcessCleanupReport,
+)
+from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
+    SoftDeletedEntitiesCleanup,
+    SoftDeletedEntitiesCleanupConfig,
+    SoftDeletedEntitiesReport,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +55,19 @@ class DataHubGcSourceConfig(ConfigModel):
         description="Sleep between truncation monitoring.",
     )
 
+    dataprocess_cleanup: Optional[DataProcessCleanupConfig] = Field(
+        default=None,
+        description="Configuration for data process cleanup",
+    )
+
+    soft_deleted_entities_cleanup: Optional[SoftDeletedEntitiesCleanupConfig] = Field(
+        default=None,
+        description="Configuration for soft deleted entities cleanup",
+    )
+
 
 @dataclass
-class DataHubGcSourceReport(SourceReport):
+class DataHubGcSourceReport(DataProcessCleanupReport, SoftDeletedEntitiesReport):
     expired_tokens_revoked: int = 0
 
 
@@ -53,16 +75,41 @@ class DataHubGcSourceReport(SourceReport):
 @config_class(DataHubGcSourceConfig)
 @support_status(SupportStatus.TESTING)
 class DataHubGcSource(Source):
+    """
+    DataHubGcSource is responsible for performing garbage collection tasks on DataHub.
+
+    This source performs the following tasks:
+    1. Cleans up expired tokens.
+    2. Truncates Elasticsearch indices based on configuration.
+    3. Cleans up data processes and soft-deleted entities if configured.
+
+    """
+
     def __init__(self, ctx: PipelineContext, config: DataHubGcSourceConfig):
         self.ctx = ctx
         self.config = config
         self.report = DataHubGcSourceReport()
         self.graph = ctx.require_graph("The DataHubGc source")
+        self.dataprocess_cleanup: Optional[DataProcessCleanup] = None
+        self.soft_deleted_entities_cleanup: Optional[SoftDeletedEntitiesCleanup] = None
+
+        if self.config.dataprocess_cleanup:
+            self.dataprocess_cleanup = DataProcessCleanup(
+                ctx, self.config.dataprocess_cleanup, self.report
+            )
+        if self.config.soft_deleted_entities_cleanup:
+            self.soft_deleted_entities_cleanup = SoftDeletedEntitiesCleanup(
+                ctx, self.config.soft_deleted_entities_cleanup, self.report
+            )
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = DataHubGcSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
+
+    # auto_work_unit_report is overriden to disable a couple of automation like auto status aspect, etc. which is not needed her.
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [partial(auto_workunit_reporter, self.get_report())]
 
     def get_workunits_internal(
         self,
@@ -71,6 +118,10 @@ class DataHubGcSource(Source):
             self.revoke_expired_tokens()
         if self.config.truncate_indices:
             self.truncate_indices()
+        if self.dataprocess_cleanup:
+            yield from self.dataprocess_cleanup.get_workunits_internal()
+        if self.soft_deleted_entities_cleanup:
+            self.soft_deleted_entities_cleanup.cleanup_soft_deleted_entities()
         yield from []
 
     def truncate_indices(self) -> None:

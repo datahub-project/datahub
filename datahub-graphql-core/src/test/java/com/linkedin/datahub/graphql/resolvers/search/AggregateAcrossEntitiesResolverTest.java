@@ -107,7 +107,7 @@ public class AggregateAcrossEntitiesResolverTest {
     FormService mockFormService = Mockito.mock(FormService.class);
     ViewService mockService = initMockViewService(TEST_VIEW_URN, info);
 
-    Filter baseFilter = createFilter("baseField.keyword", "baseTest");
+    Filter baseFilter = createFilter("baseField", "baseTest");
 
     EntityClient mockClient =
         initMockEntityClient(
