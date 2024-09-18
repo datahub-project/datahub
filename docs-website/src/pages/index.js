@@ -53,8 +53,6 @@ function Home() {
           </div>
           <iframe
             src="https://www.acryldata.io/tour"
-            width={"98%"}
-            height={"98%"}
           />
         </div>
       ) : null}

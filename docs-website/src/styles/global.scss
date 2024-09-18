@@ -441,6 +441,12 @@ div[class^="announcementBar"] {
 
   animation: openModal .3s ease-out;
 
+  iframe {
+    border-radius: 24px;
+    overflow: hidden;
+    width: 98%;
+    height: 98%;
+  }
   .closeButtonWrapper {
     position: absolute;
     top: 24px;
@@ -451,7 +457,7 @@ div[class^="announcementBar"] {
     span {
       font-size: 36px;
       path {
-        color: red;
+        color: #CCC;
       }
     }
   }
