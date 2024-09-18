@@ -57,7 +57,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         }
 
         if (styleType === IconStyleType.ACCENT) {
-            return <Icon style={{ fontSize: fontSize ?? 10, color: '#6C6B88' }} component={GlossaryTermIcon} />;
+            return (
+                <Icon style={{ fontSize: fontSize ?? 10, color: color || '#6C6B88' }} component={GlossaryTermIcon} />
+            );
         }
 
         return (

@@ -31,7 +31,7 @@ export default function SearchFilter({ filter, filterPredicates, activeFilters, 
             numActiveFilters={numActiveFilters}
             filterIcon={filterIcon}
             displayName={filter.displayName || ''}
-            onChangeValues={(newValues) => updateFilters(newValues)}
+            onChangeValues={updateFilters}
             labelStyle={labelStyle}
         />
     );

@@ -29,7 +29,7 @@ export enum FieldType {
     ENTITY_TYPE,
     NESTED_ENTITY_TYPE,
     BROWSE_PATH,
-    // NUMBER,
+    BUCKETED_TIMESTAMP, // NUMBER,
     // DATE,
 }
 
@@ -41,13 +41,33 @@ export interface FilterValueOption {
     displayName?: string | null;
 }
 
-export interface FilterField {
+interface TimeBucket {
+    label: string;
+    startOffsetMillis: number;
+}
+
+interface FilterFieldBase {
     field: string;
     displayName: string;
-    type?: FieldType; // Ideally we know the field type. If not we will have default handling.
-    entityTypes?: EntityType[]; // The entity types that this field is applicable to.
-    icon?: any;
+    icon?: JSX.Element;
+    useDatePicker?: boolean; // In advanced filter section, don't use dropdown
 }
+
+export interface BasicFilterField extends FilterFieldBase {
+    type: Exclude<FieldType, FieldType.BUCKETED_TIMESTAMP | FieldType.ENTITY>;
+}
+
+export interface TimeBucketFilterField extends FilterFieldBase {
+    type: FieldType.BUCKETED_TIMESTAMP;
+    options: TimeBucket[];
+}
+
+export interface EntityFilterField extends FilterFieldBase {
+    type: FieldType.ENTITY;
+    entityTypes: EntityType[]; // The entity types that this field is applicable to.
+}
+
+export type FilterField = BasicFilterField | TimeBucketFilterField | EntityFilterField;
 
 export interface FilterPredicate {
     field: FilterField;

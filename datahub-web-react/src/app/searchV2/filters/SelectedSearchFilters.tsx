@@ -8,7 +8,7 @@ import { UnionType } from '../utils/constants';
 import { EXCLUDED_ACTIVE_FILTERS } from './constants';
 
 interface Props {
-    availableFilters: FacetMetadata[] | null;
+    availableFilters: FacetMetadata[];
     selectedFilters: FacetFilterInput[];
     unionType: UnionType;
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;

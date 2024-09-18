@@ -36,6 +36,7 @@ export const BROWSE_PATH_V2_FILTER_NAME = 'browsePathV2';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
 export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const CHART_TYPE_FILTER_NAME = 'type';
+export const LAST_MODIFIED_FILTER_NAME = 'lastModifiedAt';
 
 export const COMPLETED_FORMS_FILTER_NAME = 'completedForms';
 export const INCOMPLETE_FORMS_FILTER_NAME = 'incompleteForms';
@@ -110,6 +111,7 @@ export const FIELD_TO_LABEL = {
     hasActiveIncidents: 'Has Active Incidents',
     hasFailingAssertions: 'Has Failing Assertions',
     [BROWSE_PATH_V2_FILTER_NAME]: 'Path',
+    [LAST_MODIFIED_FILTER_NAME]: 'Last Modified (In Source)',
 };
 
 export const ADVANCED_SEARCH_ONLY_FILTERS = [

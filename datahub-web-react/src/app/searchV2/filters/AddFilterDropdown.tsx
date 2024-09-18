@@ -1,15 +1,15 @@
 /* eslint-disable import/no-cycle */
+import { PlusOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Menu, Popover } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Dropdown, Menu, Popover } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
-import { FilterField, FilterPredicate } from './types';
-import { DEFAULT_FILTER_FIELDS } from './field/fields';
-import { useEntityRegistry } from '../../useEntityRegistry';
 import { IconStyleType } from '../../entity/Entity';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import ValueMenu from './value/ValueMenu';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { DEFAULT_FILTER_FIELDS } from './field/fields';
+import { FieldType, FilterField, FilterPredicate } from './types';
 import { getDefaultFieldOperatorType } from './value/utils';
+import ValueMenu from './value/ValueMenu';
 
 const StyledPlusOutlined = styled(PlusOutlined)`
     && {
@@ -114,7 +114,9 @@ function FilterPopover({ field, onAddFilter, setDropdownOpen, includeCount }: Po
 
     const icon =
         field.icon ||
-        (field.entityTypes?.length && entityRegistry.getIcon(field.entityTypes[0], 12, IconStyleType.ACCENT));
+        (field.type === FieldType.ENTITY &&
+            field.entityTypes?.length &&
+            entityRegistry.getIcon(field.entityTypes[0], 12, IconStyleType.ACCENT, ANTD_GRAY[7]));
 
     return (
         <Popover

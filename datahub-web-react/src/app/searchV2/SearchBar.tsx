@@ -131,7 +131,7 @@ interface Props {
     placeholderText: string;
     suggestions: Array<AutoCompleteResultForEntity>;
     onSearch: (query: string, filters?: FacetFilterInput[]) => void;
-    onQueryChange: (query: string) => void;
+    onQueryChange?: (query: string) => void;
     style?: React.CSSProperties;
     inputStyle?: React.CSSProperties;
     autoCompleteStyle?: React.CSSProperties;
@@ -283,7 +283,7 @@ export const SearchBar = ({
     useEffect(() => {
         // if we change the selected quick filter, re-issue auto-complete
         if (searchQuery && selectedQuickFilter?.value !== previousSelectedQuickFilterValue) {
-            onQueryChange(searchQuery);
+            onQueryChange?.(searchQuery);
         }
     });
 
@@ -429,7 +429,7 @@ export const SearchBar = ({
                             } as Event);
                         }
                     }}
-                    onSearch={(value: string) => onQueryChange(value)}
+                    onSearch={onQueryChange}
                     defaultValue={initialQuery || undefined}
                     value={selected}
                     onChange={(v) => setSelected(filterSearchQuery(v as string))}

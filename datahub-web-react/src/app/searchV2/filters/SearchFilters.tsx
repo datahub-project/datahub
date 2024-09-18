@@ -53,7 +53,7 @@ const FILTERS_TO_REMOVE = [
 
 interface Props {
     loading: boolean;
-    availableFilters: FacetMetadata[] | null;
+    availableFilters: FacetMetadata[];
     activeFilters: FacetFilterInput[];
     unionType: UnionType;
     basicFilters?: boolean;
