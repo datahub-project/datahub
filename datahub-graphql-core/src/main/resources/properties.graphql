@@ -95,6 +95,16 @@ type StructuredPropertyDefinition {
     Whether or not this structured property is immutable
     """
     immutable: Boolean!
+
+    """
+    Audit stamp for when this structured property was created
+    """
+    created: ResolvedAuditStamp
+
+    """
+    Audit stamp for when this structured property was last modified
+    """
+    lastModified: ResolvedAuditStamp
 }
 
 """
