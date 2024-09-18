@@ -1956,8 +1956,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "procedure_depends_on": "{}",
-                "depending_on_procedure": "{}",
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",

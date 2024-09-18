@@ -92,3 +92,45 @@ GO
 EXEC dbo.sp_add_jobserver
     @job_name = N'Weekly Demo Data Backup'
 GO
+
+CREATE DATABASE LINEAGEDB;
+GO
+USE LINEAGEDB;
+GO
+CREATE SCHEMA schema_with_lineage;
+GO
+CREATE TABLE [schema_with_lineage].[table_number_one] (id VARCHAR(MAX));
+GO
+CREATE TABLE [schema_with_lineage].[table_number_two] (is_updated BIT);
+GO
+CREATE VIEW [schema_with_lineage].[view_of_table_number_two] AS SELECT is_updated FROM [schema_with_lineage].[table_number_two];
+GO
+CREATE TABLE [schema_with_lineage].[table_number_three] (order_number INT, weight VARCHAR(MAX));
+GO
+CREATE PROCEDURE [schema_with_lineage].[procedure_number_one]
+AS
+BEGIN
+	DECLARE
+		@t1 VARCHAR(MAX)
+	SELECT @t1 = [id] FROM [schema_with_lineage].[table_number_one];
+END;
+GO       
+CREATE PROCEDURE [schema_with_lineage].[procedure_number_two]
+AS
+BEGIN
+	DECLARE @t1 INT = 1
+	UPDATE [schema_with_lineage].[view_of_table_number_two] SET [is_updated] = CASE
+                                                                                   WHEN @t1 = 1 THEN 1
+		                                                                           ELSE 0 
+		                                                                       END;
+END;      
+GO
+CREATE PROCEDURE [schema_with_lineage].[procedure_number_three]
+AS
+BEGIN
+	IF (SELECT order_number FROM [schema_with_lineage].[table_number_three]) > 10
+		INSERT INTO [schema_with_lineage].[table_number_three]([weight]) VALUES ('high')
+	ELSE
+		INSERT INTO [schema_with_lineage].[table_number_three]([weight]) VALUES ('low')
+END;
+GO 

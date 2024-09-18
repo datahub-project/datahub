@@ -1,6 +1,7 @@
 import logging
 import re
 import urllib.parse
+from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
@@ -14,6 +15,7 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -25,6 +27,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.sql.mssql.job_models import (
     JobStep,
     MSSQLDataFlow,
@@ -43,13 +46,17 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
+    SQLCommonConfig,
     make_sqlalchemy_uri,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
+    DatasetLineageTypeClass,
     NumberTypeClass,
     StringTypeClass,
     UnionTypeClass,
+    UpstreamClass,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -98,6 +105,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     convert_urns_to_lowercase: bool = Field(
         default=False,
         description="Enable to convert the SQL Server assets urns to lowercase",
+    )
+    mssql_lineage: bool = Field(
+        default=False,
+        description="Enable automatic lineage",
     )
 
     @pydantic.validator("uri_args")
@@ -161,14 +172,38 @@ class SQLServerSource(SQLAlchemySource):
         self.current_database = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
+        self.full_lineage: Dict[str, List[Dict[str, str]]] = defaultdict(list)
+        self.procedures_dependencies: Dict[str, List[Dict[str, str]]] = defaultdict(
+            list
+        )
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
-                db_name: str = self.get_db_name(inspector)
+                db_name = self.get_db_name(inspector)
                 with inspector.engine.connect() as conn:
                     if self.config.use_odbc:
                         self._add_output_converters(conn)
                     self._populate_table_descriptions(conn, db_name)
                     self._populate_column_descriptions(conn, db_name)
+        if self.config.mssql_lineage:
+            for inspector in self.get_inspectors():
+                db_name = self.get_db_name(inspector)
+                with inspector.engine.connect() as conn:
+                    if self.config.use_odbc:
+                        self._add_output_converters(conn)
+                    try:
+                        self._populate_object_links(conn, db_name)
+                    except Exception as e:
+                        self.warn(
+                            logger, "_populate_object_links", f"The error occured: {e}"
+                        )
+                    try:
+                        self._populate_stored_procedures_dependencies(conn)
+                    except Exception as e:
+                        self.warn(
+                            logger,
+                            "_populate_stored_procedures_dependencies",
+                            f"The error occured: {e}",
+                        )
 
     @staticmethod
     def _add_output_converters(conn: Connection) -> None:
@@ -237,6 +272,326 @@ class SQLServerSource(SQLAlchemySource):
         config = SQLServerConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def get_upstreams(self, inspector: Inspector, key: str) -> List[UpstreamClass]:
+        if not self.config.mssql_lineage:
+            return []
+        result = []
+        for dest in self.full_lineage.get(key, []):
+            dest_name = self.get_identifier(
+                schema=dest.get("schema", ""),
+                entity=dest.get("name", ""),
+                inspector=inspector,
+            )
+            dest_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dest_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+            external_upstream_table = UpstreamClass(
+                dataset=dest_urn,
+                type=DatasetLineageTypeClass.COPY,
+            )
+            result.append(external_upstream_table)
+        return result
+
+    def _populate_stored_procedures_dependencies(self, conn: Connection) -> None:
+
+        trans = conn.begin()
+
+        conn.execute(
+            """
+            BEGIN;
+            IF OBJECT_ID('tempdb.dbo.#ProceduresDependencies', 'U') IS NOT NULL
+                DROP TABLE #ProceduresDependencies;
+
+            CREATE TABLE #ProceduresDependencies(
+                id                       INT NOT NULL IDENTITY(1,1) PRIMARY KEY
+              , procedure_id             INT
+              , current_db               NVARCHAR(128)
+              , procedure_schema         NVARCHAR(128)
+              , procedure_name           NVARCHAR(128)
+              , type                     VARCHAR(2)
+              , referenced_server_name   NVARCHAR(128)
+              , referenced_database_name NVARCHAR(128)
+              , referenced_schema_name   NVARCHAR(128)
+              , referenced_entity_name   NVARCHAR(128)
+              , referenced_id            INT
+              , referenced_object_type   VARCHAR(2)
+              , is_selected              INT
+              , is_updated               INT
+              , is_select_all            INT
+              , is_all_columns_found     INT
+                );
+
+            BEGIN TRY
+                    WITH dependencies
+                         AS (
+                             SELECT
+                                    pro.object_id              AS procedure_id
+                                  , db_name()                  AS current_db
+                                  , schema_name(pro.schema_id) AS procedure_schema
+                                  , pro.NAME                   AS procedure_name
+                                  , pro.type                   AS type
+                                  , p.referenced_id            AS referenced_id
+                                  , CASE
+                                          WHEN p.referenced_server_name IS NULL AND p.referenced_id IS NOT NULL
+                                          THEN @@SERVERNAME
+                                          ELSE p.referenced_server_name
+                                    END                        AS referenced_server_name
+                                  , CASE
+                                          WHEN p.referenced_database_name IS NULL AND p.referenced_id IS NOT NULL
+                                          THEN db_name()
+                                          ELSE p.referenced_database_name
+                                    END                        AS referenced_database_name
+                                  , CASE
+                                          WHEN p.referenced_schema_name IS NULL AND p.referenced_id IS NOT NULL
+                                          THEN schema_name(ref_obj.schema_id)
+                                          ELSE p.referenced_schema_name
+                                    END                        AS referenced_schema_name
+                                  , p.referenced_entity_name   AS referenced_entity_name
+                                  , ref_obj.type               AS referenced_object_type
+                                  , p.is_selected              AS is_selected
+                                  , p.is_updated               AS is_updated
+                                  , p.is_select_all            AS is_select_all
+                                  , p.is_all_columns_found     AS is_all_columns_found
+                             FROM   sys.procedures AS pro
+                                    CROSS apply sys.dm_sql_referenced_entities(
+                                                Concat(schema_name(pro.schema_id), '.', pro.NAME),
+                                                'OBJECT') AS p
+                                    LEFT JOIN sys.objects AS ref_obj
+                                        ON p.referenced_id = ref_obj.object_id
+                    )
+                    INSERT INTO #ProceduresDependencies (
+                                                 procedure_id
+                                               , current_db
+                                               , procedure_schema
+                                               , procedure_name
+                                               , type
+                                               , referenced_server_name
+                                               , referenced_database_name
+                                               , referenced_schema_name
+                                               , referenced_entity_name
+                                               , referenced_id
+                                               , referenced_object_type
+                                               , is_selected
+                                               , is_updated
+                                               , is_select_all
+                                               , is_all_columns_found)
+                    SELECT DISTINCT
+                        d.procedure_id
+                      , d.current_db
+                      , d.procedure_schema
+                      , d.procedure_name
+                      , d.type
+                      , d.referenced_server_name
+                      , d.referenced_database_name
+                      , d.referenced_schema_name
+                      , d.referenced_entity_name
+                      , d.referenced_id
+                      , d.referenced_object_type
+                      , d.is_selected
+                      , d.is_updated
+                      , d.is_select_all
+                      , d.is_all_columns_found
+                    FROM dependencies AS d;
+            END TRY
+            BEGIN CATCH
+                IF ERROR_NUMBER() = 2020 or ERROR_NUMBER() = 942
+                    PRINT ERROR_MESSAGE()
+                ELSE
+                    THROW;
+            END CATCH;
+
+
+            DECLARE @id INT;
+            DECLARE @referenced_server_name NVARCHAR(128);
+            DECLARE @referenced_database_name NVARCHAR(128);
+            DECLARE @referenced_id INT;
+            DECLARE @referenced_object_type VARCHAR(2);
+            DECLARE @referenced_info TABLE (
+                id                INT
+              , referenced_type   VARCHAR(2)
+              , referenced_schema NVARCHAR(128)
+              , referenced_name   NVARCHAR(128)
+              );
+            DECLARE @synonym_info TABLE (
+                id              INT
+              , referenced_name NVARCHAR(1035)
+              , referenced_type VARCHAR(2)
+              , referenced_object_id INT
+              );
+            DECLARE @SQL NVARCHAR(MAX);
+
+
+            DECLARE proc_depend_cursor CURSOR FOR
+            SELECT
+                id
+              , referenced_database_name
+              , referenced_id
+              , referenced_object_type
+            FROM #ProceduresDependencies;
+
+            OPEN proc_depend_cursor
+            FETCH NEXT FROM proc_depend_cursor INTO
+                @id
+              , @referenced_database_name
+              , @referenced_id
+              , @referenced_object_type;
+            WHILE @@FETCH_STATUS = 0
+            BEGIN;
+
+                IF @referenced_id IS NOT NULL
+                    BEGIN
+                        BEGIN TRY
+                            SET @SQL = 'SELECT
+                                        ' + CAST(@id AS NVARCHAR(10)) + '
+                                          , o.type
+                                          , s.name
+                                          , o.name
+                                        FROM ' + COALESCE(QUOTENAME(@referenced_database_name), '') + '.sys.objects AS o
+                                        INNER JOIN ' + COALESCE(QUOTENAME(@referenced_database_name), '') + '.sys.schemas AS s
+                                            ON o.schema_id = s.schema_id
+                                        WHERE o.object_id = ' + CAST(@referenced_id AS NVARCHAR(10)) + ';';
+
+                            INSERT INTO  @referenced_info(
+                                id
+                              , referenced_type
+                              , referenced_schema
+                              , referenced_name
+                                )
+                            EXEC sp_executesql @SQL;
+
+                            UPDATE #ProceduresDependencies
+                            SET
+                              referenced_object_type = ri.referenced_type,
+                              referenced_schema_name = ri.referenced_schema,
+                              referenced_entity_name = ri.referenced_name
+                            FROM #ProceduresDependencies pd
+                            INNER JOIN @referenced_info ri
+                                ON ri.id = pd.id
+                            WHERE CURRENT OF proc_depend_cursor;
+
+                            SET @referenced_object_type = (
+                                SELECT
+                                    referenced_type
+                                FROM @referenced_info
+                                WHERE id = @id
+                                );
+                        END TRY
+                        BEGIN CATCH
+                            PRINT ERROR_MESSAGE()
+                        END CATCH;
+                    END;
+
+                IF @referenced_object_type = 'SN'
+                  BEGIN
+                      BEGIN TRY
+                          SET @SQL  = 'SELECT
+                                      ' + CAST(@id as NVARCHAR(10)) + '
+                                        , syn_obj.name
+                                        , syn_obj.type
+                                        , syn_obj.object_id
+                                      FROM ' + COALESCE(QUOTENAME(@referenced_database_name), '') + '.sys.synonyms AS synon
+                                      INNER JOIN ' + COALESCE(QUOTENAME(@referenced_database_name), '') + '.sys.objects  AS syn_obj
+                                            ON OBJECT_ID(synon.base_object_name) = syn_obj.object_id
+                                      WHERE synon.object_id = ' + CAST(@referenced_id AS NVARCHAR(10)) + ';';
+                            PRINT @SQL;
+                          INSERT INTO @synonym_info(
+                              id
+                            , referenced_name
+                            , referenced_type
+                            , referenced_object_id
+                              )
+                          EXEC sp_executesql @SQL;
+
+                          UPDATE #ProceduresDependencies
+                          SET
+                              referenced_object_type = si.referenced_type,
+                              referenced_entity_name = si.referenced_name,
+                              referenced_id = si.referenced_object_id
+                          FROM #ProceduresDependencies pd
+                          INNER JOIN @synonym_info si
+                              ON si.id = pd.id
+                          WHERE CURRENT OF proc_depend_cursor;
+                      END TRY
+                      BEGIN CATCH
+                          PRINT ERROR_MESSAGE()
+                      END CATCH;
+                  END;
+
+                FETCH NEXT FROM proc_depend_cursor INTO
+                    @id
+                  , @referenced_database_name
+                  , @referenced_id
+                  , @referenced_object_type;
+            END;
+            CLOSE proc_depend_cursor;
+            DEALLOCATE proc_depend_cursor;
+            END;
+            """
+        )
+
+        _dependencies = conn.execute(
+            """
+            SELECT DISTINCT
+                *
+            FROM #ProceduresDependencies
+            WHERE referenced_object_type IN ('U ', 'V ', 'P ');
+            """
+        )
+
+        for row in _dependencies:
+
+            if row:
+                _key = f"{row['current_db']}.{row['procedure_schema']}.{row['procedure_name']}"
+
+                self.procedures_dependencies[_key].append(
+                    {
+                        "referenced_database_name": row["referenced_database_name"],
+                        "referenced_schema_name": row["referenced_schema_name"],
+                        "referenced_entity_name": row["referenced_entity_name"],
+                        "referenced_object_type": row["referenced_object_type"],
+                        "is_selected": row["is_selected"],
+                        "is_select_all": row["is_select_all"],
+                        "is_updated": row["is_updated"],
+                    }
+                )
+
+        trans.commit()
+
+    def _populate_object_links(self, conn: Connection, db_name: str) -> None:
+        # see https://learn.microsoft.com/en-us/sql/relational-databases/system-catalog-views/sys-sql-expression-dependencies-transact-sql
+        _links = conn.execute(
+            """
+            SELECT
+              DB_NAME() AS cur_database_name,
+              OBJECT_SCHEMA_NAME(referencing_id) AS dst_schema_name,
+              OBJECT_NAME(referencing_id) AS dst_object_name,
+              so_dst.type AS dst_object_type,
+              referenced_server_name AS src_server_name,
+              referenced_database_name AS src_database_name,
+              COALESCE(OBJECT_SCHEMA_NAME(referenced_id), referenced_schema_name) AS src_schema_name,
+              COALESCE(OBJECT_NAME(referenced_id), referenced_entity_name) AS src_object_name,
+              so_src.type AS src_object_type
+            FROM sys.sql_expression_dependencies
+              LEFT JOIN sys.objects AS so_dst ON so_dst.object_id = referencing_id
+              LEFT JOIN sys.objects AS so_src ON so_src.object_id = referenced_id
+            WHERE so_dst.type in ('U ', 'V ', 'P ')
+              AND so_src.type in ('U ', 'V ', 'P ');
+            """
+        )
+        # {"U ": "USER_TABLE", "V ": "VIEW", "P ": "SQL_STORED_PROCEDURE"}
+        for row in _links:
+            _key = f"{db_name}.{row['dst_schema_name']}.{row['dst_object_name']}"
+            self.full_lineage[_key].append(
+                {
+                    "schema": row["src_schema_name"] or row["dst_schema_name"],
+                    "name": row["src_object_name"],
+                    "type": row["src_object_type"],
+                }
+            )
+
     # override to get table descriptions
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
@@ -267,6 +622,73 @@ class SQLServerSource(SQLAlchemySource):
             if description:
                 column["comment"] = description
         return columns
+
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader],
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        yield from super()._process_table(
+            dataset_name=dataset_name,
+            inspector=inspector,
+            schema=schema,
+            table=table,
+            sql_config=sql_config,
+            data_reader=data_reader,
+        )
+
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+
+        db_name = self.get_db_name(inspector)
+        _key = f"{db_name}.{schema}.{table}"
+
+        upstreams = self.get_upstreams(inspector=inspector, key=_key)
+        if upstreams:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=UpstreamLineage(upstreams=upstreams),
+            ).as_workunit()
+
+    def _process_view(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        sql_config: SQLCommonConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        yield from super()._process_view(
+            dataset_name=dataset_name,
+            inspector=inspector,
+            schema=schema,
+            view=view,
+            sql_config=sql_config,
+        )
+
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        db_name = self.get_db_name(inspector)
+        _key = f"{db_name}.{schema}.{view}"
+
+        upstreams = self.get_upstreams(inspector=inspector, key=_key)
+        if upstreams:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=UpstreamLineage(upstreams=upstreams),
+            ).as_workunit()
 
     def get_database_level_workunits(
         self,
@@ -401,38 +823,42 @@ class SQLServerSource(SQLAlchemySource):
             env=sql_config.env,
             db=db_name,
             platform_instance=sql_config.platform_instance,
+            schema=schema,
         )
         data_flow = MSSQLDataFlow(entity=mssql_default_job)
         with inspector.engine.connect() as conn:
             procedures_data_list = self._get_stored_procedures(conn, db_name, schema)
+
             procedures = [
                 StoredProcedure(flow=mssql_default_job, **procedure_data)
                 for procedure_data in procedures_data_list
             ]
             if procedures:
                 yield from self.construct_flow_workunits(data_flow=data_flow)
+
             for procedure in procedures:
-                upstream = self._get_procedure_upstream(conn, procedure)
-                downstream = self._get_procedure_downstream(conn, procedure)
                 data_job = MSSQLDataJob(
                     entity=procedure,
                 )
-                # TODO: because of this upstream and downstream are more dependencies,
-                #  can't be used as DataJobInputOutput.
-                #  Should be reorganized into lineage.
-                data_job.add_property("procedure_depends_on", str(upstream.as_property))
-                data_job.add_property(
-                    "depending_on_procedure", str(downstream.as_property)
-                )
+
+                if self.config.mssql_lineage:
+                    dependency = self._extract_procedure_dependency(procedure)
+                    data_job.incoming = dependency.get_input_datasets
+                    data_job.input_jobs = dependency.get_input_datajobs
+                    data_job.outgoing = dependency.get_output_datasets
+
                 procedure_definition, procedure_code = self._get_procedure_code(
                     conn, procedure
                 )
+
                 if procedure_definition:
                     data_job.add_property("definition", procedure_definition)
                 if sql_config.include_stored_procedures_code and procedure_code:
                     data_job.add_property("code", procedure_code)
+
                 procedure_inputs = self._get_procedure_inputs(conn, procedure)
                 properties = self._get_procedure_properties(conn, procedure)
+
                 data_job.add_property(
                     "input parameters", str([param.name for param in procedure_inputs])
                 )
@@ -442,69 +868,32 @@ class SQLServerSource(SQLAlchemySource):
                     )
                 for property_name, property_value in properties.items():
                     data_job.add_property(property_name, str(property_value))
+
                 yield from self.construct_job_workunits(data_job)
 
-    @staticmethod
-    def _get_procedure_downstream(
-        conn: Connection, procedure: StoredProcedure
+    def _extract_procedure_dependency(
+        self, procedure: StoredProcedure
     ) -> ProcedureLineageStream:
-        downstream_data = conn.execute(
-            f"""
-            SELECT DISTINCT OBJECT_SCHEMA_NAME ( referencing_id ) AS [schema],
-                OBJECT_NAME(referencing_id) AS [name],
-                o.type_desc AS [type]
-            FROM sys.sql_expression_dependencies AS sed
-            INNER JOIN sys.objects AS o ON sed.referencing_id = o.object_id
-            left join sys.objects o1 on sed.referenced_id = o1.object_id
-            WHERE referenced_id = OBJECT_ID(N'{procedure.escape_full_name}')
-                AND o.type_desc in ('TABLE_TYPE', 'VIEW', 'USER_TABLE')
-            """
-        )
-        downstream_dependencies = []
-        for row in downstream_data:
-            downstream_dependencies.append(
-                ProcedureDependency(
-                    db=procedure.db,
-                    schema=row["schema"],
-                    name=row["name"],
-                    type=row["type"],
-                    env=procedure.flow.env,
-                    server=procedure.flow.platform_instance,
-                )
-            )
-        return ProcedureLineageStream(dependencies=downstream_dependencies)
 
-    @staticmethod
-    def _get_procedure_upstream(
-        conn: Connection, procedure: StoredProcedure
-    ) -> ProcedureLineageStream:
-        upstream_data = conn.execute(
-            f"""
-            SELECT DISTINCT
-                coalesce(lower(referenced_database_name), db_name()) AS db,
-                referenced_schema_name AS [schema],
-                referenced_entity_name AS [name],
-                o1.type_desc AS [type]
-            FROM sys.sql_expression_dependencies AS sed
-            INNER JOIN sys.objects AS o ON sed.referencing_id = o.object_id
-            left join sys.objects o1 on sed.referenced_id = o1.object_id
-            WHERE referencing_id = OBJECT_ID(N'{procedure.escape_full_name}')
-                AND referenced_schema_name is not null
-                AND o1.type_desc in ('TABLE_TYPE', 'VIEW', 'SQL_STORED_PROCEDURE', 'USER_TABLE')
-            """
-        )
         upstream_dependencies = []
-        for row in upstream_data:
+        for dependency in self.procedures_dependencies.get(
+            ".".join([procedure.db, procedure.schema, procedure.name]), []
+        ):
             upstream_dependencies.append(
                 ProcedureDependency(
-                    db=row["db"],
-                    schema=row["schema"],
-                    name=row["name"],
-                    type=row["type"],
+                    flow_id=f"{dependency['referenced_database_name']}.{dependency['referenced_schema_name']}.stored_procedures",
+                    db=dependency["referenced_database_name"],
+                    schema=dependency["referenced_schema_name"],
+                    name=dependency["referenced_entity_name"],
+                    type=dependency["referenced_object_type"],
+                    incoming=int(dependency["is_selected"])
+                    or int(dependency["is_select_all"]),
+                    outgoing=int(dependency["is_updated"]),
                     env=procedure.flow.env,
                     server=procedure.flow.platform_instance,
                 )
             )
+
         return ProcedureLineageStream(dependencies=upstream_dependencies)
 
     @staticmethod
@@ -605,12 +994,12 @@ class SQLServerSource(SQLAlchemySource):
     ) -> Iterable[MetadataWorkUnit]:
         yield MetadataChangeProposalWrapper(
             entityUrn=data_job.urn,
-            aspect=data_job.as_datajob_info_aspect,
+            aspect=data_job.get_datajob_info_aspect,
         ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=data_job.urn,
-            aspect=data_job.as_datajob_input_output_aspect,
+            aspect=data_job.get_datajob_input_output_aspect,
         ).as_workunit()
         # TODO: Add SubType when it appear
 
@@ -620,7 +1009,7 @@ class SQLServerSource(SQLAlchemySource):
     ) -> Iterable[MetadataWorkUnit]:
         yield MetadataChangeProposalWrapper(
             entityUrn=data_flow.urn,
-            aspect=data_flow.as_dataflow_info_aspect,
+            aspect=data_flow.get_dataflow_info_aspect,
         ).as_workunit()
         # TODO: Add SubType when it appear
 

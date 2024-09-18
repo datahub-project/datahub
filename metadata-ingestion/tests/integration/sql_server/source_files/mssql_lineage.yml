@@ -1,0 +1,18 @@
+run_id: mssql-lineage
+
+source:
+  type: mssql
+  config:
+    username: sa
+    password: test!Password
+    database: LINEAGEDB
+    host_port: localhost:21433
+    mssql_lineage: True
+    schema_pattern:
+      allow:
+        - schema_with_lineage
+
+sink:
+  type: file
+  config:
+    filename: "./mssql_mces.json"
