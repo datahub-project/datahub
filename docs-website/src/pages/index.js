@@ -51,9 +51,7 @@ function Home() {
           <div className="closeButtonWrapper" onClick={onCloseTourModal}>
             <CloseButton />
           </div>
-          <iframe
-            src="https://www.acryldata.io/tour"
-          />
+          <iframe src="https://www.acryldata.io/tour" />
         </div>
       ) : null}
       <Hero onOpenTourModal={onOpenTourModal} />
