@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.StructuredPropertyDefinition;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.TypeQualifier;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -73,6 +74,13 @@ public class StructuredPropertyMapper
     }
     if (gmsDefinition.hasTypeQualifier()) {
       definition.setTypeQualifier(mapTypeQualifier(gmsDefinition.getTypeQualifier()));
+    }
+    if (gmsDefinition.getCreated() != null) {
+      definition.setCreated(MapperUtils.createResolvedAuditStamp(gmsDefinition.getCreated()));
+    }
+    if (gmsDefinition.getLastModified() != null) {
+      definition.setLastModified(
+          MapperUtils.createResolvedAuditStamp(gmsDefinition.getLastModified()));
     }
     definition.setEntityTypes(
         gmsDefinition.getEntityTypes().stream()
