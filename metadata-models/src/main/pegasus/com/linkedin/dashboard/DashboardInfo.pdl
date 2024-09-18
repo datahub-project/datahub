@@ -103,6 +103,12 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   /**
    * Captures information about who created/last modified/deleted this dashboard and when
    */
+  @Searchable = {
+    "/lastModified/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME"
+    }
+  }
   lastModified: ChangeAuditStamps
 
   /**

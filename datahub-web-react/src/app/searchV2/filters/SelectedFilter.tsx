@@ -1,6 +1,7 @@
 /* eslint-disable import/no-cycle */
 import { CloseOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
+import { Button, DatePicker } from 'antd';
+import moment from 'moment/moment';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { SEARCH_COLORS } from '../../entityV2/shared/constants';
@@ -14,6 +15,7 @@ const Values = styled.div`
     border: 1.5px solid transparent;
     border-radius: 6px;
     padding: 2px;
+
     :hover {
         cursor: pointer;
         border: 1.5px solid ${SEARCH_COLORS.TITLE_PURPLE};
@@ -92,7 +94,17 @@ export default function SelectedFilter({
                 {field.displayName || field.field}
             </FilterName>
             <OperatorSelector predicate={predicate} onChangeOperator={onChangeOperator} />
-            {showValueSelector && (
+            {showValueSelector && field.useDatePicker && (
+                <DatePicker
+                    defaultValue={moment(Number(values[0].value))}
+                    disabledDate={(current) => current > moment().startOf('day')}
+                    format="ll"
+                    showToday={false}
+                    allowClear={false}
+                    onChange={(v) => onChangeValues(v ? [{ value: v.valueOf().toString(), entity: null }] : [])}
+                />
+            )}
+            {showValueSelector && !field.useDatePicker && (
                 <ValueSelector
                     field={field}
                     values={values}

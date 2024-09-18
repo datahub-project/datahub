@@ -36,7 +36,6 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sample_data import BOOTSTRAP_MCES_FILE, download_sample_data
 
 logger = logging.getLogger(__name__)
 _ClickPositiveInt = click.IntRange(min=1)
@@ -958,11 +957,6 @@ def valid_restore_options(
 
 @docker.command()
 @click.option(
-    "--path",
-    type=click.Path(exists=True, dir_okay=False),
-    help=f"The MCE json file to ingest. Defaults to downloading {BOOTSTRAP_MCES_FILE} from GitHub",
-)
-@click.option(
     "--token",
     type=str,
     is_flag=False,
@@ -970,12 +964,8 @@ def valid_restore_options(
     help="The token to be used when ingesting, used when datahub is deployed with METADATA_SERVICE_AUTH_ENABLED=true",
 )
 @telemetry.with_telemetry()
-def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
+def ingest_sample_data(token: Optional[str]) -> None:
     """Ingest sample data into a running DataHub instance."""
-
-    if path is None:
-        click.echo("Downloading sample data...")
-        path = str(download_sample_data())
 
     # Verify that docker is up.
     status = check_docker_quickstart()
@@ -989,10 +979,8 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
     click.echo("Starting ingestion...")
     recipe: dict = {
         "source": {
-            "type": "file",
-            "config": {
-                "path": path,
-            },
+            "type": "demo-data",
+            "config": {},
         },
         "sink": {
             "type": "datahub-rest",
@@ -1003,7 +991,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
     if token is not None:
         recipe["sink"]["config"]["token"] = token
 
-    pipeline = Pipeline.create(recipe, report_to=None)
+    pipeline = Pipeline.create(recipe)
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)

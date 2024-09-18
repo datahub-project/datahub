@@ -30,8 +30,8 @@ export const DropdownMenu = styled.div<{ type: 'card' | 'default' }>`
             background-color: white;
         }
     }
-    .ant-dropdown-menu{      
-        padding 7px;
+    .ant-dropdown-menu {
+        padding: 7px;
     }
 `;
 
@@ -55,9 +55,9 @@ const LoadingWrapper = styled.div`
 interface Props {
     menu: React.ReactNode;
     updateFilters: () => void;
-    isLoading: boolean;
-    searchQuery: string;
-    updateSearchQuery: (query: string) => void;
+    isLoading?: boolean;
+    searchQuery?: string;
+    updateSearchQuery?: (query: string) => void;
     searchPlaceholder?: string;
     showSearchBar?: boolean;
     type?: 'card' | 'default';
@@ -98,7 +98,7 @@ export default function OptionsDropdownMenu({
                             borderRadius: 8,
                         }}
                         onSearch={() => null}
-                        onQueryChange={(q) => updateSearchQuery(q)}
+                        onQueryChange={updateSearchQuery}
                         entityRegistry={entityRegistry}
                         textColor={ANTD_GRAY[9]}
                         placeholderColor={ANTD_GRAY[6]}

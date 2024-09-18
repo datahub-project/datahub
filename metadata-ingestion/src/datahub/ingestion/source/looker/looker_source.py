@@ -1323,7 +1323,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 dashboard_object.folder.is_personal
                 or dashboard_object.folder.is_personal_descendant
             ):
-                self.reporter.report_warning(
+                self.reporter.info(
                     title="Dropped Dashboard",
                     message="Dropped due to being a personal folder",
                     context=f"Dashboard ID: {dashboard_id}",

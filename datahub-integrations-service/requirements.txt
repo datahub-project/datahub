@@ -7,7 +7,7 @@
     #   -r requirements-local.in
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
-acryl-datahub-actions==0.0.18
+acryl-datahub-actions==0.1.1
     # via acryl-datahub-integrations
 acryl-datahub-classify==0.0.11
     # via acryl-datahub
@@ -67,6 +67,8 @@ botocore==1.34.91
     # via
     #   boto3
     #   s3transfer
+build==1.2.2
+    # via acryl-datahub-integrations
 cached-property==1.5.2
     # via acryl-datahub
 cachetools==5.3.3
@@ -382,6 +384,7 @@ numpy==1.26.4
 packaging==24.0
     # via
     #   acryl-datahub
+    #   build
     #   docker
     #   great-expectations
     #   ipykernel
@@ -473,6 +476,8 @@ pyopenssl==24.1.0
     # via snowflake-connector-python
 pyparsing==3.1.2
     # via great-expectations
+pyproject-hooks==1.1.0
+    # via build
 python-dateutil==2.8.2
     # via
     #   acryl-datahub
@@ -642,6 +647,8 @@ toml==0.10.2
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+tomli==2.0.1
+    # via build
 tomlkit==0.12.4
     # via snowflake-connector-python
 toolz==0.12.1

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import OptionsDropdownMenu from '../OptionsDropdownMenu';
 import { mapFilterOption } from '../mapFilterOption';
-import { FilterField, FilterValue, FilterValueOption } from '../types';
+import { EntityFilterField, FilterValue, FilterValueOption } from '../types';
 import { OptionMenu } from './styledComponents';
 import {
     deduplicateOptions,
@@ -13,7 +13,7 @@ import {
 } from './utils';
 
 interface Props {
-    field: FilterField;
+    field: EntityFilterField;
     values: FilterValue[];
     defaultOptions: FilterValueOption[];
     onChangeValues: (newValues: FilterValue[]) => void;

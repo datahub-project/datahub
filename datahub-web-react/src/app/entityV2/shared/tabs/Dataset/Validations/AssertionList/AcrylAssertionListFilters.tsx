@@ -107,7 +107,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                 <AcrylAssertionListSearch
                     searchText={filter.filterCriteria.searchText}
                     debouncedSetFilterText={handleSearchTextChange}
-                    matchResultCount={filteredAssertions.searchCount || 0}
+                    matchResultCount={filteredAssertions.searchMatchesCount || 0}
                     numRows={filteredAssertions.totalCount || 0}
                 />
 

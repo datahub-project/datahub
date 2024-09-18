@@ -97,7 +97,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     EntitySpec entitySpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
     SearchRequestHandler datasetHandler =
         SearchRequestHandler.getBuilder(
-            entitySpec, testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext.getEntityRegistry(),
+            entitySpec,
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY);
 
     /*
       Ensure efficient query performance, we do not expect upstream/downstream/fineGrained lineage
@@ -118,6 +122,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     EntitySpec entitySpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
     SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
+            operationContext.getEntityRegistry(),
             TestEntitySpecBuilder.getSpec(),
             testQueryConfig,
             null,
@@ -147,7 +152,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   public void testSearchRequestHandlerHighlightingTurnedOff() {
     SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext.getEntityRegistry(),
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
             operationContext.withSearchFlags(
@@ -190,7 +199,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   public void testSearchRequestHandler() {
     SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext.getEntityRegistry(),
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
             operationContext.withSearchFlags(
@@ -232,7 +245,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         highlightBuilder.fields().stream()
             .map(HighlightBuilder.Field::name)
             .collect(Collectors.toList());
-    assertEquals(fields.size(), 22);
+    assertEquals(fields.size(), 32);
     List<String> highlightableFields =
         ImmutableList.of(
             "keyPart1",
@@ -244,7 +257,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             "nestedArrayArrayField",
             "customProperties",
             "esObjectField",
-            "wordGramField");
+            "wordGramField",
+            "esObjectFieldLong",
+            "esObjectFieldBoolean",
+            "esObjectFieldFloat",
+            "esObjectFieldDouble",
+            "esObjectFieldInteger");
     highlightableFields.forEach(
         field -> {
           assertTrue(fields.contains(field), "Missing: " + field);
@@ -256,7 +274,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   public void testAggregationsInSearch() {
     SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext.getEntityRegistry(),
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY);
     final String nestedAggString =
         String.format("_entityType%stextFieldOverride", AGGREGATION_SEPARATOR_CHAR);
     SearchRequest searchRequest =
@@ -325,7 +347,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     final SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext.getEntityRegistry(),
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY);
 
     final BoolQueryBuilder testQuery = constructFilterQuery(requestHandler, false);
 
@@ -708,7 +734,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     final SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext.getEntityRegistry(),
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY);
 
     return (BoolQueryBuilder)
         requestHandler

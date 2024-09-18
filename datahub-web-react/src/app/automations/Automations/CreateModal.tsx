@@ -8,8 +8,8 @@ import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
 import { AutomationTypes } from '@app/automations/constants';
 import { getYaml } from '@app/automations/utils';
 
-import { Configure } from '../Configure';
-import { automationTemplates } from '../automationTemplates';
+import { Configure } from '../fields/configure';
+import { templates } from '../recipes';
 
 import { useAutomationContext } from './AutomationProvider';
 
@@ -30,7 +30,7 @@ const SelectPremadeAutomation = ({ setAutomation }: any) => {
 
     return (
         <PremadeAutomations>
-            {automationTemplates.map((automation: any) => {
+            {templates.map((automation: any) => {
                 // Check if automation is disabled
                 if (automation.isDisabled) return null;
 
@@ -62,7 +62,7 @@ export const AutomationCreateModal = ({ isOpen, setIsOpen }: AutomationCreateMod
 
     // Get the automation info
     const template = useMemo(
-        () => (automation ? automationTemplates.find((t) => t.key === automation) : undefined),
+        () => (automation ? templates.find((t) => t.key === automation) : undefined),
         [automation],
     );
 

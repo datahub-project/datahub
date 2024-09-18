@@ -122,6 +122,7 @@ export const EditorContainer = styled.div`
             th:not(.remirror-table-controller),
             td {
                 padding: 16px;
+                min-width: 120px;
             }
         }
     }

@@ -52,9 +52,11 @@ function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) 
 
     const associatedUrn = entityData?.urn || '';
 
-    entityData?.structuredProperties?.properties?.forEach((structuredPropertiesEntry) => {
-        structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry, associatedUrn));
-    });
+    entityData?.structuredProperties?.properties
+        ?.filter((prop) => prop.structuredProperty.exists)
+        .forEach((structuredPropertiesEntry) => {
+            structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry, associatedUrn));
+        });
 
     return structuredPropertyRows;
 }
@@ -66,11 +68,13 @@ function getFieldStructuredPropertyRows(fieldPath: string, entityData?: GenericE
         (f) => f.fieldPath === fieldPath,
     )?.schemaFieldEntity;
 
-    schemaFieldEntity?.structuredProperties?.properties?.forEach((structuredPropertiesEntry) => {
-        structuredPropertyRows.push(
-            mapStructuredPropertyToPropertyRow(structuredPropertiesEntry, schemaFieldEntity.urn),
-        );
-    });
+    schemaFieldEntity?.structuredProperties?.properties
+        ?.filter((prop) => prop.structuredProperty.exists)
+        .forEach((structuredPropertiesEntry) => {
+            structuredPropertyRows.push(
+                mapStructuredPropertyToPropertyRow(structuredPropertiesEntry, schemaFieldEntity.urn),
+            );
+        });
 
     return structuredPropertyRows;
 }

@@ -16,7 +16,7 @@ from slack_bolt import Ack, Respond, Say
 from slack_bolt.adapter.fastapi import SlackRequestHandler
 from slack_sdk.oauth import AuthorizeUrlGenerator
 
-from datahub_integrations.app import DATAHUB_FRONTEND_URL, graph
+from datahub_integrations.app import DATAHUB_FRONTEND_URL, EXTERNAL_STATIC_PATH, graph
 from datahub_integrations.graphql.incidents import (
     UPDATE_INCIDENT_PRIORITY_MUTATION,
     UPDATE_INCIDENT_STATUS_MUTATION,
@@ -66,9 +66,8 @@ from datahub_integrations.slack.utils.entity_extract import (
 
 _state_store = InMemoryStateStore(expiration_seconds=300)
 
-ACRYL_SLACK_ICON_URL = (
-    f"{DATAHUB_FRONTEND_URL}/integrations/static/acryl-slack-icon.png"
-)
+ACRYL_SLACK_ICON_URL = f"{EXTERNAL_STATIC_PATH}/acryl-slack-icon.png"
+
 private_router = fastapi.APIRouter()
 public_router = fastapi.APIRouter()
 

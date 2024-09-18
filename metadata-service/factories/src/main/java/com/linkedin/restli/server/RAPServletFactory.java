@@ -16,6 +16,7 @@ import java.util.concurrent.Executors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -29,8 +30,10 @@ public class RAPServletFactory {
   private int maxSerializedStringLength;
 
   @Bean(name = "restliSpringInjectResourceFactory")
-  public SpringInjectResourceFactory springInjectResourceFactory() {
-    return new SpringInjectResourceFactory();
+  public SpringInjectResourceFactory springInjectResourceFactory(final ApplicationContext ctx) {
+    SpringInjectResourceFactory springInjectResourceFactory = new SpringInjectResourceFactory();
+    springInjectResourceFactory.setApplicationContext(ctx);
+    return springInjectResourceFactory;
   }
 
   @Bean("parseqEngineThreads")

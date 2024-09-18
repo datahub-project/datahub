@@ -122,6 +122,8 @@ export const TEXT_CONDITION_TYPES = [
     ...BASE_CONDITION_TYPES,
 ];
 
+export const BUCKETED_TIMESTAMP_CONDITION_TYPES = [FilterOperatorType.GREATER_THAN, FilterOperatorType.LESS_THAN];
+
 export const NUMBER_CONDITION_TYPES = [
     ...BASE_CONDITION_TYPES,
     FilterOperatorType.GREATER_THAN,
@@ -155,6 +157,8 @@ export const getOperatorOptionsForPredicate = (predicate: FilterPredicate): Filt
             return BOOLEAN_CONDITION_TYPES.map((type) => SEARCH_FILTER_CONDITION_TYPE_TO_INFO.get(type)!);
         case FieldType.BROWSE_PATH:
             return BROWSE_CONDITION_TYPES.map((type) => SEARCH_FILTER_CONDITION_TYPE_TO_INFO.get(type)!);
+        case FieldType.BUCKETED_TIMESTAMP:
+            return BUCKETED_TIMESTAMP_CONDITION_TYPES.map((type) => SEARCH_FILTER_CONDITION_TYPE_TO_INFO.get(type)!);
         // case FieldType.NUMBER:
         //     return NUMBER_CONDITION_TYPES.map((type) => SEARCH_FILTER_CONDITION_TYPE_TO_INFO.get(type)!);
         // case FieldType.DATE:

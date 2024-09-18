@@ -76,9 +76,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                     ? BROWSE_PATH_V2_DELIMITER
                         + String.join(BROWSE_PATH_V2_DELIMITER, input.getPath())
                     : "";
-            final Filter inputFilter =
-                ResolverUtils.buildFilter(
-                    null, input.getOrFilters(), context.getOperationContext().getAspectRetriever());
+            final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
             final Filter formFilter =
                 SearchUtils.getFormFilter(
                     context.getOperationContext(), input.getFormFilter(), _formService);

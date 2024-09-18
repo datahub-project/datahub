@@ -40,7 +40,7 @@ export const Domains = () => {
                 <Section title="Domains" actionText="view all" onClickAction={navigateToDomains}>
                     <Carousel>
                         {domains.map((domain) => (
-                            <DomainCard key={domain.urn} domain={domain} />
+                            <DomainCard key={domain.entity.urn} domain={domain.entity} assetCount={domain.assetCount} />
                         ))}
                     </Carousel>
                 </Section>

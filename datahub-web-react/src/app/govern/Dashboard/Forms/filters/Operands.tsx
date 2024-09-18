@@ -1,4 +1,4 @@
-import { Property } from '@src/app/automations/Configure/fields/ConditionSelector/properties';
+import { Property } from '@src/app/automations/fields/ConditionSelector/properties';
 import { LogicalPredicate, PropertyPredicate } from '@src/app/tests/builder/steps/definition/builder/types';
 import { isLogicalPredicate } from '@src/app/tests/builder/steps/definition/builder/utils';
 import React from 'react';

@@ -77,7 +77,12 @@ RUN --mount=type=cache,target=/datahub-home/.cache/uv,uid=1000,gid=1000 \
 # Production Image Built From Build Image
 FROM build AS prod-install
 
-FROM prod-install AS dev-install
+# For the production build, we build a wheel file statically.
+# In development mode, we build the file on-the-fly.
+RUN python -m build --wheel . --outdir static/prebuilt-dist/ && \
+    python -m build --wheel ../metadata-ingestion --outdir static/prebuilt-dist/
+
+FROM build AS dev-install
 
 # Dummy stage for development. Assumes most of the code is built on your machine and mounted to this image.
 # The behavior is a bit tricky - we're mounting dev code over the code that was baked into the image

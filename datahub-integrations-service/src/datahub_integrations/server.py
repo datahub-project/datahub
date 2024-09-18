@@ -16,6 +16,7 @@ from datahub_integrations.actions.router import (
 )
 from datahub_integrations.analytics.router import router as analytics_router
 from datahub_integrations.app import STATIC_ASSETS_DIR
+from datahub_integrations.dist import external_router as dist_external_router
 from datahub_integrations.gen_ai.router import router as gen_ai_router
 from datahub_integrations.notifications.router import router as notifications_router
 from datahub_integrations.share.share_router import router as share_router
@@ -23,7 +24,6 @@ from datahub_integrations.slack.slack import SlackLinkPreview, get_slack_link_pr
 from datahub_integrations.slack.slack import private_router as slack_private_router
 from datahub_integrations.slack.slack import public_router as slack_public_router
 from datahub_integrations.slack.slack import reload_slack_credentials
-from datahub_integrations.vercel import external_router as vercel_external_router
 
 app = FastAPI(lifespan=actions_lifespan)
 
@@ -84,7 +84,7 @@ internal_router.include_router(
 )
 internal_router.include_router(share_router, prefix="/share", tags=["Share"])
 
-external_router.include_router(vercel_external_router, tags=["Vercel"])
+external_router.include_router(dist_external_router, tags=["Dist"])
 
 app.include_router(internal_router, prefix="/private")
 

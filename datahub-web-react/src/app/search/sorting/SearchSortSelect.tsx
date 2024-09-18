@@ -2,9 +2,10 @@ import Icon, { CaretDownFilled } from '@ant-design/icons';
 import { Select, Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import useGetSortOptions from '@src/app/searchV2/sorting/useGetSortOptions';
 import SortIcon from '../../../images/sort.svg?react';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { DEFAULT_SORT_OPTION, SORT_OPTIONS } from '../context/constants';
+import { DEFAULT_SORT_OPTION } from '../context/constants';
 import { useSearchContext } from '../context/SearchContext';
 
 const SelectWrapper = styled.span`
@@ -32,8 +33,9 @@ const StyledIcon = styled(Icon)`
 
 export default function SearchSortSelect() {
     const { selectedSortOption, setSelectedSortOption } = useSearchContext();
+    const sortOptions = useGetSortOptions();
 
-    const options = Object.entries(SORT_OPTIONS).map(([value, option]) => ({ value, label: option.label }));
+    const options = Object.entries(sortOptions).map(([value, option]) => ({ value, label: option.label }));
 
     return (
         <Tooltip title="Sort search results" showArrow={false} placement="left">

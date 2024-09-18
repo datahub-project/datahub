@@ -57,13 +57,14 @@ const Count = styled.div`
 
 type Props = {
     domain: Domain;
+    assetCount: number;
 };
 
-export const DomainCard = ({ domain }: Props) => {
+export const DomainCard = ({ domain, assetCount }: Props) => {
     const entityRegistry = useEntityRegistry();
     const name = entityRegistry.getDisplayName(EntityType.Domain, domain);
     const dataProductCount = (domain as any).dataProducts?.total || 0;
-    const contentsCount = (domain as any).entities?.total || 0;
+
     return (
         <HoverEntityTooltip placement="bottom" showArrow={false} entity={domain}>
             <Card key={domain.urn} to={entityRegistry.getEntityUrl(domain.type, domain.urn)}>
@@ -71,7 +72,7 @@ export const DomainCard = ({ domain }: Props) => {
                 <Text>
                     <Name>{name}</Name>
                     <Counts>
-                        <Count>{formatNumber(contentsCount)} assets</Count>
+                        <Count>{formatNumber(assetCount)} assets</Count>
                         <Divider type="vertical" />
                         <Count>{formatNumber(dataProductCount)} data products</Count>
                     </Counts>

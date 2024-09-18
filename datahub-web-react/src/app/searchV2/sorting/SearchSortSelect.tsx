@@ -3,14 +3,18 @@ import { CaretDownFilled } from '@ant-design/icons';
 import { Select, Tooltip } from 'antd';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { DEFAULT_SORT_OPTION, SORT_OPTIONS } from '../context/constants';
+import { DEFAULT_SORT_OPTION } from '../context/constants';
 import { useSearchContext } from '../../search/context/SearchContext';
+import useGetSortOptions from './useGetSortOptions';
 
 const SelectWrapper = styled.span`
     display: inline-flex;
     align-items: center;
     margin-right: 0px;
-
+    && {
+        padding: 0px;
+        margin: 0px;
+    }
     .ant-select-selection-item {
         // !important is necessary because updating Select styles for antd is impossible
         color: ${ANTD_GRAY[8]} !important;
@@ -25,8 +29,8 @@ const SelectWrapper = styled.span`
 
 export default function SearchSortSelect() {
     const { selectedSortOption, setSelectedSortOption } = useSearchContext();
-
-    const options = Object.entries(SORT_OPTIONS).map(([value, option]) => ({ value, label: option.label }));
+    const sortOptions = useGetSortOptions();
+    const options = Object.entries(sortOptions).map(([value, option]) => ({ value, label: option.label }));
 
     return (
         <Tooltip title="Sort search results" showArrow={false} placement="left">

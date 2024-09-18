@@ -1,5 +1,5 @@
-import { colors, typography } from '@src/alchemy-components';
-import { Input, Typography } from 'antd';
+import { colors, Icon, typography } from '@src/alchemy-components';
+import { Collapse, Drawer, Input, Typography } from 'antd';
 import styled from 'styled-components';
 
 export const PageContainer = styled.div`
@@ -130,4 +130,61 @@ export const StyledSearch = styled(Input.Search)`
             }
         }
     }
+`;
+
+export const DrawerHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+`;
+
+export const StyledIcon = styled(Icon)`
+    &:hover {
+        cursor: pointer;
+    }
+`;
+
+export const FooterContainer = styled.div`
+    width: 100%;
+`;
+
+export const RowContainer = styled.div`
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    align-items: center;
+`;
+
+export const FieldLabel = styled(Typography.Text)`
+    font-size: 14px;
+    font-weight: 500;
+    color: ${colors.gray[600]};
+    margin-bottom: 24px;
+`;
+
+export const StyledDrawer = styled(Drawer)`
+    .ant-drawer-body {
+        padding: 16px;
+    }
+`;
+
+export const StyledCollapse = styled(Collapse)`
+    .ant-collapse-header {
+        padding: 0 !important;
+    }
+
+    .ant-collapse-content-box {
+        padding: 12px 0 !important;
+    }
+
+    .ant-collapse-arrow {
+        right: 0 !important;
+    }
+`;
+
+export const CollapseHeader = styled.div`
+    border-top: 1px solid ${colors.gray[1400]};
+    border-bottom: 1px solid ${colors.gray[1400]};
+    padding: 16px 0;
+    margin-left: -16px;
+    width: calc(100% + 32px);
+    padding: 16px;
 `;

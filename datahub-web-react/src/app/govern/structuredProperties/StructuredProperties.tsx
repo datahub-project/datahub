@@ -1,5 +1,8 @@
 import { Button, Text } from '@src/alchemy-components';
+import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { EntityType } from '@src/types.generated';
 import React, { useState } from 'react';
+import StructuredPropsDrawer from './StructuredPropsDrawer';
 import StructuredPropsTable from './StructuredPropsTable';
 import {
     ButtonContainer,
@@ -12,10 +15,25 @@ import {
 
 const StructuredProperties = () => {
     const [searchQuery, setSearchQuery] = useState<string>('');
+    const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
 
     const handleSearch = (value) => {
         setSearchQuery(value);
     };
+
+    const inputs = {
+        types: [EntityType.StructuredProperty],
+        query: '',
+        start: 0,
+        count: 500,
+    };
+
+    // Execute search
+    const { data, loading, refetch } = useGetSearchResultsForMultipleQuery({
+        variables: {
+            input: inputs,
+        },
+    });
 
     return (
         <PageContainer>
@@ -29,7 +47,9 @@ const StructuredProperties = () => {
                     </Text>
                 </HeaderContent>
                 <ButtonContainer>
-                    <Button icon="Add">Create</Button>
+                    <Button icon="Add" onClick={() => setIsDrawerOpen(true)}>
+                        Create
+                    </Button>
                 </ButtonContainer>
             </HeaderContainer>
             <StyledSearch
@@ -40,8 +60,9 @@ const StructuredProperties = () => {
             />
 
             <TableContainer>
-                <StructuredPropsTable searchQuery={searchQuery} />
+                <StructuredPropsTable searchQuery={searchQuery} data={data} loading={loading} />
             </TableContainer>
+            <StructuredPropsDrawer isDrawerOpen={isDrawerOpen} setIsDrawerOpen={setIsDrawerOpen} refetch={refetch} />
         </PageContainer>
     );
 };

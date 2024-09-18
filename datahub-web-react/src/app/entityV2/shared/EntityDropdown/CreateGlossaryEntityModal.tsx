@@ -188,7 +188,12 @@ function CreateGlossaryEntityModal(props: Props) {
                         ]}
                         hasFeedback
                     >
-                        <Input autoFocus value={stagedName} onChange={(event) => setStagedName(event.target.value)} />
+                        <Input
+                            autoFocus
+                            value={stagedName}
+                            placeholder="Provide a name..."
+                            onChange={(event) => setStagedName(event.target.value)}
+                        />
                     </StyledItem>
                 </Form.Item>
                 {canSelectParentUrn && (

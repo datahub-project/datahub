@@ -17,7 +17,7 @@ export const IconWrapper = styled.div`
 
 interface Props {
     numActiveFilters: number;
-    filterIcon: JSX.Element | null;
+    filterIcon?: JSX.Element;
     displayName: string;
     filterPredicate: FilterPredicate;
     onChangeValues: (newValues: FilterValue[]) => void;

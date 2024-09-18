@@ -27,23 +27,26 @@ export function mapStructuredPropertyValues(structuredPropertiesEntry: Structure
 function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
     const structuredPropertyRows: PropertyRow[] = [];
 
-    entityData?.structuredProperties?.properties?.forEach((structuredPropertiesEntry) => {
-        const { displayName, qualifiedName } = structuredPropertiesEntry.structuredProperty.definition;
-        structuredPropertyRows.push({
-            displayName: displayName || qualifiedName,
-            qualifiedName,
-            values: mapStructuredPropertyValues(structuredPropertiesEntry),
-            dataType: structuredPropertiesEntry.structuredProperty.definition.valueType,
-            structuredProperty: structuredPropertiesEntry.structuredProperty,
-            type:
-                structuredPropertiesEntry.values[0] && structuredPropertiesEntry.values[0].__typename
-                    ? {
-                          type: typeNameToType[structuredPropertiesEntry.values[0].__typename].type,
-                          nativeDataType: typeNameToType[structuredPropertiesEntry.values[0].__typename].nativeDataType,
-                      }
-                    : undefined,
+    entityData?.structuredProperties?.properties
+        ?.filter((prop) => prop.structuredProperty.exists)
+        .forEach((structuredPropertiesEntry) => {
+            const { displayName, qualifiedName } = structuredPropertiesEntry.structuredProperty.definition;
+            structuredPropertyRows.push({
+                displayName: displayName || qualifiedName,
+                qualifiedName,
+                values: mapStructuredPropertyValues(structuredPropertiesEntry),
+                dataType: structuredPropertiesEntry.structuredProperty.definition.valueType,
+                structuredProperty: structuredPropertiesEntry.structuredProperty,
+                type:
+                    structuredPropertiesEntry.values[0] && structuredPropertiesEntry.values[0].__typename
+                        ? {
+                              type: typeNameToType[structuredPropertiesEntry.values[0].__typename].type,
+                              nativeDataType:
+                                  typeNameToType[structuredPropertiesEntry.values[0].__typename].nativeDataType,
+                          }
+                        : undefined,
+            });
         });
-    });
 
     return structuredPropertyRows;
 }

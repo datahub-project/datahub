@@ -68,10 +68,7 @@ public class ListIngestionSourcesResolver
                           .withSearchFlags(flags -> flags.setFulltext(true)),
                       Constants.INGESTION_SOURCE_ENTITY_NAME,
                       query,
-                      buildFilter(
-                          filters,
-                          Collections.emptyList(),
-                          context.getOperationContext().getAspectRetriever()),
+                      buildFilter(filters, Collections.emptyList()),
                       null,
                       start,
                       count);
