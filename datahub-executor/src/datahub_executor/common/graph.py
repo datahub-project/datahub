@@ -90,6 +90,7 @@ class DataHubExecutorGraph(DataHubGraph):
         )
         execution_request_id = key_aspect.get("value", {}).get("id")
         execution_request_status = result_aspect.get("value", {}).get("status")
+        report = result_aspect.get("value", {}).get("report", "")
         last_observed = result_aspect.get("systemMetadata", {}).get("lastObserved", 0)
 
         ers = ExecutionRequestStatus.parse_obj(
@@ -99,6 +100,7 @@ class DataHubExecutorGraph(DataHubGraph):
                 "ingestion_source_urn": ingestion_source_urn,
                 "status": execution_request_status,
                 "last_observed": last_observed,
+                "report": report,
             }
         )
         return ers

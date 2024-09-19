@@ -1327,3 +1327,4 @@ class ExecutionRequestStatus(PermissiveBaseModel):
     ingestion_source_urn: str
     status: str
     last_observed: int
+    report: str

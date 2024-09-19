@@ -49,9 +49,10 @@ class SweeperJob:
                     # job either no longer exists or get killed as soon as we mark the job as ABORTED.
 
                     try:
+                        current_time = datetime.datetime.now()
                         self.graph.abort_execution_request(
                             ingestion.execution_request_id,
-                            "Ingestion was aborted due to worker pod eviction, crash, or restart.",
+                            f"{current_time} Ingestion was aborted due to worker pod eviction, crash, or restart.\n\n---\n{ingestion.report}",
                         )
                         self.graph.cancel_ingestion_execution(
                             ingestion.ingestion_source_urn,
