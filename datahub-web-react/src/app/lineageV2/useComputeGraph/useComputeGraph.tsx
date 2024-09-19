@@ -1,6 +1,6 @@
 import { LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV2/common';
 import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV2/NodeBuilder';
-import hideNodes from '@app/lineageV2/useComputeGraph/filterNodes';
+import hideNodes, { HideNodesConfig } from '@app/lineageV2/useComputeGraph/filterNodes';
 import getDisplayedNodes from '@app/lineageV2/useComputeGraph/getDisplayedNodes';
 import getFineGrainedLineage, { FineGrainedLineageData } from '@app/lineageV2/useComputeGraph/getFineGrainedLineage';
 import orderNodes from '@app/lineageV2/useComputeGraph/orderNodes';
@@ -19,8 +19,16 @@ interface ProcessedData {
 
 export default function useComputeGraph(urn: string, type: EntityType): ProcessedData {
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
-    const { nodes, edges, adjacencyList, nodeVersion, dataVersion, displayVersion, hideTransformations } =
-        useContext(LineageNodesContext);
+    const {
+        nodes,
+        edges,
+        adjacencyList,
+        nodeVersion,
+        dataVersion,
+        displayVersion,
+        hideTransformations,
+        showGhostEntities,
+    } = useContext(LineageNodesContext);
     const entityRegistry = useEntityRegistryV2();
     const displayVersionNumber = displayVersion[0];
 
@@ -46,7 +54,11 @@ export default function useComputeGraph(urn: string, type: EntityType): Processe
                 [LineageDirection.Downstream]: orderNodes(urn, LineageDirection.Downstream, smallContext),
             };
 
-            const config = { hideTransformations };
+            const config: HideNodesConfig = {
+                hideTransformations,
+                hideGhostEntities: !showGhostEntities,
+                ignoreSchemaFieldStatus,
+            };
             const newSmallContext = hideNodes(urn, config, smallContext);
             console.debug(newSmallContext);
 
@@ -58,7 +70,19 @@ export default function useComputeGraph(urn: string, type: EntityType): Processe
                 prevHideTransformations !== hideTransformations,
             ];
         }, // eslint-disable-next-line react-hooks/exhaustive-deps
-        [nodes, edges, adjacencyList, nodeVersion, displayVersionNumber, hideTransformations],
+        [
+            urn,
+            type,
+            nodes,
+            edges,
+            adjacencyList,
+            nodeVersion,
+            displayVersionNumber,
+            hideTransformations,
+            prevHideTransformations,
+            showGhostEntities,
+            ignoreSchemaFieldStatus,
+        ],
     );
 
     return { flowNodes, flowEdges, fineGrainedLineage, resetPositions };

@@ -1,6 +1,5 @@
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
-import { EntityType } from '@types';
 import React, { useContext, useEffect, useState } from 'react';
 import { Panel, useReactFlow } from 'reactflow';
 import styled from 'styled-components';
@@ -13,7 +12,7 @@ import {
     VerticalLeftOutlined,
 } from '@ant-design/icons';
 import { Button, Divider } from 'antd';
-import { LineageNodesContext, TRANSITION_DURATION_MS, useIgnoreSchemaFieldStatus } from '../common';
+import { LineageNodesContext, TRANSITION_DURATION_MS } from '../common';
 
 import LineageSearchFilters from './LineageSearchFilters';
 import { StyledPanelButton } from './StyledPanelButton';
@@ -56,15 +55,10 @@ const ControlsColumn = styled.div``;
 
 type PanelType = 'filters' | 'timeRange';
 
-interface Props {
-    entityType: EntityType;
-}
-
-export default function LineageControls({ entityType }: Props) {
+export default function LineageControls() {
     const { rootUrn, hideTransformations, showGhostEntities } = useContext(LineageNodesContext);
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
     const { isDefault: isLineageTimeUnchanged } = useGetLineageTimeParams();
-    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const { fitView } = useReactFlow();
 
     const [isExpanded, setIsExpanded] = useState(false);
@@ -82,9 +76,6 @@ export default function LineageControls({ entityType }: Props) {
         }, TRANSITION_DURATION_MS);
         return () => clearTimeout(timeout);
     }, [isExpanded]);
-
-    const showGhostEntityToggle = entityType === EntityType.SchemaField ? !ignoreSchemaFieldStatus : true;
-    const ghostEntityToggleChanged = showGhostEntityToggle && showGhostEntities;
 
     return (
         <StyledPanel position="top-left">
@@ -113,8 +104,7 @@ export default function LineageControls({ entityType }: Props) {
                     >
                         <FilterOutlined
                             style={{
-                                color:
-                                    hideTransformations || ghostEntityToggleChanged ? REDESIGN_COLORS.BLUE : undefined,
+                                color: hideTransformations || showGhostEntities ? REDESIGN_COLORS.BLUE : undefined,
                             }}
                         />
                         {showExpandedText ? 'Filter' : null}
@@ -143,7 +133,7 @@ export default function LineageControls({ entityType }: Props) {
                     </StyledExpandContractButton>
                 )}
             </ControlsColumn>
-            {visiblePanel === 'filters' && <LineageSearchFilters showGhostEntityToggle={showGhostEntityToggle} />}
+            {visiblePanel === 'filters' && <LineageSearchFilters />}
             {visiblePanel === 'timeRange' && <LineageTimeRangeControls />}
         </StyledPanel>
     );

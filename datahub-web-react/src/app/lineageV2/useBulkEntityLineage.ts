@@ -93,7 +93,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
             endTimeMillis,
             separateSiblings: true,
             showColumns: true,
-            includeGhostEntities: showGhostEntities,
+            includeGhostEntities: showGhostEntities || (rootType === EntityType.SchemaField && ignoreSchemaFieldStatus),
         },
     });
 

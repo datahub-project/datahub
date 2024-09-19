@@ -36,10 +36,7 @@ export default function LineageExplorer(props: Props) {
     const [displayVersion, setDisplayVersion] = useState<[number, string[]]>([0, []]);
     const [hideTransformations, setHideTransformations] = useShouldHideTransformations();
 
-    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
-    const [showGhostEntities, setShowGhostEntities] = useState(
-        type === EntityType.SchemaField ? ignoreSchemaFieldStatus : false,
-    );
+    const [showGhostEntities, setShowGhostEntities] = useState(false);
 
     const context = {
         rootUrn: urn,
@@ -83,8 +80,10 @@ export default function LineageExplorer(props: Props) {
 function useInitializeNodes(context: NodeContext, urn: string, type: EntityType): boolean {
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
     const { nodes, adjacencyList, edges, setNodeVersion, setDisplayVersion, showGhostEntities } = context;
+    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
 
     useEffect(() => {
+        // Reset graph if home node or time range changes
         nodes.clear();
         adjacencyList[LineageDirection.Upstream].clear();
         adjacencyList[LineageDirection.Downstream].clear();
@@ -95,15 +94,18 @@ function useInitializeNodes(context: NodeContext, urn: string, type: EntityType)
     }, [urn, type, startTimeMillis, endTimeMillis, nodes, adjacencyList, edges, setNodeVersion, setDisplayVersion]);
 
     useEffect(() => {
-        adjacencyList[LineageDirection.Upstream].clear();
-        adjacencyList[LineageDirection.Downstream].clear();
-        edges.clear();
-        nodes.forEach((node) => {
-            // eslint-disable-next-line no-param-reassign
-            node.entity = undefined;
-        });
-        setDisplayVersion([0, []]);
-    }, [nodes, adjacencyList, edges, showGhostEntities, setDisplayVersion]);
+        // Reset edges if showGhostEntities changes. Not necessary if on schema field page and ignoring status
+        if (!(type === EntityType.SchemaField && ignoreSchemaFieldStatus)) {
+            adjacencyList[LineageDirection.Upstream].clear();
+            adjacencyList[LineageDirection.Downstream].clear();
+            edges.clear();
+            nodes.forEach((node) => {
+                // eslint-disable-next-line no-param-reassign
+                node.entity = undefined;
+            });
+            setDisplayVersion([0, []]);
+        }
+    }, [showGhostEntities, ignoreSchemaFieldStatus, type, nodes, adjacencyList, edges, setDisplayVersion]);
 
     const { processed: upstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Upstream);
     const { processed: downstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Downstream);

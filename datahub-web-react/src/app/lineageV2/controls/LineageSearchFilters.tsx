@@ -33,11 +33,7 @@ const PopoverWrapper = styled.div`
 
 const StyledSwitch = styled(Switch)``;
 
-interface Props {
-    showGhostEntityToggle: boolean;
-}
-
-export default function LineageSearchFilters({ showGhostEntityToggle }: Props) {
+export default function LineageSearchFilters() {
     const {
         nodes,
         rootUrn,
@@ -78,23 +74,21 @@ export default function LineageSearchFilters({ showGhostEntityToggle }: Props) {
                     />
                 </Tooltip>
             </ToggleWrapper>
-            {showGhostEntityToggle && (
-                <ToggleWrapper>
-                    <span>
-                        <ToggleLabel>
-                            Show Hidden Edges
-                            <StyledInfoPopover
-                                content={
-                                    <PopoverWrapper>
-                                        Show assets that have been deleted or do not exist in DataHub
-                                    </PopoverWrapper>
-                                }
-                            />
-                        </ToggleLabel>
-                    </span>
-                    <StyledSwitch size="small" checked={showGhostEntities} onChange={setShowGhostEntities} />
-                </ToggleWrapper>
-            )}
+            <ToggleWrapper>
+                <span>
+                    <ToggleLabel>
+                        Show Hidden Edges
+                        <StyledInfoPopover
+                            content={
+                                <PopoverWrapper>
+                                    Show assets that have been deleted or do not exist in DataHub
+                                </PopoverWrapper>
+                            }
+                        />
+                    </ToggleLabel>
+                </span>
+                <StyledSwitch size="small" checked={showGhostEntities} onChange={setShowGhostEntities} />
+            </ToggleWrapper>
         </ControlPanel>
     );
 }

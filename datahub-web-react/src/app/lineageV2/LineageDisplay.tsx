@@ -90,7 +90,7 @@ export default function LineageDisplay({ urn, type, initialized }: Props) {
                 refetchUrn,
             }}
         >
-            <LineageVisualization entityType={type} initialNodes={flowNodes} initialEdges={flowEdges} />
+            <LineageVisualization initialNodes={flowNodes} initialEdges={flowEdges} />
             <LineageSidebar />
         </LineageDisplayContext.Provider>
     );
