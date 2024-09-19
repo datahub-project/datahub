@@ -74,8 +74,7 @@ const Community = () => {
               </div>
             </div>
             <p>
-              Q&A.&emsp;Office Hours.&emsp; Monthly Town Hall.&emsp; Job
-              Postings.
+              Q&A.&nbsp;&nbsp;Office Hours.&nbsp;&nbsp;Think Tanks.&nbsp;&nbsp;Job Postings.
             </p>
             <a href="/slack">Join Slack</a>
           </div>

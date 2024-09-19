@@ -3,7 +3,7 @@ import styles from "./trial.module.scss";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import Link from "@docusaurus/Link";
 
-const Trial = () => {
+const Trial = ({onOpenTourModal}) => {
   return (
     <div className={styles.container}>
       <div className={styles.trial}>
@@ -15,7 +15,10 @@ const Trial = () => {
             </p>
             <div className={styles.btn_div}>
               <Link to="/cloud">Book a Demo</Link>
-              <Link to="https://www.acryldata.io/tour">Product Tour</Link>
+              <a
+                // to="https://www.acryldata.io/tour"
+                onClick={onOpenTourModal}
+              >Product Tour</a>
             </div>
             <Link className={styles.start_arrow} to="/docs">Get started with Core →</Link>
           </div>
