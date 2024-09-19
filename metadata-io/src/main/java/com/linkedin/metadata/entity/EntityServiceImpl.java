@@ -85,6 +85,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
+import jakarta.persistence.EntityNotFoundException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
@@ -111,7 +112,6 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.persistence.EntityNotFoundException;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -1041,6 +1041,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             inputBatch,
             DEFAULT_MAX_TRANSACTION_RETRY)
         .stream()
+        .filter(Objects::nonNull)
         .flatMap(List::stream)
         .collect(Collectors.toList());
   }

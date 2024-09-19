@@ -72,9 +72,7 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                       UrnUtils.getUrn(input.getViewUrn()))
                   : null;
 
-          final Filter baseFilter =
-              ResolverUtils.buildFilter(
-                  null, input.getOrFilters(), context.getOperationContext().getAspectRetriever());
+          final Filter baseFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
           final SearchFlags searchFlags;
           com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
           if (inputFlags != null) {

@@ -154,7 +154,7 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
         default_factory=LossyList
     )
 
-    in_manifest_but_missing_catalog: LossyList[str] = field(default_factory=LossyList)
+    nodes_filtered: LossyList[str] = field(default_factory=LossyList)
 
 
 class EmitDirective(ConfigEnum):
@@ -528,6 +528,7 @@ class DBTNode:
     materialization: Optional[str]  # table, view, ephemeral, incremental, snapshot
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
     catalog_type: Optional[str]
+    missing_from_catalog: bool  # indicates if the node was missing from the catalog.json
 
     owner: Optional[str]
 
@@ -853,6 +854,9 @@ def get_column_type(
             TypeClass = resolve_postgres_modified_type(column_type)
         elif dbt_adapter == "vertica":
             TypeClass = resolve_vertica_modified_type(column_type)
+        elif dbt_adapter == "snowflake":
+            # Snowflake types are uppercase, so we check that.
+            TypeClass = _field_type_mapping.get(column_type.upper())
 
     # if still not found, report the warning
     if TypeClass is None:
@@ -1034,6 +1038,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             key = node.dbt_name
 
             if not self.config.node_name_pattern.allowed(key):
+                self.report.nodes_filtered.append(key)
                 continue
 
             nodes.append(node)
