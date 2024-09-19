@@ -6,7 +6,7 @@ import { DeleteOutlined, DownOutlined, PlusOutlined } from '@ant-design/icons';
 
 const StyledDropdownButton = styled(Dropdown.Button)`
     position: absolute;
-    right: -2px;
+    right: 2px;
     top: 50%;
     transform: translateY(-50%);
     .ant-btn {

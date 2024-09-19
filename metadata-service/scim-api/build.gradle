@@ -1,5 +1,6 @@
 plugins {
     id 'java-library'
+    id 'io.ebean' version "${ebeanVersion}" // Use the latest version from global build.gradle
 }
 
 group = 'io.datahubproject.openapi.scim'
@@ -82,15 +83,6 @@ dependencies {
 
 }
 
-project.compileJava {
-    doLast {
-        ant.taskdef(name: 'ebean', classname: 'io.ebean.enhance.ant.AntEnhanceTask',
-            classpath: project(':metadata-io').configurations.enhance.asPath)
-        ant.ebean(classSource: ebeanEntities, packages: 'com.linkedin.metadata.entity.ebean',
-            transformArgs: 'debug=1')
-    }
-}
-
 tasks.withType(Test) {
     enableAssertions = false
 }
@@ -102,4 +94,8 @@ test {
     classpath += files(externalDirectory)
 
     useJUnitPlatform()
+}
+
+ebean {
+    debugLevel = 1 // 0 - 9
 }

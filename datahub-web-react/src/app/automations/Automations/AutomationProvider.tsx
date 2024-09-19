@@ -1,4 +1,5 @@
-import React, { useContext, useState, ReactNode } from 'react';
+import React, { useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import _ from 'lodash';
 
 import {
     useCreateActionPipelineMutation,
@@ -7,9 +8,8 @@ import {
 } from '@graphql/actionPipeline.generated';
 
 import { AutomationTypes } from '@app/automations/constants';
-import { FormDataType } from '@app/automations/types';
-
 import { useAutomationsContext } from './AutomationsProvider';
+import { updateFormData } from './utils/updateFormData';
 
 export interface AutomationContextType {
     // Data from the parent
@@ -22,7 +22,7 @@ export interface AutomationContextType {
     localTemplate?: any;
 
     // Locally Set Data
-    formData?: FormDataType;
+    formData?: any;
     setFormData?: (data: any) => void;
     recipe?: any;
     setRecipe?: (data: any) => void;
@@ -39,18 +39,7 @@ export const AutomationContext = React.createContext<AutomationContextType>({
     description: undefined,
     localTemplate: {},
     definition: {},
-    formData: {
-        tagsAndTerms: { terms: [], tags: [], nodes: [] }, // This seems weird to me. Why have such a specific field here?
-        tagPropagationEnabled: true,
-        termPropagationEnabled: true,
-        connection: undefined,
-        conditions: [],
-        actions: [],
-        source: [],
-        name: undefined,
-        description: undefined,
-        category: undefined,
-    },
+    formData: {},
     setFormData: () => {},
     recipe: {},
     setRecipe: () => {},
@@ -75,21 +64,25 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
     const { refetchAutomations } = useAutomationsContext();
 
     // This is the form data that will be updated
-    const [formData, setFormData] = useState<FormDataType>({
-        tagsAndTerms: { terms: [], nodes: [], tags: [] },
-        tagPropagationEnabled: true,
-        termPropagationEnabled: true,
-        conditions: [],
-        actions: [],
-        source: [],
-        connection: undefined,
-        name: context?.name,
-        description: context?.description,
-        category: context?.category,
-    });
+    const [formData, setFormData] = useState<any>({});
 
     // This is the recipe that will be updated
     const [recipe, setRecipe] = useState<any>(context?.definition || {});
+
+    // Function to update formData based on recipe
+    const updateFormDataFromRecipe = useCallback(() => {
+        setFormData((prevFormData) => {
+            const data = updateFormData(recipe, prevFormData);
+            return data;
+        });
+    }, [recipe]);
+
+    // Update the form data when the recipe changes
+    useEffect(() => {
+        if (!_.isEmpty(recipe)) {
+            updateFormDataFromRecipe();
+        }
+    }, [recipe, updateFormDataFromRecipe]);
 
     // Create Automation Function
     const createAutomation = (type: AutomationTypes) => {

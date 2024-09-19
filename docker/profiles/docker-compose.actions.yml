@@ -1,7 +1,7 @@
 
 x-datahub-actions-service: &datahub-actions-service
   hostname: actions
-  image: ${DATAHUB_ACTIONS_IMAGE:-${DATAHUB_ACTIONS_REPO:-acryldata}/datahub-actions}:${ACTIONS_VERSION:-v0.0.14}
+  image: ${DATAHUB_ACTIONS_IMAGE:-${DATAHUB_ACTIONS_REPO:-acryldata}/datahub-actions}:${ACTIONS_VERSION:-v0.1.1}
   env_file:
     - datahub-actions/env/docker.env
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}

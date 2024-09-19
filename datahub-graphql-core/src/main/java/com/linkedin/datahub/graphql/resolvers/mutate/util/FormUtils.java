@@ -41,7 +41,6 @@ import com.linkedin.form.OwnershipParams;
 import com.linkedin.form.PromptCardinality;
 import com.linkedin.form.StructuredPropertyParams;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -89,16 +88,13 @@ public class FormUtils {
   /** Map a GraphQL CreateDynamicFormAssignmentInput to the GMS DynamicFormAssignment aspect */
   @Nonnull
   public static DynamicFormAssignment mapDynamicFormAssignment(
-      @Nonnull final CreateDynamicFormAssignmentInput input,
-      @Nullable AspectRetriever aspectRetriever) {
+      @Nonnull final CreateDynamicFormAssignmentInput input) {
     Objects.requireNonNull(input, "input must not be null");
 
     final DynamicFormAssignment result = new DynamicFormAssignment();
     final Filter filter =
         new Filter()
-            .setOr(
-                ResolverUtils.buildConjunctiveCriterionArrayWithOr(
-                    input.getOrFilters(), aspectRetriever));
+            .setOr(ResolverUtils.buildConjunctiveCriterionArrayWithOr(input.getOrFilters()));
     result.setFilter(filter);
     return result;
   }
@@ -288,7 +284,7 @@ public class FormUtils {
           new Filter()
               .setOr(
                   ResolverUtils.buildConjunctiveCriterionArrayWithOr(
-                      formAssetAssignmentInput.getOrFilters(), context.getAspectRetriever()));
+                      formAssetAssignmentInput.getOrFilters()));
       dynamicFormAssignment.setFilter(filter);
     }
     if (formAssetAssignmentInput.getJson() != null) {
@@ -497,9 +493,7 @@ public class FormUtils {
       FormService formService,
       List<AndFilterInput> orFilters,
       FormFilter formFilter) {
-    final Filter inputFilter =
-        ResolverUtils.buildFilter(
-            null, orFilters, context.getOperationContext().getAspectRetriever());
+    final Filter inputFilter = ResolverUtils.buildFilter(null, orFilters);
     final Filter finalFormFilter =
         SearchUtils.getFormFilter(context.getOperationContext(), formFilter, formService);
     return finalFormFilter != null

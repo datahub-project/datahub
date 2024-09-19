@@ -1215,6 +1215,11 @@ type FeatureFlagsConfig {
   schemaFieldLineageIgnoreStatus: Boolean!
 
   """
+  Enables showing sort by row count, query count, update count, size in bytes.
+  """
+  showDatasetFeaturesSearchSortOptions: Boolean!
+
+  """
   If turned on, show the manage structured properties tab in the govern dropdown
   """
   showManageStructuredProperties: Boolean!

@@ -16,7 +16,7 @@ const applyAdvancedSearchFilter = (filterType, value) => {
 
 const createTerm = (glossaryTerm) => {
   cy.clickOptionWithText("CypressNode");
-  cy.clickOptionWithText("Add Glossary Term");
+  cy.clickOptionWithTestId("add-term-button");
   cy.waitTextVisible("Create Glossary Term");
   cy.enterTextInTestId("create-glossary-entity-modal-name", glossaryTerm);
   cy.clickOptionWithTestId("glossary-entity-modal-create-button");

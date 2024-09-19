@@ -71,10 +71,7 @@ public class ListAccessTokensResolver
                           .withSearchFlags(flags -> flags.setFulltext(true)),
                       Constants.ACCESS_TOKEN_ENTITY_NAME,
                       "",
-                      buildFilter(
-                          filters,
-                          Collections.emptyList(),
-                          context.getOperationContext().getAspectRetriever()),
+                      buildFilter(filters, Collections.emptyList()),
                       sortCriteria,
                       start,
                       count);

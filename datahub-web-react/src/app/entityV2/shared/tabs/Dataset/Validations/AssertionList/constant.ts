@@ -29,7 +29,7 @@ export const ASSERTION_DEFAULT_RAW_DATA: AssertionTable = {
     filterOptions: {},
     totalCount: 0,
     filteredCount: 0,
-    searchCount: 0,
+    searchMatchesCount: 0,
 };
 
 export const ASSERTION_SOURCES = [

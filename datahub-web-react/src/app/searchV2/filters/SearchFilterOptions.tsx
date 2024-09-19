@@ -5,7 +5,7 @@ import { SlidersOutlined } from '@ant-design/icons';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
 import { ORIGIN_FILTER_NAME, UnionType } from '../utils/constants';
-import { FILTERS_TO_REMOVE, SORTED_FILTERS } from './constants';
+import { FILTERS_TO_REMOVE, NON_FACET_FILTER_FIELDS, SORTED_FILTERS } from './constants';
 import MoreFilters from './MoreFilters';
 import SaveViewButton from './SaveViewButton';
 import SearchFilter from './SearchFilter';
@@ -52,7 +52,7 @@ export const FilterButtonsWrapper = styled.div`
 
 interface Props {
     loading: boolean;
-    availableFilters: FacetMetadata[] | null;
+    availableFilters: FacetMetadata[];
     activeFilters: FacetFilterInput[];
     unionType: UnionType;
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
@@ -72,9 +72,23 @@ export default function SearchFilterOptions({
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
     const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
 
+    let filterSet = availableFilters;
+    if (filterSet.length) {
+        // Include non-facet filters and remove any duplicates in filterSet
+        const nonFacetFilters = NON_FACET_FILTER_FIELDS.map(
+            ({ field, displayName }): FacetMetadata => ({
+                field,
+                displayName,
+                aggregations: [],
+            }),
+        );
+        const nonFacetFilterKeys = new Set(nonFacetFilters.map((f) => f.field));
+        filterSet = [...filterSet.filter((f) => !nonFacetFilterKeys.has(f.field)), ...nonFacetFilters];
+    }
+
     // These are the filter options that originate in the backend
     // They are shown to the user by default.
-    const dynamicFilterOptions = availableFilters
+    const dynamicFilterOptions = filterSet
         ?.filter((f) => (f.field === ORIGIN_FILTER_NAME ? f.aggregations.length >= 2 : true)) // only want Environment filter if there's 2 or more envs
         .filter((f) => !FILTERS_TO_REMOVE.includes(f.field))
         .filter((f) => {

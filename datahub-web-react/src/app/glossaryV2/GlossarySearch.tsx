@@ -1,7 +1,8 @@
+import { LoadingOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
+import { useGetAutoCompleteMultipleResultsQuery } from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
 import { IconStyleType } from '../entityV2/Entity';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
@@ -28,12 +29,20 @@ const ResultsWrapper = styled.div`
     z-index: 1;
 `;
 
+const LoadingWrapper = styled.div`
+    display: flex;
+    justify-content: center;
+    padding: 4px 0;
+    font-size: 16px;
+`;
+
 const SearchResult = styled(Link)`
     color: ${ANTD_GRAY[11]};
     display: inline-block;
     height: 100%;
     padding: 6px 8px;
     width: 100%;
+
     &:hover {
         background-color: ${ANTD_GRAY[3]};
         color: ${ANTD_GRAY[11]};
@@ -49,19 +58,18 @@ function GlossarySearch() {
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const entityRegistry = useEntityRegistry();
 
-    const { data } = useGetSearchResultsForMultipleQuery({
+    const { data, loading } = useGetAutoCompleteMultipleResultsQuery({
         variables: {
             input: {
                 types: [EntityType.GlossaryTerm, EntityType.GlossaryNode],
                 query,
-                start: 0,
-                count: 50,
+                limit: 50,
             },
         },
         skip: !query,
     });
 
-    const searchResults = data?.searchAcrossEntities?.searchResults;
+    const searchResults = data?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities);
 
     return (
         <GlossarySearchWrapper>
@@ -85,21 +93,27 @@ function GlossarySearch() {
                     entityRegistry={entityRegistry}
                     onFocus={() => setIsSearchBarFocused(true)}
                 />
-                {isSearchBarFocused && searchResults && !!searchResults.length && (
+                {isSearchBarFocused && (loading || !!searchResults?.length) && (
                     <ResultsWrapper>
-                        {searchResults.map((result) => {
-                            return (
-                                <SearchResult
-                                    to={`${entityRegistry.getEntityUrl(result.entity.type, result.entity.urn)}`}
-                                    onClick={() => setIsSearchBarFocused(false)}
-                                >
-                                    <IconWrapper>
-                                        {entityRegistry.getIcon(result.entity.type, 12, IconStyleType.ACCENT)}
-                                    </IconWrapper>
-                                    {entityRegistry.getDisplayName(result.entity.type, result.entity)}
-                                </SearchResult>
-                            );
-                        })}
+                        {loading && (
+                            <LoadingWrapper>
+                                <LoadingOutlined />
+                            </LoadingWrapper>
+                        )}
+                        {!loading &&
+                            searchResults?.map((result) => {
+                                return (
+                                    <SearchResult
+                                        to={`${entityRegistry.getEntityUrl(result.type, result.urn)}`}
+                                        onClick={() => setIsSearchBarFocused(false)}
+                                    >
+                                        <IconWrapper>
+                                            {entityRegistry.getIcon(result.type, 12, IconStyleType.ACCENT)}
+                                        </IconWrapper>
+                                        {entityRegistry.getDisplayName(result.type, result)}
+                                    </SearchResult>
+                                );
+                            })}
                     </ResultsWrapper>
                 )}
             </ClickOutside>

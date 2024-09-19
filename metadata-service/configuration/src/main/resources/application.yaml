@@ -562,6 +562,7 @@ featureFlags:
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
   showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false} # If turned on, the bulk form by question view will be shown by default from the task center
+  showDatasetFeaturesSearchSortOptions: ${SHOW_DATASET_FEATURES_SEARCH_SORT_OPTIONS:false} # Enables showing sort by row count, query count, update count, size in bytes.
   showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:false} # If turned on, show the manage structured properties button on the govern dropdown
 
 entityChangeEvents:

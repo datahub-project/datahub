@@ -1,3 +1,5 @@
+import { LAST_MODIFIED_FILTER } from '@app/searchV2/filters/field/fields';
+import { FilterField } from '@app/searchV2/filters/types';
 import { EntityType } from '../../../types.generated';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
@@ -8,6 +10,7 @@ import {
     ENTITY_INDEX_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
+    LAST_MODIFIED_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     OWNERS_FILTER_NAME,
@@ -24,6 +27,7 @@ export const SORTED_FILTERS = [
     GLOSSARY_TERMS_FILTER_NAME,
     TAGS_FILTER_NAME,
     DOMAINS_FILTER_NAME,
+    LAST_MODIFIED_FILTER_NAME,
     CONTAINER_FILTER_NAME,
 ];
 
@@ -48,3 +52,6 @@ export const FILTERS_TO_REMOVE = [
 
 // filters that should not be shown in the active filters section
 export const EXCLUDED_ACTIVE_FILTERS = [BROWSE_PATH_V2_FILTER_NAME];
+
+// Filters not based on facets
+export const NON_FACET_FILTER_FIELDS: FilterField[] = [LAST_MODIFIED_FILTER];

@@ -1972,6 +1972,11 @@ export const recommendationModules = [
                 entity: {
                     ...dataset2,
                 },
+                params: {
+                    contentParams: {
+                        count: 1,
+                    },
+                },
             },
         ],
     },
@@ -2010,6 +2015,11 @@ export const recommendationModules = [
                 entity: {
                     urn: 'urn:li:tag:TestTag',
                     name: 'TestTag',
+                },
+                params: {
+                    contentParams: {
+                        count: 1,
+                    },
                 },
             },
         ],

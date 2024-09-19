@@ -1,15 +1,4 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
-import {
-    BookOutlined,
-    CloseCircleOutlined,
-    DatabaseOutlined,
-    FileOutlined,
-    FolderFilled,
-    FolderOutlined,
-    TagOutlined,
-    UserOutlined,
-    WarningOutlined,
-} from '@ant-design/icons';
+import { FolderFilled } from '@ant-design/icons';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 import {
@@ -21,6 +10,7 @@ import {
     EntityType,
     FacetFilterInput,
     FacetMetadata,
+    FilterOperator,
     GlossaryTerm,
     Tag,
 } from '../../../types.generated';
@@ -35,8 +25,6 @@ import {
     ENTITY_SUB_TYPE_FILTER_NAME,
     FILTER_DELIMITER,
     GLOSSARY_TERMS_FILTER_NAME,
-    HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    HAS_FAILING_ASSERTIONS_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
     OWNERS_FILTER_NAME,
     PLATFORM_FILTER_NAME,
@@ -52,13 +40,13 @@ import {
     PROPOSED_SCHEMA_TAGS_FILTER_NAME,
     PROPOSED_GLOSSARY_TERMS_FILTER_NAME,
     PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME,
+    LAST_MODIFIED_FILTER_NAME,
 } from '../utils/constants';
 import { EntityRegistry } from '../../../entityRegistryContext';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import DomainsIcon from '../../../images/domain.svg?react';
 import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.generated';
 import { FACETS_TO_ENTITY_TYPES } from './constants';
-import { FieldType, FilterOperatorType, FilterOptionType, FilterPredicate } from './types';
+import { FieldType, FilterField, FilterOperatorType, FilterOptionType, FilterPredicate } from './types';
 import { capitalizeFirstLetterOnly, forcePluralize, pluralizeIfIrregular } from '../../shared/textUtil';
 import { convertBackendToFrontendOperatorType } from './operator/operator';
 import { ALL_FILTER_FIELDS } from './field/fields';
@@ -68,22 +56,26 @@ import { DomainColoredIcon } from '../../entityV2/shared/links/DomainColoredIcon
 import { TagColor } from './FilterOption';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
-export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {
-    let newFilters = activeFilters;
+export function getNewFilters(
+    filterField: string,
+    activeFilters: FacetFilterInput[],
+    selectedFilterValues: string[],
+): FacetFilterInput[] {
     if (activeFilters.find((activeFilter) => activeFilter.field === filterField)) {
-        newFilters = activeFilters
+        return activeFilters
             .map((f) => (f.field === filterField ? { ...f, values: selectedFilterValues } : f))
             .filter((f) => !(f.values?.length === 0));
-    } else {
-        newFilters = [
-            ...activeFilters,
-            {
-                field: filterField,
-                values: selectedFilterValues,
-            },
-        ].filter((f) => !(f.values?.length === 0));
     }
-    return newFilters;
+
+    return [
+        ...activeFilters,
+        {
+            field: filterField,
+            values: selectedFilterValues,
+            // TODO: Define on filter field instead
+            condition: filterField === LAST_MODIFIED_FILTER_NAME ? FilterOperator.GreaterThan : undefined,
+        },
+    ].filter((f) => !(f.values?.length === 0));
 }
 
 export function isFilterOptionSelected(selectedFilterOptions: FilterOptionType[], filterValue: string) {
@@ -293,31 +285,7 @@ export function sortFacets(facetA: FacetMetadata, facetB: FacetMetadata, sortedF
 }
 
 export function getFilterDropdownIcon(field: string) {
-    switch (field) {
-        case PLATFORM_FILTER_NAME:
-            return <DatabaseOutlined />;
-        case ENTITY_FILTER_NAME:
-            return <FileOutlined />;
-        case TYPE_NAMES_FILTER_NAME:
-        case ENTITY_SUB_TYPE_FILTER_NAME:
-            return <FileOutlined />;
-        case GLOSSARY_TERMS_FILTER_NAME:
-            return <BookOutlined />;
-        case TAGS_FILTER_NAME:
-            return <TagOutlined />;
-        case OWNERS_FILTER_NAME:
-            return <UserOutlined />;
-        case CONTAINER_FILTER_NAME:
-            return <FolderOutlined />;
-        case DOMAINS_FILTER_NAME:
-            return <Icon component={DomainsIcon} />;
-        case HAS_ACTIVE_INCIDENTS_FILTER_NAME:
-            return <WarningOutlined />;
-        case HAS_FAILING_ASSERTIONS_FILTER_NAME:
-            return <CloseCircleOutlined />;
-        default:
-            return null;
-    }
+    return ALL_FILTER_FIELDS.find((filterField) => filterField.field === field)?.icon;
 }
 
 // maps aggregations and auto complete results to FilterOptionType[] and adds selected filter options if not already there
@@ -469,11 +437,11 @@ const getFilterEntityTypes = (field: string, aggregationMetadata?: AggregationMe
     return [];
 };
 
-function getKnownFilterField(field: string) {
+function getKnownFilterField(field: string): FilterField | undefined {
     return ALL_FILTER_FIELDS.find((filterField) => filterField.field === field);
 }
 
-function getDynamicFilterField(field: string, availableFilters: FacetMetadata[]) {
+function getDynamicFilterField(field: string, availableFilters: FacetMetadata[]): FilterField {
     const filterDisplayName = availableFilters?.find((availableFilter) => availableFilter.field === field)?.displayName;
     const filterAggregations = availableFilters?.find(
         (availableFilter) => availableFilter.field === field,

@@ -1,5 +1,15 @@
+import { ComponentType } from 'react';
 import { Test } from '@src/types.generated';
 import { AutomationTypes } from './constants';
+
+/**
+ * Component Base Type (props)
+ */
+export type ComponentBaseProps = {
+    state: any;
+    passStateToParent: (newState: any) => void;
+    props: any;
+};
 
 /**
  * Type used to standardize the list of automations regardless of if their a Test or Action.
@@ -16,25 +26,6 @@ export interface ListAutomationItem {
     created: Date;
 }
 
-export type TagsAndTermsSelected = {
-    terms: string[];
-    tags: string[];
-    nodes: string[];
-};
-
-export type FormDataType = {
-    tagsAndTerms: TagsAndTermsSelected;
-    termPropagationEnabled: boolean;
-    tagPropagationEnabled: boolean;
-    connection: Connection | undefined;
-    conditions: string[];
-    actions: string[];
-    category: string | undefined;
-    source: string[];
-    name: string | undefined;
-    description: string | undefined;
-};
-
 export type Connection = {
     urn: string;
     data: {
@@ -50,20 +41,32 @@ export type Connection = {
     };
 };
 
-export type FieldDetail = {
+export enum RequirementRule {
+    NOT_EMPTY_STRING = 'notEmptyString',
+    NOT_EMPTY_ARRAY = 'notEmptyArray',
+    NOT_EMPTY_OBJECT = 'notEmptyObject',
+    NOT_EMPTY_NUMBER = 'notEmptyNumber',
+    NOT_NULL = 'notNull',
+}
+
+export interface Field<T = any> {
     title: string;
-    description: string;
-    fields: any[];
-    tooltip?: string;
-    config?: any;
-};
+    description?: string;
+    tooltop?: string;
+    fields: Array<{
+        // Instead of 'type' being a string, it's now a React component
+        component?: ComponentType<T>;
 
-export type Field = {
-    type: string;
-    isRequired: boolean;
-};
+        // Props specific to the component, can be of any type
+        props?: any;
 
-export type Fields = Record<string, FieldDetail>;
+        // State mapping to connect form data to the component's state
+        state?: Record<string, any>;
+
+        isRequired?: boolean;
+        requiredRules?: RequirementRule[];
+    }>;
+}
 
 export type AutomationTemplate = {
     key: string;
@@ -72,8 +75,7 @@ export type AutomationTemplate = {
     name: string;
     description: string;
     logo: string;
-    fields: FieldDetail[];
-    requiredFields: string[];
+    fields: Field[];
     baseRecipe: any;
     isDisabled: boolean;
 };

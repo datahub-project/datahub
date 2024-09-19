@@ -242,6 +242,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setHideDbtSourceInLineage(_featureFlags.isHideDbtSourceInLineage())
             .setShowBulkFormByDefault(_featureFlags.isShowBulkFormByDefault())
             .setSchemaFieldLineageIgnoreStatus(_featureFlags.isSchemaFieldLineageIgnoreStatus())
+            .setShowDatasetFeaturesSearchSortOptions(
+                _featureFlags.isShowDatasetFeaturesSearchSortOptions())
             .setShowManageStructuredProperties(_featureFlags.isShowManageStructuredProperties())
             .build();
 

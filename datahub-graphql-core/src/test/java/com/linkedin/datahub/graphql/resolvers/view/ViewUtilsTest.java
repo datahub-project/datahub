@@ -154,8 +154,7 @@ public class ViewUtilsTest {
                                                         new StringArray(
                                                             ImmutableList.of("value1", "value2")))
                                                     .setValue("value1") // Disgraceful
-                                                    .setField(
-                                                        "test1.keyword") // Consider whether we
+                                                    .setField("test1") // Consider whether we
                                                     // should NOT go through
                                                     // the keyword mapping.
                                                     .setCondition(Condition.IN),
@@ -165,8 +164,7 @@ public class ViewUtilsTest {
                                                         new StringArray(
                                                             ImmutableList.of("value3", "value4")))
                                                     .setValue("value3") // Disgraceful
-                                                    .setField(
-                                                        "test2.keyword") // Consider whether we
+                                                    .setField("test2") // Consider whether we
                                                     // should NOT go through
                                                     // the keyword mapping.
                                                     .setCondition(Condition.CONTAIN))))))));

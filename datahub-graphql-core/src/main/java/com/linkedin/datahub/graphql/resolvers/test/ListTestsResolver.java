@@ -65,10 +65,7 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
             final String query = input.getQuery() == null ? "" : input.getQuery();
             final Filter filter =
                 input.getOrFilters() != null
-                    ? ResolverUtils.buildFilter(
-                        null,
-                        input.getOrFilters(),
-                        context.getOperationContext().getAspectRetriever())
+                    ? ResolverUtils.buildFilter(null, input.getOrFilters())
                     : buildTestsFilter();
 
             try {

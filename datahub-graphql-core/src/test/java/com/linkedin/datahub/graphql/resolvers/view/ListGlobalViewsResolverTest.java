@@ -56,7 +56,7 @@ public class ListGlobalViewsResolverTest {
                                             new CriterionArray(
                                                 ImmutableList.of(
                                                     new Criterion()
-                                                        .setField("type.keyword")
+                                                        .setField("type")
                                                         .setValue(DataHubViewType.GLOBAL.toString())
                                                         .setValues(
                                                             new StringArray(

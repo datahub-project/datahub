@@ -661,7 +661,7 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
 };
 
 // create column id group from column assertions
-const getColumnIdGroupFromColumnAssertions = (assertions: Assertion[]): AssertionColumnGroup[] => {
+const groupColumnAssertions = (assertions: Assertion[]): AssertionColumnGroup[] => {
     const columnIdGroups: AssertionColumnGroup[] = [];
     const columnIdToAssertionMap = new Map<string, Assertion[]>();
     assertions.forEach((assertion: Assertion) => {
@@ -692,11 +692,12 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
     assertionRawData.assertions = mapAssertionData(filteredAssertions);
     const assertionsByType = createAssertionGroups(filteredAssertions);
     assertionRawData.groupBy.type = getAssertionGroupsByDisplayOrder(assertionsByType);
-    let columnTypeAssertions: any = [];
-    (assertionRawData.groupBy.type || []).forEach((item) => {
-        if (item.type === AssertionType.Field) {
-            columnTypeAssertions = [...item.assertions];
-        }
+
+    // separate out column assertion list for filter
+    const columnTypeAssertions =
+        assertionRawData.groupBy.type?.find((item) => item.type === AssertionType.Field)?.assertions || [];
+
+    assertionRawData.groupBy.type?.forEach((item) => {
         const transformedData = mapAssertionData(item.assertions);
         // eslint-disable-next-line  no-param-reassign
         item.assertions = transformedData;
@@ -704,7 +705,7 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
         item.groupName = <AssertionGroupHeader group={item} />;
     });
     assertionRawData.groupBy.status = generateAssertionGroupByStatus(filteredAssertions);
-    const columnsGroup = getColumnIdGroupFromColumnAssertions(columnTypeAssertions);
+    const columnsGroup = groupColumnAssertions(columnTypeAssertions);
     assertionRawData.groupBy.column = columnsGroup;
     assertionRawData.filterOptions = extractFilterOptionListFromAssertions(filteredAssertions);
     return assertionRawData;
@@ -759,12 +760,12 @@ export const getFilteredTransformedAssertionData = (
     // Apply search filter if searchText is provided
     let filteredAssertions = assertionsWithDescription;
     const { searchText } = filter.filterCriteria;
-    let searchCount = 0;
+    let searchMatchesCount = 0;
     if (searchText) {
         fuse.setCollection(assertionsWithDescription || []);
         const result = fuse.search(searchText);
         filteredAssertions = result.map((match) => match.item as AssertionWithDescription);
-        searchCount = filteredAssertions.length;
+        searchMatchesCount = filteredAssertions.length;
     }
 
     // Apply type, status, and other filters
@@ -773,7 +774,7 @@ export const getFilteredTransformedAssertionData = (
     // Transform filtered assertions
     const assertionRawData = assignFilteredAssertionToGroup(filteredAssertions);
     assertionRawData.totalCount = assertions.length;
-    assertionRawData.searchCount = searchCount;
+    assertionRawData.searchMatchesCount = searchMatchesCount;
     assertionRawData.filteredCount = getFilteredAssertions(assertionsWithDescription, filter).length;
     assertionRawData.originalFilterOptions = extractFilterOptionListFromAssertions(assertions);
     return assertionRawData;

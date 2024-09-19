@@ -129,10 +129,7 @@ public class ScrollAcrossLineageResolver
                     entityNames,
                     sanitizedQuery,
                     maxHops,
-                    ResolverUtils.buildFilter(
-                        facetFilters,
-                        input.getOrFilters(),
-                        context.getOperationContext().getAspectRetriever()),
+                    ResolverUtils.buildFilter(facetFilters, input.getOrFilters()),
                     null,
                     scrollId,
                     keepAlive,

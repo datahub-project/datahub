@@ -1,8 +1,28 @@
+import _ from 'lodash';
+
 import { jsonToYaml } from '@app/ingest/source/utils';
 
 import { AUTOMATION_CATEGORY_NAME_TO_INFO, DEFAULT_AUTOMATION_CATEGORY } from '@app/automations/constants';
 import type { AutomationTemplate } from '@app/automations/types';
-import { automationTemplates } from '@app/automations/automationTemplates';
+import { templates } from '@app/automations/recipes';
+
+// Function to flatten nested data using Lodash
+// This will only flatten one level of nesting
+export const flattenObject = (obj: Record<string, any>): Record<string, any> => {
+    return _.transform(
+        obj,
+        (result, value, key) => {
+            if (_.isPlainObject(value)) {
+                _.assign(result, value);
+            } else {
+                const newResult = { ...result };
+                newResult[key] = value;
+                Object.assign(result, newResult);
+            }
+        },
+        {} as Record<string, any>,
+    );
+};
 
 export const titleCase = (input: string) => {
     return input
@@ -17,13 +37,15 @@ export const truncateString = (str: string, maxLength: number) => {
 };
 
 // Util to safely parse JSON
-export const parseJSON = (jsonString: string) => {
-    try {
-        const json = JSON.parse(jsonString);
-        return json;
-    } catch (e) {
-        return {};
+export const parseJSON = (value: string): any => {
+    if (typeof value === 'string') {
+        try {
+            return JSON.parse(value);
+        } catch (error) {
+            return value; // If parsing fails, return the original string
+        }
     }
+    return value;
 };
 
 export const simplifyDataForListView = (data: any) =>
@@ -54,17 +76,17 @@ export const getYaml = (recipe: any) => {
 };
 
 // Get the steps for the automation type
-export const getFields = (key: string) => automationTemplates.filter((automation) => automation.key === key)[0]?.fields;
+export const getFields = (key: string) => templates.filter((automation) => automation.key === key)[0]?.fields;
 
 // Get the data of the automation type
 export const getAutomationData = (key: string) => {
-    const automation = automationTemplates.filter((auto) => auto.key === key);
+    const automation = templates.filter((auto) => auto.key === key);
     return automation ? automation[0] : undefined;
 };
 
 // Get the automation template
 export const getTemplate = (type: string): AutomationTemplate | undefined => {
-    const template = automationTemplates.filter((auto) => auto.baseRecipe?.action?.type === type);
+    const template = templates.filter((auto) => auto.baseRecipe?.action?.type === type);
     return template[0] || undefined;
 };
 

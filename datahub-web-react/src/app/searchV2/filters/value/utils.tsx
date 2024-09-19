@@ -7,7 +7,7 @@ import { EntityType } from '../../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { FILTER_DELIMITER } from '../../utils/constants';
-import { FieldType, FilterField, FilterOperatorType, FilterValueOption } from '../types';
+import { EntityFilterField, FieldType, FilterField, FilterOperatorType, FilterValueOption } from '../types';
 import { filterOptionsWithSearch } from '../utils';
 
 const MAX_AGGREGATION_COUNT = 40;
@@ -71,7 +71,7 @@ export const useLoadAggregationOptions = (field: FilterField, visible: boolean, 
  * Hook used to load autocomplete / search options when a user types into a selector dropdown
  * search bar.
  */
-export const useLoadSearchOptions = (field: FilterField, query?: string, skip?: boolean) => {
+export const useLoadSearchOptions = (field: EntityFilterField, query?: string, skip?: boolean) => {
     const { data, loading } = useGetAutoCompleteMultipleResultsQuery({
         skip: skip || !query,
         variables: {

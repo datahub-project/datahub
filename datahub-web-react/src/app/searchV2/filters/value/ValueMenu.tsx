@@ -1,4 +1,5 @@
 /* eslint-disable import/no-cycle */
+import TimeBucketMenu from '@app/searchV2/filters/value/TimeBucketMenu';
 import React, { useEffect, useRef, useState } from 'react';
 import { FilterField, FilterValueOption, FilterValue, FieldType } from '../types';
 import TextValueMenu from './TextValueMenu';
@@ -126,10 +127,21 @@ export default function ValueMenu({
                     onApply={() => onChangeValues(stagedSelectedValues)}
                 />
             );
+        case FieldType.BUCKETED_TIMESTAMP:
+            return (
+                <TimeBucketMenu
+                    field={field}
+                    values={stagedSelectedValues}
+                    type={type}
+                    className={className}
+                    onChangeValues={setStagedSelectedValues}
+                    onApply={() => onChangeValues(stagedSelectedValues)}
+                />
+            );
         case FieldType.BROWSE_PATH:
             return <></>;
         default:
-            console.error(`Unknown field type: ${field.type}`);
+            console.error(`Unknown field type: ${field}`);
             return null;
     }
 }

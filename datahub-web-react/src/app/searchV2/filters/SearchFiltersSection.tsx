@@ -41,18 +41,16 @@ export default function SearchFiltersSection({
     }, [availableFilters, loading, finalAvailableFilters]);
 
     return (
-        <span>
-            <Section id={SEARCH_RESULTS_FILTERS_V2_INTRO} data-testid="search-filters-v2">
-                <SearchFilters
-                    loading={loading}
-                    availableFilters={finalAvailableFilters}
-                    activeFilters={activeFilters}
-                    unionType={unionType}
-                    onChangeFilters={onChangeFilters}
-                    onChangeUnionType={onChangeUnionType}
-                    onClearFilters={onClearFilters}
-                />
-            </Section>
-        </span>
+        <Section id={SEARCH_RESULTS_FILTERS_V2_INTRO} data-testid="search-filters-v2">
+            <SearchFilters
+                loading={loading}
+                availableFilters={finalAvailableFilters}
+                activeFilters={activeFilters}
+                unionType={unionType}
+                onChangeFilters={onChangeFilters}
+                onChangeUnionType={onChangeUnionType}
+                onClearFilters={onClearFilters}
+            />
+        </Section>
     );
 }

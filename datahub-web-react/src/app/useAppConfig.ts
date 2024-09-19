@@ -42,3 +42,8 @@ export function useIsDocumentationFormsEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.documentationFormsEnabled;
 }
+
+export function useIsDatasetFeaturesSearchSortEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showDatasetFeaturesSearchSortOptions;
+}

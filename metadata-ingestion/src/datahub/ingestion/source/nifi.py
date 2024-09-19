@@ -638,7 +638,12 @@ class NifiSource(Source):
         )
         nifi_version: Optional[str] = None
         if about_response.ok:
-            nifi_version = about_response.json().get("about", {}).get("version")
+            try:
+                nifi_version = about_response.json().get("about", {}).get("version")
+            except Exception as e:
+                logger.error(
+                    f"Unable to parse about response from Nifi: {about_response} due to {e}"
+                )
         else:
             logger.warning("Failed to fetch version for nifi")
         cluster_response = self.session.get(

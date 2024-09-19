@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { SEARCH_COLORS } from '../../entityV2/shared/constants';
 
 const StyledButton = styled(Button)`
-    font-size: 10px;
+    font-size: 8px;
     padding-left: 12px;
     padding-right: 12px;
     background-color: ${SEARCH_COLORS.TITLE_PURPLE};
