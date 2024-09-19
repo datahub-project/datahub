@@ -222,7 +222,7 @@ project.ext.externalDependency = [
     'playServer': "com.typesafe.play:play-server_2.12:$playVersion",
     'playTest': "com.typesafe.play:play-test_2.12:$playVersion",
     'playFilters': "com.typesafe.play:filters-helpers_2.12:$playVersion",
-    'pac4j': 'org.pac4j:pac4j-oidc:4.5.7',
+    'pac4j': 'org.pac4j:pac4j-oidc:4.5.8',
     'playPac4j': 'org.pac4j:play-pac4j_2.12:9.0.2',
     'postgresql': 'org.postgresql:postgresql:42.3.9',
     'protobuf': 'com.google.protobuf:protobuf-java:3.19.6',
