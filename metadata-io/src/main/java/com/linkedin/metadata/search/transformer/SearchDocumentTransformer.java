@@ -395,7 +395,7 @@ public class SearchDocumentTransformer {
         }
         return value.isEmpty()
             ? Optional.empty()
-            : Optional.of(JsonNodeFactory.instance.textNode(fieldValue.toString()));
+            : Optional.of(JsonNodeFactory.instance.textNode(value.toString()));
     }
   }
 
