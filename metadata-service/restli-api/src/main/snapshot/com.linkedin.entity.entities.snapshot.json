@@ -5478,9 +5478,10 @@
                                     "type" : "enum",
                                     "name" : "PolicyMatchCondition",
                                     "doc" : "The matching condition in a filter criterion",
-                                    "symbols" : [ "EQUALS" ],
+                                    "symbols" : [ "EQUALS", "STARTS_WITH" ],
                                     "symbolDocs" : {
-                                      "EQUALS" : "Whether the field matches the value"
+                                      "EQUALS" : "Whether the field matches the value",
+                                      "STARTS_WITH" : "Whether the field value starts with the value"
                                     }
                                   },
                                   "doc" : "The condition for the criterion",
