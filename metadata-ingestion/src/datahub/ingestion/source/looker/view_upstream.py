@@ -154,6 +154,7 @@ def _generate_fully_qualified_name(
     sql_table_name: str,
     connection_def: LookerConnectionDefinition,
     reporter: LookMLSourceReport,
+    view_name: str,
 ) -> str:
     """Returns a fully qualified dataset name, resolved through a connection definition.
     Input sql_table_name can be in three forms: table, db.table, db.schema.table"""
@@ -192,7 +193,7 @@ def _generate_fully_qualified_name(
     reporter.report_warning(
         title="Malformed Table Name",
         message="Table name has more than 3 parts.",
-        context=f"Table Name: {sql_table_name}",
+        context=f"view-name: {view_name}, table-name: {sql_table_name}",
     )
     return sql_table_name.lower()
 
@@ -530,6 +531,7 @@ class RegularViewUpstream(AbstractViewUpstream):
             sql_table_name=self.view_context.datahub_transformed_sql_table_name(),
             connection_def=self.view_context.view_connection,
             reporter=self.view_context.reporter,
+            view_name=self.view_context.name(),
         )
 
         self.upstream_dataset_urn = make_dataset_urn_with_platform_instance(
@@ -586,6 +588,7 @@ class DotSqlTableNameViewUpstream(AbstractViewUpstream):
                 self.view_context.datahub_transformed_sql_table_name(),
                 self.view_context.view_connection,
                 self.view_context.reporter,
+                self.view_context.name(),
             ),
             base_folder_path=self.view_context.base_folder_path,
             looker_view_id_cache=self.looker_view_id_cache,
