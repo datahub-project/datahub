@@ -34,6 +34,11 @@ const StyledColumnTag = styled.div`
 
 /**
  * A human-readable description of a Field Assertion.
+ * @param showColumnTag decide whether to show column tag or not
+ * e.g.
+ * consider user selected field -> profileId, operator -> greater than, parameters-> 5
+ * if @param showColumnTag is true then description will be -> column values are greater than 5
+ * if @param showColumnTag is false then description will be -> profileId is greater than 5
  */
 export const FieldAssertionDescription = ({ assertionInfo, showColumnTag }: Props) => {
     const field = getFieldDescription(assertionInfo);
