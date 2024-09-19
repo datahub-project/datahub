@@ -1,4 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
+import { combineSiblingsInSearchResults } from '@src/app/searchV2/utils/combineSiblingsInSearchResults';
 import { Pagination, Spin, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -182,6 +184,12 @@ export const EmbeddedListSearchResults = ({
     view,
     errorMessage,
 }: Props) => {
+    const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const combinedSiblingSearchResults = combineSiblingsInSearchResults(
+        showSeparateSiblings,
+        searchResponse?.searchResults,
+    );
+
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
@@ -233,9 +241,9 @@ export const EmbeddedListSearchResults = ({
                     {!loading && (
                         <EntitySearchResults
                             noResultsMessage={errorMessage}
-                            searchResults={searchResponse?.searchResults || []}
+                            searchResults={combinedSiblingSearchResults || []}
                             additionalPropertiesList={
-                                searchResponse?.searchResults?.map((searchResult) => ({
+                                combinedSiblingSearchResults?.map((searchResult) => ({
                                     // when we add impact analysis, we will want to pipe the path to each element to the result this
                                     // eslint-disable-next-line @typescript-eslint/dot-notation
                                     degree: searchResult['degree'], // eslint-disable-next-line @typescript-eslint/dot-notation

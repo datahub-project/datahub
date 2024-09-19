@@ -1,3 +1,5 @@
+import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
+import { combineSiblingsInSearchResults } from '@src/app/search/utils/combineSiblingsInSearchResults';
 import React from 'react';
 import { Button, Pagination, Spin, Typography } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
@@ -129,6 +131,12 @@ export const EmbeddedListSearchResults = ({
     onLineageClick,
     isLineageTab = false,
 }: Props) => {
+    const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const combinedSiblingSearchResults = combineSiblingsInSearchResults(
+        showSeparateSiblings,
+        searchResponse?.searchResults,
+    );
+
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
@@ -169,9 +177,9 @@ export const EmbeddedListSearchResults = ({
                     )}
                     {!loading && !isServerOverloadError && (
                         <EntitySearchResults
-                            searchResults={searchResponse?.searchResults || []}
+                            searchResults={combinedSiblingSearchResults || []}
                             additionalPropertiesList={
-                                searchResponse?.searchResults?.map((searchResult) => ({
+                                combinedSiblingSearchResults?.map((searchResult) => ({
                                     // when we add impact analysis, we will want to pipe the path to each element to the result this
                                     // eslint-disable-next-line @typescript-eslint/dot-notation
                                     degree: searchResult['degree'],
