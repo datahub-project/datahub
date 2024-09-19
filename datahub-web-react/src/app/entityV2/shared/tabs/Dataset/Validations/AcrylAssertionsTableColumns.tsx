@@ -100,7 +100,11 @@ export function DetailsColumn({
                     <AssertionResultDot run={lastEvaluation} disabled={disabled} size={18} />
                 </Result>
             </AssertionResultPopover>
-            <AssertionDescription assertion={assertion} monitor={monitor} />
+            <AssertionDescription
+                assertion={assertion}
+                monitor={monitor}
+                options={{ hideSecondaryLabel: true, showColumnTag: true }}
+            />
             {isSmartAssertionStale ? (
                 <Tooltip
                     title={

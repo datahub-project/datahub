@@ -40,7 +40,10 @@ import {
     tryGetMismatchedTypeFields,
 } from './resultExtractionUtils';
 import { getCronAsText } from '../../../../acrylUtils';
-import { ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX, ASSERTION_OPERATOR_TO_DESCRIPTION } from './constants';
+import {
+    ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX,
+    GET_ASSERTION_OPERATOR_TO_DESCRIPTION_MAP,
+} from './constants';
 import { lowerFirstLetter } from '../../../../../../../../../shared/textUtil';
 import { getFieldMetricTypeReadableLabel } from '../../../../fieldDescriptionUtils';
 import { toReadableLocalDateTimeString } from '../../shared/utils';
@@ -347,6 +350,7 @@ const getFormattedExpectedResultTextForValueAssertion = (
     if (message) {
         return message;
     }
+    const ASSERTION_OPERATOR_TO_DESCRIPTION = GET_ASSERTION_OPERATOR_TO_DESCRIPTION_MAP({ isPlural: false });
 
     // 2. Handle cases where there is a more explicit expectation (ie. 'contains XYZ', 'is equal to 5')
     if (totalsInfo?.operator && ASSERTION_OPERATOR_TO_DESCRIPTION[totalsInfo.operator]) {

@@ -300,7 +300,7 @@ export const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAsse
  */
 export const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo) => {
     const field = getFieldDescription(assertionInfo);
-    const operator = getFieldOperatorDescription(assertionInfo);
+    const operator = getFieldOperatorDescription({ assertionInfo, isPlural: true });
     const transform = getFieldTransformDescription(assertionInfo);
     const parameters = getFieldParametersDescription(assertionInfo);
     return `${transform} ${transform ? ' of ' : ''}${field} ${operator} ${parameters}`;

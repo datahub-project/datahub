@@ -8,7 +8,7 @@ import {
 } from '../../../../../../types.generated';
 import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
 import { parseMaybeStringAsFloatOrDefault } from '../../../../../shared/numberUtil';
-import { ASSERTION_OPERATOR_TO_DESCRIPTION } from './assertion/profile/summary/shared/constants';
+import { GET_ASSERTION_OPERATOR_TO_DESCRIPTION_MAP } from './assertion/profile/summary/shared/constants';
 
 const SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION = [
     AssertionStdOperator.EqualTo,
@@ -27,7 +27,9 @@ const SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION = [
     AssertionStdOperator.IsTrue,
     AssertionStdOperator.IsFalse,
 ];
-const getAssertionStdOperator = (operator: AssertionStdOperator) => {
+const getAssertionStdOperator = ({ operator, isPlural }: { operator: AssertionStdOperator; isPlural?: boolean }) => {
+    const ASSERTION_OPERATOR_TO_DESCRIPTION = GET_ASSERTION_OPERATOR_TO_DESCRIPTION_MAP({ isPlural });
+
     if (!ASSERTION_OPERATOR_TO_DESCRIPTION[operator] || !SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION.includes(operator)) {
         throw new Error(`Unknown operator ${operator}`);
     }
@@ -112,15 +114,21 @@ export const getFieldDescription = (assertionInfo: FieldAssertionInfo) => {
     }
 };
 
-export const getFieldOperatorDescription = (assertionInfo: FieldAssertionInfo) => {
+export const getFieldOperatorDescription = ({
+    assertionInfo,
+    isPlural,
+}: {
+    assertionInfo: FieldAssertionInfo;
+    isPlural?: boolean;
+}) => {
     const { type, fieldValuesAssertion, fieldMetricAssertion } = assertionInfo;
     switch (type) {
         case FieldAssertionType.FieldValues:
             if (!fieldValuesAssertion?.operator) return '';
-            return getAssertionStdOperator(fieldValuesAssertion.operator);
+            return getAssertionStdOperator({ operator: fieldValuesAssertion.operator, isPlural });
         case FieldAssertionType.FieldMetric:
             if (!fieldMetricAssertion?.operator) return '';
-            return getAssertionStdOperator(fieldMetricAssertion.operator);
+            return getAssertionStdOperator({ operator: fieldMetricAssertion.operator, isPlural });
         default:
             throw new Error(`Unknown field assertion type ${type}`);
     }

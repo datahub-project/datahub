@@ -5,12 +5,8 @@ import styled from 'styled-components';
 import { Tooltip, Typography } from 'antd';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { AssertionSourceType, EntityType, DataContract, AssertionType } from '@src/types.generated';
-import {
-    REDESIGN_COLORS,
-    SMART_ASSERTION_STALE_IN_DAYS,
-    UNKNOWN_DATA_PLATFORM,
-} from '@src/app/entityV2/shared/constants';
+import { AssertionSourceType, EntityType, DataContract } from '@src/types.generated';
+import { SMART_ASSERTION_STALE_IN_DAYS, UNKNOWN_DATA_PLATFORM } from '@src/app/entityV2/shared/constants';
 import { InferredAssertionPopover } from '../InferredAssertionPopover';
 import { InferredAssertionBadge } from '../InferredAssertionBadge';
 import { AssertionResultPopover } from '../assertion/profile/shared/result/AssertionResultPopover';
@@ -54,24 +50,6 @@ const StyledAssertionName = styled(Typography.Paragraph)`
     margin-bottom: 0 !important;
 `;
 
-const StyledColumnId = styled.div`
-    align-items: center;
-    background-color: ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
-    width: fit-content;
-    border-radius: 12px;
-    height: 24px;
-    display: flex;
-    text-align: center;
-    justify-content: center;
-    padding: 0px 8px;
-`;
-
-const StyledName = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-`;
-
 type Props = {
     record: AssertionListTableRow;
     groupBy: string;
@@ -86,7 +64,9 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
     const monitorSchedule = monitor?.info?.assertionMonitor?.assertions.find(
         (assrn) => assrn.assertion.urn === assertion.urn,
     )?.schedule;
-    const { primaryLabel } = useBuildAssertionDescriptionLabels(record?.assertion?.info, monitorSchedule);
+    const { primaryLabel } = useBuildAssertionDescriptionLabels(record?.assertion?.info, monitorSchedule, {
+        showColumnTag: true,
+    });
     let name = primaryLabel;
 
     // if it is group header then just display group name instead of other fields
@@ -104,13 +84,6 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
         : undefined;
     const isSmartAssertionStale =
         isSmartAssertion && smartAssertionAgeDays && smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS;
-    let columnId;
-    if (record.type === AssertionType.Field) {
-        const field = (
-            assertionInfo?.fieldAssertion?.fieldMetricAssertion || assertionInfo?.fieldAssertion?.fieldValuesAssertion
-        )?.field;
-        columnId = field?.path;
-    }
 
     return (
         <StyledAssertionNameContainer>
@@ -129,11 +102,7 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
 
             {/* ******** Assertion description ******** */}
             <AssertionDescriptionContainer>
-                <StyledName>
-                    <StyledAssertionName>{name}</StyledAssertionName>
-                    {record.type === AssertionType.Field && <StyledColumnId>{columnId}</StyledColumnId>}
-                </StyledName>
-
+                <StyledAssertionName>{name}</StyledAssertionName>
                 {/* ****render external Icon if the assertion is external**** */}
                 {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
                     <AssertionPlatformWrapper>

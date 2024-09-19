@@ -34,9 +34,10 @@ import { ANTD_GRAY_V2 } from '../../../../../../constants';
 const useBuildPrimaryLabel = (
     assertionInfo?: Maybe<AssertionInfo>,
     monitorSchedule?: Maybe<CronSchedule>,
+    options?: { showColumnTag?: boolean },
 ): JSX.Element => {
     let primaryLabel = <Typography.Text>No description found</Typography.Text>;
-    if (assertionInfo?.description) {
+    if (assertionInfo?.description && assertionInfo?.type !== AssertionType.Field) {
         primaryLabel = <Typography.Text>{assertionInfo.description}</Typography.Text>;
     } else {
         switch (assertionInfo?.type) {
@@ -65,7 +66,10 @@ const useBuildPrimaryLabel = (
                 break;
             case AssertionType.Field:
                 primaryLabel = (
-                    <FieldAssertionDescription assertionInfo={assertionInfo.fieldAssertion as FieldAssertionInfo} />
+                    <FieldAssertionDescription
+                        assertionInfo={assertionInfo.fieldAssertion as FieldAssertionInfo}
+                        showColumnTag={options?.showColumnTag}
+                    />
                 );
                 break;
             case AssertionType.DataSchema:
@@ -169,7 +173,7 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
                 </>
             }
         >
-            <Typography.Text style={{ color: ANTD_GRAY_V2['6'], marginLeft: 12, fontSize: 12 }}>
+            <Typography.Text style={{ color: ANTD_GRAY_V2['6'], fontSize: 12 }}>
                 {secondaryLabelMessage}
             </Typography.Text>
         </Tooltip>
@@ -179,12 +183,13 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
 export const useBuildAssertionDescriptionLabels = (
     assertionInfo?: Maybe<AssertionInfo>,
     monitorSchedule?: Maybe<CronSchedule>,
+    options?: { showColumnTag?: boolean },
 ): {
     primaryLabel: JSX.Element;
     secondaryLabel: JSX.Element | null;
 } => {
     // ------- Primary label with assertion description ------ //
-    const primaryLabel = useBuildPrimaryLabel(assertionInfo, monitorSchedule);
+    const primaryLabel = useBuildPrimaryLabel(assertionInfo, monitorSchedule, options);
 
     // ----------- Try displaying secondary label showing creator/updater context ------------ //
     const secondaryLabel = useBuildSecondaryLabel(assertionInfo);
