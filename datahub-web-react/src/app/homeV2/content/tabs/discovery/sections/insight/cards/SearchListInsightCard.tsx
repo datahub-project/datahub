@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { Tooltip } from 'antd';
 import { InsightCard } from '../shared/InsightCard';
@@ -52,7 +52,7 @@ const ShowAll = styled.div`
 `;
 
 type Props = {
-    id?: string;
+    id: string;
     title: React.ReactNode;
     icon?: React.ReactNode;
     tip?: React.ReactNode;
@@ -64,18 +64,27 @@ type Props = {
 };
 
 export const SearchListInsightCard = ({ id, title, icon, tip, query, types, filters, sort, empty }: Props) => {
+    const [loaded, setLoaded] = useState(false);
     const { localState } = useUserContext();
     const { selectedViewUrn } = localState;
     const { assets, loading } = useGetSearchAssets(types, query, filters, sort, selectedViewUrn);
     const [showModal, setShowModal] = useState(false);
     const { isUserInitializing } = useContext(OnboardingContext);
 
+    useEffect(() => {
+        if (!loading && assets && !loaded) {
+            setLoaded(true);
+        }
+    }, [loaded, loading, assets, setLoaded]);
+
     // Register the insight module with parent component.
-    useRegisterInsight(title, !!assets?.length);
+    const isPresent = useMemo(() => (loaded ? !!assets?.length : undefined), [assets, loaded]);
+    useRegisterInsight(id, isPresent);
 
     if (loading || isUserInitializing) {
         return <InsightCardSkeleton />;
     }
+
     if (!assets.length) {
         return null;
     }

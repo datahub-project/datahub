@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useMemo } from 'react';
 import styled from 'styled-components';
 import { useUserContext } from '../../../../../../context/useUserContext';
 import { HOME_PAGE_INSIGHTS_ID } from '../../../../../../onboarding/config/HomePageOnboardingConfig';
@@ -11,14 +11,14 @@ import { HorizontalListSkeletons } from '../../../../HorizontalListSkeletons';
 import { Section } from '../Section';
 import { INSIGHT_CARD_MIN_WIDTH } from './cards/SearchListInsightCard';
 import { InsightStatusProvider } from './InsightStatusProvider';
-import { MostFrequentlyUpdated } from './cards/MostFrequentlyUpdated';
-import { MostQueriedCard } from './cards/MostQueriedCard';
-import { MostRowsCard } from './cards/MostRowsCard';
-import { MostUsersCard } from './cards/MostUsersCard';
-import { MostViewedDashboardsCard } from './cards/MostViewedDashboards';
-import { PopularGlossaryTerms } from './cards/PopularGlossaryTerms';
-import { RecentlyCreatedDatasetsCard } from './cards/RecentlyCreatedDatasetsCard';
-import { RecentlyUpdatedDatasetsCard } from './cards/RecentlyUpdatedDatasetsCard';
+import { MOST_FREQUENTLY_UPDATED_ID, MostFrequentlyUpdated } from './cards/MostFrequentlyUpdated';
+import { MOST_QUERIED_ID, MostQueriedCard } from './cards/MostQueriedCard';
+import { MOST_ROWS_ID, MostRowsCard } from './cards/MostRowsCard';
+import { MOST_USERS_ID, MostUsersCard } from './cards/MostUsersCard';
+import { MOST_VIEWED_DASHBOARDS_ID, MostViewedDashboardsCard } from './cards/MostViewedDashboards';
+import { POPULAR_GLOSSARY_TERMS_ID, PopularGlossaryTerms } from './cards/PopularGlossaryTerms';
+import { RECENTLY_CREATED_DATASETS_ID, RecentlyCreatedDatasetsCard } from './cards/RecentlyCreatedDatasetsCard';
+import { RECENTLY_UPDATED_ID, RecentlyUpdatedDatasetsCard } from './cards/RecentlyUpdatedDatasetsCard';
 import InsightCardSkeleton from './shared/InsightCardSkeleton';
 
 const GAP_PX = 12;
@@ -31,7 +31,7 @@ type InsightSection = {
 
 const ALL_INSIGHTS: InsightSection[] = [
     {
-        id: 'MostUsers',
+        id: MOST_USERS_ID,
         component: MostUsersCard,
         personas: [
             PersonaType.TECHNICAL_USER,
@@ -41,7 +41,7 @@ const ALL_INSIGHTS: InsightSection[] = [
         ],
     },
     {
-        id: 'MostViewedDashboards',
+        id: MOST_VIEWED_DASHBOARDS_ID,
         component: MostViewedDashboardsCard,
         personas: [
             PersonaType.BUSINESS_USER,
@@ -52,7 +52,7 @@ const ALL_INSIGHTS: InsightSection[] = [
         ],
     },
     {
-        id: 'Popular Glossary Terms',
+        id: POPULAR_GLOSSARY_TERMS_ID,
         component: PopularGlossaryTerms,
         personas: [
             PersonaType.TECHNICAL_USER,
@@ -63,7 +63,7 @@ const ALL_INSIGHTS: InsightSection[] = [
         ],
     },
     {
-        id: 'MostQueried',
+        id: MOST_QUERIED_ID,
         component: MostQueriedCard,
         personas: [
             PersonaType.BUSINESS_USER,
@@ -74,7 +74,7 @@ const ALL_INSIGHTS: InsightSection[] = [
         ],
     },
     {
-        id: 'MostFrequentlyUpdated',
+        id: MOST_FREQUENTLY_UPDATED_ID,
         component: MostFrequentlyUpdated,
         personas: [
             PersonaType.TECHNICAL_USER,
@@ -84,17 +84,17 @@ const ALL_INSIGHTS: InsightSection[] = [
         ],
     },
     {
-        id: 'RecentlyUpdatedDatasets',
+        id: RECENTLY_UPDATED_ID,
         component: RecentlyUpdatedDatasetsCard,
         personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_ENGINEER],
     },
     {
-        id: 'RecentlyCreatedDatasets',
+        id: RECENTLY_CREATED_DATASETS_ID,
         component: RecentlyCreatedDatasetsCard,
         personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_ENGINEER],
     },
     {
-        id: 'MostRows',
+        id: MOST_ROWS_ID,
         component: MostRowsCard,
         personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_ENGINEER],
     },
@@ -110,8 +110,9 @@ export const Insights = () => {
     const { loaded } = useUserContext();
     const { isUserInitializing } = useContext(OnboardingContext);
     const currentUserPersona = useUserPersona();
-    const filteredInsights = ALL_INSIGHTS.filter(
-        (section) => !section.personas || section.personas.includes(currentUserPersona),
+    const filteredInsights = useMemo(
+        () => ALL_INSIGHTS.filter((section) => !section.personas || section.personas.includes(currentUserPersona)),
+        [currentUserPersona],
     );
 
     if (!loaded || isUserInitializing) {
@@ -119,8 +120,9 @@ export const Insights = () => {
     }
 
     if (!filteredInsights.length) return null;
+
     return (
-        <InsightStatusProvider>
+        <InsightStatusProvider displayedInsightIds={filteredInsights.map((insight) => insight.id)}>
             <div id={HOME_PAGE_INSIGHTS_ID}>
                 <Section title="For you">
                     <StyledCarousel scrollDistance={INSIGHT_CARD_MIN_WIDTH + GAP_PX}>

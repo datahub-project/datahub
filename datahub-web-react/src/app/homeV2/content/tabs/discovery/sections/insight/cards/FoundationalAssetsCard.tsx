@@ -1,5 +1,4 @@
 import React from 'react';
-import { TrophyTwoTone } from '@ant-design/icons';
 import { buildFoundationalAssetsFilters, buildFoundationalAssetsSort } from './useGetFoundationalAssets';
 import { SearchListInsightCard } from './SearchListInsightCard';
 import { ASSET_ENTITY_TYPES } from '../../../../../../../searchV2/utils/constants';
@@ -7,10 +6,10 @@ import { ASSET_ENTITY_TYPES } from '../../../../../../../searchV2/utils/constant
 export const FoundationalAssetsCard = () => {
     return (
         <SearchListInsightCard
+            id="FoundationalAssets"
             types={[...ASSET_ENTITY_TYPES] as any}
             title="Foundational Assets"
             tip="Key data assets for your organization based popularity, freshness, and impact"
-            icon={<TrophyTwoTone twoToneColor="orange" />}
             filters={buildFoundationalAssetsFilters()}
             sort={buildFoundationalAssetsSort()}
         />

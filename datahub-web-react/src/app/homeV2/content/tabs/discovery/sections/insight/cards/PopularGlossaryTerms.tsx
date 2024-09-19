@@ -1,11 +1,10 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 
 import { Tooltip } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { PageRoutes } from '../../../../../../../../conf/Global';
 import { useListRecommendationsQuery } from '../../../../../../../../graphql/recommendations.generated';
-import BookmarkIcon from '../../../../../../../../images/collections_bookmark_no_fill.svg?react';
 import { useUserContext } from '../../../../../../../context/useUserContext';
 import { ANTD_GRAY } from '../../../../../../../entity/shared/constants';
 import OnboardingContext from '../../../../../../../onboarding/OnboardingContext';
@@ -33,17 +32,6 @@ const Title = styled.div`
     margin-right: 20px;
 `;
 
-const Icon = styled.div`
-    display: flex;
-    margin-right: 8px;
-
-    path {
-        fill: #5280e2;
-    }
-
-    stroke: #87b2ea;
-`;
-
 const ShowAll = styled(Link)`
     color: ${ANTD_GRAY[8]};
     font-size: 12px;
@@ -57,7 +45,10 @@ const ShowAll = styled(Link)`
     white-space: nowrap;
 `;
 
+export const POPULAR_GLOSSARY_TERMS_ID = 'PopularGlossaryTerms';
+
 export const PopularGlossaryTerms = () => {
+    const [loaded, setLoaded] = useState(false);
     const { isUserInitializing } = useContext(OnboardingContext);
     const userContext = useUserContext();
     const userUrn = userContext?.user?.urn;
@@ -80,30 +71,38 @@ export const PopularGlossaryTerms = () => {
         (module) => module.renderType === RecommendationRenderType.GlossaryTermSearchList,
     );
     const glossaryRecommendationModule = glossaryRecommendationModules?.[0] || null;
-    const recommendedGlossaryTerms =
-        glossaryRecommendationModule?.content
-            ?.map((contentItem) => {
-                return contentItem?.entity;
-            })
-            ?.slice(0, 5) || [];
+    const recommendedGlossaryTerms = useMemo(
+        () =>
+            glossaryRecommendationModule?.content
+                ?.map((contentItem) => {
+                    return contentItem?.entity;
+                })
+                ?.slice(0, 5) || [],
+        [glossaryRecommendationModule],
+    );
 
-    // Register the insight module with parent component.
-    useRegisterInsight('PopularGlossaryTerms', recommendedGlossaryTerms?.length);
+    useEffect(() => {
+        if (!loading && recommendationModules && !loaded) {
+            setLoaded(true);
+        }
+    }, [loaded, loading, recommendationModules, setLoaded]);
+
+    // Register the insight module with parent component. Important that undefined is used before loading
+    const isPresent = useMemo(
+        () => (loaded ? !!recommendedGlossaryTerms?.length : undefined),
+        [recommendedGlossaryTerms, loaded],
+    );
+    useRegisterInsight(POPULAR_GLOSSARY_TERMS_ID, isPresent);
 
     const showSkeleton = !userContext.loaded || loading || isUserInitializing;
     return (
         <>
             {showSkeleton && <InsightCardSkeleton />}
             {!showSkeleton && !!recommendedGlossaryTerms.length && (
-                <InsightCard id="PopularGlossaryTerms" minWidth={340} maxWidth={500}>
+                <InsightCard id={POPULAR_GLOSSARY_TERMS_ID} minWidth={340} maxWidth={500}>
                     <Header>
                         <Tooltip title="Commonly used glossary terms" showArrow={false} placement="top">
-                            <Title>
-                                <Icon>
-                                    <BookmarkIcon />
-                                </Icon>
-                                Popular Glossary Terms
-                            </Title>
+                            <Title>Popular Glossary Terms</Title>
                         </Tooltip>
                         <ShowAll to={PageRoutes.GLOSSARY}>view all</ShowAll>
                     </Header>

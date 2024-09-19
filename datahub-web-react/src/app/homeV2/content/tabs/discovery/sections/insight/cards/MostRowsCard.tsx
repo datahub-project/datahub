@@ -1,14 +1,14 @@
 import React from 'react';
-import { RiseOutlined } from '@ant-design/icons';
 import { SearchListInsightCard } from './SearchListInsightCard';
 import { buildMostRowsFilters, buildMostRowsSort } from './useGetMostRows';
 import { EntityType } from '../../../../../../../../types.generated';
-import { REDESIGN_COLORS } from '../../../../../../../entityV2/shared/constants';
+
+export const MOST_ROWS_ID = 'MostRows';
 
 export const MostRowsCard = () => {
     return (
         <SearchListInsightCard
-            icon={<RiseOutlined style={{ color: REDESIGN_COLORS.BLUE }} />}
+            id={MOST_ROWS_ID}
             title="Largest Tables by Rows"
             types={[EntityType.Dataset]}
             filters={buildMostRowsFilters()}
