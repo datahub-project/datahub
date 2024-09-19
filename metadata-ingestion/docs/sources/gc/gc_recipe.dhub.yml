@@ -1,6 +1,8 @@
 source:
   type: datahub-gc
   config:
+    # Whether to run the recipe in dry-run mode or not
+    dry_run: false
     # Cleanup expired tokens
     cleanup_expired_tokens: true
     # Whether to truncate elasticsearch indices or not which can be safely truncated
