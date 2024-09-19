@@ -1,7 +1,7 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93",
+    "entityUrn": "urn:li:container:1f58ddada1bb74016854bed66333036f",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -9,9 +9,9 @@
             "customProperties": {
                 "platform": "mssql",
                 "env": "PROD",
-                "database": "LINEAGEDB"
+                "database": "LINEAGEDB_MASTER"
             },
-            "name": "LINEAGEDB"
+            "name": "LINEAGEDB_MASTER"
         }
     },
     "systemMetadata": {
@@ -22,7 +22,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93",
+    "entityUrn": "urn:li:container:1f58ddada1bb74016854bed66333036f",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -38,7 +38,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93",
+    "entityUrn": "urn:li:container:1f58ddada1bb74016854bed66333036f",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -54,7 +54,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93",
+    "entityUrn": "urn:li:container:1f58ddada1bb74016854bed66333036f",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -72,7 +72,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93",
+    "entityUrn": "urn:li:container:1f58ddada1bb74016854bed66333036f",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -88,7 +88,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:cc328a01282c32fdbbe0623b66731988",
+    "entityUrn": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -96,7 +96,7 @@
             "customProperties": {
                 "platform": "mssql",
                 "env": "PROD",
-                "database": "LINEAGEDB",
+                "database": "LINEAGEDB_MASTER",
                 "schema": "schema_with_lineage"
             },
             "name": "schema_with_lineage"
@@ -110,7 +110,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:cc328a01282c32fdbbe0623b66731988",
+    "entityUrn": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -126,7 +126,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:cc328a01282c32fdbbe0623b66731988",
+    "entityUrn": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -142,7 +142,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:cc328a01282c32fdbbe0623b66731988",
+    "entityUrn": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -160,12 +160,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:cc328a01282c32fdbbe0623b66731988",
+    "entityUrn": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93"
+            "container": "urn:li:container:1f58ddada1bb74016854bed66333036f"
         }
     },
     "systemMetadata": {
@@ -176,15 +176,15 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:cc328a01282c32fdbbe0623b66731988",
+    "entityUrn": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93",
-                    "urn": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93"
+                    "id": "urn:li:container:1f58ddada1bb74016854bed66333036f",
+                    "urn": "urn:li:container:1f58ddada1bb74016854bed66333036f"
                 }
             ]
         }
@@ -197,12 +197,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_one,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_one,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:cc328a01282c32fdbbe0623b66731988"
+            "container": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90"
         }
     },
     "systemMetadata": {
@@ -214,7 +214,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_one,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_one,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -230,7 +230,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "LINEAGEDB.schema_with_lineage.table_number_one",
+                        "schemaName": "LINEAGEDB_MASTER.schema_with_lineage.table_number_one",
                         "platform": "urn:li:dataPlatform:mssql",
                         "version": 0,
                         "created": {
@@ -274,7 +274,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_one,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_one,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -292,19 +292,19 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_one,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_one,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93",
-                    "urn": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93"
+                    "id": "urn:li:container:1f58ddada1bb74016854bed66333036f",
+                    "urn": "urn:li:container:1f58ddada1bb74016854bed66333036f"
                 },
                 {
-                    "id": "urn:li:container:cc328a01282c32fdbbe0623b66731988",
-                    "urn": "urn:li:container:cc328a01282c32fdbbe0623b66731988"
+                    "id": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90",
+                    "urn": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90"
                 }
             ]
         }
@@ -317,12 +317,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_three,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_three,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:cc328a01282c32fdbbe0623b66731988"
+            "container": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90"
         }
     },
     "systemMetadata": {
@@ -334,7 +334,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_three,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_three,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -350,7 +350,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "LINEAGEDB.schema_with_lineage.table_number_three",
+                        "schemaName": "LINEAGEDB_MASTER.schema_with_lineage.table_number_three",
                         "platform": "urn:li:dataPlatform:mssql",
                         "version": 0,
                         "created": {
@@ -406,7 +406,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_three,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_three,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -424,19 +424,19 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_three,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_three,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93",
-                    "urn": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93"
+                    "id": "urn:li:container:1f58ddada1bb74016854bed66333036f",
+                    "urn": "urn:li:container:1f58ddada1bb74016854bed66333036f"
                 },
                 {
-                    "id": "urn:li:container:cc328a01282c32fdbbe0623b66731988",
-                    "urn": "urn:li:container:cc328a01282c32fdbbe0623b66731988"
+                    "id": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90",
+                    "urn": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90"
                 }
             ]
         }
@@ -449,12 +449,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_two,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_two,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:cc328a01282c32fdbbe0623b66731988"
+            "container": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90"
         }
     },
     "systemMetadata": {
@@ -466,7 +466,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_two,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_two,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -482,7 +482,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "LINEAGEDB.schema_with_lineage.table_number_two",
+                        "schemaName": "LINEAGEDB_MASTER.schema_with_lineage.table_number_two",
                         "platform": "urn:li:dataPlatform:mssql",
                         "version": 0,
                         "created": {
@@ -526,7 +526,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_two,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_two,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -544,19 +544,19 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_two,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_two,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93",
-                    "urn": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93"
+                    "id": "urn:li:container:1f58ddada1bb74016854bed66333036f",
+                    "urn": "urn:li:container:1f58ddada1bb74016854bed66333036f"
                 },
                 {
-                    "id": "urn:li:container:cc328a01282c32fdbbe0623b66731988",
-                    "urn": "urn:li:container:cc328a01282c32fdbbe0623b66731988"
+                    "id": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90",
+                    "urn": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90"
                 }
             ]
         }
@@ -569,12 +569,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.view_of_table_number_two,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.view_of_table_number_two,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:cc328a01282c32fdbbe0623b66731988"
+            "container": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90"
         }
     },
     "systemMetadata": {
@@ -586,7 +586,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.view_of_table_number_two,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.view_of_table_number_two,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -605,7 +605,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "LINEAGEDB.schema_with_lineage.view_of_table_number_two",
+                        "schemaName": "LINEAGEDB_MASTER.schema_with_lineage.view_of_table_number_two",
                         "platform": "urn:li:dataPlatform:mssql",
                         "version": 0,
                         "created": {
@@ -649,7 +649,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.view_of_table_number_two,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.view_of_table_number_two,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -667,7 +667,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.view_of_table_number_two,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.view_of_table_number_two,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -685,7 +685,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.view_of_table_number_two,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.view_of_table_number_two,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -696,7 +696,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_two,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_two,PROD)",
                     "type": "COPY"
                 }
             ]
@@ -710,19 +710,19 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.view_of_table_number_two,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.view_of_table_number_two,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93",
-                    "urn": "urn:li:container:bc867fd51c29177a30427f8b4d4f1e93"
+                    "id": "urn:li:container:1f58ddada1bb74016854bed66333036f",
+                    "urn": "urn:li:container:1f58ddada1bb74016854bed66333036f"
                 },
                 {
-                    "id": "urn:li:container:cc328a01282c32fdbbe0623b66731988",
-                    "urn": "urn:li:container:cc328a01282c32fdbbe0623b66731988"
+                    "id": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90",
+                    "urn": "urn:li:container:b313c970d63b500fda13d0ca3d1b4c90"
                 }
             ]
         }
@@ -735,14 +735,14 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(mssql,LINEAGEDB.schema_with_lineage.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(mssql,LINEAGEDB_MASTER.schema_with_lineage.stored_procedures,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
             "customProperties": {},
             "externalUrl": "",
-            "name": "LINEAGEDB.schema_with_lineage.stored_procedures"
+            "name": "LINEAGEDB_MASTER.schema_with_lineage.stored_procedures"
         }
     },
     "systemMetadata": {
@@ -753,7 +753,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB.schema_with_lineage.stored_procedures,PROD),procedure_number_one)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB_MASTER.schema_with_lineage.stored_procedures,PROD),procedure_number_one)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -761,11 +761,11 @@
             "customProperties": {
                 "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_one]\nAS\nBEGIN\n\tDECLARE\n\t\t@t1 VARCHAR(MAX)\n\tSELECT @t1 = [id] FROM [schema_with_lineage].[table_number_one];\nEND;\n",
                 "input parameters": "[]",
-                "date_created": "2024-09-09 11:38:31.887000",
-                "date_modified": "2024-09-09 11:38:31.887000"
+                "date_created": "2024-09-19 19:12:18.497000",
+                "date_modified": "2024-09-19 19:12:18.497000"
             },
             "externalUrl": "",
-            "name": "LINEAGEDB.schema_with_lineage.procedure_number_one",
+            "name": "LINEAGEDB_MASTER.schema_with_lineage.procedure_number_one",
             "type": {
                 "string": "MSSQL_STORED_PROCEDURE"
             }
@@ -779,13 +779,13 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB.schema_with_lineage.stored_procedures,PROD),procedure_number_one)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB_MASTER.schema_with_lineage.stored_procedures,PROD),procedure_number_one)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_one,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_one,PROD)"
             ],
             "outputDatasets": [],
             "inputDatajobs": []
@@ -799,7 +799,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB.schema_with_lineage.stored_procedures,PROD),procedure_number_two)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB_MASTER.schema_with_lineage.stored_procedures,PROD),procedure_number_two)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -807,11 +807,11 @@
             "customProperties": {
                 "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_two]\nAS\nBEGIN\n\tDECLARE @t1 INT = 1\n\tUPDATE [schema_with_lineage].[view_of_table_number_two] SET [is_updated] = CASE\n                                                                                  \n WHEN @t1 = 1 THEN 1\n\t\t                                                                           ELSE 0 \n\t\t                                                                       END;\nEND;      \n",
                 "input parameters": "[]",
-                "date_created": "2024-09-09 11:38:31.890000",
-                "date_modified": "2024-09-09 11:38:31.890000"
+                "date_created": "2024-09-19 19:12:18.500000",
+                "date_modified": "2024-09-19 19:12:18.500000"
             },
             "externalUrl": "",
-            "name": "LINEAGEDB.schema_with_lineage.procedure_number_two",
+            "name": "LINEAGEDB_MASTER.schema_with_lineage.procedure_number_two",
             "type": {
                 "string": "MSSQL_STORED_PROCEDURE"
             }
@@ -825,14 +825,14 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB.schema_with_lineage.stored_procedures,PROD),procedure_number_two)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB_MASTER.schema_with_lineage.stored_procedures,PROD),procedure_number_two)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
             "inputDatasets": [],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.view_of_table_number_two,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.view_of_table_number_two,PROD)"
             ],
             "inputDatajobs": []
         }
@@ -845,7 +845,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB.schema_with_lineage.stored_procedures,PROD),procedure_number_three)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB_MASTER.schema_with_lineage.stored_procedures,PROD),procedure_number_three)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -853,11 +853,11 @@
             "customProperties": {
                 "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_three]\nAS\nBEGIN\n\tIF (SELECT order_number FROM [schema_with_lineage].[table_number_three]) > 10\n\t\tINSERT INTO [schema_with_lineage].[table_number_three]([weight]) VALUES ('high')\n\tELSE\n\t\tINSERT INTO \n[schema_with_lineage].[table_number_three]([weight]) VALUES ('low')\nEND;\n",
                 "input parameters": "[]",
-                "date_created": "2024-09-09 11:38:31.893000",
-                "date_modified": "2024-09-09 11:38:31.893000"
+                "date_created": "2024-09-19 19:12:18.503000",
+                "date_modified": "2024-09-19 19:12:18.503000"
             },
             "externalUrl": "",
-            "name": "LINEAGEDB.schema_with_lineage.procedure_number_three",
+            "name": "LINEAGEDB_MASTER.schema_with_lineage.procedure_number_three",
             "type": {
                 "string": "MSSQL_STORED_PROCEDURE"
             }
@@ -871,20 +871,155 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB.schema_with_lineage.stored_procedures,PROD),procedure_number_three)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB_MASTER.schema_with_lineage.stored_procedures,PROD),procedure_number_three)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_three,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_three,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_three,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_three,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_three,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_three,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_three,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_three,PROD)"
             ],
             "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB_MASTER.schema_with_lineage.stored_procedures,PROD),procedure_number_four)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_four]\nAS\nBEGIN\n\tDECLARE @t1 VARCHAR(MAX);\n\tSELECT @t1 = [id] FROM [schema_with_lineage].[ghost_table];\n\tINSERT into [schema_with_lineage].[ghost_table] values (UPPER(@t1));\n\t\nEND;",
+                "input parameters": "[]",
+                "date_created": "2024-09-19 19:12:18.507000",
+                "date_modified": "2024-09-19 19:12:18.507000"
+            },
+            "externalUrl": "",
+            "name": "LINEAGEDB_MASTER.schema_with_lineage.procedure_number_four",
+            "type": {
+                "string": "MSSQL_STORED_PROCEDURE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB_MASTER.schema_with_lineage.stored_procedures,PROD),procedure_number_four)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_SLAVE.dbo.table_for_synonym,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_SLAVE.dbo.table_for_synonym,PROD)"
+            ],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:26ed192a4bb84043e84d22220edf2aa8",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "mssql",
+                "env": "PROD",
+                "database": "LINEAGEDB_SLAVE"
+            },
+            "name": "LINEAGEDB_SLAVE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:26ed192a4bb84043e84d22220edf2aa8",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:26ed192a4bb84043e84d22220edf2aa8",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mssql"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:26ed192a4bb84043e84d22220edf2aa8",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:26ed192a4bb84043e84d22220edf2aa8",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
         }
     },
     "systemMetadata": {
@@ -895,7 +1030,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.view_of_table_number_two,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.view_of_table_number_two,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -906,7 +1041,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB.schema_with_lineage.table_number_two,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,LINEAGEDB_MASTER.schema_with_lineage.table_number_two,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -920,7 +1055,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(mssql,LINEAGEDB.schema_with_lineage.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(mssql,LINEAGEDB_MASTER.schema_with_lineage.stored_procedures,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -936,7 +1071,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB.schema_with_lineage.stored_procedures,PROD),procedure_number_one)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB_MASTER.schema_with_lineage.stored_procedures,PROD),procedure_number_four)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -952,7 +1087,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB.schema_with_lineage.stored_procedures,PROD),procedure_number_three)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB_MASTER.schema_with_lineage.stored_procedures,PROD),procedure_number_one)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -968,7 +1103,23 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB.schema_with_lineage.stored_procedures,PROD),procedure_number_two)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB_MASTER.schema_with_lineage.stored_procedures,PROD),procedure_number_three)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,LINEAGEDB_MASTER.schema_with_lineage.stored_procedures,PROD),procedure_number_two)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

@@ -5,7 +5,11 @@ source:
   config:
     username: sa
     password: test!Password
-    database: LINEAGEDB
+    database_pattern:
+      allow:
+        - LINEAGEDB_MASTER
+        - LINEAGEDB_SLAVE
+      
     host_port: localhost:21433
     mssql_lineage: True
     schema_pattern:

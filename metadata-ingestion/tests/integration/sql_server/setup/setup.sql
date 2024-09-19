@@ -93,9 +93,16 @@ EXEC dbo.sp_add_jobserver
     @job_name = N'Weekly Demo Data Backup'
 GO
 
-CREATE DATABASE LINEAGEDB;
+CREATE DATABASE LINEAGEDB_SLAVE;
 GO
-USE LINEAGEDB;
+USE LINEAGEDB_SLAVE;
+GO
+CREATE TABLE [table_for_synonym] (id VARCHAR(MAX));
+GO
+
+CREATE DATABASE LINEAGEDB_MASTER;
+GO
+USE LINEAGEDB_MASTER;
 GO
 CREATE SCHEMA schema_with_lineage;
 GO
@@ -106,6 +113,8 @@ GO
 CREATE VIEW [schema_with_lineage].[view_of_table_number_two] AS SELECT is_updated FROM [schema_with_lineage].[table_number_two];
 GO
 CREATE TABLE [schema_with_lineage].[table_number_three] (order_number INT, weight VARCHAR(MAX));
+GO
+CREATE SYNONYM [schema_with_lineage].[ghost_table] FOR [LINEAGEDB_SLAVE].[dbo].[table_for_synonym];
 GO
 CREATE PROCEDURE [schema_with_lineage].[procedure_number_one]
 AS
@@ -134,3 +143,11 @@ BEGIN
 		INSERT INTO [schema_with_lineage].[table_number_three]([weight]) VALUES ('low')
 END;
 GO 
+CREATE PROCEDURE [schema_with_lineage].[procedure_number_four]
+AS
+BEGIN
+	DECLARE @t1 VARCHAR(MAX);
+	SELECT @t1 = [id] FROM [schema_with_lineage].[ghost_table];
+	INSERT into [schema_with_lineage].[ghost_table] values (UPPER(@t1));
+	
+END;

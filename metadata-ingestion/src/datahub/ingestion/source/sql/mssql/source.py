@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import urllib.parse
 from collections import defaultdict
@@ -172,7 +173,9 @@ class SQLServerSource(SQLAlchemySource):
         self.current_database = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
-        self.full_lineage: Dict[str, List[Dict[str, str]]] = defaultdict(list)
+        self.table_view_dependencies: Dict[str, List[Dict[str, str]]] = defaultdict(
+            list
+        )
         self.procedures_dependencies: Dict[str, List[Dict[str, str]]] = defaultdict(
             list
         )
@@ -191,10 +194,12 @@ class SQLServerSource(SQLAlchemySource):
                     if self.config.use_odbc:
                         self._add_output_converters(conn)
                     try:
-                        self._populate_object_links(conn, db_name)
+                        self._populate_table_view_dependencies(conn, db_name)
                     except Exception as e:
                         self.warn(
-                            logger, "_populate_object_links", f"The error occured: {e}"
+                            logger,
+                            "_populate_table_view_dependencies",
+                            f"The error occured: {e}",
                         )
                     try:
                         self._populate_stored_procedures_dependencies(conn)
@@ -225,43 +230,31 @@ class SQLServerSource(SQLAlchemySource):
     def _populate_table_descriptions(self, conn: Connection, db_name: str) -> None:
         # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
         # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
-        table_metadata = conn.execute(
-            """
-            SELECT
-              SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
-              T.NAME AS table_name,
-              EP.VALUE AS table_description
-            FROM sys.tables AS T
-            INNER JOIN sys.extended_properties AS EP
-              ON EP.MAJOR_ID = T.[OBJECT_ID]
-              AND EP.MINOR_ID = 0
-              AND EP.NAME = 'MS_Description'
-              AND EP.CLASS = 1
-            """
+        path_to_table_description_query = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "sql_queries/table_description_query.sql",
         )
+        table_description_query = open(
+            path_to_table_description_query, mode="r", encoding="utf-8"
+        ).read()
+
+        table_metadata = conn.execute(table_description_query)
+
         for row in table_metadata:
             self.table_descriptions[
                 f"{db_name}.{row['schema_name']}.{row['table_name']}"
             ] = row["table_description"]
 
     def _populate_column_descriptions(self, conn: Connection, db_name: str) -> None:
-        column_metadata = conn.execute(
-            """
-            SELECT
-              SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
-              T.NAME AS table_name,
-              C.NAME AS column_name ,
-              EP.VALUE AS column_description
-            FROM sys.tables AS T
-            INNER JOIN sys.all_columns AS C
-              ON C.OBJECT_ID = T.[OBJECT_ID]
-            INNER JOIN sys.extended_properties AS EP
-              ON EP.MAJOR_ID = T.[OBJECT_ID]
-              AND EP.MINOR_ID = C.COLUMN_ID
-              AND EP.NAME = 'MS_Description'
-              AND EP.CLASS = 1
-            """
+        path_to_column_description_query = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "sql_queries/column_description_query.sql",
         )
+        column_description_query = open(
+            path_to_column_description_query, mode="r", encoding="utf-8"
+        ).read()
+
+        column_metadata = conn.execute(column_description_query)
         for row in column_metadata:
             self.column_descriptions[
                 f"{db_name}.{row['schema_name']}.{row['table_name']}.{row['column_name']}"
@@ -276,7 +269,7 @@ class SQLServerSource(SQLAlchemySource):
         if not self.config.mssql_lineage:
             return []
         result = []
-        for dest in self.full_lineage.get(key, []):
+        for dest in self.table_view_dependencies.get(key, []):
             dest_name = self.get_identifier(
                 schema=dest.get("schema", ""),
                 entity=dest.get("name", ""),
@@ -297,249 +290,26 @@ class SQLServerSource(SQLAlchemySource):
 
     def _populate_stored_procedures_dependencies(self, conn: Connection) -> None:
 
+        path_to_stored_procedures_dependencies_query = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "sql_queries/stored_procedures_dependencies_query.sql",
+        )
+        path_to_stored_procedures_dependencies_select = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "sql_queries/stored_procedures_dependencies_select.sql",
+        )
+        stored_procedures_dependencies_query = open(
+            path_to_stored_procedures_dependencies_query, mode="r", encoding="utf-8"
+        ).read()
+        stored_procedures_dependencies_select = open(
+            path_to_stored_procedures_dependencies_select, mode="r", encoding="utf-8"
+        ).read()
+
         trans = conn.begin()
 
-        conn.execute(
-            """
-            BEGIN;
-            IF OBJECT_ID('tempdb.dbo.#ProceduresDependencies', 'U') IS NOT NULL
-                DROP TABLE #ProceduresDependencies;
+        conn.execute(stored_procedures_dependencies_query)
 
-            CREATE TABLE #ProceduresDependencies(
-                id                       INT NOT NULL IDENTITY(1,1) PRIMARY KEY
-              , procedure_id             INT
-              , current_db               NVARCHAR(128)
-              , procedure_schema         NVARCHAR(128)
-              , procedure_name           NVARCHAR(128)
-              , type                     VARCHAR(2)
-              , referenced_server_name   NVARCHAR(128)
-              , referenced_database_name NVARCHAR(128)
-              , referenced_schema_name   NVARCHAR(128)
-              , referenced_entity_name   NVARCHAR(128)
-              , referenced_id            INT
-              , referenced_object_type   VARCHAR(2)
-              , is_selected              INT
-              , is_updated               INT
-              , is_select_all            INT
-              , is_all_columns_found     INT
-                );
-
-            BEGIN TRY
-                    WITH dependencies
-                         AS (
-                             SELECT
-                                    pro.object_id              AS procedure_id
-                                  , db_name()                  AS current_db
-                                  , schema_name(pro.schema_id) AS procedure_schema
-                                  , pro.NAME                   AS procedure_name
-                                  , pro.type                   AS type
-                                  , p.referenced_id            AS referenced_id
-                                  , CASE
-                                          WHEN p.referenced_server_name IS NULL AND p.referenced_id IS NOT NULL
-                                          THEN @@SERVERNAME
-                                          ELSE p.referenced_server_name
-                                    END                        AS referenced_server_name
-                                  , CASE
-                                          WHEN p.referenced_database_name IS NULL AND p.referenced_id IS NOT NULL
-                                          THEN db_name()
-                                          ELSE p.referenced_database_name
-                                    END                        AS referenced_database_name
-                                  , CASE
-                                          WHEN p.referenced_schema_name IS NULL AND p.referenced_id IS NOT NULL
-                                          THEN schema_name(ref_obj.schema_id)
-                                          ELSE p.referenced_schema_name
-                                    END                        AS referenced_schema_name
-                                  , p.referenced_entity_name   AS referenced_entity_name
-                                  , ref_obj.type               AS referenced_object_type
-                                  , p.is_selected              AS is_selected
-                                  , p.is_updated               AS is_updated
-                                  , p.is_select_all            AS is_select_all
-                                  , p.is_all_columns_found     AS is_all_columns_found
-                             FROM   sys.procedures AS pro
-                                    CROSS apply sys.dm_sql_referenced_entities(
-                                                Concat(schema_name(pro.schema_id), '.', pro.NAME),
-                                                'OBJECT') AS p
-                                    LEFT JOIN sys.objects AS ref_obj
-                                        ON p.referenced_id = ref_obj.object_id
-                    )
-                    INSERT INTO #ProceduresDependencies (
-                                                 procedure_id
-                                               , current_db
-                                               , procedure_schema
-                                               , procedure_name
-                                               , type
-                                               , referenced_server_name
-                                               , referenced_database_name
-                                               , referenced_schema_name
-                                               , referenced_entity_name
-                                               , referenced_id
-                                               , referenced_object_type
-                                               , is_selected
-                                               , is_updated
-                                               , is_select_all
-                                               , is_all_columns_found)
-                    SELECT DISTINCT
-                        d.procedure_id
-                      , d.current_db
-                      , d.procedure_schema
-                      , d.procedure_name
-                      , d.type
-                      , d.referenced_server_name
-                      , d.referenced_database_name
-                      , d.referenced_schema_name
-                      , d.referenced_entity_name
-                      , d.referenced_id
-                      , d.referenced_object_type
-                      , d.is_selected
-                      , d.is_updated
-                      , d.is_select_all
-                      , d.is_all_columns_found
-                    FROM dependencies AS d;
-            END TRY
-            BEGIN CATCH
-                IF ERROR_NUMBER() = 2020 or ERROR_NUMBER() = 942
-                    PRINT ERROR_MESSAGE()
-                ELSE
-                    THROW;
-            END CATCH;
-
-
-            DECLARE @id INT;
-            DECLARE @referenced_server_name NVARCHAR(128);
-            DECLARE @referenced_database_name NVARCHAR(128);
-            DECLARE @referenced_id INT;
-            DECLARE @referenced_object_type VARCHAR(2);
-            DECLARE @referenced_info TABLE (
-                id                INT
-              , referenced_type   VARCHAR(2)
-              , referenced_schema NVARCHAR(128)
-              , referenced_name   NVARCHAR(128)
-              );
-            DECLARE @synonym_info TABLE (
-                id              INT
-              , referenced_name NVARCHAR(1035)
-              , referenced_type VARCHAR(2)
-              , referenced_object_id INT
-              );
-            DECLARE @SQL NVARCHAR(MAX);
-
-
-            DECLARE proc_depend_cursor CURSOR FOR
-            SELECT
-                id
-              , referenced_database_name
-              , referenced_id
-              , referenced_object_type
-            FROM #ProceduresDependencies;
-
-            OPEN proc_depend_cursor
-            FETCH NEXT FROM proc_depend_cursor INTO
-                @id
-              , @referenced_database_name
-              , @referenced_id
-              , @referenced_object_type;
-            WHILE @@FETCH_STATUS = 0
-            BEGIN;
-
-                IF @referenced_id IS NOT NULL
-                    BEGIN
-                        BEGIN TRY
-                            SET @SQL = 'SELECT
-                                        ' + CAST(@id AS NVARCHAR(10)) + '
-                                          , o.type
-                                          , s.name
-                                          , o.name
-                                        FROM ' + COALESCE(QUOTENAME(@referenced_database_name), '') + '.sys.objects AS o
-                                        INNER JOIN ' + COALESCE(QUOTENAME(@referenced_database_name), '') + '.sys.schemas AS s
-                                            ON o.schema_id = s.schema_id
-                                        WHERE o.object_id = ' + CAST(@referenced_id AS NVARCHAR(10)) + ';';
-
-                            INSERT INTO  @referenced_info(
-                                id
-                              , referenced_type
-                              , referenced_schema
-                              , referenced_name
-                                )
-                            EXEC sp_executesql @SQL;
-
-                            UPDATE #ProceduresDependencies
-                            SET
-                              referenced_object_type = ri.referenced_type,
-                              referenced_schema_name = ri.referenced_schema,
-                              referenced_entity_name = ri.referenced_name
-                            FROM #ProceduresDependencies pd
-                            INNER JOIN @referenced_info ri
-                                ON ri.id = pd.id
-                            WHERE CURRENT OF proc_depend_cursor;
-
-                            SET @referenced_object_type = (
-                                SELECT
-                                    referenced_type
-                                FROM @referenced_info
-                                WHERE id = @id
-                                );
-                        END TRY
-                        BEGIN CATCH
-                            PRINT ERROR_MESSAGE()
-                        END CATCH;
-                    END;
-
-                IF @referenced_object_type = 'SN'
-                  BEGIN
-                      BEGIN TRY
-                          SET @SQL  = 'SELECT
-                                      ' + CAST(@id as NVARCHAR(10)) + '
-                                        , syn_obj.name
-                                        , syn_obj.type
-                                        , syn_obj.object_id
-                                      FROM ' + COALESCE(QUOTENAME(@referenced_database_name), '') + '.sys.synonyms AS synon
-                                      INNER JOIN ' + COALESCE(QUOTENAME(@referenced_database_name), '') + '.sys.objects  AS syn_obj
-                                            ON OBJECT_ID(synon.base_object_name) = syn_obj.object_id
-                                      WHERE synon.object_id = ' + CAST(@referenced_id AS NVARCHAR(10)) + ';';
-                            PRINT @SQL;
-                          INSERT INTO @synonym_info(
-                              id
-                            , referenced_name
-                            , referenced_type
-                            , referenced_object_id
-                              )
-                          EXEC sp_executesql @SQL;
-
-                          UPDATE #ProceduresDependencies
-                          SET
-                              referenced_object_type = si.referenced_type,
-                              referenced_entity_name = si.referenced_name,
-                              referenced_id = si.referenced_object_id
-                          FROM #ProceduresDependencies pd
-                          INNER JOIN @synonym_info si
-                              ON si.id = pd.id
-                          WHERE CURRENT OF proc_depend_cursor;
-                      END TRY
-                      BEGIN CATCH
-                          PRINT ERROR_MESSAGE()
-                      END CATCH;
-                  END;
-
-                FETCH NEXT FROM proc_depend_cursor INTO
-                    @id
-                  , @referenced_database_name
-                  , @referenced_id
-                  , @referenced_object_type;
-            END;
-            CLOSE proc_depend_cursor;
-            DEALLOCATE proc_depend_cursor;
-            END;
-            """
-        )
-
-        _dependencies = conn.execute(
-            """
-            SELECT DISTINCT
-                *
-            FROM #ProceduresDependencies
-            WHERE referenced_object_type IN ('U ', 'V ', 'P ');
-            """
-        )
+        _dependencies = conn.execute(stored_procedures_dependencies_select)
 
         for row in _dependencies:
 
@@ -560,31 +330,22 @@ class SQLServerSource(SQLAlchemySource):
 
         trans.commit()
 
-    def _populate_object_links(self, conn: Connection, db_name: str) -> None:
+    def _populate_table_view_dependencies(self, conn: Connection, db_name: str) -> None:
         # see https://learn.microsoft.com/en-us/sql/relational-databases/system-catalog-views/sys-sql-expression-dependencies-transact-sql
-        _links = conn.execute(
-            """
-            SELECT
-              DB_NAME() AS cur_database_name,
-              OBJECT_SCHEMA_NAME(referencing_id) AS dst_schema_name,
-              OBJECT_NAME(referencing_id) AS dst_object_name,
-              so_dst.type AS dst_object_type,
-              referenced_server_name AS src_server_name,
-              referenced_database_name AS src_database_name,
-              COALESCE(OBJECT_SCHEMA_NAME(referenced_id), referenced_schema_name) AS src_schema_name,
-              COALESCE(OBJECT_NAME(referenced_id), referenced_entity_name) AS src_object_name,
-              so_src.type AS src_object_type
-            FROM sys.sql_expression_dependencies
-              LEFT JOIN sys.objects AS so_dst ON so_dst.object_id = referencing_id
-              LEFT JOIN sys.objects AS so_src ON so_src.object_id = referenced_id
-            WHERE so_dst.type in ('U ', 'V ', 'P ')
-              AND so_src.type in ('U ', 'V ', 'P ');
-            """
+
+        path_to_table_view_dependencies_query = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "sql_queries/table_view_dependencies_query.sql",
         )
-        # {"U ": "USER_TABLE", "V ": "VIEW", "P ": "SQL_STORED_PROCEDURE"}
+        table_view_dependencies_query = open(
+            path_to_table_view_dependencies_query, mode="r", encoding="utf-8"
+        ).read()
+
+        _links = conn.execute(table_view_dependencies_query)
+
         for row in _links:
             _key = f"{db_name}.{row['dst_schema_name']}.{row['dst_object_name']}"
-            self.full_lineage[_key].append(
+            self.table_view_dependencies[_key].append(
                 {
                     "schema": row["src_schema_name"] or row["dst_schema_name"],
                     "name": row["src_object_name"],
@@ -729,28 +490,18 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
     def _get_jobs(self, conn: Connection, db_name: str) -> Dict[str, Dict[str, Any]]:
-        jobs_data = conn.execute(
-            f"""
-            SELECT
-                job.job_id,
-                job.name,
-                job.description,
-                job.date_created,
-                job.date_modified,
-                steps.step_id,
-                steps.step_name,
-                steps.subsystem,
-                steps.command,
-                steps.database_name
-            FROM
-                msdb.dbo.sysjobs job
-            INNER JOIN
-                msdb.dbo.sysjobsteps steps
-            ON
-                job.job_id = steps.job_id
-            where database_name = '{db_name}'
-            """
+        path_to_extract_jobs_query = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "sql_queries/extract_jobs_query.sql",
         )
+        extract_jobs_query = open(
+            path_to_extract_jobs_query, mode="r", encoding="utf-8"
+        ).read()
+        extract_jobs_query = self.parameterize_query(
+            extract_jobs_query, {"{{db_name}}": db_name}
+        )
+
+        jobs_data = conn.execute(extract_jobs_query)
         jobs: Dict[str, Dict[str, Any]] = {}
         for row in jobs_data:
             step_data = dict(
@@ -900,15 +651,18 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_inputs(
         conn: Connection, procedure: StoredProcedure
     ) -> List[ProcedureParameter]:
-        inputs_data = conn.execute(
-            f"""
-            SELECT
-                name,
-                type_name(user_type_id) AS 'type'
-            FROM sys.parameters
-            WHERE object_id = object_id('{procedure.escape_full_name}')
-            """
+        path_to_procedure_inputs_query = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "sql_queries/procedure_inputs_query.sql",
         )
+        procedure_inputs_query = open(
+            path_to_procedure_inputs_query, mode="r", encoding="utf-8"
+        ).read()
+        procedure_inputs_query = SQLServerSource.parameterize_query(
+            procedure_inputs_query, {"{{procedure_name}}": procedure.escape_full_name}
+        )
+
+        inputs_data = conn.execute(procedure_inputs_query)
         inputs_list = []
         for row in inputs_data:
             inputs_list.append(ProcedureParameter(name=row["name"], type=row["type"]))
@@ -918,9 +672,23 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_code(
         conn: Connection, procedure: StoredProcedure
     ) -> Tuple[Optional[str], Optional[str]]:
-        query = f"EXEC [{procedure.db}].dbo.sp_helptext '{procedure.escape_full_name}'"
+        path_to_procedure_code_query = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "sql_queries/procedure_code_query.sql",
+        )
+        procedure_code_query = open(
+            path_to_procedure_code_query, mode="r", encoding="utf-8"
+        ).read()
+        procedure_code_query = SQLServerSource.parameterize_query(
+            procedure_code_query,
+            {
+                "{{procedure_db}}": procedure.db,
+                "{{procedure_name}}": procedure.escape_full_name,
+            },
+        )
+
         try:
-            code_data = conn.execute(query)
+            code_data = conn.execute(procedure_code_query)
         except ProgrammingError:
             logger.warning(
                 "Denied permission for read text from procedure '%s'",
@@ -949,15 +717,19 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_properties(
         conn: Connection, procedure: StoredProcedure
     ) -> Dict[str, Any]:
-        properties_data = conn.execute(
-            f"""
-            SELECT
-                create_date as date_created,
-                modify_date as date_modified
-            FROM sys.procedures
-            WHERE object_id = object_id('{procedure.escape_full_name}')
-            """
+        path_to_procedure_properties_query = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "sql_queries/procedure_properties_query.sql",
         )
+        procedure_properties_query = open(
+            path_to_procedure_properties_query, mode="r", encoding="utf-8"
+        ).read()
+        procedure_properties_query = SQLServerSource.parameterize_query(
+            procedure_properties_query,
+            {"{{procedure_name}}": procedure.escape_full_name},
+        )
+
+        properties_data = conn.execute(procedure_properties_query)
         properties = {}
         for row in properties_data:
             properties = dict(
@@ -969,18 +741,18 @@ class SQLServerSource(SQLAlchemySource):
     def _get_stored_procedures(
         conn: Connection, db_name: str, schema: str
     ) -> List[Dict[str, str]]:
-        stored_procedures_data = conn.execute(
-            f"""
-            SELECT
-                pr.name as procedure_name,
-                s.name as schema_name
-            FROM
-                [{db_name}].[sys].[procedures] pr
-            INNER JOIN
-                [{db_name}].[sys].[schemas] s ON pr.schema_id = s.schema_id
-            where s.name = '{schema}'
-            """
+        path_to_extract_procedures_query = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "sql_queries/extract_procedures_query.sql",
         )
+        extract_procedures_query = open(
+            path_to_extract_procedures_query, mode="r", encoding="utf-8"
+        ).read()
+        extract_procedures_query = SQLServerSource.parameterize_query(
+            extract_procedures_query, {"{{db_name}}": db_name, "{{schema}}": schema}
+        )
+
+        stored_procedures_data = conn.execute(extract_procedures_query)
         procedures_list = []
         for row in stored_procedures_data:
             procedures_list.append(
@@ -1024,11 +796,15 @@ class SQLServerSource(SQLAlchemySource):
                 inspector = inspect(conn)
                 yield inspector
             else:
-                databases = conn.execute(
-                    "SELECT name FROM master.sys.databases WHERE name NOT IN \
-                  ('master', 'model', 'msdb', 'tempdb', 'Resource', \
-                       'distribution' , 'reportserver', 'reportservertempdb'); "
+                path_to_extract_databases_query = os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    "sql_queries/extract_databases_query.sql",
                 )
+                extract_databases_query = open(
+                    path_to_extract_databases_query, mode="r", encoding="utf-8"
+                ).read()
+
+                databases = conn.execute(extract_databases_query)
                 for db in databases:
                     if self.config.database_pattern.allowed(db["name"]):
                         url = self.config.get_sql_alchemy_url(current_db=db["name"])
@@ -1053,3 +829,9 @@ class SQLServerSource(SQLAlchemySource):
             if self.config.convert_urns_to_lowercase
             else qualified_table_name
         )
+
+    @staticmethod
+    def parameterize_query(query: str, params: Dict[str, str]) -> str:
+        for parameter, value in params.items():
+            query = query.replace(parameter, value)
+        return query

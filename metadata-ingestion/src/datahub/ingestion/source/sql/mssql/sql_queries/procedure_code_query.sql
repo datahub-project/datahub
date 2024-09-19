@@ -1,0 +1,1 @@
+EXEC [{{procedure_db}}].dbo.sp_helptext '{{procedure_name}}';

@@ -853,6 +853,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
         "datahub.ingestion.source.powerbi": ["powerbi-lexical-grammar.rule"],
+        "datahub.ingestion.source.sql.mssql.sql_queries": ["*.sql"],
     },
     entry_points=entry_points,
     # Dependencies.

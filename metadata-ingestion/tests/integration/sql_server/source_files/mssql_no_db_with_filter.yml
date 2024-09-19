@@ -9,6 +9,8 @@ source:
     database_pattern:
       deny:
         - NewData
+        - LINEAGEDB_MASTER
+        - LINEAGEDB_SLAVE
 
 sink:
   type: file
