@@ -19,7 +19,8 @@
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=datahub_emitter_operator_jinja_template_dag",
             "name": "datahub_emitter_operator_jinja_template_dag",
-            "description": "An example dag with jinja template"
+            "description": "An example dag with jinja template",
+            "env": "PROD"
         }
     }
 },
@@ -146,7 +147,8 @@
             "name": "datahub_emitter_operator_jinja_template_dag_task",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "env": "PROD"
         }
     }
 },
@@ -242,7 +244,7 @@
             "name": "datahub_emitter_operator_jinja_template_dag_datahub_emitter_operator_jinja_template_dag_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1726570903946,
+                "time": 1726621020280,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -267,7 +269,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1726570903946,
+            "timestampMillis": 1726621020280,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -366,7 +368,8 @@
             "name": "datahub_emitter_operator_jinja_template_dag_task",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "env": "PROD"
         }
     }
 },
@@ -441,7 +444,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1726570904070,
+            "timestampMillis": 1726621020427,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
