@@ -389,10 +389,6 @@ public class SearchDocumentTransformer {
         // By default run toString
       default:
         String value = fieldValue.toString();
-        // If index type is BROWSE_PATH, make sure the value starts with a slash
-        if (fieldType == FieldType.BROWSE_PATH && !value.startsWith("/")) {
-          value = "/" + value;
-        }
         return value.isEmpty()
             ? Optional.empty()
             : Optional.of(JsonNodeFactory.instance.textNode(value));
