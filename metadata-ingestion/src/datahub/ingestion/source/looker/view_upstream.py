@@ -281,10 +281,13 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
             return []
 
         if sql_parsing_result.debug_info.table_error is not None:
+            logger.debug(
+                f"view-name={self.view_context.name()}, sql_query={self.get_sql_query()}"
+            )
             self.reporter.report_warning(
                 title="Table Level Lineage Missing",
                 message="Error in parsing derived sql",
-                context=f"View-name: {self.view_context.name()}",
+                context=f"view-name: {self.view_context.name()}, platform: {self.view_context.view_connection.platform}",
                 exc=sql_parsing_result.debug_info.table_error,
             )
             return []
