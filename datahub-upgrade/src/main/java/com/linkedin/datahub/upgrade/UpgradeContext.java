@@ -23,6 +23,6 @@ public interface UpgradeContext {
   /** Returns a map of argument to <>optional</> value, as delimited by an '=' character. */
   Map<String, Optional<String>> parsedArgs();
 
-  /** Returns the operation context ffor the upgrade */
+  /** Returns the operation context for the upgrade */
   OperationContext opContext();
 }

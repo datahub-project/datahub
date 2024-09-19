@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional
 import requests
 from pydantic import Field, validator
 from simple_salesforce import Salesforce
+from simple_salesforce.exceptions import SalesforceAuthenticationFailed
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -285,9 +286,20 @@ class SalesforceSource(Source):
                     **common_args,
                 )
 
-        except Exception as e:
+        except SalesforceAuthenticationFailed as e:
             logger.error(e)
-            raise ConfigurationError("Salesforce login failed") from e
+            if "API_CURRENTLY_DISABLED" in str(e):
+                # https://help.salesforce.com/s/articleView?id=001473830&type=1
+                error = "Salesforce login failed. Please make sure user has API Enabled Access."
+            else:
+                error = "Salesforce login failed. Please verify your credentials."
+                if (
+                    self.config.instance_url
+                    and "sandbox" in self.config.instance_url.lower()
+                ):
+                    error += "Please set `is_sandbox: True` in recipe if this is sandbox account."
+            raise ConfigurationError(error) from e
+
         if not self.config.api_version:
             # List all REST API versions and use latest one
             versions_url = "https://{instance}/services/data/".format(
@@ -314,10 +326,19 @@ class SalesforceSource(Source):
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        sObjects = self.get_salesforce_objects()
-
-        for sObject in sObjects:
-            yield from self.get_salesforce_object_workunits(sObject)
+        try:
+            sObjects = self.get_salesforce_objects()
+        except Exception as e:
+            if "sObject type 'EntityDefinition' is not supported." in str(e):
+                # https://developer.salesforce.com/docs/atlas.en-us.api_tooling.meta/api_tooling/tooling_api_objects_entitydefinition.htm
+                raise ConfigurationError(
+                    "Salesforce EntityDefinition query failed. "
+                    "Please verify if user has 'View Setup and Configuration' permission."
+                ) from e
+            raise e
+        else:
+            for sObject in sObjects:
+                yield from self.get_salesforce_object_workunits(sObject)
 
     def get_salesforce_object_workunits(
         self, sObject: dict
@@ -596,9 +617,9 @@ class SalesforceSource(Source):
 
         TypeClass = FIELD_TYPE_MAPPING.get(fieldType)
         if TypeClass is None:
-            self.report.report_warning(
-                sObjectName,
-                f"Unable to map type {fieldType} to metadata schema",
+            self.report.warning(
+                message="Unable to map field type to metadata schema",
+                context=f"{fieldType} for {fieldName} of {sObjectName}",
             )
             TypeClass = NullTypeClass
 
@@ -696,19 +717,30 @@ class SalesforceSource(Source):
             )
         )
 
-        sObject_custom_fields_response = self.sf._call_salesforce(
-            "GET", sObject_custom_fields_query_url
-        ).json()
+        customFields: Dict[str, Dict] = {}
+        try:
+            sObject_custom_fields_response = self.sf._call_salesforce(
+                "GET", sObject_custom_fields_query_url
+            ).json()
 
-        logger.debug(
-            "Received Salesforce {sObject} custom fields response".format(
-                sObject=sObjectName
+            logger.debug(
+                "Received Salesforce {sObject} custom fields response".format(
+                    sObject=sObjectName
+                )
             )
-        )
-        customFields: Dict[str, Dict] = {
-            record["DeveloperName"]: record
-            for record in sObject_custom_fields_response["records"]
-        }
+
+        except Exception as e:
+            error = "Salesforce CustomField query failed. "
+            if "sObject type 'CustomField' is not supported." in str(e):
+                # https://github.com/afawcett/apex-toolingapi/issues/19
+                error += "Please verify if user has 'View All Data' permission."
+
+            self.report.warning(message=error, exc=e)
+        else:
+            customFields = {
+                record["DeveloperName"]: record
+                for record in sObject_custom_fields_response["records"]
+            }
 
         fields: List[SchemaFieldClass] = []
         primaryKeys: List[str] = []

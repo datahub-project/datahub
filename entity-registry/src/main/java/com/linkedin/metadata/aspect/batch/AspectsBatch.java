@@ -199,6 +199,7 @@ public interface AspectsBatch {
 
   static <T> Map<String, Map<String, T>> merge(
       @Nonnull Map<String, Map<String, T>> a, @Nonnull Map<String, Map<String, T>> b) {
+
     Map<String, Map<String, T>> mergedMap = new HashMap<>();
     for (Map.Entry<String, Map<String, T>> entry :
         Stream.concat(a.entrySet().stream(), b.entrySet().stream()).collect(Collectors.toList())) {

@@ -1,7 +1,7 @@
-from enum import Enum
+from datahub.utilities.str_enum import StrEnum
 
 
-class DatasetSubTypes(str, Enum):
+class DatasetSubTypes(StrEnum):
     # Generic SubTypes
     TABLE = "Table"
     VIEW = "View"
@@ -26,7 +26,7 @@ class DatasetSubTypes(str, Enum):
     NOTEBOOK = "Notebook"
 
 
-class DatasetContainerSubTypes(str, Enum):
+class DatasetContainerSubTypes(StrEnum):
     # Generic SubTypes
     DATABASE = "Database"
     SCHEMA = "Schema"
@@ -41,7 +41,7 @@ class DatasetContainerSubTypes(str, Enum):
     ABS_CONTAINER = "ABS container"
 
 
-class BIContainerSubTypes(str, Enum):
+class BIContainerSubTypes(StrEnum):
     LOOKER_FOLDER = "Folder"
     LOOKML_PROJECT = "LookML Project"
     LOOKML_MODEL = "LookML Model"
@@ -55,11 +55,11 @@ class BIContainerSubTypes(str, Enum):
     MODE_COLLECTION = "Collection"
 
 
-class JobContainerSubTypes(str, Enum):
+class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
 
 
-class BIAssetSubTypes(str, Enum):
+class BIAssetSubTypes(StrEnum):
     # Generic SubTypes
     REPORT = "Report"
 
@@ -72,6 +72,7 @@ class BIAssetSubTypes(str, Enum):
 
     # Mode
     MODE_REPORT = "Report"
+    MODE_DATASET = "Dataset"
     MODE_QUERY = "Query"
     MODE_CHART = "Chart"
 

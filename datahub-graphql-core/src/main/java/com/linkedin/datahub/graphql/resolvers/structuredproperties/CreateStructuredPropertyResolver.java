@@ -83,6 +83,8 @@ public class CreateStructuredPropertyResolver
               builder.setCardinality(
                   PropertyCardinality.valueOf(input.getCardinality().toString()));
             }
+            builder.setCreated(context.getOperationContext().getAuditStamp());
+            builder.setLastModified(context.getOperationContext().getAuditStamp());
 
             MetadataChangeProposal mcp = builder.build();
             _entityClient.ingestProposal(context.getOperationContext(), mcp, false);

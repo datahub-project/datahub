@@ -57,7 +57,7 @@ jobs:
         run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion-modules:gx-plugin:lint :metadata-ingestion-modules:gx-plugin:testQuick
       - name: pip freeze show list installed
         if: always()
-        run: source metadata-ingestion-modules/gx-plugin/venv/bin/activate && pip freeze
+        run: source metadata-ingestion-modules/gx-plugin/venv/bin/activate && uv pip freeze
       - uses: actions/upload-artifact@v3
         if: ${{ always() && matrix.python-version == '3.11' && matrix.extraPythonRequirement == 'great-expectations~=0.17.0' }}
         with:
