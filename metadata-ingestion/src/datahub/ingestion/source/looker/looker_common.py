@@ -112,7 +112,7 @@ from datahub.utilities.lossy_collections import LossyList, LossySet
 from datahub.utilities.url_util import remove_port_from_url
 
 CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
-
+LOOKER = "looker"
 logger = logging.getLogger(__name__)
 
 
@@ -1643,11 +1643,11 @@ class LookerUserRegistry:
     ) -> Iterable[MetadataChangeProposalWrapper]:
 
         dpi = DataPlatformInstanceClass(
-            platform="looker",
+            platform=builder.make_data_platform_urn(LOOKER),
             instance=platform_instance,
         )
         resource_urn = generate_user_id_mapping_resource_urn(
-            "looker", platform_instance, env
+            LOOKER, platform_instance, env
         )
         # TODO: Make sure all users from looker platform
         # would be present in this cacne for every run
