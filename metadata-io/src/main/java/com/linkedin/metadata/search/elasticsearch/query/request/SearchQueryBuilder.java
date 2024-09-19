@@ -52,7 +52,7 @@ import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 
 @Slf4j
 public class SearchQueryBuilder {
-  public static final String STRUCTURED_QUERY_PREFIX = "\\\\/q ";
+  public static final String STRUCTURED_QUERY_PREFIX = "\\/q ";
   private final ExactMatchConfiguration exactMatchConfiguration;
   private final PartialConfiguration partialConfiguration;
   private final WordGramConfiguration wordGramConfiguration;
@@ -78,7 +78,7 @@ public class SearchQueryBuilder {
 
     final QueryBuilder queryBuilder =
         buildInternalQuery(opContext, customQueryConfig, entitySpecs, query, fulltext);
-    return buildScoreFunctions(opContext, customQueryConfig, entitySpecs, queryBuilder);
+    return buildScoreFunctions(opContext, customQueryConfig, entitySpecs, query, queryBuilder);
   }
 
   /**
@@ -485,12 +485,13 @@ public class SearchQueryBuilder {
       @Nonnull OperationContext opContext,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
+      String query,
       @Nonnull QueryBuilder queryBuilder) {
 
     if (customQueryConfig != null) {
       // Prefer configuration function scoring over annotation scoring
       return CustomizedQueryHandler.functionScoreQueryBuilder(
-          opContext.getObjectMapper(), customQueryConfig, queryBuilder);
+          opContext.getObjectMapper(), customQueryConfig, queryBuilder, query);
     } else {
       return QueryBuilders.functionScoreQuery(
               queryBuilder, buildAnnotationScoreFunctions(entitySpecs))

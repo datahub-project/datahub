@@ -110,7 +110,7 @@ public class CreateViewResolverTest {
                                                     ImmutableList.of(
                                                         new Criterion()
                                                             .setCondition(Condition.EQUAL)
-                                                            .setField("test1.keyword")
+                                                            .setField("test1")
                                                             .setValue(
                                                                 "value1") // Unfortunate --- For
                                                             // backwards compat.
@@ -121,7 +121,7 @@ public class CreateViewResolverTest {
                                                             .setNegated(false),
                                                         new Criterion()
                                                             .setCondition(Condition.IN)
-                                                            .setField("test2.keyword")
+                                                            .setField("test2")
                                                             .setValue(
                                                                 "value1") // Unfortunate --- For
                                                             // backwards compat.

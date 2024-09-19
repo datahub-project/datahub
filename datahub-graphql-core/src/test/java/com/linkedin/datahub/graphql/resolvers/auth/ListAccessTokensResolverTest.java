@@ -46,7 +46,7 @@ public class ListAccessTokensResolverTest {
                 any(),
                 Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME),
                 Mockito.eq(""),
-                Mockito.eq(buildFilter(filters, Collections.emptyList(), null)),
+                Mockito.eq(buildFilter(filters, Collections.emptyList())),
                 Mockito.any(List.class),
                 Mockito.eq(input.getStart()),
                 Mockito.eq(input.getCount())))

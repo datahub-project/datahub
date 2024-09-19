@@ -43,13 +43,15 @@ RUN apt-get update && apt-get upgrade -y \
     krb5-user \
     krb5-config \
     libkrb5-dev \
+    librdkafka-dev \
     wget \
+    curl \
     zip \
     unzip \
     ldap-utils \
     unixodbc \
     libodbc2 \
-    && python -m pip install --no-cache --upgrade pip uv>=0.1.10 wheel setuptools \
+    && python -m pip install --no-cache --upgrade pip 'uv>=0.1.10' wheel setuptools \
     && apt-get clean \
     && rm -rf /var/lib/{apt,dpkg,cache,log}/
 

@@ -45,6 +45,9 @@ _DEFAULT_RETRY_MAX_TIMES = int(
     os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
 )
 
+# The limit is 16mb. We will use a max of 15mb to have some space for overhead.
+_MAX_BATCH_INGEST_PAYLOAD_SIZE = 15 * 1024 * 1024
+
 
 class DataHubRestEmitter(Closeable, Emitter):
     _gms_server: str
@@ -269,20 +272,37 @@ class DataHubRestEmitter(Closeable, Emitter):
         self,
         mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         async_flag: Optional[bool] = None,
-    ) -> None:
+    ) -> int:
         url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
         for mcp in mcps:
             ensure_has_system_metadata(mcp)
 
         mcp_objs = [pre_json_transform(mcp.to_obj()) for mcp in mcps]
-        payload_dict: dict = {"proposals": mcp_objs}
 
-        if async_flag is not None:
-            payload_dict["async"] = "true" if async_flag else "false"
+        # As a safety mechanism, we need to make sure we don't exceed the max payload size for GMS.
+        # If we will exceed the limit, we need to break it up into chunks.
+        mcp_obj_chunks: List[List[str]] = []
+        current_chunk_size = _MAX_BATCH_INGEST_PAYLOAD_SIZE
+        for mcp_obj in mcp_objs:
+            mcp_obj_size = len(json.dumps(mcp_obj))
 
-        payload = json.dumps(payload_dict)
+            if mcp_obj_size + current_chunk_size > _MAX_BATCH_INGEST_PAYLOAD_SIZE:
+                mcp_obj_chunks.append([])
+                current_chunk_size = 0
+            mcp_obj_chunks[-1].append(mcp_obj)
+            current_chunk_size += mcp_obj_size
 
-        self._emit_generic(url, payload)
+        for mcp_obj_chunk in mcp_obj_chunks:
+            # TODO: We're calling json.dumps on each MCP object twice, once to estimate
+            # the size when chunking, and again for the actual request.
+            payload_dict: dict = {"proposals": mcp_obj_chunk}
+            if async_flag is not None:
+                payload_dict["async"] = True if async_flag else False
+
+            payload = json.dumps(payload_dict)
+            self._emit_generic(url, payload)
+
+        return len(mcp_obj_chunks)
 
     @deprecated
     def emit_usage(self, usageStats: UsageAggregation) -> None:
@@ -307,12 +327,21 @@ class DataHubRestEmitter(Closeable, Emitter):
         except HTTPError as e:
             try:
                 info: Dict = response.json()
-                logger.debug(
-                    "Full stack trace from DataHub:\n%s", info.get("stackTrace")
-                )
-                info.pop("stackTrace", None)
+
+                if info.get("stackTrace"):
+                    logger.debug(
+                        "Full stack trace from DataHub:\n%s", info.get("stackTrace")
+                    )
+                    info.pop("stackTrace", None)
+
+                hint = ""
+                if "unrecognized field found but not allowed" in (
+                    info.get("message") or ""
+                ):
+                    hint = ", likely because the server version is too old relative to the client"
+
                 raise OperationalError(
-                    f"Unable to emit metadata to DataHub GMS: {info.get('message')}",
+                    f"Unable to emit metadata to DataHub GMS{hint}: {info.get('message')}",
                     info,
                 ) from e
             except JSONDecodeError:

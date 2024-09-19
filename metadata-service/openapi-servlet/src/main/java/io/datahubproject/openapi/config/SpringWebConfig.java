@@ -23,7 +23,9 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import org.springdoc.core.models.GroupedOpenApi;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.format.FormatterRegistry;
@@ -32,6 +34,7 @@ import org.springframework.http.converter.FormHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @OpenAPIDefinition(
@@ -47,6 +50,9 @@ public class SpringWebConfig implements WebMvcConfigurer {
 
   private static final Set<String> OPENLINEAGE_PACKAGES =
       Set.of("io.datahubproject.openapi.openlineage");
+
+  @Value("${datahub.gms.async.request-timeout-ms}")
+  private long asyncTimeoutMilliseconds;
 
   @Override
   public void configureMessageConverters(List<HttpMessageConverter<?>> messageConverters) {
@@ -157,5 +163,11 @@ public class SpringWebConfig implements WebMvcConfigurer {
                         Map.Entry::getValue,
                         (v1, v2) -> v2,
                         LinkedHashMap::new));
+  }
+
+  @Override
+  public void configureAsyncSupport(@Nonnull AsyncSupportConfigurer configurer) {
+    WebMvcConfigurer.super.configureAsyncSupport(configurer);
+    configurer.setDefaultTimeout(asyncTimeoutMilliseconds);
   }
 }
