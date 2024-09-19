@@ -89,8 +89,8 @@ public class UpdateStructuredPropertyResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    // Validate that ingest was called, but that caused a failure
-    Mockito.verify(mockEntityClient, Mockito.times(1))
+    // Validate that ingest was not called since there was a get failure before ingesting
+    Mockito.verify(mockEntityClient, Mockito.times(0))
         .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
