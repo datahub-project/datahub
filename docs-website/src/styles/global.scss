@@ -416,6 +416,53 @@ div[class^="announcementBar"] {
     }
   }
 }
+
+@keyframes openModal {
+  0% {
+    opacity: 0;
+    scale: .8;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+.tourModal {
+  position: fixed;
+  top: 0; left: 0;
+  height: 100%;
+  width: 100%;
+  background-color: #000000CC;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  animation: openModal .3s ease-out;
+
+  iframe {
+    border-radius: 24px;
+    overflow: hidden;
+    width: 98%;
+    height: 98%;
+  }
+  .closeButtonWrapper {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    z-index: 100;
+    cursor: pointer;
+
+    span {
+      font-size: 36px;
+      path {
+        color: #CCC;
+      }
+    }
+  }
+}
+
 @media only screen and (max-width: 800px) {
   .comapny__logos {
     flex-direction: column;

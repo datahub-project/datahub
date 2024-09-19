@@ -24,7 +24,7 @@ import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 
 const SOLUTION_TEXTS = ["AI Governance", "Data Discovery", "AI Collaboration", "Data Governance", "Data Democratization", "Data Observability"];
 
-const Hero = ({}) => {
+const Hero = ({ onOpenTourModal }) => {
   // const { colorMode } = useColorMode();
   const textIndex = useMotionValue(0);
   const baseText = useTransform(textIndex, (latest) => SOLUTION_TEXTS[latest] || "");
@@ -71,12 +71,13 @@ const Hero = ({}) => {
               <Link className="cta__primary" to="/cloud">
                 Book a Demo
               </Link>
-              <Link
+              <a
                 className="cta__secondary"
-                to="https://www.acryldata.io/tour"
+                // to="https://www.acryldata.io/tour"
+                onClick={onOpenTourModal}
               >
                 Product Tour
-              </Link>
+              </a>
             </div>
             <Link className="hero__footer_cta" to="/docs">
               Get started with Core →

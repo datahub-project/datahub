@@ -2,7 +2,9 @@ package com.linkedin.datahub.graphql.types.structuredproperty;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringArrayMap;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -46,6 +48,9 @@ public class StructuredPropertyMapper
     final StructuredPropertyEntity result = new StructuredPropertyEntity();
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.STRUCTURED_PROPERTY);
+    // set the default required values for a structured property in case references are still being
+    // cleaned up
+    setDefaultProperty(result);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<StructuredPropertyEntity> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(
@@ -133,5 +138,23 @@ public class StructuredPropertyMapper
     entityType.setUrn(entityTypeUrnStr);
     entityType.setType(EntityType.ENTITY_TYPE);
     return entityType;
+  }
+
+  /*
+   * In the case that a property is deleted and the references haven't been cleaned up yet (this process is async)
+   * set a default property to prevent APIs breaking. The UI queries for whether the entity exists and it will
+   * be filtered out.
+   */
+  private void setDefaultProperty(final StructuredPropertyEntity result) {
+    StructuredPropertyDefinition definition = new StructuredPropertyDefinition();
+    definition.setQualifiedName("");
+    definition.setCardinality(PropertyCardinality.SINGLE);
+    definition.setImmutable(true);
+    definition.setValueType(
+        createDataTypeEntity(UrnUtils.getUrn("urn:li:dataType:datahub.string")));
+    definition.setEntityTypes(
+        ImmutableList.of(
+            createEntityTypeEntity(UrnUtils.getUrn("urn:li:entityType:datahub.dataset"))));
+    result.setDefinition(definition);
   }
 }
