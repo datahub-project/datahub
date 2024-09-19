@@ -31,7 +31,6 @@ export const StyledEntitySidebarContainer = styled.div<{
 export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean }>`
     background-color: #ffffff;
     box-shadow: ${(props) => (props.isCard ? '0px 0px 5px rgba(0, 0, 0, 0.08)' : 'none')};
-    margin: 2px;
     border-radius: ${(props) => (props.isCard ? '8px' : 'none')};
     border: none;
     overflow: hidden;

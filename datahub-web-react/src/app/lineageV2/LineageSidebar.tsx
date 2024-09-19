@@ -16,10 +16,6 @@ const SidebarWrapper = styled.div<{ $distanceFromTop: number }>`
     flex-direction: column;
     z-index: 9999;
     height: 100vh;
-    // height: calc(100vh - ${(props) => props.$distanceFromTop}px);
-    // top: ${(props) => props.$distanceFromTop}px;
-    // overflow-y: scroll;
-    border-left: 1px solid #e8e8e8;
 
     && {
         &::-webkit-scrollbar {

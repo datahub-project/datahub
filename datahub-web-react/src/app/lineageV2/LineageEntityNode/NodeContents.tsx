@@ -321,6 +321,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 platformName={platformName}
                 platformIcon={entity?.icon}
                 setHoveredNode={setHoveredNode}
+                ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
             />
         );
     }
@@ -348,6 +349,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                 fetchStatus[LineageDirection.Upstream] === FetchStatus.UNFETCHED || !isExpandedUpstream
                             }
                             fetchStatus={fetchStatus}
+                            ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
                         />
                     )}
                 {hasDownstreamChildren &&
@@ -362,6 +364,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                 !isExpandedDownstream
                             }
                             fetchStatus={fetchStatus}
+                            ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
                         />
                     )}
                 {fetchStatus[LineageDirection.Upstream] === FetchStatus.COMPLETE &&

@@ -46,12 +46,7 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
     useEntityQuery = useGetSchemaFieldQuery;
 
     renderProfile = (urn: string) => (
-        <TabFullsizedContext.Provider
-            value={{
-                isTabFullsize: true,
-                setTabFullsize: () => {},
-            }}
-        >
+        <TabFullsizedContext.Provider value={{ isTabFullsize: true }}>
             <EntityProfile
                 urn={urn}
                 entityType={EntityType.SchemaField}

@@ -64,7 +64,7 @@ export default function LineageExplorer(props: Props) {
     const { setTabFullsize } = useContext(TabFullsizedContext);
     useEffect(() => {
         return () => {
-            setTabFullsize(false);
+            setTabFullsize?.(false);
         };
     }, [setTabFullsize]);
 

@@ -206,6 +206,7 @@ interface Props {
     platformName?: string;
     platformIcon?: string;
     setHoveredNode: (urn: string | null) => void;
+    ignoreSchemaFieldStatus: boolean;
 }
 
 export default function SchemaFieldNodeContents({
@@ -223,6 +224,7 @@ export default function SchemaFieldNodeContents({
     platformName,
     platformIcon,
     setHoveredNode,
+    ignoreSchemaFieldStatus,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
 
@@ -251,6 +253,7 @@ export default function SchemaFieldNodeContents({
                                 fetchStatus[LineageDirection.Upstream] === FetchStatus.UNFETCHED || !isExpandedUpstream
                             }
                             fetchStatus={fetchStatus}
+                            ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
                         />
                     )}
                 {hasDownstreamChildren &&
@@ -265,6 +268,7 @@ export default function SchemaFieldNodeContents({
                                 !isExpandedDownstream
                             }
                             fetchStatus={fetchStatus}
+                            ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
                         />
                     )}
                 {fetchStatus[LineageDirection.Upstream] === FetchStatus.COMPLETE &&

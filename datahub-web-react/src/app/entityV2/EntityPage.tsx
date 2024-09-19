@@ -100,7 +100,8 @@ export const EntityPage = ({ entityType }: Props) => {
                     <TabFullSizedContext.Provider
                         value={{
                             isTabFullsize,
-                            setTabFullsize,
+                            // TODO: Clean up logic after removing lineageGraphV2 flag
+                            setTabFullsize: isLineageV2 && showLineage ? undefined : setTabFullsize,
                         }}
                     >
                         {showNewPage && entityRegistry.renderProfile(entityType, urn)}

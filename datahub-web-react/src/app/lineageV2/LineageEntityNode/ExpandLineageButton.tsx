@@ -22,12 +22,14 @@ interface Props {
     direction: LineageDirection;
     display: boolean;
     fetchStatus: Record<LineageDirection, FetchStatus>;
+    ignoreSchemaFieldStatus: boolean;
 }
 
-export function ExpandLineageButton({ urn, type, direction, display, fetchStatus }: Props) {
+export function ExpandLineageButton({ urn, type, direction, display, fetchStatus, ignoreSchemaFieldStatus }: Props) {
     const expandOneLevel = useOnClickExpandLineage(urn, type, direction, false);
     const expandAll = useOnClickExpandLineage(urn, type, direction, true);
     const isFetchComplete = fetchStatus[direction] === FetchStatus.COMPLETE;
+    const showExpandAll = !isFetchComplete && (type === EntityType.SchemaField ? !ignoreSchemaFieldStatus : true);
 
     const handleExpandOneLevel = (e: React.MouseEvent<HTMLSpanElement, MouseEvent>) => {
         expandOneLevel(e);
@@ -59,7 +61,7 @@ export function ExpandLineageButton({ urn, type, direction, display, fetchStatus
     const Wrapper = direction === LineageDirection.Upstream ? UpstreamWrapper : DownstreamWrapper;
 
     return (
-        <Wrapper expandOnHover={!isFetchComplete}>
+        <Wrapper expandOnHover={showExpandAll}>
             <Button
                 onClick={(e) => onClickPreventSelect(e) && handleExpandOneLevel(e)}
                 onMouseEnter={(e) => e.stopPropagation()}
@@ -67,7 +69,7 @@ export function ExpandLineageButton({ urn, type, direction, display, fetchStatus
             >
                 <KeyboardArrowRight viewBox="3 3 18 18" fontSize="inherit" />
             </Button>
-            {!isFetchComplete && (
+            {showExpandAll && (
                 <>
                     <VerticalDivider margin={2} />
                     <Button

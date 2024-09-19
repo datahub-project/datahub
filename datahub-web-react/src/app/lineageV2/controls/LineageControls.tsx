@@ -2,7 +2,7 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { EntityType } from '@types';
 import React, { useContext, useEffect, useState } from 'react';
-import { Panel, useReactFlow, useStoreApi } from 'reactflow';
+import { Panel, useReactFlow } from 'reactflow';
 import styled from 'styled-components';
 import {
     ArrowsAltOutlined,
@@ -69,7 +69,6 @@ export default function LineageControls({ entityType }: Props) {
 
     const [isExpanded, setIsExpanded] = useState(false);
     const [visiblePanel, setVisiblePanel] = useState<PanelType | null>(null);
-    const store = useStoreApi();
 
     // showExpandedText is a delayed version of isExpanded by .3 seconds
     const [showExpandedText, setShowExpandedText] = useState(false);
@@ -134,22 +133,15 @@ export default function LineageControls({ entityType }: Props) {
                     <StyledDivider />
                     <DownloadLineageScreenshotButton showExpandedText={showExpandedText} />
                 </StyledControlsPanel>
-                <StyledExpandContractButton
-                    onClick={() => {
-                        if (!isTabFullsize) {
-                            setTabFullsize(true);
-                            store.getState().resetSelectedElements();
-                        } else {
-                            setTabFullsize(false);
-                        }
-                    }}
-                >
-                    {isTabFullsize ? (
-                        <ShrinkOutlined style={{ fontSize: '150%' }} />
-                    ) : (
-                        <ArrowsAltOutlined style={{ fontSize: '150%' }} />
-                    )}
-                </StyledExpandContractButton>
+                {setTabFullsize && (
+                    <StyledExpandContractButton onClick={() => setTabFullsize((v) => !v)}>
+                        {isTabFullsize ? (
+                            <ShrinkOutlined style={{ fontSize: '150%' }} />
+                        ) : (
+                            <ArrowsAltOutlined style={{ fontSize: '150%' }} />
+                        )}
+                    </StyledExpandContractButton>
+                )}
             </ControlsColumn>
             {visiblePanel === 'filters' && <LineageSearchFilters showGhostEntityToggle={showGhostEntityToggle} />}
             {visiblePanel === 'timeRange' && <LineageTimeRangeControls />}
