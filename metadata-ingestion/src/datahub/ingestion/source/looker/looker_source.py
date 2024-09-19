@@ -286,8 +286,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             except AssertionError:
                 self.reporter.report_warning(
                     title="Failed to Extract View Name from Field",
-                    message="The field was not prefixed by a view name. This can happen when the field references "
-                    "another dynamic field.",
+                    message="The field was not prefixed by a view name. This can happen when the field references another dynamic field.",
                     context=f"Field Name: {field_name}",
                 )
                 continue
