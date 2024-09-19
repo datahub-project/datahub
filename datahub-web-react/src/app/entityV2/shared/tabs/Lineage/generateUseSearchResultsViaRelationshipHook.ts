@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { useUserContext } from '@src/app/context/useUserContext';
+import React, { useEffect } from 'react';
 import { useSearchAcrossLineageCountQuery, useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
 import { LineageDirection } from '../../../../../types.generated';
 import { GetSearchResultsParams } from '../../components/styled/search/types';
@@ -25,33 +24,22 @@ export function generateUseSearchResultsCountViaRelationshipHook({
     setSkipCache?: (skipCache: boolean) => void;
     setIsLoading?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
-    return function useGetSearchResultsCountViaSearchAcrossLineage(params: GetSearchResultsParams) {
-        const {
-            variables: {
-                input: { types, query, start, count, filters, orFilters, viewUrn },
-            },
-        } = params;
+    return function useGetSearchResultsCountViaSearchAcrossLineage({ variables: { input } }: GetSearchResultsParams) {
+        const { filters, orFilters } = input;
         const inputFields = {
+            ...input,
             urn,
             direction,
-            types,
-            query,
-            start,
-            count,
-            filters,
-            orFilters,
-            viewUrn: viewUrn || undefined,
             startTimeMillis: startTimeMillis || undefined,
             endTimeMillis: endTimeMillis || undefined,
         };
 
-        // useSearchAcrossLineageCountQuery
-        const { data, refetch } = useSearchAcrossLineageCountQuery({
+        const { data, loading, error, refetch } = useSearchAcrossLineageCountQuery({
             variables: {
                 input: inputFields,
             },
             fetchPolicy: 'cache-first',
-            skip: !filtersExist(filters, orFilters), // If you don't include any filters, we shound't return anything :). Might as well skip!
+            skip: !filtersExist(filters, orFilters), // If you don't include any filters, we shouldn't return anything :). Might as well skip!
         });
 
         useEffect(() => {
@@ -66,9 +54,7 @@ export function generateUseSearchResultsCountViaRelationshipHook({
             }
         });
 
-        return {
-            total: data?.searchAcrossLineage?.total,
-        };
+        return { total: data?.searchAcrossLineage?.total, loading, error };
     };
 }
 
@@ -89,34 +75,20 @@ export default function generateUseSearchResultsViaRelationshipHook({
     setSkipCache?: (skipCache: boolean) => void;
     setIsLoading?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
-    return function useGetSearchResultsViaSearchAcrossLineage(params: GetSearchResultsParams) {
-        const userContext = useUserContext();
-
-        const {
-            variables: {
-                input: { types, query, start, count, filters, orFilters },
-            },
-        } = params;
+    return function useGetSearchResultsViaSearchAcrossLineage({ variables: { input } }: GetSearchResultsParams) {
+        const { filters, orFilters } = input;
         const inputFields = {
+            ...input,
             urn,
             direction,
-            types,
-            query,
-            start,
-            count,
-            filters,
-            orFilters,
-            viewUrn: userContext.localState?.selectedViewUrn || undefined,
             startTimeMillis: startTimeMillis || undefined,
             endTimeMillis: endTimeMillis || undefined,
         };
 
         const { data, loading, error, refetch } = useSearchAcrossLineageQuery({
-            variables: {
-                input: inputFields,
-            },
+            variables: { input: inputFields },
             fetchPolicy: 'cache-first',
-            skip: !filtersExist(filters, orFilters), // If you don't include any filters, we shound't return anything :). Might as well skip!
+            skip: !filtersExist(filters, orFilters), // If you don't include any filters, we shouldn't return anything :). Might as well skip!
         });
 
         useEffect(() => {

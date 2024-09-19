@@ -51,6 +51,8 @@ type Props = {
     };
     useGetSearchCountResult?: (params: GetSearchResultsParams) => {
         total: number | undefined;
+        loading: boolean;
+        error?: ApolloError;
     };
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;

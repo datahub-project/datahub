@@ -9,17 +9,7 @@ import { DownloadSearchResults, DownloadSearchResultsInput, DownloadSearchResult
 export function useDownloadScrollAcrossEntitiesSearchResults(params: DownloadSearchResultsParams) {
     const { data, loading, error, refetch } = useGetDownloadScrollResultsQuery({
         ...params,
-        variables: {
-            input: {
-                types: params.variables.input.types,
-                orFilters: params.variables.input.orFilters,
-                query: params.variables.input.query,
-                scrollId: params.variables.input.scrollId,
-                count: params.variables.input.count,
-                viewUrn: params.variables.input.viewUrn,
-                searchFlags: params.variables.input.searchFlags,
-            },
-        },
+        variables: { input: params.variables.input },
     });
     return {
         searchResults:
@@ -30,17 +20,7 @@ export function useDownloadScrollAcrossEntitiesSearchResults(params: DownloadSea
         loading,
         error,
         refetch: (input: DownloadSearchResultsInput) =>
-            refetch({
-                input: {
-                    types: input.types,
-                    orFilters: input.orFilters,
-                    query: input.query,
-                    scrollId: input.scrollId,
-                    count: input.count,
-                    viewUrn: input.viewUrn,
-                    searchFlags: input.searchFlags,
-                },
-            }).then(
+            refetch({ input }).then(
                 (res) =>
                     ((res.data?.scrollAcrossEntities && {
                         ...res.data?.scrollAcrossEntities,

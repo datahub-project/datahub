@@ -207,22 +207,19 @@ export const EmbeddedListSearchResults = ({
                     {view && (
                         <ViewsContainer>
                             <ViewLabel>View</ViewLabel>
-                            <Pill
-                                selected={!selectedViewUrn}
-                                onClick={() => setSelectedViewUrn && setSelectedViewUrn(undefined)}
-                            >
+                            <Pill selected={!selectedViewUrn} onClick={() => setSelectedViewUrn?.(undefined)}>
                                 <LanguageIconStyle selected={!selectedViewUrn} />
                                 <span>All</span>
                                 {allSearchCount > 0 && <Count selected={!selectedViewUrn}>{allSearchCount}</Count>}
                             </Pill>
                             {defaultViewUrn === view.urn && (
                                 <Pill
-                                    selected={selectedViewUrn === view?.urn}
-                                    onClick={() => view?.urn && setSelectedViewUrn && setSelectedViewUrn(view?.urn)}
+                                    selected={selectedViewUrn === view.urn}
+                                    onClick={() => setSelectedViewUrn?.(view?.urn)}
                                 >
-                                    <span>{view?.name}</span>
+                                    <span>{view.name}</span>
                                     {defaultViewCount > 0 && (
-                                        <Count selected={selectedViewUrn === view?.urn}>{defaultViewCount}</Count>
+                                        <Count selected={selectedViewUrn === view.urn}>{defaultViewCount}</Count>
                                     )}
                                 </Pill>
                             )}

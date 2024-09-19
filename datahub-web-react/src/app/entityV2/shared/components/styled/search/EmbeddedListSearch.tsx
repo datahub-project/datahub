@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { SearchCfg } from '../../../../../../conf';
 import {
-    useGetSearchCountLazyQuery,
+    useGetSearchCountQuery,
     useGetSearchResultsForMultipleQuery,
 } from '../../../../../../graphql/search.generated';
 import { useGetViewQuery } from '../../../../../../graphql/view.generated';
@@ -77,17 +77,10 @@ export const removeFixedFiltersFromFacets = (fixedFilters: FilterSet, facets: Fa
     return facets.filter((facet) => !fixedFields.includes(facet.field));
 };
 
-const useGetSearchCountQueryResult = (param) => {
-    const [getSearchResult, { data }] = useGetSearchCountLazyQuery(param);
-
-    useEffect(() => {
-        getSearchResult();
-    }, [getSearchResult]);
-
-    return {
-        total: data?.searchAcrossEntities?.total,
-    };
-};
+function useWrappedSearchCountResults(params: GetSearchResultsParams) {
+    const { data, loading, error } = useGetSearchCountQuery(params);
+    return { total: data?.searchAcrossEntities?.total, loading, error };
+}
 
 type Props = {
     query: string;
@@ -119,6 +112,8 @@ type Props = {
     };
     useGetSearchCountResult?: (params: GetSearchResultsParams) => {
         total: number | undefined;
+        loading: boolean;
+        error?: ApolloError;
     };
     useGetDownloadSearchResults?: (params: DownloadSearchResultsParams) => {
         loading: boolean;
@@ -157,7 +152,7 @@ export const EmbeddedListSearch = ({
     skipCache,
     useGetSearchResults = useWrappedSearchResults,
     useGetDownloadSearchResults = useDownloadScrollAcrossEntitiesSearchResults,
-    useGetSearchCountResult = useGetSearchCountQueryResult,
+    useGetSearchCountResult = useWrappedSearchCountResults,
     shouldRefetch,
     resetShouldRefetch,
     applyView = false,
@@ -217,7 +212,7 @@ export const EmbeddedListSearch = ({
         start: (page - 1) * numResultsPerPage,
         count: numResultsPerPage,
         orFilters: finalFilters,
-        viewUrn: (applyView && selectedViewUrn) || undefined,
+        viewUrn: applyView ? selectedViewUrn : undefined,
         sortInput: sort ? { sortCriterion: sort } : undefined,
         ...(skipCache && { searchFlags: { skipCache: true } }),
     };
@@ -239,8 +234,8 @@ export const EmbeddedListSearch = ({
         });
     };
 
-    const allSearchCount = useGetViewSearchData(undefined).total;
-    const defaultViewCount = useGetViewSearchData(defaultViewUrn).total;
+    const allSearchCount = useGetViewSearchData(undefined)?.total;
+    const defaultViewCount = useGetViewSearchData(defaultViewUrn)?.total;
     const { data: viewData } = useGetViewQuery({
         variables: {
             urn: defaultViewUrn || '',

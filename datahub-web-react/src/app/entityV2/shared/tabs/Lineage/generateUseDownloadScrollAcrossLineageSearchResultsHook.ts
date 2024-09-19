@@ -28,13 +28,9 @@ export default function generateUseDownloadSearchAcrossLineageSearchResultsHook(
             ...params,
             variables: {
                 input: {
+                    ...params.variables.input,
                     urn,
                     direction,
-                    types: params.variables?.input.types,
-                    query: params.variables?.input.query,
-                    scrollId: params.variables?.input.scrollId,
-                    count: params.variables?.input.count,
-                    orFilters: params.variables?.input.orFilters,
                     startTimeMillis: startTimeMillis || undefined,
                     endTimeMillis: endTimeMillis || undefined,
                 },
@@ -52,13 +48,9 @@ export default function generateUseDownloadSearchAcrossLineageSearchResultsHook(
             refetch: (input: DownloadSearchResultsInput) => {
                 return refetch({
                     input: {
+                        ...input,
                         urn,
                         direction,
-                        types: input.types,
-                        query: input.query,
-                        scrollId: input.scrollId,
-                        count: input.count,
-                        orFilters: input.orFilters,
                         startTimeMillis: startTimeMillis || undefined,
                         endTimeMillis: endTimeMillis || undefined,
                     },
