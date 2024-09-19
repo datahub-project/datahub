@@ -1,5 +1,5 @@
 import { Icon, Input, Text } from '@components';
-import { Collapse, Form } from 'antd';
+import { Collapse, Form, Tooltip } from 'antd';
 import React from 'react';
 import { CollapseHeader, StyledCollapse } from './styledComponents';
 
@@ -15,7 +15,7 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
                 <Icon icon="ChevronRight" color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
             )}
             expandIconPosition="end"
-            defaultActiveKey={1}
+            defaultActiveKey={[]}
         >
             <Collapse.Panel
                 key={1}
@@ -26,13 +26,18 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
                         </Text>
                     </CollapseHeader>
                 }
+                forceRender
             >
-                <Form.Item name="qualifiedName">
-                    <Input label="Namespace" placeholder="Optional - Namespace" isDisabled={isEditMode} />
-                </Form.Item>
-                <Form.Item name="id">
-                    <Input label="ID" placeholder="Optional - Unique ID" isDisabled={isEditMode} />
-                </Form.Item>
+                <Tooltip
+                    title={
+                        isEditMode && 'Changing the qualified name is disabled once a structured property is created'
+                    }
+                    showArrow={false}
+                >
+                    <Form.Item name="qualifiedName">
+                        <Input label="Qualified Name" placeholder="Optional - Qualified Name" isDisabled={isEditMode} />
+                    </Form.Item>
+                </Tooltip>
             </Collapse.Panel>
         </StyledCollapse>
     );

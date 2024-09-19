@@ -1,4 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import { useApolloClient } from '@apollo/client';
 import { Button, Text } from '@src/alchemy-components';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import {
@@ -13,6 +14,7 @@ import {
 } from '@src/types.generated';
 import { Form } from 'antd';
 import React, { useState } from 'react';
+import { updatePropertiesList } from './cacheUtils';
 import StructuredPropsForm from './StructuredPropsForm';
 import { DrawerHeader, FooterContainer, StyledDrawer, StyledIcon, StyledSpin } from './styledComponents';
 import { getNewAllowedTypes, getNewEntityTypes, StructuredProp } from './utils';
@@ -20,33 +22,38 @@ import { getNewAllowedTypes, getNewEntityTypes, StructuredProp } from './utils';
 interface Props {
     isDrawerOpen: boolean;
     setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
-    currentProperty?: SearchResult;
-    setCurrentProperty: React.Dispatch<React.SetStateAction<SearchResult | undefined>>;
+    selectedProperty?: SearchResult;
+    setSelectedProperty: React.Dispatch<React.SetStateAction<SearchResult | undefined>>;
     refetch: () => void;
+    inputs: object;
+    searchAcrossEntities?: object | null;
 }
 
 const StructuredPropsDrawer = ({
     isDrawerOpen,
     setIsDrawerOpen,
-    currentProperty,
-    setCurrentProperty,
+    selectedProperty,
+    setSelectedProperty,
     refetch,
+    inputs,
+    searchAcrossEntities,
 }: Props) => {
     const [form] = Form.useForm();
 
     const [createStructuredProperty] = useCreateStructuredPropertyMutation();
     const [updateStructuredProperty] = useUpdateStructuredPropertyMutation();
+    const client = useApolloClient();
 
     const [cardinality, setCardinality] = useState<PropertyCardinality>(PropertyCardinality.Single);
     const [formValues, setFormValues] = useState<StructuredProp>();
     const [selectedValueType, setSelectedValueType] = useState<string>('');
     const [isLoading, setIsLoading] = useState<boolean>(false);
 
-    const isEditMode = !!currentProperty;
+    const isEditMode = !!selectedProperty;
 
     const handleClose = () => {
         setIsDrawerOpen(false);
-        setCurrentProperty(undefined);
+        setSelectedProperty(undefined);
         form.resetFields();
         setFormValues(undefined);
         setSelectedValueType('');
@@ -68,13 +75,16 @@ const StructuredPropsDrawer = ({
                 const values: StructuredProp = form.getFieldsValue();
 
                 const editInput: UpdateStructuredPropertyInput = {
-                    urn: currentProperty.entity.urn,
+                    urn: selectedProperty.entity.urn,
                     displayName: values.displayName,
                     description: values.description,
                     typeQualifier: {
-                        newAllowedTypes: getNewAllowedTypes(currentProperty.entity as StructuredPropertyEntity, values),
+                        newAllowedTypes: getNewAllowedTypes(
+                            selectedProperty.entity as StructuredPropertyEntity,
+                            values,
+                        ),
                     },
-                    newEntityTypes: getNewEntityTypes(currentProperty.entity as StructuredPropertyEntity, values),
+                    newEntityTypes: getNewEntityTypes(selectedProperty.entity as StructuredPropertyEntity, values),
                     setCardinalityAsMultiple: cardinality === PropertyCardinality.Multiple,
                 };
                 setIsLoading(true);
@@ -94,7 +104,7 @@ const StructuredPropsDrawer = ({
                         setIsLoading(false);
                         form.resetFields();
                         setIsDrawerOpen(false);
-                        setCurrentProperty(undefined);
+                        setSelectedProperty(undefined);
                         setFormValues(undefined);
                         setSelectedValueType('');
                     });
@@ -105,18 +115,19 @@ const StructuredPropsDrawer = ({
                 form.setFieldValue('qualifiedName', formData.displayName?.replace(/\s/g, '').toLowerCase());
 
             form.validateFields().then(() => {
+                const createInput = {
+                    ...form.getFieldsValue(),
+                    cardinality,
+                };
                 setIsLoading(true);
                 createStructuredProperty({
                     variables: {
-                        input: {
-                            ...form.getFieldsValue(),
-                            cardinality,
-                        },
+                        input: createInput,
                     },
                 })
-                    .then(() => {
+                    .then((res) => {
                         showSuccessMessage();
-                        refetch();
+                        updatePropertiesList(client, inputs, res.data?.createStructuredProperty, searchAcrossEntities);
                     })
                     .catch(() => {
                         showErrorMessage();
@@ -125,7 +136,7 @@ const StructuredPropsDrawer = ({
                         setIsLoading(false);
                         form.resetFields();
                         setIsDrawerOpen(false);
-                        setCurrentProperty(undefined);
+                        setSelectedProperty(undefined);
                         setFormValues(undefined);
                         setSelectedValueType('');
                     });
@@ -156,7 +167,7 @@ const StructuredPropsDrawer = ({
         >
             <StyledSpin spinning={isLoading} indicator={<LoadingOutlined />}>
                 <StructuredPropsForm
-                    currentProperty={currentProperty}
+                    selectedProperty={selectedProperty}
                     form={form}
                     formValues={formValues}
                     setFormValues={setFormValues}

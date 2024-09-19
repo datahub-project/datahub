@@ -16,7 +16,7 @@ import {
 const StructuredProperties = () => {
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
-    const [currentProperty, setCurrentProperty] = useState<SearchResult | undefined>();
+    const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
 
     const handleSearch = (value) => {
         setSearchQuery(value);
@@ -35,7 +35,10 @@ const StructuredProperties = () => {
         variables: {
             input: inputs,
         },
+        fetchPolicy: 'cache-first',
     });
+
+    const searchAcrossEntities = data?.searchAcrossEntities;
 
     return (
         <PageContainer>
@@ -67,17 +70,20 @@ const StructuredProperties = () => {
                     data={data}
                     loading={loading}
                     setIsDrawerOpen={setIsDrawerOpen}
-                    setCurrentProperty={setCurrentProperty}
-                    currentProperty={currentProperty}
-                    refetch={refetch}
+                    setSelectedProperty={setSelectedProperty}
+                    selectedProperty={selectedProperty}
+                    inputs={inputs}
+                    searchAcrossEntities={searchAcrossEntities}
                 />
             </TableContainer>
             <StructuredPropsDrawer
                 isDrawerOpen={isDrawerOpen}
                 setIsDrawerOpen={setIsDrawerOpen}
                 refetch={refetch}
-                currentProperty={currentProperty}
-                setCurrentProperty={setCurrentProperty}
+                selectedProperty={selectedProperty}
+                setSelectedProperty={setSelectedProperty}
+                inputs={inputs}
+                searchAcrossEntities={searchAcrossEntities}
             />
         </PageContainer>
     );

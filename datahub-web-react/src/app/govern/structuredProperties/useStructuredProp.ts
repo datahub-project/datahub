@@ -4,7 +4,7 @@ import { FormInstance } from 'antd';
 import { getEntityTypeUrn, StructuredProp, valueTypes } from './utils';
 
 interface Props {
-    currentProperty?: SearchResult;
+    selectedProperty?: SearchResult;
     form: FormInstance;
     setFormValues: React.Dispatch<React.SetStateAction<StructuredProp | undefined>>;
     setCardinality: React.Dispatch<React.SetStateAction<PropertyCardinality>>;
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default function useStructuredProp({
-    currentProperty,
+    selectedProperty,
     form,
     setFormValues,
     setCardinality,
@@ -25,7 +25,7 @@ export default function useStructuredProp({
         entitiesList.forEach((type) => {
             const entity = {
                 label: entityRegistry.getEntityName(type) || '',
-                value: getEntityTypeUrn(type),
+                value: getEntityTypeUrn(entityRegistry, type),
             };
             listOptions.push(entity);
         });
@@ -53,7 +53,7 @@ export default function useStructuredProp({
     };
 
     const handleSelectUpdateChange = (field, values) => {
-        const entity = currentProperty?.entity as StructuredPropertyEntity;
+        const entity = selectedProperty?.entity as StructuredPropertyEntity;
         let initialValues: string[] = [];
 
         if (field === 'entityTypes') initialValues = entity.definition.entityTypes.map((type) => type.urn);
@@ -71,7 +71,7 @@ export default function useStructuredProp({
     // Handle change in the property type dropdown
     const handleTypeUpdate = (values: string[]) => {
         const typeOption = valueTypes.find((type) => type.value === values[0]);
-        const typeUrn = typeOption?.key || '';
+        const typeUrn = typeOption?.urn || '';
         setSelectedValueType(typeUrn);
         handleSelectChange('valueType', typeUrn);
         setFormValues((prev) => ({

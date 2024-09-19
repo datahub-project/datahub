@@ -1621,6 +1621,38 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
             }
             description
         }
+        created {
+            time
+            actor {
+                urn
+                type
+                username
+                properties {
+                    displayName
+                    email
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+        }
+        lastModified {
+            time
+            actor {
+                urn
+                type
+                username
+                properties {
+                    displayName
+                    email
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+        }
     }
 }
 

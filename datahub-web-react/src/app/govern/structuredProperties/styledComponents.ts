@@ -49,6 +49,10 @@ export const PropName = styled(Typography.Text)`
     text-overflow: ellipsis;
     white-space: nowrap;
     line-height: normal;
+
+    :hover {
+        cursor: pointer;
+    }
 `;
 
 export const PropDescription = styled(Typography.Text)`
@@ -192,4 +196,23 @@ export const CollapseHeader = styled.div`
 export const StyledSpin = styled(Spin)`
     max-height: 100% !important;
     color: ${colors.violet[500]};
+`;
+
+export const CreatedByContainer = styled.div`
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    border-radius: 20px;
+    border: 1px solid ${colors.gray[1400]};
+`;
+
+export const SubTextContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    p {
+        margin: 0;
+    }
 `;

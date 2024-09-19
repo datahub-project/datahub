@@ -1,5 +1,7 @@
+import { useApolloClient } from '@apollo/client';
 import { Icon, Pill, Table, Text } from '@components';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+import { CustomAvatar } from '@src/app/shared/avatar';
 import { toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
@@ -7,11 +9,13 @@ import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
 import TableIcon from '@src/images/table-icon.svg?react';
-import { SearchResult } from '@src/types.generated';
+import { EntityType, SearchResult } from '@src/types.generated';
 import { Dropdown, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { CardIcons } from '../Dashboard/Forms/styledComponents';
+import { removeFromPropertiesList } from './cacheUtils';
 import {
+    CreatedByContainer,
     DataContainer,
     IconContainer,
     MenuItem,
@@ -28,9 +32,10 @@ interface Props {
     data: GetSearchResultsForMultipleQuery | undefined;
     loading: boolean;
     setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
-    currentProperty?: SearchResult;
-    setCurrentProperty: React.Dispatch<React.SetStateAction<SearchResult | undefined>>;
-    refetch: () => void;
+    selectedProperty?: SearchResult;
+    setSelectedProperty: React.Dispatch<React.SetStateAction<SearchResult | undefined>>;
+    inputs: object;
+    searchAcrossEntities?: object | null;
 }
 
 const StructuredPropsTable = ({
@@ -38,17 +43,19 @@ const StructuredPropsTable = ({
     data,
     loading,
     setIsDrawerOpen,
-    currentProperty,
-    setCurrentProperty,
-    refetch,
+    selectedProperty,
+    setSelectedProperty,
+    inputs,
+    searchAcrossEntities,
 }: Props) => {
     const entityRegistry = useEntityRegistryV2();
+    const client = useApolloClient();
 
     const structuredProperties = data?.searchAcrossEntities?.searchResults || [];
 
     // Filter the table data based on the search query
     const filteredProperties = structuredProperties.filter((prop: any) =>
-        prop.entity.definition.displayName?.toLowerCase().includes(searchQuery.toLowerCase()),
+        prop.entity.definition?.displayName?.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
     const [deleteStructuredProperty] = useDeleteStructuredPropertyMutation();
@@ -66,20 +73,19 @@ const StructuredPropsTable = ({
         })
             .then(() => {
                 showToastMessage(ToastType.SUCCESS, 'Structured property deleted successfully!', 3);
-                refetch();
+                removeFromPropertiesList(client, inputs, property.entity.urn, searchAcrossEntities);
             })
             .catch(() => {
                 showToastMessage(ToastType.ERROR, 'Failed to delete structured property', 3);
-            })
-            .finally(() => {
-                setShowConfirmDelete(false);
-                setCurrentProperty(undefined);
             });
+
+        setShowConfirmDelete(false);
+        setSelectedProperty(undefined);
     };
 
     const handleDeleteClose = () => {
         setShowConfirmDelete(false);
-        setCurrentProperty(undefined);
+        setSelectedProperty(undefined);
     };
 
     const columns = [
@@ -93,7 +99,14 @@ const StructuredPropsTable = ({
                             <TableIcon />
                         </IconContainer>
                         <DataContainer>
-                            <PropName>{getDisplayName(record.entity)}</PropName>
+                            <PropName
+                                onClick={() => {
+                                    setIsDrawerOpen(true);
+                                    setSelectedProperty(record);
+                                }}
+                            >
+                                {getDisplayName(record.entity)}
+                            </PropName>
                             <PropDescription>{record.entity.definition.description}</PropDescription>
                         </DataContainer>
                     </NameColumn>
@@ -144,15 +157,44 @@ const StructuredPropsTable = ({
             title: 'Creation Date',
             key: 'creationDate',
             render: (record) => {
-                const createdTime = record.entity.definition.creationDate;
+                const createdTime = record.entity.definition.created?.time;
                 return createdTime ? toRelativeTimeString(createdTime) : '-';
+            },
+            sorter: (sourceA, sourceB) => {
+                const timeA = sourceA.entity.definition.created?.time || Number.MAX_SAFE_INTEGER;
+                const timeB = sourceB.entity.definition.created?.time || Number.MAX_SAFE_INTEGER;
+
+                return timeA - timeB;
             },
         },
 
         {
             title: 'Created By',
             key: 'createdBy',
-            render: () => {},
+            render: (record) => {
+                const createdByUser = record.entity.definition?.created?.actor;
+                const name = createdByUser && entityRegistry.getDisplayName(EntityType.CorpUser, createdByUser);
+                const avatarUrl = createdByUser?.editableProperties?.pictureLink || undefined;
+
+                return (
+                    <>
+                        {createdByUser && (
+                            <CreatedByContainer>
+                                <CustomAvatar size={20} name={name} photoUrl={avatarUrl} />
+                                <Text size="sm">{name}</Text>
+                            </CreatedByContainer>
+                        )}
+                    </>
+                );
+            },
+            sorter: (sourceA, sourceB) => {
+                const createdByUserA = sourceA.entity.definition?.created?.actor;
+                const nameA = createdByUserA && entityRegistry.getDisplayName(EntityType.CorpUser, createdByUserA);
+                const createdByUserB = sourceB.entity.definition?.created?.actor;
+                const nameB = createdByUserB && entityRegistry.getDisplayName(EntityType.CorpUser, createdByUserB);
+
+                return nameA?.localeCompare(nameB);
+            },
         },
         {
             title: '',
@@ -166,7 +208,7 @@ const StructuredPropsTable = ({
                             <MenuItem
                                 onClick={() => {
                                     setIsDrawerOpen(true);
-                                    setCurrentProperty(record);
+                                    setSelectedProperty(record);
                                 }}
                             >
                                 Edit
@@ -178,7 +220,7 @@ const StructuredPropsTable = ({
                         label: (
                             <MenuItem
                                 onClick={() => {
-                                    setCurrentProperty(record);
+                                    setSelectedProperty(record);
                                     setShowConfirmDelete(true);
                                 }}
                             >
@@ -205,9 +247,9 @@ const StructuredPropsTable = ({
             <ConfirmationModal
                 isOpen={showConfirmDelete}
                 handleClose={handleDeleteClose}
-                handleConfirm={() => handleDeleteProperty(currentProperty)}
+                handleConfirm={() => handleDeleteProperty(selectedProperty)}
                 modalTitle="Confirm Delete"
-                modalText="Are you sure you want to delete the structured property?"
+                modalText="Are you sure you want to delete? Deleting will remove this structured property from all assets it's currently on."
             />
         </>
     );

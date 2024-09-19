@@ -1,9 +1,9 @@
-import { Input, SimpleSelect, Text, TextArea } from '@src/alchemy-components';
+import { Icon, Input, SimpleSelect, Text, TextArea } from '@src/alchemy-components';
 import { PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
-import { Form, FormInstance } from 'antd';
+import { Form, FormInstance, Tooltip } from 'antd';
 import React, { useEffect } from 'react';
 import AdvancedOptions from './AdvancedOptions';
-import { FieldLabel, RowContainer } from './styledComponents';
+import { FieldLabel, RowContainer, SubTextContainer } from './styledComponents';
 import useStructuredProp from './useStructuredProp';
 import {
     APPLIES_TO_ENTITIES,
@@ -16,7 +16,7 @@ import {
 } from './utils';
 
 interface Props {
-    currentProperty?: SearchResult;
+    selectedProperty?: SearchResult;
     form: FormInstance;
     formValues?: StructuredProp;
     setFormValues: React.Dispatch<React.SetStateAction<StructuredProp | undefined>>;
@@ -27,7 +27,7 @@ interface Props {
 }
 
 const StructuredPropsForm = ({
-    currentProperty,
+    selectedProperty,
     form,
     formValues,
     setFormValues,
@@ -38,7 +38,7 @@ const StructuredPropsForm = ({
 }: Props) => {
     const { handleSelectChange, handleSelectUpdateChange, handleTypeUpdate, getEntitiesListOptions } =
         useStructuredProp({
-            currentProperty,
+            selectedProperty,
             form,
             setFormValues,
             setCardinality,
@@ -46,17 +46,16 @@ const StructuredPropsForm = ({
         });
 
     useEffect(() => {
-        if (currentProperty) {
-            const entity = currentProperty.entity as StructuredPropertyEntity;
+        if (selectedProperty) {
+            const entity = selectedProperty.entity as StructuredPropertyEntity;
             const typeValue = getValueType(
                 entity.definition.valueType.urn,
                 entity.definition.cardinality || PropertyCardinality.Single,
             );
-            const values = {
+            const values: StructuredProp = {
                 displayName: getDisplayName(entity),
                 description: entity.definition.description,
                 qualifiedName: entity.definition.qualifiedName,
-                id: entity.urn,
                 valueType: typeValue,
                 entityTypes: entity.definition.entityTypes.map((entityType) => entityType.urn),
                 typeQualifier: {
@@ -64,12 +63,16 @@ const StructuredPropsForm = ({
                 },
                 immutable: entity.definition.immutable,
             };
+
             setFormValues(values);
             if (typeValue) handleTypeUpdate([typeValue]);
             form.setFieldsValue(values);
+        } else {
+            setFormValues(undefined);
+            form.resetFields();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentProperty, form]);
+    }, [selectedProperty, form]);
 
     return (
         <Form form={form}>
@@ -89,34 +92,50 @@ const StructuredPropsForm = ({
             </Form.Item>
             <RowContainer>
                 <FieldLabel> Property Type</FieldLabel>
-                <Form.Item
-                    name="valueType"
-                    rules={[
-                        {
-                            required: true,
-                            message: 'Please select the property type',
-                        },
-                    ]}
+                <Tooltip
+                    title={
+                        isEditMode &&
+                        'Changing type is disabled once a structured property is created to preserve backwards compatibility'
+                    }
+                    showArrow={false}
                 >
-                    <SimpleSelect
-                        options={valueTypes}
-                        onUpdate={(values) => {
-                            handleTypeUpdate(values);
-                        }}
-                        placeholder="Select Property Type"
-                        values={formValues?.valueType ? [formValues?.valueType] : undefined}
-                        isDisabled={isEditMode}
-                    />
-                </Form.Item>
+                    <Form.Item
+                        name="valueType"
+                        rules={[
+                            {
+                                required: true,
+                                message: 'Please select the property type',
+                            },
+                        ]}
+                    >
+                        <SimpleSelect
+                            options={valueTypes}
+                            onUpdate={(values) => {
+                                handleTypeUpdate(values);
+                            }}
+                            placeholder="Select Property Type"
+                            values={formValues?.valueType ? [formValues?.valueType] : undefined}
+                            isDisabled={isEditMode}
+                        />
+                    </Form.Item>
+                </Tooltip>
             </RowContainer>
             {isEntityTypeSelected(selectedValueType) && (
                 <RowContainer>
                     <FieldLabel>
                         <span>Allowed Entity Types </span>
                         {isEditMode && (
-                            <Text size="sm" color="gray">
-                                (Append-only)
-                            </Text>
+                            <SubTextContainer>
+                                <Text size="sm" weight="medium">
+                                    (Add-only)
+                                </Text>
+                                <Tooltip
+                                    title="Once a structured property is created, you can only add new allowed entity types to preserve backwards compatibility"
+                                    showArrow={false}
+                                >
+                                    <Icon icon="Info" size="lg" />
+                                </Tooltip>
+                            </SubTextContainer>
                         )}
                     </FieldLabel>
                     <Form.Item name={['typeQualifier', 'allowedTypes']}>
@@ -138,9 +157,17 @@ const StructuredPropsForm = ({
                 <FieldLabel>
                     <span>Applies to</span>
                     {isEditMode && (
-                        <Text size="sm" color="gray">
-                            (Append-only)
-                        </Text>
+                        <SubTextContainer>
+                            <Text size="sm" weight="medium">
+                                (Add-only)
+                            </Text>
+                            <Tooltip
+                                title="Once a structured property is created, you can only add to the applies to list to preserve backwards compatibility"
+                                showArrow={false}
+                            >
+                                <Icon icon="Info" size="lg" />
+                            </Tooltip>
+                        </SubTextContainer>
                     )}
                 </FieldLabel>
 
