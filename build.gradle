@@ -34,8 +34,8 @@ buildscript {
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.57.0'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '6.1.6'
-  ext.springBootVersion = '3.2.6'
+  ext.springVersion = '6.1.13'
+  ext.springBootVersion = '3.2.9'
   ext.springKafkaVersion = '3.1.6'
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '5.14.0'
@@ -267,7 +267,7 @@ project.ext.externalDependency = [
     'testContainersOpenSearch': 'org.opensearch:opensearch-testcontainers:2.0.0',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
-    'zookeeper': 'org.apache.zookeeper:zookeeper:3.7.2',
+    'zookeeper': 'org.apache.zookeeper:zookeeper:3.6.2',
     'wire': 'com.squareup.wire:wire-compiler:3.7.1',
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'common': 'commons-io:commons-io:2.7',
