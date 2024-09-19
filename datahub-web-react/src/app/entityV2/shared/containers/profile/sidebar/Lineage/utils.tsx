@@ -66,7 +66,9 @@ const getLineageCountsByEntityType = (aggregations: AggregationMetadata[]): Map<
 };
 
 const getLineageCountsByType = (results: SearchAcrossLineageResults) => {
-    const entityTypeAggregations = results.facets?.find((facet) => facet.field === '_entityType');
+    const entityTypeAggregations = results.facets?.find(
+        (facet) => facet.field === '_entityType' || facet.field === 'entity',
+    );
     const entityTypeTotals =
         (entityTypeAggregations && getLineageCountsByEntityType(entityTypeAggregations.aggregations)) || new Map();
     const subTypeAggregations = results.facets?.find((facet) => facet.field === '_entityType␞typeNames');
