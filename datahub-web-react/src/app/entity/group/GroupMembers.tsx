@@ -138,9 +138,10 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
     };
 
     const onRemoveMember = (memberUrn: string) => {
+        const memberName = memberUrn.replace('urn:li:corpuser:', '');
         Modal.confirm({
             title: `Confirm Group Member Removal`,
-            content: `Are you sure you want to remove this user from the group?`,
+            content: `Are you sure you want to remove "` + memberName + `" user from the group?` ,
             onOk() {
                 removeGroupMember(memberUrn);
             },
