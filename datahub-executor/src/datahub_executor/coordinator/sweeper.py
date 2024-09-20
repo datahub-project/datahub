@@ -53,6 +53,7 @@ class SweeperJob:
                         self.graph.abort_execution_request(
                             ingestion.execution_request_id,
                             f"{current_time} Ingestion was aborted due to worker pod eviction, crash, or restart.\n\n---\n{ingestion.report}",
+                            ingestion.start_time,
                         )
                         self.graph.cancel_ingestion_execution(
                             ingestion.ingestion_source_urn,

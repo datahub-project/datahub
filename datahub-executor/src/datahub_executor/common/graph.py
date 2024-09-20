@@ -56,11 +56,13 @@ class DataHubExecutorGraph(DataHubGraph):
         )
         return res["cancelIngestionExecutionRequest"]
 
-    def abort_execution_request(self, execution_request_urn: str, report: str) -> None:
+    def abort_execution_request(
+        self, execution_request_urn: str, report: str, start_time: int = 0
+    ) -> None:
         key_aspect = ExecutionRequestKeyClass(id=execution_request_urn)
         result_aspect = ExecutionRequestResultClass(
             status="ABORTED",
-            startTimeMs=0,
+            startTimeMs=start_time,
             durationMs=None,
             report=report,
             structuredReport=None,
@@ -91,6 +93,7 @@ class DataHubExecutorGraph(DataHubGraph):
         execution_request_id = key_aspect.get("value", {}).get("id")
         execution_request_status = result_aspect.get("value", {}).get("status")
         report = result_aspect.get("value", {}).get("report", "")
+        start_time = result_aspect.get("value", {}).get("startTimeMs", 0)
         last_observed = result_aspect.get("systemMetadata", {}).get("lastObserved", 0)
 
         ers = ExecutionRequestStatus.parse_obj(
@@ -101,6 +104,7 @@ class DataHubExecutorGraph(DataHubGraph):
                 "status": execution_request_status,
                 "last_observed": last_observed,
                 "report": report,
+                "start_time": start_time,
             }
         )
         return ers
