@@ -111,7 +111,7 @@ export type ColumnEdge = {
     targetField: string;
 };
 
-export type FetchedEntities = { [x: string]: FetchedEntity };
+export type FetchedEntities = Map<string, FetchedEntity>;
 
 export enum Direction {
     Upstream = 'Upstream',
@@ -126,7 +126,7 @@ export type LineageExplorerParams = {
 export type TreeProps = {
     margin?: { top: number; right: number; bottom: number; left: number };
     entityAndType?: EntityAndType | null;
-    fetchedEntities: { [x: string]: FetchedEntity };
+    fetchedEntities: Map<string, FetchedEntity>;
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (data: EntityAndType) => void;
