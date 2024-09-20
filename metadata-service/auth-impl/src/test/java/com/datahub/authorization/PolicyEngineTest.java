@@ -23,9 +23,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.Constants;
-import com.linkedin.policy.DataHubActorFilter;
-import com.linkedin.policy.DataHubPolicyInfo;
-import com.linkedin.policy.DataHubResourceFilter;
+import com.linkedin.policy.*;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
@@ -1030,6 +1028,92 @@ public class PolicyEngineTest {
     ResolvedEntitySpec resourceSpec =
         buildEntityResolvers(
             "dataset", "urn:li:dataset:random"); // A resource not covered by the policy.
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
+    assertFalse(result.isGranted());
+
+    // Verify no network calls
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
+  }
+
+  @Test
+  public void testEvaluatePolicyResourceFilterResourceUrnStartsWithMatch() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(true);
+    actorFilter.setAllGroups(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    PolicyMatchCriterion policyMatchCriterion =
+        FilterUtils.newCriterion(
+            EntityFieldType.URN,
+            Collections.singletonList("urn:li:dataset:te"),
+            PolicyMatchCondition.STARTS_WITH);
+
+    resourceFilter.setFilter(
+        new PolicyMatchFilter()
+            .setCriteria(
+                new PolicyMatchCriterionArray(Collections.singleton(policyMatchCriterion))));
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
+    assertTrue(result.isGranted());
+
+    // Verify no network calls
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
+  }
+
+  @Test
+  public void testEvaluatePolicyResourceFilterResourceUrnStartsWithNoMatch() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(true);
+    actorFilter.setAllGroups(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    PolicyMatchCriterion policyMatchCriterion =
+        FilterUtils.newCriterion(
+            EntityFieldType.URN,
+            Collections.singletonList("urn:li:dataset:other"),
+            PolicyMatchCondition.STARTS_WITH);
+
+    resourceFilter.setFilter(
+        new PolicyMatchFilter()
+            .setCriteria(
+                new PolicyMatchCriterionArray(Collections.singleton(policyMatchCriterion))));
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
     PolicyEngine.PolicyEvaluationResult result =
         _policyEngine.evaluatePolicy(
             systemOperationContext,
