@@ -1,0 +1,163 @@
+You are tasked with assigning the appropriate glossary terms from the list of glossary terms provided in the prompt.
+Please follow the instructions and ensure your output adheres to the specified format.
+
+**Information Provided in the prompt**
+<Glossary Terms>
+{glossary_terms_info}
+</Glossary Terms>
+
+Glossary Terms is a dictionary of available glossary terms which can be assigned to tables and columns.
+Given below is the structure of the provided dictionary of glossary terms:
+{{
+    "<term1_unique_identifier>": {{
+               "term_name": "<name of the glossary term>",
+                "term_description": "<description of the glossary term>",
+                "parent_node": {{
+                                 "name": "<parent node name>",
+                                 "description": "<description of the parent node>"
+                }}
+           }},
+    "<term2_unique_identifier>": {{
+               "term_name": "<name of the glossary term>",
+                "term_description": "<description of the glossary term>",
+                "parent_node": {{
+                                 "name": "<parent node name>",
+                                 "description": "<description of the parent node>"
+                }}
+           }},
+    ...
+}}
+
+
+
+<Table Information>:
+{table_info}
+</Table Information>
+
+Table Information is a dictionary describing the columns which has the following structure:
+{{
+    "name": "<name of the table>",
+    "description": "<description of the table>"
+}}
+
+<Column Information>:
+{column_info}
+</Column Information>
+
+Column Information is a dictionary describing the columns which has the following structure::
+{{
+    "<column_name1>": {{
+        "column_name": "<name of the column>",
+        "description": "<description of the column>",
+        "sample_values": "<sample values of the column>",
+        "datatype": "<data type of the column>"
+    }},
+    "<column_name2>": {{
+        "column_name": "<name of the column>",
+        "description": "<description of the column>",
+        "sample_values": "<sample values of the column>",
+        "datatype": "<data type of the column>"
+    }},
+    ...
+}}
+
+<Output Format>:
+               - Your assignments should be formatted in the following dictionary structure:
+                 {{
+                   "table": [list of assigned glossary terms for the table],
+                   "<column_name1>": [list of assigned glossary terms for column1],
+                   "<column_name2>": [list of assigned glossary terms for column2],
+                   ...
+                 }}
+
+                - Each assigned glossary term must have the following structure:
+                <Glossary Terms Structure>
+                {{
+                       "urn": "<unique identifier of the glossary term>",
+                       "name": "<name of the glossary term>",
+                       "reasoning": "<brief explanation of why the term is relevant in less than 15 words>",
+                       "confidence_score": <confidence score a floating point number from 1 to 10, where 10 indicates a perfect match>
+                }}
+                </Glossary Terms Structure>
+</Output Format>
+
+<Instructions>
+- For any table or column, if you cannot find a suitable glossary terms to assign, from the given list, do not assign any glossary term to that table or column.
+- For each column, if you cannot find a matching glossary term, please provide an empty list for that column. Make sure not to omit any columns from your response.
+- The task is not to suggest new glossary terms, but is to assign the glossary terms out of those provided ones in the prompt.
+- **Ensure that the output is well-formatted and parsable**. Adhere strictly to the provided output format and ensure clarity in your response.
+- Do not assign more than 3 glossary terms to a column.
+- **Do not** introduce unlisted glossary terms, use only those which are present in the Glossary Terms provided in this prompt.
+- Avoid using words like likely or maybe in the reasoning part of the assigned terms. Only assign terms when you are sure.
+</Instructions>
+
+<Examples of some assignments>
+For a table with following information:
+table info:
+{{
+    'name': 'member_in_workspace',
+    'description': ''
+}}
+
+and provided list of Glossary terms:
+
+Input:
+Glossary_Terms:
+['urn:li:glossaryTerm:PIITerms.GenderIdentity': {{'term_name': 'GenderIdentity', 'term_description': 'The gender with which the user identifies.', 'parent_node': {{'parent_name': 'Information Types', 'parent_description': 'A set of terms related to Personally Identifiable Information commonly found in data warehouses for a company creating design tools.'}}}},
+'urn:li:glossaryTerm:PIITerms.FullName': {{'term_name': 'FullName', 'term_description': "The user's full legal name.", 'parent_node': {{'parent_name': 'Information Types', 'parent_description': 'A set of terms related to Personally Identifiable Information commonly found in data warehouses for a company creating design tools.'}}}},
+'urn:li:glossaryTerm:PIITerms.MedicalRecordNumber': {{'term_name': 'MedicalRecordNumber', 'term_description': "The user's medical record number.", 'parent_node': {{'parent_name': 'Information Types', 'parent_description': 'A set of terms related to Personally Identifiable Information commonly found in data warehouses for a company creating design tools.'}}}},
+...,]
+
+Example1.
+column_info:
+'pronouns': {{
+                'column_name': 'pronouns',
+                'description': "",
+                'sample_values': [],
+                'datatype': 'VARCHAR(256)'
+
+}}
+
+assigned_terms:
+[
+    {{
+          "urn": "urn:li:glossaryTerm:PIITerms.GenderIdentity",
+          ""name"": ""GenderIdentity"",
+          ""reasoning"": ""The pronouns of a person is gender specific information."",
+          ""confidence_score"": 10.0,
+    }},
+]
+
+
+Example2.
+column_info:
+'name': {{
+            'column_name': 'name',
+            'description': "",
+            'sample_values': [],
+            'datatype': 'VARCHAR(256)',
+}}
+
+assigned_term:
+[
+    {{
+      ""urn"": ""urn:li:glossaryTerm:PIITerms.FullName"",
+      ""name"": ""FullName"",
+      ""reasoning"": ""The column contains the full names of members."",
+      ""confidence_score"": 10.0,
+    }}
+]
+
+Example3.
+
+column_info:
+'discourse': {{
+                'column_name': 'discourse',
+                'description': "Contains the discourse id of the user",
+                'sample_values': [],
+                'datatype': 'VARCHAR(256)',
+}}
+
+assigned_terms:
+[]
+<Examples of some assignments>

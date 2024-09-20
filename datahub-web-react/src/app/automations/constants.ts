@@ -54,6 +54,46 @@ export const DEFAULT_TESTS_PAGE_SIZE = 1000; // Max Tests size is 1000. If a com
 export const PLACEHOLDER_TEST_URN = 'placeholder-test-urn';
 
 /**
+ * Automation Application Type Options
+ */
+
+export enum AutomationApplyType {
+    PROPOSE = 'Propose Terms',
+    APPLY = 'Apply Terms',
+}
+
+export const APPLICATION_TYPE_OPTIONS = [
+    {
+        key: 'PROPOSE',
+        name: AutomationApplyType.PROPOSE,
+        description: 'Propose terms to be approved by asset owners before applied to assets.',
+    },
+    {
+        key: 'APPLY',
+        name: AutomationApplyType.APPLY,
+        description: 'Apply terms directly to assets without approval. Applied terms are visible to all users.',
+    },
+];
+
+export enum CardinalityType {
+    SINGLE = 'Single',
+    MULTIPLE = 'Multiple',
+}
+
+export const CARDINALITY_TYPE_OPTIONS = [
+    {
+        key: 'SINGLE',
+        name: CardinalityType.SINGLE,
+        description: 'At most, one Glossary Term will be applied.',
+    },
+    {
+        key: 'MULTIPLE',
+        name: CardinalityType.MULTIPLE,
+        description: 'Multiple Glossary Terms may be applied.',
+    },
+];
+
+/**
  * Information about a well-supported set of Test Categories.
  */
 export const AUTOMATION_CATEGORIES: AutomationCategoryType[] = [
@@ -83,9 +123,11 @@ export const AUTOMATION_CATEGORIES: AutomationCategoryType[] = [
 ];
 
 /**
- * Default test category selected when one is not provided (or new Test)
+ * Defaults
  */
 export const DEFAULT_AUTOMATION_CATEGORY = AutomationCategory.DATA_GOVERNANCE;
+export const DEFAULT_APPLY_TYPE = APPLICATION_TYPE_OPTIONS[0].key as AutomationApplyType; // 'PROPOSE'
+export const DEFAULT_CARDINALITY = CARDINALITY_TYPE_OPTIONS[1].key as CardinalityType; // 'MULTIPLE'
 
 /**
  * A map of Test Category name to the other well-supported attributes about it.

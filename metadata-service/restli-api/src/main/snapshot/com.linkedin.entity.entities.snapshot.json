@@ -9,6 +9,7 @@
       "type" : "string",
       "doc" : "The type of the action request, for example 'TAG_ASSOCIATION'",
       "Searchable" : {
+        "addToFilters" : true,
         "fieldType" : "KEYWORD"
       }
     }, {
@@ -99,7 +100,10 @@
             "fields" : [ {
               "name" : "glossaryTerm",
               "type" : "com.linkedin.common.Urn",
-              "doc" : "The urn of the glossary term being proposed."
+              "doc" : "The urn of the glossary term being proposed.",
+              "Searchable" : {
+                "addToFilters" : true
+              }
             } ]
           },
           "doc" : "An optional set of information specific to term proposals.",
@@ -112,7 +116,10 @@
             "fields" : [ {
               "name" : "tag",
               "type" : "com.linkedin.common.Urn",
-              "doc" : "The urn of the tag being proposed."
+              "doc" : "The urn of the tag being proposed.",
+              "Searchable" : {
+                "addToFilters" : true
+              }
             } ]
           },
           "doc" : "An optional set of information specific to tag proposals.",
@@ -284,11 +291,62 @@
       "type" : "long",
       "doc" : "The time at which the request is due",
       "optional" : true
+    }, {
+      "name" : "origin",
+      "type" : {
+        "type" : "enum",
+        "name" : "ActionRequestOrigin",
+        "doc" : "The origin type of an Action Request",
+        "symbols" : [ "MANUAL", "INFERRED" ],
+        "symbolDocs" : {
+          "INFERRED" : "The Action Request was inferred by an inference pipeline, e.g. DataHub AI.",
+          "MANUAL" : "The Action Request was created by the user or group via the API or UI"
+        }
+      },
+      "doc" : "The origin of the action request",
+      "default" : "MANUAL",
+      "optional" : true,
+      "Searchable" : {
+        "addToFilters" : true
+      }
+    }, {
+      "name" : "inferenceMetadata",
+      "type" : {
+        "type" : "record",
+        "name" : "InferenceMetadata",
+        "namespace" : "com.linkedin.ai",
+        "doc" : "Reusable metadata about an individual inference - i.e. a single glossary term, tag, description, etc.",
+        "fields" : [ {
+          "name" : "lastInferredAt",
+          "type" : "long",
+          "doc" : "Timestamp of the last inference in milliseconds."
+        }, {
+          "name" : "version",
+          "type" : "int",
+          "doc" : "Monotonically incrementing version number. Once bumped, will re-trigger a new inference."
+        }, {
+          "name" : "confidenceLevel",
+          "type" : "int",
+          "doc" : "Numeric confidence level of the inference that was made.\n\n   0 = Low Confidence\n   1 = Medium Confidence\n   2 = High Confidence",
+          "optional" : true
+        } ]
+      },
+      "doc" : "Additional inference metadata. Optionally provided if the origin is INFERRED.",
+      "optional" : true,
+      "Searchable" : {
+        "/confidenceLevel" : {
+          "addToFilters" : true,
+          "fieldName" : "inferenceConfidenceLevel"
+        },
+        "/lastInferredAt" : {
+          "fieldName" : "inferenceLastInferredAt"
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "actionRequestInfo"
     }
-  }, "com.linkedin.actionrequest.ActionRequestParams", {
+  }, "com.linkedin.actionrequest.ActionRequestOrigin", "com.linkedin.actionrequest.ActionRequestParams", {
     "type" : "record",
     "name" : "ActionRequestStatus",
     "namespace" : "com.linkedin.actionrequest",
@@ -351,7 +409,7 @@
     "Aspect" : {
       "name" : "actionRequestStatus"
     }
-  }, "com.linkedin.actionrequest.CreateGlossaryNodeProposal", "com.linkedin.actionrequest.CreateGlossaryTermProposal", "com.linkedin.actionrequest.DataContractProposal", "com.linkedin.actionrequest.DataContractProposalOperationType", "com.linkedin.actionrequest.DescriptionProposal", "com.linkedin.actionrequest.GlossaryTermProposal", "com.linkedin.actionrequest.TagProposal", {
+  }, "com.linkedin.actionrequest.CreateGlossaryNodeProposal", "com.linkedin.actionrequest.CreateGlossaryTermProposal", "com.linkedin.actionrequest.DataContractProposal", "com.linkedin.actionrequest.DataContractProposalOperationType", "com.linkedin.actionrequest.DescriptionProposal", "com.linkedin.actionrequest.GlossaryTermProposal", "com.linkedin.actionrequest.TagProposal", "com.linkedin.ai.InferenceMetadata", {
     "type" : "typeref",
     "name" : "ChartDataSourceType",
     "namespace" : "com.linkedin.chart",

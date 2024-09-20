@@ -239,6 +239,11 @@ query listActionRequests($input: ListActionRequestsInput!) {
                     }
                 }
             }
+            origin
+            inferenceMetadata {
+                confidenceLevel
+                lastInferredAt
+            }
         }
     }
 }

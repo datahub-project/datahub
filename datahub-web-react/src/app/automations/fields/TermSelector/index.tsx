@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import styled from 'styled-components';
+import { isEqual } from 'lodash';
 
 import { EntityType } from '@src/types.generated';
 import type { ComponentBaseProps } from '@app/automations/types';
@@ -21,16 +22,22 @@ export type TermSelectorStateType = {
 };
 
 export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseProps) => {
-    const { fieldTypes } = props;
+    const { fieldTypes, allowedRadios } = props;
 
     // Ensure state properties are always arrays or boolean
     const { terms = [], nodes = [], tags = [], termsEnabled = false, tagsEnabled = false } = state;
 
-    const getRadioValue = (enabled: boolean, itemCount: number) => {
-        if (enabled && itemCount > 0) return 'some' as RadioValue;
-        if (enabled) return 'all' as RadioValue;
-        return 'none' as RadioValue;
-    };
+    const getRadioValue = useCallback(
+        (enabled: boolean, itemCount: number) => {
+            if (allowedRadios.length === 1) {
+                return allowedRadios[0];
+            }
+            if (enabled && itemCount > 0) return 'some' as RadioValue;
+            if (enabled) return 'all' as RadioValue;
+            return 'none' as RadioValue;
+        },
+        [allowedRadios],
+    );
 
     const [selected, setSelected] = useState({
         terms: {
@@ -47,6 +54,28 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
             },
         },
     });
+
+    useEffect(() => {
+        const newState = {
+            terms: {
+                selectionType: getRadioValue(termsEnabled, terms.length + nodes.length),
+                selected: {
+                    [EntityType.GlossaryTerm]: terms,
+                    [EntityType.GlossaryNode]: nodes,
+                },
+            },
+            tags: {
+                selectionType: getRadioValue(tagsEnabled, tags.length),
+                selected: {
+                    [EntityType.Tag]: tags,
+                },
+            },
+        };
+
+        if (!isEqual(selected, newState)) {
+            setSelected(newState);
+        }
+    }, [terms, nodes, tags, termsEnabled, tagsEnabled, selected, getRadioValue]);
 
     const handleTermsChange = (values: any, entity: EntityType, type: string) => {
         const newTerms = {
@@ -68,8 +97,6 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
         }
 
         const newData = { ...selected, [type]: newTerms };
-
-        setSelected(newData);
 
         passStateToParent({
             termsEnabled: newData.terms.selectionType !== 'none',
@@ -103,6 +130,7 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
                                 },
                             ]}
                             radio={{
+                                allowedRadios,
                                 preselectedValue: selected.terms.selectionType,
                             }}
                             onChange={(values, entity) => handleTermsChange(values, entity, 'terms')}
@@ -123,6 +151,7 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
                                 },
                             ]}
                             radio={{
+                                allowedRadios,
                                 preselectedValue: selected.tags.selectionType,
                             }}
                             onChange={(values, entity) => handleTermsChange(values, entity, 'tags')}

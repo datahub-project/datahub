@@ -22,11 +22,14 @@ import {
     AutomationLogo,
 } from './components';
 
+import { actionType as aiTermClassificationActionType } from '../recipes/glossaryTerm/glossaryTermAI';
+
 const SelectPremadeAutomation = ({ setAutomation }: any) => {
     const {
         config: { classificationConfig },
     } = useAppConfig();
     const isSnowflakeEnabled = classificationConfig?.automations?.snowflake;
+    const isAiTermsEnabled = classificationConfig?.automations?.aiTermClassification;
 
     return (
         <PremadeAutomations>
@@ -36,6 +39,7 @@ const SelectPremadeAutomation = ({ setAutomation }: any) => {
 
                 // Check if snowflake is enabled
                 if (automation.platform === 'snowflake' && !isSnowflakeEnabled) return null;
+                if (automation.type === aiTermClassificationActionType && !isAiTermsEnabled) return null;
 
                 return (
                     <PremadeAutomationCard key={automation.key} onClick={() => setAutomation(automation.key)}>

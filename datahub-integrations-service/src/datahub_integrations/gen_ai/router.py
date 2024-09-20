@@ -1,9 +1,12 @@
 from datetime import timedelta
+from typing import Annotated, List
 
 import fastapi
 import pydantic
 import tenacity
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import DatasetUrn, QueryUrn, Urn
+from loguru import logger
 
 from datahub_integrations.app import graph as uncached_graph
 from datahub_integrations.gen_ai.cached_graph import make_cached_graph
@@ -15,11 +18,27 @@ from datahub_integrations.gen_ai.suggest_query_description import (
     generate_query_desc,
     get_query_context,
 )
+from datahub_integrations.gen_ai.term_suggestion_v2 import (
+    TERM_SUGGESTION_CONFIDENCE_THRESHOLD,
+    TermSuggestionBundle,
+    get_term_recommendations,
+)
+from datahub_integrations.gen_ai.term_suggestion_v2_context import (
+    GlossaryInfo,
+    GlossaryUniverseConfig,
+    fetch_glossary_info,
+)
 
 _METADATA_CACHE_TTL_SEC = timedelta(minutes=15).total_seconds()
 
 router = fastapi.APIRouter()
-graph = make_cached_graph(uncached_graph, ttl_sec=_METADATA_CACHE_TTL_SEC)
+_raw_cached_graph = make_cached_graph(uncached_graph, ttl_sec=_METADATA_CACHE_TTL_SEC)
+
+
+def cached_graph() -> DataHubGraph:
+    # Using dependency injection to provide the cached graph. This keeps the API endpoint
+    # methods generic, and lets us call them directly as well.
+    return _raw_cached_graph
 
 
 class SuggestedDescription(pydantic.BaseModel):
@@ -38,7 +57,7 @@ class SuggestedDescription(pydantic.BaseModel):
     stop=tenacity.stop_after_attempt(2),
     retry=tenacity.retry_if_exception_type(ValueError),
 )
-def _description_v2(urn: DatasetUrn) -> SuggestedDescription:
+def _description_v2(graph: DataHubGraph, urn: DatasetUrn) -> SuggestedDescription:
     raw_llm_output, _ = generate_entity_descriptions_for_urn(
         graph_client=graph, urn=str(urn)
     )
@@ -55,7 +74,10 @@ def _description_v2(urn: DatasetUrn) -> SuggestedDescription:
 
 
 @router.get("/suggest_description", response_model=SuggestedDescription)
-def suggest_description(entity_urn: str) -> SuggestedDescription:
+def suggest_description(
+    graph: Annotated[DataHubGraph, fastapi.Depends(cached_graph)],
+    entity_urn: str,
+) -> SuggestedDescription:
     """Generate an entity description."""
 
     urn = Urn.from_string(entity_urn)
@@ -70,7 +92,87 @@ def suggest_description(entity_urn: str) -> SuggestedDescription:
         )
 
     elif isinstance(urn, DatasetUrn):
-        return _description_v2(urn)
+        return _description_v2(graph, urn)
 
     else:
         raise ValueError(f"Unsupported entity type: {urn}")
+
+
+class SuggestedTerm(pydantic.BaseModel):
+    urn: str
+
+    # A confidence score for this suggestion, from 1-10 with 10 being the highest confidence.
+    confidence_score: float
+
+
+class SuggestedTerms(pydantic.BaseModel):
+    table_terms: list[SuggestedTerm] | None
+    column_terms: dict[str, list[SuggestedTerm]] | None
+
+
+def _extract_recommendations(recs: list[TermSuggestionBundle]) -> list[SuggestedTerm]:
+    terms = []
+    for rec in recs:
+        if rec.is_fake:
+            continue
+        if rec.confidence_score < TERM_SUGGESTION_CONFIDENCE_THRESHOLD:
+            continue
+        terms.append(
+            SuggestedTerm(
+                urn=rec.urn,
+                confidence_score=rec.confidence_score,
+            )
+        )
+
+    return terms
+
+
+def _suggest_terms(
+    graph: DataHubGraph, entity_urn: str, glossary_info: GlossaryInfo
+) -> SuggestedTerms:
+    table_terms, column_terms, _raw_llm_response = get_term_recommendations(
+        table_urn=entity_urn, graph_client=graph, glossary_info=glossary_info
+    )
+    if table_terms is None and column_terms is None:
+        logger.debug(f"No terms returned for {entity_urn}: {_raw_llm_response}")
+    else:
+        logger.debug(f"table_terms: {table_terms}")
+        logger.debug(f"column_terms: {column_terms}")
+
+    return SuggestedTerms(
+        table_terms=_extract_recommendations(table_terms) if table_terms else None,
+        column_terms=(
+            {
+                column_name: _extract_recommendations(single_column_terms)
+                for column_name, single_column_terms in column_terms.items()
+            }
+            if column_terms
+            else None
+        ),
+    )
+
+
+@router.post("/suggest_terms", response_model=SuggestedTerms)
+def suggest_terms(
+    graph: Annotated[DataHubGraph, fastapi.Depends(cached_graph)],
+    entity_urn: str,
+    universe_config: GlossaryUniverseConfig,
+) -> SuggestedTerms:
+    glossary_info = fetch_glossary_info(graph_client=graph, universe=universe_config)
+
+    return _suggest_terms(graph, entity_urn, glossary_info)
+
+
+@router.post("/suggest_terms_batch", response_model=dict[str, SuggestedTerms])
+def suggest_terms_batch(
+    graph: Annotated[DataHubGraph, fastapi.Depends(cached_graph)],
+    entity_urns: List[str],
+    universe_config: GlossaryUniverseConfig,
+) -> dict[str, SuggestedTerms]:
+    glossary_info = fetch_glossary_info(graph_client=graph, universe=universe_config)
+
+    # TODO: make this async to run in parallel?
+    return {
+        entity_urn: _suggest_terms(graph, entity_urn, glossary_info)
+        for entity_urn in entity_urns
+    }

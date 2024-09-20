@@ -72,6 +72,7 @@ replay = "datahub_integrations.actions.replay_source.ReplayEventSource"
 [project.entry-points."datahub_actions.action.plugins"]
 record = "datahub_integrations.actions.recording_action.RecordingAction"
 dbt_sync_back = "datahub_integrations.dbt.dbt_sync_back:DbtSyncBackAction"
+ai_term_suggestion = "datahub_integrations.gen_ai.term_suggestion_action:TermSuggestionAction"
 
 [tool.black]
 extend-exclude = '''

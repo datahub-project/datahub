@@ -9,5 +9,6 @@ import lombok.Data;
 @Data
 public class ClassificationAutomations {
   public boolean snowflake;
+  public boolean aiTermClassification;
   // Add other automation flags as needed
 }

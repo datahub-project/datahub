@@ -204,34 +204,34 @@ export default function TagTermGroup({
                 />
             ))}
             {proposedGlossaryTerms?.map((actionRequest) => (
-                <Tooltip overlay="Pending approval from owners">
-                    <ProposedTerm
-                        closable={false}
-                        data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm?.name}`}
-                        onClick={() => {
-                            setShowProposalDecisionModal(true);
-                        }}
-                    >
-                        <BookOutlined style={{ marginRight: '3%' }} />
-                        {entityRegistry.getDisplayName(
+                <ProposedTerm
+                    closable={false}
+                    data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm?.name}`}
+                    onClick={() => {
+                        setShowProposalDecisionModal(true);
+                    }}
+                >
+                    <BookOutlined style={{ marginRight: '3%' }} />
+                    {entityRegistry.getDisplayName(
+                        EntityType.GlossaryTerm,
+                        actionRequest.params?.glossaryTermProposal?.glossaryTerm,
+                    )}
+                    <ProposalModal
+                        actionRequest={actionRequest}
+                        showProposalDecisionModal={showProposalDecisionModal}
+                        onCloseProposalDecisionModal={onCloseProposalDecisionModal}
+                        onProposalAcceptance={onProposalAcceptance}
+                        onProposalRejection={onProposalRejection}
+                        onActionRequestUpdate={onActionRequestUpdate}
+                        elementName={entityRegistry.getDisplayName(
                             EntityType.GlossaryTerm,
                             actionRequest.params?.glossaryTermProposal?.glossaryTerm,
                         )}
-                        <ProposalModal
-                            actionRequest={actionRequest}
-                            showProposalDecisionModal={showProposalDecisionModal}
-                            onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                            onProposalAcceptance={onProposalAcceptance}
-                            onProposalRejection={onProposalRejection}
-                            onActionRequestUpdate={onActionRequestUpdate}
-                            elementName={entityRegistry.getDisplayName(
-                                EntityType.GlossaryTerm,
-                                actionRequest.params?.glossaryTermProposal?.glossaryTerm,
-                            )}
-                        />
-                        <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
-                    </ProposedTerm>
-                </Tooltip>
+                    />
+                    <Tooltip overlay="Proposed Term - Pending Approval" showArrow={false}>
+                        <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
+                    </Tooltip>
+                </ProposedTerm>
             ))}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
@@ -276,30 +276,30 @@ export default function TagTermGroup({
                 );
             })}
             {proposedTags?.map((actionRequest) => (
-                <Tooltip overlay="Pending approval from owners">
-                    <StyledTag
-                        data-testid={`proposed-tag-${actionRequest?.params?.tagProposal?.tag?.properties?.name}`}
-                        $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
-                        $color={actionRequest?.params?.tagProposal?.tag?.properties?.colorHex}
-                        onClick={() => {
-                            setShowProposalDecisionModal(true);
-                        }}
-                    >
-                        <span>
-                            {entityRegistry.getDisplayName(EntityType.Tag, actionRequest?.params?.tagProposal?.tag)}
-                            <ProposalModal
-                                actionRequest={actionRequest}
-                                showProposalDecisionModal={showProposalDecisionModal}
-                                onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                                onProposalAcceptance={onProposalAcceptance}
-                                onProposalRejection={onProposalRejection}
-                                onActionRequestUpdate={onActionRequestUpdate}
-                                elementName={actionRequest?.params?.tagProposal?.tag?.properties?.name}
-                            />
-                            <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
-                        </span>
-                    </StyledTag>
-                </Tooltip>
+                <StyledTag
+                    data-testid={`proposed-tag-${actionRequest?.params?.tagProposal?.tag?.properties?.name}`}
+                    $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
+                    $color={actionRequest?.params?.tagProposal?.tag?.properties?.colorHex}
+                    onClick={() => {
+                        setShowProposalDecisionModal(true);
+                    }}
+                >
+                    <span>
+                        {entityRegistry.getDisplayName(EntityType.Tag, actionRequest?.params?.tagProposal?.tag)}
+                        <ProposalModal
+                            actionRequest={actionRequest}
+                            showProposalDecisionModal={showProposalDecisionModal}
+                            onCloseProposalDecisionModal={onCloseProposalDecisionModal}
+                            onProposalAcceptance={onProposalAcceptance}
+                            onProposalRejection={onProposalRejection}
+                            onActionRequestUpdate={onActionRequestUpdate}
+                            elementName={actionRequest?.params?.tagProposal?.tag?.properties?.name}
+                        />
+                        <Tooltip overlay="Proposed Tag - Pending Approval" showArrow={false}>
+                            <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
+                        </Tooltip>
+                    </span>
+                </StyledTag>
             ))}
             {showEmptyMessage && canAddTag && tagsEmpty && (
                 <Typography.Paragraph type="secondary">

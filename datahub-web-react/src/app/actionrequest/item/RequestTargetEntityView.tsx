@@ -20,12 +20,12 @@ function RequestTargetEntityView({ actionRequest }: Props) {
     return (
         <>
             <Link to={`/${entityRegistry.getPathName(requestTargetEntityType)}/${actionRequest.entity?.urn}`}>
-                <Typography.Text strong>{requestTargetDisplayName}</Typography.Text>
+                {requestTargetDisplayName}
             </Link>
             {!!actionRequest.subResource && (
                 <>
                     {' '}
-                    field <Typography.Text strong>{actionRequest.subResource}</Typography.Text>
+                    column <Typography.Text style={{ fontWeight: 'bold' }}>{actionRequest.subResource}</Typography.Text>
                 </>
             )}
         </>

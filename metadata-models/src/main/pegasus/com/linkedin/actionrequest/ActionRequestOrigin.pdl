@@ -1,0 +1,15 @@
+namespace com.linkedin.actionrequest
+
+/**
+* The origin type of an Action Request
+*/
+enum ActionRequestOrigin {
+    /**
+    * The Action Request was created by the user or group via the API or UI
+    */
+    MANUAL
+    /**
+    * The Action Request was inferred by an inference pipeline, e.g. DataHub AI.
+    */
+    INFERRED
+}

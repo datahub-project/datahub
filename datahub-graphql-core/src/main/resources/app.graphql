@@ -1291,9 +1291,13 @@ Configurations related to Classification Automation
 """
 type ClassificationAutomations {
   """
-  Individual automation settings
+  Show or hide the snowflake tag propagation automation
   """
   snowflake: Boolean!
+  """
+  Show or hide the snowflake ai glossary term automation
+  """
+  aiTermClassification: Boolean!
 }
 
 """

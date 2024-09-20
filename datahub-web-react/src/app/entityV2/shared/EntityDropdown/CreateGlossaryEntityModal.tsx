@@ -158,6 +158,7 @@ function CreateGlossaryEntityModal(props: Props) {
                         data-testid="glossary-entity-modal-create-button"
                         onClick={createGlossaryEntity}
                         disabled={createButtonDisabled || !canCreateGlossaryEntity}
+                        type="primary"
                     >
                         Create
                     </Button>
@@ -190,8 +191,8 @@ function CreateGlossaryEntityModal(props: Props) {
                     >
                         <Input
                             autoFocus
-                            value={stagedName}
                             placeholder="Provide a name..."
+                            value={stagedName}
                             onChange={(event) => setStagedName(event.target.value)}
                         />
                     </StyledItem>

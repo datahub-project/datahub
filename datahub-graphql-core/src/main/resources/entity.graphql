@@ -603,7 +603,7 @@ type Mutation {
     """
     Adds a term proposal for a given entity or subresource
     """
-    proposeTerm(input: TermAssociationInput!): Boolean
+    proposeTerm(input: ProposeTermAssociationInput!): Boolean
 
     """
     Adds a term proposal for a given entity or subresource
@@ -8875,6 +8875,41 @@ input TermAssociationInput {
     An optional sub resource identifier to attach the Glossary Term to
     """
     subResource: String
+}
+
+"""
+Input provided when proposing an update to the association between a Metadata Entity and a Glossary Term
+"""
+input ProposeTermAssociationInput {
+    """
+    The primary key of the Glossary Term to add or remove
+    """
+    termUrn: String!
+
+    """
+    The target Metadata Entity to add or remove the Glossary Term from
+    """
+    resourceUrn: String!
+
+    """
+    An optional type of a sub resource to attach the Glossary Term to
+    """
+    subResourceType: SubResourceType
+
+    """
+    An optional sub resource identifier to attach the Glossary Term to
+    """
+    subResource: String
+
+    """
+    Optional - the origin of the proposal. If not provided, this will be set to manual.
+    """
+    origin: ActionRequestOrigin
+
+    """
+    Optional - the origin of the proposal. If not provided, this will be set to manual.
+    """
+    inferenceMetadata: InferenceMetadataInput
 }
 
 """

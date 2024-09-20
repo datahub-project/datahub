@@ -36,8 +36,10 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
+import com.linkedin.datahub.graphql.generated.ActionRequestOrigin;
 import com.linkedin.datahub.graphql.generated.ActionRequestResult;
 import com.linkedin.datahub.graphql.generated.ActionRequestType;
+import com.linkedin.datahub.graphql.generated.InferenceMetadataInput;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ActionRequestUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
@@ -357,7 +359,9 @@ public class ProposalUtils {
                 tagUrn,
                 targetUrn,
                 subResource,
-                subResourceType)));
+                subResourceType,
+                null,
+                null)));
 
     result.setAspects(aspects);
 
@@ -371,6 +375,8 @@ public class ProposalUtils {
       Urn targetUrn,
       String subResource,
       SubResourceType subResourceType,
+      @Nullable ActionRequestOrigin origin,
+      @Nullable InferenceMetadataInput inferenceMetadata,
       EntityService<?> entityService) {
     AuthorizedActors actors;
 
@@ -460,7 +466,9 @@ public class ProposalUtils {
             termUrn,
             targetUrn,
             subResource,
-            subResourceType);
+            subResourceType,
+            origin,
+            inferenceMetadata);
 
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(creator, SetMode.IGNORE_NULL);
@@ -833,7 +841,9 @@ public class ProposalUtils {
       Urn termUrn,
       Urn targetUrn,
       String subResource,
-      SubResourceType subResourceType) {
+      SubResourceType subResourceType,
+      @Nullable ActionRequestOrigin origin,
+      @Nullable InferenceMetadataInput inferenceMetadata) {
     final ActionRequestSnapshot result = new ActionRequestSnapshot();
 
     final UUID uuid = UUID.randomUUID();
@@ -853,7 +863,9 @@ public class ProposalUtils {
                 termUrn,
                 targetUrn,
                 subResource,
-                subResourceType)));
+                subResourceType,
+                origin,
+                inferenceMetadata)));
 
     result.setAspects(aspects);
 
@@ -883,7 +895,9 @@ public class ProposalUtils {
       Urn labelUrn,
       Urn targetUrn,
       String subResource,
-      SubResourceType subResourceType) {
+      SubResourceType subResourceType,
+      @Nullable ActionRequestOrigin origin,
+      @Nullable InferenceMetadataInput inferenceMetadata) {
     final ActionRequestInfo info = new ActionRequestInfo();
     info.setType(type.toString());
     info.setAssignedUsers(new UrnArray(assignedUsers));
@@ -896,6 +910,12 @@ public class ProposalUtils {
     }
     if (subResource != null) {
       info.setSubResource(subResource);
+    }
+    if (origin != null) {
+      info.setOrigin(com.linkedin.actionrequest.ActionRequestOrigin.valueOf(origin.toString()));
+    }
+    if (inferenceMetadata != null) {
+      info.setInferenceMetadata(mapInferenceMetadata(inferenceMetadata));
     }
     info.setParams(createActionRequestParams(labelUrn));
 
@@ -1282,6 +1302,21 @@ public class ProposalUtils {
       }
     }
     return null;
+  }
+
+  public static com.linkedin.ai.InferenceMetadata mapInferenceMetadata(
+      @Nonnull final InferenceMetadataInput input) {
+    com.linkedin.ai.InferenceMetadata metadata = new com.linkedin.ai.InferenceMetadata();
+    metadata.setVersion(input.getVersion());
+    if (input.getConfidenceLevel() != null) {
+      metadata.setConfidenceLevel(input.getConfidenceLevel());
+    }
+    if (input.getLastInferredAt() != null) {
+      metadata.setLastInferredAt(input.getLastInferredAt());
+    } else {
+      metadata.setLastInferredAt(System.currentTimeMillis());
+    }
+    return metadata;
   }
 
   private ProposalUtils() {}

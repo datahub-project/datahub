@@ -1,9 +1,19 @@
 import dataclasses
+import os
 
+import pydantic
 from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
 
 from datahub_integrations.gen_ai.bedrock import BedrockModel, call_bedrock_llm
+
+QUERY_DESCRIPTION_GENERATION_MODEL: BedrockModel = pydantic.parse_obj_as(
+    BedrockModel,
+    os.getenv(
+        "QUERY_DESCRIPTION_GENERATION_BEDROCK_MODEL",
+        BedrockModel.CLAUDE_35_SONNET.value,
+    ),
+)
 
 
 @dataclasses.dataclass
@@ -35,6 +45,9 @@ query Query($urn: String!) {
         {"urn": query_urn},
     )
 
+    print(query_res)
+    print(graph)
+
     # TODO: Fetch more context from the query entity.
     return QueryContext(
         query_urn=query_urn,
@@ -46,14 +59,20 @@ def generate_query_desc(entity_context: QueryContext) -> str:
     """Generate a description for the entity."""
 
     description = call_bedrock_llm(
-        model=BedrockModel.CLAUDE_35_SONNET,
-        max_tokens=200,
+        model=QUERY_DESCRIPTION_GENERATION_MODEL,
+        max_tokens=500,
         prompt=f"""\
-Provide a 1-2 sentence summary of this SQL query. Write with an imperative mood.
+Provide a detailed summary of the following SQL query logic for Business Analysts or Data Scientists unfamiliar with the query.
+Explain the purpose of the query, the data it accesses, and the insights it provides. Focus on the semantic meaning of the query.
+Include significant context, assumptions, or caveats that the query includes.
 
-Here's a few examples of good summaries:
-- Pull user counts and team owners, broken down by domain and plan tier.
-- View education users from domain 'example.com' who have not logged in for 30 days.
+Additional Requirements:
+
+- Do not use bullet points.
+- Do not include any code snippets or special symbols.
+- Be concise and to the point.
+- Write with an imperative mood.
+- Include a maximum of 3-4 well-structured paragraphs.
 
 <query>
 {entity_context.query_text}
@@ -65,15 +84,15 @@ Here's a few examples of good summaries:
 
 
 if __name__ == "__main__":
+    # This is intended for local testing. It uses the local ~/.datahubenv file.
     import sys
 
-    from datahub_integrations.app import graph
+    from datahub.ingestion.graph.client import get_default_graph
 
-    if len(sys.argv) > 1:
-        target_urn = sys.argv[1]
-    else:
-        target_urn = "urn:li:query:61705a7013ab63277266251565750876"
+    # Pass in a query urn e.g. urn:li:query:61705a7013ab63277266251565750876
+    target_urn = sys.argv[1]
 
+    graph = get_default_graph()
     context = get_query_context(graph, target_urn)
     logger.info(f"For query {context.query_urn}")
     logger.debug(context.query_text)

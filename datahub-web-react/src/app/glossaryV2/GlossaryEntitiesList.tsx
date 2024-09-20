@@ -58,7 +58,7 @@ function GlossaryEntitiesList(props: Props) {
     return (
         <GlossaryEntityWrapper termsTotal={termsTotal}>
             <EntitiesWrapper type={nodes[0]?.type} entityData={entityData}>
-                {nodes.length > 0 && entityData.urn !== '' && <EntityTitle>Terms Group</EntityTitle>}
+                {nodes.length > 0 && entityData.urn !== '' && <EntityTitle>Term Groups</EntityTitle>}
                 {nodes.map((node) => (
                     <GlossaryEntityItem
                         key={node.urn}

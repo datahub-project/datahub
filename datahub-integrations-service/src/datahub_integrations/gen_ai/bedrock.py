@@ -33,12 +33,15 @@ def get_bedrock_client() -> "BedrockRuntimeClient":
 
     if "BEDROCK_AWS_ACCESS_KEY_ID" in os.environ:
         # For local development - if Bedrock-specific env vars are set, use them.
+        logger.info("Initializing Bedrock client from explicit env vars")
         boto3_session = boto3.Session(
             aws_access_key_id=os.environ["BEDROCK_AWS_ACCESS_KEY_ID"],
             aws_secret_access_key=os.environ["BEDROCK_AWS_SECRET_ACCESS_KEY"],
+            region_name=os.environ.get("BEDROCK_AWS_REGION", "us-west-2"),
         )
     else:
         # By default, use the pod's instance profile.
+        logger.info("Initializing Bedrock client from instance profile")
         boto3_session = boto3.Session()
 
     return boto3_session.client("bedrock-runtime", config=config)  # type: ignore

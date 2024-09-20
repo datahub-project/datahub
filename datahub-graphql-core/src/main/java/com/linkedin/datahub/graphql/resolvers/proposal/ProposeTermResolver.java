@@ -8,7 +8,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
-import com.linkedin.datahub.graphql.generated.TermAssociationInput;
+import com.linkedin.datahub.graphql.generated.ProposeTermAssociationInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -28,8 +28,8 @@ public class ProposeTermResolver implements DataFetcher<CompletableFuture<Boolea
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    final TermAssociationInput input =
-        bindArgument(environment.getArgument("input"), TermAssociationInput.class);
+    final ProposeTermAssociationInput input =
+        bindArgument(environment.getArgument("input"), ProposeTermAssociationInput.class);
     Urn termUrn = Urn.createFromString(input.getTermUrn());
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
@@ -80,6 +80,8 @@ public class ProposeTermResolver implements DataFetcher<CompletableFuture<Boolea
                 targetUrn,
                 input.getSubResource(),
                 input.getSubResourceType(),
+                input.getOrigin(),
+                input.getInferenceMetadata(),
                 _entityService);
           } catch (Exception e) {
             log.error(

@@ -58,13 +58,14 @@ type Props = {
     shortType: string;
     selects: SelectDropdownProps[];
     radio: {
+        allowedRadios: string[];
         preselectedValue: RadioValue;
     };
     onChange: (value: any, entity: EntityType) => void;
 };
 
 export const TermOption = ({ shortType, selects, radio, onChange }: Props) => {
-    const { preselectedValue } = radio;
+    const { allowedRadios, preselectedValue } = radio;
 
     // Internal state for selected options
     const [selectedOptions, setSelectedOptions] = useState(() => {
@@ -120,17 +121,25 @@ export const TermOption = ({ shortType, selects, radio, onChange }: Props) => {
         setSelectedOptions(updatedSelectedOptions);
     }, [selects]);
 
+    // Configurable options
+    const options: { label: string; value: string }[] = [];
+    if (allowedRadios.includes('all')) {
+        options.push({ label: `All ${shortType}`, value: 'all' });
+    }
+    if (allowedRadios.includes('some')) {
+        options.push({ label: `${capitalizeFirstLetterOnly(shortType)} in a specific set`, value: 'some' });
+    }
+    if (allowedRadios.includes('none')) {
+        options.push({ label: 'None', value: 'none' });
+    }
+
     return (
         <Wrapper>
             {/* Radio for selection type */}
             <div>
                 <Label>Allowed {shortType}</Label>
                 <StyledRadioGroup
-                    options={[
-                        { label: `All ${shortType}`, value: 'all' }, // this is the default
-                        { label: `${capitalizeFirstLetterOnly(shortType)} in a specific set`, value: 'some' },
-                        { label: 'None', value: 'none' },
-                    ]}
+                    options={options}
                     value={radioValue}
                     onChange={(e) => handleRadioChange(e.target.value)}
                 />

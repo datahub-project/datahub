@@ -258,9 +258,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     // Classification Configuration
     final ClassificationConfig classificationConfig = new ClassificationConfig();
     final ClassificationAutomations automations = new ClassificationAutomations();
-
     classificationConfig.setEnabled(_classificationConfiguration.isEnabled());
     automations.setSnowflake(_classificationConfiguration.getAutomations().isSnowflake());
+    automations.setAiTermClassification(
+        _classificationConfiguration.getAutomations().isAiTermClassification());
     classificationConfig.setAutomations(automations);
     appConfig.setClassificationConfig(classificationConfig);
 

@@ -9,8 +9,8 @@ import MetadataAssociationRequestItem from './MetadataAssociationRequestItem';
 
 type Props = {
     actionRequest: ActionRequest;
-    onUpdate: () => void;
     showActionsButtons: boolean;
+    onUpdate: () => void;
 };
 
 const REQUEST_TYPE_DISPLAY_NAME = 'Glossary Term Proposal';
@@ -18,27 +18,21 @@ const REQUEST_TYPE_DISPLAY_NAME = 'Glossary Term Proposal';
 /**
  * A list item representing a glossary term proposal request.
  */
-export default function TermAssociationRequestItem({ actionRequest, onUpdate, showActionsButtons }: Props) {
+export default function TermAssociationRequestItem({ actionRequest, showActionsButtons, onUpdate }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const term = actionRequest.params?.glossaryTermProposal?.glossaryTerm;
     const termName = entityRegistry.getDisplayName(EntityType.GlossaryTerm, term);
     const termView = term && (
         <Link to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${term.urn}`}>
-            <StyledTag $color={null} style={{ marginRight: 2, marginLeft: 2 }}>
+            <StyledTag noMargin $color={null} style={{ marginRight: 2, marginLeft: 2 }}>
                 {termName}
                 <BookOutlined style={{ marginLeft: '2%' }} />
             </StyledTag>
         </Link>
     );
 
-    const contentView = (
-        <AddContentView
-            showActionsButtons={showActionsButtons}
-            requestMetadataView={termView}
-            actionRequest={actionRequest}
-        />
-    );
+    const contentView = <AddContentView requestMetadataView={termView} actionRequest={actionRequest} />;
 
     return (
         <MetadataAssociationRequestItem

@@ -4,10 +4,14 @@ import fastapi
 import reactpy
 import reactpy.backend.fastapi
 from fastapi import APIRouter, FastAPI, HTTPException, Response, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from datahub_integrations.actions.actions_manager import (
+    InvalidPipelineCommand,
+    NoSuchPipeline,
+)
 from datahub_integrations.actions.router import (
     ACTIONS_ROUTE,
     ActionsAdminUi,
@@ -24,6 +28,7 @@ from datahub_integrations.slack.slack import SlackLinkPreview, get_slack_link_pr
 from datahub_integrations.slack.slack import private_router as slack_private_router
 from datahub_integrations.slack.slack import public_router as slack_public_router
 from datahub_integrations.slack.slack import reload_slack_credentials
+from datahub_integrations.sql import router as sql_router
 
 app = FastAPI(lifespan=actions_lifespan)
 
@@ -33,6 +38,22 @@ internal_router = APIRouter(
         # TODO: Add middleware for requiring system auth here.
     ]
 )
+
+
+@app.exception_handler(NoSuchPipeline)
+def handle_no_such_pipeline(request: fastapi.Request, exc: NoSuchPipeline) -> Response:
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND, content={"message": str(exc)}
+    )
+
+
+@app.exception_handler(InvalidPipelineCommand)
+def handle_invalid_pipeline_command(
+    request: fastapi.Request, exc: InvalidPipelineCommand
+) -> Response:
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST, content={"message": str(exc)}
+    )
 
 
 @app.get("/ping")
@@ -83,8 +104,10 @@ internal_router.include_router(
     notifications_router, prefix="/notifications", tags=["Notifications"]
 )
 internal_router.include_router(share_router, prefix="/share", tags=["Share"])
+internal_router.include_router(sql_router, prefix="/sql", tags=["SQL"])
 
 external_router.include_router(dist_external_router, tags=["Dist"])
+
 
 app.include_router(internal_router, prefix="/private")
 

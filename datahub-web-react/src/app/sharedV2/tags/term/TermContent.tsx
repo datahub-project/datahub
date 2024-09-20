@@ -88,14 +88,14 @@ const CloseIconStyle = styled(CloseIcon)`
     color: white;
 `;
 
-export const TermRibbon = styled.span<{ color: string }>`
+export const TermRibbon = styled.span<{ color: string; opacity?: number }>`
     position: absolute;
     left: -20px;
     top: 4px;
     width: 50px;
     transform: rotate(-45deg);
     padding: 4px;
-    opacity: 1;
+    opacity: ${(props) => props.opacity || '1'};
     background-color: ${(props) => `${props.color}`};
 `;
 

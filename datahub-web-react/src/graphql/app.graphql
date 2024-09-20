@@ -73,6 +73,7 @@ query appConfig {
             enabled
             automations {
                 snowflake
+                aiTermClassification
             }
         }
         featureFlags {

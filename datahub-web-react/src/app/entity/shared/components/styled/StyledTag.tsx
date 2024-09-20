@@ -7,13 +7,19 @@ export const generateColor = new ColorHash({
     saturation: 0.9,
 });
 
-export const StyledTag = styled(Tag)<{ $color: any; $colorHash?: string; fontSize?: number; $highlightTag?: boolean }>`
+export const StyledTag = styled(Tag)<{
+    $color: any;
+    $colorHash?: string;
+    fontSize?: number;
+    $highlightTag?: boolean;
+    noMargin?: boolean;
+}>`
     display: inline-flex;
     align-items: center;
     border-radius: 5px !important;
     border: 1px dashed #ccd1dd;
     padding: 2px 8px;
-    margin-bottom: 7px;
+    ${(props) => !props.noMargin && `margin-bottom: 7px;`}
     > span {
         color: ${REDESIGN_COLORS.TEXT_GREY};
     }

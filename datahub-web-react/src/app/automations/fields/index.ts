@@ -1,12 +1,16 @@
 import type { Field } from '@app/automations/types';
 import { EntityType } from '@src/types.generated';
 
-import { DEFAULT_AUTOMATION_CATEGORY } from '../constants';
+import { DEFAULT_AUTOMATION_CATEGORY, DEFAULT_APPLY_TYPE, DEFAULT_CARDINALITY } from '../constants';
 
 import { TermSelector, TermSelectorStateType } from './TermSelector';
 import { EntityTypeSelector, EntityTypeSelectorStateType } from './EntityTypeSelector';
 import { TraversalSelector, TraversalSelectorStateType } from './TraversalSelector';
 import { ConnectionSelector, ConnectionSelectorStateType } from './ConnectionSelector';
+import { ApplyTypeSelector, ApplyTypeSelectorStateType } from './ApplyTypeSelector';
+import { CardinalitySelector, CardinalitySelectorStateType } from './CardinalitySelector';
+import { PlatformSelector, PlatformSelectorStateType } from './PlatformSelector';
+import { ContainerSelector, ContainerSelectorStateType } from './ContainerSelector';
 import { Details, DetailsStateType } from './Details';
 
 // Term Selector
@@ -24,6 +28,7 @@ const termSelector: Field = {
             // You can set default values for the props here
             props: {
                 fieldTypes: [EntityType.Tag, EntityType.GlossaryTerm, EntityType.GlossaryNode],
+                allowedRadios: ['all', 'some', 'none'],
             },
 
             // State mapping to connect form data to the component's state
@@ -90,6 +95,54 @@ const traversalSelector: Field = {
     ],
 };
 
+// Apply Type Selector
+// This field allows the user to select the apply type of the automation
+const applyTypeSelector: Field = {
+    title: 'Select Apply Type',
+    description: 'Choose the apply type of the automation.',
+    fields: [
+        {
+            // The component that's rendered for this field
+            // Defined in @app/automations/fields/ApplyTypeSelector
+            component: ApplyTypeSelector,
+
+            // Available Component Props to customize the component
+            // You can set default values for the props here
+            props: {},
+
+            // State mapping to connect form data to the component's state
+            // You can set default values for the state here
+            state: {
+                applyType: DEFAULT_APPLY_TYPE,
+            } as ApplyTypeSelectorStateType,
+        },
+    ],
+};
+
+// Cardinality Selector
+// This field allows the user to select the cardinality of the automation
+const cardinalitySelector: Field = {
+    title: 'Select Cardinality',
+    description: 'Choose the cardinality of the automation.',
+    fields: [
+        {
+            // The component that's rendered for this field
+            // Defined in @app/automations/fields/CardinalitySelector
+            component: CardinalitySelector,
+
+            // Available Component Props to customize the component
+            // You can set default values for the props here
+            props: {},
+
+            // State mapping to connect form data to the component's state
+            // You can set default values for the state here
+            state: {
+                cardinality: DEFAULT_CARDINALITY,
+            } as CardinalitySelectorStateType,
+        },
+    ],
+};
+
 // Connection Selector
 // This field allows the user to select the destination connection of the automation
 const connectionSelector: Field = {
@@ -112,6 +165,71 @@ const connectionSelector: Field = {
             state: {
                 connection: undefined,
             } as ConnectionSelectorStateType,
+        },
+    ],
+};
+
+// Platform Selector
+// This field allows the user to select the data platforms
+const platformSelector: Field = {
+    title: 'Select Data Platforms',
+    description: 'Choose the data platforms where the terms will be propagated.',
+    fields: [
+        {
+            // The component that's rendered for this field
+            // Defined in @app/automations/fields/PlatformSelector
+            component: PlatformSelector,
+
+            // Available Component Props to customize the component
+            // You can set default values for the props here
+            props: {
+                // Turn on container selector in the platform selector
+                enableContainerSelection: false,
+
+                // Confirguable platform urns, this is the default list
+                platformUrns: [
+                    'urn:li:dataPlatform:snowflake',
+                    'urn:li:dataPlatform:bigquery',
+                    'urn:li:dataPlatform:redshift',
+                    'urn:li:dataPlatform:databricks',
+                    'urn:li:dataPlatform:hive',
+                    'urn:li:dataPlatform:tableau',
+                    'urn:li:dataPlatform:looker',
+                    'urn:li:dataPlatform:powerbi',
+                    'urn:li:dataPlatform:kafka',
+                ],
+            },
+
+            // State mapping to connect form data to the component's state
+            // You can set default values for the state here
+            state: {
+                platforms: [],
+                containers: [],
+            } as PlatformSelectorStateType,
+        },
+    ],
+};
+
+// Container Selector
+// This field allows the user to select the containers
+const containerSelector: Field = {
+    title: 'Select Containers',
+    description: 'Choose the containers where the terms will be propagated.',
+    fields: [
+        {
+            // The component that's rendered for this field
+            // Defined in @app/automations/fields/ContainerSelector
+            component: ContainerSelector,
+
+            // Available Component Props to customize the component
+            // You can set default values for the props here
+            props: {},
+
+            // State mapping to connect form data to the component's state
+            // You can set default values for the state here
+            state: {
+                containers: [],
+            } as ContainerSelectorStateType,
         },
     ],
 };
@@ -198,6 +316,10 @@ const fields = {
     select_entity_types: entityTypeSelector,
     select_traversal_types: traversalSelector,
     select_connection: connectionSelector,
+    select_apply_type: applyTypeSelector,
+    select_cardinality: cardinalitySelector,
+    select_platforms: platformSelector,
+    select_containers: containerSelector,
     details,
     // select_conditions: conditionSelector,
     // select_custom_actions: customActionSelector,

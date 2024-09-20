@@ -1,0 +1,16 @@
+namespace com.linkedin.ai
+
+/**
+ * Reusable metadata about a group of inferences of the same type.
+ */
+record InferenceGroupMetadata {
+  /**
+   * Timestamp of the last inference in milliseconds.
+   */
+  lastInferredAt: long
+
+  /**
+   * Monotonically incrementing version number. Once bumped, will re-trigger a new inference.
+   */
+  version: int
+}

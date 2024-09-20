@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { List } from 'antd';
+import { Checkbox, List } from 'antd';
 import { ActionRequest, ActionRequestType } from '../../../types.generated';
 import TermAssociationRequestItem from './TermAssociationRequestItem';
 import TagAssociationRequestItem from './TagAssociationRequestItem';
@@ -15,17 +15,32 @@ const ActionRequestItemContainer = styled.div`
     width: 100%;
 `;
 
+const CheckboxContainer = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
 type Props = {
     actionRequest: ActionRequest;
     onUpdate: () => void;
     showActionsButtons: boolean;
+    selectable?: boolean;
+    selected?: boolean;
+    onSelect?: () => void;
 };
 
 /**
  * Base Action Request List Item. Each specific action request type has it's own way
  * to render the item, which is handled inside this component.
  */
-export default function ActionRequestListItem({ actionRequest, onUpdate, showActionsButtons }: Props) {
+export default function ActionRequestListItem({
+    actionRequest,
+    showActionsButtons,
+    selectable = false,
+    selected = false,
+    onSelect,
+    onUpdate,
+}: Props) {
     const getActionRequestItemContent = (request: ActionRequest) => {
         const requestType = request.type;
         switch (requestType) {
@@ -91,6 +106,11 @@ export default function ActionRequestListItem({ actionRequest, onUpdate, showAct
         <List.Item>
             {/* test id is being provided as a classname here so the number of action requests can be counted */}
             <ActionRequestItemContainer className="action-request-test-id">
+                {selectable && (
+                    <CheckboxContainer>
+                        <Checkbox checked={selected} onChange={onSelect} />
+                    </CheckboxContainer>
+                )}
                 {actionRequestItemContent}
             </ActionRequestItemContainer>
         </List.Item>

@@ -1,6 +1,7 @@
 namespace com.linkedin.actionrequest
 
 import com.linkedin.common.Urn
+import com.linkedin.ai.InferenceMetadata
 
 /**
  * The status of the action request - e.g. accepted, rejected, pending, etc
@@ -14,6 +15,7 @@ record ActionRequestInfo {
   */
   @Searchable = {
     "fieldType": "KEYWORD"
+    "addToFilters": true
   }
   type: string
 
@@ -101,4 +103,26 @@ record ActionRequestInfo {
    * The time at which the request is due
    */
   dueDate: optional long
+
+  /**
+   * The origin of the action request
+   */
+  @Searchable = {
+    "addToFilters": true
+  }
+  origin: optional ActionRequestOrigin = "MANUAL"
+
+  /**
+   * Additional inference metadata. Optionally provided if the origin is INFERRED.
+   */
+  @Searchable = {
+    "/confidenceLevel": {
+      "fieldName": "inferenceConfidenceLevel",
+      "addToFilters": true
+    },
+    "/lastInferredAt": {
+      "fieldName": "inferenceLastInferredAt",
+    }
+  }
+  inferenceMetadata: optional InferenceMetadata
 }

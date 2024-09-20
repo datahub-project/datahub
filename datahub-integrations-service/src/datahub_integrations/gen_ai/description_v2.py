@@ -386,7 +386,7 @@ def get_table_and_column_level_glossary_terms(
 def extract_metadata_for_urn(
     entity: AspectBag, urn: str, graph_client: DataHubGraph
 ) -> Dict[str, dict]:
-    assert "schemaMetadata" in entity, "Schema metadata not found in the entity"
+    assert "schemaMetadata" in entity, f"Schema metadata not found in the entity {urn}"
     column_metadata = {
         f"urn:li:schemaField:({urn},{field.fieldPath})": filter_schema_fields(field)
         for field in entity["schemaMetadata"].fields

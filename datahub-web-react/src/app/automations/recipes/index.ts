@@ -2,6 +2,7 @@ import _ from 'lodash';
 
 import * as SnowflakeTagPropagation from './snowflake/tagPropagation';
 import * as GlossaryTermPropagation from './glossaryTerm/termPropagation';
+import * as AIGlossaryTermPropagation from './glossaryTerm/glossaryTermAI';
 import * as DocumentationColumnPropagation from './documentation/columnLevelPropagation';
 
 // Map of all recipes available in the application (this needs to be in sync with the templates)
@@ -9,6 +10,7 @@ export const recipes = [
     DocumentationColumnPropagation.integrationRecipe,
     GlossaryTermPropagation.integrationRecipe,
     SnowflakeTagPropagation.integrationRecipe,
+    AIGlossaryTermPropagation.integrationRecipe,
 ];
 
 // Map of all templates available in the application (this needs to be in sync with the recipes)
@@ -16,6 +18,7 @@ export const templates = [
     DocumentationColumnPropagation.template,
     GlossaryTermPropagation.template,
     SnowflakeTagPropagation.template,
+    AIGlossaryTermPropagation.template,
 ];
 
 // Map of all the default configs available in the application (this needs to be in sync with the recipes)
@@ -23,6 +26,7 @@ export const defaultConfigs = {
     [DocumentationColumnPropagation.actionType]: Object.seal(DocumentationColumnPropagation.defaultConfig),
     [GlossaryTermPropagation.actionType]: Object.seal(GlossaryTermPropagation.defaultConfig),
     [SnowflakeTagPropagation.actionType]: Object.seal(SnowflakeTagPropagation.defaultConfig),
+    [AIGlossaryTermPropagation.actionType]: Object.seal(AIGlossaryTermPropagation.defaultConfig),
 };
 
 // Map of all config maps available in the application (this needs to be in sync with the recipes/templates)
@@ -31,6 +35,7 @@ export const configMaps = {
     [DocumentationColumnPropagation.actionType]: DocumentationColumnPropagation.configMap,
     [GlossaryTermPropagation.actionType]: GlossaryTermPropagation.configMap,
     [SnowflakeTagPropagation.actionType]: SnowflakeTagPropagation.configMap,
+    [AIGlossaryTermPropagation.actionType]: AIGlossaryTermPropagation.configMap,
 };
 
 // Utility function to get a nested value

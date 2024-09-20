@@ -308,6 +308,14 @@ type ActionRequest {
     """
     params: ActionRequestParams
     """
+    The origin of the action request
+    """
+    origin: ActionRequestOrigin
+    """
+    Optional inference Metadata Associated with the action request. Only present if origin is INFERRED.
+    """
+    inferenceMetadata: InferenceMetadata
+    """
     The time by which the action is required
     """
     dueDate: Long
@@ -327,6 +335,59 @@ type ActionRequest {
     Sub-resource level properties for the action request
     """
     subResourceProperties: ActionRequestSubResourceProperties
+}
+
+input InferenceMetadataInput {
+    """
+    The version of the inference system used
+    """
+    version: Int!
+
+    """
+    Optional - The last time the inference was made in milliseconds since epoch. If not provided, the current time will be used.
+    """
+    lastInferredAt: Long
+
+    """
+    Optional - The confidence level of the inference
+        0: Low Confidence
+        1: Medium Confidence
+        2: High Confidence
+    """
+    confidenceLevel: Int
+}
+
+type InferenceMetadata {
+    """
+    The version of the inference system used
+    """
+    version: Int!
+
+    """
+    The last time the inference was made in milliseconds since epoch
+    """
+    lastInferredAt: Long!
+
+    """
+    The confidence level of the inference
+       0: Low Confidence
+       1: Medium Confidence
+       2: High Confidence
+    """
+    confidenceLevel: Int
+}
+
+enum ActionRequestOrigin {
+    """
+    The proposal was manually raised via UI or API by a user of DataHub.
+    This is the inferred default value if not set.
+    """
+    MANUAL
+
+    """
+    The proposal was inferred by DataHub's inference system.
+    """
+    INFERRED
 }
 
 type ActionRequestParams {

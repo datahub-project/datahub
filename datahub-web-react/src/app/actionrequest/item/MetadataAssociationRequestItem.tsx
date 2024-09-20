@@ -3,20 +3,13 @@ import { Button, message, Modal, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
-import { ActionRequest, ActionRequestResult, ActionRequestStatus, EntityType } from '../../../types.generated';
+import { ActionRequest, ActionRequestStatus, EntityType } from '../../../types.generated';
 import { CustomAvatar } from '../../shared/avatar';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import analytics, { EntityActionType, EventType } from '../../analytics';
-
-type Props = {
-    actionRequest: ActionRequest;
-    requestTypeDisplayName: string;
-    requestContentView: React.ReactNode;
-    onUpdate: () => void;
-    showActionsButtons: boolean;
-};
 
 const ContentContainer = styled.div`
     display: flex;
@@ -35,10 +28,12 @@ const LeftContentContainer = styled.div`
 const LeftContentContainerItem = styled.div`
     margin-left: 20px;
     margin-right: 20px;
+    font-size: 14px;
 `;
 
 const RequestTypeContainer = styled.div`
     width: 200px;
+    color: ${ANTD_GRAY[8]};
 `;
 
 const AuthorView = styled.span`
@@ -54,6 +49,14 @@ const RightContentContainer = styled.div`
     justify-content: right;
     align-items: middle;
 `;
+
+type Props = {
+    actionRequest: ActionRequest;
+    requestTypeDisplayName: string;
+    requestContentView: React.ReactNode;
+    onUpdate: () => void;
+    showActionsButtons: boolean;
+};
 
 /**
  * Base list item for showing metadata association proposals.
@@ -130,25 +133,7 @@ export default function MetadataAssociationRequestItem({
     const createdDate = new Date(actionRequest.created.time).toLocaleDateString('en-US'); // Todo format this correctly.
     const createdDateView = <Typography.Text>{createdDate}</Typography.Text>;
 
-    /**
-     * Build the request type view.
-     */
-    let suffix = '';
-    if (actionRequest.result === ActionRequestResult.Accepted) {
-        suffix = ' Accepted';
-    }
-    if (actionRequest.result === ActionRequestResult.Rejected) {
-        suffix = ' Rejected';
-    }
-
-    const requestTypeView = (
-        <RequestTypeContainer>
-            <Typography.Text strong>
-                {requestTypeDisplayName}
-                {suffix}
-            </Typography.Text>
-        </RequestTypeContainer>
-    );
+    const requestTypeView = <RequestTypeContainer>{requestTypeDisplayName}</RequestTypeContainer>;
 
     const createdBy = actionRequest.created.actor;
     const createdByDisplayImage = createdBy && createdBy.editableInfo?.pictureLink;
@@ -187,7 +172,7 @@ export default function MetadataAssociationRequestItem({
     } else {
         actionResultView = (
             <>
-                <Button onClick={acceptRequest}>
+                <Button type="primary" onClick={acceptRequest}>
                     <CheckOutlined />
                     Approve
                 </Button>
@@ -202,8 +187,8 @@ export default function MetadataAssociationRequestItem({
     return (
         <ContentContainer>
             <LeftContentContainer>
-                <LeftContentContainerItem>{createdDateView}</LeftContentContainerItem>
-                <LeftContentContainerItem>{requestTypeView}</LeftContentContainerItem>
+                {showActionsButtons && <LeftContentContainerItem>{createdDateView}</LeftContentContainerItem>}
+                {showActionsButtons && <LeftContentContainerItem>{requestTypeView}</LeftContentContainerItem>}
                 <LeftContentContainerItem>{requestContentView}</LeftContentContainerItem>
             </LeftContentContainer>
             {showActionsButtons && <RightContentContainer>{actionResultView}</RightContentContainer>}

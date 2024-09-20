@@ -18,6 +18,9 @@ record ActionRequestParams {
     /**
      * The urn of the glossary term being proposed.
      */
+    @Searchable = {
+        "addToFilters": true
+    }
     glossaryTerm: Urn
   }
 
@@ -28,6 +31,9 @@ record ActionRequestParams {
     /**
      * The urn of the tag being proposed.
      */
+    @Searchable = {
+        "addToFilters": true
+    }
     tag: Urn
   }
 

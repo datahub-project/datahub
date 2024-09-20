@@ -60,14 +60,7 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 
 ARG RELEASE_VERSION=1!0.0.0.dev0
 WORKDIR /datahub-integrations-service
-RUN test -n "$RELEASE_VERSION" && \
-    sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed 's/+/-/'|sed '1 s/-/+/')\"/" ../metadata-ingestion/src/datahub/__init__.py && \
-    cat ../metadata-ingestion/src/datahub/__init__.py && \
-    sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed 's/+/-/'|sed '1 s/-/+/')\"/" src/datahub_integrations/__init__.py && \
-    cat src/datahub_integrations/__init__.py && \
-    sed -i.bak "s/version = \"1!0.0.0.dev0\"/version = \"$(echo $RELEASE_VERSION|sed 's/+/-/'|sed '1 s/-/+/')\"/" pyproject.toml && \
-    cat pyproject.toml && \
-    chown -R datahub /datahub-integrations-service /metadata-ingestion
+
 
 # Note that the requirements file contains editable installs for
 # metadata-ingestion and datahub-integrations-service

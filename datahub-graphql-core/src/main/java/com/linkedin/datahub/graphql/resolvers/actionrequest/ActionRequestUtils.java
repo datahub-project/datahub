@@ -17,6 +17,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActionRequest;
+import com.linkedin.datahub.graphql.generated.ActionRequestOrigin;
 import com.linkedin.datahub.graphql.generated.ActionRequestParams;
 import com.linkedin.datahub.graphql.generated.ActionRequestResourceProperties;
 import com.linkedin.datahub.graphql.generated.ActionRequestResult;
@@ -36,6 +37,7 @@ import com.linkedin.datahub.graphql.generated.FreshnessContract;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
+import com.linkedin.datahub.graphql.generated.InferenceMetadata;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.SchemaContract;
 import com.linkedin.datahub.graphql.generated.Tag;
@@ -135,6 +137,16 @@ public class ActionRequestUtils {
 
         if (actionRequestInfo.hasParams()) {
           actionRequest.setParams(mapParams(actionRequestInfo.getParams()));
+        }
+
+        if (actionRequestInfo.hasOrigin()) {
+          actionRequest.setOrigin(
+              ActionRequestOrigin.valueOf(actionRequestInfo.getOrigin().toString()));
+        }
+
+        if (actionRequestInfo.hasInferenceMetadata()) {
+          actionRequest.setInferenceMetadata(
+              mapInferenceMetadata(actionRequestInfo.getInferenceMetadata()));
         }
 
       } else if (aspect.isActionRequestStatus()) {
@@ -583,6 +595,17 @@ public class ActionRequestUtils {
     final Assertion partialAssertion = new Assertion();
     partialAssertion.setUrn(qualityContract.getAssertion().toString());
     result.setAssertion(partialAssertion);
+    return result;
+  }
+
+  private static InferenceMetadata mapInferenceMetadata(
+      final com.linkedin.ai.InferenceMetadata inferenceMetadata) {
+    final InferenceMetadata result = new InferenceMetadata();
+    result.setVersion(inferenceMetadata.getVersion());
+    result.setLastInferredAt(inferenceMetadata.getLastInferredAt());
+    if (inferenceMetadata.hasConfidenceLevel()) {
+      result.setConfidenceLevel(inferenceMetadata.getConfidenceLevel());
+    }
     return result;
   }
 

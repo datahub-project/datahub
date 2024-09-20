@@ -27,6 +27,7 @@ from datahub_integrations.actions.actions_manager import (
     ActionRun,
     ActionsManager,
     LiveActionSpec,
+    NoSuchPipeline,
 )
 from datahub_integrations.actions.reporter import ActionStatsReporter
 from datahub_integrations.actions.stats_util import Stage
@@ -202,8 +203,7 @@ async def reload_action(action_urn: str) -> None:
 
 def _get_action_spec(action_urn: str) -> LiveActionSpec:
     if action_urn not in pipeline_manager.pipelines:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND,
+        raise NoSuchPipeline(
             f"Action {action_urn} not found. Did you mean one of {pipeline_manager.pipelines.keys()}?",
         )
 
@@ -213,17 +213,18 @@ def _get_action_spec(action_urn: str) -> LiveActionSpec:
 @actions_router.post("/{action_urn}/stop")
 async def stop_action(action_urn: str) -> str:
     """
-    Stop an action.
+    Manually stop an action.
 
-    This is mainly for debugging purposes.
+    This is mainly for debugging purposes - actions should usually be started/stopped via graphql.
     """
 
-    _get_action_spec(action_urn)
     logger.info(f"Stopping action {action_urn}.")
 
     try:
         await pipeline_manager.stop_pipeline(action_urn)
         return "OK"
+    except NoSuchPipeline as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e)) from e
     except Exception as e:
         logger.error(f"Failed to stop action {action_urn}: {e}")
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
@@ -238,7 +239,7 @@ async def rollback_action(action_urn: str) -> str:
     try:
         action_spec = _get_action_spec(action_urn)
         config = action_spec.action_run.unresolved_config
-    except HTTPException:
+    except NoSuchPipeline:
         server_action_info = graph.execute_graphql(
             actions_gql, operation_name="getAction", variables={"urn": action_urn}
         )
@@ -255,7 +256,7 @@ async def rollback_action(action_urn: str) -> str:
         await pipeline_manager.rollback_pipeline(action_urn, config=config)
         return "OK"
     except Exception as e:
-        logger.error(f"Failed to stop action {action_urn}: {e}")
+        logger.exception(f"Failed to rollback action {action_urn}: {e}")
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
 
 
@@ -302,7 +303,7 @@ async def bootstrap_action(action_urn: str) -> str:
     try:
         action_spec = _get_action_spec(action_urn)
         config = action_spec.action_run.unresolved_config
-    except HTTPException:
+    except NoSuchPipeline:
         updated_details = graph.execute_graphql(
             actions_gql, operation_name="getAction", variables={"urn": action_urn}
         )["actionPipeline"]["details"]
@@ -312,7 +313,7 @@ async def bootstrap_action(action_urn: str) -> str:
         await pipeline_manager.bootstrap_pipeline(action_urn, config=config)
         return "OK"
     except Exception as e:
-        logger.error(f"Failed to stop action {action_urn}: {e}")
+        logger.exception(f"Failed to bootstrap action {action_urn}: {e}")
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
 
 
@@ -387,7 +388,7 @@ async def action_stats(action_urn: str) -> dict:
         spec = _get_action_spec(action_urn)
         assert spec is not None
 
-    except (HTTPException, httpx.HTTPError):
+    except (NoSuchPipeline, httpx.HTTPError):
         # live stats are not available, set server stats live to STOPPED
         if server_stats and server_stats.live:
             server_stats.live.statusCode = "STOPPED"
@@ -398,10 +399,7 @@ async def action_stats(action_urn: str) -> dict:
     if server_stats:
         return server_stats.to_obj()
     else:
-        # We would only get here if there were no server stats and there were no live stats.
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, f"No stats found for {action_urn}."
-        )
+        raise NoSuchPipeline(f"No live or cached stats found for {action_urn}.")
 
 
 @actions_router.api_route(

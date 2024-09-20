@@ -412,7 +412,10 @@ export const EntityActionType = {
     ProposalCreated: 'ProposalCreated',
     ProposalAccepted: 'ProposalAccepted',
     ProposalRejected: 'ProposalRejected',
+    ProposalsAccepted: 'ProposalsAccepted',
+    ProposalsRejected: 'ProposalsRejected',
 };
+
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
     actionType: string;

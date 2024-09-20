@@ -1,0 +1,178 @@
+query glossaryNode($urn: String!) {
+  glossaryNode(urn: $urn) {
+    ...rootGlossaryNodeWithFourLayers
+    __typename
+  }
+}
+
+fragment rootGlossaryNodeWithFourLayers on GlossaryNode {
+  urn
+  type
+  properties {
+    name
+    description
+    __typename
+  }
+  displayProperties {
+    ...displayPropertiesFields
+    __typename
+  }
+  children: relationships(
+    input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 500 }
+  ) {
+    total
+    relationships {
+      type
+      entity {
+        type
+        ... on GlossaryTerm {
+          urn
+          __typename
+        }
+        ... on GlossaryNode {
+          urn
+          properties {
+            name
+            description
+            __typename
+          }
+          children: relationships(
+            input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 500 }
+          ) {
+            total
+            relationships {
+              type
+              entity {
+                type
+                ... on GlossaryTerm {
+                  urn
+                  properties {
+                    name
+                    description
+                  }
+                  __typename
+                }
+                ... on GlossaryNode {
+                  urn
+                  properties {
+                    name
+                    description
+                    __typename
+                  }
+                  children: relationships(
+                    input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 500 }
+                  ) {
+                    total
+                    relationships {
+                      type
+                      entity {
+                        type
+                        ... on GlossaryTerm {
+                          urn
+                          properties {
+                            name
+                            description
+                          }
+                          __typename
+                        }
+                        ... on GlossaryNode {
+                          urn
+                          properties {
+                            name
+                            description
+                            __typename
+                          }
+                          children: relationships(
+                            input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 500 }
+                          ) {
+                            total
+                            relationships {
+                              type
+                              entity {
+                                type
+                                ... on GlossaryTerm {
+                                  urn
+                                  properties {
+                                    name
+                                    description
+                                  }
+                                  __typename
+                                }
+                                ... on GlossaryNode {
+                                  urn
+                                  children: relationships(
+                                    input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 500 }
+                                  ) {
+                                    total
+                                    relationships {
+                                      type
+                                      entity {
+                                        type
+                                        ... on GlossaryTerm {
+                                          urn
+                                          properties {
+                                            name
+                                            description
+                                          }
+                                          __typename
+                                        }
+                                        ... on GlossaryNode {
+                                          urn
+                                          properties {
+                                            name
+                                            description
+                                            __typename
+                                          }
+                                          __typename
+                                        }
+                                        __typename
+                                      }
+                                      __typename
+                                    }
+                                    __typename
+                                  }
+                                  __typename
+                                }
+                                __typename
+                              }
+                              __typename
+                            }
+                            __typename
+                          }
+                          __typename
+                        }
+                        __typename
+                      }
+                      __typename
+                    }
+                    __typename
+                  }
+                  __typename
+                }
+                __typename
+              }
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        __typename
+      }
+      __typename
+    }
+    __typename
+  }
+  __typename
+}
+
+fragment displayPropertiesFields on DisplayProperties {
+  colorHex
+  icon {
+    name
+    style
+    iconLibrary
+    __typename
+  }
+  __typename
+}

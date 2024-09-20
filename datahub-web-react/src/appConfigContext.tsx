@@ -56,6 +56,7 @@ export const DEFAULT_APP_CONFIG = {
         enabled: false,
         automations: {
             snowflake: false,
+            aiTermClassification: false,
         },
     },
     featureFlags: {
