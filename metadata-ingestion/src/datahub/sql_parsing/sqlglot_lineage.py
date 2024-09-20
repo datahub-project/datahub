@@ -1020,7 +1020,7 @@ def _sqlglot_lineage_inner(
     )
 
 
-def sqlglot_lineage_nocache(
+def _sqlglot_lineage_nocache(
     sql: str,
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
@@ -1090,8 +1090,8 @@ def sqlglot_lineage_nocache(
         return SqlParsingResult.make_from_error(e)
 
 
-sqlglot_lineage_cached = functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)(
-    sqlglot_lineage_nocache
+_sqlglot_lineage_cached = functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)(
+    _sqlglot_lineage_nocache
 )
 
 
@@ -1103,11 +1103,11 @@ def sqlglot_lineage(
     default_dialect: Optional[str] = None,
 ) -> SqlParsingResult:
     if schema_resolver.includes_temp_tables():
-        return sqlglot_lineage_nocache(
+        return _sqlglot_lineage_nocache(
             sql, schema_resolver, default_db, default_schema, default_dialect
         )
     else:
-        return sqlglot_lineage_cached(
+        return _sqlglot_lineage_cached(
             sql, schema_resolver, default_db, default_schema, default_dialect
         )
 

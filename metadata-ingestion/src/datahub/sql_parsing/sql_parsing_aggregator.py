@@ -39,11 +39,12 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
     SqlParsingResult,
+    _sqlglot_lineage_cached,
     infer_output_schema,
     sqlglot_lineage,
-    sqlglot_lineage_cached,
 )
 from datahub.sql_parsing.sqlglot_utils import (
+    _parse_statement,
     generate_hash,
     get_query_fingerprint,
     try_format_query,
@@ -224,6 +225,8 @@ class SqlAggregatorReport(Report):
     sql_fingerprinting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_formatting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_parsing_cache_stats: dict = dataclasses.field(default_factory=dict)
+    parse_statement_cache_stats: dict = dataclasses.field(default_factory=dict)
+    format_query_cache_stats: dict = dataclasses.field(default_factory=dict)
 
     # Other lineage loading metrics.
     num_known_query_lineage: int = 0
@@ -274,7 +277,9 @@ class SqlAggregatorReport(Report):
         self.num_temp_sessions = len(self._aggregator._temp_lineage_map)
         self.num_inferred_temp_schemas = len(self._aggregator._inferred_temp_schemas)
 
-        self.sql_parsing_cache_stats = sqlglot_lineage_cached.cache_info()._asdict()  # type: ignore
+        self.sql_parsing_cache_stats = _sqlglot_lineage_cached.cache_info()._asdict()
+        self.parse_statement_cache_stats = _parse_statement.cache_info()._asdict()
+        self.format_query_cache_stats = try_format_query.cache_info()._asdict()
 
         return super().compute_stats()
 
