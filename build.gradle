@@ -225,7 +225,7 @@ project.ext.externalDependency = [
     'pac4j': 'org.pac4j:pac4j-oidc:4.5.8',
     'playPac4j': 'org.pac4j:play-pac4j_2.12:9.0.2',
     'postgresql': 'org.postgresql:postgresql:42.3.9',
-    'protobuf': 'com.google.protobuf:protobuf-java:3.19.6',
+    'protobuf': 'com.google.protobuf:protobuf-java:3.25.5',
     'grpcProtobuf': 'io.grpc:grpc-protobuf:1.53.0',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
     'reflections': 'org.reflections:reflections:0.9.9',
