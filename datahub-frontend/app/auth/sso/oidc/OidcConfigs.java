@@ -243,6 +243,9 @@ public class OidcConfigs extends SsoConfigs {
             Optional.ofNullable(getOptional(configs, OIDC_PREFERRED_JWS_ALGORITHM, null));
       }
 
+      grantType = Optional.ofNullable(getOptional(configs, OIDC_GRANT_TYPE, null));
+      acrValues = Optional.ofNullable(getOptional(configs, OIDC_ACR_VALUES, null));
+
       return this;
     }
 
