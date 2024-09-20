@@ -28,27 +28,27 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
     const { terms = [], nodes = [], tags = [], termsEnabled = false, tagsEnabled = false } = state;
 
     const getRadioValue = useCallback(
-        (enabled: boolean, itemCount: number) => {
+        (enabled: boolean) => {
             if (allowedRadios.length === 1) {
-                return allowedRadios[0];
+                return allowedRadios[0]; // If there's only one radio, return it.
             }
-            if (enabled && itemCount > 0) return 'some' as RadioValue;
-            if (enabled) return 'all' as RadioValue;
-            return 'none' as RadioValue;
+            if (!enabled) return 'none' as RadioValue;
+            if (enabled) return 'some' as RadioValue;
+            return 'all' as RadioValue;
         },
         [allowedRadios],
     );
 
     const [selected, setSelected] = useState({
         terms: {
-            selectionType: getRadioValue(termsEnabled, terms.length + nodes.length),
+            selectionType: getRadioValue(termsEnabled),
             selected: {
                 [EntityType.GlossaryTerm]: terms,
                 [EntityType.GlossaryNode]: nodes,
             },
         },
         tags: {
-            selectionType: getRadioValue(tagsEnabled, tags.length),
+            selectionType: getRadioValue(tagsEnabled),
             selected: {
                 [EntityType.Tag]: tags,
             },
@@ -58,14 +58,14 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
     useEffect(() => {
         const newState = {
             terms: {
-                selectionType: getRadioValue(termsEnabled, terms.length + nodes.length),
+                selectionType: getRadioValue(termsEnabled),
                 selected: {
                     [EntityType.GlossaryTerm]: terms,
                     [EntityType.GlossaryNode]: nodes,
                 },
             },
             tags: {
-                selectionType: getRadioValue(tagsEnabled, tags.length),
+                selectionType: getRadioValue(tagsEnabled),
                 selected: {
                     [EntityType.Tag]: tags,
                 },
@@ -87,12 +87,12 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
             },
         };
 
-        if ((type === 'terms' && values.selectionType === 'all') || values.selectionType === 'none') {
+        if (type === 'terms' && values.selectionType === 'all') {
             newTerms.selected[EntityType.GlossaryNode] = [];
             newTerms.selected[EntityType.GlossaryTerm] = [];
         }
 
-        if ((type === 'tags' && values.selectionType === 'all') || values.selectionType === 'none') {
+        if (type === 'tags' && values.selectionType === 'all') {
             newTerms.selected[EntityType.Tag] = [];
         }
 
