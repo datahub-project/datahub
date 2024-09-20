@@ -263,7 +263,7 @@ describe("Verify nested domains test functionalities", () => {
 
   it("Verify entities tab with adding and deleting assets and performing some actions", () => {
     cy.clickFirstOptionWithText("Marketing");
-    cy.clickOptionWithText("Add Assets");
+    cy.clickOptionWithText("Add to Assets");
     cy.waitTextVisible("Add assets to Domain");
     cy.enterTextInSpecificTestId("search-bar", 2, "Baz Chart 2");
     cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
