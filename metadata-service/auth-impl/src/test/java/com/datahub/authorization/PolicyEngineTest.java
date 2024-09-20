@@ -1058,22 +1058,26 @@ public class PolicyEngineTest {
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
-    PolicyMatchCriterion policyMatchCriterion = FilterUtils.newCriterion(
-            EntityFieldType.URN, Collections.singletonList("urn:li:dataset:te"), PolicyMatchCondition.STARTS_WITH);
+    PolicyMatchCriterion policyMatchCriterion =
+        FilterUtils.newCriterion(
+            EntityFieldType.URN,
+            Collections.singletonList("urn:li:dataset:te"),
+            PolicyMatchCondition.STARTS_WITH);
 
     resourceFilter.setFilter(
-            new PolicyMatchFilter()
-                    .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(policyMatchCriterion))));
+        new PolicyMatchFilter()
+            .setCriteria(
+                new PolicyMatchCriterionArray(Collections.singleton(policyMatchCriterion))));
     dataHubPolicyInfo.setResources(resourceFilter);
 
     ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
     PolicyEngine.PolicyEvaluationResult result =
-            _policyEngine.evaluatePolicy(
-                    systemOperationContext,
-                    dataHubPolicyInfo,
-                    resolvedAuthorizedUserSpec,
-                    "EDIT_ENTITY_TAGS",
-                    Optional.of(resourceSpec));
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
     assertTrue(result.isGranted());
 
     // Verify no network calls
@@ -1097,28 +1101,31 @@ public class PolicyEngineTest {
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
-    PolicyMatchCriterion policyMatchCriterion = FilterUtils.newCriterion(
-            EntityFieldType.URN, Collections.singletonList("urn:li:dataset:other"), PolicyMatchCondition.STARTS_WITH);
+    PolicyMatchCriterion policyMatchCriterion =
+        FilterUtils.newCriterion(
+            EntityFieldType.URN,
+            Collections.singletonList("urn:li:dataset:other"),
+            PolicyMatchCondition.STARTS_WITH);
 
     resourceFilter.setFilter(
-            new PolicyMatchFilter()
-                    .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(policyMatchCriterion))));
+        new PolicyMatchFilter()
+            .setCriteria(
+                new PolicyMatchCriterionArray(Collections.singleton(policyMatchCriterion))));
     dataHubPolicyInfo.setResources(resourceFilter);
 
     ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
     PolicyEngine.PolicyEvaluationResult result =
-            _policyEngine.evaluatePolicy(
-                    systemOperationContext,
-                    dataHubPolicyInfo,
-                    resolvedAuthorizedUserSpec,
-                    "EDIT_ENTITY_TAGS",
-                    Optional.of(resourceSpec));
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
     assertFalse(result.isGranted());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
   }
-
 
   @Test
   public void testEvaluatePolicyResourceFilterSpecificResourceMatchDomain() throws Exception {
