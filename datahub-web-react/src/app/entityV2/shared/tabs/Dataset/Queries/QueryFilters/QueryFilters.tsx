@@ -56,7 +56,7 @@ export default function QueryFilters({
     };
 
     const usersFilter = useUsersFilter({ selectedColumnsFilter, selectedUsersFilter });
-    const columnsFilter = useColumnsFilter({ selectedColumnsFilter, selectedUsersFilter });
+    const columnsFilter = useColumnsFilter({ selectedColumnsFilter, selectedUsersFilter, setSelectedColumnsFilter });
 
     const filterPredicates: FilterPredicate[] = convertToAvailableFilterPredictes(
         [selectedUsersFilter, selectedColumnsFilter],

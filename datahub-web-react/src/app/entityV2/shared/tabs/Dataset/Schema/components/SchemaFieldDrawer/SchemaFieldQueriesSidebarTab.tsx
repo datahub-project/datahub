@@ -1,3 +1,4 @@
+import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import Icon from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import moment from 'moment';
@@ -115,21 +116,28 @@ const QueriesTitle = styled(Typography.Text)`
 `;
 
 export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath } }: Props) {
+    const isSeparateSiblings = useIsSeparateSiblingsMode();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const urn = (baseEntity && baseEntity.dataset && baseEntity.dataset?.urn) || '';
-    const siblingUrn = baseEntity?.dataset?.siblingsSearch?.searchResults?.[0]?.entity?.urn;
+    const siblingUrn = isSeparateSiblings
+        ? undefined
+        : baseEntity?.dataset?.siblingsSearch?.searchResults?.[0]?.entity?.urn;
     const schemaFieldUrn = generateSchemaFieldUrn(fieldPath, urn) || '';
+    const siblingSchemaFieldUrn =
+        !isSeparateSiblings && siblingUrn ? generateSchemaFieldUrn(fieldPath, siblingUrn) || '' : '';
 
     const { popularQueries, loading, total, selectedColumnsFilter, setSelectedColumnsFilter } = usePopularQueries({
         entityUrn: urn,
         siblingUrn,
         filterText: '',
-        defaultSelectedColumns: [schemaFieldUrn || ''],
+        defaultSelectedColumns: [schemaFieldUrn || '', siblingSchemaFieldUrn],
     });
 
     useEffect(() => {
-        setSelectedColumnsFilter({ ...selectedColumnsFilter, values: [schemaFieldUrn] });
-    }, [schemaFieldUrn, selectedColumnsFilter, setSelectedColumnsFilter]);
+        setSelectedColumnsFilter({ ...selectedColumnsFilter, values: [schemaFieldUrn, siblingSchemaFieldUrn] });
+        // disable next line because we ONLY want this to run when schemaFieldUrn or siblingSchemaFieldUrn changes
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [schemaFieldUrn, siblingSchemaFieldUrn]);
 
     const routeToTab = useRouteToTab();
 
@@ -185,7 +193,10 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
             {hasMore && !loading && (
                 <SeeAllButton
                     onClick={() => {
-                        routeToTab({ tabName: 'Queries', tabParams: { column: schemaFieldUrn } });
+                        routeToTab({
+                            tabName: 'Queries',
+                            tabParams: { column: schemaFieldUrn, siblingColumn: siblingSchemaFieldUrn },
+                        });
                     }}
                 >
                     See All Queries

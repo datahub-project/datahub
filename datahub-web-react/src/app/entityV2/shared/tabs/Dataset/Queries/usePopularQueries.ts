@@ -24,9 +24,14 @@ export const usePopularQueries = ({
     defaultSelectedUsers,
 }: Props) => {
     const columnFromQueryParam = useQueryParamValue('column') as string | null;
+    const siblingColumnFromQueryParam = useQueryParamValue('siblingColumn') as string | null;
+    let columnsFromQueryParams = columnFromQueryParam ? [decodeURI(columnFromQueryParam)] : [];
+    columnsFromQueryParams = siblingColumnFromQueryParam
+        ? [...columnsFromQueryParams, decodeURI(siblingColumnFromQueryParam)]
+        : columnsFromQueryParams;
     const defaultColumnsFilter = {
         field: 'entities',
-        values: [...(columnFromQueryParam ? [decodeURI(columnFromQueryParam)] : defaultSelectedColumns || [])],
+        values: [...(columnsFromQueryParams.length ? columnsFromQueryParams : defaultSelectedColumns || [])],
     };
     const [selectedColumnsFilter, setSelectedColumnsFilter] = useState<FacetFilterInput>(defaultColumnsFilter);
     const defaultUsersFilter = { field: 'topUsersLast30DaysFeature', values: [...(defaultSelectedUsers || [])] };
