@@ -157,6 +157,8 @@ class BigQueryV2Report(
     num_filtered_query_events: int = 0
     num_usage_query_hash_collisions: int = 0
     num_operational_stats_workunits_emitted: int = 0
+    num_lineage_dropped_gcs_path: int = 0
+
     snapshots_scanned: int = 0
 
     # view lineage

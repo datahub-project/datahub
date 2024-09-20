@@ -204,6 +204,8 @@ class BigQuerySchemaGenerator:
         self.view_definitions: FileBackedDict[str] = FileBackedDict()
         # Maps snapshot ref -> Snapshot
         self.snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot] = FileBackedDict()
+        # Add External BQ table
+        self.external_tables: Dict[str, BigqueryTable] = defaultdict()
 
         bq_project = (
             self.config.project_on_behalf
@@ -956,6 +958,17 @@ class BigQuerySchemaGenerator:
         dataset_urn = self.identifiers.gen_dataset_urn(
             project_id, dataset_name, table.name
         )
+
+        # Added for bigquery to gcs lineage extraction
+        if (
+            isinstance(table, BigqueryTable)
+            and table.table_type is not None
+            and table.table_type == "EXTERNAL"
+            and table.ddl is not None
+            and f"CREATE EXTERNAL TABLE `{project_id}.{dataset_name}.{table.name}`"
+            in table.ddl
+        ):
+            self.external_tables[dataset_urn] = table
 
         status = Status(removed=False)
         yield MetadataChangeProposalWrapper(
