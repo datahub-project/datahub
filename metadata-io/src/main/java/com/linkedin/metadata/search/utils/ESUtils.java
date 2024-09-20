@@ -637,7 +637,8 @@ public class ESUtils {
           QueryBuilders.wildcardQuery(
                   toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
                   String.format(wildcardPattern, ESUtils.escapeReservedCharacters(value.trim())))
-              .queryName(queryName != null ? queryName : fieldName));
+              .queryName(queryName != null ? queryName : fieldName)
+              .caseInsensitive(true));
     }
     return boolQuery;
   }
@@ -653,7 +654,8 @@ public class ESUtils {
             toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
             String.format(
                 wildcardPattern, ESUtils.escapeReservedCharacters(criterion.getValue().trim())))
-        .queryName(queryName != null ? queryName : fieldName);
+        .queryName(queryName != null ? queryName : fieldName)
+        .caseInsensitive(true);
   }
 
   private static QueryBuilder buildContainsConditionFromCriterion(

@@ -16,7 +16,7 @@ const Hero = () => {
                 <div className={clsx("hero__subtitle", styles.hero__subtitle)}>
                 Experience the premium version of DataHub
                   <div style={{ fontWeight: "500" }}>
-                    with Data Observability and Data Governance built-in.
+                    with Observability and Governance built-in.
                   </div>
                 </div>
                 <Link className={clsx(styles.button, styles.bookButton, "button button--primary button--lg")} to="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup">
