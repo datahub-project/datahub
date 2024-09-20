@@ -27,24 +27,29 @@ const SelectLabelDisplay = ({
     placeholder,
     isMultiSelect,
     removeOption,
+    disabledValues,
 }: SelectLabelDisplayProps) => {
     const selectedOptions = options.filter((opt) => selectedValues.includes(opt.value));
     return (
         <LabelsWrapper>
             {!!selectedOptions.length &&
                 isMultiSelect &&
-                selectedOptions.map((o) => (
-                    <Pill
-                        label={o.label}
-                        rightIcon="Close"
-                        size="sm"
-                        key={o.value}
-                        onClickRightIcon={(e) => {
-                            e.stopPropagation();
-                            removeOption?.(o);
-                        }}
-                    />
-                ))}
+                selectedOptions.map((o) => {
+                    const isDisabled = disabledValues?.includes(o.value);
+                    return (
+                        <Pill
+                            label={o.label}
+                            rightIcon={!isDisabled ? 'Close' : ''}
+                            size="sm"
+                            key={o.value}
+                            onClickRightIcon={(e) => {
+                                e.stopPropagation();
+                                removeOption?.(o);
+                            }}
+                            clickable={!isDisabled}
+                        />
+                    );
+                })}
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
             {!isMultiSelect && <SelectValue>{selectedOptions[0]?.label}</SelectValue>}
         </LabelsWrapper>
@@ -94,6 +99,7 @@ export const SimpleSelect = ({
     size = selectDefaults.size,
     isMultiSelect = selectDefaults.isMultiSelect,
     placeholder = selectDefaults.placeholder,
+    disabledValues = [],
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -102,7 +108,7 @@ export const SimpleSelect = ({
     const selectRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (!isEqual(selectedValues, values)) {
+        if (values?.length > 0 && !isEqual(selectedValues, values)) {
             setSelectedValues(values);
         }
     }, [values, selectedValues]);
@@ -172,6 +178,7 @@ export const SimpleSelect = ({
                     placeholder={placeholder || 'Select an option'}
                     isMultiSelect={isMultiSelect}
                     removeOption={handleOptionChange}
+                    disabledValues={disabledValues}
                 />
                 <SelectActionButtons
                     selectedValues={selectedValues}
@@ -203,6 +210,7 @@ export const SimpleSelect = ({
                                 onClick={() => !isMultiSelect && handleOptionChange(option)}
                                 isSelected={selectedValues.includes(option.value)}
                                 isMultiSelect={isMultiSelect}
+                                isDisabled={disabledValues?.includes(option.value)}
                             >
                                 {isMultiSelect ? (
                                     <LabelContainer>
@@ -210,6 +218,7 @@ export const SimpleSelect = ({
                                         <StyledCheckbox
                                             onClick={() => handleOptionChange(option)}
                                             checked={selectedValues.includes(option.value)}
+                                            disabled={disabledValues?.includes(option.value)}
                                         />
                                     </LabelContainer>
                                 ) : (

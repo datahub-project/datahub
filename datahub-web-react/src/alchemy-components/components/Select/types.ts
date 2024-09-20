@@ -19,6 +19,7 @@ export interface SelectProps {
     width?: number | 'full';
     isMultiSelect?: boolean;
     placeholder?: string;
+    disabledValues?: string[];
 }
 
 export interface SelectStyleProps {
@@ -44,6 +45,7 @@ export interface SelectLabelDisplayProps {
     placeholder: string;
     isMultiSelect?: boolean;
     removeOption?: (option: SelectOption) => void;
+    disabledValues?: string[];
 }
 
 export interface SearchInputProps extends React.InputHTMLAttributes<HTMLInputElement> {

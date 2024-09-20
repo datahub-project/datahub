@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
 import { Button, Icon, Pill } from '@components';
-
+import { isEqual } from 'lodash';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActionButtonsContainer,
     Container,
@@ -22,7 +21,6 @@ import {
     StyledCheckbox,
     StyledClearButton,
 } from './components';
-
 import { ActionButtonsProps, SelectLabelDisplayProps, SelectOption, SelectProps } from './types';
 import { getFooterButtonSize } from './utils';
 
@@ -32,24 +30,29 @@ const SelectLabelDisplay = ({
     placeholder,
     isMultiSelect,
     removeOption,
+    disabledValues,
 }: SelectLabelDisplayProps) => {
     const selectedOptions = options.filter((opt) => selectedValues.includes(opt.value));
     return (
         <LabelsWrapper>
             {!!selectedOptions.length &&
                 isMultiSelect &&
-                selectedOptions.map((o) => (
-                    <Pill
-                        label={o.label}
-                        rightIcon="Close"
-                        size="sm"
-                        key={o.value}
-                        onClickRightIcon={(e) => {
-                            e.stopPropagation();
-                            removeOption?.(o);
-                        }}
-                    />
-                ))}
+                selectedOptions.map((o) => {
+                    const isDisabled = disabledValues?.includes(o.value);
+                    return (
+                        <Pill
+                            label={o.label}
+                            rightIcon={!isDisabled ? 'Close' : ''}
+                            size="sm"
+                            key={o.value}
+                            onClickRightIcon={(e) => {
+                                e.stopPropagation();
+                                removeOption?.(o);
+                            }}
+                            clickable={!isDisabled}
+                        />
+                    );
+                })}
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
             {!isMultiSelect && <SelectValue>{selectedOptions[0]?.label}</SelectValue>}
         </LabelsWrapper>
@@ -100,6 +103,7 @@ export const BasicSelect = ({
     size = selectDefaults.size,
     isMultiSelect = selectDefaults.isMultiSelect,
     placeholder = selectDefaults.placeholder,
+    disabledValues = [],
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -107,6 +111,12 @@ export const BasicSelect = ({
     const [selectedValues, setSelectedValues] = useState<string[]>(values);
     const [tempValues, setTempValues] = useState<string[]>(values);
     const selectRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (values?.length > 0 && !isEqual(selectedValues, values)) {
+            setSelectedValues(values);
+        }
+    }, [values, selectedValues]);
 
     const filteredOptions = useMemo(
         () => options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase())),
@@ -195,6 +205,7 @@ export const BasicSelect = ({
                     placeholder={placeholder || 'Select an option'}
                     isMultiSelect={isMultiSelect}
                     removeOption={removeOption}
+                    disabledValues={disabledValues}
                 />
                 <SelectActionButtons
                     selectedValues={selectedValues}
@@ -226,6 +237,7 @@ export const BasicSelect = ({
                                 onClick={() => !isMultiSelect && handleOptionChange(option)}
                                 isSelected={tempValues.includes(option.value)}
                                 isMultiSelect={isMultiSelect}
+                                isDisabled={disabledValues?.includes(option.value)}
                             >
                                 {isMultiSelect ? (
                                     <LabelContainer>
@@ -233,6 +245,7 @@ export const BasicSelect = ({
                                         <StyledCheckbox
                                             onClick={() => handleOptionChange(option)}
                                             checked={tempValues.includes(option.value)}
+                                            disabled={disabledValues?.includes(option.value)}
                                         />
                                     </LabelContainer>
                                 ) : (

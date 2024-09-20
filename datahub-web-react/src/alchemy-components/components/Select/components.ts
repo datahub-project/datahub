@@ -138,9 +138,9 @@ export const LabelsWrapper = styled.div({
     gap: spacing.xxsm,
 });
 
-export const OptionLabel = styled.label<{ isSelected: boolean; isMultiSelect?: boolean }>(
-    ({ isSelected, isMultiSelect }) => ({
-        ...getOptionLabelStyle(isSelected, isMultiSelect),
+export const OptionLabel = styled.label<{ isSelected: boolean; isMultiSelect?: boolean; isDisabled?: boolean }>(
+    ({ isSelected, isMultiSelect, isDisabled }) => ({
+        ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled),
     }),
 );
 
@@ -198,7 +198,7 @@ export const ArrowIcon = styled.span<{ isOpen: boolean }>(({ isOpen }) => ({
 }));
 
 export const StyledCheckbox = styled(Checkbox)({
-    '.ant-checkbox-checked .ant-checkbox-inner': {
+    '.ant-checkbox-checked:not(.ant-checkbox-disabled) .ant-checkbox-inner': {
         backgroundColor: colors.violet[500],
         borderColor: `${colors.violet[500]} !important`,
     },

@@ -1,7 +1,7 @@
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { EntityType, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { FormInstance } from 'antd';
-import { getEntityTypeUrn, StructuredProp, valueTypes } from './utils';
+import { APPLIES_TO_ENTITIES, getEntityTypeUrn, SEARCHABLE_ENTITY_TYPES, StructuredProp, valueTypes } from './utils';
 
 interface Props {
     selectedProperty?: SearchResult;
@@ -84,10 +84,28 @@ export default function useStructuredProp({
         else setCardinality(PropertyCardinality.Single);
     };
 
+    const getDisabledEntityTypeValues = () => {
+        const existingEntityTypeValues = (
+            selectedProperty?.entity as StructuredPropertyEntity
+        )?.definition?.entityTypes?.map((type) => type.urn);
+        const allEntityTypeValues = getEntitiesListOptions(APPLIES_TO_ENTITIES).map((type) => type.value);
+        return allEntityTypeValues.filter((type) => existingEntityTypeValues?.includes(type));
+    };
+
+    const getDisabledTypeQualifierValues = () => {
+        const existingTypeQualifierValues = (
+            selectedProperty?.entity as StructuredPropertyEntity
+        )?.definition?.typeQualifier?.allowedTypes?.map((type) => type.urn);
+        const allTypeQualifierValues = getEntitiesListOptions(SEARCHABLE_ENTITY_TYPES).map((type) => type.value);
+        return allTypeQualifierValues.filter((type) => existingTypeQualifierValues?.includes(type));
+    };
+
     return {
         handleSelectChange,
         handleSelectUpdateChange,
         handleTypeUpdate,
         getEntitiesListOptions,
+        getDisabledEntityTypeValues,
+        getDisabledTypeQualifierValues,
     };
 }

@@ -3,8 +3,8 @@ import { getFontSize } from '@components/theme/utils';
 
 import { SelectStyleProps } from './types';
 
-export const getOptionLabelStyle = (isSelected: boolean, isMultiSelect?: boolean) => ({
-    cursor: 'pointer',
+export const getOptionLabelStyle = (isSelected: boolean, isMultiSelect?: boolean, isDisabled?: boolean) => ({
+    cursor: isDisabled ? 'not-allowed' : 'pointer',
     padding: spacing.xsm,
     borderRadius: radius.md,
     lineHeight: typography.lineHeights.normal,

@@ -122,6 +122,15 @@ const meta: Meta = {
                 defaultValue: { summary: selectDefaults.placeholder },
             },
         },
+        disabledValues: {
+            description: 'Disabled values for the multi-select component.',
+            control: {
+                type: 'object',
+            },
+            table: {
+                defaultValue: { summary: selectDefaults.disabledValues?.toString() },
+            },
+        },
     },
 
     // Define defaults
@@ -143,6 +152,7 @@ const meta: Meta = {
         width: 255,
         isMultiSelect: selectDefaults.isMultiSelect,
         placeholder: selectDefaults.placeholder,
+        disabledValues: undefined,
     },
 } satisfies Meta<typeof Select>;
 
@@ -171,6 +181,7 @@ export const simpleSelectSandbox: Story = {
             onUpdate={props.onUpdate} // Optional: to log the selected value
             isMultiSelect={props.isMultiSelect}
             placeholder={props.placeholder}
+            disabledValues={props.disabledValues}
         />
     ),
 };
@@ -219,6 +230,20 @@ export const simpleSelectWithMultiSelect = () => (
         showSearch
         values={['2', '3']}
         isMultiSelect
+    />
+);
+
+export const simpleSelectWithDisabledValues = () => (
+    <SimpleSelect
+        options={[
+            { label: 'Option 1', value: '1' },
+            { label: 'Option 2', value: '2' },
+            { label: 'Option 3', value: '3' },
+        ]}
+        label="Simple Select with disabled values"
+        values={['2']}
+        isMultiSelect
+        disabledValues={['2']}
     />
 );
 

@@ -36,14 +36,20 @@ const StructuredPropsForm = ({
     selectedValueType,
     setSelectedValueType,
 }: Props) => {
-    const { handleSelectChange, handleSelectUpdateChange, handleTypeUpdate, getEntitiesListOptions } =
-        useStructuredProp({
-            selectedProperty,
-            form,
-            setFormValues,
-            setCardinality,
-            setSelectedValueType,
-        });
+    const {
+        handleSelectChange,
+        handleSelectUpdateChange,
+        handleTypeUpdate,
+        getEntitiesListOptions,
+        getDisabledEntityTypeValues,
+        getDisabledTypeQualifierValues,
+    } = useStructuredProp({
+        selectedProperty,
+        form,
+        setFormValues,
+        setCardinality,
+        setSelectedValueType,
+    });
 
     useEffect(() => {
         if (selectedProperty) {
@@ -129,11 +135,8 @@ const StructuredPropsForm = ({
                                 <Text size="sm" weight="medium">
                                     (Add-only)
                                 </Text>
-                                <Tooltip
-                                    title="Once a structured property is created, you can only add new allowed entity types to preserve backwards compatibility"
-                                    showArrow={false}
-                                >
-                                    <Icon icon="Info" size="lg" />
+                                <Tooltip title="Once a structured property is created, you can only add new allowed entity types to preserve backwards compatibility">
+                                    <Icon icon="Info" color="violet" size="lg" />
                                 </Tooltip>
                             </SubTextContainer>
                         )}
@@ -149,6 +152,7 @@ const StructuredPropsForm = ({
                             placeholder="Select Allowed Entity Types"
                             isMultiSelect
                             values={formValues?.typeQualifier?.allowedTypes}
+                            disabledValues={getDisabledTypeQualifierValues()}
                         />
                     </Form.Item>
                 </RowContainer>
@@ -161,11 +165,8 @@ const StructuredPropsForm = ({
                             <Text size="sm" weight="medium">
                                 (Add-only)
                             </Text>
-                            <Tooltip
-                                title="Once a structured property is created, you can only add to the applies to list to preserve backwards compatibility"
-                                showArrow={false}
-                            >
-                                <Icon icon="Info" size="lg" />
+                            <Tooltip title="Once a structured property is created, you can only add to the applies to list to preserve backwards compatibility">
+                                <Icon icon="Info" color="violet" size="lg" />
                             </Tooltip>
                         </SubTextContainer>
                     )}
@@ -190,6 +191,7 @@ const StructuredPropsForm = ({
                         placeholder="Select Entity Types"
                         isMultiSelect
                         values={formValues?.entityTypes ? formValues?.entityTypes : undefined}
+                        disabledValues={getDisabledEntityTypeValues()}
                     />
                 </Form.Item>
             </RowContainer>
