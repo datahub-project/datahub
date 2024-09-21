@@ -137,13 +137,13 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
         }, 3000);
     };
 
-    const onRemoveMember = (memberUrnEntity: CorpUser) => {
-        const memberName = memberUrnEntity?.properties?.displayName || undefined;
+    const onRemoveMember = (memberEntity: CorpUser) => {
+        const memberName = memberEntity?.properties?.displayName || undefined;
         Modal.confirm({
             title: `Confirm Group Member Removal`,
             content: `Are you sure you want to remove ${memberName} user from the group?`,
             onOk() {
-                removeGroupMember(memberUrnEntity?.urn);
+                removeGroupMember(memberEntity?.urn);
             },
             onCancel() {},
             okText: 'Yes',
@@ -156,7 +156,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
     const total = relationships?.total || 0;
     const groupMembers = relationships?.relationships?.map((rel) => rel.entity as CorpUser) || [];
 
-    const getItems = (userUrnEntity: CorpUser): MenuProps['items'] => {
+    const getItems = (userEntity: CorpUser): MenuProps['items'] => {
         return [
             {
                 key: 'make',
@@ -170,7 +170,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
             {
                 key: 'remove',
                 disabled: isExternalGroup,
-                onClick: () => onRemoveMember(userUrnEntity),
+                onClick: () => onRemoveMember(userEntity),
                 label: (
                     <span>
                         <UserDeleteOutlined /> Remove from Group
