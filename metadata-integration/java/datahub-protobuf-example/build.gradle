@@ -13,8 +13,8 @@ repositories {
 }
 
 ext {
-    protobuf_version = '3.19.3'
-    datahub_protobuf_version = '0.8.45-SNAPSHOT'
+    protobuf_version = '3.25.5'
+    datahub_protobuf_version = '0.14.1'
 }
 
 configurations {
@@ -66,13 +66,12 @@ task publishSchema(dependsOn: build) {
 
     fileTree("schema").matching {
         exclude "protobuf/meta/**"
-    }.each {f ->
+    }.each { f ->
         doLast {
             javaexec {
-                executable = javaLauncher.get().getExecutablePath().getAsFile().getAbsolutePath()
                 classpath = configurations.datahub
-                main = "datahub.protobuf.Proto2DataHub"
-                args = ["--descriptor", "${projectDir}/build/descriptors/main.dsc", "--file", file(f).getAbsoluteFile()]
+                mainClass = "datahub.protobuf.Proto2DataHub"
+                args = ["--descriptor", "${projectDir}/build/descriptors/main.dsc", "--file", file(f).absolutePath]
             }
         }
     }
