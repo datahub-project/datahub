@@ -12,12 +12,13 @@ import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
-import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.SystemGraphRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchServiceSearchRetriever;
@@ -145,7 +146,7 @@ public class SystemUpdateConfig {
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final EntityService<?> entityService,
       @Nonnull final RestrictedService restrictedService,
-      @Nonnull final GraphRetriever graphRetriever,
+      @Nonnull final GraphService graphService,
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
           BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components) {
@@ -159,6 +160,9 @@ public class SystemUpdateConfig {
     SearchServiceSearchRetriever searchServiceSearchRetriever =
         SearchServiceSearchRetriever.builder().searchService(searchService).build();
 
+    SystemGraphRetriever systemGraphRetriever =
+        SystemGraphRetriever.builder().graphService(graphService).build();
+
     OperationContext systemOperationContext =
         OperationContext.asSystem(
             operationContextConfig,
@@ -168,11 +172,12 @@ public class SystemUpdateConfig {
             components.getIndexConvention(),
             RetrieverContext.builder()
                 .aspectRetriever(entityServiceAspectRetriever)
-                .graphRetriever(graphRetriever)
+                .graphRetriever(systemGraphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
                 .build());
 
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
+    systemGraphRetriever.setSystemOperationContext(systemOperationContext);
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
     return systemOperationContext;

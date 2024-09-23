@@ -1,14 +1,81 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_DESTINATION_STATUS;
+import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_DESTINATION_URN_FIELD;
+import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_FIELD_LIFECYCLE_OWNER;
+import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_FIELD_LIFECYCLE_OWNER_STATUS;
+import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_FIELD_VIA;
+import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_FIELD_VIA_STATUS;
+import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_SOURCE_STATUS;
+import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_SOURCE_URN_FIELD;
 import static com.linkedin.metadata.graph.elastic.ESGraphQueryDAO.*;
 
+import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 
 @Slf4j
-public class TimeFilterUtils {
+public class GraphFilterUtils {
+
+  public static QueryBuilder getUrnStatusQuery(
+      @Nonnull EdgeUrnType edgeUrnType, @Nonnull final Urn urn, @Nonnull Boolean removed) {
+
+    final String urnField = getUrnFieldName(edgeUrnType);
+    final String statusField = getUrnStatusFieldName(edgeUrnType);
+
+    // Create a BoolQueryBuilder
+    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+
+    // urn filter
+    finalQuery.filter(QueryBuilders.termQuery(urnField, urn.toString()));
+
+    // status filter
+    if (removed) {
+      finalQuery.filter(QueryBuilders.termQuery(statusField, removed.toString()));
+    } else {
+      finalQuery.minimumShouldMatch(1);
+      finalQuery.should(QueryBuilders.termQuery(statusField, removed.toString()));
+      finalQuery.should(QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery(statusField)));
+    }
+
+    return finalQuery;
+  }
+
+  public static String getUrnStatusFieldName(EdgeUrnType edgeUrnType) {
+    switch (edgeUrnType) {
+      case SOURCE:
+        return EDGE_SOURCE_STATUS;
+      case DESTINATION:
+        return EDGE_DESTINATION_STATUS;
+      case VIA:
+        return EDGE_FIELD_VIA_STATUS;
+      case LIFECYCLE_OWNER:
+        return EDGE_FIELD_LIFECYCLE_OWNER_STATUS;
+      default:
+        throw new IllegalStateException(
+            String.format("Unhandled EdgeUrnType. Found: %s", edgeUrnType));
+    }
+  }
+
+  public static String getUrnFieldName(EdgeUrnType edgeUrnType) {
+    switch (edgeUrnType) {
+      case SOURCE:
+        return EDGE_SOURCE_URN_FIELD;
+      case DESTINATION:
+        return EDGE_DESTINATION_URN_FIELD;
+      case VIA:
+        return EDGE_FIELD_VIA;
+      case LIFECYCLE_OWNER:
+        return EDGE_FIELD_LIFECYCLE_OWNER;
+      default:
+        throw new IllegalStateException(
+            String.format("Unhandled EdgeUrnType. Found: %s", edgeUrnType));
+    }
+  }
 
   /**
    * In order to filter for edges that fall into a specific filter window, we perform a
@@ -141,5 +208,5 @@ public class TimeFilterUtils {
     return QueryBuilders.termQuery(String.format("%s.%s", PROPERTIES, SOURCE), UI);
   }
 
-  private TimeFilterUtils() {}
+  private GraphFilterUtils() {}
 }
