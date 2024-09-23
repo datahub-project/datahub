@@ -70,7 +70,7 @@ export const renderSelectedView = ({ selectedViewName, onClear }: Props) => {
     return (
         <SelectButtonContainer>
             <SelectButton $selectedViewName={selectedViewName}>
-                <Tooltip title={selectedViewName} placement="bottom">
+                <Tooltip showArrow={false} title={selectedViewName} placement="bottom">
                     <ViewLabel>{selectedViewName || <LanguageIconStyle />}</ViewLabel>
                 </Tooltip>
             </SelectButton>

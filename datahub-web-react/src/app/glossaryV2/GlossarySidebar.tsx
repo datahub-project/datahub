@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button } from 'antd';
+import { Button, Tooltip } from 'antd';
 import { PlusCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { Link } from 'react-router-dom';
@@ -52,9 +52,11 @@ export default function GlossarySidebar() {
             <SidebarWrapper width={width} data-testid="glossary-browser-sidebar">
                 <SidebarTitleWrapper>
                     <StyledLink to="/glossary">Business Glossary</StyledLink>
-                    <StyledButton onClick={() => setIsCreateNodeModalVisible(true)}>
-                        <PlusCircleOutlined style={{ fontSize: 'inherit' }} />
-                    </StyledButton>
+                    <Tooltip title="Create Glossary" placement="left" showArrow={false}>
+                        <StyledButton onClick={() => setIsCreateNodeModalVisible(true)}>
+                            <PlusCircleOutlined style={{ fontSize: 'inherit' }} />
+                        </StyledButton>
+                    </Tooltip>
                 </SidebarTitleWrapper>
                 <GlossarySearch />
                 <GlossaryBrowser openToEntity />

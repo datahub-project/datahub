@@ -1,7 +1,7 @@
 import { useApolloClient } from '@apollo/client';
 import { PlusCircleOutlined } from '@ant-design/icons';
 import DomainsTitle from '@app/domainV2/nestedDomains/DomainsTitle';
-import { Button } from 'antd';
+import { Button, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -39,9 +39,11 @@ export default function DomainsSidebarHeader() {
             <StyledLink to={`${PageRoutes.DOMAINS}`}>
                 <DomainsTitle />
             </StyledLink>
-            <StyledButton onClick={() => setIsCreatingDomain(true)}>
-                <PlusCircleOutlined style={{ fontSize: 'inherit' }} />
-            </StyledButton>
+            <Tooltip showArrow={false} title="Create new Domain" placement="right">
+                <StyledButton onClick={() => setIsCreatingDomain(true)}>
+                    <PlusCircleOutlined style={{ fontSize: 'inherit' }} />
+                </StyledButton>
+            </Tooltip>
             {isCreatingDomain && (
                 <CreateDomainModal
                     onClose={() => setIsCreatingDomain(false)}

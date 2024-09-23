@@ -1,8 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
 import { useHistory } from 'react-router';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import { useEntityData } from '../../../entity/shared/EntityContext';
 import ContentSectionLoading from './ContentSectionLoading';
 import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
@@ -18,8 +17,9 @@ import {
 import { navigateToDomainDataProducts } from '../../shared/containers/profile/sidebar/Domain/utils';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../../entity/Entity';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../shared/constants';
+import { ANTD_GRAY } from '../../shared/constants';
 import { Carousel } from '../../../sharedV2/carousel/Carousel';
+import SectionActionButton from '../../shared/containers/profile/sidebar/SectionActionButton';
 
 const ViewAllButton = styled.div`
     color: ${ANTD_GRAY[7]};
@@ -34,19 +34,6 @@ const ViewAllButton = styled.div`
 
 const StyledCarousel = styled(Carousel)`
     align-items: stretch;
-`;
-
-// Styled to match the Summary page tabs
-const StyledAddButton = styled(Button)`
-    background-color: transparent;
-    color: ${REDESIGN_COLORS.PRIMARY_PURPLE};
-    border-color: ${REDESIGN_COLORS.PRIMARY_PURPLE};
-
-    :hover {
-        background-color: transparent;
-        color: ${REDESIGN_COLORS.HOVER_PURPLE};
-        border-color: ${REDESIGN_COLORS.HOVER_PURPLE};
-    }
 `;
 
 export const DataProductsSection = () => {
@@ -80,14 +67,11 @@ export const DataProductsSection = () => {
                         icon={entityRegistry.getIcon(EntityType.DataProduct, 16, IconStyleType.ACCENT, ANTD_GRAY[8])}
                         title={`Data Products (${numDataProducts})`}
                     />
-                    <StyledAddButton
-                        type="primary"
-                        size="small"
-                        icon={<PlusOutlined />}
+                    <SectionActionButton
+                        tip="Create Data Product"
+                        button={<AddRoundedIcon />}
                         onClick={() => navigateToDomainDataProducts(urn, entityType, history, entityRegistry, true)}
-                    >
-                        Add Data Product
-                    </StyledAddButton>
+                    />
                 </SummaryHeaderButtonGroup>
                 <ViewAllButton onClick={() => navigateToDomainDataProducts(urn, entityType, history, entityRegistry)}>
                     view all

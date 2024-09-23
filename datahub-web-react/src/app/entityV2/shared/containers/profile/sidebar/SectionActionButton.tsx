@@ -31,14 +31,15 @@ export const ActionButton = styled.div<{ privilege: boolean }>`
 `;
 
 type Props = {
+    tip?: string;
     button: React.ReactNode;
     onClick: any;
     actionPrivilege?: boolean;
 };
 
-const SectionActionButton = ({ button, onClick, actionPrivilege = true }: Props) => {
+const SectionActionButton = ({ tip, button, onClick, actionPrivilege = true }: Props) => {
     return (
-        <Tooltip placement="top" title={!actionPrivilege ? 'No access' : ''}>
+        <Tooltip placement="top" title={!actionPrivilege ? 'No access' : tip} showArrow={false}>
             <>
                 <ActionButton onClick={onClick} privilege={actionPrivilege}>
                     {button}

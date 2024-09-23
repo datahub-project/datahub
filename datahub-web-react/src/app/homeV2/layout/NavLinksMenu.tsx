@@ -372,7 +372,7 @@ export function NavLinksMenu(props: Props) {
                 return (
                     <LinkWrapper key={menuItem.title.toLowerCase()}>
                         <Link to={menuItem.link} aria-label={menuItem.title} aria-describedby={menuItem.description}>
-                            <Tooltip placement="right" title={menuItem.title}>
+                            <Tooltip placement="right" title={menuItem.title} showArrow={false}>
                                 {menuItem.icon && <menuItem.icon />}
                             </Tooltip>
                         </Link>

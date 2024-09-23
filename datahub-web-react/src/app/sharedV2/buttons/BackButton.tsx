@@ -38,7 +38,7 @@ interface Props {
 
 export const BackButton = ({ onGoBack }: Props) => {
     return (
-        <Tooltip title="Go back" showArrow={false} placement="right">
+        <Tooltip title="Go back" showArrow={false} placement="bottom">
             <StyledButton onClick={onGoBack}>
                 <StyledLeftOutlined />
             </StyledButton>
