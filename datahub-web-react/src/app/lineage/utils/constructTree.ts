@@ -62,15 +62,14 @@ export default function constructTree(
     const constructedNodes = {};
 
     let updatedFetchedEntities = fetchedEntities;
-    Object.entries(updatedFetchedEntities).forEach((entry) => {
-        const [urn, fetchedEntity] = entry;
+    Array.from(updatedFetchedEntities.entries()).forEach(([urn, fetchedEntity]) => {
         if (urn in updatedLineages) {
-            updatedFetchedEntities[urn] = updateFetchedEntity(fetchedEntity, updatedLineages);
+            updatedFetchedEntities.set(urn, updateFetchedEntity(fetchedEntity, updatedLineages));
         }
     });
     Object.values(updatedLineages).forEach((updatedLineage) => {
         (updatedLineage as any).entitiesToAdd.forEach((entity) => {
-            if (!(entity.urn in updatedFetchedEntities)) {
+            if (!updatedFetchedEntities.has(entity.urn)) {
                 updatedFetchedEntities = extendAsyncEntities(
                     {},
                     {},
@@ -125,7 +124,7 @@ export default function constructTree(
             ]);
         })
         ?.filter((child) => {
-            const childEntity = updatedFetchedEntities[child?.urn || ''];
+            const childEntity = updatedFetchedEntities.get(child?.urn || '');
             return shouldIncludeChildEntity(direction, children, childEntity, fetchedEntity);
         })
         ?.filter(Boolean) as Array<NodeData>;

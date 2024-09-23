@@ -9,7 +9,7 @@ import {
     dataset6WithLineage,
     mocks,
 } from '../../../Mocks';
-import { Direction, EntityAndType, FetchedEntities } from '../types';
+import { Direction, EntityAndType } from '../types';
 import constructTree from '../utils/constructTree';
 import LineageTree from '../LineageTree';
 import extendAsyncEntities from '../utils/extendAsyncEntities';
@@ -50,7 +50,7 @@ describe('LineageTree', () => {
                     { entity: entry.entity, type: EntityType.Dataset } as EntityAndType,
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         const downstreamData = constructTree(

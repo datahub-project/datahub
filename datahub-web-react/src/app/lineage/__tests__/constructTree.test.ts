@@ -12,7 +12,7 @@ import {
 } from '../../../Mocks';
 import { DataPlatform, Dataset, Entity, EntityType, RelationshipDirection } from '../../../types.generated';
 import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
-import { Direction, EntityAndType, FetchedEntities, UpdatedLineages } from '../types';
+import { Direction, EntityAndType, FetchedEntity, UpdatedLineages } from '../types';
 import constructTree from '../utils/constructTree';
 import extendAsyncEntities from '../utils/extendAsyncEntities';
 
@@ -23,7 +23,7 @@ const airflowPlatform: DataPlatform = dataFlow1.platform;
 
 describe('constructTree', () => {
     it('handles nodes without any lineage', () => {
-        const mockFetchedEntities = {};
+        const mockFetchedEntities = new Map();
         expect(
             constructTree(
                 { entity: dataset3, type: EntityType.Dataset },
@@ -61,7 +61,7 @@ describe('constructTree', () => {
                     { entity: entry.entity as Dataset, type: EntityType.Dataset },
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         expect(
@@ -113,7 +113,7 @@ describe('constructTree', () => {
                     { entity: entry.entity as Dataset, type: EntityType.Dataset },
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         expect(
@@ -166,7 +166,7 @@ describe('constructTree', () => {
                     { entity: entry.entity as Dataset, type: EntityType.Dataset },
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         expect(
@@ -261,7 +261,7 @@ describe('constructTree', () => {
                     { entity: entry.entity as Dataset, type: EntityType.Dataset },
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         const tree = constructTree(
@@ -292,7 +292,7 @@ describe('constructTree', () => {
                     { entity: entry.entity as Entity, type: EntityType.Dataset } as EntityAndType,
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
         expect(
             constructTree(
@@ -379,7 +379,7 @@ describe('constructTree', () => {
                     { entity: entry.entity as Dataset, type: entry.entity.type as EntityType } as EntityAndType,
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map<string, FetchedEntity>(),
         );
         expect(
             constructTree(
@@ -434,7 +434,7 @@ describe('constructTree', () => {
                     { entity: entry.entity as Dataset, type: EntityType.Dataset },
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         const updatedLineages: UpdatedLineages = {

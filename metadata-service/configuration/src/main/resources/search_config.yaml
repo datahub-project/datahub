@@ -69,7 +69,7 @@ queryConfigurations:
   - queryRegex: >-
       ^["'].+["']$|^[a-zA-Z0-9]\S+[_.-]\S+[a-zA-Z0-9]$
     simpleQuery: false
-    prefixMatchQuery: false
+    prefixMatchQuery: true
     exactMatchQuery: true
     functionScore:
       functions:

@@ -21,6 +21,7 @@ datahub docker quickstart --restore-indices
 
 :::info
 Using the `datahub` CLI to restore the indices when using the quickstart images will also clear the search and graph indices before restoring.
+:::
 
 See [this section](../quickstart.md#restore-datahub) for more information. 
 
@@ -34,6 +35,7 @@ If you are on a custom docker-compose deployment, run the following command (you
 
 :::info
 By default this command will not clear the search and graph indices before restoring, thous potentially leading to inconsistencies between the local database and the indices, in case aspects were previously deleted in the local database but were not removed from the correponding index.
+:::
 
 If you need to clear the search and graph indices before restoring, add `-a clean` to the end of the command. Please take note that the search and graph services might not be fully functional during reindexing when the indices are cleared.
 
@@ -67,6 +69,7 @@ Once the job completes, your indices will have been restored.
 
 :::info
 By default the restore indices job template will not clear the search and graph indices before restoring, thous potentially leading to inconsistencies between the local database and the indices, in case aspects were previously deleted in the local database but were not removed from the correponding index.
+:::
 
 If you need to clear the search and graph indices before restoring, modify the `values.yaml` for your deployment and overwrite the default arguments of the restore indices job template to include the `-a clean` argument. Please take note that the search and graph services might not be fully functional during reindexing when the indices are cleared.
 

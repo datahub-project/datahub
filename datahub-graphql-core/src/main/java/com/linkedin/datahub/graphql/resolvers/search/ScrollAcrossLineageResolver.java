@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.ScrollAcrossLineageInput;
 import com.linkedin.datahub.graphql.generated.ScrollAcrossLineageResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.LineageFlagsInputMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnScrollAcrossLineageResultsMapper;
 import com.linkedin.entity.client.EntityClient;
@@ -106,17 +107,13 @@ public class ScrollAcrossLineageResolver
                 count);
 
             final SearchFlags searchFlags;
-            final com.linkedin.datahub.graphql.generated.SearchFlags inputFlags =
-                input.getSearchFlags();
+            com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
             if (inputFlags != null) {
-              searchFlags =
-                  new SearchFlags()
-                      .setSkipCache(inputFlags.getSkipCache())
-                      .setFulltext(inputFlags.getFulltext())
-                      .setMaxAggValues(inputFlags.getMaxAggValues());
+              searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
             } else {
               searchFlags = null;
             }
+
             return UrnScrollAcrossLineageResultsMapper.map(
                 context,
                 _entityClient.scrollAcrossLineage(

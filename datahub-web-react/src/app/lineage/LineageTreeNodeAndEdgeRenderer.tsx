@@ -77,7 +77,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                     link.target.data.urn
                 }${link.targetField && `-${link.targetField}`}-${link.target.direction}`;
 
-                return <LineageEntityEdge edge={link} key={key} isHighlighted={!!isHighlighted} />;
+                return <LineageEntityEdge edge={link} edgeKey={key} isHighlighted={!!isHighlighted} />;
             })}
             {nodesToRender.map((node, index) => {
                 const isSelected = node.data.urn === selectedEntity?.urn;

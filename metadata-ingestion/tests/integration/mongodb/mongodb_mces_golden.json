@@ -12,7 +12,8 @@
                 "env": "PROD",
                 "database": "mngdb"
             },
-            "name": "mngdb"
+            "name": "mngdb",
+            "env": "PROD"
         }
     },
     "systemMetadata": {

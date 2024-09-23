@@ -565,7 +565,8 @@
                 "env": "UAT",
                 "bucket_name": "my-test-bucket"
             },
-            "name": "my-test-bucket"
+            "name": "my-test-bucket",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -699,7 +700,8 @@
                 "env": "UAT",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
             },
-            "name": "folder_aa"
+            "name": "folder_aa",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -770,7 +772,8 @@
                 "env": "UAT",
                 "folder_abs_path": "my-test-bucket/folder_a"
             },
-            "name": "folder_a"
+            "name": "folder_a",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -903,7 +906,8 @@
                 "env": "UAT",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
             },
-            "name": "folder_aaa"
+            "name": "folder_aaa",
+            "env": "UAT"
         }
     },
     "systemMetadata": {

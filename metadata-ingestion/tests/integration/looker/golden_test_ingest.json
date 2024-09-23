@@ -12,7 +12,8 @@
                 "env": "PROD",
                 "folder_id": "shared-folder-id"
             },
-            "name": "Shared"
+            "name": "Shared",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -468,7 +469,8 @@
                 "env": "PROD",
                 "model_name": "data"
             },
-            "name": "data"
+            "name": "data",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
