@@ -34,8 +34,8 @@ buildscript {
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.57.0'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '6.1.6'
-  ext.springBootVersion = '3.2.6'
+  ext.springVersion = '6.1.13'
+  ext.springBootVersion = '3.2.9'
   ext.springKafkaVersion = '3.1.6'
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '5.14.0'
@@ -52,7 +52,7 @@ buildscript {
   ext.hadoop3Version = '3.3.6'
   ext.kafkaVersion = '5.5.15'
   ext.hazelcastVersion = '5.3.6'
-  ext.ebeanVersion = '12.16.1'
+  ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
   ext.openLineageVersion = '1.19.0'
   ext.logbackClassicJava8 = '1.2.12'
@@ -104,8 +104,8 @@ project.ext.spec = [
 
 project.ext.externalDependency = [
     'akkaHttp': 'com.typesafe.akka:akka-http-core_2.12:10.2.10',
-    'antlr4Runtime': 'org.antlr:antlr4-runtime:4.7.2',
-    'antlr4': 'org.antlr:antlr4:4.7.2',
+    'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
+    'antlr4': 'org.antlr:antlr4:4.9.3',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
     'avro': 'org.apache.avro:avro:1.11.3',
     'avroCompiler': 'org.apache.avro:avro-compiler:1.11.3',
@@ -129,8 +129,10 @@ project.ext.externalDependency = [
     'dropwizardMetricsCore': 'io.dropwizard.metrics:metrics-core:4.2.3',
     'dropwizardMetricsJmx': 'io.dropwizard.metrics:metrics-jmx:4.2.3',
     'ebean': 'io.ebean:ebean:' + ebeanVersion,
+    'ebeanTest': 'io.ebean:ebean-test:' + ebeanVersion,
     'ebeanAgent': 'io.ebean:ebean-agent:' + ebeanVersion,
     'ebeanDdl': 'io.ebean:ebean-ddl-generator:' + ebeanVersion,
+    'ebeanQueryBean': 'io.ebean:querybean-generator:' + ebeanVersion,
     'elasticSearchRest': 'org.opensearch.client:opensearch-rest-high-level-client:' + elasticsearchVersion,
     'elasticSearchJava': 'org.opensearch.client:opensearch-java:2.6.0',
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
@@ -220,10 +222,10 @@ project.ext.externalDependency = [
     'playServer': "com.typesafe.play:play-server_2.12:$playVersion",
     'playTest': "com.typesafe.play:play-test_2.12:$playVersion",
     'playFilters': "com.typesafe.play:filters-helpers_2.12:$playVersion",
-    'pac4j': 'org.pac4j:pac4j-oidc:4.5.7',
+    'pac4j': 'org.pac4j:pac4j-oidc:4.5.8',
     'playPac4j': 'org.pac4j:play-pac4j_2.12:9.0.2',
     'postgresql': 'org.postgresql:postgresql:42.3.9',
-    'protobuf': 'com.google.protobuf:protobuf-java:3.19.6',
+    'protobuf': 'com.google.protobuf:protobuf-java:3.25.5',
     'grpcProtobuf': 'io.grpc:grpc-protobuf:1.53.0',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
     'reflections': 'org.reflections:reflections:0.9.9',
@@ -265,7 +267,7 @@ project.ext.externalDependency = [
     'testContainersOpenSearch': 'org.opensearch:opensearch-testcontainers:2.0.0',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
-    'zookeeper': 'org.apache.zookeeper:zookeeper:3.7.2',
+    'zookeeper': 'org.apache.zookeeper:zookeeper:3.6.2',
     'wire': 'com.squareup.wire:wire-compiler:3.7.1',
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'common': 'commons-io:commons-io:2.7',
@@ -359,6 +361,9 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "org.slf4j", module: "slf4j-nop"
     exclude group: "org.slf4j", module: "slf4j-ext"
+
+    resolutionStrategy.force externalDependency.antlr4Runtime
+    resolutionStrategy.force externalDependency.antlr4
   }
 }
 

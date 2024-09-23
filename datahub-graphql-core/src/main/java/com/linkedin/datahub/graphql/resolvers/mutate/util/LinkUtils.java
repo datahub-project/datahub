@@ -116,11 +116,7 @@ public class LinkUtils {
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOC_LINKS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        resourceUrn.getEntityType(),
-        resourceUrn.toString(),
-        orPrivilegeGroups);
+        context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
   }
 
   // Returns whether this is a glossary entity and whether you can edit this glossary entity with

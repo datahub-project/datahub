@@ -22,6 +22,10 @@ JSON_RESPONSE_MAP = {
     "https://app.mode.com/api/acryl/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts": "charts.json",
     "https://app.mode.com/api/acryl/data_sources": "data_sources.json",
     "https://app.mode.com/api/acryl/definitions": "definitions.json",
+    "https://app.mode.com/api/acryl/spaces/157933cc1168/datasets": "datasets_157933cc1168.json",
+    "https://app.mode.com/api/acryl/spaces/75737b70402e/datasets": "datasets_75737b70402e.json",
+    "https://app.mode.com/api/acryl/reports/24f66e1701b6": "dataset_24f66e1701b6.json",
+    "https://app.mode.com/api/acryl/reports/24f66e1701b6/queries": "dataset_queries_24f66e1701b6.json",
 }
 
 RESPONSE_ERROR_LIST = ["https://app.mode.com/api/acryl/spaces/75737b70402e/reports"]

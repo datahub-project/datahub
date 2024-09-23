@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
@@ -50,7 +51,12 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
                     .prefix("es_browse_dao_test")
                     .hashIdAlgo("MD5")
                     .build()));
-    browseDAO = new ESBrowseDAO(mockClient, searchConfiguration, customSearchConfiguration);
+    browseDAO =
+        new ESBrowseDAO(
+            mockClient,
+            searchConfiguration,
+            customSearchConfiguration,
+            QueryFilterRewriteChain.EMPTY);
   }
 
   public static Urn makeUrn(Object id) {

@@ -293,6 +293,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSet
 import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.CreateStructuredPropertyResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.DeleteStructuredPropertyResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.RemoveStructuredPropertiesResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpdateStructuredPropertyResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpsertStructuredPropertiesResolver;
@@ -1034,6 +1035,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("assertion", getResolver(assertionType))
                 .dataFetcher("form", getResolver(formType))
                 .dataFetcher("view", getResolver(dataHubViewType))
+                .dataFetcher("structuredProperty", getResolver(structuredPropertyType))
                 .dataFetcher("listPolicies", new ListPoliciesResolver(this.entityClient))
                 .dataFetcher("getGrantedPrivileges", new GetGrantedPrivilegesResolver())
                 .dataFetcher("listUsers", new ListUsersResolver(this.entityClient))
@@ -1346,6 +1348,9 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateStructuredProperty",
                   new UpdateStructuredPropertyResolver(this.entityClient))
+              .dataFetcher(
+                  "deleteStructuredProperty",
+                  new DeleteStructuredPropertyResolver(this.entityClient))
               .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
               .dataFetcher(
                   "updateIncidentStatus",
@@ -2119,6 +2124,9 @@ public class GmsGraphQLEngine {
                             .getAllowedTypes().stream()
                                 .map(entityTypeType.getKeyProvider())
                                 .collect(Collectors.toList()))));
+    builder.type(
+        "StructuredPropertyEntity",
+        typeWiring -> typeWiring.dataFetcher("exists", new EntityExistsResolver(entityService)));
   }
 
   /**

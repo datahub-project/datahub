@@ -758,16 +758,6 @@ fragment schemaFieldFields on SchemaField {
                 }
             }
         }
-        parent {
-            urn
-            type
-            ...entityDisplayNameFields
-            ... on Dataset {
-                platform {
-                    ...platformFields
-                }
-            }
-        }
     }
 }
 
@@ -1314,6 +1304,7 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
 
 fragment structuredPropertiesFields on StructuredPropertiesEntry {
     structuredProperty {
+        exists
         ...structuredPropertyFields
     }
     values {

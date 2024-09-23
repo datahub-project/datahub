@@ -56,6 +56,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilde
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
@@ -206,9 +207,14 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getSearchConfiguration(),
-            null);
+            null,
+            QueryFilterRewriteChain.EMPTY);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(searchClientSpy, getSearchConfiguration(), getCustomSearchConfiguration());
+        new ESBrowseDAO(
+            searchClientSpy,
+            getSearchConfiguration(),
+            getCustomSearchConfiguration(),
+            QueryFilterRewriteChain.EMPTY);
     ESWriteDAO writeDAO = new ESWriteDAO(searchClientSpy, getBulkProcessor(), 1);
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }
@@ -291,12 +297,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(0).getDegree().intValue(), 1);
 
-    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree.keyword", "1"), TEST1);
+    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree", "1"), TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(0).getDegree().intValue(), 1);
 
-    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree.keyword", "2"), TEST1);
+    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree", "2"), TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
     clearCache(false);
@@ -567,13 +573,13 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(scrollResult.getEntities().get(0).getDegree().intValue(), 1);
     assertNull(scrollResult.getScrollId());
 
-    scrollResult = scrollAcrossLineage(QueryUtils.newFilter("degree.keyword", "1"), TEST1);
+    scrollResult = scrollAcrossLineage(QueryUtils.newFilter("degree", "1"), TEST1);
     assertEquals(scrollResult.getNumEntities().intValue(), 1);
     assertEquals(scrollResult.getEntities().get(0).getEntity(), urn);
     assertEquals(scrollResult.getEntities().get(0).getDegree().intValue(), 1);
     assertNull(scrollResult.getScrollId());
 
-    scrollResult = scrollAcrossLineage(QueryUtils.newFilter("degree.keyword", "2"), TEST1);
+    scrollResult = scrollAcrossLineage(QueryUtils.newFilter("degree", "2"), TEST1);
     assertEquals(scrollResult.getNumEntities().intValue(), 0);
     assertEquals(scrollResult.getEntities().size(), 0);
     assertNull(scrollResult.getScrollId());
@@ -673,14 +679,14 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     verify(lineageSearchService, times(1))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
-    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree.keyword", "1"), testStar);
+    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree", "1"), testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(0).getDegree().intValue(), 1);
     verify(lineageSearchService, times(2))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
-    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree.keyword", "2"), testStar);
+    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree", "2"), testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
     verify(lineageSearchService, times(3))
@@ -925,7 +931,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
     Criterion degreeCrit =
-        new Criterion().setField("degree.keyword").setValue("2").setCondition(Condition.EQUAL);
+        new Criterion().setField("degree").setValue("2").setCondition(Condition.EQUAL);
     conCritArr.add(
         new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(degreeCrit))));
     Filter filter = new Filter().setOr(conCritArr);

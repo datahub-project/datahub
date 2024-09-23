@@ -38,7 +38,8 @@ class GenericAspectTransformer(
         self, entity_urn: str, aspect_name: str, aspect: Optional[GenericAspectClass]
     ) -> Optional[GenericAspectClass]:
         """Implement this method to transform the single custom aspect for an entity.
-        The purpose of this abstract method is to reinforce the use of GenericAspectClass."""
+        The purpose of this abstract method is to reinforce the use of GenericAspectClass.
+        """
         pass
 
     def _transform_or_record_mcpc(
@@ -114,9 +115,11 @@ class GenericAspectTransformer(
                                     changeType="UPSERT",
                                     aspectName=self.aspect_name(),
                                     aspect=transformed_aspect,
-                                    systemMetadata=last_seen_mcp.systemMetadata
-                                    if last_seen_mcp
-                                    else last_seen_mce_system_metadata,
+                                    systemMetadata=(
+                                        last_seen_mcp.systemMetadata
+                                        if last_seen_mcp
+                                        else last_seen_mce_system_metadata
+                                    ),
                                 ),
                                 metadata=record_metadata,
                             )
