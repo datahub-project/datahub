@@ -1030,6 +1030,7 @@ jobs:
           TEST_STRATEGY: ${{ matrix.test_strategy }}
         run: |
           echo "$DATAHUB_VERSION"
+          ./gradlew --stop
           ./smoke-test/smoke.sh
       - name: Disk Check
         run: df -h . && docker images
