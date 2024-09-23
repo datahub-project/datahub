@@ -1043,8 +1043,9 @@ jobs:
         uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: docker logs
+          name: docker-logs-${{ matrix.test_strategy }}
           path: "docker_logs/*.log"
+          retention-days: 5
       - name: Upload screenshots
         uses: actions/upload-artifact@v3
         if: failure()
