@@ -22,22 +22,18 @@ const StyledZoomButton = styled(Button)`
     }
 `;
 
-const StyledPanel = styled(Panel)`
-    margin-top: 50px;
-`;
-
 const ZoomControls: React.FC = () => {
     const { zoomIn, zoomOut } = useReactFlow();
 
     return (
-        <StyledPanel position="top-right">
+        <Panel position="bottom-left">
             <StyledZoomButton tabIndex={-1} onClick={() => zoomIn({ duration: TRANSITION_DURATION_MS })}>
                 <ZoomInOutlined />
             </StyledZoomButton>
             <StyledZoomButton tabIndex={-1} onClick={() => zoomOut({ duration: TRANSITION_DURATION_MS })}>
                 <ZoomOutOutlined />
             </StyledZoomButton>
-        </StyledPanel>
+        </Panel>
     );
 };
 

@@ -11,7 +11,7 @@ import styled from 'styled-components';
 import { EntityType, LineageDirection } from '../../../types.generated';
 import { EventType } from '../../analytics';
 import analytics from '../../analytics/analytics';
-import { ANTD_GRAY, LINEAGE_COLORS } from '../../entityV2/shared/constants';
+import { ANTD_GRAY, LINEAGE_COLORS, REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import HealthIcon from '../../previewV2/HealthIcon';
 import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
 import OverflowTitle from '../../sharedV2/text/OverflowTitle';
@@ -34,6 +34,7 @@ const NodeWrapper = styled.div<{
     color: string;
     $transitionDuration: number;
     isGhost: boolean;
+    isSearchedEntity: boolean;
 }>`
     align-items: center;
     background-color: white;
@@ -43,6 +44,8 @@ const NodeWrapper = styled.div<{
             if (isGhost) return `${LINEAGE_COLORS.NODE_BORDER}50`;
             return LINEAGE_COLORS.NODE_BORDER;
         }};
+    box-shadow: ${({ isSearchedEntity }) =>
+        isSearchedEntity ? `0 0 4px 4px ${REDESIGN_COLORS.TITLE_PURPLE}95` : 'none'};
     outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
     border-left: none;
     border-radius: 6px;
@@ -215,9 +218,11 @@ interface Props {
     type: EntityType;
     selected: boolean;
     dragging: boolean;
+    isSearchedEntity: boolean;
     entity?: FetchedEntityV2;
     transitionDuration: number;
     rootUrn: string;
+    searchQuery: string;
     setHoveredNode: (urn: string | null) => void;
     showColumns: boolean;
     setShowColumns: Dispatch<SetStateAction<boolean>>;
@@ -240,11 +245,13 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         type,
         selected,
         dragging,
+        isSearchedEntity,
         entity,
         fetchStatus,
         isExpanded,
         transitionDuration,
         rootUrn,
+        searchQuery,
         setHoveredNode,
         showColumns,
         setShowColumns,
@@ -280,6 +287,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
 
     const platformName = entityRegistry.getDisplayName(EntityType.DataPlatform, entity?.platform);
     const [nodeColor] = getNodeColor(type);
+    const highlightColor = isSearchedEntity ? REDESIGN_COLORS.YELLOW_500 : REDESIGN_COLORS.YELLOW_200;
     const hasUpstreamChildren = !!entity?.numUpstreamChildren;
     const hasDownstreamChildren = !!entity?.numDownstreamChildren;
     const isExpandedDownstream = isExpanded[LineageDirection.Downstream];
@@ -313,6 +321,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 selected={selected}
                 dragging={dragging}
                 isGhost={isGhost}
+                isSearchedEntity={isSearchedEntity}
                 hasUpstreamChildren={hasUpstreamChildren}
                 hasDownstreamChildren={hasDownstreamChildren}
                 isExpanded={isExpanded}
@@ -320,6 +329,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 entity={entity}
                 platformName={platformName}
                 platformIcon={entity?.icon}
+                searchQuery={searchQuery}
                 setHoveredNode={setHoveredNode}
                 ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
             />
@@ -334,6 +344,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
             color={nodeColor}
             $transitionDuration={transitionDuration}
             isGhost={isGhost}
+            isSearchedEntity={isSearchedEntity}
         >
             <EntityTypeShadow color={nodeColor} isGhost={isGhost} />
             <FakeCard />
@@ -416,7 +427,11 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         <ContainerPath parents={entity?.containers} />
                         <TitleWrapper>
                             <TitleLine>
-                                <OverflowTitle title={entity?.name} />
+                                <OverflowTitle
+                                    title={entity?.name}
+                                    highlightText={searchQuery}
+                                    highlightColor={highlightColor}
+                                />
                                 {entity?.health && (
                                     <HealthIcon
                                         health={entity.health}

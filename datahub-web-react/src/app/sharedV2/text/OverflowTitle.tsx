@@ -2,6 +2,7 @@ import OptionalTooltip from '@app/sharedV2/ant/OptionalTooltip';
 import { TooltipProps } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
+import Highlight from 'react-highlighter';
 
 const Wrapper = styled.div<{ scale: number; computedRatio: boolean }>`
     // Wrap up to two lines, shrinking text as needed
@@ -16,6 +17,10 @@ const Wrapper = styled.div<{ scale: number; computedRatio: boolean }>`
     display: flex;
     align-items: start;
     height: 100%;
+
+    mark {
+        padding: 0;
+    }
 `;
 
 const MIN_SCALE = 2 / 3;
@@ -23,11 +28,13 @@ const TOOLTIP_THRESHOLD = 0.8; // Show tooltip if text is smaller than TOOLTIP_T
 
 interface Props {
     title?: string;
+    highlightText?: string;
+    highlightColor?: string;
     className?: string;
     placement?: TooltipProps['placement'];
 }
 
-export default function OverflowTitle({ title, className, placement = 'top' }: Props) {
+export default function OverflowTitle({ title, highlightText, highlightColor, className, placement = 'top' }: Props) {
     const [scale, setScale] = React.useState<number>(1);
     const [ratio, setRatio] = React.useState<number | undefined>(undefined);
 
@@ -50,7 +57,9 @@ export default function OverflowTitle({ title, className, placement = 'top' }: P
     return (
         <OptionalTooltip tooltipProps={{ title, placement }} enabled={scale < TOOLTIP_THRESHOLD}>
             <Wrapper className={className} ref={ref} scale={scale} computedRatio={!!ratio}>
-                {title}
+                <Highlight search={highlightText} matchStyle={{ backgroundColor: highlightColor }}>
+                    {title}
+                </Highlight>
             </Wrapper>
         </OptionalTooltip>
     );

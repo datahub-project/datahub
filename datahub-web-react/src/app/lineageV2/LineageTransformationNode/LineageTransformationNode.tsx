@@ -1,11 +1,12 @@
 import { ConsoleSqlOutlined, HomeOutlined, LoadingOutlined } from '@ant-design/icons';
+import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import { Skeleton, Spin, Tooltip } from 'antd';
 import React, { useContext } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 import { useGetQueryQuery } from '../../../graphql/query.generated';
 import { EntityType, LineageDirection } from '../../../types.generated';
-import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
+import { LINEAGE_COLORS, REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import {
     FetchStatus,
     isGhostEntity,
@@ -41,12 +42,15 @@ const NodeWrapper = styled.div<{
     dragging: boolean;
     opacity: number;
     isGhost: boolean;
+    isSearchedEntity: boolean;
     type: EntityType;
 }>`
     background-color: white;
     border: ${({ selected }) => (selected ? 2 : 1)}px solid;
     border-color: ${({ selected }) => (selected ? LINEAGE_COLORS.PURPLE_3 : LINEAGE_COLORS.NODE_BORDER)};
     border-radius: 50%;
+    box-shadow: ${({ isSearchedEntity }) =>
+        isSearchedEntity ? `0 0 3px 3px ${REDESIGN_COLORS.TITLE_PURPLE}95` : 'none'};
     opacity: ${({ opacity }) => opacity};
 
     align-items: center;
@@ -91,10 +95,12 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
 
     const { rootUrn } = useContext(LineageNodesContext);
     const { cllHighlightedNodes, setHoveredNode } = useContext(LineageDisplayContext);
+    const { searchedEntity } = useContext(LineageVisualizationContext);
 
     // TODO: Support ghost queries and schema fields, once they are supported in the backend
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const isGhost = isGhostEntity(entity, ignoreSchemaFieldStatus);
+    const isSearchedEntity = searchedEntity === urn;
 
     const name = type === EntityType.SchemaField ? entity?.expandedName : entity?.name;
     const backupLogoUrl = useFetchQuery(urn); // TODO: Remove when query nodes not instantiated on column select
@@ -112,6 +118,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             onMouseEnter={() => setHoveredNode(urn)}
             onMouseLeave={() => setHoveredNode(null)}
             isGhost={isGhost}
+            isSearchedEntity={isSearchedEntity}
             type={type}
         >
             {urn === rootUrn && (

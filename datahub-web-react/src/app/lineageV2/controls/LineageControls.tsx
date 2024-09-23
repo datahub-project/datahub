@@ -22,7 +22,7 @@ import TabFullsizedContext from '../../shared/TabFullsizedContext';
 import { ControlPanel } from './common';
 
 const StyledPanel = styled(Panel)`
-    margin-top: 50px;
+    margin-top: 80px;
     display: flex;
     flex-direction: row;
     gap: 10px;
@@ -31,7 +31,7 @@ const StyledPanel = styled(Panel)`
 
 const StyledControlsPanel = styled(ControlPanel)<{ isExpanded: boolean }>`
     padding: 2px;
-    width: ${({ isExpanded }) => (isExpanded ? '150px' : '56px')};
+    width: ${({ isExpanded }) => (isExpanded ? '150px' : '50px')};
     transition: width ${TRANSITION_DURATION_MS}ms ease-in-out;
 `;
 

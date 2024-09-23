@@ -1,4 +1,5 @@
 import { HomeOutlined } from '@ant-design/icons';
+import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { NodeProps } from 'reactflow';
 import styled from 'styled-components';
@@ -40,6 +41,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const { rootUrn } = useContext(LineageNodesContext);
     const { numNodes, setHoveredNode } = useContext(LineageDisplayContext);
+    const { searchQuery, searchedEntity } = useContext(LineageVisualizationContext);
 
     const [showColumns, setShowColumns] = useState(false);
     const [onlyWithLineage, setOnlyWithLineage] = useState(false);
@@ -78,11 +80,13 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
                 type={type}
                 selected={selected}
                 dragging={dragging}
+                isSearchedEntity={searchedEntity === urn}
                 entity={entity}
                 fetchStatus={fetchStatus}
                 isExpanded={isExpanded}
                 transitionDuration={transitionDuration}
                 rootUrn={rootUrn}
+                searchQuery={searchQuery}
                 setHoveredNode={setHoveredNode}
                 showColumns={showColumns}
                 setShowColumns={setShowColumns}

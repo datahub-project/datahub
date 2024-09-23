@@ -29,6 +29,7 @@ const NodeWrapper = styled.div<{
     dragging: boolean;
     color: string;
     isGhost: boolean;
+    isSearchedEntity: boolean;
 }>`
     align-items: center;
     background-color: white;
@@ -38,6 +39,8 @@ const NodeWrapper = styled.div<{
             if (isGhost) return `${LINEAGE_COLORS.NODE_BORDER}50`;
             return LINEAGE_COLORS.NODE_BORDER;
         }};
+    box-shadow: ${({ isSearchedEntity }) =>
+        isSearchedEntity ? `0 0 4px 4px ${REDESIGN_COLORS.TITLE_PURPLE}95` : 'none'};
     outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
     border-left: none;
     border-radius: 6px;
@@ -197,6 +200,7 @@ interface Props {
     rootUrn: string;
     selected: boolean;
     dragging: boolean;
+    isSearchedEntity: boolean;
     isGhost: boolean;
     hasUpstreamChildren: boolean;
     hasDownstreamChildren: boolean;
@@ -205,6 +209,7 @@ interface Props {
     entity?: FetchedEntityV2;
     platformName?: string;
     platformIcon?: string;
+    searchQuery: string;
     setHoveredNode: (urn: string | null) => void;
     ignoreSchemaFieldStatus: boolean;
 }
@@ -215,6 +220,7 @@ export default function SchemaFieldNodeContents({
     rootUrn,
     selected,
     dragging,
+    isSearchedEntity,
     isGhost,
     hasUpstreamChildren,
     hasDownstreamChildren,
@@ -223,6 +229,7 @@ export default function SchemaFieldNodeContents({
     entity,
     platformName,
     platformIcon,
+    searchQuery,
     setHoveredNode,
     ignoreSchemaFieldStatus,
 }: Props) {
@@ -237,8 +244,16 @@ export default function SchemaFieldNodeContents({
     const parent = entity?.parent;
     const parentLineageUrl = useGetLineageUrl(parent?.urn, parent?.type);
     const lineageUrl = useGetLineageUrl(urn, EntityType.SchemaField);
+
+    const highlightColor = isSearchedEntity ? REDESIGN_COLORS.YELLOW_500 : REDESIGN_COLORS.YELLOW_200;
     const contents = (
-        <NodeWrapper selected={selected} dragging={dragging} isGhost={isGhost} color={NODE_COLOR}>
+        <NodeWrapper
+            selected={selected}
+            dragging={dragging}
+            isGhost={isGhost}
+            isSearchedEntity={isSearchedEntity}
+            color={NODE_COLOR}
+        >
             <EntityTypeShadow color={NODE_COLOR} />
             <FakeCard />
             <FakeCard style={{ position: 'absolute' }}>
@@ -315,7 +330,11 @@ export default function SchemaFieldNodeContents({
                     {!!parent && (
                         <TitleWrapper>
                             <ParentLine>
-                                <OverflowTitle title={parent?.name ?? undefined} />
+                                <OverflowTitle
+                                    title={parent?.name ?? undefined}
+                                    highlightText={searchQuery}
+                                    highlightColor={highlightColor}
+                                />
                                 {!!parent.urn && !!parent.type && (
                                     <ColumnLinkWrapper
                                         to={parentLineageUrl}
@@ -335,12 +354,20 @@ export default function SchemaFieldNodeContents({
                         <TitleWrapper>
                             {isGhost || urn === rootUrn ? (
                                 <InvalidSchemaFieldLine>
-                                    <OverflowTitle title={downgradeV2FieldPath(entity.name)} />
+                                    <OverflowTitle
+                                        title={downgradeV2FieldPath(entity.name)}
+                                        highlightText={searchQuery}
+                                        highlightColor={highlightColor}
+                                    />
                                 </InvalidSchemaFieldLine>
                             ) : (
                                 <Tooltip title="Change home node" mouseEnterDelay={0.3}>
                                     <SchemaFieldLine to={lineageUrl}>
-                                        <OverflowTitle title={downgradeV2FieldPath(entity.name)} />
+                                        <OverflowTitle
+                                            title={downgradeV2FieldPath(entity.name)}
+                                            highlightText={searchQuery}
+                                            highlightColor={highlightColor}
+                                        />
                                     </SchemaFieldLine>
                                 </Tooltip>
                             )}
