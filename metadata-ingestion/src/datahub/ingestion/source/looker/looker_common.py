@@ -21,6 +21,7 @@ from typing import (
 )
 
 from looker_sdk.error import SDKError
+from looker_sdk.rtl.serialize import DeserializeError
 from looker_sdk.sdk.api40.models import (
     LookmlModelExplore,
     LookmlModelExploreField,
@@ -1131,7 +1132,15 @@ class LookerExplore:
                 logger.warning(
                     f"Failed to extract explore {explore_name} from model {model}: {e}"
                 )
-
+        except DeserializeError as e:
+            logger.warning(
+                f"Failed to extract explore {explore_name} from model {model}: {e}"
+            )
+            reporter.report_warning(
+                title=f"Failed to extract explore {explore_name} from model {model}",
+                message="Encountered exception while attempting to find dependent views for this chart",
+                context=f"Explore: {explore_name}, Mode: {model}",
+            )
         except AssertionError:
             reporter.report_warning(
                 title="Unable to find Views",
