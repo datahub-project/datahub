@@ -60,6 +60,9 @@ public class ElasticSearchIndexBuilderFactory {
   @Value("#{new Boolean('${structuredProperties.systemUpdateEnabled}')}")
   private boolean enableStructuredPropertiesReindex;
 
+  @Value("${elasticsearch.index.maxReindexHours}")
+  private Integer maxReindexHours;
+
   @Bean(name = "elasticSearchIndexSettingsOverrides")
   @Nonnull
   protected Map<String, Map<String, String>> getIndexSettingsOverrides(
@@ -90,7 +93,8 @@ public class ElasticSearchIndexBuilderFactory {
         enableMappingsReindex,
         enableStructuredPropertiesReindex,
         configurationProvider.getElasticSearch(),
-        gitVersion);
+        gitVersion,
+        maxReindexHours);
   }
 
   @Nonnull
