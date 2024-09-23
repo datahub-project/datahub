@@ -1071,6 +1071,7 @@ jobs:
           TEST_STRATEGY: ${{ matrix.test_strategy }}
         run: |
           echo "$DATAHUB_VERSION"
+          ./gradlew --stop
           ./smoke-test/smoke.sh
       - name: Disk Check
         run: df -h . && docker images
@@ -1093,12 +1094,14 @@ jobs:
         with:
           name: cypress-snapshots-${{ matrix.test_strategy }}
           path: smoke-test/tests/cypress/cypress/screenshots/
+          retention-days: 5
       - name: Upload videos
         uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: cypress-videos
           path: smoke-test/tests/cypress/cypress/videos/
+          retention-days: 5
       - uses: actions/upload-artifact@v3
         if: always()
         with:
@@ -1108,6 +1111,7 @@ jobs:
             **/build/test-results/test/**
             **/junit.*.xml
             !**/binary/**
+          retention-days: 5
   sync_deployments:
     name: Sync ArgoCD deployments
     runs-on: ubuntu-latest
