@@ -1106,7 +1106,8 @@ public class GmsGraphQLEngine {
                     new GetQuickFiltersResolver(this.entityClient, this.viewService))
                 .dataFetcher("dataProduct", getResolver(dataProductType))
                 .dataFetcher(
-                    "listDataProductAssets", new ListDataProductAssetsResolver(this.entityClient))
+                    "listDataProductAssets",
+                    new ListDataProductAssetsResolver(this.entityClient, this.viewService))
                 .dataFetcher(
                     "listOwnershipTypes", new ListOwnershipTypesResolver(this.entityClient))
                 .dataFetcher(
@@ -2906,7 +2907,9 @@ public class GmsGraphQLEngine {
         "DataProduct",
         typeWiring ->
             typeWiring
-                .dataFetcher("entities", new ListDataProductAssetsResolver(this.entityClient))
+                .dataFetcher(
+                    "entities",
+                    new ListDataProductAssetsResolver(this.entityClient, this.viewService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
