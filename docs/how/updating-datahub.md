@@ -20,6 +20,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- Metadata service authentication enabled by default
+- Rest API authorization enabled by default
+
 ### Potential Downtime
 
 ### Deprecations
