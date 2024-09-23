@@ -4,10 +4,11 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
-import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.SystemGraphRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchServiceSearchRetriever;
@@ -40,7 +41,7 @@ public class SystemOperationContextFactory {
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final EntityService<?> entityService,
       @Nonnull final RestrictedService restrictedService,
-      @Nonnull final GraphRetriever graphRetriever,
+      @Nonnull final GraphService graphService,
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
           BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
@@ -51,6 +52,9 @@ public class SystemOperationContextFactory {
             .entityRegistry(entityRegistry)
             .entityService(entityService)
             .build();
+
+    SystemGraphRetriever systemGraphRetriever =
+        SystemGraphRetriever.builder().graphService(graphService).build();
 
     SearchServiceSearchRetriever searchServiceSearchRetriever =
         SearchServiceSearchRetriever.builder().searchService(searchService).build();
@@ -64,7 +68,7 @@ public class SystemOperationContextFactory {
             components.getIndexConvention(),
             RetrieverContext.builder()
                 .aspectRetriever(entityServiceAspectRetriever)
-                .graphRetriever(graphRetriever)
+                .graphRetriever(systemGraphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
                 .build(),
             ValidationContext.builder()
@@ -73,6 +77,7 @@ public class SystemOperationContextFactory {
                 .build());
 
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
+    systemGraphRetriever.setSystemOperationContext(systemOperationContext);
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
     return systemOperationContext;
@@ -93,7 +98,7 @@ public class SystemOperationContextFactory {
       @Nonnull @Qualifier("systemAuthentication") final Authentication systemAuthentication,
       @Nonnull final OperationContextConfig operationContextConfig,
       @Nonnull final RestrictedService restrictedService,
-      @Nonnull final GraphRetriever graphRetriever,
+      @Nonnull final GraphService graphService,
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
           BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
@@ -101,6 +106,9 @@ public class SystemOperationContextFactory {
 
     EntityClientAspectRetriever entityServiceAspectRetriever =
         EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();
+
+    SystemGraphRetriever systemGraphRetriever =
+        SystemGraphRetriever.builder().graphService(graphService).build();
 
     SearchServiceSearchRetriever searchServiceSearchRetriever =
         SearchServiceSearchRetriever.builder().searchService(searchService).build();
@@ -114,7 +122,7 @@ public class SystemOperationContextFactory {
             components.getIndexConvention(),
             RetrieverContext.builder()
                 .aspectRetriever(entityServiceAspectRetriever)
-                .graphRetriever(graphRetriever)
+                .graphRetriever(systemGraphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
                 .build(),
             ValidationContext.builder()
@@ -123,6 +131,7 @@ public class SystemOperationContextFactory {
                 .build());
 
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
+    systemGraphRetriever.setSystemOperationContext(systemOperationContext);
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
     return systemOperationContext;

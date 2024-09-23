@@ -10,10 +10,12 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 @Builder
 @Getter
+@EqualsAndHashCode
 public class ActorContext implements ContextInterface {
 
   public static ActorContext asSystem(Authentication systemAuthentication) {
@@ -33,9 +35,14 @@ public class ActorContext implements ContextInterface {
   }
 
   private final Authentication authentication;
-  @Builder.Default private final Set<DataHubPolicyInfo> policyInfoSet = Collections.emptySet();
-  @Builder.Default private final Collection<Urn> groupMembership = Collections.emptyList();
-  private final boolean systemAuth;
+
+  @EqualsAndHashCode.Exclude @Builder.Default
+  private final Set<DataHubPolicyInfo> policyInfoSet = Collections.emptySet();
+
+  @EqualsAndHashCode.Exclude @Builder.Default
+  private final Collection<Urn> groupMembership = Collections.emptyList();
+
+  @EqualsAndHashCode.Exclude private final boolean systemAuth;
 
   public Urn getActorUrn() {
     return UrnUtils.getUrn(authentication.getActor().toUrnStr());

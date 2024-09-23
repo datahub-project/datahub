@@ -1,6 +1,6 @@
-package com.linkedin.datahub.upgrade.system.vianodes;
+package com.linkedin.datahub.upgrade.system.graph.edgestatus;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.system.AbstractMCLStep;
@@ -12,9 +12,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Nullable;
 
 @Slf4j
-public class ReindexDataJobViaNodesCLLStep extends AbstractMCLStep {
+public class ReindexReindexEdgeStatusStep extends AbstractMCLStep {
 
-  public ReindexDataJobViaNodesCLLStep(
+  public ReindexReindexEdgeStatusStep(
       OperationContext opContext,
       EntityService<?> entityService,
       AspectDao aspectDao,
@@ -26,31 +26,30 @@ public class ReindexDataJobViaNodesCLLStep extends AbstractMCLStep {
 
   @Override
   public String id() {
-    return "via-node-cll-reindex-datajob-v3";
+    return "edge-status-reindex-v1";
   }
 
   @Nonnull
   @Override
   protected String getAspectName() {
-    return DATA_JOB_INPUT_OUTPUT_ASPECT_NAME;
+    return STATUS_ASPECT_NAME;
   }
 
   @Nullable
   @Override
   protected String getUrnLike() {
-    return "urn:li:" + DATA_JOB_ENTITY_NAME + ":%";
+    return null;
   }
 
   @Override
   /**
    * Returns whether the upgrade should be skipped. Uses previous run history or the environment
-   * variable SKIP_REINDEX_DATA_JOB_INPUT_OUTPUT to determine whether to skip.
+   * variable to determine whether to skip.
    */
   public boolean skip(UpgradeContext context) {
-    boolean envFlagRecommendsSkip =
-        Boolean.parseBoolean(System.getenv("SKIP_REINDEX_DATA_JOB_INPUT_OUTPUT"));
+    boolean envFlagRecommendsSkip = Boolean.parseBoolean(System.getenv("SKIP_REINDEX_EDGE_STATUS"));
     if (envFlagRecommendsSkip) {
-      log.info("Environment variable SKIP_REINDEX_DATA_JOB_INPUT_OUTPUT is set to true. Skipping.");
+      log.info("Environment variable SKIP_REINDEX_EDGE_STATUS is set to true. Skipping.");
     }
     return (super.skip(context) || envFlagRecommendsSkip);
   }

@@ -71,6 +71,7 @@ public class RelationshipsController {
   }
 
   private RelatedEntitiesResult getRelatedEntities(
+      @Nonnull final OperationContext opContext,
       String rawUrn,
       List<String> relationshipTypes,
       RelationshipDirection direction,
@@ -99,6 +100,7 @@ public class RelationshipsController {
     }
 
     return _graphService.findRelatedEntities(
+        opContext,
         null,
         newFilter("urn", rawUrn),
         null,
@@ -180,7 +182,12 @@ public class RelationshipsController {
     try {
       return ResponseEntity.ok(
           getRelatedEntities(
-              entityUrn.toString(), Arrays.asList(relationshipTypes), direction, start, count));
+              opContext,
+              entityUrn.toString(),
+              Arrays.asList(relationshipTypes),
+              direction,
+              start,
+              count));
     } catch (Exception e) {
       exceptionally = e;
       throw new RuntimeException(

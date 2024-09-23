@@ -1,8 +1,8 @@
 package com.linkedin.gms.factory.common;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -12,26 +12,28 @@ import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 @Configuration
-@Import({BaseElasticSearchComponentsFactory.class, EntityRegistryFactory.class})
+@ConditionalOnProperty(
+    name = "graphService.type",
+    havingValue = "elasticsearch",
+    matchIfMissing = true)
+@Import({BaseElasticSearchComponentsFactory.class})
 public class ElasticSearchGraphServiceFactory {
   @Autowired
   @Qualifier("baseElasticSearchComponents")
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
-  @Autowired
-  @Qualifier("entityRegistry")
-  private EntityRegistry entityRegistry;
-
   @Autowired private ConfigurationProvider configurationProvider;
 
-  @Bean(name = "elasticSearchGraphService")
+  @Bean(name = "graphService")
   @Nonnull
-  protected ElasticSearchGraphService getInstance(
+  protected GraphService getInstance(
+      final EntityRegistry entityRegistry,
       @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo) {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
     return new ElasticSearchGraphService(
@@ -41,7 +43,8 @@ public class ElasticSearchGraphServiceFactory {
         new ESGraphWriteDAO(
             components.getIndexConvention(),
             components.getBulkProcessor(),
-            components.getNumRetries()),
+            components.getNumRetries(),
+            configurationProvider.getElasticSearch().getSearch().getGraph()),
         new ESGraphQueryDAO(
             components.getSearchClient(),
             lineageRegistry,

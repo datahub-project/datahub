@@ -1,8 +1,10 @@
 package com.linkedin.metadata.graph;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Arrays;
 import java.util.Collections;
 import org.testng.annotations.DataProvider;
@@ -220,6 +222,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
 
     RelatedEntitiesResult allOutgoingRelatedEntities =
         service.findRelatedEntities(
+            mock(OperationContext.class),
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -243,6 +246,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
 
     RelatedEntitiesResult allIncomingRelatedEntities =
         service.findRelatedEntities(
+            mock(OperationContext.class),
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -269,6 +273,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
 
     RelatedEntitiesResult allUnknownRelationshipTypeRelatedEntities =
         service.findRelatedEntities(
+            mock(OperationContext.class),
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -281,6 +286,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
 
     RelatedEntitiesResult someUnknownRelationshipTypeRelatedEntities =
         service.findRelatedEntities(
+            mock(OperationContext.class),
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -306,6 +312,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
 
     RelatedEntitiesResult relatedOutgoingEntitiesBeforeRemove =
         service.findRelatedEntities(
+            mock(OperationContext.class),
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -328,6 +335,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
             downstreamOfSchemaFieldTwo));
     RelatedEntitiesResult relatedIncomingEntitiesBeforeRemove =
         service.findRelatedEntities(
+            mock(OperationContext.class),
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -360,13 +368,14 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
   public void testRemoveNode() throws Exception {
     GraphService service = getPopulatedGraphService();
 
-    service.removeNode(dataset2Urn);
+    service.removeNode(mock(OperationContext.class), dataset2Urn);
     syncAfterWrite();
 
     // assert the modified graph
     // All downstreamOf, hasOwner, knowsUser relationships minus datasetTwo's, outgoing
     assertEqualsAnyOrder(
         service.findRelatedEntities(
+            mock(OperationContext.class),
             anyType,
             EMPTY_FILTER,
             anyType,

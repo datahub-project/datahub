@@ -156,6 +156,36 @@ task cypressData(type: Exec, dependsOn: [installDev, ':metadata-ingestion:instal
                     "./cypress-dev.sh"
 }
 
+task cypressSaasSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'TEST_STRATEGY', 'cypress_saas_suite1'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+                    "./smoke.sh"
+}
+
+task cypressSaasSuite2(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'TEST_STRATEGY', 'cypress_saas_suite2'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+                    "./smoke.sh"
+}
+
+task cypressSaasSuite3(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'TEST_STRATEGY', 'cypress_saas_suite3'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+                    "./smoke.sh"
+}
+
 task lint {
     dependsOn pythonLint, cypressLint
 }

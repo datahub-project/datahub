@@ -27,6 +27,7 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -145,7 +146,7 @@ public class ScimpleSpringTestApp {
 
     UpdateIndicesService updateIndicesService =
         new UpdateIndicesService(
-            graphService,
+            UpdateGraphIndicesService.withService(graphService),
             mock(EntitySearchService.class),
             mock(TimeseriesAspectService.class),
             mock(SystemMetadataService.class),
