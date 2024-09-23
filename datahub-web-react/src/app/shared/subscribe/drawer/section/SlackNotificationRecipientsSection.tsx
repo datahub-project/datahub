@@ -298,7 +298,7 @@ export default function SlackNotificationRecipientSection() {
                     <TestNotificationButton
                         integration="slack"
                         connectionUrn={SLACK_CONNECTION_URN}
-                        hidden={!slack.subscription.channel}
+                        hidden={!settingsSlackChannel && !slack.subscription.channel}
                         destinationSettings={
                             isPersonal
                                 ? {
