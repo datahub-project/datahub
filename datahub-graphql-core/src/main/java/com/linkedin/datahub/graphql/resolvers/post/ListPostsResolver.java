@@ -4,7 +4,9 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authentication.Authentication;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ListPostsInput;
@@ -12,6 +14,12 @@ import com.linkedin.datahub.graphql.generated.ListPostsResult;
 import com.linkedin.datahub.graphql.types.post.PostMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
@@ -24,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,6 +56,7 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
+    final String maybeResourceUrn = input.getResourceUrn() == null ? null : input.getResourceUrn();
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -63,7 +73,7 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
                     context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     POST_ENTITY_NAME,
                     query,
-                    null,
+                    maybeResourceUrn != null ? createResourceFilter(maybeResourceUrn) : null,
                     sortCriteria,
                     start,
                     count);
@@ -94,5 +104,27 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  @Nullable
+  private Filter createResourceFilter(@Nullable final String maybeResourceUrn) {
+    if (maybeResourceUrn == null) {
+      return null;
+    }
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                ImmutableList.of(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    new Criterion()
+                                        .setField("target")
+                                        .setCondition(Condition.EQUAL)
+                                        .setValue(maybeResourceUrn)
+                                        .setValues(
+                                            new StringArray(
+                                                Collections.singletonList(maybeResourceUrn)))))))));
   }
 }

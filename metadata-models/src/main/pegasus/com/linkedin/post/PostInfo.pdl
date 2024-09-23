@@ -48,11 +48,12 @@ record PostInfo {
   auditStamp: optional AuditStamp
 
   /**
-   * Optional URN that the post is associated with.
+   * Optional Entity URN that the post is associated with.
    */
   @Relationship = {
     "name": "PostTarget",
     "entityTypes": [ "dataset", "schemaField", "chart", "dashboard", "dataFlow", "dataJob", "dataProduct" ]
   }
+  @Searchable = {}
   target: optional Urn
 }

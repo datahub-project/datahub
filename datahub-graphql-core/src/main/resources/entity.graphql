@@ -12259,6 +12259,11 @@ input ListPostsInput {
     Optional search query
     """
     query: String
+
+    """
+    Optional resource urn
+    """
+    resourceUrn: String
 }
 
 """
