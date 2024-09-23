@@ -758,16 +758,6 @@ fragment schemaFieldFields on SchemaField {
                 }
             }
         }
-        parent {
-            urn
-            type
-            ...entityDisplayNameFields
-            ... on Dataset {
-                platform {
-                    ...platformFields
-                }
-            }
-        }
     }
 }
 

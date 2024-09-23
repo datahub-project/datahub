@@ -3,9 +3,14 @@ import { Link } from 'react-router-dom';
 import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { Maybe, Policy, PolicyState, PolicyType } from '../../../types.generated';
+import { Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '../../../types.generated';
 import { useAppConfig } from '../../useAppConfig';
-import { convertLegacyResourceFilter, getFieldValues, mapResourceTypeToDisplayName } from './policyUtils';
+import {
+    convertLegacyResourceFilter,
+    getFieldValues,
+    getFieldCondition,
+    mapResourceTypeToDisplayName,
+} from './policyUtils';
 import AvatarsGroup from '../AvatarsGroup';
 
 type PrivilegeOptionType = {
@@ -70,6 +75,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
     const resourceTypes = getFieldValues(resources?.filter, 'TYPE') || [];
     const dataPlatformInstances = getFieldValues(resources?.filter, 'DATA_PLATFORM_INSTANCE') || [];
     const resourceEntities = getFieldValues(resources?.filter, 'URN') || [];
+    const resourceFilterCondition = getFieldCondition(resources?.filter, 'URN') || PolicyMatchCondition.Equals;
     const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
 
     const {
@@ -102,6 +108,10 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                 </Link>
             )) || <Typography.Text>{criterionValue.value}</Typography.Text>
         );
+    };
+
+    const getWildcardUrnTag = (criterionValue) => {
+        return <Typography.Text>{criterionValue.value}*</Typography.Text>;
     };
 
     const resourceOwnersField = (actors) => {
@@ -166,7 +176,10 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                     return (
                                         // eslint-disable-next-line react/no-array-index-key
                                         <PoliciesTag key={`resource-${value.value}-${key}`}>
-                                            {getEntityTag(value)}
+                                            {resourceFilterCondition &&
+                                            resourceFilterCondition === PolicyMatchCondition.StartsWith
+                                                ? getWildcardUrnTag(value)
+                                                : getEntityTag(value)}
                                         </PoliciesTag>
                                     );
                                 })) || <PoliciesTag>All</PoliciesTag>}
