@@ -1494,10 +1494,6 @@ class ModeSource(StatefulIngestionSourceBase):
                     url, timeout=self.config.api_options.timeout
                 )
                 return response.json()
-            except ConnectionError as e:
-                # TODO Need to check why server is closes the connection before sending a complete response
-                logging.warning(f"RemoteDisconnected or ProtocolError: {str(e)}")
-                return {}
             except HTTPError as http_error:
                 error_response = http_error.response
                 if error_response.status_code == 429:

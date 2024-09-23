@@ -41,7 +41,6 @@ class MockResponse:
         self.auth = None
         self.headers = {}
         self.url = None
-        self.timeout = None
 
     def json(self):
         return self.json_data
