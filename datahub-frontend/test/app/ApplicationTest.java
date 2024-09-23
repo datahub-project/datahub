@@ -109,6 +109,7 @@ public class ApplicationTest extends WithBrowser {
     _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
     _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
     _gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
+    _gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
     _gmsServer.enqueue(
         new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
     _gmsServer.start(gmsServerPort());
