@@ -15,11 +15,14 @@ function WebinarCard({ slug, title, excerpt, cardImg, link, status }) {
           <h3>{title}</h3>
         </div>
         <div className={clsx("card__body", styles.featureBody)}>
-          <br/>
+          <br />
           <p>{excerpt}</p>
         </div>
         <div className={styles.card_button}>
-          <Link className="button button--secondary button--md" to={`/webinars/webinar/${slug}`}> 
+          <Link
+            className="button button--secondary button--md"
+            to={`/webinars-poc/webinar/${slug}`}
+          >
             Discover
           </Link>
         </div>
