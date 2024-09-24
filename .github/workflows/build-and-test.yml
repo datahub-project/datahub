@@ -85,7 +85,7 @@ jobs:
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         # Acryl-only changes for acryl-cloud, integrations-service, executor
         run: |
-          ./gradlew build --no-daemon \
+          ./gradlew build \
             -x :metadata-ingestion:build \
             -x :metadata-ingestion:check \
             -x :docs-website:build \
