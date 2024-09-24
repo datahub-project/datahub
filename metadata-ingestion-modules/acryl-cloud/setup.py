@@ -10,9 +10,11 @@ _codegen_config: dict = json.loads(_codegen_config_file.read_text())
 stats_common = {"pandas", "pyarrow", "duckdb", "pydantic<2"}
 aws_common = {"boto3"}
 open_search_common = {"opensearch-py==2.4.2"}
+actions_common = {"acryl-datahub-actions >= 0.0.16"}
 
 plugins = {
     "datahub-lineage-features": stats_common | open_search_common,
+    "datahub-remote-actions": actions_common,
     "datahub-reporting-forms": stats_common | aws_common,
     "datahub-reporting-extract-graph": stats_common | aws_common | open_search_common,
     "datahub-reporting-extract-sql": stats_common | aws_common,

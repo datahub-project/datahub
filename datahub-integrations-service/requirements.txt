@@ -11,7 +11,7 @@ acryl-datahub-actions==0.1.1
     # via acryl-datahub-integrations
 acryl-datahub-classify==0.0.11
     # via acryl-datahub
-acryl-sqlglot==25.8.2.dev9
+acryl-sqlglot==25.20.2.dev5
     # via acryl-datahub
 aiohttp==3.9.5
     # via acryl-datahub
@@ -53,7 +53,7 @@ avro==1.11.3
     # via
     #   acryl-datahub
     #   avro-gen3
-avro-gen3==0.7.13
+avro-gen3==0.7.16
     # via acryl-datahub
 beautifulsoup4==4.12.3
     # via nbconvert
@@ -192,9 +192,7 @@ gitpython==3.1.43
 great-expectations==0.15.50
     # via acryl-datahub
 greenlet==3.0.3
-    # via
-    #   acryl-datahub
-    #   sqlalchemy
+    # via acryl-datahub
 h11==0.14.0
     # via
     #   httpcore
@@ -609,7 +607,7 @@ sqlalchemy==1.4.52
     # via
     #   acryl-datahub
     #   snowflake-sqlalchemy
-sqlglotrs==0.2.8
+sqlglotrs==0.2.12
     # via acryl-sqlglot
 sqlparse==0.5.0
     # via acryl-datahub

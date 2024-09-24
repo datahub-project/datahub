@@ -143,6 +143,6 @@ public class IntegrationsController extends Controller {
   private static String remapPath(@Nonnull final String original) {
     // Remap /integrations to /public. '
     // TODO: Make this configurable externally.
-    return original.replace("/integrations", "/public");
+    return original.replaceFirst("/integrations", "/public");
   }
 }

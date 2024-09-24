@@ -20,7 +20,7 @@ acryl-datahub-classify==0.0.11
     # via
     #   -r requirements.txt
     #   acryl-datahub
-acryl-sqlglot==25.8.2.dev9
+acryl-sqlglot==25.20.2.dev5
     # via
     #   -r requirements.txt
     #   acryl-datahub
@@ -89,7 +89,7 @@ avro==1.11.3
     #   -r requirements.txt
     #   acryl-datahub
     #   avro-gen3
-avro-gen3==0.7.13
+avro-gen3==0.7.16
     # via
     #   -r requirements.txt
     #   acryl-datahub
@@ -314,7 +314,6 @@ greenlet==3.0.3
     # via
     #   -r requirements.txt
     #   acryl-datahub
-    #   sqlalchemy
 h11==0.14.0
     # via
     #   -r requirements.txt
@@ -967,7 +966,7 @@ sqlalchemy==1.4.52
     #   -r requirements.txt
     #   acryl-datahub
     #   snowflake-sqlalchemy
-sqlglotrs==0.2.8
+sqlglotrs==0.2.12
     # via
     #   -r requirements.txt
     #   acryl-sqlglot
@@ -1092,8 +1091,12 @@ types-cachetools==5.3.0.7
     # via acryl-datahub-integrations (pyproject.toml)
 types-pyyaml==6.0.12.20240311
     # via acryl-datahub-integrations (pyproject.toml)
+types-requests==2.31.0.3
+    # via acryl-datahub-integrations (pyproject.toml)
 types-setuptools==69.5.0.20240423
     # via acryl-datahub-integrations (pyproject.toml)
+types-urllib3==1.26.25.14
+    # via types-requests
 typing-extensions==4.11.0
     # via
     #   -r requirements.txt

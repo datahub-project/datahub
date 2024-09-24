@@ -44,7 +44,8 @@
         "CREATE_CONSTRAINTS",
         "MANAGE_CONNECTIONS",
         "MANAGE_DOCUMENTATION_FORMS",
-        "MANAGE_MONITORS"
+        "MANAGE_MONITORS",
+        "GET_ENTITY_CHANGE_EVENTS"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -85,7 +86,8 @@
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
         "DELETE_ENTITY",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "SHARE_ENTITY"
+        "SHARE_ENTITY",
+        "GET_ENTITY_CHANGE_EVENTS"
       ],
       "displayName": "Root User - Edit and View All Resources",
       "description": "Grants all edit and view privileges for all resources to root user.",
