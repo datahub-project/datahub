@@ -19,6 +19,7 @@ import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.key.CorpGroupKey;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -32,6 +33,7 @@ import org.apache.directory.scim.server.exception.UnableToResolveIdResourceExcep
 import org.apache.directory.scim.spec.exception.ResourceException;
 import org.apache.directory.scim.spec.resources.ScimGroup;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -45,6 +47,10 @@ public class ScimGroupRepository
   @Autowired ScimUserRepository _userRepository;
 
   @Autowired GraphService _graphService;
+
+  @Qualifier("systemOperationContext")
+  @Autowired
+  OperationContext systemOperationContext;
 
   // been in beta for over a decade apparently ... so using it regardless ...
   private static Striped<Lock> userLocks =
@@ -348,6 +354,7 @@ public class ScimGroupRepository
   private RelatedEntitiesResult findUsersInGroup(CorpGroupUrn urn) {
     RelatedEntitiesResult relatedUsers =
         _graphService.findRelatedEntities(
+            systemOperationContext,
             null,
             QueryUtils.newFilter("urn", urn.toString()),
             null,

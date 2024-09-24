@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "folder_id": "a"
             },
-            "name": "A"
+            "name": "A",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -102,7 +103,8 @@
                 "env": "PROD",
                 "folder_id": "b"
             },
-            "name": "B"
+            "name": "B",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -193,7 +195,8 @@
                 "env": "PROD",
                 "folder_id": "c"
             },
-            "name": "C"
+            "name": "C",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -510,7 +513,8 @@
                 "env": "PROD",
                 "model_name": "data"
             },
-            "name": "data"
+            "name": "data",
+            "env": "PROD"
         }
     },
     "systemMetadata": {

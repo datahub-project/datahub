@@ -35,6 +35,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeTest;
@@ -83,14 +84,15 @@ public class DeleteEntityServiceTest {
 
     Mockito.when(
             _graphService.findRelatedEntities(
-                null,
-                newFilter("urn", container.toString()),
-                null,
-                EMPTY_FILTER,
-                ImmutableList.of(),
-                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-                0,
-                10000))
+                any(OperationContext.class),
+                nullable(List.class),
+                eq(newFilter("urn", container.toString())),
+                nullable(List.class),
+                eq(EMPTY_FILTER),
+                eq(ImmutableList.of()),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(0),
+                eq((10000))))
         .thenReturn(mockRelatedEntities);
 
     Mockito.when(
@@ -211,14 +213,15 @@ public class DeleteEntityServiceTest {
         new RelatedEntitiesResult(0, 0, 0, ImmutableList.of());
     Mockito.when(
             _graphService.findRelatedEntities(
-                null,
-                newFilter("urn", form.toString()),
-                null,
-                EMPTY_FILTER,
-                ImmutableList.of(),
-                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-                0,
-                10000))
+                any(OperationContext.class),
+                nullable(List.class),
+                eq(newFilter("urn", form.toString())),
+                nullable(List.class),
+                eq(EMPTY_FILTER),
+                eq(ImmutableList.of()),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(0),
+                eq((10000))))
         .thenReturn(mockRelatedEntities);
 
     Mockito.when(
@@ -277,14 +280,15 @@ public class DeleteEntityServiceTest {
         new RelatedEntitiesResult(0, 0, 0, ImmutableList.of());
     Mockito.when(
             _graphService.findRelatedEntities(
-                null,
-                newFilter("urn", form.toString()),
-                null,
-                EMPTY_FILTER,
-                ImmutableList.of(),
-                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-                0,
-                10000))
+                any(OperationContext.class),
+                nullable(List.class),
+                eq(newFilter("urn", form.toString())),
+                nullable(List.class),
+                eq(EMPTY_FILTER),
+                eq(ImmutableList.of()),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(0),
+                eq((10000))))
         .thenReturn(mockRelatedEntities);
 
     Mockito.when(
@@ -348,14 +352,15 @@ public class DeleteEntityServiceTest {
         new RelatedEntitiesResult(0, 0, 0, ImmutableList.of());
     Mockito.when(
             _graphService.findRelatedEntities(
-                null,
-                newFilter("urn", form.toString()),
-                null,
-                EMPTY_FILTER,
-                ImmutableList.of(),
-                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-                0,
-                10000))
+                any(OperationContext.class),
+                nullable(List.class),
+                eq(newFilter("urn", form.toString())),
+                nullable(List.class),
+                eq(EMPTY_FILTER),
+                eq(ImmutableList.of()),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(0),
+                eq((10000))))
         .thenReturn(mockRelatedEntities);
 
     Mockito.when(
@@ -416,14 +421,15 @@ public class DeleteEntityServiceTest {
 
     Mockito.when(
             _graphService.findRelatedEntities(
-                null,
-                newFilter("urn", deletedUrn.toString()),
-                null,
-                EMPTY_FILTER,
-                ImmutableList.of(),
-                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-                0,
-                10000))
+                any(OperationContext.class),
+                nullable(List.class),
+                eq(newFilter("urn", deletedUrn.toString())),
+                nullable(List.class),
+                eq(EMPTY_FILTER),
+                anyList(),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(0),
+                eq(10000)))
         .thenReturn(new RelatedEntitiesResult(0, 0, 0, ImmutableList.of()));
 
     final DeleteReferencesResponse response =
@@ -496,14 +502,15 @@ public class DeleteEntityServiceTest {
 
     Mockito.when(
             _graphService.findRelatedEntities(
-                null,
-                newFilter("urn", deletedUrn.toString()),
-                null,
-                EMPTY_FILTER,
-                ImmutableList.of(),
-                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-                0,
-                10000))
+                any(OperationContext.class),
+                nullable(List.class),
+                eq(newFilter("urn", deletedUrn.toString())),
+                nullable(List.class),
+                eq(EMPTY_FILTER),
+                anyList(),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(0),
+                eq(10000)))
         .thenReturn(new RelatedEntitiesResult(0, 0, 0, ImmutableList.of()));
 
     final DeleteReferencesResponse response =
@@ -548,14 +555,15 @@ public class DeleteEntityServiceTest {
 
     Mockito.when(
             _graphService.findRelatedEntities(
-                null,
-                newFilter("urn", deletedUrn.toString()),
-                null,
-                EMPTY_FILTER,
-                ImmutableList.of(),
-                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-                0,
-                10000))
+                any(OperationContext.class),
+                nullable(List.class),
+                eq(newFilter("urn", deletedUrn.toString())),
+                nullable(List.class),
+                eq(EMPTY_FILTER),
+                anyList(),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(0),
+                eq(10000)))
         .thenReturn(new RelatedEntitiesResult(0, 0, 0, ImmutableList.of()));
 
     final DeleteReferencesResponse response =
@@ -602,14 +610,15 @@ public class DeleteEntityServiceTest {
 
     Mockito.when(
             _graphService.findRelatedEntities(
-                null,
-                newFilter("urn", deletedUrn.toString()),
-                null,
-                EMPTY_FILTER,
-                ImmutableList.of(),
-                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-                0,
-                10000))
+                any(OperationContext.class),
+                nullable(List.class),
+                eq(newFilter("urn", deletedUrn.toString())),
+                nullable(List.class),
+                eq(EMPTY_FILTER),
+                anyList(),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(0),
+                eq(10000)))
         .thenReturn(new RelatedEntitiesResult(0, 0, 0, ImmutableList.of()));
 
     final DeleteReferencesResponse response =

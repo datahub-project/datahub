@@ -19,7 +19,7 @@ node {
   version = '21.2.0'
 
   // Version of Yarn to use.
-  yarnVersion = '1.22.1'
+  yarnVersion = '1.22.22'
 
   // Base URL for fetching node distributions (set nodeDistBaseUrl if you have a mirror).
   if (project.hasProperty('nodeDistBaseUrl')) {
@@ -42,7 +42,7 @@ node {
 task yarnInstall(type: YarnTask) {
   println  "Root directory:  ${project.rootDir}";
   environment = ['NODE_OPTIONS': '--openssl-legacy-provider']
-  args = ['install', '--cwd', "${project.rootDir}/smoke-test/tests/cypress"]
+  args = ['install', '--network-timeout', '300000', '--cwd', "${project.rootDir}/smoke-test/tests/cypress"]
 }
 
 task cypressLint(type: YarnTask, dependsOn: yarnInstall) {
@@ -154,6 +154,36 @@ task cypressData(type: Exec, dependsOn: [installDev, ':metadata-ingestion:instal
     commandLine 'bash', '-c',
             "source ${venv_name}/bin/activate && set -x && " +
                     "./cypress-dev.sh"
+}
+
+task cypressSaasSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'TEST_STRATEGY', 'cypress_saas_suite1'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+                    "./smoke.sh"
+}
+
+task cypressSaasSuite2(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'TEST_STRATEGY', 'cypress_saas_suite2'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+                    "./smoke.sh"
+}
+
+task cypressSaasSuite3(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'TEST_STRATEGY', 'cypress_saas_suite3'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+                    "./smoke.sh"
 }
 
 task lint {

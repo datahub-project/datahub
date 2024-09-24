@@ -1,5 +1,3 @@
-import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
-import { combineSiblingsInSearchResults } from '@src/app/search/utils/combineSiblingsInSearchResults';
 import React from 'react';
 import { Button, Pagination, Spin, Typography } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
@@ -12,6 +10,8 @@ import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection
 import { EntitySearchResults, EntityActionProps } from './EntitySearchResults';
 import MatchingViewsLabel from './MatchingViewsLabel';
 import { ANTD_GRAY } from '../../../constants';
+import { useIsShowSeparateSiblingsEnabled } from '../../../../../useAppConfig';
+import { combineSiblingsInSearchResults } from '../../../../../search/utils/combineSiblingsInSearchResults';
 
 const SearchBody = styled.div`
     height: 100%;

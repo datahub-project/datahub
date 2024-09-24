@@ -115,8 +115,8 @@ export function extendColumnLineage(
 
                     // if this upstreamEntityUrn is a sibling of one of the already rendered nodes,
                     // update the fine grained map with the rendered node instead of its sibling
-                    Object.keys(fetchedEntities).forEach((urn) => {
-                        fetchedEntities[urn].siblingsSearch?.searchResults.forEach((sibling) => {
+                    Array.from(fetchedEntities.keys()).forEach((urn) => {
+                        fetchedEntities.get(urn)?.siblingsSearch?.searchResults.forEach((sibling) => {
                             if (sibling && sibling.entity.urn === upstreamEntityUrn) {
                                 updateFineGrainedMap(
                                     fineGrainedMap,
@@ -188,7 +188,7 @@ export default function extendAsyncEntities(
     entityAndType: EntityAndType,
     fullyFetched = false,
 ): FetchedEntities {
-    if (fetchedEntities[entityAndType.entity.urn]?.fullyFetched) {
+    if (fetchedEntities.get(entityAndType.entity.urn)?.fullyFetched) {
         return fetchedEntities;
     }
 
@@ -198,11 +198,7 @@ export default function extendAsyncEntities(
 
     extendColumnLineage(lineageVizConfig, fineGrainedMap, fineGrainedMapForSiblings, fetchedEntities);
 
-    return {
-        ...fetchedEntities,
-        [entityAndType.entity.urn]: {
-            ...lineageVizConfig,
-            fullyFetched,
-        },
-    };
+    const newFetchedEntities = new Map(fetchedEntities);
+    newFetchedEntities.set(entityAndType.entity.urn, { ...lineageVizConfig, fullyFetched });
+    return newFetchedEntities;
 }

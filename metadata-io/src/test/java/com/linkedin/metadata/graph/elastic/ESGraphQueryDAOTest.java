@@ -1,4 +1,4 @@
-package com.linkedin.metadata.graph.search;
+package com.linkedin.metadata.graph.elastic;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
@@ -9,10 +9,11 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
-import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import org.opensearch.index.query.QueryBuilder;
 import org.testng.Assert;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class ESGraphQueryDAOTest {
@@ -34,8 +36,15 @@ public class ESGraphQueryDAOTest {
   private static final String TEST_QUERY_FILE_FULL_MULTIPLE_FILTERS =
       "elasticsearch/sample_filters/lineage_query_filters_full_multiple_filters.json";
 
+  private OperationContext operationContext;
+
+  @BeforeTest
+  public void init() {
+    operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+  }
+
   @Test
-  private static void testGetQueryForLineageFullArguments() throws Exception {
+  private void testGetQueryForLineageFullArguments() throws Exception {
 
     URL urlLimited = Resources.getResource(TEST_QUERY_FILE_LIMITED);
     String expectedQueryLimited = Resources.toString(urlLimited, StandardCharsets.UTF_8);
@@ -108,21 +117,26 @@ public class ESGraphQueryDAOTest {
 
     QueryBuilder fullBuilder =
         graphQueryDAO.getLineageQuery(
+            operationContext.withLineageFlags(
+                f -> new LineageFlags().setEndTimeMillis(endTime).setStartTimeMillis(startTime)),
             urnsPerEntityType,
             edgesPerEntityType,
-            graphFilters,
-            new LineageFlags().setEndTimeMillis(endTime).setStartTimeMillis(startTime));
+            graphFilters);
 
     QueryBuilder fullBuilderEmptyFilters =
         graphQueryDAO.getLineageQuery(
-            urnsPerEntityType, edgesPerEntityType, GraphFilters.emptyGraphFilters, null);
+            operationContext,
+            urnsPerEntityType,
+            edgesPerEntityType,
+            GraphFilters.emptyGraphFilters);
 
     QueryBuilder fullBuilderMultipleFilters =
         graphQueryDAO.getLineageQuery(
+            operationContext.withLineageFlags(
+                f -> new LineageFlags().setEndTimeMillis(endTime).setStartTimeMillis(startTime)),
             urnsPerEntityTypeMultiple,
             edgesPerEntityTypeMultiple,
-            graphFiltersMultiple,
-            new LineageFlags().setEndTimeMillis(endTime).setStartTimeMillis(startTime));
+            graphFiltersMultiple);
 
     Assert.assertEquals(limitedBuilder.toString(), expectedQueryLimited);
     Assert.assertEquals(fullBuilder.toString(), expectedQueryFull);

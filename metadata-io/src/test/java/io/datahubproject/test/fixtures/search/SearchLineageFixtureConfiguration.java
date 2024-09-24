@@ -192,7 +192,7 @@ public class SearchLineageFixtureConfiguration {
             lineageRegistry,
             bulkProcessor,
             indexConvention,
-            new ESGraphWriteDAO(indexConvention, bulkProcessor, 1),
+            new ESGraphWriteDAO(indexConvention, bulkProcessor, 1, getGraphQueryConfiguration()),
             new ESGraphQueryDAO(
                 searchClient, lineageRegistry, indexConvention, getGraphQueryConfiguration()),
             indexBuilder,

@@ -58,21 +58,24 @@ public abstract class GenericRelationshipController {
       HttpServletRequest request,
       @PathVariable("relationshipType") String relationshipType,
       @RequestParam(value = "count", defaultValue = "10") Integer count,
-      @RequestParam(value = "scrollId", required = false) String scrollId) {
+      @RequestParam(value = "scrollId", required = false) String scrollId,
+      @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
+          Boolean includeSoftDelete) {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     OperationContext opContext =
         OperationContext.asSession(
-            systemOperationContext,
-            RequestContext.builder()
-                .buildOpenapi(
-                    authentication.getActor().toUrnStr(),
-                    request,
-                    "getRelationshipsByType",
-                    List.of()),
-            authorizationChain,
-            authentication,
-            true);
+                systemOperationContext,
+                RequestContext.builder()
+                    .buildOpenapi(
+                        authentication.getActor().toUrnStr(),
+                        request,
+                        "getRelationshipsByType",
+                        List.of()),
+                authorizationChain,
+                authentication,
+                true)
+            .withSearchFlags(f -> f.setIncludeSoftDeleted(includeSoftDelete));
 
     if (!AuthUtil.isAPIAuthorized(opContext, RELATIONSHIP, READ)) {
       throw new UnauthorizedException(
@@ -85,6 +88,7 @@ public abstract class GenericRelationshipController {
 
     RelatedEntitiesScrollResult result =
         graphService.scrollRelatedEntities(
+            opContext,
             null,
             null,
             null,
@@ -142,23 +146,26 @@ public abstract class GenericRelationshipController {
           String[] relationshipTypes,
       @RequestParam(value = "direction", defaultValue = "OUTGOING") String direction,
       @RequestParam(value = "count", defaultValue = "10") Integer count,
-      @RequestParam(value = "scrollId", required = false) String scrollId) {
+      @RequestParam(value = "scrollId", required = false) String scrollId,
+      @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
+          Boolean includeSoftDelete) {
 
     final RelatedEntitiesScrollResult result;
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     OperationContext opContext =
         OperationContext.asSession(
-            systemOperationContext,
-            RequestContext.builder()
-                .buildOpenapi(
-                    authentication.getActor().toUrnStr(),
-                    request,
-                    "getRelationshipsByEntity",
-                    List.of()),
-            authorizationChain,
-            authentication,
-            true);
+                systemOperationContext,
+                RequestContext.builder()
+                    .buildOpenapi(
+                        authentication.getActor().toUrnStr(),
+                        request,
+                        "getRelationshipsByEntity",
+                        List.of()),
+                authorizationChain,
+                authentication,
+                true)
+            .withSearchFlags(f -> f.setIncludeSoftDeleted(includeSoftDelete));
 
     if (!AuthUtil.isAPIAuthorizedUrns(
         opContext, RELATIONSHIP, READ, List.of(UrnUtils.getUrn(entityUrn)))) {
@@ -173,6 +180,7 @@ public abstract class GenericRelationshipController {
     switch (RelationshipDirection.valueOf(direction.toUpperCase())) {
       case INCOMING -> result =
           graphService.scrollRelatedEntities(
+              opContext,
               null,
               null,
               null,
@@ -190,6 +198,7 @@ public abstract class GenericRelationshipController {
               null);
       case OUTGOING -> result =
           graphService.scrollRelatedEntities(
+              opContext,
               null,
               null,
               null,

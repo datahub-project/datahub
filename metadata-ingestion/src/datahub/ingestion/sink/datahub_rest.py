@@ -74,6 +74,7 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 
 @dataclasses.dataclass
 class DataHubRestSinkReport(SinkReport):
+    mode: Optional[RestSinkMode] = None
     max_threads: Optional[int] = None
     gms_version: Optional[str] = None
     pending_requests: int = 0
@@ -126,6 +127,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             .get("acryldata/datahub", {})
             .get("version", None)
         )
+        self.report.mode = self.config.mode
         self.report.max_threads = self.config.max_threads
         logger.debug("Setting env variables to override config")
         logger.debug("Setting gms config")

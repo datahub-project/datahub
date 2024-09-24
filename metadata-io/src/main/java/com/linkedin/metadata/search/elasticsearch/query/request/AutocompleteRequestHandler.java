@@ -140,10 +140,15 @@ public class AutocompleteRequestHandler {
                         opContext.getObjectMapper(),
                         cac,
                         queryWithDefaultFilters,
-                        customQueryConfig))
+                        customQueryConfig,
+                        input))
             .orElse(
                 SearchQueryBuilder.buildScoreFunctions(
-                    opContext, customQueryConfig, List.of(entitySpec), queryWithDefaultFilters));
+                    opContext,
+                    customQueryConfig,
+                    List.of(entitySpec),
+                    input,
+                    queryWithDefaultFilters));
     searchSourceBuilder.query(functionScoreQueryBuilder);
 
     ESUtils.buildSortOrder(searchSourceBuilder, null, List.of(entitySpec));

@@ -17,7 +17,7 @@ type Props = {
 
 const SelectInput = styled(Select)`
     > .ant-select-selector {
-        height: 36px;
+        height: 'auto';
     }
 `;
 

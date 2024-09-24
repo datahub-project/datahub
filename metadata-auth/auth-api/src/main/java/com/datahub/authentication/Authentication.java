@@ -4,8 +4,10 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import lombok.EqualsAndHashCode;
 
 /** Class representing an authenticated actor accessing DataHub. */
+@EqualsAndHashCode
 public class Authentication {
 
   private final Actor authenticatedActor;

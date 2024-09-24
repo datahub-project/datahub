@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -19,10 +20,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class JavaGraphClient implements GraphClient {
 
-  GraphService _graphService;
+  private final OperationContext systemOpContext;
+  private final GraphService graphService;
 
-  public JavaGraphClient(@Nonnull GraphService graphService) {
-    this._graphService = graphService;
+  public JavaGraphClient(
+      @Nonnull OperationContext systemOpContext, @Nonnull GraphService graphService) {
+    this.systemOpContext = systemOpContext;
+    this.graphService = graphService;
   }
 
   /**
@@ -43,7 +47,8 @@ public class JavaGraphClient implements GraphClient {
     count = count == null ? DEFAULT_PAGE_SIZE : count;
 
     RelatedEntitiesResult relatedEntitiesResult =
-        _graphService.findRelatedEntities(
+        graphService.findRelatedEntities(
+            systemOpContext,
             null,
             QueryUtils.newFilter("urn", rawUrn),
             null,
@@ -91,7 +96,8 @@ public class JavaGraphClient implements GraphClient {
       @Nullable Integer count,
       int maxHops,
       String actor) {
-    return _graphService.getLineage(
+    return graphService.getLineage(
+        systemOpContext,
         UrnUtils.getUrn(rawUrn),
         direction,
         start != null ? start : 0,

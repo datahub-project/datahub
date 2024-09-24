@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.system.vianodes;
+package com.linkedin.datahub.upgrade.system.graph.edgestatus;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -11,15 +11,16 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A job that reindexes all datajob inputoutput aspects as part of the via node upgrade. This is
- * required to index column-level lineage correctly using via nodes.
+ * A job that reindexes all status aspects as part of the graph edges containing status information.
+ * This is required to make sure previously written status information is present in the graph
+ * index.
  */
 @Slf4j
-public class ReindexDataJobViaNodesCLL implements NonBlockingSystemUpgrade {
+public class ReindexEdgeStatus implements NonBlockingSystemUpgrade {
 
   private final List<UpgradeStep> _steps;
 
-  public ReindexDataJobViaNodesCLL(
+  public ReindexEdgeStatus(
       @Nonnull OperationContext opContext,
       EntityService<?> entityService,
       AspectDao aspectDao,
@@ -30,7 +31,7 @@ public class ReindexDataJobViaNodesCLL implements NonBlockingSystemUpgrade {
     if (enabled) {
       _steps =
           ImmutableList.of(
-              new ReindexDataJobViaNodesCLLStep(
+              new ReindexReindexEdgeStatusStep(
                   opContext, entityService, aspectDao, batchSize, batchDelayMs, limit));
     } else {
       _steps = ImmutableList.of();

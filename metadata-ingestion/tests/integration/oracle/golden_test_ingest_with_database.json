@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "database": "OraDoc"
             },
-            "name": "OraDoc"
+            "name": "OraDoc",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -99,7 +100,8 @@
                 "database": "OraDoc",
                 "schema": "schema1"
             },
-            "name": "schema1"
+            "name": "schema1",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -595,7 +597,8 @@
                 "database": "OraDoc",
                 "schema": "schema2"
             },
-            "name": "schema2"
+            "name": "schema2",
+            "env": "PROD"
         }
     },
     "systemMetadata": {

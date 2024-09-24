@@ -31,7 +31,7 @@ public class GraphBasedFeature implements FeatureExtractor {
       @Nonnull OperationContext opContext, List<SearchEntity> entities) {
     return ConcurrencyUtils.transformAndCollectAsync(
             entities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
-            this::getOutDegree)
+            urn -> getOutDegree(opContext, urn))
         .stream()
         .map(
             outDegree ->
@@ -39,9 +39,10 @@ public class GraphBasedFeature implements FeatureExtractor {
         .collect(Collectors.toList());
   }
 
-  private int getOutDegree(Urn urn) {
+  private int getOutDegree(@Nonnull OperationContext opContext, Urn urn) {
     RelatedEntitiesResult graphResult =
         _graphService.findRelatedEntities(
+            opContext,
             null,
             QueryUtils.EMPTY_FILTER,
             null,

@@ -482,4 +482,3 @@ input DeleteStructuredPropertyInput {
     """
     urn: String!
 }
-
