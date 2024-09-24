@@ -1021,7 +1021,7 @@ def _sqlglot_lineage_inner(
 
 
 def _sqlglot_lineage_nocache(
-    sql: str,
+    sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
@@ -1096,7 +1096,7 @@ _sqlglot_lineage_cached = functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZ
 
 
 def sqlglot_lineage(
-    sql: str,
+    sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,

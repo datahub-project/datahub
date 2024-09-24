@@ -224,9 +224,9 @@ class SqlAggregatorReport(Report):
     sql_parsing_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_fingerprinting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_formatting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
-    sql_parsing_cache_stats: dict = dataclasses.field(default_factory=dict)
-    parse_statement_cache_stats: dict = dataclasses.field(default_factory=dict)
-    format_query_cache_stats: dict = dataclasses.field(default_factory=dict)
+    sql_parsing_cache_stats: Optional[dict] = dataclasses.field(default=None)
+    parse_statement_cache_stats: Optional[dict] = dataclasses.field(default=None)
+    format_query_cache_stats: Optional[dict] = dataclasses.field(default=None)
 
     # Other lineage loading metrics.
     num_known_query_lineage: int = 0
@@ -244,6 +244,7 @@ class SqlAggregatorReport(Report):
     queries_with_non_authoritative_session: LossyList[QueryId] = dataclasses.field(
         default_factory=LossyList
     )
+    make_schema_resolver_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
     # Lineage-related.
     schema_resolver_count: Optional[int] = None
@@ -688,11 +689,12 @@ class SqlParsingAggregator(Closeable):
         # All queries with no session ID are assumed to be part of the same session.
         session_id = observed.session_id or _MISSING_SESSION_ID
 
-        # Load in the temp tables for this session.
-        schema_resolver: SchemaResolverInterface = (
-            self._make_schema_resolver_for_session(session_id)
-        )
-        session_has_temp_tables = schema_resolver.includes_temp_tables()
+        with self.report.make_schema_resolver_timer:
+            # Load in the temp tables for this session.
+            schema_resolver: SchemaResolverInterface = (
+                self._make_schema_resolver_for_session(session_id)
+            )
+            session_has_temp_tables = schema_resolver.includes_temp_tables()
 
         # Run the SQL parser.
         parsed = self._run_sql_parser(

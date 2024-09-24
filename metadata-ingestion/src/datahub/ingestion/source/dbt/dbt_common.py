@@ -1273,10 +1273,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             return SqlParsingResult.make_from_error(e)
 
-        sql_result = sqlglot_lineage(
-            preprocessed_sql,  # type:ignore
-            schema_resolver=schema_resolver,
-        )
+        sql_result = sqlglot_lineage(preprocessed_sql, schema_resolver=schema_resolver)
         if sql_result.debug_info.table_error:
             self.report.sql_parser_table_errors += 1
             logger.info(
