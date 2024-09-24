@@ -35,6 +35,14 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
+    infer_output_schema,
+)
+
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
@@ -679,6 +687,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         table_name = dataset_data.get("table_name", "")
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
+        upstream_warehouse_db_name = dataset_response.get("result", {}).get("database", {}).get("database_name")
+        upstream_warehouse_platform = self.get_platform_from_database_id(database_id)
+        sql = dataset_response.get("result", {}).get("sql")
         # note: the API does not currently supply created_by usernames due to a bug
         last_modified = ChangeAuditStamps(
             created=None,
@@ -707,20 +718,42 @@ class SupersetSource(StatefulIngestionSourceBase):
             externalUrl=dataset_url,
             customProperties=custom_properties,
         )
+
+
+        ## Create Lineage:
         db_platform_instance = self.get_platform_from_database_id(database_id)
-        upstream_lineage = UpstreamLineageClass(
-            upstreams=[
-                UpstreamClass(
-                    type=DatasetLineageTypeClass.TRANSFORMED,
-                    dataset=self.get_datasource_urn_from_id(dataset_response, db_platform_instance),
-                    # query=self.get_query_instance_urn_from_query('query_data'),
-                )
-                # for input_table_urn in parsed_query_object.in_tables
-            ]
-        )
-        ## TODO:remove this
-        if dataset_data.get("id") == 251:
-            import pdb; pdb.set_trace()
+
+        if sql != "":
+            #To Account for virtual datasets
+            parsed_query_object = create_lineage_sql_parsed_result(
+                query=sql,
+                default_db=upstream_warehouse_db_name,
+                platform=upstream_warehouse_platform,
+                platform_instance=None,
+                env=self.config.env,
+            )
+
+            upstream_lineage = UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                        dataset=input_table_urn,
+                        # query=self.get_query_instance_urn_from_query('query_data'),
+                    )
+                    for input_table_urn in parsed_query_object.in_tables
+                ]
+            )
+        else:
+            ## To account for Physical datasets
+            upstream_dataset = self.get_datasource_urn_from_id(dataset_response, db_platform_instance)
+            upstream_lineage = UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                        dataset=upstream_dataset,
+                    )
+                ]
+            )
 
 
         dataset_snapshot = DatasetSnapshot(
