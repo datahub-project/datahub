@@ -198,12 +198,8 @@ public class OwnerUtils {
   public static void validateAuthorizedToUpdateOwners(
       @Nonnull QueryContext context, Urn resourceUrn, EntityClient entityClient) {
 
-    if (resourceUrn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)
-        || resourceUrn.getEntityType().equals(Constants.GLOSSARY_NODE_ENTITY_NAME)) {
-      Urn parentNode = GlossaryUtils.getParentUrn(resourceUrn, context, entityClient);
-      if (GlossaryUtils.canManageChildrenEntities(context, parentNode, entityClient)) {
-        return;
-      }
+    if (GlossaryUtils.canUpdateGlossaryEntity(resourceUrn, context, entityClient)) {
+      return;
     }
 
     final DisjunctivePrivilegeGroup orPrivilegeGroups =

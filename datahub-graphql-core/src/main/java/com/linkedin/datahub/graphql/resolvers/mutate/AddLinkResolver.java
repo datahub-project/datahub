@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddLinkInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
@@ -34,7 +35,7 @@ public class AddLinkResolver implements DataFetcher<CompletableFuture<Boolean>> 
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
     if (!LinkUtils.isAuthorizedToUpdateLinks(context, targetUrn)
-        && !LinkUtils.canUpdateGlossaryEntityLinks(targetUrn, context, _entityClient)) {
+        && !GlossaryUtils.canUpdateGlossaryEntity(targetUrn, context, _entityClient)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
