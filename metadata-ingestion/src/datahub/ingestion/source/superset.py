@@ -20,6 +20,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn,
     make_domain_urn,
     make_data_platform_urn,
+    make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp_builder import (
     add_domain_to_entity_wu
@@ -66,6 +67,9 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
+    UpstreamLineageClass,
+    UpstreamClass,
+    DatasetLineageTypeClass,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -388,7 +392,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         return platform_name
 
     # @lru_cache(maxsize=None) -> look into caching
-    def get_datasource_urn_from_id(self, dataset_response):
+    def get_datasource_urn_from_id(self, dataset_response, platform_instance):
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
@@ -399,7 +403,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         if database_id and table_name:
             return make_dataset_urn(
-                platform='preset',
+                platform=platform_instance,
                 name=".".join(
                     name for name in [database_name, schema_name, table_name] if name
                 ),
@@ -541,7 +545,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{datasource_id}"
         ).json()
-        datasource_urn = self.get_datasource_urn_from_id(dataset_response)
+        datasource_urn = self.get_datasource_urn_from_id(dataset_response, 'preset')
 
         params = json.loads(chart_data.get("params"))
         metrics = [
@@ -653,19 +657,28 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         return schema_metadata
 
+    ## Redshift/Platform URN -> Just need to make sure to follow this: "{database}.{schema}.{table.name}"
+    def gen_dataset_urn(self, datahub_dataset_name: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=datahub_dataset_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+    
 ## Ingestion for Preset Dataset
     def construct_dataset_from_dataset_data(self, dataset_data):
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{dataset_data.get('id')}"
         ).json()
-        datasource_urn = self.get_datasource_urn_from_id(dataset_response)
+        datasource_urn = self.get_datasource_urn_from_id(dataset_response, 'preset')
         ## Check API format for dataset
         modified_actor = f"urn:li:corpuser:{(dataset_data.get('changed_by') or {}).get('username', 'unknown')}"
         modified_ts = int(
             dp.parse(dataset_data.get("changed_on_utc", "now")).timestamp() * 1000
         )
         table_name = dataset_data.get("table_name", "")
-
+        database_id = dataset_response.get("result", {}).get("database", {}).get("id")
         # note: the API does not currently supply created_by usernames due to a bug
         last_modified = ChangeAuditStamps(
             created=None,
@@ -674,11 +687,12 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset_url = f"{self.config.display_uri}{dataset_data.get('url', '')}"
         metrics = [
             metric.get("metric_name")
-            for metric in (dataset_response.get("result", {}).get("metrics", []) or [dataset_response.get("result", {}).get("metrics")])
+            for metric in (dataset_response.get("result", {}).get("metrics", []))
         ]
+
         owners = [
-            owner.get("first_name") + "_" + str(owner.get("id"))
-            for owner in (dataset_response.get("result", {}).get("owners", []) or [dataset_response.get("result", {}).get("owners")])
+                owner.get("first_name") + "_" + str(owner.get("id"))
+                for owner in (dataset_response.get("result", {}).get("owners", []))
         ]
 
         custom_properties = {
@@ -693,9 +707,25 @@ class SupersetSource(StatefulIngestionSourceBase):
             externalUrl=dataset_url,
             customProperties=custom_properties,
         )
+        db_platform_instance = self.get_platform_from_database_id(database_id)
+        upstream_lineage = UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                    dataset=self.get_datasource_urn_from_id(dataset_response, db_platform_instance),
+                    # query=self.get_query_instance_urn_from_query('query_data'),
+                )
+                # for input_table_urn in parsed_query_object.in_tables
+            ]
+        )
+        ## TODO:remove this
+        if dataset_data.get("id") == 251:
+            import pdb; pdb.set_trace()
+
+
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
-            aspects=[self.gen_schema_metadata(datasource_urn, dataset_response), dataset_info],
+            aspects=[self.gen_schema_metadata(datasource_urn, dataset_response), dataset_info, upstream_lineage],
         )
         return dataset_snapshot
 
@@ -725,9 +755,6 @@ class SupersetSource(StatefulIngestionSourceBase):
                     title=dataset_data.get("table_name", ""),
                     entity_urn=dataset_snapshot.urn,
                 )
-                break
-            break
-
 
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

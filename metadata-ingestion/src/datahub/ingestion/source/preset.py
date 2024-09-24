@@ -94,7 +94,8 @@ class PresetSource(SupersetSource):
         self.login()
 
     def login(self):
-        logger.info(f"self.config is {self.config}")
+        
+        logger.info(f"self.config is #TODO Change this to not include secrets")
 
         login_response = requests.post(
             f"{self.config.manager_uri}/v1/auth/",
