@@ -1,6 +1,7 @@
 import React from "react";
 import { useEffect, useState } from "react";
 import styles from "./styles.module.scss";
+import { v4 as uuidv4 } from "uuid";
 
 const makeHubspotForm = (formId, uniqueId, inlineMessage) => {
   const config = {
@@ -26,7 +27,7 @@ const loadHubspotScript = (formId, uniqueId, inlineMessage) => {
 };
 
 const HubspotForm = ({ formId, inlineMessage, ...props }) => {
-  const [uniqueId] = useState(crypto.randomUUID());
+  const [uniqueId] = useState(uuidv4());
   const [loading, setLoading] = useState(true);
   const [isHubspotLoaded, setIsHubspotLoaded] = useState(false);
 
