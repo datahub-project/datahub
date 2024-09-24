@@ -88,8 +88,9 @@ def get_upstream_tables(
         logger.debug(f"Stack trace for {table.full_name}:", exc_info=e)
         return []
 
+    lineage: List[resolver.Lineage] = []
     try:
-        return resolver.MQueryResolver(
+        lineage = resolver.MQueryResolver(
             table=table,
             parse_tree=parse_tree,
             reporter=reporter,
@@ -107,4 +108,6 @@ def get_upstream_tables(
         )
         logger.debug(f"Stack trace for {table.full_name}:", exc_info=e)
 
-    return []
+    logger.debug(f"Generated lineage for table {table.full_name}. Lineage {lineage}")
+
+    return lineage
