@@ -75,7 +75,6 @@ function BlogListPageContent(props) {
   const { metadata, items } = props;
 
   const sortedWebinars = sortWebinars(items);
-  console.log(items, sortedWebinars);
 
   return (
     <Layout>
