@@ -458,7 +458,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444889021
+            "lastUpdatedTimestamp": 1586808010000
         }
     },
     "systemMetadata": {
@@ -2896,18 +2896,6 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=Record].[type=long].FourthChord",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "FourthChord",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "[version=2.0].[type=Record].[type=long].SecondChord",
                     "nullable": false,
                     "type": {
@@ -2928,6 +2916,18 @@
                         }
                     },
                     "nativeDataType": "ThirdChord",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].FourthChord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "FourthChord",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -2965,7 +2965,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444899021
+            "lastUpdatedTimestamp": 1586808020000
         }
     },
     "systemMetadata": {
@@ -3541,7 +3541,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444909021
+            "lastUpdatedTimestamp": 1586808030000
         }
     },
     "systemMetadata": {
@@ -3974,17 +3974,11 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
     "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "customProperties": {
-                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json",
-                "number_of_files": "1",
-                "size_in_bytes": "4646"
-            },
-            "name": "countries_json.json",
-            "description": "",
-            "tags": []
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
         }
     },
     "systemMetadata": {
@@ -3997,11 +3991,17 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "datasetProperties",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:file",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+            "customProperties": {
+                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json",
+                "number_of_files": "1",
+                "size_in_bytes": "4646"
+            },
+            "name": "countries_json.json",
+            "description": "",
+            "tags": []
         }
     },
     "systemMetadata": {
@@ -4036,14 +4036,14 @@
             },
             "fields": [
                 {
-                    "fieldPath": "countries",
+                    "fieldPath": "countries.name",
                     "nullable": false,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.ArrayType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "list",
+                    "nativeDataType": "str",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -4060,14 +4060,14 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "countries.name",
+                    "fieldPath": "countries",
                     "nullable": false,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.ArrayType": {}
                         }
                     },
-                    "nativeDataType": "str",
+                    "nativeDataType": "list",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -4093,7 +4093,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444919021
+            "lastUpdatedTimestamp": 1586808040000
         }
     },
     "systemMetadata": {
@@ -4209,6 +4209,23 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
@@ -4254,42 +4271,6 @@
             },
             "fields": [
                 {
-                    "fieldPath": "color",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "healthy",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.BooleanType": {}
-                        }
-                    },
-                    "nativeDataType": "bool",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "height",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "int64",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "name",
                     "nullable": false,
                     "type": {
@@ -4310,6 +4291,42 @@
                         }
                     },
                     "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "height",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "color",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "healthy",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "bool",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -4335,24 +4352,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444929021
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_files.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:file",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+            "lastUpdatedTimestamp": 1586808050000
         }
     },
     "systemMetadata": {
@@ -4739,17 +4739,11 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
     "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "customProperties": {
-                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv",
-                "number_of_files": "1",
-                "size_in_bytes": "172"
-            },
-            "name": "small.csv",
-            "description": "",
-            "tags": []
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
         }
     },
     "systemMetadata": {
@@ -4762,11 +4756,17 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "datasetProperties",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:file",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+            "customProperties": {
+                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv",
+                "number_of_files": "1",
+                "size_in_bytes": "172"
+            },
+            "name": "small.csv",
+            "description": "",
+            "tags": []
         }
     },
     "systemMetadata": {
@@ -4882,7 +4882,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444939021
+            "lastUpdatedTimestamp": 1586808060000
         }
     },
     "systemMetadata": {
@@ -5116,6 +5116,23 @@
                     "urn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
         }
     },
     "systemMetadata": {
@@ -5566,7 +5583,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444949021
+            "lastUpdatedTimestamp": 1586808070000
         }
     },
     "systemMetadata": {
@@ -7807,23 +7824,6 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:file",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_files.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -7927,6 +7927,160 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808010000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808020000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808030000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808040000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808050000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808060000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808070000
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,

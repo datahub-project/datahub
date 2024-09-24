@@ -23,6 +23,8 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
+import org.opensearch.index.reindex.UpdateByQueryRequest;
+import org.opensearch.script.Script;
 
 @Slf4j
 @Builder(builderMethodName = "hiddenBuilder")
@@ -30,6 +32,7 @@ public class ESBulkProcessor implements Closeable {
   private static final String ES_WRITES_METRIC = "num_elasticSearch_writes";
   private static final String ES_BATCHES_METRIC = "num_elasticSearch_batches_submitted";
   private static final String ES_DELETE_EXCEPTION_METRIC = "delete_by_query";
+  private static final String ES_UPDATE_EXCEPTION_METRIC = "update_by_query";
   private static final String ES_SUBMIT_DELETE_EXCEPTION_METRIC = "submit_delete_by_query_task";
   private static final String ES_SUBMIT_REINDEX_METRIC = "reindex_submit";
   private static final String ES_REINDEX_SUCCESS_METRIC = "reindex_success";
@@ -95,6 +98,26 @@ public class ESBulkProcessor implements Closeable {
   public Optional<BulkByScrollResponse> deleteByQuery(
       QueryBuilder queryBuilder, boolean refresh, String... indices) {
     return deleteByQuery(queryBuilder, refresh, bulkRequestsLimit, defaultTimeout, indices);
+  }
+
+  public Optional<BulkByScrollResponse> updateByQuery(
+      Script script, QueryBuilder queryBuilder, String... indices) {
+    // Create an UpdateByQueryRequest
+    UpdateByQueryRequest updateByQuery = new UpdateByQueryRequest(indices);
+    updateByQuery.setQuery(queryBuilder);
+    updateByQuery.setScript(script);
+
+    try {
+      final BulkByScrollResponse updateResponse =
+          searchClient.updateByQuery(updateByQuery, RequestOptions.DEFAULT);
+      MetricUtils.counter(this.getClass(), ES_WRITES_METRIC).inc(updateResponse.getTotal());
+      return Optional.of(updateResponse);
+    } catch (Exception e) {
+      log.error("ERROR: Failed to update by query. See stacktrace for a more detailed error:", e);
+      MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_UPDATE_EXCEPTION_METRIC, e);
+    }
+
+    return Optional.empty();
   }
 
   public Optional<BulkByScrollResponse> deleteByQuery(
