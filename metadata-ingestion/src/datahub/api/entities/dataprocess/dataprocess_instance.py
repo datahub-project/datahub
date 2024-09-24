@@ -190,14 +190,16 @@ class DataProcessInstance:
                 timestampMillis=end_timestamp_millis,
                 result=DataProcessInstanceRunResultClass(
                     type=result,
-                    nativeResultType=result_type
-                    if result_type is not None
-                    else self.orchestrator,
+                    nativeResultType=(
+                        result_type if result_type is not None else self.orchestrator
+                    ),
                 ),
                 attempt=attempt,
-                durationMillis=(end_timestamp_millis - start_timestamp_millis)
-                if start_timestamp_millis
-                else None,
+                durationMillis=(
+                    (end_timestamp_millis - start_timestamp_millis)
+                    if start_timestamp_millis
+                    else None
+                ),
             ),
         )
         yield mcp
@@ -258,9 +260,11 @@ class DataProcessInstance:
             aspect=DataProcessInstanceRelationships(
                 upstreamInstances=[str(urn) for urn in self.upstream_urns],
                 parentTemplate=str(self.template_urn) if self.template_urn else None,
-                parentInstance=str(self.parent_instance)
-                if self.parent_instance is not None
-                else None,
+                parentInstance=(
+                    str(self.parent_instance)
+                    if self.parent_instance is not None
+                    else None
+                ),
             ),
         )
         yield mcp

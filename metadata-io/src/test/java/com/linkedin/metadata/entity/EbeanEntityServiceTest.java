@@ -1,14 +1,19 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.Constants;
@@ -36,6 +41,8 @@ import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
 import java.net.URISyntaxException;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -290,6 +297,139 @@ public class EbeanEntityServiceTest
       throw e;
     }
     System.out.println("done");
+  }
+
+  @Test
+  public void testSystemMetadataDuplicateKey() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:duplicateKeyTest");
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+    ChangeItemImpl item =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(new Status().setRemoved(true))
+            .systemMetadata(systemMetadata)
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyAspectRetriever(null));
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(List.of(item))
+            .build(),
+        false,
+        true);
+
+    // List aspects urns
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, CORP_USER_ENTITY_NAME, entityUrn, STATUS_ASPECT_NAME);
+
+    assertNotNull(envelopedAspect);
+    assertEquals(envelopedAspect.getVersion(), 0L, "Expected version 0");
+    assertEquals(
+        envelopedAspect.getSystemMetadata().getVersion(),
+        "1",
+        "Expected version 0 with systemMeta version 1");
+
+    // Corrupt the version 0 systemMeta
+    try (Transaction transaction =
+        ((EbeanAspectDao) _entityServiceImpl.aspectDao)
+            .getServer()
+            .beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
+      TransactionContext transactionContext = TransactionContext.empty(transaction, 3);
+      _entityServiceImpl.aspectDao.saveAspect(
+          transactionContext,
+          entityUrn.toString(),
+          STATUS_ASPECT_NAME,
+          new Status().setRemoved(false).toString(),
+          entityUrn.toString(),
+          null,
+          Timestamp.from(Instant.now()),
+          systemMetadata.toString(),
+          1,
+          true);
+      transaction.commit();
+    }
+
+    // Run another update
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(entityUrn)
+                        .aspectName(STATUS_ASPECT_NAME)
+                        .recordTemplate(new Status().setRemoved(false))
+                        .systemMetadata(systemMetadata)
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(TestOperationContexts.emptyAspectRetriever(null))))
+            .build(),
+        false,
+        true);
+    EnvelopedAspect envelopedAspect2 =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, CORP_USER_ENTITY_NAME, entityUrn, STATUS_ASPECT_NAME);
+
+    assertNotNull(envelopedAspect2);
+    assertEquals(envelopedAspect2.getVersion(), 0L, "Expected version 0");
+    assertEquals(
+        envelopedAspect2.getSystemMetadata().getVersion(),
+        "3",
+        "Expected version 0 with systemMeta version 3 accounting for the the collision");
+  }
+
+  @Test
+  public void testBatchDuplicate() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:batchDuplicateTest");
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+    ChangeItemImpl item1 =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(new Status().setRemoved(true))
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyAspectRetriever(null));
+    ChangeItemImpl item2 =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(new Status().setRemoved(false))
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyAspectRetriever(null));
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(List.of(item1, item2))
+            .build(),
+        false,
+        true);
+
+    // List aspects urns
+    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 2);
+
+    assertEquals(batch.getStart().intValue(), 0);
+    assertEquals(batch.getCount().intValue(), 1);
+    assertEquals(batch.getTotal().intValue(), 1);
+    assertEquals(batch.getEntities().size(), 1);
+    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, CORP_USER_ENTITY_NAME, entityUrn, STATUS_ASPECT_NAME);
+    assertEquals(
+        envelopedAspect.getSystemMetadata().getVersion(),
+        "2",
+        "Expected version 2 accounting for duplicates");
+    assertEquals(
+        envelopedAspect.getValue().toString(),
+        "{removed=false}",
+        "Expected 2nd item to be the latest");
   }
 
   @Test

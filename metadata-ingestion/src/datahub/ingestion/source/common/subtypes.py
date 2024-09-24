@@ -72,6 +72,7 @@ class BIAssetSubTypes(StrEnum):
 
     # Mode
     MODE_REPORT = "Report"
+    MODE_DATASET = "Dataset"
     MODE_QUERY = "Query"
     MODE_CHART = "Chart"
 
