@@ -557,6 +557,16 @@ enum FilterOperator {
   LESS_THAN_OR_EQUAL_TO
 
   """
+  Represent the relation: String field starts with value, e.g. name starts with PageView
+  """
+  START_WITH
+
+  """
+  Represent the relation: String field ends with value, e.g. name ends with Event
+  """
+  END_WITH
+
+  """
   Represent the relation: URN field any nested children in addition to the given URN
   """
   DESCENDANTS_INCL

@@ -58,7 +58,7 @@ public class ListMyViewsResolverTest {
                                             new CriterionArray(
                                                 ImmutableList.of(
                                                     new Criterion()
-                                                        .setField("createdBy.keyword")
+                                                        .setField("createdBy")
                                                         .setValue(TEST_USER.toString())
                                                         .setValues(
                                                             new StringArray(
@@ -67,7 +67,7 @@ public class ListMyViewsResolverTest {
                                                         .setCondition(Condition.EQUAL)
                                                         .setNegated(false),
                                                     new Criterion()
-                                                        .setField("type.keyword")
+                                                        .setField("type")
                                                         .setValue(DataHubViewType.GLOBAL.toString())
                                                         .setValues(
                                                             new StringArray(
@@ -124,7 +124,7 @@ public class ListMyViewsResolverTest {
                                             new CriterionArray(
                                                 ImmutableList.of(
                                                     new Criterion()
-                                                        .setField("createdBy.keyword")
+                                                        .setField("createdBy")
                                                         .setValue(TEST_USER.toString())
                                                         .setValues(
                                                             new StringArray(
