@@ -775,7 +775,7 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
     def form_qualified_table_name(
         self,
         value_dict: Dict[Any, Any],
-        catalog_name: str,
+        catalog_name: Optional[str],
         data_platform_pair: DataPlatformPair,
         server: str,
     ) -> str:
@@ -786,7 +786,7 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
 
         schema_name: str = value_dict["Schema"]
 
-        table_name: str = value_dict["Table"]
+        table_name: str = value_dict.get("Table") or value_dict["View"]
 
         platform_detail: PlatformDetail = (
             self.platform_instance_resolver.get_platform_instance(
@@ -823,7 +823,7 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         while temp_accessor:
             if isinstance(temp_accessor, IdentifierAccessor):
                 # Condition to handle databricks M-query pattern where table, schema and database all are present in
-                # same invoke statement
+                # the same invoke statement
                 if all(
                     element in temp_accessor.items
                     for element in ["Item", "Schema", "Catalog"]
@@ -846,41 +846,54 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
                 return Lineage.empty()
 
         arguments = self.get_tokens(data_access_func_detail.arg_list)
-        if len(arguments) < 4:
-            logger.info(
-                f"Databricks workspace and catalog information in arguments({arguments}). "
-                f"Skipping upstream table"
+
+        if (
+            (len(arguments) >= 4)  # [0] is warehouse FQDN.
+            # [1] is endpoint, we are not using it.
+            # [2] is "Catalog" key
+            # [3] is catalog's value
+            # [4] is "Database" key
+            # [5] is database's value. The database's value is also present in value_dict
+            or (
+                len(arguments) == 2 and "Database" in value_dict
+            )  # Warehouse (at 0th) and endpoint (at 1st) are available.
+            # Database detail is available in value_dict
+        ):
+            workspace_fqdn: str = arguments[0]
+
+            catalog_name: Optional[str] = arguments[3] if len(arguments) >= 4 else None
+
+            qualified_table_name: str = self.form_qualified_table_name(
+                value_dict=value_dict,
+                catalog_name=catalog_name,
+                data_platform_pair=self.get_platform_pair(),
+                server=workspace_fqdn,
             )
-            return Lineage.empty()
 
-        workspace_fqdn: str = arguments[0]
+            urn = urn_creator(
+                config=self.config,
+                platform_instance_resolver=self.platform_instance_resolver,
+                data_platform_pair=self.get_platform_pair(),
+                server=workspace_fqdn,
+                qualified_table_name=qualified_table_name,
+            )
 
-        catalog_name: str = arguments[3]
+            return Lineage(
+                upstreams=[
+                    DataPlatformTable(
+                        data_platform_pair=self.get_platform_pair(),
+                        urn=urn,
+                    )
+                ],
+                column_lineage=[],
+            )
 
-        qualified_table_name: str = self.form_qualified_table_name(
-            value_dict=value_dict,
-            catalog_name=catalog_name,
-            data_platform_pair=self.get_platform_pair(),
-            server=workspace_fqdn,
+        logger.info(
+            f"Databricks access function should have >=4 arguments. Current arguments are ({arguments})."
+            f"Skipping upstream table"
         )
 
-        urn = urn_creator(
-            config=self.config,
-            platform_instance_resolver=self.platform_instance_resolver,
-            data_platform_pair=self.get_platform_pair(),
-            server=workspace_fqdn,
-            qualified_table_name=qualified_table_name,
-        )
-
-        return Lineage(
-            upstreams=[
-                DataPlatformTable(
-                    data_platform_pair=self.get_platform_pair(),
-                    urn=urn,
-                )
-            ],
-            column_lineage=[],
-        )
+        return Lineage.empty()
 
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.DATABRICK_SQL.value
