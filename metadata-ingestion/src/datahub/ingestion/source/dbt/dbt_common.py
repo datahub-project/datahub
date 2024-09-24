@@ -415,15 +415,7 @@ class DBTCommonConfig(
             if v["operation"] == "add_owner":
                 owner_category = v["config"].get("owner_category")
                 if owner_category:
-                    allowed_categories = [
-                        value
-                        for name, value in vars(OwnershipTypeClass).items()
-                        if not name.startswith("_")
-                    ]
-                    if (owner_category.upper()) not in allowed_categories:
-                        raise ValueError(
-                            f"Owner category {owner_category} is not one of {allowed_categories}"
-                        )
+                    mce_builder.validate_ownership_type(owner_category)
         return meta_mapping
 
     @validator("include_column_lineage")
