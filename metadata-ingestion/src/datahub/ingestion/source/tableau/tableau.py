@@ -2868,7 +2868,7 @@ class TableauSiteSource:
             self.config.access_role_ingestion
             and self.config.access_role_ingestion.enable_workbooks
         ):
-            logger.info(f"Ingest access roles of '{workbook.get(c.LUID)}'")
+            logger.debug(f"Ingest access roles of workbook-id='{workbook.get(c.LUID)}'")
             workbook_instance = self.server.workbooks.get_by_id(workbook.get(c.LUID))
             self.server.workbooks.populate_permissions(workbook_instance)
             container_urn = workbook_container_key.as_urn()
