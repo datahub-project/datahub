@@ -1,5 +1,5 @@
 import { colors, Icon, typography } from '@src/alchemy-components';
-import { Collapse, Drawer, Input, Spin, Typography } from 'antd';
+import { Collapse, Divider, Drawer, Input, Modal, Spin, Typography } from 'antd';
 import styled from 'styled-components';
 
 export const PageContainer = styled.div`
@@ -215,4 +215,98 @@ export const SubTextContainer = styled.div`
     p {
         margin: 0;
     }
+`;
+
+export const ValueListContainer = styled.div`
+    margin-bottom: 24px;
+
+    svg {
+        :hover {
+            cursor: pointer;
+        }
+    }
+`;
+
+export const StyledModal = styled(Modal)`
+    font-family: Mulish;
+
+    &&& .ant-modal-content {
+        box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
+        border-radius: 12px;
+        width: 452px;
+    }
+
+    .ant-modal-header {
+        border-top-left-radius: 12px !important;
+        border-top-right-radius: 12px !important;
+        padding: 20px 20px 8px 20px;
+    }
+
+    .ant-modal-body {
+        padding: 0;
+    }
+`;
+
+export const FieldGroupContainer = styled.div`
+    display: grid;
+    margin-bottom: 8px;
+`;
+
+export const DeleteIconContainer = styled.div`
+    display: flex;
+    margin-top: -16px;
+    justify-self: end;
+
+    :hover {
+        cursor: pointer;
+    }
+`;
+
+export const ValuesContainer = styled.div`
+    max-height: 400px;
+    overflow: auto;
+    padding: 20px;
+`;
+
+export const ValuesList = styled.div`
+    font-size: 14px;
+    color: ${colors.gray[500]};
+    display: flex;
+    flex: 1;
+    align-items: center;
+    flex-wrap: wrap;
+
+    p {
+        line-height: 24px;
+    }
+`;
+
+export const ItemsContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: fit-content;
+    margin: 0 24px 24px 0;
+`;
+
+export const AddButtonContainer = styled.div`
+    display: flex;
+    margin: 20px;
+    justify-self: end;
+`;
+
+export const FormContainer = styled.div`
+    display: grid;
+`;
+
+export const ModalFooter = styled.div`
+    display: flex;
+    gap: 16px;
+    justify-content: end;
+`;
+
+export const VerticalDivider = styled(Divider)`
+    color: ${colors.gray[1400]};
+    height: 20px;
+    width: 2px;
 `;

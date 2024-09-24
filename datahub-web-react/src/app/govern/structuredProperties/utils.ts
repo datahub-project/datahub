@@ -1,5 +1,5 @@
 import EntityRegistry from '@src/app/entityV2/EntityRegistry';
-import { EntityType, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
+import { AllowedValue, EntityType, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
 export type StructuredProp = {
     displayName?: string;
@@ -12,6 +12,7 @@ export type StructuredProp = {
         allowedTypes?: string[];
     };
     immutable?: boolean;
+    allowedValues?: AllowedValue[];
 };
 
 export const valueTypes = [
@@ -128,7 +129,30 @@ export const getNewEntityTypes = (entity: StructuredPropertyEntity, values: Stru
     return values.entityTypes?.filter((type) => !currentTypeUrns.includes(type));
 };
 
+export const getNewAllowedValues = (entity: StructuredPropertyEntity, values: StructuredProp) => {
+    const currentAllowedValues = entity.definition.allowedValues?.map(
+        (val: any) => val.value.numberValue || val.value.stringValue,
+    );
+    return values.allowedValues?.filter(
+        (val: any) =>
+            !(currentAllowedValues?.includes(val.stringValue) || currentAllowedValues?.includes(val.numberValue)),
+    );
+};
+
 export const isEntityTypeSelected = (selectedType: string) => {
     if (selectedType === 'urn:li:dataType:datahub.urn') return true;
     return false;
+};
+
+export const isStringOrNumberTypeSelected = (selectedType: string) => {
+    if (selectedType === 'urn:li:dataType:datahub.string' || selectedType === 'urn:li:dataType:datahub.number')
+        return true;
+    return false;
+};
+
+export type PropValueField = 'stringValue' | 'numberValue';
+
+export const getStringOrNumberValueField = (selectedType: string) => {
+    if (selectedType === 'urn:li:dataType:datahub.number') return 'numberValue' as PropValueField;
+    return 'stringValue' as PropValueField;
 };

@@ -127,6 +127,10 @@ export const StyledModal = styled(Modal)`
         width: 452px;
     }
 
+    .ant-modal-header {
+        border-radius: 12px !important;
+    }
+
     .ant-modal-body {
         padding: 0 20px;
     }

@@ -1,15 +1,28 @@
 import { Icon, Input, SimpleSelect, Text, TextArea } from '@src/alchemy-components';
-import { PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+import { AllowedValue, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { Form, FormInstance, Tooltip } from 'antd';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import AdvancedOptions from './AdvancedOptions';
-import { FieldLabel, RowContainer, SubTextContainer } from './styledComponents';
+import AllowedValuesModal from './AllowedValuesModal';
+import {
+    FieldLabel,
+    ItemsContainer,
+    RowContainer,
+    StyledIcon,
+    SubTextContainer,
+    ValueListContainer,
+    ValuesList,
+    VerticalDivider,
+} from './styledComponents';
 import useStructuredProp from './useStructuredProp';
 import {
     APPLIES_TO_ENTITIES,
     getDisplayName,
+    getStringOrNumberValueField,
     getValueType,
     isEntityTypeSelected,
+    isStringOrNumberTypeSelected,
+    PropValueField,
     SEARCHABLE_ENTITY_TYPES,
     StructuredProp,
     valueTypes,
@@ -18,12 +31,14 @@ import {
 interface Props {
     selectedProperty?: SearchResult;
     form: FormInstance;
-    formValues?: StructuredProp;
+    formValues: StructuredProp | undefined;
     setFormValues: React.Dispatch<React.SetStateAction<StructuredProp | undefined>>;
     setCardinality: React.Dispatch<React.SetStateAction<PropertyCardinality>>;
     isEditMode: boolean;
     selectedValueType: string;
     setSelectedValueType: React.Dispatch<React.SetStateAction<string>>;
+    allowedValues: AllowedValue[] | undefined;
+    setAllowedValues: React.Dispatch<React.SetStateAction<AllowedValue[] | undefined>>;
 }
 
 const StructuredPropsForm = ({
@@ -35,14 +50,16 @@ const StructuredPropsForm = ({
     setCardinality,
     selectedValueType,
     setSelectedValueType,
+    allowedValues,
+    setAllowedValues,
 }: Props) => {
     const {
         handleSelectChange,
         handleSelectUpdateChange,
         handleTypeUpdate,
         getEntitiesListOptions,
-        getDisabledEntityTypeValues,
-        getDisabledTypeQualifierValues,
+        disabledEntityTypeValues,
+        disabledTypeQualifierValues,
     } = useStructuredProp({
         selectedProperty,
         form,
@@ -51,6 +68,9 @@ const StructuredPropsForm = ({
         setSelectedValueType,
     });
 
+    const [showAllowedValuesModal, setShowAllowedValuesModal] = useState<boolean>(false);
+    const [valueField, setValueField] = useState<PropValueField>('stringValue');
+
     useEffect(() => {
         if (selectedProperty) {
             const entity = selectedProperty.entity as StructuredPropertyEntity;
@@ -58,6 +78,7 @@ const StructuredPropsForm = ({
                 entity.definition.valueType.urn,
                 entity.definition.cardinality || PropertyCardinality.Single,
             );
+
             const values: StructuredProp = {
                 displayName: getDisplayName(entity),
                 description: entity.definition.description,
@@ -77,8 +98,26 @@ const StructuredPropsForm = ({
             setFormValues(undefined);
             form.resetFields();
         }
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedProperty, form]);
+
+    useEffect(() => {
+        const entity = selectedProperty?.entity as StructuredPropertyEntity;
+        const field = getStringOrNumberValueField(selectedValueType);
+        setValueField(field);
+        const allowedList = entity?.definition?.allowedValues?.map((item) => {
+            return {
+                [field]: item.value[field],
+                description: item.description,
+            } as AllowedValue;
+        });
+        setAllowedValues(allowedList);
+    }, [selectedProperty, selectedValueType, setAllowedValues]);
+
+    useEffect(() => {
+        form.setFieldValue('allowedValues', allowedValues);
+    }, [allowedValues, form]);
 
     return (
         <Form form={form}>
@@ -126,6 +165,48 @@ const StructuredPropsForm = ({
                     </Form.Item>
                 </Tooltip>
             </RowContainer>
+            {isStringOrNumberTypeSelected(selectedValueType) && (
+                <RowContainer>
+                    <FieldLabel>
+                        <span>Allowed Value List </span>
+                        {isEditMode && (
+                            <SubTextContainer>
+                                <Text size="sm" weight="medium">
+                                    (Add-only)
+                                </Text>
+                                <Tooltip title="Once a structured property is created, you can only add new allowed values to preserve backwards compatibility">
+                                    <Icon icon="Info" color="violet" size="lg" />
+                                </Tooltip>
+                            </SubTextContainer>
+                        )}
+                    </FieldLabel>
+                    {allowedValues && allowedValues.length > 0 ? (
+                        <ItemsContainer>
+                            <ValuesList>
+                                {allowedValues.map((val, index) => {
+                                    return (
+                                        <>
+                                            <Text>{val[valueField]}</Text>
+                                            {index < allowedValues.length - 1 && <VerticalDivider type="vertical" />}
+                                        </>
+                                    );
+                                })}
+                            </ValuesList>
+                            <StyledIcon
+                                icon="ChevronRight"
+                                color="gray"
+                                onClick={() => setShowAllowedValuesModal(true)}
+                            />
+                        </ItemsContainer>
+                    ) : (
+                        <ValueListContainer>
+                            <Tooltip title="Add new allowed values">
+                                <Icon icon="Add" color="gray" onClick={() => setShowAllowedValuesModal(true)} />
+                            </Tooltip>
+                        </ValueListContainer>
+                    )}
+                </RowContainer>
+            )}
             {isEntityTypeSelected(selectedValueType) && (
                 <RowContainer>
                     <FieldLabel>
@@ -152,7 +233,7 @@ const StructuredPropsForm = ({
                             placeholder="Select Allowed Entity Types"
                             isMultiSelect
                             values={formValues?.typeQualifier?.allowedTypes}
-                            disabledValues={getDisabledTypeQualifierValues()}
+                            disabledValues={disabledTypeQualifierValues}
                         />
                     </Form.Item>
                 </RowContainer>
@@ -191,11 +272,23 @@ const StructuredPropsForm = ({
                         placeholder="Select Entity Types"
                         isMultiSelect
                         values={formValues?.entityTypes ? formValues?.entityTypes : undefined}
-                        disabledValues={getDisabledEntityTypeValues()}
+                        disabledValues={disabledEntityTypeValues}
                     />
                 </Form.Item>
             </RowContainer>
             <AdvancedOptions isEditMode={isEditMode} />
+            <AllowedValuesModal
+                isOpen={showAllowedValuesModal}
+                showAllowedValuesModal={showAllowedValuesModal}
+                setShowAllowedValuesModal={setShowAllowedValuesModal}
+                propType={valueField}
+                allowedValues={allowedValues}
+                setAllowedValues={setAllowedValues}
+                isEditMode={isEditMode}
+                noOfExistingValues={
+                    (selectedProperty?.entity as StructuredPropertyEntity)?.definition?.allowedValues?.length || 0
+                }
+            />
         </Form>
     );
 };

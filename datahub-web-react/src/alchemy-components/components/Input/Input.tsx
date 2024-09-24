@@ -2,9 +2,10 @@ import React from 'react';
 
 import { InputProps } from './types';
 
-import { InputWrapper, InputContainer, InputField, Label, Required, WarningMessage, ErrorMessage } from './components';
+import { ErrorMessage, InputContainer, InputField, InputWrapper, Label, Required, WarningMessage } from './components';
 
 import { Icon } from '../Icon';
+import { getInputType } from './utils';
 
 export const inputDefaults: InputProps = {
     value: '',
@@ -19,6 +20,7 @@ export const inputDefaults: InputProps = {
     isReadOnly: false,
     isPassword: false,
     isRequired: false,
+    type: 'text',
 };
 
 export const Input = ({
@@ -35,6 +37,7 @@ export const Input = ({
     isReadOnly = inputDefaults.isReadOnly,
     isPassword = inputDefaults.isPassword,
     isRequired = inputDefaults.isRequired,
+    type = inputDefaults.type,
     id,
     ...props
 }: InputProps) => {
@@ -66,7 +69,7 @@ export const Input = ({
                 <InputField
                     value={value}
                     onChange={(e) => setValue?.(e.target.value)}
-                    type={isPassword && !showPassword ? 'password' : 'text'}
+                    type={getInputType(type, isPassword, showPassword)}
                     placeholder={placeholder}
                     readOnly={isReadOnly}
                     disabled={isDisabled}

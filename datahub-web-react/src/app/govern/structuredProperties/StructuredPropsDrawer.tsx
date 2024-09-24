@@ -7,6 +7,7 @@ import {
     useUpdateStructuredPropertyMutation,
 } from '@src/graphql/structuredProperties.generated';
 import {
+    AllowedValue,
     PropertyCardinality,
     SearchResult,
     StructuredPropertyEntity,
@@ -17,7 +18,7 @@ import React, { useState } from 'react';
 import { updatePropertiesList } from './cacheUtils';
 import StructuredPropsForm from './StructuredPropsForm';
 import { DrawerHeader, FooterContainer, StyledDrawer, StyledIcon, StyledSpin } from './styledComponents';
-import { getNewAllowedTypes, getNewEntityTypes, StructuredProp } from './utils';
+import { getNewAllowedTypes, getNewAllowedValues, getNewEntityTypes, StructuredProp } from './utils';
 
 interface Props {
     isDrawerOpen: boolean;
@@ -47,16 +48,22 @@ const StructuredPropsDrawer = ({
     const [cardinality, setCardinality] = useState<PropertyCardinality>(PropertyCardinality.Single);
     const [formValues, setFormValues] = useState<StructuredProp>();
     const [selectedValueType, setSelectedValueType] = useState<string>('');
+    const [allowedValues, setAllowedValues] = useState<AllowedValue[] | undefined>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
 
     const isEditMode = !!selectedProperty;
 
-    const handleClose = () => {
+    const clearValues = () => {
+        form.resetFields();
         setIsDrawerOpen(false);
         setSelectedProperty(undefined);
-        form.resetFields();
         setFormValues(undefined);
         setSelectedValueType('');
+        setAllowedValues(undefined);
+    };
+
+    const handleClose = () => {
+        clearValues();
     };
 
     const showErrorMessage = () => {
@@ -72,21 +79,32 @@ const StructuredPropsDrawer = ({
 
         if (isEditMode) {
             form.validateFields().then(() => {
-                const values: StructuredProp = form.getFieldsValue();
+                const updateValues = {
+                    ...form.getFieldsValue(),
+                    allowedValues,
+                };
 
                 const editInput: UpdateStructuredPropertyInput = {
                     urn: selectedProperty.entity.urn,
-                    displayName: values.displayName,
-                    description: values.description,
+                    displayName: updateValues.displayName,
+                    description: updateValues.description,
                     typeQualifier: {
                         newAllowedTypes: getNewAllowedTypes(
                             selectedProperty.entity as StructuredPropertyEntity,
-                            values,
+                            updateValues,
                         ),
                     },
-                    newEntityTypes: getNewEntityTypes(selectedProperty.entity as StructuredPropertyEntity, values),
+                    newEntityTypes: getNewEntityTypes(
+                        selectedProperty.entity as StructuredPropertyEntity,
+                        updateValues,
+                    ),
+                    newAllowedValues: getNewAllowedValues(
+                        selectedProperty.entity as StructuredPropertyEntity,
+                        updateValues,
+                    ),
                     setCardinalityAsMultiple: cardinality === PropertyCardinality.Multiple,
                 };
+
                 setIsLoading(true);
                 updateStructuredProperty({
                     variables: {
@@ -102,11 +120,7 @@ const StructuredPropsDrawer = ({
                     })
                     .finally(() => {
                         setIsLoading(false);
-                        form.resetFields();
-                        setIsDrawerOpen(false);
-                        setSelectedProperty(undefined);
-                        setFormValues(undefined);
-                        setSelectedValueType('');
+                        clearValues();
                     });
             });
         } else {
@@ -117,8 +131,10 @@ const StructuredPropsDrawer = ({
             form.validateFields().then(() => {
                 const createInput = {
                     ...form.getFieldsValue(),
+                    allowedValues,
                     cardinality,
                 };
+
                 setIsLoading(true);
                 createStructuredProperty({
                     variables: {
@@ -134,11 +150,7 @@ const StructuredPropsDrawer = ({
                     })
                     .finally(() => {
                         setIsLoading(false);
-                        form.resetFields();
-                        setIsDrawerOpen(false);
-                        setSelectedProperty(undefined);
-                        setFormValues(undefined);
-                        setSelectedValueType('');
+                        clearValues();
                     });
             });
         }
@@ -175,6 +187,8 @@ const StructuredPropsDrawer = ({
                     isEditMode={isEditMode}
                     selectedValueType={selectedValueType}
                     setSelectedValueType={setSelectedValueType}
+                    allowedValues={allowedValues}
+                    setAllowedValues={setAllowedValues}
                 />
             </StyledSpin>
         </StyledDrawer>
