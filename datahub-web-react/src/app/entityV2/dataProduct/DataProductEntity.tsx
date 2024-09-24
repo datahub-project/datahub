@@ -31,7 +31,7 @@ import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEnt
 import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
-const headerDropdownItems = new Set([EntityMenuItems.SUBSCRIBE, EntityMenuItems.SHARE]);
+const headerDropdownItems = new Set([EntityMenuItems.SUBSCRIBE, EntityMenuItems.SHARE, EntityMenuItems.DELETE]);
 
 /**
  * Definition of the DataHub Data Product entity.
