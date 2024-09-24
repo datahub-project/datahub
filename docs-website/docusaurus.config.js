@@ -12,7 +12,9 @@ module.exports = {
   organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
   staticDirectories: ["static", "genStatic"],
-  stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap"],
+  stylesheets: [
+    "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap",
+  ],
   scripts: [
     {
       src: "https://tools.luckyorange.com/core/lo.js?site-id=28ea8a38",
@@ -23,12 +25,14 @@ module.exports = {
       src: "/scripts/rb2b.js",
       async: true,
       defer: true,
-    }
+    },
   ],
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
-    markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY || "0U6baUoEdHVV4fyPpr5pxcX3dFlAMEu9",
+    markpromptProjectKey:
+      process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY ||
+      "0U6baUoEdHVV4fyPpr5pxcX3dFlAMEu9",
   },
 
   // See https://github.com/facebook/docusaurus/issues/4765
@@ -66,8 +70,12 @@ module.exports = {
       title: null,
       logo: {
         alt: "DataHub Logo",
-        src: `img/${isSaas ? "acryl" : "datahub"}-logo-color-light-horizontal.svg`,
-        srcDark: `img/${isSaas ? "acryl" : "datahub"}-logo-color-dark-horizontal.svg`,
+        src: `img/${
+          isSaas ? "acryl" : "datahub"
+        }-logo-color-light-horizontal.svg`,
+        srcDark: `img/${
+          isSaas ? "acryl" : "datahub"
+        }-logo-color-dark-horizontal.svg`,
       },
       items: [
         {
@@ -160,48 +168,49 @@ module.exports = {
           type: "docsVersionDropdown",
           position: "left",
           dropdownActiveClassDisabled: true,
-            dropdownItemsAfter: [
-                {
-                type: 'html',
-                value: '<hr class="dropdown-separator" style="margin: 0.4rem;">',
-                },
-                {
-                type: 'html',
-                value: '<div class="dropdown__link"><b>Archived versions</b></div>',
-                },
-                {
-                value: `
+          dropdownItemsAfter: [
+            {
+              type: "html",
+              value: '<hr class="dropdown-separator" style="margin: 0.4rem;">',
+            },
+            {
+              type: "html",
+              value:
+                '<div class="dropdown__link"><b>Archived versions</b></div>',
+            },
+            {
+              value: `
                    <a class="dropdown__link" href="https://docs-website-lzxh86531-acryldata.vercel.app/docs/features">0.13.0
                    <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
                    </a>
                    `,
-                type: "html",
-                },
-                {
-                value: `
+              type: "html",
+            },
+            {
+              value: `
                    <a class="dropdown__link" href="https://docs-website-2uuxmgza2-acryldata.vercel.app/docs/features">0.12.1
                    <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
                    </a>
                    `,
-                type: "html",
-                },
-                {
-                value: `
+              type: "html",
+            },
+            {
+              value: `
                    <a class="dropdown__link" href="https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features">0.11.0
                    <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
                    </a>
                    `,
-                type: "html",
-                },
-                {
-                value: `
+              type: "html",
+            },
+            {
+              value: `
                    <a class="dropdown__link" href="https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features">0.10.5
                    <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
                    </a>
                    `,
-                type: "html",
-                },
-            ],
+              type: "html",
+            },
+          ],
         },
       ],
     },
@@ -294,13 +303,13 @@ module.exports = {
       "@docusaurus/preset-classic",
       {
         docs: {
-            lastVersion: "current",
-              versions: {
-                current: {
-                  label: "Next",
-                  banner: 'none',
-                },
-              },
+          lastVersion: "current",
+          versions: {
+            current: {
+              label: "Next",
+              banner: "none",
+            },
+          },
           path: "genDocs",
           sidebarPath: require.resolve("./sidebars.js"),
           ...(!isSaas && {
@@ -314,7 +323,8 @@ module.exports = {
         blog: {
           blogTitle: "DataHub Learn",
           blogSidebarTitle: "DataHub Learn",
-          blogDescription: "Learn about the hot topics in the data ecosystem and how DataHub can help you with your data journey.",
+          blogDescription:
+            "Learn about the hot topics in the data ecosystem and how DataHub can help you with your data journey.",
           path: "src/learn",
           routeBasePath: "learn",
           postsPerPage: "ALL",
@@ -322,7 +332,9 @@ module.exports = {
         },
         theme: {
           customCss: [
-            isSaas ? require.resolve("./src/styles/acryl.scss") : require.resolve("./src/styles/datahub.scss"),
+            isSaas
+              ? require.resolve("./src/styles/acryl.scss")
+              : require.resolve("./src/styles/datahub.scss"),
             require.resolve("./src/styles/global.scss"),
             require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
@@ -333,36 +345,54 @@ module.exports = {
           mdxPageComponent: "@theme/MDXPage",
         },
         googleTagManager: {
-          containerId: 'GTM-WK28RLTG',
+          containerId: "GTM-WK28RLTG",
         },
       },
     ],
   ],
   plugins: [
     [
-      '@docusaurus/plugin-client-redirects',
+      "@docusaurus/plugin-client-redirects",
       {
         createRedirects(existingPath) {
-          if (existingPath.includes('/docs')) {
+          if (existingPath.includes("/docs")) {
             return [
-              existingPath.replace('/docs', '/docs/next'),
-              existingPath.replace('/docs', '/docs/0.13.0'),
-              existingPath.replace('/docs', '/docs/0.12.1'),
-              existingPath.replace('/docs', '/docs/0.11.0'),
-              existingPath.replace('/docs', '/docs/0.10.5'),
+              existingPath.replace("/docs", "/docs/next"),
+              existingPath.replace("/docs", "/docs/0.13.0"),
+              existingPath.replace("/docs", "/docs/0.12.1"),
+              existingPath.replace("/docs", "/docs/0.11.0"),
+              existingPath.replace("/docs", "/docs/0.10.5"),
             ];
           }
           return undefined; // Return a falsy value: no redirect created
         },
       },
     ],
-    ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
+    [
+      "@docusaurus/plugin-ideal-image",
+      { quality: 100, sizes: [320, 640, 1280, 1440, 1600] },
+    ],
     "docusaurus-plugin-sass",
     [
       "docusaurus-graphql-plugin",
       {
         schema: "./graphql/combined.graphql",
         routeBasePath: "/docs/graphql",
+      },
+    ],
+    [
+      "@docusaurus/plugin-content-blog",
+      {
+        id: "webinars",
+        blogTitle: "Webinars",
+        blogDescription:
+          "Our live or on-demand webinars can help you gain insights - from understanding Acryl Data to discovering how businesses leverage it to take back control of their data.",
+        blogSidebarCount: 0,
+        path: "src/webinars",
+        routeBasePath: "webinars",
+        postsPerPage: "ALL",
+        blogListComponent: "../src/webinars/_components/WebinarListPage",
+        blogPostComponent: "../src/webinars/_components/WebinarPostPage",
       },
     ],
     // [

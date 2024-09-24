@@ -1,0 +1,88 @@
+.hubspotForm {
+  :global {
+    .hs-form {
+      position: relative;
+
+      fieldset {
+        max-width: 100%;
+      }
+      .cookie-reset-container {
+        position: absolute;
+        right: 0.5rem;
+      }
+      .hs-form-field {
+        margin: 0.5rem 0;
+
+        .hs-field-desc {
+          font-size: 10px;
+        }
+
+        > label {
+          display: block;
+          font-weight: medium;
+          font-size: 1rem;
+          margin-bottom: 0.5rem;
+          .hs-form-required {
+            color: var(--ifm-color-danger);
+            padding-left: 0.5rem;
+          }
+        }
+        input[type="text"],
+        input[type="password"],
+        input[type="datetime"],
+        input[type="datetime-local"],
+        input[type="date"],
+        input[type="month"],
+        input[type="time"],
+        input[type="week"],
+        input[type="number"],
+        input[type="email"],
+        input[type="url"],
+        input[type="search"],
+        input[type="tel"],
+        input[type="color"],
+        input[type="file"],
+        textarea,
+        select {
+          border-radius: 1000em;
+          border-style: solid;
+          border-color: transparent;
+          font: var(--ifm-font-size-base) var(--ifm-font-family-base);
+          padding: 0.8rem 1.6rem;
+          width: 100%;
+          background: var(--ifm-background-surface-color);
+          border: 1px solid var(--ifm-color-emphasis-200);
+          color: var(--docsearch-text-color);
+          margin-bottom: 0.5rem;
+          transition: border var(--ifm-transition-fast) ease;
+
+          &:focus {
+            background: var(--ifm-background-color);
+          }
+        }
+
+        textarea {
+          height: auto;
+          min-height: 4rem;
+        }
+      }
+
+      .hs-error-msgs {
+        font-size: 0.875rem;
+        color: var(--ifm-color-danger);
+      }
+
+      .hs-button {
+        cursor: pointer;
+        padding: 0.8rem 1.6rem;
+        font: var(--ifm-font-size-base) var(--ifm-font-family-base);
+        border-radius: var(--ifm-button-border-radius);
+        border: none;
+        background-color: var(--ifm-color-primary);
+        border-color: var(--ifm-color-primary);
+        font-weight: bold;
+        color: #ffffff;
+      }
+    }
+  }
+}
