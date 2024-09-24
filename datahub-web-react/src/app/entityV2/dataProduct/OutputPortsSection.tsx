@@ -82,7 +82,7 @@ export const OutputPortsSection = () => {
         }
     }, [additionalData, additionalResults, hasFetchedNewData]);
 
-    if (!data) return null;
+    if (!data || !finalResults?.length) return null;
 
     return (
         <OutputPortsWrapper>

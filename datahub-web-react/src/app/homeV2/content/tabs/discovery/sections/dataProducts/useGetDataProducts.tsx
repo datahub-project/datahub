@@ -31,7 +31,8 @@ export const useGetDataProducts = (): {
 
     const dataProducts = results
         .map((item): { dataProduct: DataProduct; domain: Domain } => {
-            const { domain, ...dataProduct } = item.entity as any;
+            const dataProduct = item.entity as any;
+            const { domain } = dataProduct;
             return {
                 dataProduct,
                 domain: domain ? domain.domain : null,

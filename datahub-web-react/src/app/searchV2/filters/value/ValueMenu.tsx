@@ -111,7 +111,6 @@ export default function ValueMenu({
                     className={className}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
-                    includeSubTypes={false}
                 />
             );
         case FieldType.ENUM:

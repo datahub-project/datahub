@@ -59,6 +59,10 @@ export const DataProductsSection = () => {
     const dataProducts = data?.searchAcrossEntities?.searchResults.map((r) => r.entity) || [];
     const numDataProducts = data?.searchAcrossEntities?.total || 0;
 
+    if (!numDataProducts) {
+        return null;
+    }
+
     return (
         <SectionContainer>
             <SummaryTabHeaderWrapper>
