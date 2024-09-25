@@ -5,7 +5,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type
+from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type, Union
 
 from elasticsearch import Elasticsearch
 from pydantic import validator
@@ -249,6 +249,10 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     password: Optional[str] = Field(
         default=None, description="The password credential."
     )
+    api_key: Optional[Union[Tuple[str,str], str]] = Field(
+        default=None,
+        description="API Key authentication. Accepts either a list with id and api_key (UTF-8 representation), or a base64 encoded string of id and api_key combined by ':'.",
+    )
 
     use_ssl: bool = Field(
         default=False, description="Whether to use SSL for the connection or not."
@@ -346,6 +350,7 @@ class ElasticsearchSource(Source):
         self.client = Elasticsearch(
             self.source_config.host,
             http_auth=self.source_config.http_auth,
+            api_key=self.source_config.api_key,
             use_ssl=self.source_config.use_ssl,
             verify_certs=self.source_config.verify_certs,
             ca_certs=self.source_config.ca_certs,
