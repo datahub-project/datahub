@@ -2,7 +2,7 @@ import queryString from 'query-string';
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import { EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { EditOutlined, ExpandAltOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button, Divider, Typography } from 'antd';
 import styled from 'styled-components';
 import InferenceDetailsPill from '@src/app/sharedV2/inferred/InferenceDetailsPill';
@@ -38,6 +38,9 @@ const StyledTabToolbar = styled(TabToolbar)`
     border-left: 2px solid #5c3fd1;
     padding: 8px 20px;
     margin: 2px 14px 2px 12px;
+
+    position: sticky;
+    top: 0;
 `;
 
 const PrimaryButton = styled(Button)`
@@ -61,6 +64,11 @@ const EmptyTabWrapper = styled.div`
     flex-direction: column;
     justify-content: center;
     height: 100%;
+`;
+
+// width:max-width would let rich text take up unnecessary space
+const TabContainer = styled.div`
+    width: 1400px;
 `;
 
 interface Props {
@@ -101,7 +109,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     ) : (
         <>
             {displayedDescription || links.length ? (
-                <>
+                <TabContainer>
                     <StyledTabToolbar>
                         <div>
                             <Button
@@ -112,6 +120,19 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                 <EditOutlined /> Edit
                             </Button>
                             {!hideLinksButton && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
+                        </div>
+                        <div>
+                            <Button
+                                type="text"
+                                onClick={() =>
+                                    routeToTab({
+                                        tabName: 'Documentation',
+                                        tabParams: { modal: true },
+                                    })
+                                }
+                            >
+                                <ExpandAltOutlined />
+                            </Button>
                         </div>
                     </StyledTabToolbar>
                     <div>
@@ -130,7 +151,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             {!hideLinksButton && <LinkList refetch={refetch} />}
                         </DocumentationContainer>
                     </div>
-                </>
+                </TabContainer>
             ) : (
                 <EmptyTabWrapper>
                     <EmptyTab tab="documentation" hideImage={false}>
