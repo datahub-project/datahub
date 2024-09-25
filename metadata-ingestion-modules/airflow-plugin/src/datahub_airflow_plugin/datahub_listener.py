@@ -689,7 +689,7 @@ class DataHubListener:
             )
 
             # convert allow_deny_pattern string to AllowDenyPattern object
-            dag_allow_deny_pattern_model = AllowDenyPattern.model_validate_json(
+            dag_allow_deny_pattern_model = AllowDenyPattern.parse_raw(
                 self.config.dag_allow_deny_pattern_str
             )
 
