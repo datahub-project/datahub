@@ -12,6 +12,7 @@ import datahub.emitter.mce_builder as builder
 from airflow.models.serialized_dag import SerializedDagModel
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
@@ -687,9 +688,13 @@ class DataHubListener:
                 f"DataHub listener got notification about dag run start for {dag_run.dag_id}"
             )
 
-            self.on_dag_start(dag_run)
-
-            self.emitter.flush()
+            # convert allow_deny_pattern string to AllowDenyPattern object
+            dag_allow_deny_pattern_model = AllowDenyPattern.model_validate_json(
+                self.config.dag_allow_deny_pattern_str
+            )
+            if dag_allow_deny_pattern_model.allowed(dag_run.dag_id):
+                self.on_dag_start(dag_run)
+                self.emitter.flush()
 
     # TODO: Add hooks for on_dag_run_success, on_dag_run_failed -> call AirflowGenerator.complete_dataflow
 

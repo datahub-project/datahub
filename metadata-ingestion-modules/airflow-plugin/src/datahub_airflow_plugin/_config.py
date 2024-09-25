@@ -56,6 +56,8 @@ class DatahubLineageConfig(ConfigModel):
 
     datajob_url_link: DatajobUrl = DatajobUrl.TASKINSTANCE
 
+    dag_allow_deny_pattern_str: str = '{"allow": [".*"]}'
+
     def make_emitter_hook(self) -> "DatahubGenericHook":
         # This is necessary to avoid issues with circular imports.
         from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook
@@ -87,6 +89,9 @@ def get_lineage_config() -> DatahubLineageConfig:
     datajob_url_link = conf.get(
         "datahub", "datajob_url_link", fallback=DatajobUrl.TASKINSTANCE.value
     )
+    dag_allow_deny_pattern_str = conf.get(
+        "datahub", "dag_allow_deny_pattern_str", fallback='{"allow": [".*"]}'
+    )
 
     return DatahubLineageConfig(
         enabled=enabled,
@@ -102,4 +107,5 @@ def get_lineage_config() -> DatahubLineageConfig:
         debug_emitter=debug_emitter,
         disable_openlineage_plugin=disable_openlineage_plugin,
         datajob_url_link=datajob_url_link,
+        dag_allow_deny_pattern_str=dag_allow_deny_pattern_str,
     )
