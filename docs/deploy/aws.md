@@ -154,7 +154,7 @@ datahub-frontend:
         paths:
           - /*
 ```
-Do not use latest or debug tags for any of the image as those are not supported and present only due to legacy reasons. Please use head or tags specific for versions like v0.8.40. For production we recommend using version specific tags not head.
+Do not use the 'latest' or 'debug' tags for any of the images, as those are not supported and are present only due to legacy reasons. Please use 'head' or version-specific tags, like v0.8.40. For production, we recommend using version-specific tags, not 'head'.
 
 You need to request a certificate in the AWS Certificate Manager by following this
 [guide](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html), and replace certificate-arn with
