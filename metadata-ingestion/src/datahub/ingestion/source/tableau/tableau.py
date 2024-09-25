@@ -313,18 +313,18 @@ class TableauConfig(
     # Tableau project pattern
     project_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Filter for specific Tableau projects. For example, use 'My Project' to ingest a root-level Project with name 'My Project', or 'My Project/Nested Project' to ingest a nested Project with name 'Nested Project'. "
+        description="[deprecated] Use project_path_pattern instead. Filter for specific Tableau projects. For example, use 'My Project' to ingest a root-level Project with name 'My Project', or 'My Project/Nested Project' to ingest a nested Project with name 'Nested Project'. "
         "By default, all Projects nested inside a matching Project will be included in ingestion. "
         "You can both allow and deny projects based on their name using their name, or a Regex pattern. "
         "Deny patterns always take precedence over allow patterns. "
         "By default, all projects will be ingested.",
     )
+    _deprecate_projects_pattern = pydantic_field_deprecated("project_pattern")
 
     project_path_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Filters Tableau projects by their full path. For instance, 'My Project/Nested Project' targets a specific nested project named 'Nested Project'."
-        " Unlike project_pattern, this field only checks the project path, not both the path and project name."
-        " This is useful when you need to exclude all nested projects under a particular project."
+        " This is also useful when you need to exclude all nested projects under a particular project."
         " You can allow or deny projects by specifying their path or a regular expression pattern."
         " Deny patterns always override allow patterns."
         " By default, all projects are ingested.",
@@ -464,17 +464,23 @@ class TableauConfig(
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
         projects = values.get("projects")
         project_pattern = values.get("project_pattern")
-        if project_pattern is None and projects:
+        project_path_pattern = values.get("project_path_pattern")
+        if project_pattern is None and project_path_pattern is None and projects:
             logger.warning(
-                "project_pattern is not set but projects is set. projects is deprecated, please use "
-                "project_pattern instead."
+                "projects is deprecated, please use " "project_path_pattern instead."
             )
             logger.info("Initializing project_pattern from projects")
             values["project_pattern"] = AllowDenyPattern(
                 allow=[f"^{prj}$" for prj in projects]
             )
-        elif project_pattern != AllowDenyPattern.allow_all() and projects:
-            raise ValueError("projects is deprecated. Please use project_pattern only.")
+        elif (project_pattern or project_path_pattern) and projects:
+            raise ValueError(
+                "projects is deprecated. Please use project_path_pattern only."
+            )
+        elif project_path_pattern and project_pattern:
+            raise ValueError(
+                "project_pattern is deprecated. Please use project_path_pattern only."
+            )
 
         return values
 
