@@ -34,8 +34,8 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Events", description = "An API for fetching events for a topic.")
 public class ExternalEventsController {
 
-  private static final int MAX_POLL_TIMEOUT_SECONDS = 60; // 1 minute
-  private static final int MAX_LIMIT = 5000; // Max of 5,000 messages per batch
+  static final int MAX_POLL_TIMEOUT_SECONDS = 60; // 1 minute
+  static final int MAX_LIMIT = 5000; // Max of 5,000 messages per batch
 
   @Autowired private ExternalEventsService eventsService;
   @Autowired private AuthorizerChain authorizationChain;
