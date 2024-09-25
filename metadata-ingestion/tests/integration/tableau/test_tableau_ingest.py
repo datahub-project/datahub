@@ -548,9 +548,7 @@ def test_value_error_projects_and_project_pattern(
         assert "projects is deprecated. Please use project_path_pattern only" in str(e)
 
 
-def test_project_pattern_deprecation(
-    pytestconfig, tmp_path, mock_datahub_graph
-):
+def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph):
     # Ingestion should raise ValueError
     output_file_name: str = "tableau_project_pattern_deprecation_mces.json"
     golden_file_name: str = "tableau_project_pattern_deprecation_mces_golden.json"
