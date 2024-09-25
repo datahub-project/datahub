@@ -692,6 +692,8 @@ class DataHubListener:
             dag_allow_deny_pattern_model = AllowDenyPattern.model_validate_json(
                 self.config.dag_allow_deny_pattern_str
             )
+
+            assert dag_run.dag_id
             if dag_allow_deny_pattern_model.allowed(dag_run.dag_id):
                 self.on_dag_start(dag_run)
                 self.emitter.flush()
