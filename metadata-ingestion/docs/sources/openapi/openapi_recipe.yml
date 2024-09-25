@@ -12,6 +12,8 @@ source:
     get_token:
         request_type: get
         url_complement: api/authentication/login?username={username}&password={password}
+    username: your_username
+    password: your_password
 
     # option 3: using basic auth
     username: your_username
