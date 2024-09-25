@@ -262,26 +262,26 @@ div[class^="announcementBar"] {
 
 /* Hero */
 
-// .hero {
-//   padding: 5vh 0;
+.hero {
+  padding: 5vh 0;
 
-//   .hero__subtitle {
-//     font-size: 1.25em;
-//     max-width: 800px;
+  .hero__subtitle {
+    font-size: 1.25em;
+    max-width: 800px;
+    display: inline-block;
 
-//     img {
-//       vertical-align: middle;
-//       margin-top: -0.3em;
-//     }
-//   }
+    img {
+      vertical-align: middle;
+      margin-top: -0.3em;
+    }
+  }
 
-//   .hero__content {
-//     text-align: center;
-//     padding: 2rem 0;
-//     height: 100%;
-//     display: flex;
-//   }
-// }
+  .hero__content {
+    text-align: center;
+    padding: 2rem 0;
+    height: 100%;
+  }
+}
 
 /* Sidebar Menu */
 
