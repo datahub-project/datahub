@@ -1,11 +1,13 @@
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import React from 'react';
 import styled from 'styled-components';
 import { SchemaField, StdDataType } from '../../../../../../../../types.generated';
-import { SectionHeader, StyledDivider } from './components';
-import { mapStructuredPropertyValues } from '../../../../Properties/useStructuredProperties';
-import StructuredPropertyValue from '../../../../Properties/StructuredPropertyValue';
+import AddPropertyButton from '../../../../Properties/AddPropertyButton';
 import { EditColumn } from '../../../../Properties/Edit/EditColumn';
+import StructuredPropertyValue from '../../../../Properties/StructuredPropertyValue';
+import { mapStructuredPropertyValues } from '../../../../Properties/useStructuredProperties';
 import { useGetEntityWithSchema } from '../../useGetEntitySchema';
+import { StyledDivider } from './components';
 
 const PropertyTitle = styled.div`
     font-size: 14px;
@@ -27,6 +29,15 @@ const StyledList = styled.ul`
     padding-left: 24px;
 `;
 
+const Header = styled.div`
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+`;
+
 interface Props {
     expandedField: SchemaField;
 }
@@ -34,14 +45,21 @@ interface Props {
 export default function FieldProperties({ expandedField }: Props) {
     const { schemaFieldEntity } = expandedField;
     const { refetch } = useGetEntityWithSchema(true);
+    const { entityData } = useEntityData();
     const properties =
         schemaFieldEntity?.structuredProperties?.properties?.filter((prop) => prop.structuredProperty.exists) || [];
 
-    if (!schemaFieldEntity || !properties.length) return null;
+    const canEditProperties =
+        entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
+
+    if (!schemaFieldEntity) return null;
 
     return (
         <>
-            <SectionHeader>Properties</SectionHeader>
+            <Header>
+                Properties
+                <AddPropertyButton fieldUrn={schemaFieldEntity?.urn} refetch={refetch} isV1Drawer />
+            </Header>
             <PropertiesWrapper>
                 {properties.map((structuredProp) => {
                     const isRichText =
@@ -71,12 +89,14 @@ export default function FieldProperties({ expandedField }: Props) {
                                     </>
                                 )}
                             </div>
-                            <EditColumn
-                                structuredProperty={structuredProp.structuredProperty}
-                                associatedUrn={schemaFieldEntity.urn}
-                                values={valuesData.map((v) => v.value) || []}
-                                refetch={refetch}
-                            />
+                            {canEditProperties && (
+                                <EditColumn
+                                    structuredProperty={structuredProp.structuredProperty}
+                                    associatedUrn={schemaFieldEntity?.urn}
+                                    values={valuesData.map((v) => v.value) || []}
+                                    refetch={refetch}
+                                />
+                            )}
                         </PropertyWrapper>
                     );
                 })}

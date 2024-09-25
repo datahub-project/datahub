@@ -1,7 +1,7 @@
+import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
 import { Empty, Table } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
 import TabHeader from '../../../../entity/shared/tabs/Properties/TabHeader';
 import { PropertyRow } from '../../../../entity/shared/tabs/Properties/types';
@@ -35,12 +35,14 @@ const EmptyText = styled(Empty)`
 interface Props {
     properties?: {
         fieldPath?: string;
+        fieldUrn?: string;
         refetch?: () => void;
     };
 }
 
 export const PropertiesTab = ({ properties }: Props) => {
     const fieldPath = properties?.fieldPath;
+    const fieldUrn = properties?.fieldUrn;
     const refetch = properties?.refetch;
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
@@ -91,7 +93,7 @@ export const PropertiesTab = ({ properties }: Props) => {
 
     return (
         <>
-            <TabHeader setFilterText={setFilterText} />
+            <TabHeader setFilterText={setFilterText} fieldUrn={fieldUrn} refetch={refetch} />
             <StyledTable
                 pagination={false}
                 // typescript is complaining that default sort order is not a valid column field- overriding this here

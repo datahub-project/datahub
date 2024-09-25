@@ -1,12 +1,12 @@
 import { Button, Modal, message } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
-import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
-import { PropertyValueInput, StructuredPropertyEntity } from '../../../../../../types.generated';
 import { useUpsertStructuredPropertiesMutation } from '../../../../../../graphql/structuredProperties.generated';
+import { PropertyValueInput, StructuredPropertyEntity } from '../../../../../../types.generated';
+import handleGraphQLError from '../../../../../shared/handleGraphQLError';
+import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
 import { useEditStructuredProperty } from '../../../components/styled/StructuredProperty/useEditStructuredProperty';
 import { useEntityContext, useMutationUrn } from '../../../EntityContext';
-import handleGraphQLError from '../../../../../shared/handleGraphQLError';
 
 const Description = styled.div`
     font-size: 14px;
@@ -21,6 +21,7 @@ interface Props {
     values?: (string | number | null)[];
     closeModal: () => void;
     refetch?: () => void;
+    isAddMode?: boolean;
 }
 
 export default function EditStructuredPropertyModal({
@@ -30,6 +31,7 @@ export default function EditStructuredPropertyModal({
     values,
     closeModal,
     refetch,
+    isAddMode,
 }: Props) {
     const { refetch: entityRefetch } = useEntityContext();
     const mutationUrn = useMutationUrn();
@@ -44,7 +46,7 @@ export default function EditStructuredPropertyModal({
     }, [isOpen, initialValues, setSelectedValues]);
 
     function upsertProperties() {
-        message.loading('Updating...');
+        message.loading(isAddMode ? 'Adding...' : 'Updating...');
         upsertStructuredProperties({
             variables: {
                 input: {
@@ -70,7 +72,7 @@ export default function EditStructuredPropertyModal({
                     entityRefetch();
                 }
                 message.destroy();
-                message.success('Successfully updated structured property!');
+                message.success(`Successfully ${isAddMode ? 'added' : 'updated'} structured property!`);
                 closeModal();
             })
             .catch((error) => {
@@ -84,7 +86,7 @@ export default function EditStructuredPropertyModal({
 
     return (
         <Modal
-            title={structuredProperty.definition.displayName}
+            title={structuredProperty?.definition.displayName}
             onCancel={closeModal}
             open={isOpen}
             width={650}
@@ -94,7 +96,7 @@ export default function EditStructuredPropertyModal({
                         Cancel
                     </Button>
                     <Button type="primary" onClick={upsertProperties} disabled={!selectedValues.length}>
-                        Update
+                        {isAddMode ? 'Add' : 'Update'}
                     </Button>
                 </>
             }

@@ -122,6 +122,14 @@ mutation upsertStructuredProperties($input: UpsertStructuredPropertiesInput!) {
     }
 }
 
+mutation removeStructuredProperties($input: RemoveStructuredPropertiesInput!) {
+    removeStructuredProperties(input: $input) {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+}
+
 mutation createStructuredProperty($input: CreateStructuredPropertyInput!) {
     createStructuredProperty(input: $input) {
         ...structuredPropertyFields

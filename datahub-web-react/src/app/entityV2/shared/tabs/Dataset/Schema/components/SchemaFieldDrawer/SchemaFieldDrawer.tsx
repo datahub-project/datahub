@@ -200,6 +200,7 @@ export default function SchemaFieldDrawer({
             icon: UnorderedListOutlined,
             properties: {
                 fieldPath: expandedField?.fieldPath,
+                fieldUrn: expandedField?.schemaFieldEntity?.urn,
                 refetch,
             },
         },

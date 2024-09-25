@@ -1,7 +1,32 @@
-import { Button } from 'antd';
-import React, { useState } from 'react';
+import { colors, Icon } from '@src/alchemy-components';
+import { MenuItem } from '@src/app/govern/structuredProperties/styledComponents';
+import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
+import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
+import { useRemoveStructuredPropertiesMutation } from '@src/graphql/structuredProperties.generated';
 import { StructuredPropertyEntity } from '@src/types.generated';
+import { Dropdown } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+import { useEntityContext, useMutationUrn } from '../../../EntityContext';
 import EditStructuredPropertyModal from './EditStructuredPropertyModal';
+
+export const MoreOptionsContainer = styled.div`
+    display: flex;
+    gap: 12px;
+    justify-content: end;
+
+    div {
+        background-color: ${colors.gray[1500]};
+        border-radius: 20px;
+        width: 24px;
+        height: 24px;
+        padding: 3px;
+        color: ${colors.gray[1700]};
+        :hover {
+            cursor: pointer;
+        }
+    }
+`;
 
 interface Props {
     structuredProperty?: StructuredPropertyEntity;
@@ -12,16 +37,80 @@ interface Props {
 
 export function EditColumn({ structuredProperty, associatedUrn, values, refetch }: Props) {
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+    const { refetch: entityRefetch } = useEntityContext();
+
+    const [removeStructuredProperty] = useRemoveStructuredPropertiesMutation();
+
+    const [showConfirmRemove, setShowConfirmRemove] = useState<boolean>(false);
+    const mutationUrn = useMutationUrn();
 
     if (!structuredProperty || structuredProperty?.definition.immutable) {
         return null;
     }
 
+    const handleRemoveProperty = () => {
+        showToastMessage(ToastType.LOADING, 'Removing structured property', 1);
+        removeStructuredProperty({
+            variables: {
+                input: {
+                    assetUrn: associatedUrn || mutationUrn,
+                    structuredPropertyUrns: [structuredProperty.urn],
+                },
+            },
+        })
+            .then(() => {
+                showToastMessage(ToastType.SUCCESS, 'Structured property removed successfully!', 3);
+                if (refetch) {
+                    refetch();
+                } else {
+                    entityRefetch();
+                }
+            })
+            .catch(() => {
+                showToastMessage(ToastType.ERROR, 'Failed to remove structured property', 3);
+            });
+
+        setShowConfirmRemove(false);
+    };
+
+    const handleRemoveClose = () => {
+        setShowConfirmRemove(false);
+    };
+
+    const items = [
+        {
+            key: '0',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        setIsEditModalVisible(true);
+                    }}
+                >
+                    Edit
+                </MenuItem>
+            ),
+        },
+        {
+            key: '1',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        setShowConfirmRemove(true);
+                    }}
+                >
+                    Remove
+                </MenuItem>
+            ),
+        },
+    ];
+
     return (
         <>
-            <Button type="link" onClick={() => setIsEditModalVisible(true)}>
-                Edit
-            </Button>
+            <MoreOptionsContainer>
+                <Dropdown menu={{ items }} trigger={['click']}>
+                    <Icon icon="MoreVert" size="md" />
+                </Dropdown>
+            </MoreOptionsContainer>
             <EditStructuredPropertyModal
                 isOpen={isEditModalVisible}
                 structuredProperty={structuredProperty}
@@ -29,6 +118,13 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch 
                 values={values}
                 closeModal={() => setIsEditModalVisible(false)}
                 refetch={refetch}
+            />
+            <ConfirmationModal
+                isOpen={showConfirmRemove}
+                handleClose={handleRemoveClose}
+                handleConfirm={() => handleRemoveProperty()}
+                modalTitle="Confirm Remove Structured Property"
+                modalText={`Are you sure you want to remove ${structuredProperty.definition.displayName} from this asset?`}
             />
         </>
     );

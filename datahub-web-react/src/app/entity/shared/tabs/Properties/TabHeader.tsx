@@ -3,6 +3,7 @@ import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../constants';
+import AddPropertyButton from './AddPropertyButton';
 
 const StyledInput = styled(Input)`
     border-radius: 70px;
@@ -12,13 +13,17 @@ const StyledInput = styled(Input)`
 const TableHeader = styled.div`
     padding: 8px 16px;
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    display: flex;
+    justify-content: space-between;
 `;
 
 interface Props {
     setFilterText: (text: string) => void;
+    fieldUrn?: string;
+    refetch?: () => void;
 }
 
-export default function TabHeader({ setFilterText }: Props) {
+export default function TabHeader({ setFilterText, fieldUrn, refetch }: Props) {
     return (
         <TableHeader>
             <StyledInput
@@ -27,6 +32,7 @@ export default function TabHeader({ setFilterText }: Props) {
                 allowClear
                 prefix={<SearchOutlined />}
             />
+            <AddPropertyButton fieldUrn={fieldUrn} refetch={refetch} />
         </TableHeader>
     );
 }
