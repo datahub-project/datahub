@@ -1134,7 +1134,7 @@ class LookerExplore:
                 )
         except DeserializeError as e:
             logger.warning(
-                f"Failed to extract explore {explore_name} from model {model}: {e}"
+                f"Failed to extract explore {explore_name} from model {model}, Error: {e}"
             )
             reporter.report_warning(
                 title=f"Failed to extract explore {explore_name} from model {model}",
