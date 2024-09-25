@@ -465,7 +465,7 @@ def test_dbt_tests_only_assertions(
         )
         > 20
     )
-    number_of_valid_assertions_in_test_results = 23
+    number_of_valid_assertions_in_test_results = 24
     assert (
         mce_helpers.assert_entity_urn_like(
             entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
@@ -542,7 +542,7 @@ def test_dbt_only_test_definitions_and_results(
         )
         > 20
     )
-    number_of_assertions = 24
+    number_of_assertions = 25
     assert (
         mce_helpers.assert_entity_urn_like(
             entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
