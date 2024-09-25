@@ -8,8 +8,6 @@ from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.schema_classes import FabricTypeClass
 
 DEFAULT_ENV = FabricTypeClass.PROD
-
-# Get all the constants from the FabricTypeClass. It's not an enum, so this is a bit hacky but works.
 ALL_ENV_TYPES: Set[str] = set(get_enum_options(FabricTypeClass))
 
 
