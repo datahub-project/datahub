@@ -846,7 +846,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             )
 
         return proposals
-    
+
     def _make_dashboard_urn(self, looker_dashboard_name_part: str) -> str:
         # Note that `looker_dashboard_name_part` will like be `dashboard.1234`.
         platform_instance: Optional[str] = None
