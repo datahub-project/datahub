@@ -1,5 +1,7 @@
 package com.linkedin.entity.client;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -59,7 +61,6 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -1181,18 +1182,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     CriterionArray criteria =
         params.entrySet().stream()
             .filter(e -> Objects.nonNull(e.getValue()))
-            .map(e -> newCriterion(e.getKey(), e.getValue(), Condition.EQUAL))
+            .map(e -> buildCriterion(e.getKey(), Condition.EQUAL, e.getValue()))
             .collect(Collectors.toCollection(CriterionArray::new));
     return new Filter()
         .setOr(
             new ConjunctiveCriterionArray(
                 ImmutableList.of(new ConjunctiveCriterion().setAnd(criteria))));
-  }
-
-  @Nonnull
-  public static Criterion newCriterion(
-      @Nonnull String field, @Nonnull String value, @Nonnull Condition condition) {
-    return new Criterion().setField(field).setValue(value).setCondition(condition);
   }
 
   @Nonnull

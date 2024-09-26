@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.recommendation;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -179,7 +178,7 @@ public class ListRecommendationsResolver
                     criterion ->
                         FacetFilter.builder()
                             .setField(criterion.getField())
-                            .setValues(ImmutableList.of(criterion.getValue()))
+                            .setValues(criterion.getValues())
                             .build())
                 .collect(Collectors.toList()));
       }
