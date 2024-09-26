@@ -9,7 +9,10 @@ from freezegun import freeze_time
 from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
-from datahub.ingestion.source.dbt.dbt_common import DBTEntitiesEnabled, EmitDirective
+from datahub.ingestion.source.dbt.dbt_common_config import (
+    DBTEntitiesEnabled,
+    EmitDirective,
+)
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.ingestion.source.sql.sql_types import (
     ATHENA_SQL_TYPES_MAP,
