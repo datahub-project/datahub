@@ -94,6 +94,7 @@ public class DeleteEntityService {
 
     RelatedEntitiesResult relatedEntities =
         _graphService.findRelatedEntities(
+            opContext,
             null,
             newFilter("urn", urn.toString()),
             null,
@@ -131,6 +132,7 @@ public class DeleteEntityService {
         sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
         relatedEntities =
             _graphService.findRelatedEntities(
+                opContext,
                 null,
                 newFilter("urn", urn.toString()),
                 null,

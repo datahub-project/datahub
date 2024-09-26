@@ -84,7 +84,6 @@ public class LineageSearchService {
   private final ExecutorService cacheRefillExecutor = Executors.newFixedThreadPool(1);
 
   private static final String DEGREE_FILTER = "degree";
-  private static final String DEGREE_FILTER_INPUT = "degree.keyword";
   private static final AggregationMetadata DEGREE_FILTER_GROUP =
       new AggregationMetadata()
           .setName(DEGREE_FILTER)
@@ -174,13 +173,7 @@ public class LineageSearchService {
     if (cachedLineageResult == null
         || finalOpContext.getSearchContext().getSearchFlags().isSkipCache()) {
       lineageResult =
-          _graphService.getLineage(
-              sourceUrn,
-              direction,
-              0,
-              MAX_RELATIONSHIPS,
-              maxHops,
-              opContext.getSearchContext().getLineageFlags());
+          _graphService.getLineage(opContext, sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
       if (cacheEnabled) {
         try {
           cache.put(
@@ -211,12 +204,7 @@ public class LineageSearchService {
                 // we have to refetch
                 EntityLineageResult result =
                     _graphService.getLineage(
-                        sourceUrn,
-                        direction,
-                        0,
-                        MAX_RELATIONSHIPS,
-                        finalMaxHops,
-                        opContext.getSearchContext().getLineageFlags());
+                        opContext, sourceUrn, direction, 0, MAX_RELATIONSHIPS, finalMaxHops);
                 cache.put(cacheKey, result);
                 log.debug("Refilled Cached lineage entry for: {}.", sourceUrn);
               } else {
@@ -252,7 +240,7 @@ public class LineageSearchService {
     try {
       Filter reducedFilters =
           SearchUtils.removeCriteria(
-              inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER_INPUT));
+              inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
 
       if (canDoLightning(lineageRelationships, finalInput, reducedFilters, sortCriteria)) {
         codePath = "lightning";
@@ -657,7 +645,7 @@ public class LineageSearchService {
       if (conjunctiveCriterion.hasAnd()) {
         List<String> degreeFilter =
             conjunctiveCriterion.getAnd().stream()
-                .filter(criterion -> criterion.getField().equals(DEGREE_FILTER_INPUT))
+                .filter(criterion -> criterion.getField().equals(DEGREE_FILTER))
                 .flatMap(c -> c.getValues().stream())
                 .collect(Collectors.toList());
         if (!degreeFilter.isEmpty()) {
@@ -771,13 +759,7 @@ public class LineageSearchService {
     if (cachedLineageResult == null) {
       maxHops = maxHops != null ? maxHops : 1000;
       lineageResult =
-          _graphService.getLineage(
-              sourceUrn,
-              direction,
-              0,
-              MAX_RELATIONSHIPS,
-              maxHops,
-              opContext.getSearchContext().getLineageFlags());
+          _graphService.getLineage(opContext, sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
       if (cacheEnabled) {
         cache.put(
             cacheKey, new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
@@ -801,7 +783,7 @@ public class LineageSearchService {
 
     Filter reducedFilters =
         SearchUtils.removeCriteria(
-            inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER_INPUT));
+            inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
     return getScrollResultInBatches(
         opContext,
         lineageRelationships,

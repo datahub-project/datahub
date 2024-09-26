@@ -18,6 +18,11 @@ extend type Mutation {
     Update an existing structured property
     """
     updateStructuredProperty(input: UpdateStructuredPropertyInput!): StructuredPropertyEntity!
+
+    """
+    Delete an existing structured property
+    """
+    deleteStructuredProperty(input: DeleteStructuredPropertyInput!): Boolean!
 }
 
 """
@@ -33,6 +38,11 @@ type StructuredPropertyEntity implements Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 
     """
     Definition of this structured property including its name
@@ -95,6 +105,16 @@ type StructuredPropertyDefinition {
     Whether or not this structured property is immutable
     """
     immutable: Boolean!
+
+    """
+    Audit stamp for when this structured property was created
+    """
+    created: ResolvedAuditStamp
+
+    """
+    Audit stamp for when this structured property was last modified
+    """
+    lastModified: ResolvedAuditStamp
 }
 
 """
@@ -446,4 +466,14 @@ input UpdateTypeQualifierInput {
     For backwards compatibility, this is append only.
     """
     newAllowedTypes: [String!]
+}
+
+"""
+Input for deleting a form
+"""
+input DeleteStructuredPropertyInput {
+    """
+    The urn of the structured properties that is being deleted
+    """
+    urn: String!
 }
