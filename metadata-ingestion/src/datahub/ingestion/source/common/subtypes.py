@@ -17,7 +17,7 @@ class DatasetSubTypes(StrEnum):
     POWERBI_DATASET_TABLE = "PowerBI Dataset Table"
     QLIK_DATASET = "Qlik Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
-    SHARDED_TABLE = "sharded table"
+    SHARDED_TABLE = "Sharded Table"
     EXTERNAL_TABLE = "External Table"
     SIGMA_DATASET = "Sigma Dataset"
     SAC_MODEL = "Model"

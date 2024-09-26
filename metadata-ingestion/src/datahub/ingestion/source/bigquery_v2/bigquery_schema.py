@@ -257,7 +257,7 @@ class BigQuerySchemaApi:
                     name=d.dataset_id,
                     labels=d.labels,
                     location=(
-                        d._properties["location"]
+                        d._properties.get("location")
                         if hasattr(d, "_properties") and isinstance(d._properties, dict)
                         else None
                     ),
