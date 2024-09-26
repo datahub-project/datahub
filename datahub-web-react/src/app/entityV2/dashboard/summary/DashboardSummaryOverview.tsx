@@ -81,7 +81,7 @@ export default function DashboardSummaryOverview() {
 
     const dataSources = (dataSourcesData?.search?.searchResults?.map((result) => result.entity) || []) as Entity[];
 
-    const owner = dashboard?.ownership?.owners && dashboard?.ownership?.owners[0].owner;
+    const owner = dashboard?.ownership?.owners && dashboard?.ownership?.owners[0]?.owner;
     const displayName = entityRegistry.getDisplayName(EntityType.Dashboard, dashboard);
 
     return (
