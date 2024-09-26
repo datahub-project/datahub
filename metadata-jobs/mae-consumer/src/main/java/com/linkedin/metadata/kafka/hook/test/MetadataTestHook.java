@@ -295,7 +295,7 @@ public class MetadataTestHook implements MetadataChangeLogHook {
             event.getAspect().getValue(), event.getAspect().getContentType(), TestInfo.class);
 
     return testInfo.getSource() != null
-        && testInfo.getSource().getType() != TestSourceType.FORM_PROMPT;
+        && testInfo.getSource().getType().equals(TestSourceType.FORM_PROMPT);
   }
 
   @VisibleForTesting
