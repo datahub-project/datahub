@@ -575,6 +575,44 @@ def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph)
         )
 
 
+def test_project_path_pattern_allow(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_project_path_pattern_allow_mces.json"
+    golden_file_name: str = "tableau_project_path_pattern_allow_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["project_path_pattern"] = {"allow": ["default/DenyProject"]}
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+    )
+
+
+def test_project_path_pattern_deny(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_project_path_pattern_deny_mces.json"
+    golden_file_name: str = "tableau_project_path_pattern_deny_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["project_path_pattern"] = {"deny": ["^default.*"]}
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+    )
+
+
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_ingest_with_platform_instance(
