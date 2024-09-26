@@ -135,7 +135,7 @@ def make_function_name(tree: Tree) -> str:
 
 def get_all_function_name(tree: Tree) -> List[str]:
     """
-    Returns all function name present in input tree
+    Returns all function name present in an input tree
     :param tree: Input lexical tree
     :return: list of function name
     """
