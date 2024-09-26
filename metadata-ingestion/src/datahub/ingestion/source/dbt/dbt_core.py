@@ -29,12 +29,12 @@ from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
-    DBTCommonConfig,
     DBTModelPerformance,
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
 )
+from datahub.ingestion.source.dbt.dbt_common_config import DBTCommonConfig
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
 logger = logging.getLogger(__name__)

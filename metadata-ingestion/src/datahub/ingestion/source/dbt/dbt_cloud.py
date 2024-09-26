@@ -21,12 +21,8 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
-from datahub.ingestion.source.dbt.dbt_common import (
-    DBTColumn,
-    DBTCommonConfig,
-    DBTNode,
-    DBTSourceBase,
-)
+from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTNode, DBTSourceBase
+from datahub.ingestion.source.dbt.dbt_common_config import DBTCommonConfig
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
 logger = logging.getLogger(__name__)
