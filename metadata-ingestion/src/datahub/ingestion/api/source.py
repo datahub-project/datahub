@@ -43,7 +43,7 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.dbt.dbt_common_config import DBTCommonConfig
+from datahub.ingestion.source.dbt.target_platform_config import DBTTargetPlatformMixin
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.utilities.lossy_collections import LossyDict, LossyList
@@ -513,7 +513,7 @@ class Source(Closeable, metaclass=ABCMeta):
         if isinstance(config, PlatformInstanceConfigMixin) and config.platform_instance:
             platform_instance = config.platform_instance
         elif (
-            isinstance(config, DBTCommonConfig)
+            isinstance(config, DBTTargetPlatformMixin)
             and config.target_platform_instance
             and platform != "dbt"
         ):

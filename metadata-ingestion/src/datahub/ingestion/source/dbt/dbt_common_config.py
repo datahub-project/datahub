@@ -16,6 +16,7 @@ from datahub.emitter import mce_builder
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
+from datahub.ingestion.source.dbt.target_platform_config import DBTTargetPlatformMixin
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -125,18 +126,13 @@ class DBTCommonConfig(
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
     IncrementalLineageConfigMixin,
+    DBTTargetPlatformMixin,
 ):
     env: str = Field(
         default=mce_builder.DEFAULT_ENV,
         description="Environment to use in namespace when constructing URNs.",
     )
-    target_platform: str = Field(
-        description="The platform that dbt is loading onto. (e.g. bigquery / redshift / postgres etc.)",
-    )
-    target_platform_instance: Optional[str] = Field(
-        default=None,
-        description="The platform instance for the platform that dbt is operating on. Use this if you have multiple instances of the same platform (e.g. redshift) and need to distinguish between them.",
-    )
+
     use_identifiers: bool = Field(
         default=False,
         description="Use model identifier instead of model name if defined (if not, default to model name).",
