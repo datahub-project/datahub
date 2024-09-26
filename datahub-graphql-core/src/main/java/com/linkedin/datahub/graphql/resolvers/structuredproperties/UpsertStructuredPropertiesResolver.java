@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
 import com.datahub.authentication.Authentication;
@@ -74,7 +75,9 @@ public class UpsertStructuredPropertiesResolver
             final AuditStamp auditStamp =
                 AuditStampUtils.createAuditStamp(authentication.getActor().toUrnStr());
 
-            if (!_entityClient.exists(context.getOperationContext(), assetUrn)) {
+            // schemaField entities often don't exist, create it if upserting on a schema field
+            if (!assetUrn.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
+                && !_entityClient.exists(context.getOperationContext(), assetUrn)) {
               throw new RuntimeException(
                   String.format("Asset with provided urn %s does not exist", assetUrn));
             }
