@@ -65,6 +65,12 @@ module.exports = {
     //     isCloseable: false,
     //   },
     // }),
+    colorMode: {
+      // Only support light mode.
+      defaultMode: 'light',
+      disableSwitch: true,
+      respectPrefersColorScheme: false,
+    },
     navbar: {
       title: null,
       logo: {
@@ -245,7 +251,7 @@ module.exports = {
             },
             {
               label: "Adoption",
-              to: "docs/#adoption",
+              href: "/adoption-stories",
             },
           ],
         },

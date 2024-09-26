@@ -13,7 +13,6 @@ from typing import (
     Set,
     Tuple,
     Union,
-    cast,
 )
 
 from looker_sdk.error import SDKError
@@ -163,28 +162,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         # (model, explore) -> list of charts/looks/dashboards that reference this explore
         # The list values are used purely for debugging purposes.
         self.reachable_explores: Dict[Tuple[str, str], List[str]] = {}
-
-        # Keep stat generators to generate entity stat aspect later
-        stat_generator_config: looker_usage.StatGeneratorConfig = (
-            looker_usage.StatGeneratorConfig(
-                looker_api_wrapper=self.looker_api,
-                looker_user_registry=self.user_registry,
-                interval=self.source_config.extract_usage_history_for_interval,
-                strip_user_ids_from_email=self.source_config.strip_user_ids_from_email,
-                platform_name=self.source_config.platform_name,
-                max_threads=self.source_config.max_threads,
-            )
-        )
-
-        self.dashboard_stat_generator = looker_usage.create_stat_entity_generator(
-            looker_usage.SupportedStatEntity.DASHBOARD,
-            config=stat_generator_config,
-        )
-
-        self.chart_stat_generator = looker_usage.create_stat_entity_generator(
-            looker_usage.SupportedStatEntity.CHART,
-            config=stat_generator_config,
-        )
 
         # To keep track of folders (containers) which have already been ingested
         # Required, as we do not ingest all folders but only those that have dashboards/looks
@@ -380,7 +357,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 )
             )
 
-        # A query uses fields for filtering and those fields are defined in views, find the views those fields use
+        # A query uses fields for filtering, and those fields are defined in views, find the views those fields use
         filters: MutableMapping[str, Any] = (
             query.filters if query.filters is not None else {}
         )
@@ -388,7 +365,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             if field is None:
                 continue
 
-            # we haven't loaded in metadata about the explore yet, so we need to wait until explores are populated later to fetch this
+            # we haven't loaded in metadata about the explore yet, so we need to wait until explores are populated
+            # later to fetch this
             result.append(
                 InputFieldElement(
                     name=field, view_field=None, model=query.model, explore=query.view
@@ -647,9 +625,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
     def _make_chart_urn(self, element_id: str) -> str:
-
         platform_instance: Optional[str] = None
-
         if self.source_config.include_platform_instance_in_urns:
             platform_instance = self.source_config.platform_instance
 
@@ -871,17 +847,20 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         return proposals
 
-    def make_dashboard_urn(self, looker_dashboard: LookerDashboard) -> str:
+    def _make_dashboard_urn(self, looker_dashboard_name_part: str) -> str:
+        # Note that `looker_dashboard_name_part` will like be `dashboard.1234`.
         platform_instance: Optional[str] = None
-
         if self.source_config.include_platform_instance_in_urns:
             platform_instance = self.source_config.platform_instance
 
         return builder.make_dashboard_urn(
-            name=looker_dashboard.get_urn_dashboard_id(),
+            name=looker_dashboard_name_part,
             platform=self.source_config.platform_name,
             platform_instance=platform_instance,
         )
+
+    def make_dashboard_urn(self, looker_dashboard: LookerDashboard) -> str:
+        return self._make_dashboard_urn(looker_dashboard.get_urn_dashboard_id())
 
     def _make_explore_metadata_events(
         self,
@@ -1396,7 +1375,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def extract_usage_stat(
         self, looker_dashboards: List[looker_usage.LookerDashboardForUsage]
     ) -> List[MetadataChangeProposalWrapper]:
-        mcps: List[MetadataChangeProposalWrapper] = []
         looks: List[looker_usage.LookerChartForUsage] = []
         # filter out look from all dashboard
         for dashboard in looker_dashboards:
@@ -1407,16 +1385,33 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         # dedup looks
         looks = list({str(look.id): look for look in looks}.values())
 
-        usage_stat_generators = [
-            self.dashboard_stat_generator(
-                cast(List[looker_usage.ModelForUsage], looker_dashboards), self.reporter
-            ),
-            self.chart_stat_generator(
-                cast(List[looker_usage.ModelForUsage], looks), self.reporter
-            ),
-        ]
+        # Keep stat generators to generate entity stat aspect later
+        stat_generator_config: looker_usage.StatGeneratorConfig = (
+            looker_usage.StatGeneratorConfig(
+                looker_api_wrapper=self.looker_api,
+                looker_user_registry=self.user_registry,
+                interval=self.source_config.extract_usage_history_for_interval,
+                strip_user_ids_from_email=self.source_config.strip_user_ids_from_email,
+                max_threads=self.source_config.max_threads,
+            )
+        )
 
-        for usage_stat_generator in usage_stat_generators:
+        dashboard_usage_generator = looker_usage.create_dashboard_stat_generator(
+            stat_generator_config,
+            self.reporter,
+            self._make_dashboard_urn,
+            looker_dashboards,
+        )
+
+        chart_usage_generator = looker_usage.create_chart_stat_generator(
+            stat_generator_config,
+            self.reporter,
+            self._make_chart_urn,
+            looks,
+        )
+
+        mcps: List[MetadataChangeProposalWrapper] = []
+        for usage_stat_generator in [dashboard_usage_generator, chart_usage_generator]:
             for mcp in usage_stat_generator.generate_usage_stat_mcps():
                 mcps.append(mcp)
 
@@ -1486,12 +1481,26 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
         for look in all_looks:
             if look.id in self.reachable_look_registry:
-                # This look is reachable from Dashboard
+                # This look is reachable from the Dashboard
                 continue
 
             if look.query_id is None:
                 logger.info(f"query_id is None for look {look.title}({look.id})")
                 continue
+
+            if self.source_config.skip_personal_folders:
+                if look.folder is not None and (
+                    look.folder.is_personal or look.folder.is_personal_descendant
+                ):
+                    self.reporter.info(
+                        title="Dropped Look",
+                        message="Dropped due to being a personal folder",
+                        context=f"Look ID: {look.id}",
+                    )
+
+                    assert look.id, "Looker id is null"
+                    self.reporter.report_charts_dropped(look.id)
+                    continue
 
             if look.id is not None:
                 query: Optional[Query] = self.looker_api.get_look(
@@ -1510,11 +1519,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 LookerDashboardElement
             ] = self._get_looker_dashboard_element(
                 DashboardElement(
-                    id=f"looks_{look.id}",  # to avoid conflict with non-standalone looks (element.id prefixes), we add the "looks_" prefix to look.id.
+                    id=f"looks_{look.id}",  # to avoid conflict with non-standalone looks (element.id prefixes),
+                    # we add the "looks_" prefix to look.id.
                     title=look.title,
                     subtitle_text=look.description,
                     look_id=look.id,
-                    dashboard_id=None,  # As this is independent look
+                    dashboard_id=None,  # As this is an independent look
                     look=LookWithQuery(
                         query=query, folder=look.folder, user_id=look.user_id
                     ),
