@@ -64,6 +64,10 @@ def get_upstream_tables(
 
     parameters = parameters or {}
 
+    logger.debug(
+        f"Processing {table.full_name} m-query expression for lineage extraction. Expression = {table.expression}"
+    )
+
     try:
         parse_tree: Tree = _parse_expression(table.expression)
 
@@ -73,7 +77,7 @@ def get_upstream_tables(
         if valid is False:
             assert message is not None
             logger.debug(f"Validation failed: {message}")
-            reporter.report_warning(
+            reporter.info(
                 title="Unsupported M-Query",
                 message="DataAccess function is not present in M-Query expression",
                 context=f"table-full-name={table.full_name}, expression={table.expression}, message={message}",
