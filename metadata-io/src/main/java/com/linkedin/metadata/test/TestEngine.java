@@ -1041,7 +1041,7 @@ public class TestEngine {
     // First retrieve the last execution of this test
     final Optional<BatchTestRunEvent> maybeLastExecution = getLastExecution(testUrn);
     Map<Urn, TestResults> oldResults = null;
-    if (maybeLastExecution.isPresent()) {
+    if (maybeLastExecution.isPresent() && shouldWriteAssetResults(testInfo)) {
       BatchTestRunEvent lastExecution = maybeLastExecution.get();
       log.info("Last execution of test {} found: {}", testUrn, lastExecution);
       if (lastExecution.getResult() != null
@@ -1097,8 +1097,8 @@ public class TestEngine {
           testUrn);
 
       // Writes entity results
-      // skip writing asset results if the source type is bulk form submission
-      batchIngestResults(results, mode, true, oldResults, !isBulkFormSubmission(testInfo));
+      // skip writing asset results if the source type is bulk form submission or form assignment
+      batchIngestResults(results, mode, true, oldResults, shouldWriteAssetResults(testInfo));
 
       // Writes test summary results
       List<MetadataChangeProposal> reportingMCPs =
@@ -1290,6 +1290,15 @@ public class TestEngine {
   private boolean isBulkFormSubmission(@Nonnull final TestInfo testInfo) {
     return testInfo.getSource() != null
         && testInfo.getSource().getType().equals(TestSourceType.BULK_FORM_SUBMISSION);
+  }
+
+  private boolean isFormAssignmentTest(@Nonnull final TestInfo testInfo) {
+    return testInfo.getSource() != null
+        && testInfo.getSource().getType().equals(TestSourceType.FORMS);
+  }
+
+  private boolean shouldWriteAssetResults(@Nonnull final TestInfo testInfo) {
+    return !isBulkFormSubmission(testInfo) && !isFormAssignmentTest(testInfo);
   }
 
   /**
