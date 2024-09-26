@@ -368,7 +368,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
             </SideBar>
             {/* Modal */}
             <GroupEditModal
-                visible={editGroupModal}
+                open={editGroupModal}
                 onClose={() => showEditGroupModal(false)}
                 onSave={() => {
                     refetch();

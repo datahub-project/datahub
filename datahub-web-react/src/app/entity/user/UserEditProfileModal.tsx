@@ -16,7 +16,7 @@ type PropsData = {
 };
 
 type Props = {
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
     onSave: () => void;
     editModalData: PropsData;
@@ -24,7 +24,7 @@ type Props = {
 /** Regex Validations */
 export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
-export default function UserEditProfileModal({ visible, onClose, onSave, editModalData }: Props) {
+export default function UserEditProfileModal({ open, onClose, onSave, editModalData }: Props) {
     const { config } = useAppConfig();
     const { readOnlyModeEnabled } = config.featureFlags;
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
@@ -95,7 +95,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
     return (
         <Modal
             title="Edit Profile"
-            visible={visible}
+            open={open}
             onCancel={onClose}
             footer={
                 <>

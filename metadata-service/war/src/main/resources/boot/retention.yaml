@@ -3,7 +3,7 @@
   config:
     retention:
       version:
-        maxVersions: 5
+        maxVersions: 1
 - entity: "*"
   aspect: "*"
   config:

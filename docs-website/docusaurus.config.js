@@ -3,7 +3,7 @@ const isSaas = process.env.DOCUSAURUS_IS_SAAS === "true";
 
 module.exports = {
   title: process.env.DOCUSAURUS_CONFIG_TITLE || "DataHub",
-  tagline: "A Metadata Platform for the Modern Data Stack",
+  tagline: "The #1 Open Source Metadata Platform",
   url: process.env.DOCUSAURUS_CONFIG_URL || "https://datahubproject.io",
   baseUrl: process.env.DOCUSAURUS_CONFIG_BASE_URL || "/",
   onBrokenLinks: "throw",
@@ -23,6 +23,9 @@ module.exports = {
       src: "/scripts/rb2b.js",
       async: true,
       defer: true,
+    },
+    {
+      src: "https://app.revenuehero.io/scheduler.min.js"
     }
   ],
   noIndex: isSaas,
@@ -52,16 +55,22 @@ module.exports = {
   },
 
   themeConfig: {
-    ...(!isSaas && {
-      announcementBar: {
-        id: "announcement",
-        content:
-          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>DataHub Cloud</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for DataHub Cloud&nbsp;→</a>',
-        backgroundColor: "#070707",
-        textColor: "#ffffff",
-        isCloseable: false,
-      },
-    }),
+    // ...(!isSaas && {
+    //   announcementBar: {
+    //     id: "announcement",
+    //     content:
+    //       '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>DataHub Cloud</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for DataHub Cloud&nbsp;→</a>',
+    //     backgroundColor: "#070707",
+    //     textColor: "#ffffff",
+    //     isCloseable: false,
+    //   },
+    // }),
+    colorMode: {
+      // Only support light mode.
+      defaultMode: 'light',
+      disableSwitch: true,
+      respectPrefersColorScheme: false,
+    },
     navbar: {
       title: null,
       logo: {
@@ -79,7 +88,7 @@ module.exports = {
         {
           to: "/cloud",
           activeBasePath: "cloud",
-          label: "Cloud",
+          html: "Cloud",
           position: "right",
         },
         {
@@ -171,14 +180,6 @@ module.exports = {
                 },
                 {
                 value: `
-                   <a class="dropdown__link" href="https://docs-website-qou70o69f-acryldata.vercel.app/docs/features">0.14.0
-                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                   </a>
-                   `,
-                type: "html",
-                },
-                {
-                value: `
                    <a class="dropdown__link" href="https://docs-website-lzxh86531-acryldata.vercel.app/docs/features">0.13.0
                    <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
                    </a>
@@ -250,7 +251,7 @@ module.exports = {
             },
             {
               label: "Adoption",
-              to: "docs/#adoption",
+              href: "/adoption-stories",
             },
           ],
         },

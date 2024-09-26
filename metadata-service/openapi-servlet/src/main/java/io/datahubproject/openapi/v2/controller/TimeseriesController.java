@@ -69,12 +69,6 @@ public class TimeseriesController {
       throws URISyntaxException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    if (!AuthUtil.isAPIAuthorized(authentication, authorizationChain, TIMESERIES, READ)
-        || !AuthUtil.isAPIAuthorizedEntityType(
-            authentication, authorizationChain, READ, entityName)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " " + TIMESERIES);
-    }
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -84,6 +78,12 @@ public class TimeseriesController {
             authorizationChain,
             authentication,
             true);
+
+    if (!AuthUtil.isAPIAuthorized(opContext, TIMESERIES, READ)
+        || !AuthUtil.isAPIAuthorizedEntityType(opContext, READ, entityName)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " " + TIMESERIES);
+    }
 
     AspectSpec aspectSpec = entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName);
     if (!aspectSpec.isTimeseries()) {
@@ -108,8 +108,7 @@ public class TimeseriesController {
             endTimeMillis);
 
     if (!AuthUtil.isAPIAuthorizedUrns(
-        authentication,
-        authorizationChain,
+        opContext,
         TIMESERIES,
         READ,
         result.getDocuments().stream()
