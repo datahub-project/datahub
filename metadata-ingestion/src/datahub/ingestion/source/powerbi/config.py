@@ -46,6 +46,7 @@ class Constant:
     Authorization = "Authorization"
     WORKSPACE_ID = "workspaceId"
     DASHBOARD_ID = "powerbi.linkedin.com/dashboards/{}"
+    DATASET_EXECUTE_QUERIES = "DATASET_EXECUTE_QUERIES_POST"
     DATASET_ID = "datasetId"
     REPORT_ID = "reportId"
     SCAN_ID = "ScanId"
@@ -59,9 +60,12 @@ class Constant:
     STATUS = "status"
     CHART_ID = "powerbi.linkedin.com/charts/{}"
     CHART_KEY = "chartKey"
+    COLUMN_TYPE = "columnType"
+    DATA_TYPE = "dataType"
     DASHBOARD = "dashboard"
     DASHBOARDS = "dashboards"
     DASHBOARD_KEY = "dashboardKey"
+    DESCRIPTION = "description"
     OWNERSHIP = "ownership"
     BROWSERPATH = "browsePaths"
     DASHBOARD_INFO = "dashboardInfo"
@@ -108,6 +112,7 @@ class Constant:
     TABLES = "tables"
     EXPRESSION = "expression"
     SOURCE = "source"
+    SCHEMA_METADATA = "schemaMetadata"
     PLATFORM_NAME = "powerbi"
     REPORT_TYPE_NAME = BIAssetSubTypes.REPORT
     CHART_COUNT = "chartCount"
@@ -206,6 +211,16 @@ class PlatformDetail(ConfigModel):
     )
 
 
+class DataBricksPlatformDetail(PlatformDetail):
+    """
+    metastore is an additional field used in Databricks connector to generate the dataset urn
+    """
+
+    metastore: str = pydantic.Field(
+        description="Databricks Unity Catalog metastore name.",
+    )
+
+
 class OwnershipMapping(ConfigModel):
     create_corp_user: bool = pydantic.Field(
         default=True, description="Whether ingest PowerBI user as Datahub Corpuser"
@@ -225,6 +240,13 @@ class OwnershipMapping(ConfigModel):
     owner_criteria: Optional[List[str]] = pydantic.Field(
         default=None,
         description="Need to have certain authority to qualify as owner for example ['ReadWriteReshareExplore','Owner','Admin']",
+    )
+
+
+class PowerBiProfilingConfig(ConfigModel):
+    enabled: bool = pydantic.Field(
+        default=False,
+        description="Whether profiling of PowerBI datasets should be done",
     )
 
 
@@ -268,11 +290,14 @@ class PowerBiDashboardSourceConfig(
         hidden_from_docs=True,
     )
     # PowerBI datasource's server to platform instance mapping
-    server_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
+    server_to_platform_instance: Dict[
+        str, Union[PlatformDetail, DataBricksPlatformDetail]
+    ] = pydantic.Field(
         default={},
         description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
-        " :port is optional and only needed if your datasource server is running on non-standard port."
-        "For Google BigQuery the datasource's server is google bigquery project name",
+        " :port is optional and only needed if your datasource server is running on non-standard port. "
+        "For Google BigQuery the datasource's server is google bigquery project name. "
+        "For Databricks Unity Catalog the datasource's server is workspace FQDN.",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
@@ -391,10 +416,11 @@ class PowerBiDashboardSourceConfig(
 
     # Enable advance sql construct
     enable_advance_lineage_sql_construct: bool = pydantic.Field(
-        default=False,
+        default=True,
         description="Whether to enable advance native sql construct for parsing like join, sub-queries. "
         "along this flag , the native_query_parsing should be enabled. "
-        "By default convert_lineage_urns_to_lowercase is enabled, in-case if you have disabled it in previous ingestion execution then it may break lineage "
+        "By default convert_lineage_urns_to_lowercase is enabled, in-case if you have disabled it in previous "
+        "ingestion execution then it may break lineage"
         "as this option generates the upstream datasets URN in lowercase.",
     )
 
@@ -402,8 +428,21 @@ class PowerBiDashboardSourceConfig(
     extract_column_level_lineage: bool = pydantic.Field(
         default=False,
         description="Whether to extract column level lineage. "
-        "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are enabled.  "
+        "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are "
+        "enabled."
         "Works for M-Query where native SQL is used for transformation.",
+    )
+
+    profile_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter tables for profiling during ingestion. Note that only tables "
+        "allowed by the `table_pattern` will be considered. Matched format is 'workspacename.datasetname.tablename'",
+    )
+    profiling: PowerBiProfilingConfig = PowerBiProfilingConfig()
+
+    patch_metadata: bool = pydantic.Field(
+        default=True,
+        description="Patch dashboard metadata",
     )
 
     @root_validator(skip_on_failure=True)

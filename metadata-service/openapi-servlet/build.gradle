@@ -21,11 +21,16 @@ dependencies {
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBeans
   implementation externalDependency.springContext
+  implementation externalDependency.servletApi
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   implementation externalDependency.antlr4Runtime
   implementation externalDependency.antlr4
   implementation externalDependency.swaggerAnnotations
+  implementation externalDependency.guava
+  implementation('io.acryl:json-schema-avro:0.2.3')
+  implementation externalDependency.jsonSchemaValidator
+  implementation group: 'io.github.deblockt', name: 'json-diff', version: '1.1.0'
 
   annotationProcessor externalDependency.lombok
 

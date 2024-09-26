@@ -114,9 +114,11 @@ class SqlLineageSQLParserImpl(SQLParser):
             table_normalized = re.sub(
                 r"^<default>.",
                 "",
-                str(table)
-                if not self._use_raw_names
-                else f"{table.schema.raw_name}.{table.raw_name}",
+                (
+                    str(table)
+                    if not self._use_raw_names
+                    else f"{table.schema.raw_name}.{table.raw_name}"
+                ),
             )
             result.append(str(table_normalized))
 

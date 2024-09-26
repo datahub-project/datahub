@@ -30,6 +30,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilde
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
@@ -39,6 +40,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.cache.CacheManager;
@@ -78,12 +80,16 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     operationContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
                 new SnapshotEntityRegistry(new Snapshot()),
-                new IndexConventionImpl("search_service_test"))
+                new IndexConventionImpl(
+                    IndexConventionImpl.IndexConventionConfig.builder()
+                        .prefix("search_service_test")
+                        .hashIdAlgo("MD5")
+                        .build()))
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
 
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildEntitySearchService();
-    elasticSearchService.configure();
+    elasticSearchService.reindexAll(Collections.emptySet());
     cacheManager = new ConcurrentMapCacheManager();
     resetSearchService();
   }
@@ -107,6 +113,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @BeforeMethod
   public void wipe() throws Exception {
+    syncAfterWrite(getBulkProcessor());
     elasticSearchService.clear(operationContext);
     syncAfterWrite(getBulkProcessor());
   }
@@ -125,10 +132,14 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getSearchConfiguration(),
-            null);
+            null,
+            QueryFilterRewriteChain.EMPTY);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            getSearchClient(), getSearchConfiguration(), getCustomSearchConfiguration());
+            getSearchClient(),
+            getSearchConfiguration(),
+            getCustomSearchConfiguration(),
+            QueryFilterRewriteChain.EMPTY);
     ESWriteDAO writeDAO = new ESWriteDAO(getSearchClient(), getBulkProcessor(), 1);
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }

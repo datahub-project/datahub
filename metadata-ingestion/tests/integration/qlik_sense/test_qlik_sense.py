@@ -49,7 +49,12 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "createdBy": "657b5abe656297cec3d8b205",
                         "updatedAt": "2024-01-09T09:13:38.002Z",
                     }
-                ]
+                ],
+                "links": {
+                    "self": {
+                        "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/spaces"
+                    }
+                },
             },
         },
         "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items": {
@@ -199,8 +204,8 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                 "tenantId": "ysA4KqhDrbdy36hO9wwo4HUvPxeaKT7A",
                 "status": "active",
                 "subject": "auth0|fd95ee6facf82e692d2eac4ccb5ddb18ef05c22a7575fcc4d26d7bc9aefedb4f",
-                "name": "Shubham jagtap",
-                "email": "Shubham.Jagtap@gslab.com",
+                "name": "john doe",
+                "email": "john.doe@example.com",
                 "roles": [
                     "TenantAdmin",
                     "AnalyticsAdmin",

@@ -13,9 +13,7 @@ import javax.annotation.Nonnull;
 
 public class CustomDataQualityRulesMutator extends MutationHook {
 
-  public CustomDataQualityRulesMutator(AspectPluginConfig config) {
-    super(config);
-  }
+  private AspectPluginConfig config;
 
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
@@ -42,5 +40,17 @@ public class CustomDataQualityRulesMutator extends MutationHook {
             })
         .filter(Objects::nonNull)
         .map(changeMCP -> Pair.of(changeMCP, true));
+  }
+
+  @Nonnull
+  @Override
+  public AspectPluginConfig getConfig() {
+    return config;
+  }
+
+  @Override
+  public CustomDataQualityRulesMutator setConfig(@Nonnull AspectPluginConfig config) {
+    this.config = config;
+    return this;
   }
 }

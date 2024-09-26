@@ -25,6 +25,7 @@ dependencies {
   testRuntimeOnly externalDependency.logbackClassic
   testImplementation externalDependency.springBootTest
   testImplementation externalDependency.testng
+  testImplementation project(':metadata-operation-context')
 }
 
 task avroSchemaSources(type: Copy) {

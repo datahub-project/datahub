@@ -29,6 +29,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfi
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
 import java.util.List;
@@ -91,15 +92,14 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   public static final SearchQueryBuilder TEST_BUILDER =
       new SearchQueryBuilder(testQueryConfig, null);
 
+  public OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
   @Test
   public void testQueryBuilderFulltext() {
     FunctionScoreQueryBuilder result =
         (FunctionScoreQueryBuilder)
             TEST_BUILDER.buildQuery(
-                mock(OperationContext.class),
-                ImmutableList.of(TestEntitySpecBuilder.getSpec()),
-                "testQuery",
-                true);
+                opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", true);
     BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
     List<QueryBuilder> shouldQueries = mainQuery.should();
     assertEquals(shouldQueries.size(), 2);
@@ -111,19 +111,22 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     assertEquals(keywordQuery.value(), "testQuery");
     assertEquals(keywordQuery.analyzer(), "keyword");
     Map<String, Float> keywordFields = keywordQuery.fields();
-    assertEquals(keywordFields.size(), 9);
-    assertEquals(
-        keywordFields,
-        Map.of(
-            "urn", 10.f,
-            "textArrayField", 1.0f,
-            "customProperties", 1.0f,
-            "wordGramField", 1.0f,
-            "nestedArrayArrayField", 1.0f,
-            "textFieldOverride", 1.0f,
-            "nestedArrayStringField", 1.0f,
-            "keyPart1", 10.0f,
-            "esObjectField", 1.0f));
+    assertEquals(keywordFields.size(), 14);
+
+    assertEquals(keywordFields.get("urn"), 10);
+    assertEquals(keywordFields.get("textArrayField"), 1);
+    assertEquals(keywordFields.get("customProperties"), 1);
+    assertEquals(keywordFields.get("wordGramField"), 1);
+    assertEquals(keywordFields.get("nestedArrayArrayField"), 1);
+    assertEquals(keywordFields.get("textFieldOverride"), 1);
+    assertEquals(keywordFields.get("nestedArrayStringField"), 1);
+    assertEquals(keywordFields.get("keyPart1"), 10);
+    assertEquals(keywordFields.get("esObjectField"), 1);
+    assertEquals(keywordFields.get("esObjectFieldFloat"), 1);
+    assertEquals(keywordFields.get("esObjectFieldDouble"), 1);
+    assertEquals(keywordFields.get("esObjectFieldLong"), 1);
+    assertEquals(keywordFields.get("esObjectFieldInteger"), 1);
+    assertEquals(keywordFields.get("esObjectFieldBoolean"), 1);
 
     SimpleQueryStringBuilder urnComponentQuery =
         (SimpleQueryStringBuilder) analyzerGroupQuery.should().get(1);
@@ -174,7 +177,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                 })
             .collect(Collectors.toList());
 
-    assertEquals(prefixFieldWeights.size(), 29);
+    assertEquals(prefixFieldWeights.size(), 39);
 
     List.of(
             Pair.of("urn", 100.0f),
@@ -200,10 +203,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     FunctionScoreQueryBuilder result =
         (FunctionScoreQueryBuilder)
             TEST_BUILDER.buildQuery(
-                mock(OperationContext.class),
-                ImmutableList.of(TestEntitySpecBuilder.getSpec()),
-                "testQuery",
-                false);
+                opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", false);
     BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
     List<QueryBuilder> shouldQueries = mainQuery.should();
     assertEquals(shouldQueries.size(), 2);
@@ -212,7 +212,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     assertEquals(keywordQuery.queryString(), "testQuery");
     assertNull(keywordQuery.analyzer());
     Map<String, Float> keywordFields = keywordQuery.fields();
-    assertEquals(keywordFields.size(), 22);
+    assertEquals(keywordFields.size(), 27);
     assertEquals(keywordFields.get("keyPart1").floatValue(), 10.0f);
     assertFalse(keywordFields.containsKey("keyPart3"));
     assertEquals(keywordFields.get("textFieldOverride").floatValue(), 1.0f);
@@ -246,10 +246,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
       FunctionScoreQueryBuilder result =
           (FunctionScoreQueryBuilder)
               TEST_CUSTOM_BUILDER.buildQuery(
-                  mock(OperationContext.class),
-                  ImmutableList.of(TestEntitySpecBuilder.getSpec()),
-                  triggerQuery,
-                  true);
+                  opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
 
       BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
       List<QueryBuilder> shouldQueries = mainQuery.should();
@@ -263,10 +260,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
       FunctionScoreQueryBuilder result =
           (FunctionScoreQueryBuilder)
               TEST_CUSTOM_BUILDER.buildQuery(
-                  mock(OperationContext.class),
-                  ImmutableList.of(TestEntitySpecBuilder.getSpec()),
-                  triggerQuery,
-                  true);
+                  opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
 
       BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
       List<QueryBuilder> shouldQueries = mainQuery.should();
@@ -302,10 +296,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
       FunctionScoreQueryBuilder result =
           (FunctionScoreQueryBuilder)
               TEST_CUSTOM_BUILDER.buildQuery(
-                  mock(OperationContext.class),
-                  ImmutableList.of(TestEntitySpecBuilder.getSpec()),
-                  triggerQuery,
-                  true);
+                  opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
 
       BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
       List<QueryBuilder> shouldQueries = mainQuery.should();
@@ -388,7 +379,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     Set<SearchFieldConfig> fieldConfigs =
         TEST_CUSTOM_BUILDER.getStandardFields(
             mock(EntityRegistry.class), ImmutableList.of(TestEntitySpecBuilder.getSpec()));
-    assertEquals(fieldConfigs.size(), 22);
+    assertEquals(fieldConfigs.size(), 27);
     assertEquals(
         fieldConfigs.stream().map(SearchFieldConfig::fieldName).collect(Collectors.toSet()),
         Set.of(
@@ -413,7 +404,12 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             "textFieldOverride.delimited",
             "urn",
             "wordGramField.wordGrams2",
-            "customProperties.delimited")); // customProperties.delimited Saas only
+            "customProperties.delimited",
+            "esObjectFieldBoolean",
+            "esObjectFieldInteger",
+            "esObjectFieldDouble",
+            "esObjectFieldFloat",
+            "esObjectFieldLong")); // customProperties.delimited Saas only
 
     assertEquals(
         fieldConfigs.stream()
@@ -499,7 +495,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             ImmutableList.of(TestEntitySpecBuilder.getSpec(), mockEntitySpec));
     // Same 22 from the original entity + newFieldNotInOriginal + 3 word gram fields from the
     // textFieldOverride
-    assertEquals(fieldConfigs.size(), 27);
+    assertEquals(fieldConfigs.size(), 32);
     assertEquals(
         fieldConfigs.stream().map(SearchFieldConfig::fieldName).collect(Collectors.toSet()),
         Set.of(
@@ -529,7 +525,12 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             "textFieldOverride.wordGrams2",
             "textFieldOverride.wordGrams3",
             "textFieldOverride.wordGrams4",
-            "customProperties.delimited"));
+            "customProperties.delimited",
+            "esObjectFieldBoolean",
+            "esObjectFieldInteger",
+            "esObjectFieldDouble",
+            "esObjectFieldFloat",
+            "esObjectFieldLong"));
 
     // Field which only exists in first one: Should be the same
     assertEquals(
@@ -552,5 +553,17 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             .findFirst()
             .map(SearchFieldConfig::boost),
         Optional.of(2.0F));
+  }
+
+  @Test
+  public void testStandardFieldsQueryByDefault() {
+    assertTrue(
+        TEST_BUILDER
+            .getStandardFields(
+                opContext.getEntityRegistry(),
+                opContext.getEntityRegistry().getEntitySpecs().values())
+            .stream()
+            .allMatch(SearchFieldConfig::isQueryByDefault),
+        "Expect all search fields to be queryByDefault.");
   }
 }

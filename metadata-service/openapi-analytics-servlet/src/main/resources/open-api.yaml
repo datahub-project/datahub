@@ -2,7 +2,7 @@ openapi: "3.0.0"
 info:
   title: Analytics API
   description: This is a service for DataHub Analytics.
-  version: v1
+  version: v2
 
 paths:
   /datahub_usage_events/_search:

@@ -47,9 +47,11 @@ def generate_events(
     for query in queries:
         project = (  # Most queries are run in the project of the tables they access
             table_to_project[
-                query.object_modified.name
-                if query.object_modified
-                else query.fields_accessed[0].table.name
+                (
+                    query.object_modified.name
+                    if query.object_modified
+                    else query.fields_accessed[0].table.name
+                )
             ]
             if random.random() >= proabability_of_project_mismatch
             else random.choice(projects)
@@ -71,9 +73,11 @@ def generate_events(
                 query=query.text,
                 statementType=random.choice(OPERATION_TYPE_MAP[query.type]),
                 project_id=project,
-                destinationTable=ref_from_table(query.object_modified, table_to_project)
-                if query.object_modified
-                else None,
+                destinationTable=(
+                    ref_from_table(query.object_modified, table_to_project)
+                    if query.object_modified
+                    else None
+                ),
                 referencedTables=list(
                     dict.fromkeys(  # Preserve order
                         ref_from_table(field.table, table_to_project)
@@ -90,9 +94,11 @@ def generate_events(
                     )
                 ),
                 referencedViews=referencedViews,
-                payload=dataclasses.asdict(query)
-                if config.debug_include_full_payloads
-                else None,
+                payload=(
+                    dataclasses.asdict(query)
+                    if config.debug_include_full_payloads
+                    else None
+                ),
                 query_on_view=True if referencedViews else False,
             )
         )
@@ -118,9 +124,11 @@ def generate_events(
                     resource=ref,
                     fieldsRead=list(columns),
                     readReason=random.choice(READ_REASONS),
-                    payload=dataclasses.asdict(query)
-                    if config.debug_include_full_payloads
-                    else None,
+                    payload=(
+                        dataclasses.asdict(query)
+                        if config.debug_include_full_payloads
+                        else None
+                    ),
                 )
             )
 

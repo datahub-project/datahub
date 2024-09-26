@@ -45,6 +45,7 @@ from datahub.ingestion.api.source_helpers import (
     create_dataset_props_patch_builder,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.s3_util import (
     make_s3_urn_for_lineage,
     strip_s3_prefix,
@@ -140,6 +141,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.OWNERSHIP, "Supported via the `include_ownership` config")
 @capability(
+    SourceCapability.DATA_PROFILING, "Supported via the `profiling.enabled` config"
+)
+@capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
     supported=True,
@@ -163,7 +167,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return self.report
 
     def __init__(self, ctx: PipelineContext, config: UnityCatalogSourceConfig):
-        super(UnityCatalogSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
 
         self.config = config
         self.report: UnityCatalogReport = UnityCatalogReport()
@@ -261,7 +265,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.report.report_ingestion_stage_start("Ingestion Setup")
         wait_on_warehouse = None
-        if self.config.is_profiling_enabled() or self.config.include_hive_metastore:
+        if self.config.include_hive_metastore:
             self.report.report_ingestion_stage_start("Start warehouse")
             # Can take several minutes, so start now and wait later
             wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
@@ -308,9 +312,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         if self.config.is_profiling_enabled():
-            self.report.report_ingestion_stage_start("Wait on warehouse")
-            assert wait_on_warehouse
-            wait_on_warehouse.result()
+            self.report.report_ingestion_stage_start("Start warehouse")
+            # Need to start the warehouse again for profiling,
+            # as it may have been stopped after ingestion might take
+            # longer time to complete
+            wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
+            if wait_on_warehouse is None:
+                self.report.report_failure(
+                    "initialization",
+                    f"SQL warehouse {self.config.profiling.warehouse_id} not found",
+                )
+                return
+            else:
+                # wait until warehouse is started
+                wait_on_warehouse.result()
 
             self.report.report_ingestion_stage_start("Profiling")
             if isinstance(self.config.profiling, UnityCatalogAnalyzeProfilerConfig):
@@ -512,14 +527,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if table.view_definition:
                 self.view_definitions[dataset_urn] = (table.ref, table.view_definition)
 
-        # generate sibling and lineage aspects in case of EXTERNAL DELTA TABLE
         if (
-            table_props.customProperties.get("table_type") == "EXTERNAL"
+            table_props.customProperties.get("table_type")
+            in {"EXTERNAL", "HIVE_EXTERNAL_TABLE"}
             and table_props.customProperties.get("data_source_format") == "DELTA"
             and self.config.emit_siblings
         ):
             storage_location = str(table_props.customProperties.get("storage_location"))
-            if storage_location.startswith("s3://"):
+            if any(
+                storage_location.startswith(prefix) for prefix in s3_util.S3_PREFIXES
+            ):
                 browse_path = strip_s3_prefix(storage_location)
                 source_dataset_urn = make_dataset_urn_with_platform_instance(
                     "delta-lake",

@@ -5,9 +5,11 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.FilterInput;
 import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
@@ -76,8 +78,7 @@ public class TimeSeriesAspectResolver
     if (_entityName.equals(Constants.DATASET_ENTITY_NAME)
         && _aspectName.equals(Constants.DATASET_PROFILE_ASPECT_NAME)) {
       return AuthUtil.isAuthorized(
-          context.getAuthorizer(),
-          context.getActorUrn(),
+          context.getOperationContext(),
           PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE,
           new EntitySpec(_entityName, urn));
     }
@@ -86,7 +87,7 @@ public class TimeSeriesAspectResolver
 
   @Override
   public CompletableFuture<List<TimeSeriesAspect>> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
           // Fetch the urn, assuming the parent has an urn field.
@@ -129,7 +130,9 @@ public class TimeSeriesAspectResolver
           } catch (RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve aspects from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter buildFilters(@Nullable FilterInput maybeFilters) {
@@ -143,7 +146,7 @@ public class TimeSeriesAspectResolver
                     .setAnd(
                         new CriterionArray(
                             maybeFilters.getAnd().stream()
-                                .map(filter -> criterionFromFilter(filter, true))
+                                .map(ResolverUtils::criterionFromFilter)
                                 .collect(Collectors.toList())))));
   }
 }

@@ -33,7 +33,8 @@ import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class DataPlatformInstanceFieldResolverProviderTest {
+public class DataPlatformInstanceFieldResolverProviderTest
+    extends EntityFieldResolverProviderBaseTest<DataPlatformInstanceFieldResolverProvider> {
 
   private static final String DATA_PLATFORM_INSTANCE_URN =
       "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)";
@@ -50,9 +51,13 @@ public class DataPlatformInstanceFieldResolverProviderTest {
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.initMocks(this);
-    dataPlatformInstanceFieldResolverProvider =
-        new DataPlatformInstanceFieldResolverProvider(entityClientMock);
+    dataPlatformInstanceFieldResolverProvider = buildFieldResolverProvider();
     systemOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+  }
+
+  @Override
+  protected DataPlatformInstanceFieldResolverProvider buildFieldResolverProvider() {
+    return new DataPlatformInstanceFieldResolverProvider(entityClientMock);
   }
 
   @Test

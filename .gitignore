@@ -126,3 +126,6 @@ metadata-service/war/bin/
 metadata-utils/bin/
 test-models/bin/
 
+datahub-executor/
+datahub-integrations-service/
+metadata-ingestion-modules/acryl-cloud

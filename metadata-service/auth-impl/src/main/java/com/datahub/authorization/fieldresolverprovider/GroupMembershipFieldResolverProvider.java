@@ -45,11 +45,17 @@ public class GroupMembershipFieldResolverProvider implements EntityFieldResolver
 
   private FieldResolver.FieldValue getGroupMembership(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
-    Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
+
     EnvelopedAspect groupMembershipAspect;
     EnvelopedAspect nativeGroupMembershipAspect;
     List<Urn> groups = new ArrayList<>();
     try {
+      if (entitySpec.getEntity().isEmpty()) {
+        return FieldResolver.emptyFieldValue();
+      }
+
+      Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
+
       EntityResponse response =
           _entityClient.getV2(
               opContext,
@@ -77,7 +83,7 @@ public class GroupMembershipFieldResolverProvider implements EntityFieldResolver
         groups.addAll(nativeGroupMembership.getNativeGroups());
       }
     } catch (Exception e) {
-      log.error("Error while retrieving group membership aspect for urn {}", entityUrn, e);
+      log.error("Error while retrieving group membership aspect for entitySpec {}", entitySpec, e);
       return FieldResolver.emptyFieldValue();
     }
     return FieldResolver.FieldValue.builder()

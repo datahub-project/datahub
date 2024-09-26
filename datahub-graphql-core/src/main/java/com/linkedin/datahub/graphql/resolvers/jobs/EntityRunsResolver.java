@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.jobs;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.DataProcessInstanceResult;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -26,6 +27,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +51,7 @@ public class EntityRunsResolver
 
   @Override
   public CompletableFuture<DataProcessInstanceResult> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
 
@@ -66,13 +68,13 @@ public class EntityRunsResolver
             // Index!
             // We use the search index so that we can easily sort by the last updated time.
             final Filter filter = buildTaskRunsEntityFilter(entityUrn, direction);
-            final SortCriterion sortCriterion = buildTaskRunsSortCriterion();
+            final List<SortCriterion> sortCriteria = buildTaskRunsSortCriteria();
             final SearchResult gmsResult =
                 _entityClient.filter(
                     context.getOperationContext(),
                     Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
                     filter,
-                    sortCriterion,
+                    sortCriteria,
                     start,
                     count);
             final List<Urn> dataProcessInstanceUrns =
@@ -109,7 +111,9 @@ public class EntityRunsResolver
           } catch (URISyntaxException | RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve incidents from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter buildTaskRunsEntityFilter(
@@ -130,10 +134,10 @@ public class EntityRunsResolver
     return filter;
   }
 
-  private SortCriterion buildTaskRunsSortCriterion() {
+  private List<SortCriterion> buildTaskRunsSortCriteria() {
     final SortCriterion sortCriterion = new SortCriterion();
     sortCriterion.setField(CREATED_TIME_SEARCH_INDEX_FIELD_NAME);
     sortCriterion.setOrder(SortOrder.DESCENDING);
-    return sortCriterion;
+    return Collections.singletonList(sortCriterion);
   }
 }

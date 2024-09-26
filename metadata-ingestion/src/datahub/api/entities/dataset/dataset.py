@@ -94,20 +94,24 @@ class SchemaFieldSpecification(BaseModel):
             description=schema_field.description,
             label=schema_field.label,
             created=schema_field.created.__dict__ if schema_field.created else None,
-            lastModified=schema_field.lastModified.__dict__
-            if schema_field.lastModified
-            else None,
+            lastModified=(
+                schema_field.lastModified.__dict__
+                if schema_field.lastModified
+                else None
+            ),
             recursive=schema_field.recursive,
-            globalTags=schema_field.globalTags.__dict__
-            if schema_field.globalTags
-            else None,
-            glossaryTerms=schema_field.glossaryTerms.__dict__
-            if schema_field.glossaryTerms
-            else None,
+            globalTags=(
+                schema_field.globalTags.__dict__ if schema_field.globalTags else None
+            ),
+            glossaryTerms=(
+                schema_field.glossaryTerms.__dict__
+                if schema_field.glossaryTerms
+                else None
+            ),
             isPartitioningKey=schema_field.isPartitioningKey,
-            jsonProps=json.loads(schema_field.jsonProps)
-            if schema_field.jsonProps
-            else None,
+            jsonProps=(
+                json.loads(schema_field.jsonProps) if schema_field.jsonProps else None
+            ),
         )
 
     @validator("urn", pre=True, always=True)
@@ -162,6 +166,7 @@ class Dataset(BaseModel):
     structured_properties: Optional[
         Dict[str, Union[str, float, List[Union[str, float]]]]
     ] = None
+    external_url: Optional[str] = None
 
     @property
     def platform_urn(self) -> str:
@@ -236,13 +241,14 @@ class Dataset(BaseModel):
                 description=self.description,
                 name=self.name,
                 customProperties=self.properties,
+                externalUrl=self.external_url,
             ),
         )
         yield mcp
 
         if self.schema_metadata:
             if self.schema_metadata.file:
-                with open(self.schema_metadata.file, "r") as schema_fp:
+                with open(self.schema_metadata.file) as schema_fp:
                     schema_string = schema_fp.read()
                     schema_metadata = SchemaMetadataClass(
                         schemaName=self.name or self.id or self.urn or "",
@@ -257,56 +263,58 @@ class Dataset(BaseModel):
                     )
                     yield mcp
 
-                if self.schema_metadata.fields:
-                    for field in self.schema_metadata.fields:
-                        field_urn = field.urn or make_schema_field_urn(
-                            self.urn, field.id  # type: ignore[arg-type]
+            if self.schema_metadata.fields:
+                for field in self.schema_metadata.fields:
+                    field_urn = field.urn or make_schema_field_urn(
+                        self.urn, field.id  # type: ignore[arg-type]
+                    )
+                    assert field_urn.startswith("urn:li:schemaField:")
+
+                    if field.globalTags:
+                        mcp = MetadataChangeProposalWrapper(
+                            entityUrn=field_urn,
+                            aspect=GlobalTagsClass(
+                                tags=[
+                                    TagAssociationClass(tag=make_tag_urn(tag))
+                                    for tag in field.globalTags
+                                ]
+                            ),
                         )
-                        assert field_urn.startswith("urn:li:schemaField:")
+                        yield mcp
 
-                        if field.globalTags:
-                            mcp = MetadataChangeProposalWrapper(
-                                entityUrn=field_urn,
-                                aspect=GlobalTagsClass(
-                                    tags=[
-                                        TagAssociationClass(tag=make_tag_urn(tag))
-                                        for tag in field.globalTags
-                                    ]
-                                ),
-                            )
-                            yield mcp
+                    if field.glossaryTerms:
+                        mcp = MetadataChangeProposalWrapper(
+                            entityUrn=field_urn,
+                            aspect=GlossaryTermsClass(
+                                terms=[
+                                    GlossaryTermAssociationClass(
+                                        urn=make_term_urn(term)
+                                    )
+                                    for term in field.glossaryTerms
+                                ],
+                                auditStamp=self._mint_auditstamp("yaml"),
+                            ),
+                        )
+                        yield mcp
 
-                        if field.glossaryTerms:
-                            mcp = MetadataChangeProposalWrapper(
-                                entityUrn=field_urn,
-                                aspect=GlossaryTermsClass(
-                                    terms=[
-                                        GlossaryTermAssociationClass(
-                                            urn=make_term_urn(term)
-                                        )
-                                        for term in field.glossaryTerms
-                                    ],
-                                    auditStamp=self._mint_auditstamp("yaml"),
-                                ),
-                            )
-                            yield mcp
-
-                        if field.structured_properties:
-                            mcp = MetadataChangeProposalWrapper(
-                                entityUrn=field_urn,
-                                aspect=StructuredPropertiesClass(
-                                    properties=[
-                                        StructuredPropertyValueAssignmentClass(
-                                            propertyUrn=f"urn:li:structuredProperty:{prop_key}",
-                                            values=prop_value
+                    if field.structured_properties:
+                        mcp = MetadataChangeProposalWrapper(
+                            entityUrn=field_urn,
+                            aspect=StructuredPropertiesClass(
+                                properties=[
+                                    StructuredPropertyValueAssignmentClass(
+                                        propertyUrn=f"urn:li:structuredProperty:{prop_key}",
+                                        values=(
+                                            prop_value
                                             if isinstance(prop_value, list)
-                                            else [prop_value],
-                                        )
-                                        for prop_key, prop_value in field.structured_properties.items()
-                                    ]
-                                ),
-                            )
-                            yield mcp
+                                            else [prop_value]
+                                        ),
+                                    )
+                                    for prop_key, prop_value in field.structured_properties.items()
+                                ]
+                            ),
+                        )
+                        yield mcp
 
         if self.subtype or self.subtypes:
             mcp = MetadataChangeProposalWrapper(
@@ -357,9 +365,11 @@ class Dataset(BaseModel):
                     properties=[
                         StructuredPropertyValueAssignmentClass(
                             propertyUrn=f"urn:li:structuredProperty:{prop_key}",
-                            values=prop_value
-                            if isinstance(prop_value, list)
-                            else [prop_value],
+                            values=(
+                                prop_value
+                                if isinstance(prop_value, list)
+                                else [prop_value]
+                            ),
                         )
                         for prop_key, prop_value in self.structured_properties.items()
                     ]
@@ -377,8 +387,7 @@ class Dataset(BaseModel):
                         type="COPY",
                     )
                 )
-                for patch_event in patch_builder.build():
-                    yield patch_event
+                yield from patch_builder.build()
 
         logger.info(f"Created dataset {self.urn}")
 
@@ -500,25 +509,29 @@ class Dataset(BaseModel):
 
         return Dataset(  # type: ignore[call-arg]
             urn=urn,
-            description=dataset_properties.description
-            if dataset_properties and dataset_properties.description
-            else None,
-            name=dataset_properties.name
-            if dataset_properties and dataset_properties.name
-            else None,
+            description=(
+                dataset_properties.description
+                if dataset_properties and dataset_properties.description
+                else None
+            ),
+            name=(
+                dataset_properties.name
+                if dataset_properties and dataset_properties.name
+                else None
+            ),
             schema=Dataset._schema_from_schema_metadata(graph, urn),
             tags=[tag.tag for tag in tags.tags] if tags else None,
-            glossary_terms=[term.urn for term in glossary_terms.terms]
-            if glossary_terms
-            else None,
+            glossary_terms=(
+                [term.urn for term in glossary_terms.terms] if glossary_terms else None
+            ),
             owners=yaml_owners,
-            properties=dataset_properties.customProperties
-            if dataset_properties
-            else None,
+            properties=(
+                dataset_properties.customProperties if dataset_properties else None
+            ),
             subtypes=[subtype for subtype in subtypes.typeNames] if subtypes else None,
-            structured_properties=structured_properties_map
-            if structured_properties
-            else None,
+            structured_properties=(
+                structured_properties_map if structured_properties else None
+            ),
         )
 
     def to_yaml(

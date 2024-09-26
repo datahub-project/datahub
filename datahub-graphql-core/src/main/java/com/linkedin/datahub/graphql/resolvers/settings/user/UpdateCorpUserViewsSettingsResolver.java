@@ -6,6 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.UpdateCorpUserViewsSettingsInput;
 import com.linkedin.identity.CorpUserAppearanceSettings;
 import com.linkedin.identity.CorpUserSettings;
@@ -32,7 +33,7 @@ public class UpdateCorpUserViewsSettingsResolver
     final UpdateCorpUserViewsSettingsInput input =
         bindArgument(environment.getArgument("input"), UpdateCorpUserViewsSettingsInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
 
@@ -65,7 +66,9 @@ public class UpdateCorpUserViewsSettingsResolver
                     input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private static void updateCorpUserSettings(

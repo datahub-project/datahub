@@ -94,7 +94,12 @@ export const RelationshipsTab = () => {
         ermodelrelationData = [{}] as ErModelRelationship[];
     }
 
-    if (!loadingERModelRelation && ermodelrelations?.search && ermodelrelations?.search?.searchResults?.length > 0 && !errorERModelRelation) {
+    if (
+        !loadingERModelRelation &&
+        ermodelrelations?.search &&
+        ermodelrelations?.search?.searchResults?.length > 0 &&
+        !errorERModelRelation
+    ) {
         ermodelrelationData = ermodelrelations.search.searchResults.map((r) => r.entity as ErModelRelationship);
     }
 
@@ -214,7 +219,7 @@ export const RelationshipsTab = () => {
                     table1Schema={entityWithSchema}
                     table2={table2LazyDataset}
                     table2Schema={table2LazySchema}
-                    visible={modalVisible}
+                    open={modalVisible}
                     setModalVisible={setModalVisible}
                     onCancel={() => {
                         setModalVisible(false);

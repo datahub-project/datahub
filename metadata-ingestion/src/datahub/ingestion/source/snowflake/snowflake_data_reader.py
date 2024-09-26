@@ -2,9 +2,9 @@ import logging
 from typing import Any, Callable, Dict, List
 
 import pandas as pd
-from snowflake.connector import SnowflakeConnection
 
 from datahub.ingestion.source.common.data_reader import DataReader
+from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.Logger(__name__)
@@ -39,7 +39,7 @@ class SnowflakeDataReader(DataReader):
         logger.debug(
             f"Collecting sample values for table {db_name}.{schema_name}.{table_name}"
         )
-        with PerfTimer() as timer, self.conn.cursor() as cursor:
+        with PerfTimer() as timer, self.conn.native_connection().cursor() as cursor:
             sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({sample_size} rows);'
             cursor.execute(sql)
             dat = cursor.fetchall()

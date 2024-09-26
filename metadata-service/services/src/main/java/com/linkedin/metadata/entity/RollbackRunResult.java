@@ -8,4 +8,5 @@ import lombok.Value;
 public class RollbackRunResult {
   public List<AspectRowSummary> rowsRolledBack;
   public Integer rowsDeletedFromEntityDeletion;
+  public List<RollbackResult> rollbackResults;
 }

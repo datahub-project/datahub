@@ -1,0 +1,15 @@
+---
+run_id: kafka-connect-run
+
+source:
+  type: kafka-connect
+  config:
+    platform_instance: connect-instance-1
+    connect_uri: http://localhost:28083
+    connector_patterns:
+      allow:
+        - bigquery-sink-connector
+sink:
+  type: file
+  config:
+    filename: "./kafka_connect_mces.json"

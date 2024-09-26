@@ -4,7 +4,7 @@ title: Business Glossary
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Business Glossary
+# Business Glossary
 
 <FeatureAvailability/>
 
@@ -135,6 +135,10 @@ Glossary Terms and Term Groups abide by metadata policies like other entities. H
 
 - **Manage Direct Glossary Children**: If a user has this privilege on a Glossary Term Group, they will be able to create, edit, and delete Terms and Term Groups directly underneath the Term Group they have this privilege on.
 - **Manage All Glossary Children**: If a user has this privilege on a Glossary Term Group, they will be able to create, edit, and delete any Term or Term Group anywhere underneath the Term Group they have this privilege on. This applies to the children of a child Term Group as well (and so on).
+
+## Shift left and bring your glossary into Git
+
+You can use this [Github Action](https://github.com/acryldata/business-glossary-sync-action) and bring your Business Glossary into your git repositories. This can be the starting point to manage glossary in git.
 
 ## Managing Glossary with Git 
 

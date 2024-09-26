@@ -53,7 +53,7 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-class PulsarTopic(object):
+class PulsarTopic:
     __slots__ = ["topic_parts", "fullname", "type", "tenant", "namespace", "topic"]
 
     def __init__(self, topic):
@@ -65,7 +65,7 @@ class PulsarTopic(object):
         self.topic = topic_parts[5]
 
 
-class PulsarSchema(object):
+class PulsarSchema:
     __slots__ = [
         "schema_version",
         "schema_name",
@@ -91,6 +91,7 @@ class PulsarSchema(object):
 @config_class(PulsarSourceConfig)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @dataclass
 class PulsarSource(StatefulIngestionSourceBase):
     def __init__(self, config: PulsarSourceConfig, ctx: PipelineContext):
@@ -116,7 +117,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                 f"{self.config.issuer_url}/.well-known/openid-configuration"
             )
             oid_config_response = requests.get(
-                oid_config_url, verify=False, allow_redirects=False
+                oid_config_url, verify=self.session.verify, allow_redirects=False
             )
 
             if oid_config_response:
@@ -163,7 +164,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                 token_response = requests.post(
                     url=token_endpoint,
                     data=data,
-                    verify=False,
+                    verify=self.session.verify,
                     allow_redirects=False,
                     auth=(
                         self.config.client_id,

@@ -24,6 +24,122 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
+### Other Notable Changes
+
+## 0.14.1
+
+### Breaking Changes
+
+- #9857 (#10773) `lower` method was removed from `get_db_name` of `SQLAlchemySource` class. This change will affect the urns of all related to `SQLAlchemySource` entities.
+
+  Old `urn`, where `data_base_name` is `Some_Database`:
+
+  ```
+  - urn:li:dataJob:(urn:li:dataFlow:(mssql,demodata.Foo.stored_procedures,PROD),Proc.With.SpecialChar)
+  ```
+
+  New `urn`, where `data_base_name` is `Some_Database`:
+
+  ```
+  - urn:li:dataJob:(urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD),Proc.With.SpecialChar)
+  ```
+
+  Re-running with stateful ingestion should automatically clear up the entities with old URNS and add entities with new URNs, therefore not duplicating the containers or jobs.
+
+- #11313 - `datahub get` will no longer return a key aspect for entities that don't exist.
+- #11369 - The default datahub-rest sink mode has been changed to `ASYNC_BATCH`. This requires a server with version 0.14.0+.
+- #11214 Container properties aspect will produce an additional field that will require a corresponding upgrade of server. Otherwise server can reject the aspects.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+## 0.14.0.2
+
+### Breaking Changes
+
+- Protobuf CLI will no longer create binary encoded protoc custom properties. Flag added `-protocProp` in case this
+  behavior is required.
+- #10814 Data flow info and data job info aspect will produce an additional field that will require a corresponding upgrade of server. Otherwise server can reject the aspects.
+- #10868 - OpenAPI V3 - Creation of aspects will need to be wrapped within a `value` key and the API is now symmetric with respect to input and outputs.
+
+Example Global Tags Aspect:
+
+Previous:
+
+```json
+{
+  "tags": [
+    {
+      "tag": "string",
+      "context": "string"
+    }
+  ]
+}
+```
+
+New (optional fields `systemMetadata` and `headers`):
+
+```json
+{
+  "value": {
+    "tags": [
+      {
+        "tag": "string",
+        "context": "string"
+      }
+    ]
+  },
+  "systemMetadata": {},
+  "headers": {}
+}
+```
+
+- #10858 Profiling configuration for Glue source has been updated.
+
+  Previously, the configuration was:
+
+  ```yaml
+  profiling: {}
+  ```
+
+  Now, it needs to be:
+
+  ```yaml
+  profiling:
+    enabled: true
+  ```
+
+### Potential Downtime
+
+### Deprecations
+
+- OpenAPI v1: OpenAPI v1 is collectively defined as all endpoints which are not prefixed with `/v2` or `/v3`. The v1 endpoints
+  will be deprecated in no less than 6 months. Endpoints will be replaced with equivalents in the `/v2` or `/v3` APIs.
+  No loss of functionality expected unless explicitly mentioned in Breaking Changes.
+
+### Other Notable Changes
+
+- #10498 - Tableau ingestion can now be configured to ingest multiple sites at once and add the sites as containers. The feature is currently only available for Tableau Server.
+- #10466 - Extends configuration in `~/.datahubenv` to match `DatahubClientConfig` object definition. See full configuration in https://datahubproject.io/docs/python-sdk/clients/. The CLI should now respect the updated configurations specified in `~/.datahubenv` across its functions and utilities. This means that for systems where ssl certification is disabled, setting `disable_ssl_verification: true` in `~./datahubenv` will apply to all CLI calls.
+- #11002 - We will not auto-generate a `~/.datahubenv` file. You must either run `datahub init` to create that file, or set environment variables so that the config is loaded.
+- #11023 - Added a new parameter to datahub's `put` cli command: `--run-id`. This parameter is useful to associate a given write to an ingestion process. A use-case can be mimick transformers when a transformer for aspect being written does not exist.
+- #11051 - Ingestion reports will now trim the summary text to a maximum of 800k characters to avoid generating `dataHubExecutionRequestResult` that are too large for GMS to handle.
+
+## 0.13.3
+
+### Breaking Changes
+
+- #10419 - `aws_region` is now a required configuration in the DynamoDB connector. The connector will no longer loop through all AWS regions; instead, it will only use the region passed into the recipe configuration.
+- #10389 - Custom validators, mutators, side-effects dropped a previously required constructor
+- #10472 - `RVW` added as a FabricType. No rollbacks allowed once metadata with this fabric type is added without manual cleanups in databases.
+
+### Potential Downtime
+
+### Deprecations
+
 ### Other Notable Change
 
 ## 0.13.1
@@ -470,7 +586,7 @@ Helm with `--atomic`: In general, it is recommended to not use the `--atomic` se
 
 ### Breaking Changes
 
-- The `should_overwrite` flag in `csv-enricher` has been replaced with `write_semantics` to match the format used for other sources. See the [documentation](https://datahubproject.io/docs/generated/ingestion/sources/csv/) for more details
+- The `should_overwrite` flag in `csv-enricher` has been replaced with `write_semantics` to match the format used for other sources. See the [documentation](https://datahubproject.io/docs/generated/ingestion/sources/csv-enricher/) for more details
 - Closing an authorization hole in creating tags adding a Platform Privilege called `Create Tags` for creating tags. This is assigned to `datahub` root user, along
   with default All Users policy. Notice: You may need to add this privilege (or `Manage Tags`) to existing users that need the ability to create tags on the platform.
 - #5329 Below profiling config parameters are now supported in `BigQuery`:

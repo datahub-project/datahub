@@ -7,6 +7,7 @@ import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.VerifyFormInput;
 import com.linkedin.metadata.service.FormService;
@@ -40,7 +41,7 @@ public class VerifyFormResolver implements DataFetcher<CompletableFuture<Boolean
     final Authentication authentication = context.getAuthentication();
     final Urn actorUrn = UrnUtils.getUrn(authentication.getActor().toUrnStr());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final List<Urn> groupsForUser =
@@ -58,6 +59,8 @@ public class VerifyFormResolver implements DataFetcher<CompletableFuture<Boolean
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateSecretInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
@@ -41,7 +42,7 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
     final CreateSecretInput input =
         bindArgument(environment.getArgument("input"), CreateSecretInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (IngestionAuthUtils.canManageSecrets(context)) {
 
@@ -79,6 +80,8 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

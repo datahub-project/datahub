@@ -161,7 +161,7 @@ const championSections = [
       {
         name: "Tim Bossenmaier",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/champ-img/imgs/datahub-champions/tim_bossenmaier.jpeg",
-        position: "Data & Software Engineer, Bytefabrik.AI",
+        position: "Data & Software Engineer, Cloudflight",
         bio: (
           <>
             <p>
@@ -173,7 +173,7 @@ const championSections = [
           linkedin: "https://www.linkedin.com/in/tim-bossenmaier/",
           github: "https://github.com/bossenti",
           },
-        location: "Sigmaringen, Germany"
+        location: "Innsbruck, Austria"
         },
       {
         name: "Nikola Kasev",
@@ -372,7 +372,7 @@ function Champion() {
           <div className="hero__content">
             <div>
               <HeroImage /> 
-              <h1>DataHub Champions</h1>
+              <div className="hero__title">DataHub Champions</div>
               <p className="hero__subtitle">
                 Recognizing community members who have made exceptional contributions to further the collective success of DataHub.              
               </p>

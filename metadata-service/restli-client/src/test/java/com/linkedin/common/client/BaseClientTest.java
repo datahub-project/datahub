@@ -37,7 +37,7 @@ public class BaseClientTest {
     when(mockRestliClient.sendRequest(any(ActionRequest.class))).thenReturn(mockFuture);
 
     RestliEntityClient testClient =
-        new RestliEntityClient(mockRestliClient, new ExponentialBackoff(1), 0);
+        new RestliEntityClient(mockRestliClient, new ExponentialBackoff(1), 0, 10, 2);
     testClient.sendClientRequest(testRequestBuilder, AUTH);
     // Expected 1 actual try and 0 retries
     verify(mockRestliClient).sendRequest(any(ActionRequest.class));
@@ -56,7 +56,7 @@ public class BaseClientTest {
         .thenReturn(mockFuture);
 
     RestliEntityClient testClient =
-        new RestliEntityClient(mockRestliClient, new ExponentialBackoff(1), 1);
+        new RestliEntityClient(mockRestliClient, new ExponentialBackoff(1), 1, 10, 2);
     testClient.sendClientRequest(testRequestBuilder, AUTH);
     // Expected 1 actual try and 1 retries
     verify(mockRestliClient, times(2)).sendRequest(any(ActionRequest.class));
@@ -73,7 +73,7 @@ public class BaseClientTest {
         .thenThrow(new RuntimeException(new RequiredFieldNotPresentException("value")));
 
     RestliEntityClient testClient =
-        new RestliEntityClient(mockRestliClient, new ExponentialBackoff(1), 1);
+        new RestliEntityClient(mockRestliClient, new ExponentialBackoff(1), 1, 10, 2);
     assertThrows(
         RuntimeException.class, () -> testClient.sendClientRequest(testRequestBuilder, AUTH));
   }

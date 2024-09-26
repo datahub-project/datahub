@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RemoveLinkInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
@@ -35,7 +36,7 @@ public class RemoveLinkResolver implements DataFetcher<CompletableFuture<Boolean
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           LinkUtils.validateAddRemoveInput(
               context.getOperationContext(), linkUrl, targetUrn, _entityService);
@@ -56,6 +57,8 @@ public class RemoveLinkResolver implements DataFetcher<CompletableFuture<Boolean
                     "Failed to remove link from resource with input  %s", input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

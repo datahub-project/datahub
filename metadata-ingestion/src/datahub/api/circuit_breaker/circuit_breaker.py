@@ -34,9 +34,11 @@ class AbstractCircuitBreaker:
         # Select your transport with a defined url endpoint
         self.transport = RequestsHTTPTransport(
             url=datahub_host + "/api/graphql",
-            headers={"Authorization": "Bearer " + datahub_token}
-            if datahub_token is not None
-            else None,
+            headers=(
+                {"Authorization": "Bearer " + datahub_token}
+                if datahub_token is not None
+                else None
+            ),
             method="POST",
             timeout=timeout,
         )

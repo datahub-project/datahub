@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 
 import dateutil.parser
 import requests
+from packaging import version
 from pydantic import BaseModel, Field, validator
 
 from datahub.configuration.git import GitReference
@@ -41,14 +42,17 @@ logger = logging.getLogger(__name__)
 
 class DBTCoreConfig(DBTCommonConfig):
     manifest_path: str = Field(
-        description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json Note this can be a local file or a URI."
+        description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json Note "
+        "this can be a local file or a URI."
     )
     catalog_path: str = Field(
-        description="Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json Note this can be a local file or a URI."
+        description="Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json Note this "
+        "can be a local file or a URI."
     )
     sources_path: Optional[str] = Field(
         default=None,
-        description="Path to dbt sources JSON. See https://docs.getdbt.com/reference/artifacts/sources-json. If not specified, last-modified fields will not be populated. Note this can be a local file or a URI.",
+        description="Path to dbt sources JSON. See https://docs.getdbt.com/reference/artifacts/sources-json. If not "
+        "specified, last-modified fields will not be populated. Note this can be a local file or a URI.",
     )
     run_results_paths: List[str] = Field(
         default=[],
@@ -56,6 +60,12 @@ class DBTCoreConfig(DBTCommonConfig):
         "If not specified, test execution results and model performance metadata will not be populated in DataHub."
         "If invoking dbt multiple times, you can provide paths to multiple run result files. "
         "See https://docs.getdbt.com/reference/artifacts/run-results-json.",
+    )
+
+    only_include_if_in_catalog: bool = Field(
+        default=False,
+        description="[experimental] If true, only include nodes that are also present in the catalog file. "
+        "This is useful if you only want to include models that have been built by the associated run.",
     )
 
     # Because we now also collect model performance metadata, the "test_results" field was renamed to "run_results".
@@ -101,17 +111,31 @@ class DBTCoreConfig(DBTCommonConfig):
 
 
 def get_columns(
-    catalog_node: dict,
+    dbt_name: str,
+    catalog_node: Optional[dict],
     manifest_node: dict,
     tag_prefix: str,
 ) -> List[DBTColumn]:
-    columns = []
-
-    catalog_columns = catalog_node["columns"]
     manifest_columns = manifest_node.get("columns", {})
-
     manifest_columns_lower = {k.lower(): v for k, v in manifest_columns.items()}
 
+    if catalog_node is not None:
+        logger.debug(f"Loading schema info for {dbt_name}")
+        catalog_columns = catalog_node["columns"]
+    elif manifest_columns:
+        # If the end user ran `dbt compile` instead of `dbt docs generate`, then the catalog
+        # file will not have any column information. In this case, we will fall back to using
+        # information from the manifest file.
+        logger.debug(f"Inferring schema info for {dbt_name} from manifest")
+        catalog_columns = {
+            k: {"name": col["name"], "type": col["data_type"] or "", "index": i}
+            for i, (k, col) in enumerate(manifest_columns.items())
+        }
+    else:
+        logger.debug(f"Missing schema info for {dbt_name}")
+        return []
+
+    columns = []
     for key, catalog_column in catalog_columns.items():
         manifest_column = manifest_columns.get(
             key, manifest_columns_lower.get(key.lower(), {})
@@ -142,6 +166,7 @@ def extract_dbt_entities(
     manifest_adapter: str,
     use_identifiers: bool,
     tag_prefix: str,
+    only_include_if_in_catalog: bool,
     report: DBTSourceReport,
 ) -> List[DBTNode]:
     sources_by_id = {x["unique_id"]: x for x in sources_results}
@@ -180,15 +205,22 @@ def extract_dbt_entities(
 
         # It's a source
         catalog_node = all_catalog_entities.get(key)
+        missing_from_catalog = catalog_node is None
         catalog_type = None
 
         if catalog_node is None:
-            if materialization not in {"test", "ephemeral"}:
+            if materialization in {"test", "ephemeral"}:
                 # Test and ephemeral nodes will never show up in the catalog.
-                report.report_warning(
-                    key,
-                    f"Entity {key} ({name}) is in manifest but missing from catalog",
-                )
+                missing_from_catalog = False
+            else:
+                if not only_include_if_in_catalog:
+                    report.warning(
+                        title="Node missing from catalog",
+                        message="Found a node in the manifest file but not in the catalog. "
+                        "This usually means the catalog file was not generated by `dbt docs generate` and so is incomplete. "
+                        "Some metadata, such as column types and descriptions, will be impacted.",
+                        context=key,
+                    )
         else:
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
@@ -234,6 +266,7 @@ def extract_dbt_entities(
         dbtNode = DBTNode(
             dbt_name=key,
             dbt_adapter=manifest_adapter,
+            dbt_package_name=manifest_node.get("package_name"),
             database=manifest_node["database"],
             schema=manifest_node["schema"],
             name=name,
@@ -252,6 +285,7 @@ def extract_dbt_entities(
             upstream_nodes=upstream_nodes,
             materialization=materialization,
             catalog_type=catalog_type,
+            missing_from_catalog=missing_from_catalog,
             meta=meta,
             query_tag=query_tag_props,
             tags=tags,
@@ -267,14 +301,12 @@ def extract_dbt_entities(
             "ephemeral",
             "test",
         ]:
-            logger.debug(f"Loading schema info for {dbtNode.dbt_name}")
-            if catalog_node is not None:
-                # We already have done the reporting for catalog_node being None above.
-                dbtNode.columns = get_columns(
-                    catalog_node,
-                    manifest_node,
-                    tag_prefix,
-                )
+            dbtNode.columns = get_columns(
+                dbtNode.dbt_name,
+                catalog_node,
+                manifest_node,
+                tag_prefix,
+            )
 
         else:
             dbtNode.columns = []
@@ -425,22 +457,6 @@ def load_run_results(
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class DBTCoreSource(DBTSourceBase, TestableSource):
-    """
-    The artifacts used by this source are:
-    - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
-      - This file contains model, source, tests and lineage data.
-    - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
-      - This file contains schema data.
-      - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
-    - [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json)
-      - This file contains metadata for sources with freshness checks.
-      - We transfer dbt's freshness checks to DataHub's last-modified fields.
-      - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
-    - [dbt run_results file](https://docs.getdbt.com/reference/artifacts/run-results-json)
-      - This file contains metadata from the result of a dbt run, e.g. dbt test
-      - When provided, we transfer dbt test run results into assertion run events to see a timeline of test runs on the dataset
-    """
-
     config: DBTCoreConfig
 
     @classmethod
@@ -480,7 +496,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             )
             return json.loads(response["Body"].read().decode("utf-8"))
         else:
-            with open(uri, "r") as f:
+            with open(uri) as f:
                 return json.load(f)
 
     def loadManifestAndCatalog(
@@ -533,6 +549,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             manifest_adapter,
             self.config.use_identifiers,
             self.config.tag_prefix,
+            self.config.only_include_if_in_catalog,
             self.report,
         )
 
@@ -556,16 +573,26 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         ) = self.loadManifestAndCatalog()
 
         # If catalog_version is between 1.7.0 and 1.7.2, report a warning.
-        if (
-            catalog_version
-            and catalog_version.startswith("1.7.")
-            and catalog_version < "1.7.3"
-        ):
-            self.report.report_warning(
-                "dbt_catalog_version",
-                f"Due to a bug in dbt, dbt version {catalog_version} will have incomplete metadata on sources. "
-                "Please upgrade to dbt version 1.7.3 or later. "
-                "See https://github.com/dbt-labs/dbt-core/issues/9119 for details on the bug.",
+        try:
+            if (
+                catalog_version
+                and catalog_version.startswith("1.7.")
+                and version.parse(catalog_version) < version.parse("1.7.3")
+            ):
+                self.report.report_warning(
+                    title="Dbt Catalog Version",
+                    message="Due to a bug in dbt version between 1.7.0 and 1.7.2, you will have incomplete metadata "
+                    "source",
+                    context=f"Due to a bug in dbt, dbt version {catalog_version} will have incomplete metadata on "
+                    f"sources."
+                    "Please upgrade to dbt version 1.7.3 or later. "
+                    "See https://github.com/dbt-labs/dbt-core/issues/9119 for details on the bug.",
+                )
+        except Exception as e:
+            self.report.info(
+                title="Dbt Catalog Version",
+                message="Failed to determine the catalog version",
+                exc=e,
             )
 
         additional_custom_props = {
@@ -585,6 +612,23 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             )
 
         return all_nodes, additional_custom_props
+
+    def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
+        nodes = super()._filter_nodes(all_nodes)
+
+        if not self.config.only_include_if_in_catalog:
+            return nodes
+
+        filtered_nodes = []
+        for node in nodes:
+            if node.missing_from_catalog:
+                # TODO: We need to do some additional testing of this flag to validate that it doesn't
+                # drop important things entirely (e.g. sources).
+                self.report.nodes_filtered.append(node.dbt_name)
+            else:
+                filtered_nodes.append(node)
+
+        return filtered_nodes
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:
         if self.config.git_info and node.dbt_file_path:

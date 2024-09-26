@@ -1,28 +1,30 @@
-import React from "react";
+import React, { useState } from "react";
 import Layout from "@theme/Layout";
 import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import CodeBlock from "@theme/CodeBlock";
-
+import useBaseUrl from "@docusaurus/useBaseUrl";
 import Hero from "./_components/Hero";
 import Features from "./_components/Features";
-import Quotes from "./_components/Quotes";
 import { Section, PromoSection } from "./_components/Section";
-import { PlatformLogos, CompanyLogos } from "./_components/Logos";
+import { PlatformLogos } from "./_components/Logos";
 import RoundedImage from "./_components/RoundedImage";
+import { CompanyLogos } from "./_components/Logos";
+import QuickstartContent from "./_components/QuickstartContent";
+import Testimonials from "./_components/Testimonials";
+import Ecosystem from "./_components/Ecosystem";
+import Community from "./_components/Community";
+import SocialMedia from "./_components/SocialMedia";
+import CaseStudy from "./_components/CaseStudy";
+import Trial from "./_components/Trial";
+import CloseButton from "@ant-design/icons/CloseCircleFilled";
 
-const example_recipe = `
-source:
-  type: "mysql"
-  config:
-    username: "datahub"
-    password: "datahub"
-    host_port: "localhost:3306"
-sink:
-  type: "datahub-rest"
-  config:
-    server: 'http://localhost:8080'`.trim();
-const example_recipe_run = "datahub ingest -c recipe.yml";
+const companyIndexes = require("../../adoptionStoriesIndexes.json");
+const companies = companyIndexes.companies;
+const keyCompanySlugs = ["netflix", "visa", "pinterest", "airtel", "optum"];
+const keyCompanies = keyCompanySlugs
+  .map((slug) => companies.find((co) => co.slug === slug))
+  .filter((isDefined) => isDefined);
 
 function Home() {
   const context = useDocusaurusContext();
@@ -32,14 +34,63 @@ function Home() {
     window.location.replace("/docs");
   }
 
+  const [isTourModalVisible, setIsTourModalVisible] = useState(false);
+  const onOpenTourModal = () => {
+    setIsTourModalVisible(true);
+  };
+  const onCloseTourModal = () => {
+    setIsTourModalVisible(false);
+  };
   return !siteConfig.customFields.isSaas ? (
     <Layout
       title={siteConfig.tagline}
-      description="DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems."
+      description="DataHub is a data discovery application built on an extensible data catalog that helps you tame the complexity of diverse data ecosystems."
     >
-      <Hero />
-      <Features />
-      <Section>
+      {isTourModalVisible ? (
+        <div className="tourModal">
+          <div className="closeButtonWrapper" onClick={onCloseTourModal}>
+            <CloseButton />
+          </div>
+          <iframe src="https://www.acryldata.io/tour" />
+        </div>
+      ) : null}
+      <Hero onOpenTourModal={onOpenTourModal} />
+      <div className="comapny__logos">
+        <div className="text">
+          Trusted by industry leaders&nbsp;
+          <br />
+          around the world.
+        </div>
+        <div className="company_logos_list_wrapper">
+          {keyCompanies.map((company) => (
+            <a href={`/adoption-stories#${company.slug}`}>
+              <img
+                src={useBaseUrl(company.imageUrl)}
+                alt={company.name}
+                title={company.name}
+                className={"company_logo"}
+              />
+            </a>
+          ))}
+        </div>
+        {/* <div style={{ textAlign: "center", margin: "1rem" }}>
+          <Link
+            className="button button--secondary button--md"
+            to={useBaseUrl("adoption-stories")}
+          >
+            Check Out Adoption Stories →
+          </Link>
+        </div> */}
+      </div>
+      <QuickstartContent />
+      <Testimonials />
+      {/* <Features /> */}
+      <Ecosystem />
+      <Community />
+      <SocialMedia />
+      <CaseStudy />
+      <Trial onOpenTourModal={onOpenTourModal} />
+      {/* <Section>
         <div className="container">
           <div className="row row--centered">
             <div className="col col--6">
@@ -68,11 +119,12 @@ function Home() {
               >
                 The Origins of DataHub
               </h1>
-              {/* <hr style={{ border: "2px solid black", width: "20rem" }}></hr> */}
+              <hr style={{ border: "2px solid black", width: "20rem" }}></hr>
               <p style={{ fontSize: "18px" }}>
-                Explore DataHub's journey from search and discovery tool at
-                LinkedIn to the #1 open source metadata platform, through the
-                lens of its founder and some amazing community members.
+                Explore DataHub's journey from search and data discovery tool at
+                LinkedIn to the #1 open source metadata management platform,
+                through the lens of its founder and some amazing community
+                members.
               </p>
             </div>
           </div>
@@ -143,8 +195,8 @@ function Home() {
               </h2>
               <p>
                 DataHub is the one-stop shop for documentation, schemas,
-                ownership, lineage, pipelines, data quality, usage information,
-                and more.
+                ownership, data lineage, pipelines, data quality, usage
+                information, and more.
               </p>
             </div>
             <div className="col col--6 col--offset-1">
@@ -155,11 +207,7 @@ function Home() {
             </div>
           </div>
         </div>
-      </Section>
-      <Section title="Trusted Across the Industry">
-        <CompanyLogos />
-        <Quotes />
-      </Section>
+      </Section> */}
     </Layout>
   ) : null;
 }

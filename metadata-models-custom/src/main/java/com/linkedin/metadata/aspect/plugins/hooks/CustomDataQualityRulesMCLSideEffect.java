@@ -14,9 +14,7 @@ import javax.annotation.Nonnull;
 
 public class CustomDataQualityRulesMCLSideEffect extends MCLSideEffect {
 
-  public CustomDataQualityRulesMCLSideEffect(AspectPluginConfig config) {
-    super(config);
-  }
+  private AspectPluginConfig config;
 
   @Override
   protected Stream<MCLItem> applyMCLSideEffect(
@@ -68,5 +66,17 @@ public class CustomDataQualityRulesMCLSideEffect extends MCLSideEffect {
     }
 
     return Optional.empty();
+  }
+
+  @Nonnull
+  @Override
+  public AspectPluginConfig getConfig() {
+    return config;
+  }
+
+  @Override
+  public CustomDataQualityRulesMCLSideEffect setConfig(@Nonnull AspectPluginConfig config) {
+    this.config = config;
+    return this;
   }
 }

@@ -3,7 +3,7 @@ const isSaas = process.env.DOCUSAURUS_IS_SAAS === "true";
 
 module.exports = {
   title: process.env.DOCUSAURUS_CONFIG_TITLE || "DataHub",
-  tagline: "A Metadata Platform for the Modern Data Stack",
+  tagline: "The #1 Open Source Metadata Platform",
   url: process.env.DOCUSAURUS_CONFIG_URL || "https://datahubproject.io",
   baseUrl: process.env.DOCUSAURUS_CONFIG_BASE_URL || "/",
   onBrokenLinks: "throw",
@@ -19,6 +19,14 @@ module.exports = {
       async: true,
       defer: true,
     },
+    {
+      src: "/scripts/rb2b.js",
+      async: true,
+      defer: true,
+    },
+    {
+      src: "https://app.revenuehero.io/scheduler.min.js"
+    }
   ],
   noIndex: isSaas,
   customFields: {
@@ -47,16 +55,22 @@ module.exports = {
   },
 
   themeConfig: {
-    ...(!isSaas && {
-      announcementBar: {
-        id: "announcement",
-        content:
-          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Acryl DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for Acryl DataHub&nbsp;→</a>',
-        backgroundColor: "#070707",
-        textColor: "#ffffff",
-        isCloseable: false,
-      },
-    }),
+    // ...(!isSaas && {
+    //   announcementBar: {
+    //     id: "announcement",
+    //     content:
+    //       '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>DataHub Cloud</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for DataHub Cloud&nbsp;→</a>',
+    //     backgroundColor: "#070707",
+    //     textColor: "#ffffff",
+    //     isCloseable: false,
+    //   },
+    // }),
+    colorMode: {
+      // Only support light mode.
+      defaultMode: 'light',
+      disableSwitch: true,
+      respectPrefersColorScheme: false,
+    },
     navbar: {
       title: null,
       logo: {
@@ -69,6 +83,18 @@ module.exports = {
           to: "docs/",
           activeBasePath: "docs",
           label: "Docs",
+          position: "right",
+        },
+        {
+          to: "/cloud",
+          activeBasePath: "cloud",
+          html: "Cloud",
+          position: "right",
+        },
+        {
+          to: "/learn",
+          activeBasePath: "learn",
+          label: "Learn",
           position: "right",
         },
         {
@@ -98,6 +124,10 @@ module.exports = {
               to: "/champions",
               label: "Champions",
             },
+            {
+              label: "Share Your Journey",
+              href: "/customer-stories-survey",
+            },
           ],
         },
         {
@@ -110,7 +140,7 @@ module.exports = {
               label: "Demo",
             },
             {
-              href: "https://www.acryldata.io/blog",
+              href: "https://blog.datahubproject.io/",
               label: "Blog",
             },
             {
@@ -126,8 +156,8 @@ module.exports = {
               label: "YouTube",
             },
             {
-              href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvGCKMQC2dJEZ6cUqWsREbFi",
-              label: "Case Studies",
+              href: "/adoption-stories",
+              label: "Adoption Stories",
             },
             {
               href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvErAXMiqUYH9e63wyDaMBgg",
@@ -221,7 +251,7 @@ module.exports = {
             },
             {
               label: "Adoption",
-              to: "docs/#adoption",
+              href: "/adoption-stories",
             },
           ],
         },
@@ -273,6 +303,13 @@ module.exports = {
       "@docusaurus/preset-classic",
       {
         docs: {
+            lastVersion: "current",
+              versions: {
+                current: {
+                  label: "Next",
+                  banner: 'none',
+                },
+              },
           path: "genDocs",
           sidebarPath: require.resolve("./sidebars.js"),
           ...(!isSaas && {
@@ -283,7 +320,15 @@ module.exports = {
           showLastUpdateAuthor: false,
           showLastUpdateTime: false,
         },
-        blog: false,
+        blog: {
+          blogTitle: "DataHub Learn",
+          blogSidebarTitle: "DataHub Learn",
+          blogDescription: "Learn about the hot topics in the data ecosystem and how DataHub can help you with your data journey.",
+          path: "src/learn",
+          routeBasePath: "learn",
+          postsPerPage: "ALL",
+          blogListComponent: "../src/learn/_components/LearnListPage",
+        },
         theme: {
           customCss: [
             isSaas ? require.resolve("./src/styles/acryl.scss") : require.resolve("./src/styles/datahub.scss"),
@@ -303,6 +348,23 @@ module.exports = {
     ],
   ],
   plugins: [
+    [
+      '@docusaurus/plugin-client-redirects',
+      {
+        createRedirects(existingPath) {
+          if (existingPath.includes('/docs')) {
+            return [
+              existingPath.replace('/docs', '/docs/next'),
+              existingPath.replace('/docs', '/docs/0.13.0'),
+              existingPath.replace('/docs', '/docs/0.12.1'),
+              existingPath.replace('/docs', '/docs/0.11.0'),
+              existingPath.replace('/docs', '/docs/0.10.5'),
+            ];
+          }
+          return undefined; // Return a falsy value: no redirect created
+        },
+      },
+    ],
     ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
     "docusaurus-plugin-sass",
     [

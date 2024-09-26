@@ -393,7 +393,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                         "name": "job-history",
                                         "source": [
                                             {
-                                                "expression": 'let\n    Source = Oracle.Database("localhost:1521/salesdb.GSLAB.COM", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
+                                                "expression": 'let\n    Source = Oracle.Database("localhost:1521/salesdb.domain.com", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
                                             }
                                         ],
                                         "datasourceUsages": [
@@ -634,6 +634,7 @@ def default_source_config():
         },
         "env": "DEV",
         "extract_workspaces_to_containers": False,
+        "enable_advance_lineage_sql_construct": False,
     }
 
 
@@ -674,6 +675,52 @@ def test_powerbi_ingest(
     pipeline.run()
     pipeline.raise_from_status()
     golden_file = "golden_test_ingest.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_powerbi_ingest_patch_disabled(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    enable_logging()
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "patch_metadata": False,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_ingest_patch_disabled.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -772,6 +819,8 @@ def test_powerbi_ingest_urn_lower_case(
                 "type": "powerbi",
                 "config": {
                     **default_source_config(),
+                    "env": "PROD",
+                    "platform_instance": "myPlatformInstance",
                     "convert_urns_to_lowercase": True,
                     "convert_lineage_urns_to_lowercase": True,
                 },

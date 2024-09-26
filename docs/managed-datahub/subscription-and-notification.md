@@ -5,7 +5,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 DataHub's Subscriptions and Notifications feature gives you real-time change alerts on data assets of your choice.
-With this feature, you can set up subscriptions to specific changes for an Entity – and DataHub will notify you when those changes happen. Currently, DataHub supports notifications on Slack, with support for Microsoft Teams and email subscriptions forthcoming.
+With this feature, you can set up subscriptions to specific changes for an Entity – and DataHub will notify you when those changes happen. Currently, DataHub supports notifications on Slack and Email, with support for Microsoft Teams forthcoming.
+
+Email will work out of box. For installing the DataHub Slack App, see:
+👉 [Configure Slack for Notifications](slack/saas-slack-setup.md)
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-user-notifications-in-slack.png"/>
@@ -16,11 +19,16 @@ As a user, you can subscribe to and receive notifications about changes such as 
 
 ## Prerequisites
 
-Once you have [configured Slack within your DataHub instance](saas-slack-setup.md), you will be able to subscribe to any Entity in DataHub and begin recieving notifications via DM.
+Once you have [configured Slack within your DataHub instance](slack/saas-slack-setup.md), you will be able to subscribe to any Entity in DataHub and begin recieving notifications via DM.
+To begin receiving personal notifications, go to Settings > "My Notifications". From here, toggle on Slack Notifications and input your Slack Member ID.
+
 If you want to create and manage group-level Subscriptions for your team, you will need [the following privileges](../../docs/authorization/roles.md#role-privileges):
 
 - Manage Group Notification Settings
 - Manage Group Subscriptions
+
+And to manage other user's subscriptions:
+- Manage User Subscriptions
 
 ## Using DataHub’s Subscriptions and Notifications Feature
 
@@ -93,6 +101,39 @@ You can view and manage the group’s subscriptions on the group’s page on Dat
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-group-subscriptions.png"/>
 </p>
 
+### Subscribing to Assertions
+You can always subscribe to _all assertion status changes_ on a table using the steps outlined in the earlier sections. However, in some cases you may want to only be notified about specific assertions on a table. For instance, a table may contain several subsets of information, segmented by a category column - so there may be several different checks for each category. As a consumer, you may only care about the freshness check that runs on one specific category of this larger table.
+
+You can subscribe to individual assertions by clicking the bell button on the assertion itself - either in the list view:
+<p align="center">
+  <img width="70%" alt="1" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-1.jpg" />
+</p>
+
+Or on the assertion's profile page:
+<p align="center">
+  <img width="70%" alt="2" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-2.jpg" />
+</p>
+
+
+Note: if you are subscribed to all assertions at the dataset level, then you will not be able to **Unsubscribe** from an individual assertion.
+<p align="center">
+  <img width="70%" alt="3" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-unsub-1.jpg" />
+</p>
+
+You must first remove your dataset-level subscription:
+<p align="center">
+  <img width="70%" alt="4" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-unsub-2.jpg" />
+  <img width="70%" alt="5" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-unsub-3.jpg" />
+</p>
+
+
+Then select individual assertions you'd like to subscribe to:
+<p align="center">
+  <img width="70%" alt="7" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-resub-1.jpg" />
+</p>
+
+
+
 ## FAQ
 
 <details>
@@ -125,6 +166,6 @@ To modify your subscription, use the dropdown menu next to the Subscribe button 
 
 ## Reference
 
-- [DataHub Blog - Simplifying Data Monitoring & Management with Subscriptions and Notifications with Acryl DataHub](https://www.acryldata.io/blog/simplifying-data-monitoring-and-management-with-subscriptions-and-notifications-with-acryl-datahub)
+- [DataHub Blog - Simplifying Data Monitoring & Management with Subscriptions and Notifications with DataHub Cloud](https://www.acryldata.io/blog/simplifying-data-monitoring-and-management-with-subscriptions-and-notifications-with-acryl-datahub)
 - Video Guide - Getting Started with Subscription & Notifications
     <iframe width="560" height="315" src="https://www.loom.com/embed/f02fe71e09494b5e82904c8a47f06ac1?sid=ef041cb7-9c06-4926-8e0c-e948b1dc3af0" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>

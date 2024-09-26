@@ -1,6 +1,8 @@
 package com.linkedin.metadata.entity.restoreindices;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -9,7 +11,7 @@ import lombok.experimental.Accessors;
 public class RestoreIndicesArgs implements Cloneable {
   public static final int DEFAULT_BATCH_SIZE = 500;
   public static final int DEFAULT_NUM_THREADS = 1;
-  public static final int DEFAULT_BATCH_DELAY_MS = 1;
+  public static final int DEFAULT_BATCH_DELAY_MS = 1000;
   public static final long DEFAULT_GE_PIT_EPOCH_MS = 0;
 
   public int start = 0;
@@ -20,6 +22,7 @@ public class RestoreIndicesArgs implements Cloneable {
   public long gePitEpochMs = DEFAULT_GE_PIT_EPOCH_MS;
   public long lePitEpochMs;
   public String aspectName;
+  public List<String> aspectNames = Collections.emptyList();
   public String urn;
   public String urnLike;
   public Boolean urnBasedPagination = false;

@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.incident;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityIncidentsResult;
 import com.linkedin.datahub.graphql.generated.Incident;
@@ -20,6 +21,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -45,7 +47,7 @@ public class EntityIncidentsResolver
 
   @Override
   public CompletableFuture<EntityIncidentsResult> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
 
@@ -59,13 +61,13 @@ public class EntityIncidentsResolver
             // Index!
             // We use the search index so that we can easily sort by the last updated time.
             final Filter filter = buildIncidentsEntityFilter(entityUrn, maybeState);
-            final SortCriterion sortCriterion = buildIncidentsSortCriterion();
+            final List<SortCriterion> sortCriteria = buildIncidentsSortCriteria();
             final SearchResult searchResult =
                 _entityClient.filter(
                     context.getOperationContext(),
                     Constants.INCIDENT_ENTITY_NAME,
                     filter,
-                    sortCriterion,
+                    sortCriteria,
                     start,
                     count);
 
@@ -103,7 +105,9 @@ public class EntityIncidentsResolver
           } catch (URISyntaxException | RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve incidents from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter buildIncidentsEntityFilter(
@@ -115,10 +119,10 @@ public class EntityIncidentsResolver
     return QueryUtils.newFilter(criterionMap);
   }
 
-  private SortCriterion buildIncidentsSortCriterion() {
+  private List<SortCriterion> buildIncidentsSortCriteria() {
     final SortCriterion sortCriterion = new SortCriterion();
     sortCriterion.setField(CREATED_TIME_SEARCH_INDEX_FIELD_NAME);
     sortCriterion.setOrder(SortOrder.DESCENDING);
-    return sortCriterion;
+    return Collections.singletonList(sortCriterion);
   }
 }

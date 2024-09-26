@@ -6,7 +6,10 @@ import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.metadata.aspect.EnvelopedSystemAspect;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.GenericPayload;
 import java.nio.charset.StandardCharsets;
@@ -84,6 +87,29 @@ public class GenericRecordUtils {
                         .map(
                             aspectEntry ->
                                 Map.entry(aspectEntry.getKey(), aspectEntry.getValue().getValue()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  @Nonnull
+  public static Map<Urn, Map<String, SystemAspect>> entityResponseToSystemAspectMap(
+      Map<Urn, EntityResponse> inputMap, @Nonnull EntityRegistry entityRegistry) {
+    return inputMap.entrySet().stream()
+        .map(
+            entry ->
+                Map.entry(
+                    entry.getKey(),
+                    entry.getValue().getAspects().entrySet().stream()
+                        .filter(aspectEntry -> aspectEntry.getValue() != null)
+                        .map(
+                            aspectEntry ->
+                                Map.entry(
+                                    aspectEntry.getKey(),
+                                    EnvelopedSystemAspect.of(
+                                        entry.getKey(),
+                                        aspectEntry.getValue(),
+                                        entityRegistry.getEntitySpec(
+                                            entry.getKey().getEntityType()))))
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }

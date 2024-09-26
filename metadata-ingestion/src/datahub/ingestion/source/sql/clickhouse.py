@@ -229,9 +229,11 @@ def _get_all_table_comments_and_properties(self, connection, **kw):
     for table in result:
         all_table_comments[(table.database, table.table_name)] = {
             "text": table.comment,
-            "properties": {k: str(v) for k, v in json.loads(table.properties).items()}
-            if table.properties
-            else {},
+            "properties": (
+                {k: str(v) for k, v in json.loads(table.properties).items()}
+                if table.properties
+                else {}
+            ),
         }
     return all_table_comments
 
@@ -286,7 +288,7 @@ def get_view_names(self, connection, schema=None, **kw):
 # when reflecting schema for multiple tables at once.
 @reflection.cache  # type: ignore
 def _get_schema_column_info(self, connection, schema=None, **kw):
-    schema_clause = "database = '{schema}'".format(schema=schema) if schema else "1"
+    schema_clause = f"database = '{schema}'" if schema else "1"
     all_columns = defaultdict(list)
     result = connection.execute(
         text(
@@ -346,7 +348,7 @@ def _get_column_info(self, name, format_type, comment):
 @reflection.cache  # type: ignore
 def get_columns(self, connection, table_name, schema=None, **kw):
     if not schema:
-        query = "DESCRIBE TABLE {}".format(self._quote_table_name(table_name))
+        query = f"DESCRIBE TABLE {self._quote_table_name(table_name)}"
         cols = self._execute(connection, query)
     else:
         cols = self._get_clickhouse_columns(connection, table_name, schema, **kw)

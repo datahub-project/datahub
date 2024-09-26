@@ -67,7 +67,9 @@ from datahub.metadata.schema_classes import (
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
+    DatasetFieldProfileClass,
     DatasetLineageTypeClass,
+    DatasetProfileClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
     OtherSchemaClass,
@@ -87,6 +89,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import ChartUrn
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -125,7 +128,7 @@ class Mapper:
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
         if flag is True:
-            return value.lower()
+            return lowercase_dataset_urn(value)
 
         return value
 
@@ -388,11 +391,13 @@ class Mapper:
 
         for table in dataset.tables:
             # Create a URN for dataset
-            ds_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=self.__config.platform_name,
-                name=self.assets_urn_to_lowercase(table.full_name),
-                platform_instance=self.__config.platform_instance,
-                env=self.__config.env,
+            ds_urn = self.assets_urn_to_lowercase(
+                builder.make_dataset_urn_with_platform_instance(
+                    platform=self.__config.platform_name,
+                    name=table.full_name,
+                    platform_instance=self.__config.platform_instance,
+                    env=self.__config.env,
+                )
             )
 
             logger.debug(f"dataset_urn={ds_urn}")
@@ -483,8 +488,63 @@ class Mapper:
                 Constant.DATASET,
                 dataset.tags,
             )
+            self.extract_profile(dataset_mcps, workspace, dataset, table, ds_urn)
 
         return dataset_mcps
+
+    def extract_profile(
+        self,
+        dataset_mcps: List[MetadataChangeProposalWrapper],
+        workspace: powerbi_data_classes.Workspace,
+        dataset: powerbi_data_classes.PowerBIDataset,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+    ) -> None:
+        if not self.__config.profiling.enabled:
+            # Profiling not enabled
+            return
+
+        if not self.__config.profile_pattern.allowed(
+            f"{workspace.name}.{dataset.name}.{table.name}"
+        ):
+            logger.info(
+                f"Table {table.name} in {dataset.name}, not allowed for profiling"
+            )
+            return
+        logger.debug(f"Profiling table: {table.name}")
+
+        profile = DatasetProfileClass(timestampMillis=builder.get_sys_time())
+        profile.rowCount = table.row_count
+        profile.fieldProfiles = []
+
+        columns: List[
+            Union[powerbi_data_classes.Column, powerbi_data_classes.Measure]
+        ] = [*(table.columns or []), *(table.measures or [])]
+        for column in columns:
+            allowed_column = self.__config.profile_pattern.allowed(
+                f"{workspace.name}.{dataset.name}.{table.name}.{column.name}"
+            )
+            if column.isHidden or not allowed_column:
+                logger.info(f"Column {column.name} not allowed for profiling")
+                continue
+            measure_profile = column.measure_profile
+            if measure_profile:
+                field_profile = DatasetFieldProfileClass(column.name or "")
+                field_profile.sampleValues = measure_profile.sample_values
+                field_profile.min = measure_profile.min
+                field_profile.max = measure_profile.max
+                field_profile.uniqueCount = measure_profile.unique_count
+                profile.fieldProfiles.append(field_profile)
+
+        profile.columnCount = table.column_count
+
+        mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            entityUrn=ds_urn,
+            aspectName="datasetProfile",
+            aspect=profile,
+        )
+        dataset_mcps.append(mcp)
 
     @staticmethod
     def transform_tags(tags: List[str]) -> GlobalTagsClass:
@@ -580,7 +640,7 @@ class Mapper:
         )
 
         # Browse path
-        browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
+        browse_path = BrowsePathsClass(paths=[f"/powerbi/{workspace.name}"])
         browse_path_mcp = self.new_mcp(
             entity_type=Constant.CHART,
             entity_urn=chart_urn,
@@ -990,7 +1050,7 @@ class Mapper:
             )
 
             # Browse path
-            browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
+            browse_path = BrowsePathsClass(paths=[f"/powerbi/{workspace.name}"])
             browse_path_mcp = self.new_mcp(
                 entity_type=Constant.CHART,
                 entity_urn=chart_urn,
@@ -1140,8 +1200,7 @@ class Mapper:
     ) -> Iterable[MetadataWorkUnit]:
         mcps: List[MetadataChangeProposalWrapper] = []
 
-        logger.debug(f"Converting dashboard={report.name} to datahub dashboard")
-
+        logger.debug(f"Converting report={report.name} to datahub dashboard")
         # Convert user to CorpUser
         user_mcps = self.to_datahub_users(report.users)
         # Convert pages to charts. A report has single dataset and same dataset used in pages to create visualization
@@ -1158,16 +1217,18 @@ class Mapper:
         mcps.extend(chart_mcps)
         mcps.extend(report_mcps)
 
-        # Convert MCP to work_units
-        work_units = map(self._to_work_unit, mcps)
-        return work_units
+        return map(self._to_work_unit, mcps)
 
 
 @platform_name("PowerBI")
 @config_class(PowerBiDashboardSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.OWNERSHIP, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
+@capability(SourceCapability.TAGS, "Enabled by default")
 @capability(
     SourceCapability.OWNERSHIP,
     "Disabled by default, configured using `extract_ownership`",
@@ -1179,6 +1240,10 @@ class Mapper:
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Disabled by default, configured using `extract_column_level_lineage`. ",
+)
+@capability(
+    SourceCapability.DATA_PROFILING,
+    "Optionally enabled via configuration profiling.enabled",
 )
 class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     """
@@ -1195,7 +1260,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = "powerbi"
 
     def __init__(self, config: PowerBiDashboardSourceConfig, ctx: PipelineContext):
-        super(PowerBiDashboardSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.source_config = config
         self.reporter = PowerBiDashboardSourceReport()
         self.dataplatform_instance_resolver = create_dataplatform_instance_resolver(
@@ -1324,7 +1389,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             DashboardInfoClass
         ] = work_unit.get_aspect_of_type(DashboardInfoClass)
 
-        if dashboard_info_aspect:
+        if dashboard_info_aspect and self.source_config.patch_metadata:
             return convert_dashboard_info_to_patch(
                 work_unit.get_urn(),
                 dashboard_info_aspect,

@@ -520,12 +520,11 @@ class BusinessGlossaryFileSource(Source):
         materialize_all_node_urns(glossary_config, self.config.enable_auto_id)
         path_vs_id = populate_path_vs_id(glossary_config)
 
-        for event in auto_workunit(
+        yield from auto_workunit(
             get_mces(
                 glossary_config, path_vs_id, ingestion_config=self.config, ctx=self.ctx
             )
-        ):
-            yield event
+        )
 
     def get_report(self):
         return self.report

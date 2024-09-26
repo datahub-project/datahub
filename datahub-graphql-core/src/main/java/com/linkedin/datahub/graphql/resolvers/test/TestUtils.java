@@ -19,10 +19,16 @@ import javax.annotation.Nonnull;
 
 public class TestUtils {
 
+  /** Returns true if the authenticated user is able to view tests. */
+  public static boolean canViewTests(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.VIEW_TESTS_PRIVILEGE);
+  }
+
   /** Returns true if the authenticated user is able to manage tests. */
   public static boolean canManageTests(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_TESTS_PRIVILEGE);
+        context.getOperationContext(), PoliciesConfig.MANAGE_TESTS_PRIVILEGE);
   }
 
   public static TestDefinition mapDefinition(final TestDefinitionInput testDefInput) {

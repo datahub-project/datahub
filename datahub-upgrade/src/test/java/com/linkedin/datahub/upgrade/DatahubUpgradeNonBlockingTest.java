@@ -9,16 +9,17 @@ import static org.testng.AssertJUnit.assertNotNull;
 
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
-import com.linkedin.datahub.upgrade.system.vianodes.ReindexDataJobViaNodesCLL;
-import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
+import com.linkedin.datahub.upgrade.system.graph.vianodes.ReindexDataJobViaNodesCLL;
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateDeserializer;
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateSerializer;
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.mxe.Topics;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import javax.inject.Named;
@@ -46,7 +47,7 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
 
   @Autowired
   @Named("schemaRegistryConfig")
-  private SchemaRegistryConfig schemaRegistryConfig;
+  private KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig;
 
   @Autowired
   @Named("duheKafkaEventProducer")
@@ -58,13 +59,19 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
 
   @Autowired private EntityServiceImpl entityService;
 
+  @Autowired private OperationContext opContext;
+
   @Test
   public void testSystemUpdateNonBlockingInit() {
     assertNotNull(systemUpdateNonBlocking);
 
     // Expected system update configuration and producer
-    assertEquals(schemaRegistryConfig.getDeserializer(), MockSystemUpdateDeserializer.class);
-    assertEquals(schemaRegistryConfig.getSerializer(), MockSystemUpdateSerializer.class);
+    assertEquals(
+        schemaRegistryConfig.getValue().getDeserializer(),
+        MockSystemUpdateDeserializer.class.getName());
+    assertEquals(
+        schemaRegistryConfig.getValue().getSerializer(),
+        MockSystemUpdateSerializer.class.getName());
     assertEquals(duheKafkaEventProducer, kafkaEventProducer);
     assertEquals(entityService.getProducer(), duheKafkaEventProducer);
   }
@@ -76,7 +83,7 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
     AspectDao mockAspectDao = mock(AspectDao.class);
 
     ReindexDataJobViaNodesCLL cllUpgrade =
-        new ReindexDataJobViaNodesCLL(mockService, mockAspectDao, true, 10, 0, 0);
+        new ReindexDataJobViaNodesCLL(opContext, mockService, mockAspectDao, true, 10, 0, 0);
     SystemUpdateNonBlocking upgrade =
         new SystemUpdateNonBlocking(List.of(), List.of(cllUpgrade), null);
     DefaultUpgradeManager manager = new DefaultUpgradeManager();

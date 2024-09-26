@@ -36,7 +36,7 @@ class QlikAPI:
         )
         self.rest_api_url = f"https://{self.config.tenant_hostname}/api/v1"
         # Test connection by fetching list of api keys
-        logger.info("Trying to connect to {}".format(self.rest_api_url))
+        logger.info(f"Trying to connect to {self.rest_api_url}")
         self.session.get(f"{self.rest_api_url}/api-keys").raise_for_status()
 
     def _log_http_error(self, message: str) -> Any:
@@ -50,12 +50,19 @@ class QlikAPI:
     def get_spaces(self) -> List[Space]:
         spaces: List[Space] = []
         try:
-            response = self.session.get(f"{self.rest_api_url}/spaces")
-            response.raise_for_status()
-            for space_dict in response.json()[Constant.DATA]:
-                space = Space.parse_obj(space_dict)
-                spaces.append(space)
-                self.spaces[space.id] = space.name
+            url = f"{self.rest_api_url}/spaces"
+            while True:
+                response = self.session.get(url)
+                response.raise_for_status()
+                response_dict = response.json()
+                for space_dict in response_dict[Constant.DATA]:
+                    space = Space.parse_obj(space_dict)
+                    spaces.append(space)
+                    self.spaces[space.id] = space.name
+                if Constant.NEXT in response_dict[Constant.LINKS]:
+                    url = response_dict[Constant.LINKS][Constant.NEXT][Constant.HREF]
+                else:
+                    break
             # Add personal space entity
             spaces.append(Space.parse_obj(PERSONAL_SPACE_DICT))
             self.spaces[PERSONAL_SPACE_DICT[Constant.ID]] = PERSONAL_SPACE_DICT[
@@ -106,7 +113,13 @@ class QlikAPI:
                 method="GetChild", params={"qId": chart_id}
             )
             response = websocket_connection.websocket_send_request(method="GetLayout")
-            return Chart.parse_obj(response[Constant.QLAYOUT])
+            q_layout = response[Constant.QLAYOUT]
+            if Constant.HYPERCUBE not in q_layout:
+                logger.warning(
+                    f"Chart with id {chart_id} of sheet {sheet_id} does not have hypercube. q_layout: {q_layout}"
+                )
+                return None
+            return Chart.parse_obj(q_layout)
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch chart {chart_id} of sheet {sheet_id}. Exception: {e}"
@@ -128,6 +141,11 @@ class QlikAPI:
                 # That means sheet is private sheet
                 return None
             sheet = Sheet.parse_obj(sheet_dict[Constant.QMETA])
+            if Constant.QCHILDLIST not in sheet_dict:
+                logger.warning(
+                    f"Sheet {sheet.title} with id {sheet_id} does not have any charts. sheet_dict: {sheet_dict}"
+                )
+                return sheet
             for i, chart_dict in enumerate(
                 sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]
             ):

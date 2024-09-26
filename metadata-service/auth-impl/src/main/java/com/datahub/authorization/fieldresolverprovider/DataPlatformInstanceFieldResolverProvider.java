@@ -40,17 +40,22 @@ public class DataPlatformInstanceFieldResolverProvider implements EntityFieldRes
 
   private FieldResolver.FieldValue getDataPlatformInstance(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
-    Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
-    // In the case that the entity is a platform instance, the associated platform instance entity
-    // is the instance itself
-    if (entityUrn.getEntityType().equals(DATA_PLATFORM_INSTANCE_ENTITY_NAME)) {
-      return FieldResolver.FieldValue.builder()
-          .values(Collections.singleton(entityUrn.toString()))
-          .build();
-    }
 
     EnvelopedAspect dataPlatformInstanceAspect;
     try {
+      if (entitySpec.getEntity().isEmpty()) {
+        return FieldResolver.emptyFieldValue();
+      }
+
+      Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
+      // In the case that the entity is a platform instance, the associated platform instance entity
+      // is the instance itself
+      if (entityUrn.getEntityType().equals(DATA_PLATFORM_INSTANCE_ENTITY_NAME)) {
+        return FieldResolver.FieldValue.builder()
+            .values(Collections.singleton(entityUrn.toString()))
+            .build();
+      }
+
       EntityResponse response =
           _entityClient.getV2(
               opContext,
@@ -63,7 +68,7 @@ public class DataPlatformInstanceFieldResolverProvider implements EntityFieldRes
       }
       dataPlatformInstanceAspect = response.getAspects().get(DATA_PLATFORM_INSTANCE_ASPECT_NAME);
     } catch (Exception e) {
-      log.error("Error while retrieving platform instance aspect for urn {}", entityUrn, e);
+      log.error("Error while retrieving platform instance aspect for entitySpec {}", entitySpec, e);
       return FieldResolver.emptyFieldValue();
     }
     DataPlatformInstance dataPlatformInstance =

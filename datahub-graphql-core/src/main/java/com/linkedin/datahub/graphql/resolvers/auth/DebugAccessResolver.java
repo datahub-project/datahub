@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DebugAccessResult;
 import com.linkedin.entity.EntityResponse;
@@ -32,6 +33,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +56,7 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
   @Override
   public CompletableFuture<DebugAccessResult> get(DataFetchingEnvironment environment)
       throws Exception {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
 
@@ -65,7 +67,9 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
           final String userUrn = environment.getArgument("userUrn");
 
           return populateDebugAccessResult(userUrn, context);
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public DebugAccessResult populateDebugAccessResult(String userUrn, QueryContext context) {
@@ -178,7 +182,7 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
             Constants.POLICY_ENTITY_NAME,
             "",
             buildFilterToGetPolicies(user, groups, roles),
-            sortCriterion,
+            Collections.singletonList(sortCriterion),
             0,
             10000)
         .getEntities()

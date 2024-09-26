@@ -7,7 +7,7 @@ source:
 
     # Credentials
     username: foo
-    password: datahub
+    password: password
 
     # If you need to connect to Trino over http and not https, uncomment this section.
     # options:

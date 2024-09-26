@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -35,6 +37,10 @@ public class Edge {
   @EqualsAndHashCode.Include private Urn lifecycleOwner;
   // An entity through which the edge between source and destination is created
   @EqualsAndHashCode.Include private Urn via;
+  @EqualsAndHashCode.Exclude @Nullable private Boolean sourceStatus;
+  @EqualsAndHashCode.Exclude @Nullable private Boolean destinationStatus;
+  @EqualsAndHashCode.Exclude @Nullable private Boolean viaStatus;
+  @EqualsAndHashCode.Exclude @Nullable private Boolean lifecycleOwnerStatus;
 
   // For backwards compatibility
   public Edge(
@@ -56,10 +62,42 @@ public class Edge {
         updatedActor,
         properties,
         null,
+        null,
+        null,
+        null,
+        null,
         null);
   }
 
-  public String toDocId() {
+  public Edge(
+      Urn source,
+      Urn destination,
+      String relationshipType,
+      Long createdOn,
+      Urn createdActor,
+      Long updatedOn,
+      Urn updatedActor,
+      Map<String, Object> properties,
+      Urn lifecycleOwner,
+      Urn via) {
+    this(
+        source,
+        destination,
+        relationshipType,
+        createdOn,
+        createdActor,
+        updatedOn,
+        updatedActor,
+        properties,
+        lifecycleOwner,
+        via,
+        null,
+        null,
+        null,
+        null);
+  }
+
+  public String toDocId(@Nonnull String idHashAlgo) {
     StringBuilder rawDocId = new StringBuilder();
     rawDocId
         .append(getSource().toString())
@@ -73,7 +111,7 @@ public class Edge {
 
     try {
       byte[] bytesOfRawDocID = rawDocId.toString().getBytes(StandardCharsets.UTF_8);
-      MessageDigest md = MessageDigest.getInstance("MD5");
+      MessageDigest md = MessageDigest.getInstance(idHashAlgo);
       byte[] thedigest = md.digest(bytesOfRawDocID);
       return Base64.getEncoder().encodeToString(thedigest);
     } catch (NoSuchAlgorithmException e) {
@@ -90,6 +128,10 @@ public class Edge {
   public static final String EDGE_FIELD_LIFECYCLE_OWNER = "lifecycleOwner";
   public static final String EDGE_SOURCE_URN_FIELD = "source.urn";
   public static final String EDGE_DESTINATION_URN_FIELD = "destination.urn";
+  public static final String EDGE_SOURCE_STATUS = "source.removed";
+  public static final String EDGE_DESTINATION_STATUS = "destination.removed";
+  public static final String EDGE_FIELD_VIA_STATUS = "viaRemoved";
+  public static final String EDGE_FIELD_LIFECYCLE_OWNER_STATUS = "lifecycleOwnerRemoved";
 
   public static final List<Pair<String, SortOrder>> KEY_SORTS =
       ImmutableList.of(

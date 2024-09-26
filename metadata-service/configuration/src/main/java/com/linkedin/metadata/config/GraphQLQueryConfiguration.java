@@ -6,4 +6,5 @@ import lombok.Data;
 public class GraphQLQueryConfiguration {
   private int complexityLimit;
   private int depthLimit;
+  private boolean introspectionEnabled;
 }

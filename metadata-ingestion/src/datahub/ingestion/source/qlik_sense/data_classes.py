@@ -164,8 +164,8 @@ class Chart(BaseModel):
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
         values[Constant.QID] = values[Constant.QINFO][Constant.QID]
-        values["qDimension"] = values["qHyperCube"]["qDimensionInfo"]
-        values["qMeasure"] = values["qHyperCube"]["qMeasureInfo"]
+        values["qDimension"] = values[Constant.HYPERCUBE]["qDimensionInfo"]
+        values["qMeasure"] = values[Constant.HYPERCUBE]["qMeasureInfo"]
         return values
 
 

@@ -8,7 +8,13 @@ export const ERModelRelationshipTab = () => {
     const { entityData } = useEntityData();
     const refetch = useRefetch();
     const ermodelrelationView = (ermodelrelationData?: any): JSX.Element => {
-        return <ERModelRelationPreview ermodelrelationData={ermodelrelationData} prePageType="ERModelRelationship" refetch={refetch} />;
+        return (
+            <ERModelRelationPreview
+                ermodelrelationData={ermodelrelationData}
+                prePageType="ERModelRelationship"
+                refetch={refetch}
+            />
+        );
     };
     return (
         <>

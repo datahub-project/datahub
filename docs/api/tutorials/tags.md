@@ -275,6 +275,8 @@ Expected Response:
 
 ### Add Tags to a Column of a dataset
 
+In the example below `subResource` is `fieldPath` in the schema.
+
 <Tabs>
 <TabItem value="graphql" label="GraphQL">
 

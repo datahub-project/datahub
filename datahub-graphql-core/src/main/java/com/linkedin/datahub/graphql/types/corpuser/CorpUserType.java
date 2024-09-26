@@ -1,11 +1,13 @@
 package com.linkedin.datahub.graphql.types.corpuser;
 
+import static com.linkedin.datahub.graphql.Constants.DEFAULT_PERSONA_URNS;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -14,6 +16,8 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.CorpUser;
@@ -179,8 +183,7 @@ public class CorpUserType
     // information.
     return context.getActorUrn().equals(urn)
         || AuthorizationUtils.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
+            context,
             PoliciesConfig.CORP_GROUP_PRIVILEGES.getResourceType(),
             urn,
             orPrivilegeGroups);
@@ -246,7 +249,20 @@ public class CorpUserType
     if (input.getEmail() != null) {
       result.setEmail(input.getEmail());
     }
-
+    if (input.getPlatformUrns() != null) {
+      result.setPlatforms(
+          new UrnArray(
+              input.getPlatformUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList())));
+    }
+    if (input.getPersonaUrn() != null) {
+      if (DEFAULT_PERSONA_URNS.contains(input.getPersonaUrn())) {
+        result.setPersona(UrnUtils.getUrn(input.getPersonaUrn()));
+      } else {
+        throw new DataHubGraphQLException(
+            String.format("Provided persona urn %s does not exist", input.getPersonaUrn()),
+            DataHubGraphQLErrorCode.NOT_FOUND);
+      }
+    }
     return result;
   }
 }

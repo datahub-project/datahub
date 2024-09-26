@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.ContainerEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
@@ -67,7 +69,7 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
     final int start = input.getStart() != null ? input.getStart() : 0;
     final int count = input.getCount() != null ? input.getCount() : 20;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
 
@@ -91,7 +93,7 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
                                         new CriterionArray(ImmutableList.of(filterCriterion))))),
                     start,
                     count,
-                    null,
+                    Collections.emptyList(),
                     null));
 
           } catch (Exception e) {
@@ -100,6 +102,8 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
                     "Failed to resolve entities associated with container with urn %s", urn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

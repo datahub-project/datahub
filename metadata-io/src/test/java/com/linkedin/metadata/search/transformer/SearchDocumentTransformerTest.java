@@ -21,11 +21,12 @@ import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.TestEntityUtil;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.elasticsearch.query.request.TestSearchFieldConfig;
+import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -60,6 +61,7 @@ public class SearchDocumentTransformerTest {
     assertTrue(result.isPresent());
     ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
     assertEquals(parsedJson.get("urn").asText(), snapshot.getUrn().toString());
+    assertEquals(parsedJson.get("doubleField").asDouble(), 100.456);
     assertEquals(parsedJson.get("keyPart1").asText(), "key");
     assertFalse(parsedJson.has("keyPart2"));
     assertEquals(parsedJson.get("keyPart3").asText(), "VALUE_1");
@@ -83,6 +85,52 @@ public class SearchDocumentTransformerTest {
     assertEquals(parsedJson.get("feature2").asInt(), 1);
     JsonNode browsePathV2 = (JsonNode) parsedJson.get("browsePathV2");
     assertEquals(browsePathV2.asText(), "␟levelOne␟levelTwo");
+    assertEquals(
+        parsedJson.get("esObjectFieldBoolean").get("key1").getNodeType(),
+        JsonNodeFactory.instance.booleanNode(true).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldLong").get("key1").getNodeType(),
+        JsonNodeFactory.instance.numberNode(1L).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldFloat").get("key2").getNodeType(),
+        JsonNodeFactory.instance.numberNode(2.0f).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldDouble").get("key1").getNodeType(),
+        JsonNodeFactory.instance.numberNode(1.2).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldInteger").get("key2").getNodeType(),
+        JsonNodeFactory.instance.numberNode(456).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldBoolean").get("key2").getNodeType(),
+        JsonNodeFactory.instance.booleanNode(false).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldLong").get("key2").getNodeType(),
+        JsonNodeFactory.instance.numberNode(2L).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldFloat").get("key1").getNodeType(),
+        JsonNodeFactory.instance.numberNode(1.0f).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldDouble").get("key2").getNodeType(),
+        JsonNodeFactory.instance.numberNode(2.4).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldInteger").get("key1").getNodeType(),
+        JsonNodeFactory.instance.numberNode(123).getNodeType());
+    assertEquals(parsedJson.get("esObjectField").get("key3").asText(), "");
+    assertEquals(
+        parsedJson.get("esObjectFieldBoolean").get("key2").getNodeType(),
+        JsonNodeFactory.instance.booleanNode(false).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldLong").get("key2").getNodeType(),
+        JsonNodeFactory.instance.numberNode(2L).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldFloat").get("key1").getNodeType(),
+        JsonNodeFactory.instance.numberNode(1.0f).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldDouble").get("key2").getNodeType(),
+        JsonNodeFactory.instance.numberNode(2.4).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldInteger").get("key1").getNodeType(),
+        JsonNodeFactory.instance.numberNode(123).getNodeType());
   }
 
   @Test
@@ -106,6 +154,7 @@ public class SearchDocumentTransformerTest {
     parsedJson.get("nestedIntegerField").getNodeType().equals(JsonNodeType.NULL);
     parsedJson.get("feature1").getNodeType().equals(JsonNodeType.NULL);
     parsedJson.get("feature2").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("doubleField").getNodeType().equals(JsonNodeType.NULL);
   }
 
   @Test
@@ -122,7 +171,8 @@ public class SearchDocumentTransformerTest {
     assertEquals(
         parsedJson.get("customProperties"),
         JsonNodeFactory.instance.arrayNode().add("shortValue=123"));
-    assertEquals(parsedJson.get("esObjectField"), JsonNodeFactory.instance.arrayNode().add("123"));
+    assertEquals(
+        parsedJson.get("esObjectField"), JsonNodeFactory.instance.arrayNode().add("123").add(""));
 
     searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 20);
     snapshot = TestEntityUtil.getSnapshot();
@@ -146,6 +196,7 @@ public class SearchDocumentTransformerTest {
             .add("value1")
             .add("value2")
             .add("123")
+            .add("")
             .add("0123456789"));
   }
 
@@ -184,6 +235,7 @@ public class SearchDocumentTransformerTest {
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     searchDocumentTransformer.setSearchableRefValue(
@@ -239,6 +291,7 @@ public class SearchDocumentTransformerTest {
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
@@ -275,6 +328,7 @@ public class SearchDocumentTransformerTest {
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
@@ -307,6 +361,7 @@ public class SearchDocumentTransformerTest {
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();

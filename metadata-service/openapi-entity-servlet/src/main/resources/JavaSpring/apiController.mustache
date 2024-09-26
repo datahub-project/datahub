@@ -4,7 +4,7 @@ import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.SearchService;
-import io.datahubproject.openapi.entities.EntitiesController;
+import io.datahubproject.openapi.v1.entities.EntitiesController;
 import com.datahub.authorization.AuthorizerChain;
 
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -98,7 +98,7 @@ public class {{classname}}Controller implements {{classname}} {
     SearchService searchService, EntitiesController v1Controller, AuthorizerChain authorizationChain) {
         this.objectMapper = objectMapper;
         this.request = request;
-        this.delegate = new EntityApiDelegateImpl<{{requestClass}}, {{responseClass}}, {{scrollResponseClass}}>(systemOperationContext, entityService, searchService, v1Controller,
+        this.delegate = new EntityApiDelegateImpl<{{requestClass}}, {{responseClass}}, {{scrollResponseClass}}>(systemOperationContext, request, entityService, searchService, v1Controller,
         authorizationChain, {{requestClass}}.class, {{responseClass}}.class, {{scrollResponseClass}}.class);
     }
     {{#isJava8or11}}

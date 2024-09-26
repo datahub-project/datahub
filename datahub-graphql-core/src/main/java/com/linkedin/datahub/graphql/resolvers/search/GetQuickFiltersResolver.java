@@ -7,6 +7,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveV
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.GetQuickFiltersInput;
 import com.linkedin.datahub.graphql.generated.GetQuickFiltersResult;
@@ -24,6 +25,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -53,7 +55,7 @@ public class GetQuickFiltersResolver
     final GetQuickFiltersInput input =
         bindArgument(environment.getArgument("input"), GetQuickFiltersInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final GetQuickFiltersResult result = new GetQuickFiltersResult();
           final List<QuickFilter> quickFilters = new ArrayList<>();
@@ -73,7 +75,9 @@ public class GetQuickFiltersResolver
 
           result.setQuickFilters(quickFilters);
           return result;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**
@@ -104,7 +108,7 @@ public class GetQuickFiltersResolver
             : null,
         0,
         0,
-        null,
+        Collections.emptyList(),
         null);
   }
 

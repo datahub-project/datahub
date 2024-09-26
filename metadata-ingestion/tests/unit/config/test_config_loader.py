@@ -52,7 +52,7 @@ from datahub.configuration.config_loader import (
                 "VAR1": "stuff1",
                 "VAR2": "stuff2",
             },
-            set(["VAR1", "UNSET_VAR3", "VAR2"]),
+            {"VAR1", "UNSET_VAR3", "VAR2"},
         ),
         (
             "tests/unit/config/complex_variable_expansion.yml",
@@ -107,22 +107,20 @@ from datahub.configuration.config_loader import (
                 "VAR10": "stuff10",
                 "VAR11": "stuff11",
             },
-            set(
-                [
-                    "VAR1",
-                    "VAR2",
-                    "VAR3",
-                    "VAR4",
-                    "VAR5",
-                    "VAR6",
-                    "VAR7",
-                    "VAR8",
-                    "VAR9",
-                    "VAR10",
-                    # VAR11 is escaped and hence not referenced
-                    "VARNONEXISTENT",
-                ]
-            ),
+            {
+                "VAR1",
+                "VAR2",
+                "VAR3",
+                "VAR4",
+                "VAR5",
+                "VAR6",
+                "VAR7",
+                "VAR8",
+                "VAR9",
+                "VAR10",
+                # VAR11 is escaped and hence not referenced
+                "VARNONEXISTENT",
+            },
         ),
     ],
 )

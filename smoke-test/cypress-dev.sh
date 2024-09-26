@@ -10,8 +10,9 @@ fi
 
 source venv/bin/activate
 
-export KAFKA_BROKER_CONTAINER="datahub-kafka-broker-1"
-export KAFKA_BOOTSTRAP_SERVER="broker:9092"
+# set environment variables for the test
+source ./set-test-env-vars.sh
+
 python -c 'from tests.cypress.integration_test import ingest_data; ingest_data()'
 
 cd tests/cypress
@@ -19,5 +20,7 @@ yarn install
 
 source "$DIR/set-cypress-creds.sh"
 
-npx cypress open \
-   --env "ADMIN_DISPLAYNAME=$CYPRESS_ADMIN_DISPLAYNAME,ADMIN_USERNAME=$CYPRESS_ADMIN_USERNAME,ADMIN_PASSWORD=$CYPRESS_ADMIN_PASSWORD"
+if [ "${RUN_UI:-true}" == "true" ]; then
+  npx cypress open \
+     --env "ADMIN_DISPLAYNAME=$CYPRESS_ADMIN_DISPLAYNAME,ADMIN_USERNAME=$CYPRESS_ADMIN_USERNAME,ADMIN_PASSWORD=$CYPRESS_ADMIN_PASSWORD"
+fi

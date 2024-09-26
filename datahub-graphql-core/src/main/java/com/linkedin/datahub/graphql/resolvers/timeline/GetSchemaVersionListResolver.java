@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.timeline;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.GetSchemaVersionListInput;
 import com.linkedin.datahub.graphql.generated.GetSchemaVersionListResult;
 import com.linkedin.datahub.graphql.types.timeline.mappers.SchemaVersionListMapper;
@@ -40,7 +41,7 @@ public class GetSchemaVersionListResolver
     final long startTime = 0;
     final long endTime = 0;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final Set<ChangeCategory> changeCategorySet = new HashSet<>();
@@ -61,6 +62,8 @@ public class GetSchemaVersionListResolver
             log.error("Failed to list schema blame data", e);
             return null;
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

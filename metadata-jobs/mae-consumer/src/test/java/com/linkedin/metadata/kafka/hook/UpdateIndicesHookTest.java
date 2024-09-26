@@ -4,6 +4,8 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.MCLProcessingTestDataGenerator.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.InputField;
@@ -43,10 +45,12 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.NumberType;
@@ -104,28 +108,30 @@ public class UpdateIndicesHookTest {
   @BeforeMethod
   public void setupTest() {
     actorUrn = UrnUtils.getUrn(TEST_ACTOR_URN);
-    mockGraphService = Mockito.mock(ElasticSearchGraphService.class);
-    mockEntitySearchService = Mockito.mock(EntitySearchService.class);
-    mockTimeseriesAspectService = Mockito.mock(TimeseriesAspectService.class);
-    mockSystemMetadataService = Mockito.mock(SystemMetadataService.class);
+    mockGraphService = mock(ElasticSearchGraphService.class);
+    mockEntitySearchService = mock(EntitySearchService.class);
+    mockTimeseriesAspectService = mock(TimeseriesAspectService.class);
+    mockSystemMetadataService = mock(SystemMetadataService.class);
     searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 1000);
-    mockDataHubUpgradeKafkaListener = Mockito.mock(DataHubUpgradeKafkaListener.class);
-    mockConfigurationProvider = Mockito.mock(ConfigurationProvider.class);
-    mockEntityIndexBuilders = Mockito.mock(EntityIndexBuilders.class);
+    mockDataHubUpgradeKafkaListener = mock(DataHubUpgradeKafkaListener.class);
+    mockConfigurationProvider = mock(ConfigurationProvider.class);
+    mockEntityIndexBuilders = mock(EntityIndexBuilders.class);
+
+    when(mockEntityIndexBuilders.getIndexConvention()).thenReturn(IndexConventionImpl.noPrefix(""));
 
     ElasticSearchConfiguration elasticSearchConfiguration = new ElasticSearchConfiguration();
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
     systemUpdateConfiguration.setWaitForSystemUpdate(false);
-    Mockito.when(mockConfigurationProvider.getElasticSearch())
-        .thenReturn(elasticSearchConfiguration);
+    when(mockConfigurationProvider.getElasticSearch()).thenReturn(elasticSearchConfiguration);
     updateIndicesService =
         new UpdateIndicesService(
-            mockGraphService,
+            UpdateGraphIndicesService.withService(mockGraphService),
             mockEntitySearchService,
             mockTimeseriesAspectService,
             mockSystemMetadataService,
             searchDocumentTransformer,
-            mockEntityIndexBuilders);
+            mockEntityIndexBuilders,
+            "MD5");
 
     OperationContext systemOperationContext =
         TestOperationContexts.systemContextNoSearchAuthorization();
@@ -138,7 +144,7 @@ public class UpdateIndicesHookTest {
 
   @Test
   public void testFineGrainedLineageEdgesAreAdded() throws Exception {
-    updateIndicesService.setGraphDiffMode(false);
+    updateIndicesService.getUpdateGraphIndicesService().setGraphDiffMode(false);
     Urn upstreamUrn =
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),foo_info)");
@@ -165,6 +171,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(
+            any(OperationContext.class),
             Mockito.eq(downstreamUrn),
             Mockito.eq(new ArrayList<>(Collections.singleton(DOWNSTREAM_OF))),
             Mockito.eq(
@@ -175,7 +182,7 @@ public class UpdateIndicesHookTest {
 
   @Test
   public void testFineGrainedLineageEdgesAreAddedRestate() throws Exception {
-    updateIndicesService.setGraphDiffMode(false);
+    updateIndicesService.getUpdateGraphIndicesService().setGraphDiffMode(false);
     Urn upstreamUrn =
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),foo_info)");
@@ -203,6 +210,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(
+            any(OperationContext.class),
             Mockito.eq(downstreamUrn),
             Mockito.eq(new ArrayList<>(Collections.singleton(DOWNSTREAM_OF))),
             Mockito.eq(
@@ -230,12 +238,13 @@ public class UpdateIndicesHookTest {
     EntityRegistry mockEntityRegistry = createMockEntityRegistry();
     updateIndicesService =
         new UpdateIndicesService(
-            mockGraphService,
+            new UpdateGraphIndicesService(mockGraphService, false, true),
             mockEntitySearchService,
             mockTimeseriesAspectService,
             mockSystemMetadataService,
             searchDocumentTransformer,
-            mockEntityIndexBuilders);
+            mockEntityIndexBuilders,
+            "MD5");
 
     updateIndicesHook = new UpdateIndicesHook(updateIndicesService, true, false);
     updateIndicesHook.init(
@@ -251,6 +260,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(
+            any(OperationContext.class),
             Mockito.eq(downstreamUrn),
             Mockito.eq(new ArrayList<>(Collections.singleton(DOWNSTREAM_OF))),
             Mockito.eq(
@@ -261,9 +271,6 @@ public class UpdateIndicesHookTest {
 
   @Test
   public void testMCLProcessExhaustive() throws URISyntaxException {
-
-    updateIndicesService.setGraphDiffMode(true);
-    updateIndicesService.setSearchDiffMode(true);
     /*
      * newLineage
      */
@@ -427,7 +434,7 @@ public class UpdateIndicesHookTest {
 
     // Forced removal of all edges
     Mockito.verify(mockGraphService, Mockito.times(1))
-        .removeEdgesFromNode(Mockito.any(), Mockito.any(), Mockito.any());
+        .removeEdgesFromNode(any(OperationContext.class), any(), any(), any());
     // Forced add of edges
     Mockito.verify(mockGraphService, Mockito.times(2)).addEdge(Mockito.any());
     // Forced document update
@@ -437,8 +444,6 @@ public class UpdateIndicesHookTest {
 
   @Test
   public void testMCLUIPreProcessed() throws Exception {
-    updateIndicesService.setGraphDiffMode(true);
-    updateIndicesService.setSearchDiffMode(true);
     Urn upstreamUrn =
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),foo_info)");
@@ -458,8 +463,6 @@ public class UpdateIndicesHookTest {
 
   @Test
   public void testMCLUIPreProcessedReprocess() throws Exception {
-    updateIndicesService.setGraphDiffMode(true);
-    updateIndicesService.setSearchDiffMode(true);
     Urn upstreamUrn =
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),foo_info2)");
@@ -478,37 +481,32 @@ public class UpdateIndicesHookTest {
   private EntityRegistry createMockEntityRegistry() {
     // need to mock this registry instead of using test-entity-registry.yml because inputFields does
     // not work due to a known bug
-    EntityRegistry mockEntityRegistry = Mockito.mock(EntityRegistry.class);
-    EntitySpec entitySpec = Mockito.mock(EntitySpec.class);
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    EntitySpec entitySpec = mock(EntitySpec.class);
     AspectSpec aspectSpec = createMockAspectSpec(InputFields.class, InputFields.dataSchema());
     AspectSpec upstreamLineageAspectSpec =
         createMockAspectSpec(UpstreamLineage.class, UpstreamLineage.dataSchema());
-    Mockito.when(mockEntityRegistry.getEntitySpec(Constants.CHART_ENTITY_NAME))
-        .thenReturn(entitySpec);
-    Mockito.when(mockEntityRegistry.getEntitySpec(Constants.DATASET_ENTITY_NAME))
-        .thenReturn(entitySpec);
-    Mockito.when(mockEntityRegistry.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME)).thenReturn(entitySpec);
-    Mockito.when(mockEntityRegistry.getEntitySpec(DATA_PLATFORM_ENTITY_NAME))
-        .thenReturn(entitySpec);
-    Mockito.when(entitySpec.getAspectSpec(Constants.INPUT_FIELDS_ASPECT_NAME))
-        .thenReturn(aspectSpec);
-    Mockito.when(entitySpec.getAspectSpec(Constants.UPSTREAM_LINEAGE_ASPECT_NAME))
+    when(mockEntityRegistry.getEntitySpec(Constants.CHART_ENTITY_NAME)).thenReturn(entitySpec);
+    when(mockEntityRegistry.getEntitySpec(Constants.DATASET_ENTITY_NAME)).thenReturn(entitySpec);
+    when(mockEntityRegistry.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME)).thenReturn(entitySpec);
+    when(mockEntityRegistry.getEntitySpec(DATA_PLATFORM_ENTITY_NAME)).thenReturn(entitySpec);
+    when(entitySpec.getAspectSpec(Constants.INPUT_FIELDS_ASPECT_NAME)).thenReturn(aspectSpec);
+    when(entitySpec.getAspectSpec(Constants.UPSTREAM_LINEAGE_ASPECT_NAME))
         .thenReturn(upstreamLineageAspectSpec);
-    Mockito.when(aspectSpec.isTimeseries()).thenReturn(false);
-    Mockito.when(aspectSpec.getName()).thenReturn(Constants.INPUT_FIELDS_ASPECT_NAME);
-    Mockito.when(upstreamLineageAspectSpec.isTimeseries()).thenReturn(false);
-    Mockito.when(upstreamLineageAspectSpec.getName())
-        .thenReturn(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
+    when(aspectSpec.isTimeseries()).thenReturn(false);
+    when(aspectSpec.getName()).thenReturn(Constants.INPUT_FIELDS_ASPECT_NAME);
+    when(upstreamLineageAspectSpec.isTimeseries()).thenReturn(false);
+    when(upstreamLineageAspectSpec.getName()).thenReturn(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
     AspectSpec chartKeyAspectSpec = createMockAspectSpec(ChartKey.class, ChartKey.dataSchema());
-    Mockito.when(entitySpec.getKeyAspectSpec()).thenReturn(chartKeyAspectSpec);
+    when(entitySpec.getKeyAspectSpec()).thenReturn(chartKeyAspectSpec);
     return mockEntityRegistry;
   }
 
   private <T extends RecordTemplate> AspectSpec createMockAspectSpec(
       Class<T> clazz, RecordDataSchema schema) {
-    AspectSpec mockSpec = Mockito.mock(AspectSpec.class);
-    Mockito.when(mockSpec.getDataTemplateClass()).thenReturn((Class<RecordTemplate>) clazz);
-    Mockito.when(mockSpec.getPegasusSchema()).thenReturn(schema);
+    AspectSpec mockSpec = mock(AspectSpec.class);
+    when(mockSpec.getDataTemplateClass()).thenReturn((Class<RecordTemplate>) clazz);
+    when(mockSpec.getPegasusSchema()).thenReturn(schema);
     return mockSpec;
   }
 

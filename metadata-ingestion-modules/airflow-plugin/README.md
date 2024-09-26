@@ -4,4 +4,4 @@ See [the DataHub Airflow docs](https://datahubproject.io/docs/lineage/airflow) f
 
 ## Developing
 
-See the [developing docs](https://datahubproject.io/docs/next/metadata-ingestion/developing/).
+See the [developing docs](../../metadata-ingestion/developing.md).

@@ -32,6 +32,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.List;
 
+import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import mock.MockEntityRegistry;
@@ -77,6 +78,7 @@ public class AspectResourceTest {
     mcp.setAspect(GenericRecordUtils.serializeAspect(properties));
     mcp.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
     mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setSystemMetadata(new SystemMetadata());
 
     Authentication mockAuthentication = mock(Authentication.class);
     AuthenticationContext.setAuthentication(mockAuthentication);
@@ -95,7 +97,7 @@ public class AspectResourceTest {
             .recordTemplate(mcp.getAspect())
             .auditStamp(new AuditStamp())
             .metadataChangeProposal(mcp)
-            .build(opContext.getRetrieverContext().get().getAspectRetriever());
+            .build(opContext.getAspectRetrieverOpt().get());
     when(aspectDao.runInTransactionWithRetry(any(), any(), anyInt()))
         .thenReturn(
             List.of(List.of(

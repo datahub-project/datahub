@@ -1,7 +1,6 @@
 package com.linkedin.metadata.aspect.patch.template.common;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.fge.jsonpatch.JsonPatchException;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.template.CompoundKeyTemplate;
@@ -53,7 +52,7 @@ public class GenericPatchTemplate<T extends RecordTemplate> extends CompoundKeyT
     return transformedNode;
   }
 
-  public T applyPatch(RecordTemplate recordTemplate) throws IOException, JsonPatchException {
+  public T applyPatch(RecordTemplate recordTemplate) throws IOException {
     return super.applyPatch(recordTemplate, genericJsonPatch.getJsonPatch());
   }
 }

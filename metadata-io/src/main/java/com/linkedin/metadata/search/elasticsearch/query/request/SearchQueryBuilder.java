@@ -3,18 +3,15 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import static com.linkedin.metadata.Constants.SKIP_REFERENCE_ASPECT;
 import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
-import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.*;
+import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.isQuoted;
+import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.unquote;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
-import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
-import com.linkedin.metadata.config.search.custom.BoolQueryConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
@@ -28,10 +25,8 @@ import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -39,18 +34,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.common.lucene.search.function.CombineFunction;
 import org.opensearch.common.lucene.search.function.FieldValueFactorFunction;
 import org.opensearch.common.lucene.search.function.FunctionScoreQuery;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.xcontent.LoggingDeprecationHandler;
-import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.Operator;
 import org.opensearch.index.query.QueryBuilder;
@@ -60,33 +49,10 @@ import org.opensearch.index.query.SimpleQueryStringBuilder;
 import org.opensearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
-import org.opensearch.search.SearchModule;
 
 @Slf4j
 public class SearchQueryBuilder {
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-  static {
-    OBJECT_MAPPER.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-    int maxSize =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(
-                    Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH,
-                    Constants.MAX_JACKSON_STRING_SIZE));
-    OBJECT_MAPPER
-        .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
-  }
-
-  private static final NamedXContentRegistry X_CONTENT_REGISTRY;
-
-  static {
-    SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
-    X_CONTENT_REGISTRY = new NamedXContentRegistry(searchModule.getNamedXContents());
-  }
-
-  public static final String STRUCTURED_QUERY_PREFIX = "\\\\/q ";
+  public static final String STRUCTURED_QUERY_PREFIX = "\\/q ";
   private final ExactMatchConfiguration exactMatchConfiguration;
   private final PartialConfiguration partialConfiguration;
   private final WordGramConfiguration wordGramConfiguration;
@@ -112,7 +78,7 @@ public class SearchQueryBuilder {
 
     final QueryBuilder queryBuilder =
         buildInternalQuery(opContext, customQueryConfig, entitySpecs, query, fulltext);
-    return buildScoreFunctions(customQueryConfig, entitySpecs, queryBuilder);
+    return buildScoreFunctions(opContext, customQueryConfig, entitySpecs, query, queryBuilder);
   }
 
   /**
@@ -133,7 +99,10 @@ public class SearchQueryBuilder {
     final String sanitizedQuery = query.replaceFirst("^:+", "");
     final BoolQueryBuilder finalQuery =
         Optional.ofNullable(customQueryConfig)
-            .flatMap(cqc -> boolQueryBuilder(cqc, sanitizedQuery))
+            .flatMap(
+                cqc ->
+                    CustomizedQueryHandler.boolQueryBuilder(
+                        opContext.getObjectMapper(), cqc, sanitizedQuery))
             .orElse(QueryBuilders.boolQuery())
             .minimumShouldMatch(1);
 
@@ -141,7 +110,11 @@ public class SearchQueryBuilder {
       getSimpleQuery(opContext.getEntityRegistry(), customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(finalQuery::should);
       getPrefixAndExactMatchQuery(
-              opContext.getEntityRegistry(), customQueryConfig, entitySpecs, sanitizedQuery)
+              opContext.getEntityRegistry(),
+              customQueryConfig,
+              entitySpecs,
+              sanitizedQuery,
+              opContext.getAspectRetriever())
           .ifPresent(finalQuery::should);
     } else {
       final String withoutQueryPrefix =
@@ -153,7 +126,11 @@ public class SearchQueryBuilder {
           .ifPresent(finalQuery::should);
       if (exactMatchConfiguration.isEnableStructured()) {
         getPrefixAndExactMatchQuery(
-                opContext.getEntityRegistry(), customQueryConfig, entitySpecs, withoutQueryPrefix)
+                opContext.getEntityRegistry(),
+                customQueryConfig,
+                entitySpecs,
+                withoutQueryPrefix,
+                opContext.getAspectRetriever())
             .ifPresent(finalQuery::should);
       }
     }
@@ -213,6 +190,13 @@ public class SearchQueryBuilder {
     return fields;
   }
 
+  /**
+   * Return query by default fields
+   *
+   * @param entityRegistry entity registry with search annotations
+   * @param entitySpec the entity spect
+   * @return set of queryByDefault field configurations
+   */
   @VisibleForTesting
   public Set<SearchFieldConfig> getFieldsFromEntitySpec(
       @Nonnull EntityRegistry entityRegistry, EntitySpec entitySpec) {
@@ -244,14 +228,20 @@ public class SearchQueryBuilder {
 
     List<SearchableRefFieldSpec> searchableRefFieldSpecs = entitySpec.getSearchableRefFieldSpecs();
     for (SearchableRefFieldSpec refFieldSpec : searchableRefFieldSpecs) {
+      if (!refFieldSpec.getSearchableRefAnnotation().isQueryByDefault()) {
+        continue;
+      }
+
       int depth = refFieldSpec.getSearchableRefAnnotation().getDepth();
-      Set<SearchFieldConfig> searchFieldConfig =
-          SearchFieldConfig.detectSubFieldType(refFieldSpec, depth, entityRegistry);
-      fields.addAll(searchFieldConfig);
+      Set<SearchFieldConfig> searchFieldConfigs =
+          SearchFieldConfig.detectSubFieldType(refFieldSpec, depth, entityRegistry).stream()
+              .filter(SearchFieldConfig::isQueryByDefault)
+              .collect(Collectors.toSet());
+      fields.addAll(searchFieldConfigs);
 
       Map<String, SearchableAnnotation.FieldType> fieldTypeMap =
           getAllFieldTypeFromSearchableRef(refFieldSpec, depth, entityRegistry, "");
-      for (SearchFieldConfig fieldConfig : searchFieldConfig) {
+      for (SearchFieldConfig fieldConfig : searchFieldConfigs) {
         if (fieldConfig.hasDelimitedSubfield()) {
           fields.add(
               SearchFieldConfig.detectSubFieldType(
@@ -326,14 +316,6 @@ public class SearchQueryBuilder {
     return fields;
   }
 
-  private static String unquote(String query) {
-    return query.replaceAll("[\"']", "");
-  }
-
-  private static boolean isQuoted(String query) {
-    return Stream.of("\"", "'").anyMatch(query::contains);
-  }
-
   private Optional<QueryBuilder> getSimpleQuery(
       @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
@@ -396,7 +378,8 @@ public class SearchQueryBuilder {
       @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
-      String query) {
+      String query,
+      @Nullable AspectRetriever aspectRetriever) {
 
     final boolean isPrefixQuery =
         customQueryConfig == null
@@ -410,13 +393,20 @@ public class SearchQueryBuilder {
     getStandardFields(entityRegistry, entitySpecs)
         .forEach(
             searchFieldConfig -> {
+              boolean caseSensitivityEnabled =
+                  exactMatchConfiguration.getCaseSensitivityFactor() > 0.0f;
+              float caseSensitivityFactor =
+                  caseSensitivityEnabled
+                      ? exactMatchConfiguration.getCaseSensitivityFactor()
+                      : 1.0f;
+
               if (searchFieldConfig.isDelimitedSubfield() && isPrefixQuery) {
                 finalQuery.should(
                     QueryBuilders.matchPhrasePrefixQuery(searchFieldConfig.fieldName(), query)
                         .boost(
                             searchFieldConfig.boost()
                                 * exactMatchConfiguration.getPrefixFactor()
-                                * exactMatchConfiguration.getCaseSensitivityFactor())
+                                * caseSensitivityFactor)
                         .queryName(searchFieldConfig.shortName())); // less than exact
               }
 
@@ -425,31 +415,37 @@ public class SearchQueryBuilder {
                 // The non-.keyword field removes case information
 
                 // Exact match case-sensitive
-                finalQuery.should(
-                    QueryBuilders.termQuery(
-                            ESUtils.toKeywordField(searchFieldConfig.fieldName(), false),
-                            unquotedQuery)
-                        .caseInsensitive(false)
-                        .boost(searchFieldConfig.boost() * exactMatchConfiguration.getExactFactor())
-                        .queryName(searchFieldConfig.shortName()));
+                if (caseSensitivityEnabled) {
+                  finalQuery.should(
+                      QueryBuilders.termQuery(
+                              ESUtils.toKeywordField(
+                                  searchFieldConfig.fieldName(), false, aspectRetriever),
+                              unquotedQuery)
+                          .caseInsensitive(false)
+                          .boost(
+                              searchFieldConfig.boost() * exactMatchConfiguration.getExactFactor())
+                          .queryName(searchFieldConfig.shortName()));
+                }
 
                 // Exact match case-insensitive
                 finalQuery.should(
                     QueryBuilders.termQuery(
-                            ESUtils.toKeywordField(searchFieldConfig.fieldName(), false),
+                            ESUtils.toKeywordField(
+                                searchFieldConfig.fieldName(), false, aspectRetriever),
                             unquotedQuery)
                         .caseInsensitive(true)
                         .boost(
                             searchFieldConfig.boost()
                                 * exactMatchConfiguration.getExactFactor()
-                                * exactMatchConfiguration.getCaseSensitivityFactor())
+                                * caseSensitivityFactor)
                         .queryName(searchFieldConfig.fieldName()));
               }
 
               if (searchFieldConfig.isWordGramSubfield() && isPrefixQuery) {
                 finalQuery.should(
                     QueryBuilders.matchPhraseQuery(
-                            ESUtils.toKeywordField(searchFieldConfig.fieldName(), false),
+                            ESUtils.toKeywordField(
+                                searchFieldConfig.fieldName(), false, aspectRetriever),
                             unquotedQuery)
                         .boost(
                             searchFieldConfig.boost()
@@ -472,7 +468,7 @@ public class SearchQueryBuilder {
     if (customQueryConfig != null) {
       executeStructuredQuery = customQueryConfig.isStructuredQuery();
     } else {
-      executeStructuredQuery = !(isQuoted(sanitizedQuery) && exactMatchConfiguration.isExclusive());
+      executeStructuredQuery = true;
     }
 
     if (executeStructuredQuery) {
@@ -485,14 +481,17 @@ public class SearchQueryBuilder {
     return result;
   }
 
-  private FunctionScoreQueryBuilder buildScoreFunctions(
+  static FunctionScoreQueryBuilder buildScoreFunctions(
+      @Nonnull OperationContext opContext,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
+      String query,
       @Nonnull QueryBuilder queryBuilder) {
 
     if (customQueryConfig != null) {
       // Prefer configuration function scoring over annotation scoring
-      return functionScoreQueryBuilder(customQueryConfig, queryBuilder);
+      return CustomizedQueryHandler.functionScoreQueryBuilder(
+          opContext.getObjectMapper(), customQueryConfig, queryBuilder, query);
     } else {
       return QueryBuilders.functionScoreQuery(
               queryBuilder, buildAnnotationScoreFunctions(entitySpecs))
@@ -583,62 +582,6 @@ public class SearchQueryBuilder {
         return FieldValueFactorFunction.Modifier.RECIPROCAL;
       default:
         return FieldValueFactorFunction.Modifier.NONE;
-    }
-  }
-
-  public FunctionScoreQueryBuilder functionScoreQueryBuilder(
-      QueryConfiguration customQueryConfiguration, QueryBuilder queryBuilder) {
-    return toFunctionScoreQueryBuilder(queryBuilder, customQueryConfiguration.getFunctionScore());
-  }
-
-  public Optional<BoolQueryBuilder> boolQueryBuilder(
-      QueryConfiguration customQueryConfiguration, String query) {
-    if (customQueryConfiguration.getBoolQuery() != null) {
-      log.debug(
-          "Using custom query configuration queryRegex: {}",
-          customQueryConfiguration.getQueryRegex());
-    }
-    return Optional.ofNullable(customQueryConfiguration.getBoolQuery())
-        .map(bq -> toBoolQueryBuilder(query, bq));
-  }
-
-  private BoolQueryBuilder toBoolQueryBuilder(String query, BoolQueryConfiguration boolQuery) {
-    try {
-      String jsonFragment =
-          OBJECT_MAPPER
-              .writeValueAsString(boolQuery)
-              .replace("\"{{query_string}}\"", OBJECT_MAPPER.writeValueAsString(query))
-              .replace(
-                  "\"{{unquoted_query_string}}\"",
-                  OBJECT_MAPPER.writeValueAsString(unquote(query)));
-      XContentParser parser =
-          XContentType.JSON
-              .xContent()
-              .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, jsonFragment);
-      return BoolQueryBuilder.fromXContent(parser);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private FunctionScoreQueryBuilder toFunctionScoreQueryBuilder(
-      QueryBuilder queryBuilder, Map<String, Object> params) {
-    try {
-      HashMap<String, Object> body = new HashMap<>(params);
-      if (!body.isEmpty()) {
-        log.debug("Using custom scoring functions: {}", body);
-      }
-
-      body.put("query", OBJECT_MAPPER.readValue(queryBuilder.toString(), Map.class));
-
-      String jsonFragment = OBJECT_MAPPER.writeValueAsString(Map.of("function_score", body));
-      XContentParser parser =
-          XContentType.JSON
-              .xContent()
-              .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, jsonFragment);
-      return (FunctionScoreQueryBuilder) FunctionScoreQueryBuilder.parseInnerQueryBuilder(parser);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
     }
   }
 

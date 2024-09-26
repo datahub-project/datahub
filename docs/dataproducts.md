@@ -90,6 +90,8 @@ Here is an example of a Data Product named "Pet of the Week" which belongs to th
 
 When bare domain names like `Marketing` is used, `datahub` will first check if a domain like `urn:li:domain:Marketing` is provisioned, failing that; it will check for a provisioned domain that has the same name. If we are unable to resolve bare domain names to provisioned domains, then yaml-based ingestion will refuse to proceeed until the domain is provisioned on DataHub.
 
+This applies to other fields as well, such as owners, ownership types, tags, and terms.
+
 :::
 
 You can also provide fully-qualified domain names (e.g. `urn:li:domain:dcadded3-2b70-4679-8b28-02ac9abc92eb`) to ensure that no ingestion-time domain resolution is needed.
@@ -132,7 +134,7 @@ There are many more advanced cli commands for managing Data Products as code. Ta
 
 The following features are next on the roadmap for Data Products
 - Support for marking data assets in a Data Product as private versus shareable for other teams to consume
-- Support for declaring lineage manually to upstream and downstream data products
+- Support for declaring data lineage manually to upstream and downstream data products
 - Support for declaring logical schema for Data Products
 - Support for associating data contracts with Data Products
 - Support for semantic versioning of the Data Product entity
@@ -145,4 +147,4 @@ The following features are next on the roadmap for Data Products
 * [Tags](./tags.md)
 
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+

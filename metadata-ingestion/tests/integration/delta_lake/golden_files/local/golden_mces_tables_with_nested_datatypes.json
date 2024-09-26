@@ -96,11 +96,11 @@
                                 "jsonProps": "{\"native_data_type\": \"struct<_1:long,_2:string>\"}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=struct].data.[type=struct]._2.[type=null]._1",
+                                "fieldPath": "[version=2.0].[type=struct].[type=struct].data.[type=struct]._2.[type=long]._1",
                                 "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "long",
@@ -146,7 +146,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests"
             },
-            "name": "tests"
+            "name": "tests",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -240,7 +241,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration"
             },
-            "name": "integration"
+            "name": "integration",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -354,7 +356,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/delta_lake"
             },
-            "name": "delta_lake"
+            "name": "delta_lake",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -472,7 +475,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/delta_lake/test_data"
             },
-            "name": "test_data"
+            "name": "test_data",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -594,7 +598,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/delta_lake/test_data/delta_tables_nested_datatype"
             },
-            "name": "delta_tables_nested_datatype"
+            "name": "delta_tables_nested_datatype",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -732,8 +737,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -896,11 +901,11 @@
                                 "jsonProps": "{\"native_data_type\": \"struct<_1:long,_2:string>\"}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=struct].data.[type=struct]._2.[type=null]._1",
+                                "fieldPath": "[version=2.0].[type=struct].[type=struct].data.[type=struct]._2.[type=long]._1",
                                 "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "long",
@@ -958,8 +963,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1136,8 +1141,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1340,8 +1345,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1491,11 +1496,11 @@
                                 "jsonProps": "{\"native_data_type\": \"struct<_1:long,_2:string>\"}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=struct].data.[type=struct]._1.[type=null]._1",
+                                "fieldPath": "[version=2.0].[type=struct].[type=struct].data.[type=struct]._1.[type=long]._1",
                                 "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "long",
@@ -1530,11 +1535,11 @@
                                 "jsonProps": "{\"native_data_type\": \"struct<_1:long,_2:string>\"}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=struct].data.[type=struct]._2.[type=null]._1",
+                                "fieldPath": "[version=2.0].[type=struct].[type=struct].data.[type=struct]._2.[type=long]._1",
                                 "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "long",
@@ -1592,8 +1597,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1717,7 +1722,7 @@
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=array].[type=array].[type=null].data",
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=array].[type=array].[type=long].data",
                                 "nullable": false,
                                 "type": {
                                     "type": {
@@ -1770,8 +1775,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1838,184 +1843,20 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:189046201d696e7810132cfa64dad337",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "tables_with_nested_datatypes.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
-                },
-                {
-                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
-                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "tables_with_nested_datatypes.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1876d057d0ee364677b85427342e2c82",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
-                },
-                {
-                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
-                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
-                },
-                {
-                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
-                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "tables_with_nested_datatypes.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
-                },
-                {
-                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
-                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
-                },
-                {
-                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
-                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
-                },
-                {
-                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
-                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "tables_with_nested_datatypes.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:401e53437a2ce6094ab3021cb32919d9",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
-                },
-                {
-                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
-                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
-                },
-                {
-                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
-                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
-                },
-                {
-                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
-                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
-                },
-                {
-                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
-                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "tables_with_nested_datatypes.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct_1,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
-                },
-                {
-                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
-                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
-                },
-                {
-                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
-                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
-                },
-                {
-                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
-                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
-                },
-                {
-                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
-                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
-                },
-                {
-                    "id": "urn:li:container:401e53437a2ce6094ab3021cb32919d9",
-                    "urn": "urn:li:container:401e53437a2ce6094ab3021cb32919d9"
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1709535906725
                 }
-            ]
-        }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -2026,37 +1867,18 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
-                },
-                {
-                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
-                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
-                },
-                {
-                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
-                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
-                },
-                {
-                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
-                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
-                },
-                {
-                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
-                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
-                },
-                {
-                    "id": "urn:li:container:401e53437a2ce6094ab3021cb32919d9",
-                    "urn": "urn:li:container:401e53437a2ce6094ab3021cb32919d9"
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1709110542636
                 }
-            ]
-        }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -2067,37 +1889,18 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
-                },
-                {
-                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
-                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
-                },
-                {
-                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
-                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
-                },
-                {
-                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
-                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
-                },
-                {
-                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
-                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
-                },
-                {
-                    "id": "urn:li:container:401e53437a2ce6094ab3021cb32919d9",
-                    "urn": "urn:li:container:401e53437a2ce6094ab3021cb32919d9"
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1708329078869
                 }
-            ]
-        }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -2108,37 +1911,18 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array_of_struct,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
-                },
-                {
-                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
-                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
-                },
-                {
-                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
-                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
-                },
-                {
-                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
-                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
-                },
-                {
-                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
-                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
-                },
-                {
-                    "id": "urn:li:container:401e53437a2ce6094ab3021cb32919d9",
-                    "urn": "urn:li:container:401e53437a2ce6094ab3021cb32919d9"
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1708329897384
                 }
-            ]
-        }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -2149,37 +1933,18 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct_2,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
-                },
-                {
-                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
-                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
-                },
-                {
-                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
-                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
-                },
-                {
-                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
-                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
-                },
-                {
-                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
-                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
-                },
-                {
-                    "id": "urn:li:container:401e53437a2ce6094ab3021cb32919d9",
-                    "urn": "urn:li:container:401e53437a2ce6094ab3021cb32919d9"
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1709536366367
                 }
-            ]
-        }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -2190,37 +1955,18 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_nested_array_of_numbers,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
-                },
-                {
-                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
-                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
-                },
-                {
-                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
-                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
-                },
-                {
-                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
-                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
-                },
-                {
-                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
-                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
-                },
-                {
-                    "id": "urn:li:container:401e53437a2ce6094ab3021cb32919d9",
-                    "urn": "urn:li:container:401e53437a2ce6094ab3021cb32919d9"
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1708330178404
                 }
-            ]
-        }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,

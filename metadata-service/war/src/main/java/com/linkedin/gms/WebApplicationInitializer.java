@@ -1,5 +1,7 @@
 package com.linkedin.gms;
 
+import static com.linkedin.metadata.boot.OnBootApplicationListener.SCHEMA_REGISTRY_SERVLET_NAME;
+
 import com.datahub.auth.authentication.filter.AuthenticationFilter;
 import com.datahub.gms.servlet.Config;
 import com.datahub.gms.servlet.ConfigSearchExport;
@@ -35,24 +37,18 @@ public class WebApplicationInitializer
         "contextInitializerClasses", "com.linkedin.gms.SpringApplicationInitializer");
 
     // Auth filter
+    List<String> servletNames = new ArrayList<>();
 
     // Independent dispatcher
     schemaRegistryServlet(container);
-
-    // Non-Spring servlets
-    healthCheckServlet(container);
-    configServlet(container);
-
-    List<String> servletNames = new ArrayList<>();
-
-    // Restli non-Dispatcher
-    servletNames.add(restliServlet(rootContext, container));
 
     // Spring Dispatcher servlets
     DispatcherServlet dispatcherServlet = new DispatcherServlet(rootContext);
     servletNames.add(authServlet(rootContext, dispatcherServlet, container));
     servletNames.add(graphQLServlet(rootContext, dispatcherServlet, container));
     servletNames.add(openAPIServlet(rootContext, dispatcherServlet, container));
+    // Restli non-Dispatcher default
+    servletNames.add(restliServlet(rootContext, container));
 
     FilterRegistration.Dynamic filterRegistration =
         container.addFilter("authenticationFilter", AuthenticationFilter.class);
@@ -61,6 +57,10 @@ public class WebApplicationInitializer
         EnumSet.of(DispatcherType.ASYNC, DispatcherType.REQUEST),
         false,
         servletNames.toArray(String[]::new));
+
+    // Non-Spring servlets
+    healthCheckServlet(container);
+    configServlet(container);
   }
 
   /*
@@ -69,11 +69,12 @@ public class WebApplicationInitializer
    */
   private void schemaRegistryServlet(ServletContext container) {
     AnnotationConfigWebApplicationContext webContext = new AnnotationConfigWebApplicationContext();
+    webContext.setId(SCHEMA_REGISTRY_SERVLET_NAME);
     webContext.register(SchemaRegistryServletConfig.class);
 
     DispatcherServlet dispatcherServlet = new DispatcherServlet(webContext);
     ServletRegistration.Dynamic registration =
-        container.addServlet("dispatcher-schema-registry", dispatcherServlet);
+        container.addServlet(SCHEMA_REGISTRY_SERVLET_NAME, dispatcherServlet);
     registration.addMapping("/schema-registry/*");
     registration.setLoadOnStartup(1);
     registration.setAsyncSupported(true);
@@ -131,10 +132,13 @@ public class WebApplicationInitializer
     rootContext.register(RestliServletConfig.class);
 
     ServletRegistration.Dynamic registration =
-        container.addServlet(servletName, new HttpRequestHandlerServlet());
+        container.addServlet(servletName, HttpRequestHandlerServlet.class);
     registration.addMapping("/*");
     registration.setLoadOnStartup(10);
     registration.setAsyncSupported(true);
+    registration.setInitParameter(
+        "org.springframework.web.servlet.FrameworkServlet.ORDER",
+        String.valueOf(Integer.MAX_VALUE - 1));
 
     return servletName;
   }

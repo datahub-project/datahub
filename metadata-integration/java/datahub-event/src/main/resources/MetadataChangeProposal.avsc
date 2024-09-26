@@ -167,9 +167,22 @@
         } ],
         "doc" : "Additional properties",
         "default" : null
+      }, {
+        "name" : "version",
+        "type" : [ "null", "string" ],
+        "doc" : "Aspect version\n   Initial implementation will use the aspect version's number, however stored as\n   a string in the case where a different aspect versioning scheme is later adopted.",
+        "default" : null
       } ]
     } ],
-    "doc" : "A string->string map of custom properties that one might want to attach to an event",
+    "doc" : "System properties that one might want to attach to an event",
+    "default" : null
+  }, {
+    "name" : "headers",
+    "type" : [ "null", {
+      "type" : "map",
+      "values" : "string"
+    } ],
+    "doc" : "Headers - intended to mimic http headers",
     "default" : null
   } ]
 }

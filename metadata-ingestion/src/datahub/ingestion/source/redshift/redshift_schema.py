@@ -169,6 +169,8 @@ class RedshiftDataDictionary:
         self,
         conn: redshift_connector.Connection,
     ) -> Dict[str, Dict[str, RedshiftExtraTableMeta]]:
+        # Warning: This table enrichment will not return anything for
+        # external tables (spectrum) and for tables that have never been queried / written to.
         cur = RedshiftDataDictionary.get_query_result(
             conn, self.queries.additional_table_metadata_query()
         )
@@ -207,7 +209,7 @@ class RedshiftDataDictionary:
 
         # This query needs to run separately as we can't join with the main query because it works with
         # driver only functions.
-        enriched_table = self.enrich_tables(conn)
+        enriched_tables = self.enrich_tables(conn)
 
         cur = RedshiftDataDictionary.get_query_result(
             conn,
@@ -216,6 +218,7 @@ class RedshiftDataDictionary:
         field_names = [i[0] for i in cur.description]
         db_tables = cur.fetchall()
         logger.info(f"Fetched {len(db_tables)} tables/views from Redshift")
+
         for table in db_tables:
             schema = table[field_names.index("schema")]
             table_name = table[field_names.index("relname")]
@@ -233,7 +236,7 @@ class RedshiftDataDictionary:
                     rows_count,
                     size_in_bytes,
                 ) = RedshiftDataDictionary.get_table_stats(
-                    enriched_table, field_names, schema, table
+                    enriched_tables, field_names, schema, table
                 )
 
                 tables[schema].append(
@@ -263,15 +266,15 @@ class RedshiftDataDictionary:
                     rows_count,
                     size_in_bytes,
                 ) = RedshiftDataDictionary.get_table_stats(
-                    enriched_table=enriched_table,
+                    enriched_tables=enriched_tables,
                     field_names=field_names,
                     schema=schema,
                     table=table,
                 )
 
                 materialized = False
-                if schema in enriched_table and table_name in enriched_table[schema]:
-                    if enriched_table[schema][table_name].is_materialized:
+                if schema in enriched_tables and table_name in enriched_tables[schema]:
+                    if enriched_tables[schema][table_name].is_materialized:
                         materialized = True
 
                 views[schema].append(
@@ -298,7 +301,7 @@ class RedshiftDataDictionary:
         return tables, views
 
     @staticmethod
-    def get_table_stats(enriched_table, field_names, schema, table):
+    def get_table_stats(enriched_tables, field_names, schema, table):
         table_name = table[field_names.index("relname")]
 
         creation_time: Optional[datetime] = None
@@ -309,25 +312,37 @@ class RedshiftDataDictionary:
         last_altered: Optional[datetime] = None
         size_in_bytes: Optional[int] = None
         rows_count: Optional[int] = None
-        if schema in enriched_table and table_name in enriched_table[schema]:
-            if enriched_table[schema][table_name].last_accessed:
-                # Mypy seems to be not clever enough to understand the above check
-                last_accessed = enriched_table[schema][table_name].last_accessed
-                assert last_accessed
+        if schema in enriched_tables and table_name in enriched_tables[schema]:
+            if (
+                last_accessed := enriched_tables[schema][table_name].last_accessed
+            ) is not None:
                 last_altered = last_accessed.replace(tzinfo=timezone.utc)
             elif creation_time:
                 last_altered = creation_time
 
-            if enriched_table[schema][table_name].size:
-                # Mypy seems to be not clever enough to understand the above check
-                size = enriched_table[schema][table_name].size
-                if size:
-                    size_in_bytes = size * 1024 * 1024
+            if (size := enriched_tables[schema][table_name].size) is not None:
+                size_in_bytes = size * 1024 * 1024
 
-            if enriched_table[schema][table_name].estimated_visible_rows:
-                rows = enriched_table[schema][table_name].estimated_visible_rows
-                assert rows
+            if (
+                rows := enriched_tables[schema][table_name].estimated_visible_rows
+            ) is not None:
                 rows_count = int(rows)
+        else:
+            # The object was not found in the enriched data.
+            #
+            # If we don't have enriched data, it may be either because:
+            #   1 The table is empty (as per https://docs.aws.amazon.com/redshift/latest/dg/r_SVV_TABLE_INFO.html) empty tables are omitted from svv_table_info.
+            #   2. The table is external
+            #   3. The table is a view (non-materialized)
+            #
+            # In case 1, we want to report an accurate profile suggesting that the table is empty.
+            # In case 2, do nothing since we cannot cheaply profile
+            # In case 3, do nothing since we cannot cheaply profile
+            if table[field_names.index("tabletype")] == "TABLE":
+                rows_count = 0
+                size_in_bytes = 0
+                logger.info("Found some tables with no profiles need to return 0")
+
         return creation_time, last_altered, rows_count, size_in_bytes
 
     @staticmethod
@@ -485,7 +500,11 @@ class RedshiftDataDictionary:
                 yield AlterTableRow(
                     transaction_id=row[field_names.index("transaction_id")],
                     session_id=session_id,
-                    query_text=row[field_names.index("query_text")],
+                    # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
+                    # for why we need to replace the \n with a newline.
+                    query_text=row[field_names.index("query_text")].replace(
+                        r"\n", "\n"
+                    ),
                     start_time=row[field_names.index("start_time")],
                 )
             rows = cursor.fetchmany()

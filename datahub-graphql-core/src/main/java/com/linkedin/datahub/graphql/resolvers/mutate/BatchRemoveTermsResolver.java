@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchRemoveTermsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -35,7 +36,7 @@ public class BatchRemoveTermsResolver implements DataFetcher<CompletableFuture<B
         input.getTermUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     final List<ResourceRefInput> resources = input.getResources();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // First, validate the batch
@@ -51,7 +52,9 @@ public class BatchRemoveTermsResolver implements DataFetcher<CompletableFuture<B
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateInputResources(

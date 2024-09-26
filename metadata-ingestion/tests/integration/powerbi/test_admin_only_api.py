@@ -283,7 +283,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                         "name": "job-history",
                                         "source": [
                                             {
-                                                "expression": 'let\n    Source = Oracle.Database("localhost:1521/salesdb.GSLAB.COM", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
+                                                "expression": 'let\n    Source = Oracle.Database("localhost:1521/salesdb.domain.com", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
                                             }
                                         ],
                                         "datasourceUsages": [
@@ -509,6 +509,7 @@ def default_source_config():
         },
         "env": "DEV",
         "extract_workspaces_to_containers": False,
+        "enable_advance_lineage_sql_construct": False,
     }
 
 

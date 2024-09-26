@@ -28,6 +28,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilde
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SearchRanker;
@@ -40,6 +41,7 @@ import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -73,6 +75,8 @@ public class SampleDataFixtureConfiguration {
 
   @Autowired private CustomSearchConfiguration _customSearchConfiguration;
 
+  @Autowired private QueryFilterRewriteChain queryFilterRewriteChain;
+
   @Bean(name = "sampleDataPrefix")
   protected String sampleDataPrefix() {
     return "smpldat";
@@ -85,12 +89,20 @@ public class SampleDataFixtureConfiguration {
 
   @Bean(name = "sampleDataIndexConvention")
   protected IndexConvention indexConvention(@Qualifier("sampleDataPrefix") String prefix) {
-    return new IndexConventionImpl(prefix);
+    return new IndexConventionImpl(
+        IndexConventionImpl.IndexConventionConfig.builder()
+            .prefix(prefix)
+            .hashIdAlgo("MD5")
+            .build());
   }
 
   @Bean(name = "longTailIndexConvention")
   protected IndexConvention longTailIndexConvention(@Qualifier("longTailPrefix") String prefix) {
-    return new IndexConventionImpl(prefix);
+    return new IndexConventionImpl(
+        IndexConventionImpl.IndexConventionConfig.builder()
+            .prefix(prefix)
+            .hashIdAlgo("MD5")
+            .build());
   }
 
   @Bean(name = "sampleDataFixtureName")
@@ -149,6 +161,7 @@ public class SampleDataFixtureConfiguration {
             Map.of(),
             true,
             false,
+            false,
             new ElasticSearchConfiguration(),
             gitVersion);
     SettingsBuilder settingsBuilder = new SettingsBuilder(null);
@@ -187,9 +200,14 @@ public class SampleDataFixtureConfiguration {
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             _searchConfiguration,
-            customSearchConfiguration);
+            customSearchConfiguration,
+            queryFilterRewriteChain);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(_searchClient, _searchConfiguration, _customSearchConfiguration);
+        new ESBrowseDAO(
+            _searchClient,
+            _searchConfiguration,
+            _customSearchConfiguration,
+            queryFilterRewriteChain);
     ESWriteDAO writeDAO = new ESWriteDAO(_searchClient, _bulkProcessor, 1);
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }
@@ -252,7 +270,7 @@ public class SampleDataFixtureConfiguration {
             ranker);
 
     // Build indices & write fixture data
-    indexBuilders.reindexAll();
+    indexBuilders.reindexAll(Collections.emptySet());
 
     FixtureReader.builder()
         .bulkProcessor(_bulkProcessor)
@@ -315,6 +333,7 @@ public class SampleDataFixtureConfiguration {
         null,
         null,
         null,
-        null);
+        null,
+        1);
   }
 }

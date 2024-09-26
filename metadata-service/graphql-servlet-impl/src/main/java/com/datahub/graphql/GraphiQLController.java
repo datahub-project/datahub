@@ -2,6 +2,7 @@ package com.datahub.graphql;
 
 import static java.nio.charset.StandardCharsets.*;
 
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -34,6 +35,7 @@ public class GraphiQLController {
   @GetMapping(value = "/graphiql", produces = MediaType.TEXT_HTML_VALUE)
   @ResponseBody
   CompletableFuture<String> graphiQL() {
-    return CompletableFuture.supplyAsync(() -> this.graphiqlHtml);
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> this.graphiqlHtml, this.getClass().getSimpleName(), "graphiQL");
   }
 }

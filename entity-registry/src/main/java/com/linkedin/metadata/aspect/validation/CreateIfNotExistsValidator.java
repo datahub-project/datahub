@@ -16,13 +16,17 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /** Common implementation of checking for create if not exists semantics. */
+@Setter
+@Getter
+@Accessors(chain = true)
 public class CreateIfNotExistsValidator extends AspectPayloadValidator {
 
-  public CreateIfNotExistsValidator(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
+  @Nonnull private AspectPluginConfig config;
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(

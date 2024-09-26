@@ -7,6 +7,8 @@ dependencies {
   api project(':metadata-auth:auth-api')
 
   implementation externalDependency.slf4jApi
+  implementation externalDependency.servletApi
+  implementation spec.product.pegasus.restliServer
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok

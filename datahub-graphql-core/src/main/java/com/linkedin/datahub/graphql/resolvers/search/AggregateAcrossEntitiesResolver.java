@@ -7,6 +7,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveV
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AggregateAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.AggregateResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -20,6 +21,8 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -51,7 +54,7 @@ public class AggregateAcrossEntitiesResolver
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final DataHubViewInfo maybeResolvedView =
               (input.getViewUrn() != null)
@@ -68,15 +71,21 @@ public class AggregateAcrossEntitiesResolver
           final List<String> facets =
               input.getFacets() != null && input.getFacets().size() > 0 ? input.getFacets() : null;
 
+          List<String> finalEntities =
+              maybeResolvedView != null
+                  ? SearchUtils.intersectEntityTypes(
+                      entityNames, maybeResolvedView.getDefinition().getEntityTypes())
+                  : entityNames;
+          if (finalEntities.size() == 0) {
+            return createEmptyAggregateResults();
+          }
+
           try {
             return mapAggregateResults(
                 context,
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
-                    maybeResolvedView != null
-                        ? SearchUtils.intersectEntityTypes(
-                            entityNames, maybeResolvedView.getDefinition().getEntityTypes())
-                        : entityNames,
+                    finalEntities,
                     sanitizedQuery,
                     maybeResolvedView != null
                         ? SearchUtils.combineFilters(
@@ -84,7 +93,7 @@ public class AggregateAcrossEntitiesResolver
                         : inputFilter,
                     0,
                     0, // 0 entity count because we don't want resolved entities
-                    null,
+                    Collections.emptyList(),
                     facets));
           } catch (Exception e) {
             log.error(
@@ -99,7 +108,9 @@ public class AggregateAcrossEntitiesResolver
                         input.getTypes(), input.getQuery(), input.getOrFilters()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   static AggregateResults mapAggregateResults(
@@ -111,5 +122,11 @@ public class AggregateAcrossEntitiesResolver
             .collect(Collectors.toList()));
 
     return results;
+  }
+
+  AggregateResults createEmptyAggregateResults() {
+    final AggregateResults result = new AggregateResults();
+    result.setFacets(new ArrayList<>());
+    return result;
   }
 }

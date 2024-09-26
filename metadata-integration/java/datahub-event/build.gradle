@@ -25,7 +25,7 @@ dependencies {
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testContainers
-  testImplementation externalDependency.httpAsyncClient
+  testImplementation externalDependency.httpClient
   testRuntimeOnly externalDependency.logbackClassicJava8
 }
 

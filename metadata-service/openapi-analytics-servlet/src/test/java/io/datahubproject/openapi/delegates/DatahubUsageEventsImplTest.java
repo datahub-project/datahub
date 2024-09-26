@@ -5,7 +5,7 @@ import static org.testng.Assert.assertNotNull;
 
 import io.datahubproject.openapi.config.OpenAPIAnalyticsTestConfiguration;
 import io.datahubproject.openapi.config.SpringWebConfig;
-import io.datahubproject.openapi.generated.controller.DatahubUsageEventsApiController;
+import io.datahubproject.openapi.v2.generated.controller.DatahubUsageEventsApiController;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.ComponentScan;
@@ -16,7 +16,7 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
-@ComponentScan(basePackages = {"io.datahubproject.openapi.generated.controller"})
+@ComponentScan(basePackages = {"io.datahubproject.openapi.v2.generated.controller"})
 @Import({DatahubUsageEventsImpl.class, OpenAPIAnalyticsTestConfiguration.class})
 public class DatahubUsageEventsImplTest extends AbstractTestNGSpringContextTests {
 

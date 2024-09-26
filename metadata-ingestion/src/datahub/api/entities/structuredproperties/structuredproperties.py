@@ -75,6 +75,7 @@ class StructuredProperties(ConfigModel):
     cardinality: Optional[str] = None
     allowed_values: Optional[List[AllowedValue]] = None
     type_qualifier: Optional[TypeQualifierAllowedTypes] = None
+    immutable: Optional[bool] = False
 
     @property
     def fqn(self) -> str:
@@ -97,7 +98,7 @@ class StructuredProperties(ConfigModel):
         emitter: DataHubGraph
 
         with get_default_graph() as emitter:
-            with open(file, "r") as fp:
+            with open(file) as fp:
                 structuredproperties: List[dict] = yaml.safe_load(fp)
                 for structuredproperty_raw in structuredproperties:
                     structuredproperty = StructuredProperties.parse_obj(
@@ -124,19 +125,24 @@ class StructuredProperties(ConfigModel):
                                 for entity_type in structuredproperty.entity_types or []
                             ],
                             cardinality=structuredproperty.cardinality,
-                            allowedValues=[
-                                PropertyValueClass(
-                                    value=v.value, description=v.description
-                                )
-                                for v in structuredproperty.allowed_values
-                            ]
-                            if structuredproperty.allowed_values
-                            else None,
-                            typeQualifier={
-                                "allowedTypes": structuredproperty.type_qualifier.allowed_types
-                            }
-                            if structuredproperty.type_qualifier
-                            else None,
+                            immutable=structuredproperty.immutable,
+                            allowedValues=(
+                                [
+                                    PropertyValueClass(
+                                        value=v.value, description=v.description
+                                    )
+                                    for v in structuredproperty.allowed_values
+                                ]
+                                if structuredproperty.allowed_values
+                                else None
+                            ),
+                            typeQualifier=(
+                                {
+                                    "allowedTypes": structuredproperty.type_qualifier.allowed_types
+                                }
+                                if structuredproperty.type_qualifier
+                                else None
+                            ),
                         ),
                     )
                     emitter.emit_mcp(mcp)
@@ -158,20 +164,22 @@ class StructuredProperties(ConfigModel):
             description=structured_property.description,
             entity_types=structured_property.entityTypes,
             cardinality=structured_property.cardinality,
-            allowed_values=[
-                AllowedValue(
-                    value=av.value,
-                    description=av.description,
-                )
-                for av in structured_property.allowedValues or []
-            ]
-            if structured_property.allowedValues is not None
-            else None,
-            type_qualifier={
-                "allowed_types": structured_property.typeQualifier.get("allowedTypes")
-            }
-            if structured_property.typeQualifier
-            else None,
+            allowed_values=(
+                [
+                    AllowedValue(
+                        value=av.value,
+                        description=av.description,
+                    )
+                    for av in structured_property.allowedValues or []
+                ]
+                if structured_property.allowedValues is not None
+                else None
+            ),
+            type_qualifier=(
+                {"allowed_types": structured_property.typeQualifier.get("allowedTypes")}
+                if structured_property.typeQualifier
+                else None
+            ),
         )
 
     def to_yaml(
