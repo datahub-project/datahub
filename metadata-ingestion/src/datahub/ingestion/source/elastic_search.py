@@ -249,7 +249,7 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     password: Optional[str] = Field(
         default=None, description="The password credential."
     )
-    api_key: Optional[Union[Tuple[str, str], str]] = Field(
+    api_key: Optional[Union[Any, str]] = Field(
         default=None,
         description="API Key authentication. Accepts either a list with id and api_key (UTF-8 representation), or a base64 encoded string of id and api_key combined by ':'.",
     )
