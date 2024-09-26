@@ -43,6 +43,7 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.dbt.dbt_common import DBT_PLATFORM, DBTCommonConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.utilities.lossy_collections import LossyDict, LossyList
@@ -511,6 +512,14 @@ class Source(Closeable, metaclass=ABCMeta):
         platform_instance: Optional[str] = None
         if isinstance(config, PlatformInstanceConfigMixin) and config.platform_instance:
             platform_instance = config.platform_instance
+        elif (
+            isinstance(config, DBTCommonConfig)
+            and config.target_platform_instance
+            and platform != DBT_PLATFORM
+        ):
+            # This is a bit hacky but on DBT we have to make sure for the generated datasets
+            # we have the platform_instance set correctly in the browse path
+            platform_instance = config.target_platform_instance
 
         browse_path_processor = partial(
             auto_browse_path_v2,
