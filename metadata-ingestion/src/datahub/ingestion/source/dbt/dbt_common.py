@@ -4,30 +4,15 @@ import re
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import auto
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import more_itertools
-import pydantic
-from pydantic import root_validator, validator
-from pydantic.fields import Field
 
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
-from datahub.configuration.common import (
-    AllowDenyPattern,
-    ConfigEnum,
-    ConfigModel,
-    ConfigurationError,
-)
-from datahub.configuration.source_common import (
-    EnvConfigMixin,
-    PlatformInstanceConfigMixin,
-)
-from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
-from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -40,7 +25,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
-    IncrementalLineageConfigMixin,
     convert_upstream_lineage_to_patch,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -70,10 +54,8 @@ from datahub.ingestion.source.sql.sql_types import (
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
-    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
