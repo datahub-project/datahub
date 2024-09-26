@@ -128,7 +128,8 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
             },
-            "name": "folder_aa"
+            "name": "folder_aa",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -244,7 +245,8 @@
                 "env": "PROD",
                 "bucket_name": "my-test-bucket"
             },
-            "name": "my-test-bucket"
+            "name": "my-test-bucket",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -265,7 +267,8 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a"
             },
-            "name": "folder_a"
+            "name": "folder_a",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -480,7 +483,8 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
             },
-            "name": "folder_aaa"
+            "name": "folder_aaa",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -674,6 +678,28 @@
         "json": {
             "name": "foo:bar"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "single_file.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586847620000
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,

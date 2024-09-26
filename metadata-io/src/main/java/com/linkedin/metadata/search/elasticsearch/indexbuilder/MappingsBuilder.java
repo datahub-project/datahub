@@ -65,12 +65,11 @@ public class MappingsBuilder {
           WORD_GRAMS_LENGTH_4);
 
   // Alias field mappings constants
-  public static final String ALIAS = "alias";
+  public static final String ALIAS_FIELD_TYPE = "alias";
   public static final String PATH = "path";
 
   public static final String PROPERTIES = "properties";
   public static final String DYNAMIC_TEMPLATES = "dynamic_templates";
-  private static EntityRegistry entityRegistry;
 
   private MappingsBuilder() {}
 
@@ -82,9 +81,10 @@ public class MappingsBuilder {
    * @return mappings
    */
   public static Map<String, Object> getMappings(
+      @Nonnull EntityRegistry entityRegistry,
       @Nonnull final EntitySpec entitySpec,
       Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
-    Map<String, Object> mappings = getMappings(entitySpec);
+    Map<String, Object> mappings = getMappings(entityRegistry, entitySpec);
 
     String entityName = entitySpec.getEntityAnnotation().getName();
     Map<String, Object> structuredPropertiesForEntity =
@@ -124,7 +124,8 @@ public class MappingsBuilder {
     return mappings;
   }
 
-  public static Map<String, Object> getMappings(@Nonnull final EntitySpec entitySpec) {
+  public static Map<String, Object> getMappings(
+      @Nonnull EntityRegistry entityRegistry, @Nonnull final EntitySpec entitySpec) {
     Map<String, Object> mappings = new HashMap<>();
 
     entitySpec
@@ -141,6 +142,7 @@ public class MappingsBuilder {
             searchableRefFieldSpec ->
                 mappings.putAll(
                     getMappingForSearchableRefField(
+                        entityRegistry,
                         searchableRefFieldSpec,
                         searchableRefFieldSpec.getSearchableRefAnnotation().getDepth())));
     // Fixed fields
@@ -332,7 +334,9 @@ public class MappingsBuilder {
   }
 
   private static Map<String, Object> getMappingForSearchableRefField(
-      @Nonnull final SearchableRefFieldSpec searchableRefFieldSpec, @Nonnull final int depth) {
+      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull final SearchableRefFieldSpec searchableRefFieldSpec,
+      @Nonnull final int depth) {
     Map<String, Object> mappings = new HashMap<>();
     Map<String, Object> mappingForField = new HashMap<>();
     Map<String, Object> mappingForProperty = new HashMap<>();
@@ -354,6 +358,7 @@ public class MappingsBuilder {
             entitySearchableRefFieldSpec ->
                 mappingForField.putAll(
                     getMappingForSearchableRefField(
+                        entityRegistry,
                         entitySearchableRefFieldSpec,
                         Math.min(
                             depth - 1,
@@ -375,14 +380,10 @@ public class MappingsBuilder {
     fieldNameAliases.forEach(
         alias -> {
           Map<String, Object> aliasMappings = new HashMap<>();
-          aliasMappings.put(TYPE, ALIAS);
+          aliasMappings.put(TYPE, ALIAS_FIELD_TYPE);
           aliasMappings.put(PATH, searchableFieldSpec.getSearchableAnnotation().getFieldName());
           mappings.put(alias, aliasMappings);
         });
     return mappings;
-  }
-
-  public static void setEntityRegistry(@Nonnull final EntityRegistry entityRegistryInput) {
-    entityRegistry = entityRegistryInput;
   }
 }

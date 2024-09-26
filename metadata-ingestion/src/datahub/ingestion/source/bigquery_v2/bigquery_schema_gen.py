@@ -188,7 +188,11 @@ class BigQuerySchemaGenerator:
 
     @property
     def store_table_refs(self):
-        return self.config.include_table_lineage or self.config.include_usage_statistics
+        return (
+            self.config.include_table_lineage
+            or self.config.include_usage_statistics
+            or self.config.use_queries_v2
+        )
 
     def get_project_workunits(
         self, project: BigqueryProject
@@ -312,7 +316,8 @@ class BigQuerySchemaGenerator:
                     f"Excluded project '{project_id}' since no datasets were found. {action_message}"
                 )
             else:
-                yield from self.gen_project_id_containers(project_id)
+                if self.config.include_schema_metadata:
+                    yield from self.gen_project_id_containers(project_id)
                 self.report.warning(
                     title="No datasets found in project",
                     message=action_message,
@@ -320,7 +325,8 @@ class BigQuerySchemaGenerator:
                 )
             return
 
-        yield from self.gen_project_id_containers(project_id)
+        if self.config.include_schema_metadata:
+            yield from self.gen_project_id_containers(project_id)
 
         self.report.num_project_datasets_to_scan[project_id] = len(
             bigquery_project.datasets
@@ -364,9 +370,9 @@ class BigQuerySchemaGenerator:
                     yield wu
             except Exception as e:
                 if self.config.is_profiling_enabled():
-                    action_mesage = "Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission?"
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission?"
                 else:
-                    action_mesage = "Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission?"
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission?"
 
                 self.report.failure(
                     title="Unable to get tables for dataset",
@@ -392,9 +398,10 @@ class BigQuerySchemaGenerator:
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = bigquery_dataset.name
 
-        yield from self.gen_dataset_containers(
-            dataset_name, project_id, bigquery_dataset.labels
-        )
+        if self.config.include_schema_metadata:
+            yield from self.gen_dataset_containers(
+                dataset_name, project_id, bigquery_dataset.labels
+            )
 
         columns = None
 
@@ -404,11 +411,7 @@ class BigQuerySchemaGenerator:
                 max_calls=self.config.requests_per_min, period=60
             )
 
-        if (
-            self.config.include_tables
-            or self.config.include_views
-            or self.config.include_table_snapshots
-        ):
+        if self.config.include_schema_metadata:
             columns = self.schema_api.get_columns_for_dataset(
                 project_id=project_id,
                 dataset_name=dataset_name,
@@ -418,6 +421,27 @@ class BigQuerySchemaGenerator:
                 report=self.report,
                 rate_limiter=rate_limiter,
             )
+        elif self.store_table_refs:
+            # Need table_refs to calculate lineage and usage
+            for table_item in self.schema_api.list_tables(dataset_name, project_id):
+                identifier = BigqueryTableIdentifier(
+                    project_id=project_id,
+                    dataset=dataset_name,
+                    table=table_item.table_id,
+                )
+                if not self.config.table_pattern.allowed(identifier.raw_table_name()):
+                    self.report.report_dropped(identifier.raw_table_name())
+                    continue
+                try:
+                    self.table_refs.add(
+                        str(BigQueryTableRef(identifier).get_sanitized_table_ref())
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Could not create table ref for {table_item.path}: {e}"
+                    )
+            yield from []
+            return
 
         if self.config.include_tables:
             db_tables[dataset_name] = list(
@@ -447,25 +471,6 @@ class BigQuerySchemaGenerator:
                         )
                     ),
                 )
-        elif self.store_table_refs:
-            # Need table_refs to calculate lineage and usage
-            for table_item in self.schema_api.list_tables(dataset_name, project_id):
-                identifier = BigqueryTableIdentifier(
-                    project_id=project_id,
-                    dataset=dataset_name,
-                    table=table_item.table_id,
-                )
-                if not self.config.table_pattern.allowed(identifier.raw_table_name()):
-                    self.report.report_dropped(identifier.raw_table_name())
-                    continue
-                try:
-                    self.table_refs.add(
-                        str(BigQueryTableRef(identifier).get_sanitized_table_ref())
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Could not create table ref for {table_item.path}: {e}"
-                    )
 
         if self.config.include_views:
             db_views[dataset_name] = list(

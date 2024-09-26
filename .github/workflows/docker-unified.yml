@@ -968,6 +968,13 @@ jobs:
             docker pull '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:head'
             docker tag '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:head' '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
           fi
+          if [ '${{ needs.setup.outputs.integrations_service_change }}' == 'false' ]; then
+            echo 'datahub-integration-service head images'
+            docker pull '${{ env.DATAHUB_INTEGRATIONS_IMAGE }}:head'
+            docker tag '${{ env.DATAHUB_INTEGRATIONS_IMAGE }}:head' '${{ env.DATAHUB_INTEGRATIONS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          fi
+      - name: CI Slim Head Images
+        run: |
           if [ '${{ needs.setup.outputs.ingestion_change }}' == 'false' ]; then
             echo 'datahub-ingestion head-slim images'
             docker pull '${{ env.DATAHUB_INGESTION_IMAGE }}:head-slim'
@@ -983,7 +990,7 @@ jobs:
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_INGESTION_IMAGE }}
           ACTIONS_VERSION: ${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
-          ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor]==0.0.13 acryl-datahub-actions==0.0.13 acryl-datahub==0.10.5"
+          ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
         run: |
           ./smoke-test/run-quickstart.sh
@@ -1023,6 +1030,7 @@ jobs:
           TEST_STRATEGY: ${{ matrix.test_strategy }}
         run: |
           echo "$DATAHUB_VERSION"
+          ./gradlew --stop
           ./smoke-test/smoke.sh
       - name: Disk Check
         run: df -h . && docker images
@@ -1036,8 +1044,9 @@ jobs:
         uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: docker logs
+          name: docker-logs-${{ matrix.test_strategy }}
           path: "docker_logs/*.log"
+          retention-days: 5
       - name: Upload screenshots
         uses: actions/upload-artifact@v3
         if: failure()
