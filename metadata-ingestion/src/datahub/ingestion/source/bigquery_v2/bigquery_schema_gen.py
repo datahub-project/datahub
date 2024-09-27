@@ -242,7 +242,11 @@ class BigQuerySchemaGenerator:
         )
 
     def gen_dataset_containers(
-        self, dataset: str, project_id: str, tags: Optional[Dict[str, str]] = None
+        self,
+        dataset: str,
+        project_id: str,
+        tags: Optional[Dict[str, str]] = None,
+        extra_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_dataset_key(project_id, dataset)
 
@@ -272,6 +276,7 @@ class BigQuerySchemaGenerator:
                 else None
             ),
             tags=tags_joined,
+            extra_properties=extra_properties,
         )
 
     def _process_project(
@@ -400,7 +405,14 @@ class BigQuerySchemaGenerator:
 
         if self.config.include_schema_metadata:
             yield from self.gen_dataset_containers(
-                dataset_name, project_id, bigquery_dataset.labels
+                dataset_name,
+                project_id,
+                bigquery_dataset.labels,
+                (
+                    {"location": bigquery_dataset.location}
+                    if bigquery_dataset.location
+                    else None
+                ),
             )
 
         columns = None
@@ -445,7 +457,7 @@ class BigQuerySchemaGenerator:
 
         if self.config.include_tables:
             db_tables[dataset_name] = list(
-                self.get_tables_for_dataset(project_id, dataset_name)
+                self.get_tables_for_dataset(project_id, bigquery_dataset)
             )
 
             for table in db_tables[dataset_name]:
@@ -686,7 +698,9 @@ class BigQuerySchemaGenerator:
         if table.max_shard_id:
             custom_properties["max_shard_id"] = str(table.max_shard_id)
             custom_properties["is_sharded"] = str(True)
-            sub_types = ["sharded table"] + sub_types
+            sub_types = [DatasetSubTypes.SHARDED_TABLE] + sub_types
+        if table.external:
+            sub_types = [DatasetSubTypes.EXTERNAL_TABLE] + sub_types
 
         tags_to_add = None
         if table.labels and self.config.capture_table_label_as_tag:
@@ -971,25 +985,36 @@ class BigQuerySchemaGenerator:
     def get_tables_for_dataset(
         self,
         project_id: str,
-        dataset_name: str,
+        dataset: BigqueryDataset,
     ) -> Iterable[BigqueryTable]:
         # In bigquery there is no way to query all tables in a Project id
         with PerfTimer() as timer:
+
+            # PARTITIONS INFORMATION_SCHEMA view is not available for BigLake tables
+            # based on Amazon S3 and Blob Storage data.
+            # https://cloud.google.com/bigquery/docs/omni-introduction#limitations
+            # Omni Locations - https://cloud.google.com/bigquery/docs/omni-introduction#locations
+            with_partitions = self.config.have_table_data_read_permission and not (
+                dataset.location
+                and dataset.location.lower().startswith(("aws-", "azure-"))
+            )
+
             # Partitions view throw exception if we try to query partition info for too many tables
             # so we have to limit the number of tables we query partition info.
             # The conn.list_tables returns table infos that information_schema doesn't contain and this
             # way we can merge that info with the queried one.
             # https://cloud.google.com/bigquery/docs/information-schema-partitions
-            max_batch_size: int = (
-                self.config.number_of_datasets_process_in_batch
-                if not self.config.have_table_data_read_permission
-                else self.config.number_of_datasets_process_in_batch_if_profiling_enabled
-            )
+            if with_partitions:
+                max_batch_size = (
+                    self.config.number_of_datasets_process_in_batch_if_profiling_enabled
+                )
+            else:
+                max_batch_size = self.config.number_of_datasets_process_in_batch
 
             # We get the list of tables in the dataset to get core table properties and to be able to process the tables in batches
             # We collect only the latest shards from sharded tables (tables with _YYYYMMDD suffix) and ignore temporary tables
             table_items = self.get_core_table_details(
-                dataset_name, project_id, self.config.temp_table_dataset_prefix
+                dataset.name, project_id, self.config.temp_table_dataset_prefix
             )
 
             items_to_get: Dict[str, TableListItem] = {}
@@ -998,9 +1023,9 @@ class BigQuerySchemaGenerator:
                 if len(items_to_get) % max_batch_size == 0:
                     yield from self.schema_api.get_tables_for_dataset(
                         project_id,
-                        dataset_name,
+                        dataset.name,
                         items_to_get,
-                        with_data_read_permission=self.config.have_table_data_read_permission,
+                        with_partitions=with_partitions,
                         report=self.report,
                     )
                     items_to_get.clear()
@@ -1008,13 +1033,13 @@ class BigQuerySchemaGenerator:
             if items_to_get:
                 yield from self.schema_api.get_tables_for_dataset(
                     project_id,
-                    dataset_name,
+                    dataset.name,
                     items_to_get,
-                    with_data_read_permission=self.config.have_table_data_read_permission,
+                    with_partitions=with_partitions,
                     report=self.report,
                 )
 
-        self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(
+        self.report.metadata_extraction_sec[f"{project_id}.{dataset.name}"] = round(
             timer.elapsed_seconds(), 2
         )
 
