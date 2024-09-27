@@ -683,7 +683,7 @@ class NifiSource(Source):
             logger.debug(f"Retrieved cluster summary: {clustered}")
         else:
             logger.warning("Failed to fetch cluster summary for flow")
-        logger.debug(f"Retrieving ROOT Process Group")
+        logger.debug("Retrieving ROOT Process Group")
         pg_response = self.session.get(
             url=urljoin(self.rest_api_base_url, PG_ENDPOINT) + "root"
         )
@@ -1006,7 +1006,7 @@ class NifiSource(Source):
         )
 
     def process_provenance_events(self):
-        logger.debug(f"Starting processing of provenance events")
+        logger.debug("Starting processing of provenance events")
         startDate = datetime.now(timezone.utc) - timedelta(
             days=self.config.provenance_days
         )
