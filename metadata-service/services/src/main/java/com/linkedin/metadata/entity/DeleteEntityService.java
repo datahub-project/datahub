@@ -49,6 +49,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -93,6 +94,7 @@ public class DeleteEntityService {
 
     RelatedEntitiesResult relatedEntities =
         _graphService.findRelatedEntities(
+            opContext,
             null,
             newFilter("urn", urn.toString()),
             null,
@@ -130,6 +132,7 @@ public class DeleteEntityService {
         sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
         relatedEntities =
             _graphService.findRelatedEntities(
+                opContext,
                 null,
                 newFilter("urn", urn.toString()),
                 null,
@@ -342,9 +345,9 @@ public class DeleteEntityService {
    */
   private void deleteAspect(
       @Nonnull OperationContext opContext, Urn urn, String aspectName, RecordTemplate prevAspect) {
-    final RollbackResult rollbackResult =
+    final Optional<RollbackResult> rollbackResult =
         _entityService.deleteAspect(opContext, urn.toString(), aspectName, new HashMap<>(), true);
-    if (rollbackResult == null || rollbackResult.getNewValue() != null) {
+    if (rollbackResult.isEmpty() || rollbackResult.get().getNewValue() != null) {
       log.error(
           "Failed to delete aspect with references. Before {}, after: null, please check GMS logs"
               + " logs for more information",

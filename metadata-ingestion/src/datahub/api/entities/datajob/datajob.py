@@ -109,10 +109,10 @@ class DataJob:
         self, materialize_iolets: bool = True
     ) -> Iterable[MetadataChangeProposalWrapper]:
         env: Optional[str] = None
-        if self.flow_urn.cluster in ALL_ENV_TYPES:
-            env = self.flow_urn.cluster
+        if self.flow_urn.cluster.upper() in ALL_ENV_TYPES:
+            env = self.flow_urn.cluster.upper()
         else:
-            logger.warning(
+            logger.debug(
                 f"cluster {self.flow_urn.cluster} is not a valid environment type so Environment filter won't work."
             )
         mcp = MetadataChangeProposalWrapper(

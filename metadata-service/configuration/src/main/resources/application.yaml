@@ -108,6 +108,15 @@ searchService:
   cache:
     hazelcast:
       serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
+  queryFilterRewriter:
+    containerExpansion:
+      enabled: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_ENABLED:true}
+      pageSize: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_PAGE_SIZE:100}
+      limit: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_LIMIT:100}
+    domainExpansion:
+      enabled: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_ENABLED:true}
+      pageSize: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE:100}
+      limit: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT:100}
 
 configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
@@ -207,6 +216,7 @@ elasticsearch:
     mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
     enableMappingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX:false}
     enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
+    maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:0} # <= 0 - no timeout
     settingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES:#{null}}
     entitySettingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES:#{null}}
     docIds:
@@ -244,6 +254,7 @@ elasticsearch:
       maxResult: ${ELASTICSEARCH_SEARCH_GRAPH_MAX_RESULT:10000} # graph dao max result size
       enableMultiPathSearch: ${ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH:false} # allows a path to be retraversed to walk all paths to the node instead of just shortest, avoids cycles by not rewalking the visited edge
       boostViaNodes: ${ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES:true} # adds a boosting query that ranks graph edges with via nodes higher, used to allow via paths to be prioritized when multi path search is disabled
+      graphStatusEnabled: ${ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED:true} # enable soft delete tracking of the urns on edges
 
 # TODO: Kafka topic convention
 kafka:
@@ -395,6 +406,11 @@ systemUpdate:
     windowDays: ${SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_WINDOW_DAYS:1}
     reprocess:
       enabled: ${SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_REPROCESS:false}
+  edgeStatus:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_EDGE_STATUS_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_EDGE_STATUS_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_EDGE_STATUS_DELAY_MS:5000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_EDGE_STATUS_LIMIT:0}
       
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
@@ -534,18 +550,27 @@ metadataChangeProposal:
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 
-    # Versioned MCL topic
+    # What component is throttled
+    components:
+      mceConsumer:
+        enabled: ${MCP_MCE_CONSUMER_THROTTLE_ENABLED:false}
+      apiRequests:
+        enabled: ${MCP_API_REQUESTS_THROTTLE_ENABLED:false}
+
+    # How is it throttled
+    # Versioned MCL topic settings
     versioned:
-      # Whether to throttle MCP processing based on MCL backlog
+      # Whether to monitor MCL versioned backlog
       enabled: ${MCP_VERSIONED_THROTTLE_ENABLED:false}
       threshold: ${MCP_VERSIONED_THRESHOLD:4000} # throttle threshold
       maxAttempts: ${MCP_VERSIONED_MAX_ATTEMPTS:1000}
       initialIntervalMs: ${MCP_VERSIONED_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_VERSIONED_MULTIPLIER:10}
       maxIntervalMs: ${MCP_VERSIONED_MAX_INTERVAL_MS:30000}
-    # Timeseries MCL topic
+
+    # Timeseries MCL topic settings
     timeseries:
-      # Whether to throttle MCP processing based on MCL backlog
+      # Whether to monitor MCL timeseries backlog
       enabled: ${MCP_TIMESERIES_THROTTLE_ENABLED:false}
       threshold: ${MCP_TIMESERIES_THRESHOLD:4000} # throttle threshold
       maxAttempts: ${MCP_TIMESERIES_MAX_ATTEMPTS:1000}

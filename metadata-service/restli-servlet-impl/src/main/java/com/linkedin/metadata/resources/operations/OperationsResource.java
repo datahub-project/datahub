@@ -17,7 +17,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
@@ -106,7 +106,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam("limit") @Optional @Nullable Integer limit,
       @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
       @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
       () ->  Utils.restoreIndices(systemOperationContext, getContext(),
                   aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService),
         MetricRegistry.name(this.getClass(), "restoreIndices"));
@@ -131,7 +131,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_NODE_ID) @Optional String nodeId,
       @ActionParam(PARAM_TASK_ID) @Optional("0") long taskId,
       @ActionParam(PARAM_TASK) @Optional String task) {
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
           final Authentication auth = AuthenticationContext.getAuthentication();
@@ -194,7 +194,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
   @Nonnull
   @WithSpan
   public Task<TimeseriesIndicesSizesResult> getIndexSizes() {
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
             final Authentication auth = AuthenticationContext.getAuthentication();
@@ -319,7 +319,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_TIMEOUT_SECONDS) @Optional @Nullable Long timeoutSeconds,
       @ActionParam(PARAM_FORCE_DELETE_BY_QUERY) @Optional @Nullable Boolean forceDeleteByQuery,
       @ActionParam(PARAM_FORCE_REINDEX) @Optional @Nullable Boolean forceReindex) {
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () ->
             executeTruncateTimeseriesAspect(
                 entityType,
