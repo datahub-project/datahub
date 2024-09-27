@@ -60,7 +60,12 @@ public class DomainUtils {
   private DomainUtils() {}
 
   public static boolean isAuthorizedToUpdateDomainsForEntity(
-      @Nonnull QueryContext context, Urn entityUrn) {
+      @Nonnull QueryContext context, Urn entityUrn, EntityClient entityClient) {
+
+    if (GlossaryUtils.canUpdateGlossaryEntity(entityUrn, context, entityClient)) {
+      return true;
+    }
+
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
