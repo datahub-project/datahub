@@ -103,7 +103,9 @@ def test_bigquery_v2_ingest(
     mcp_output_path = "{}/{}".format(tmp_path, "bigquery_mcp_output.json")
 
     dataset_name = "bigquery-dataset-1"
-    get_datasets_for_project_id.return_value = [BigqueryDataset(name=dataset_name)]
+    get_datasets_for_project_id.return_value = [
+        BigqueryDataset(name=dataset_name, location="US")
+    ]
 
     table_list_item = TableListItem(
         {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
@@ -321,7 +323,9 @@ def test_bigquery_queries_v2_ingest(
     mcp_output_path = "{}/{}".format(tmp_path, "bigquery_mcp_output.json")
 
     dataset_name = "bigquery-dataset-1"
-    get_datasets_for_project_id.return_value = [BigqueryDataset(name=dataset_name)]
+    get_datasets_for_project_id.return_value = [
+        BigqueryDataset(name=dataset_name, location="US")
+    ]
 
     table_list_item = TableListItem(
         {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
