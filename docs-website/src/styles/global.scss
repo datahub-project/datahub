@@ -344,6 +344,11 @@ div[class^="announcementBar"] {
   }
 }
 
+/* Hide Searchbar in Nav */
+.navbar--fixed-top .DocSearch {
+  display: none;
+}
+
 /* Search */
 
 [data-theme="light"] .DocSearch {
