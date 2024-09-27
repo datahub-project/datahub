@@ -609,7 +609,7 @@ class NifiSource(Source):
             f"All the connections recognized: {len(self.nifi_flow.connections)}"
         )
         for index, component in enumerate(components, start=1):
-            print(
+            logger.debug(
                 f"Processing {index}th component for ingress/egress pruning. Component id: {component.id}, name: {component.name}"
             )
             logger.debug(
