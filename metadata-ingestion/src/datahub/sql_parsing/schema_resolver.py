@@ -248,7 +248,7 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
         return self._base_resolver.resolve_table(table)
 
     def with_temp_tables(
-        self, temp_tables: Dict[str, List[SchemaFieldClass] | None]
+        self, temp_tables: Dict[str, Optional[List[SchemaFieldClass]]]
     ) -> SchemaResolverInterface:
         self._extra_schemas.update(
             {
