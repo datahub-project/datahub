@@ -416,7 +416,9 @@ class NifiSource(Source):
     def get_report(self) -> SourceReport:
         return self.report
 
-    def update_flow(self, pg_flow_dto: Dict, recursion_level=0) -> None:  # noqa: C901
+    def update_flow(
+        self, pg_flow_dto: Dict, recursion_level: int = 0
+    ) -> None:  # noqa: C901
         """
         Update self.nifi_flow with contents of the input process group `pg_flow_dto`
         """
