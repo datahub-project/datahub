@@ -8,6 +8,7 @@ services:
     - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
     - GRAPH_SERVICE_IMPL=${GRAPH_SERVICE_IMPL:-elasticsearch}
+    - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-upgrade:
