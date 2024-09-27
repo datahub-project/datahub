@@ -636,7 +636,7 @@ class NifiSource(Source):
                     filter(lambda x: x[0] == component.id, self.nifi_flow.connections)
                 )
                 logger.debug(
-                    f"Recognized {len(incoming)} outgoing connections from the component"
+                    f"Recognized {len(outgoing)} outgoing connections from the component"
                 )
                 # Create new connections from incoming to outgoing
                 connections_to_add_cnt = 0
