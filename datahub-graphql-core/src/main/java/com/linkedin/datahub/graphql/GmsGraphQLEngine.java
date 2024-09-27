@@ -1192,13 +1192,15 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateDescription",
                   new UpdateDescriptionResolver(entityService, this.entityClient))
-              .dataFetcher("addOwner", new AddOwnerResolver(entityService))
-              .dataFetcher("addOwners", new AddOwnersResolver(entityService))
-              .dataFetcher("batchAddOwners", new BatchAddOwnersResolver(entityService))
-              .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
-              .dataFetcher("batchRemoveOwners", new BatchRemoveOwnersResolver(entityService))
+              .dataFetcher("addOwner", new AddOwnerResolver(entityService, entityClient))
+              .dataFetcher("addOwners", new AddOwnersResolver(entityService, entityClient))
+              .dataFetcher(
+                  "batchAddOwners", new BatchAddOwnersResolver(entityService, entityClient))
+              .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService, entityClient))
+              .dataFetcher(
+                  "batchRemoveOwners", new BatchRemoveOwnersResolver(entityService, entityClient))
               .dataFetcher("addLink", new AddLinkResolver(entityService, this.entityClient))
-              .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
+              .dataFetcher("removeLink", new RemoveLinkResolver(entityService, entityClient))
               .dataFetcher("addGroupMembers", new AddGroupMembersResolver(this.groupService))
               .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(this.groupService))
               .dataFetcher("createGroup", new CreateGroupResolver(this.groupService))
@@ -1212,7 +1214,8 @@ public class GmsGraphQLEngine {
               .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
               .dataFetcher(
                   "setDomain", new SetDomainResolver(this.entityClient, this.entityService))
-              .dataFetcher("batchSetDomain", new BatchSetDomainResolver(this.entityService))
+              .dataFetcher(
+                  "batchSetDomain", new BatchSetDomainResolver(this.entityService, entityClient))
               .dataFetcher(
                   "updateDeprecation",
                   new UpdateDeprecationResolver(this.entityClient, this.entityService))
