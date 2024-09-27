@@ -48,7 +48,7 @@ const StructuredProperties = () => {
                         Structured Properties
                     </Text>
                     <Text color="gray" weight="medium">
-                        Information about this page
+                        {`Create and manage structured properties for your organization's data asset`}
                     </Text>
                 </HeaderContent>
                 <ButtonContainer>

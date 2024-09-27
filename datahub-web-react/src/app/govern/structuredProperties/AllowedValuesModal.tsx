@@ -8,6 +8,7 @@ import {
     DeleteIconContainer,
     FieldGroupContainer,
     FormContainer,
+    InputLabel,
     ModalFooter,
     StyledModal,
     ValuesContainer,
@@ -89,58 +90,68 @@ const AllowedValuesModal = ({
                 <Form.List name="allowedValues">
                     {(fields, { add, remove }) => (
                         <FormContainer>
-                            <ValuesContainer ref={containerRef}>
-                                {fields.map((field, index) => {
-                                    const isExisting = isEditMode && index < noOfExistingValues;
-                                    return (
-                                        <FieldGroupContainer key={field.name}>
-                                            <Form.Item
-                                                {...field}
-                                                name={[field.name, propType]}
-                                                rules={[
-                                                    {
-                                                        required: true,
-                                                        message: 'Please enter the value!',
-                                                    },
-                                                ]}
-                                                key={`${field.name}.value`}
-                                                validateTrigger={['onChange', 'onBlur']}
-                                            >
-                                                <Input
-                                                    label="Value"
-                                                    placeholder="Enter the value"
-                                                    type={propType === 'numberValue' ? 'number' : 'text'}
-                                                    isDisabled={isExisting}
-                                                />
-                                            </Form.Item>
+                            {fields.length > 0 && (
+                                <ValuesContainer ref={containerRef}>
+                                    {fields.map((field, index) => {
+                                        const isExisting = isEditMode && index < noOfExistingValues;
 
-                                            <Form.Item
-                                                {...field}
-                                                name={[field.name, 'description']}
-                                                key={`${field.name}.desc`}
-                                            >
-                                                <TextArea
-                                                    label="Description"
-                                                    placeholder="Enter description of the value"
-                                                    isDisabled={isExisting}
-                                                />
-                                            </Form.Item>
-                                            {fields.length > 1 && !isExisting && (
-                                                <DeleteIconContainer>
-                                                    <Tooltip title="Remove from the allowed values list">
-                                                        <Icon
-                                                            icon="Delete"
-                                                            onClick={() => remove(field.name)}
-                                                            color="gray"
-                                                            size="xl"
+                                        return (
+                                            <FieldGroupContainer key={field.name}>
+                                                <InputLabel>Value</InputLabel>
+                                                <Tooltip
+                                                    title={
+                                                        isExisting &&
+                                                        'Editing allowed values is not allowed in order to preserve backwards compatibility'
+                                                    }
+                                                    showArrow={false}
+                                                >
+                                                    <Form.Item
+                                                        {...field}
+                                                        name={[field.name, propType]}
+                                                        rules={[
+                                                            {
+                                                                required: true,
+                                                                message: 'Please enter the value!',
+                                                            },
+                                                        ]}
+                                                        key={`${field.name}.value`}
+                                                        validateTrigger={['onChange', 'onBlur']}
+                                                    >
+                                                        <Input
+                                                            label=""
+                                                            placeholder="Enter the value"
+                                                            type={propType === 'numberValue' ? 'number' : 'text'}
+                                                            isDisabled={isExisting}
                                                         />
-                                                    </Tooltip>
-                                                </DeleteIconContainer>
-                                            )}
-                                        </FieldGroupContainer>
-                                    );
-                                })}
-                            </ValuesContainer>
+                                                    </Form.Item>
+                                                </Tooltip>
+                                                <Form.Item
+                                                    {...field}
+                                                    name={[field.name, 'description']}
+                                                    key={`${field.name}.desc`}
+                                                >
+                                                    <TextArea
+                                                        label="Description"
+                                                        placeholder="Enter description of the value"
+                                                    />
+                                                </Form.Item>
+                                                {!isExisting && (
+                                                    <DeleteIconContainer>
+                                                        <Tooltip title="Remove from the allowed values list">
+                                                            <Icon
+                                                                icon="Delete"
+                                                                onClick={() => remove(field.name)}
+                                                                color="gray"
+                                                                size="xl"
+                                                            />
+                                                        </Tooltip>
+                                                    </DeleteIconContainer>
+                                                )}
+                                            </FieldGroupContainer>
+                                        );
+                                    })}
+                                </ValuesContainer>
+                            )}
 
                             <AddButtonContainer>
                                 <Tooltip title="Add a new value to the allowed list">

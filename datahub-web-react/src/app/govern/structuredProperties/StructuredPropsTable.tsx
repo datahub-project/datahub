@@ -99,15 +99,18 @@ const StructuredPropsTable = ({
                             <TableIcon />
                         </IconContainer>
                         <DataContainer>
-                            <PropName
-                                onClick={() => {
-                                    setIsDrawerOpen(true);
-                                    setSelectedProperty(record);
-                                }}
-                            >
-                                {getDisplayName(record.entity)}
-                            </PropName>
-                            <PropDescription>{record.entity.definition.description}</PropDescription>
+                            <div>
+                                <PropName
+                                    ellipsis={{ tooltip: getDisplayName(record.entity) }}
+                                    onClick={() => {
+                                        setIsDrawerOpen(true);
+                                        setSelectedProperty(record);
+                                    }}
+                                >
+                                    {getDisplayName(record.entity)}
+                                </PropName>
+                            </div>
+                            <PropDescription ellipsis>{record.entity.definition.description}</PropDescription>
                         </DataContainer>
                     </NameColumn>
                 );

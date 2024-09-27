@@ -45,13 +45,11 @@ export const PropName = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 600;
     color: ${colors.gray[600]};
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     line-height: normal;
 
     :hover {
         cursor: pointer;
+        text-decoration: underline;
     }
 `;
 
@@ -59,9 +57,6 @@ export const PropDescription = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 400;
     color: ${colors.gray[1600]};
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     line-height: normal;
 `;
 
@@ -153,15 +148,27 @@ export const FooterContainer = styled.div`
 
 export const RowContainer = styled.div`
     display: grid;
-    grid-template-columns: 150px 1fr;
+    grid-template-columns: 180px 1fr;
     align-items: center;
 `;
 
-export const FieldLabel = styled(Typography.Text)`
+export const FieldLabel = styled.div`
     font-size: 14px;
     font-weight: 500;
     color: ${colors.gray[600]};
     margin-bottom: 24px;
+`;
+
+export const InputLabel = styled.div`
+    font-size: 14px;
+    font-weight: 500;
+    color: ${colors.gray[600]};
+`;
+
+export const FlexContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
 `;
 
 export const StyledDrawer = styled(Drawer)`

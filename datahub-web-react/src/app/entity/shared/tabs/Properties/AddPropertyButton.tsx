@@ -5,7 +5,7 @@ import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
 import { Dropdown, Tooltip } from 'antd';
-import React, { ReactNode, useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { useEntityData } from '../../EntityContext';
 import EditStructuredPropertyModal from './Edit/EditStructuredPropertyModal';
@@ -59,14 +59,6 @@ interface Props {
 }
 
 const AddPropertyButton = ({ fieldUrn, refetch, isV1Drawer }: Props) => {
-    const [structuredProperties, setStructuredProperties] = useState<
-        | {
-              label: ReactNode;
-              key: string;
-              name: string;
-          }[]
-        | undefined
-    >();
     const [searchQuery, setSearchQuery] = useState('');
     const { entityData } = useEntityData();
     const isThemeV2 = useIsThemeV2();
@@ -97,23 +89,24 @@ const AddPropertyButton = ({ fieldUrn, refetch, isV1Drawer }: Props) => {
         setIsEditModalVisible(true);
     };
 
-    useEffect(() => {
-        const properties = data?.searchAcrossEntities?.searchResults.map((prop) => {
-            const entity = prop.entity as StructuredPropertyEntity;
-            return {
-                label: (
-                    <Option key={entity.urn} onClick={() => handleOptionClick(entity)}>
-                        <Text weight="semiBold" color="gray">
-                            {entity.definition?.displayName}
-                        </Text>
-                    </Option>
-                ),
-                key: entity.urn,
-                name: entity.definition?.displayName || entity.urn,
-            };
-        });
-        setStructuredProperties(properties);
-    }, [data]);
+    const properties = useMemo(
+        () =>
+            data?.searchAcrossEntities?.searchResults.map((prop) => {
+                const entity = prop.entity as StructuredPropertyEntity;
+                return {
+                    label: (
+                        <Option key={entity.urn} onClick={() => handleOptionClick(entity)}>
+                            <Text weight="semiBold" color="gray">
+                                {entity.definition?.displayName}
+                            </Text>
+                        </Option>
+                    ),
+                    key: entity.urn,
+                    name: entity.definition?.displayName || entity.urn,
+                };
+            }),
+        [data],
+    );
 
     const canEditProperties =
         entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
@@ -121,9 +114,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, isV1Drawer }: Props) => {
     if (!canEditProperties) return null;
 
     // Filter items based on search query
-    const filteredItems = structuredProperties?.filter((prop) =>
-        prop.name?.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
+    const filteredItems = properties?.filter((prop) => prop.name?.toLowerCase().includes(searchQuery.toLowerCase()));
     return (
         <>
             <Dropdown

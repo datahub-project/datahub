@@ -1,7 +1,7 @@
 import { Icon, Input, Text } from '@components';
 import { Collapse, Form, Tooltip } from 'antd';
 import React from 'react';
-import { CollapseHeader, StyledCollapse } from './styledComponents';
+import { CollapseHeader, FlexContainer, InputLabel, StyledCollapse } from './styledComponents';
 
 interface Props {
     isEditMode: boolean;
@@ -28,6 +28,14 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
                 }
                 forceRender
             >
+                <InputLabel>
+                    <FlexContainer>
+                        Qualified Name
+                        <Tooltip title="Optionally set a dot separated fully qualified name for this property. This name must be unique across structured properties.">
+                            <Icon icon="Info" color="violet" size="lg" />
+                        </Tooltip>
+                    </FlexContainer>
+                </InputLabel>
                 <Tooltip
                     title={
                         isEditMode && 'Changing the qualified name is disabled once a structured property is created'
@@ -35,7 +43,7 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
                     showArrow={false}
                 >
                     <Form.Item name="qualifiedName">
-                        <Input label="Qualified Name" placeholder="Optional - Qualified Name" isDisabled={isEditMode} />
+                        <Input label="" placeholder="Optional - Qualified Name" isDisabled={isEditMode} />
                     </Form.Item>
                 </Tooltip>
             </Collapse.Panel>

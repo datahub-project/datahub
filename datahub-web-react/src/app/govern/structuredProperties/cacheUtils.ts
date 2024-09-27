@@ -26,7 +26,7 @@ const addToCache = (existingProperties, newProperty) => {
         __typename: 'SearchResult',
     };
 
-    return [...existingProperties, propertyToWrite];
+    return [propertyToWrite, ...existingProperties];
 };
 
 export const updatePropertiesList = (client, inputs, newProperty, searchAcrossEntities) => {
