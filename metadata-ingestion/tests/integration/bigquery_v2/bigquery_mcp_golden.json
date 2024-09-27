@@ -98,7 +98,8 @@
                 "platform": "bigquery",
                 "env": "PROD",
                 "project_id": "project-id-1",
-                "dataset_id": "bigquery-dataset-1"
+                "dataset_id": "bigquery-dataset-1",
+                "location": "US"
             },
             "externalUrl": "https://console.cloud.google.com/bigquery?project=project-id-1&ws=!1m4!1m3!3m2!1sproject-id-1!2sbigquery-dataset-1",
             "name": "bigquery-dataset-1",
