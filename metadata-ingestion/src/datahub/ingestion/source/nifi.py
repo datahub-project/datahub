@@ -605,7 +605,16 @@ class NifiSource(Source):
         logger.debug(
             f"Processing {len(components)} components for keep only ingress/egress"
         )
-        for component in components:
+        logger.debug(
+            f"All the connections recognized: {len(self.nifi_flow.connections)}"
+        )
+        for index, component in enumerate(components, start=1):
+            print(
+                f"Processing {index}th component for ingress/egress pruning. Component id: {component.id}, name: {component.name}"
+            )
+            logger.debug(
+                f"Current amount of connections: {len(self.nifi_flow.connections)}"
+            )
             if (
                 component.nifi_type is NifiType.PROCESSOR
                 and component.type
@@ -615,27 +624,40 @@ class NifiSource(Source):
                 NifiType.REMOTE_INPUT_PORT,
                 NifiType.REMOTE_OUTPUT_PORT,
             ]:
+                logger.debug("Decided to delete that component")
                 components_to_del.append(component)
                 incoming = list(
                     filter(lambda x: x[1] == component.id, self.nifi_flow.connections)
                 )
+                logger.debug(
+                    f"Recognized {len(incoming)} incoming connections to the component"
+                )
                 outgoing = list(
                     filter(lambda x: x[0] == component.id, self.nifi_flow.connections)
                 )
+                logger.debug(
+                    f"Recognized {len(incoming)} outgoing connections from the component"
+                )
                 # Create new connections from incoming to outgoing
+                connections_to_add_cnt = 0
                 for i in incoming:
                     for j in outgoing:
                         self.nifi_flow.connections.append((i[0], j[1]))
-
+                        connections_to_add_cnt += 1
+                logger.debug(f"Added {connections_to_add_cnt} connections")
                 # Remove older connections, as we already created
                 # new connections bypassing component to be deleted
 
                 for i in incoming:
                     self.nifi_flow.connections.remove(i)
+                logger.debug(f"Removed {len(incoming)} incoming connections")
                 for j in outgoing:
                     self.nifi_flow.connections.remove(j)
+                logger.debug(f"Removed {len(incoming)} outgoing connections")
 
-        for c in components_to_del:
+        logger.debug(f"Attempting to delete {len(components_to_del)} components")
+        for index, c in enumerate(components_to_del, start=1):
+            logger.debug(f"Deleting {index}th component")
             if c.nifi_type is NifiType.PROCESSOR and (
                 c.name.startswith("Get")
                 or c.name.startswith("List")
@@ -722,6 +744,9 @@ class NifiSource(Source):
 
         if provenance_response.ok:
             provenance = provenance_response.json().get("provenance", {})
+            total = provenance.get("results", {}).get("total")
+            totalCount = provenance.get("results", {}).get("totalCount")
+            logger.debug(f"Retrieved {total} of {totalCount}")
             provenance_uri = provenance.get("uri")
             logger.debug(f"Retrieving provenance uri: {provenance_uri}")
             provenance_response = self.session.get(provenance_uri)
@@ -760,9 +785,8 @@ class NifiSource(Source):
             processor.last_event_time = str(last_event_time)
             self.delete_provenance(provenance_uri)
 
-            total = provenance.get("results", {}).get("total")
-            totalCount = provenance.get("results", {}).get("totalCount")
             if total != str(totalCount):
+                logger.debug("Trying to retrieve more events for the same processor")
                 yield from self.fetch_provenance_events(
                     processor, eventType, startDate, oldest_event_time
                 )
@@ -1016,6 +1040,9 @@ class NifiSource(Source):
         components = self.nifi_flow.components.values()
         logger.debug(f"Processing {len(components)} components")
         for component in components:
+            logger.debug(
+                f"Processing provenance events for component id: {component.id} name: {component.name}"
+            )
             if component.nifi_type is NifiType.PROCESSOR:
                 eventType = eventAnalyzer.KNOWN_INGRESS_EGRESS_PROCESORS[component.type]
                 events = self.fetch_provenance_events(component, eventType, startDate)
