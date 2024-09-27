@@ -86,12 +86,6 @@ module.exports = {
           position: "right",
         },
         {
-          to: "/cloud",
-          activeBasePath: "cloud",
-          html: "Cloud",
-          position: "right",
-        },
-        {
           to: "/integrations",
           activeBasePath: "integrations",
           label: "Integrations",
@@ -157,6 +151,18 @@ module.exports = {
               }
             </style>
             <img class='slack-logo' src='https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg', alt='slack', height='20px' style='margin: 10px 0 0 0;'/>
+          `,
+          position: "right",
+        },
+        {
+          href: "/cloud",
+          html: `
+            <style>
+              .cloud-cta:hover {
+                opacity: 0.8;
+              }
+            </style>
+            <div class='cloud-cta button button--primary' alt='try-datahub-cloud' style='font-weight: 700;'>Try DataHub Cloud Free</div>
           `,
           position: "right",
         }
