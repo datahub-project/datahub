@@ -806,9 +806,9 @@
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD),amount)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD),payment_date)",
                     "schemaField": {
-                        "fieldPath": "amount",
+                        "fieldPath": "payment_date",
                         "nullable": false,
                         "type": {
                             "type": {
@@ -828,9 +828,9 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD),payment_date)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD),amount)",
                     "schemaField": {
-                        "fieldPath": "payment_date",
+                        "fieldPath": "amount",
                         "nullable": false,
                         "type": {
                             "type": {
@@ -1069,6 +1069,28 @@
         "json": {
             "name": "Dimension"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1639177973273
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,

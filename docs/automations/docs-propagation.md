@@ -47,7 +47,7 @@ Notice that the user must have the `Manage Ingestion` permission to view and ena
   <img width="20%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/oss/features-settings-link.png"/>
 </p>
 
-3**Enable Documentation Propagation**: Locate the 'Documentation Propagation' section and toggle the feature to enable it for column-level and asset-level propagation. 
+3. **Enable Documentation Propagation**: Locate the 'Documentation Propagation' section and toggle the feature to enable it for column-level and asset-level propagation. 
 Currently, Column Level propagation is supported, with asset level propagation coming soon. 
 
 <p align="left">
