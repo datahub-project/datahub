@@ -42,6 +42,11 @@ class SchemaResolverInterface(Protocol):
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         ...
 
+    def with_temp_tables(
+        self, temp_tables: Dict[str, Optional[List[SchemaFieldClass]]]
+    ) -> "SchemaResolverInterface":
+        ...
+
     def __hash__(self) -> int:
         # Mainly to make lru_cache happy in methods that accept a schema resolver.
         return id(self)
@@ -161,7 +166,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def add_schema_metadata(
         self, urn: str, schema_metadata: SchemaMetadataClass
     ) -> None:
-        schema_info = self._convert_schema_aspect_to_info(schema_metadata)
+        schema_info = _convert_schema_aspect_to_info(schema_metadata)
         self._save_to_cache(urn, schema_info)
 
     def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
@@ -178,7 +183,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     ) -> SchemaResolverInterface:
         extra_schemas = {
             urn: (
-                self._convert_schema_field_list_to_info(fields)
+                _convert_schema_field_list_to_info(fields)
                 if fields is not None
                 else None
             )
@@ -197,28 +202,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         if not aspect:
             return None
 
-        return self._convert_schema_aspect_to_info(aspect)
-
-    @classmethod
-    def _convert_schema_aspect_to_info(
-        cls, schema_metadata: SchemaMetadataClass
-    ) -> SchemaInfo:
-        return cls._convert_schema_field_list_to_info(schema_metadata.fields)
-
-    @classmethod
-    def _convert_schema_field_list_to_info(
-        cls, schema_fields: List[SchemaFieldClass]
-    ) -> SchemaInfo:
-        return {
-            get_simple_field_path_from_v2_field_path(col.fieldPath): (
-                # The actual types are more of a "nice to have".
-                col.nativeDataType
-                or "str"
-            )
-            for col in schema_fields
-            # TODO: We can't generate lineage to columns nested within structs yet.
-            if "." not in get_simple_field_path_from_v2_field_path(col.fieldPath)
-        }
+        return _convert_schema_aspect_to_info(aspect)
 
     @classmethod
     def convert_graphql_schema_metadata_to_info(
@@ -262,3 +246,38 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
         if urn in self._extra_schemas:
             return urn, self._extra_schemas[urn]
         return self._base_resolver.resolve_table(table)
+
+    def with_temp_tables(
+        self, temp_tables: Dict[str, List[SchemaFieldClass] | None]
+    ) -> SchemaResolverInterface:
+        self._extra_schemas.update(
+            {
+                urn: (
+                    _convert_schema_field_list_to_info(fields)
+                    if fields is not None
+                    else None
+                )
+                for urn, fields in temp_tables.items()
+            }
+        )
+
+        return self
+
+
+def _convert_schema_field_list_to_info(
+    schema_fields: List[SchemaFieldClass],
+) -> SchemaInfo:
+    return {
+        get_simple_field_path_from_v2_field_path(col.fieldPath): (
+            # The actual types are more of a "nice to have".
+            col.nativeDataType
+            or "str"
+        )
+        for col in schema_fields
+        # TODO: We can't generate lineage to columns nested within structs yet.
+        if "." not in get_simple_field_path_from_v2_field_path(col.fieldPath)
+    }
+
+
+def _convert_schema_aspect_to_info(schema_metadata: SchemaMetadataClass) -> SchemaInfo:
+    return _convert_schema_field_list_to_info(schema_metadata.fields)

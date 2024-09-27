@@ -367,6 +367,11 @@ class SqlParsingAggregator(Closeable):
                     graph=graph,
                 )
             )
+        # Schema resolver for special case (_MISSING_SESSION_ID)
+        # This is particularly useful for via temp table lineage if session id is not available.
+        self._missing_session_schema_resolver = self._schema_resolver.with_temp_tables(
+            {}
+        )
 
         # Initialize internal data structures.
         # This leans pretty heavily on the our query fingerprinting capabilities.
@@ -864,6 +869,12 @@ class SqlParsingAggregator(Closeable):
                 out_table
             ] = query_fingerprint
 
+            # Also update schema resolver for missing session id
+            if parsed.session_id is _MISSING_SESSION_ID and parsed.inferred_schema:
+                self._missing_session_schema_resolver.with_temp_tables(
+                    {out_table: parsed.inferred_schema}
+                )
+
         else:
             # Non-temp tables immediately generate lineage.
             self._lineage_map.for_mutation(out_table, OrderedSet()).add(
@@ -897,7 +908,9 @@ class SqlParsingAggregator(Closeable):
         self, session_id: str
     ) -> SchemaResolverInterface:
         schema_resolver: SchemaResolverInterface = self._schema_resolver
-        if session_id in self._temp_lineage_map:
+        if session_id is _MISSING_SESSION_ID:
+            schema_resolver = self._missing_session_schema_resolver
+        elif session_id in self._temp_lineage_map:
             temp_table_schemas: Dict[str, Optional[List[models.SchemaFieldClass]]] = {}
             for temp_table_urn, query_id in self._temp_lineage_map[session_id].items():
                 temp_table_schemas[temp_table_urn] = self._inferred_temp_schemas.get(
