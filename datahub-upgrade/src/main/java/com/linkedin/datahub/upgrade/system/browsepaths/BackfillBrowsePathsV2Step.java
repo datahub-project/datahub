@@ -1,6 +1,9 @@
 package com.linkedin.datahub.upgrade.system.browsepaths;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
+import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
 import com.google.common.collect.ImmutableList;
@@ -9,7 +12,6 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -152,13 +154,10 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
 
   private Filter backfillBrowsePathsV2Filter() {
     // Condition: has `browsePaths` AND does NOT have `browsePathV2`
-    Criterion missingBrowsePathV2 = new Criterion();
-    missingBrowsePathV2.setCondition(Condition.IS_NULL);
-    missingBrowsePathV2.setField("browsePathV2");
+    Criterion missingBrowsePathV2 = buildIsNullCriterion("browsePathV2");
+
     // Excludes entities without browsePaths
-    Criterion hasBrowsePathV1 = new Criterion();
-    hasBrowsePathV1.setCondition(Condition.EXISTS);
-    hasBrowsePathV1.setField("browsePaths");
+    Criterion hasBrowsePathV1 = buildExistsCriterion("browsePaths");
 
     CriterionArray criterionArray = new CriterionArray();
     criterionArray.add(missingBrowsePathV2);
@@ -177,13 +176,8 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
 
   private Filter backfillDefaultBrowsePathsV2Filter() {
     // Condition: has default `browsePathV2`
-    Criterion hasDefaultBrowsePathV2 = new Criterion();
-    hasDefaultBrowsePathV2.setCondition(Condition.EQUAL);
-    hasDefaultBrowsePathV2.setField("browsePathV2");
-    StringArray values = new StringArray();
-    values.add(DEFAULT_BROWSE_PATH_V2);
-    hasDefaultBrowsePathV2.setValues(values);
-    hasDefaultBrowsePathV2.setValue(DEFAULT_BROWSE_PATH_V2); // not used, but required field?
+    Criterion hasDefaultBrowsePathV2 =
+        buildCriterion("browsePathV2", Condition.EQUAL, DEFAULT_BROWSE_PATH_V2);
 
     CriterionArray criterionArray = new CriterionArray();
     criterionArray.add(hasDefaultBrowsePathV2);
