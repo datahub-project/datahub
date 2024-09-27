@@ -2,6 +2,7 @@ package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -942,14 +943,10 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     // Platform
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
     Criterion platform1Crit =
-        new Criterion()
-            .setField("platform")
-            .setValue("urn:li:dataPlatform:kafka")
-            .setCondition(Condition.EQUAL);
+        buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:kafka");
     CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
-    Criterion degreeCrit =
-        new Criterion().setField("degree").setValue("2").setCondition(Condition.EQUAL);
+    Criterion degreeCrit = buildCriterion("degree", Condition.EQUAL, "2");
     conCritArr.add(
         new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(degreeCrit))));
     Filter filter = new Filter().setOr(conCritArr);
@@ -1125,12 +1122,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     // Set up filters
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
-    Criterion platform1Crit =
-        new Criterion().setField("platform").setValue(kafkaPlatform).setCondition(Condition.EQUAL);
+    Criterion platform1Crit = buildCriterion("platform", Condition.EQUAL, kafkaPlatform);
+
     CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
-    Criterion originCrit =
-        new Criterion().setField("origin").setValue("DEV").setCondition(Condition.EQUAL);
+    Criterion originCrit = buildCriterion("origin", Condition.EQUAL, "DEV");
+
     conCritArr.add(
         new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(originCrit))));
 
@@ -1201,10 +1198,9 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     // Set up filters
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
-    Criterion platform1Crit =
-        new Criterion().setField("platform").setValue(kafkaPlatform).setCondition(Condition.EQUAL);
-    Criterion platform2Crit =
-        new Criterion().setField("platform").setValue(hivePlatform).setCondition(Condition.EQUAL);
+    Criterion platform1Crit = buildCriterion("platform", Condition.EQUAL, kafkaPlatform);
+
+    Criterion platform2Crit = buildCriterion("platform", Condition.EQUAL, hivePlatform);
     CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
     critArr = new CriterionArray(ImmutableList.of(platform2Crit));
@@ -1340,19 +1336,15 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     // Set up filters
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
-    Criterion platform1Crit =
-        new Criterion().setField("platform").setValue(kafkaPlatform).setCondition(Condition.EQUAL);
-    Criterion platform2Crit =
-        new Criterion().setField("platform").setValue(hivePlatform).setCondition(Condition.EQUAL);
+    Criterion platform1Crit = buildCriterion("platform", Condition.EQUAL, kafkaPlatform);
+
+    Criterion platform2Crit = buildCriterion("platform", Condition.EQUAL, hivePlatform);
+
     CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
     critArr = new CriterionArray(ImmutableList.of(platform2Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
-    Criterion originCrit =
-        new Criterion()
-            .setField("origin")
-            .setValue(FabricType.PROD.name())
-            .setCondition(Condition.EQUAL);
+    Criterion originCrit = buildCriterion("origin", Condition.EQUAL, FabricType.PROD.name());
     conCritArr.add(
         new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(originCrit))));
 
