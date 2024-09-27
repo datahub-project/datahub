@@ -653,7 +653,7 @@ class NifiSource(Source):
                 logger.debug(f"Removed {len(incoming)} incoming connections")
                 for j in outgoing:
                     self.nifi_flow.connections.remove(j)
-                logger.debug(f"Removed {len(incoming)} outgoing connections")
+                logger.debug(f"Removed {len(outgoing)} outgoing connections")
 
         logger.debug(f"Attempting to delete {len(components_to_del)} components")
         for index, c in enumerate(components_to_del, start=1):
