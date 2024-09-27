@@ -59,7 +59,7 @@ Example:
 
 ##### How to set up Airflow
 
-Follow the Airflow guide to setup the Airflow DAGs to send lineage information to DataHub. The guide can be found [here](<https://airflow.apache.org/docs/apache-airflow-providers-openlineage/stable/guides/user.html>
+Follow the Airflow guide to setup the Airflow DAGs to send lineage information to DataHub. The guide can be found [here](https://airflow.apache.org/docs/apache-airflow-providers-openlineage/stable/guides/user.html).
 The transport should look like this:
 
 ```json
