@@ -814,7 +814,7 @@ def test_table_processing_logic(
 
     _ = list(
         schema_gen.get_tables_for_dataset(
-            project_id="test-project", dataset_name="test-dataset"
+            project_id="test-project", dataset=BigqueryDataset("test-dataset")
         )
     )
 
@@ -890,7 +890,7 @@ def test_table_processing_logic_date_named_tables(
 
     _ = list(
         schema_gen.get_tables_for_dataset(
-            project_id="test-project", dataset_name="test-dataset"
+            project_id="test-project", dataset=BigqueryDataset("test-dataset")
         )
     )
 
