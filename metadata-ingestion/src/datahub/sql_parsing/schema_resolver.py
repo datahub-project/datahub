@@ -244,7 +244,7 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
 
     def add_temp_tables(
         self, temp_tables: Dict[str, Optional[List[SchemaFieldClass]]]
-    ) -> SchemaResolverInterface:
+    ) -> None:
         self._extra_schemas.update(
             {
                 urn: (
@@ -255,8 +255,6 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
                 for urn, fields in temp_tables.items()
             }
         )
-
-        return self
 
 
 def _convert_schema_field_list_to_info(
