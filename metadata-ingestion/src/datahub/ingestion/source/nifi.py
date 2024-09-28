@@ -2,10 +2,11 @@ import json
 import logging
 import ssl
 import time
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urljoin
 
 import requests
@@ -196,6 +197,67 @@ class NifiSourceConfig(EnvConfigMixin):
         return site_url
 
 
+class BidirectionalComponentGraph:
+    def __init__(self):
+        self.outgoing: Dict[str, Set[str]] = defaultdict(set)
+        self.incoming: Dict[str, Set[str]] = defaultdict(set)
+
+    def add_connection(self, from_component: str, to_component: str) -> None:
+        # this is sanity check
+        outgoing_duplicated = to_component in self.outgoing[from_component]
+        incoming_duplicated = from_component in self.incoming[to_component]
+
+        self.outgoing[from_component].add(to_component)
+        self.incoming[to_component].add(from_component)
+
+        if outgoing_duplicated or incoming_duplicated:
+            logger.warning(
+                f"Somehow we attempted to add a connection between 2 components which already existed! Duplicated incoming: {incoming_duplicated}, duplicated outgoing: {outgoing_duplicated}. Connection from component: {from_component} to component: {to_component}"
+            )
+
+    def remove_connection(self, from_component: str, to_component: str) -> None:
+        self.outgoing[from_component].discard(to_component)
+        self.incoming[to_component].discard(from_component)
+
+    def get_outgoing_connections(self, component: str) -> Set[str]:
+        return self.outgoing[component]
+
+    def get_incoming_connections(self, component: str) -> Set[str]:
+        return self.incoming[component]
+
+    def delete_component(self, component: str) -> None:
+        logger.debug(f"Deleting component with id: {component}")
+        incoming = self.incoming[component]
+        logger.debug(
+            f"Recognized {len(incoming)} incoming connections to the component"
+        )
+        outgoing = self.outgoing[component]
+        logger.debug(
+            f"Recognized {len(incoming)} outgoing connections to the component"
+        )
+
+        for i in incoming:
+            for o in outgoing:
+                self.add_connection(i, o)
+
+        for i in incoming:
+            self.outgoing[i].remove(component)
+        for o in outgoing:
+            self.incoming[o].remove(component)
+
+        added_connections_cnt = len(incoming) * len(outgoing)
+        deleted_connections_cnt = len(incoming) + len(outgoing)
+        logger.debug(
+            f"Deleted {deleted_connections_cnt} connections and added {added_connections_cnt}"
+        )
+
+        del self.outgoing[component]
+        del self.incoming[component]
+
+    def __len__(self):
+        return len(self.incoming)
+
+
 TOKEN_ENDPOINT = "access/token"
 KERBEROS_TOKEN_ENDPOINT = "access/kerberos"
 ABOUT_ENDPOINT = "flow/about"
@@ -360,7 +422,9 @@ class NifiFlow:
     root_process_group: NifiProcessGroup
     components: Dict[str, NifiComponent] = field(default_factory=dict)
     remotely_accessible_ports: Dict[str, NifiComponent] = field(default_factory=dict)
-    connections: List[Tuple[str, str]] = field(default_factory=list)
+    connections: BidirectionalComponentGraph = field(
+        default_factory=BidirectionalComponentGraph
+    )
     processGroups: Dict[str, NifiProcessGroup] = field(default_factory=dict)
     remoteProcessGroups: Dict[str, NifiRemoteProcessGroup] = field(default_factory=dict)
     remote_ports: Dict[str, NifiComponent] = field(default_factory=dict)
@@ -469,8 +533,8 @@ class NifiSource(Source):
         for connection in flow_dto.get("connections", []):
             # Exclude self - recursive relationships
             if connection.get("sourceId") != connection.get("destinationId"):
-                self.nifi_flow.connections.append(
-                    (connection.get("sourceId"), connection.get("destinationId"))
+                self.nifi_flow.connections.add_connection(
+                    connection.get("sourceId"), connection.get("destinationId")
                 )
 
         logger.debug(f"Processing {len(flow_dto.get('inputPorts', []))} inputPorts")
@@ -624,58 +688,25 @@ class NifiSource(Source):
                 NifiType.REMOTE_INPUT_PORT,
                 NifiType.REMOTE_OUTPUT_PORT,
             ]:
-                logger.debug("Decided to delete that component")
+                self.nifi_flow.connections.delete_component(component.id)
                 components_to_del.append(component)
-                incoming = list(
-                    filter(lambda x: x[1] == component.id, self.nifi_flow.connections)
-                )
-                logger.debug(
-                    f"Recognized {len(incoming)} incoming connections to the component"
-                )
-                outgoing = list(
-                    filter(lambda x: x[0] == component.id, self.nifi_flow.connections)
-                )
-                logger.debug(
-                    f"Recognized {len(outgoing)} outgoing connections from the component"
-                )
-                # Create new connections from incoming to outgoing
-                connections_to_add_cnt = 0
-                for i in incoming:
-                    for j in outgoing:
-                        self.nifi_flow.connections.append((i[0], j[1]))
-                        connections_to_add_cnt += 1
-                logger.debug(f"Added {connections_to_add_cnt} connections")
-                # Remove older connections, as we already created
-                # new connections bypassing component to be deleted
 
-                for i in incoming:
-                    self.nifi_flow.connections.remove(i)
-                logger.debug(f"Removed {len(incoming)} incoming connections")
-                for j in outgoing:
-                    self.nifi_flow.connections.remove(j)
-                logger.debug(f"Removed {len(outgoing)} outgoing connections")
-
-        logger.debug(f"Attempting to delete {len(components_to_del)} components")
-        for index, c in enumerate(components_to_del, start=1):
-            logger.debug(f"Deleting {index}th component")
-            if c.nifi_type is NifiType.PROCESSOR and (
-                c.name.startswith("Get")
-                or c.name.startswith("List")
-                or c.name.startswith("Fetch")
-                or c.name.startswith("Put")
+        for component in components_to_del:
+            if component.nifi_type is NifiType.PROCESSOR and component.name.startswith(
+                ("Get", "List", "Fetch", "Put")
             ):
                 self.report.warning(
-                    f"Dropping NiFi Processor of type {c.type}, id {c.id}, name {c.name} from lineage view. \
+                    f"Dropping NiFi Processor of type {component.type}, id {component.id}, name {component.name} from lineage view. \
                     This is likely an Ingress or Egress node which may be reading to/writing from external datasets \
                     However not currently supported in datahub",
                     self.config.site_url,
                 )
             else:
                 logger.debug(
-                    f"Dropping NiFi Component of type {c.type}, id {c.id}, name {c.name} from lineage view."
+                    f"Dropping NiFi Component of type {component.type}, id {component.id}, name {component.name} from lineage view."
                 )
 
-            del self.nifi_flow.components[c.id]
+            del self.nifi_flow.components[component.id]
 
     def create_nifi_flow(self):
         logger.debug(f"Retrieving NIFI info from {ABOUT_ENDPOINT}")
@@ -874,12 +905,8 @@ class NifiSource(Source):
             job_name = component.name
             job_urn = builder.make_data_job_urn_with_flow(flow_urn, component.id)
 
-            incoming = list(
-                filter(lambda x: x[1] == component.id, self.nifi_flow.connections)
-            )
-            outgoing = list(
-                filter(lambda x: x[0] == component.id, self.nifi_flow.connections)
-            )
+            incoming = self.nifi_flow.connections.get_incoming_connections(component.id)
+            outgoing = self.nifi_flow.connections.get_outgoing_connections(component.id)
             inputJobs = set()
             jobProperties = None
 
@@ -917,8 +944,7 @@ class NifiSource(Source):
                         datasetProperties=dataset.dataset_properties,
                     )
 
-            for edge in incoming:
-                incoming_from = edge[0]
+            for incoming_from in incoming:
                 if incoming_from in self.nifi_flow.remotely_accessible_ports.keys():
                     dataset_name = f"{self.config.site_name}.{self.nifi_flow.remotely_accessible_ports[incoming_from].name}"
                     dataset_urn = builder.make_dataset_urn(
@@ -935,8 +961,7 @@ class NifiSource(Source):
                         builder.make_data_job_urn_with_flow(flow_urn, incoming_from)
                     )
 
-            for edge in outgoing:
-                outgoing_to = edge[1]
+            for outgoing_to in outgoing:
                 if outgoing_to in self.nifi_flow.remotely_accessible_ports.keys():
                     dataset_name = f"{self.config.site_name}.{self.nifi_flow.remotely_accessible_ports[outgoing_to].name}"
                     dataset_urn = builder.make_dataset_urn(
