@@ -81,7 +81,7 @@ jobs:
       - name: Gradle build (and test) for NOT metadata ingestion
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         run: |
-          ./gradlew build --stacktrace --parallel \
+          ./gradlew build \
             -x :metadata-ingestion:build \
             -x :metadata-ingestion:check \
             -x :docs-website:build \
@@ -96,7 +96,8 @@ jobs:
             -x :metadata-ingestion-modules:gx-plugin:build \
             -x :metadata-ingestion-modules:gx-plugin:check \
             -x :datahub-frontend:build \
-            -x :datahub-web-react:build
+            -x :datahub-web-react:build \
+            --parallel --rerun-tasks
       - name: Gradle build (and test) for frontend
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
