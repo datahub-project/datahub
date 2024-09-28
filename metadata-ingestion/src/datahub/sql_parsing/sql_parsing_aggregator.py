@@ -912,7 +912,7 @@ class SqlParsingAggregator(Closeable):
         self, session_id: str
     ) -> SchemaResolverInterface:
         schema_resolver: SchemaResolverInterface = self._schema_resolver
-        if session_id is _MISSING_SESSION_ID:
+        if session_id == _MISSING_SESSION_ID:
             schema_resolver = self._missing_session_schema_resolver
         elif session_id in self._temp_lineage_map:
             temp_table_schemas: Dict[str, Optional[List[models.SchemaFieldClass]]] = {}
