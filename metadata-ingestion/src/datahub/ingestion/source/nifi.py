@@ -674,7 +674,7 @@ class NifiSource(Source):
         )
         for index, component in enumerate(components, start=1):
             logger.debug(
-                f"Processing {index}th component for ingress/egress pruning. Component id: {component.id}, name: {component.name}"
+                f"Processing {index}th component for ingress/egress pruning. Component id: {component.id}, name: {component.name}, type: {component.type}"
             )
             logger.debug(
                 f"Current amount of connections: {len(self.nifi_flow.connections)}"
