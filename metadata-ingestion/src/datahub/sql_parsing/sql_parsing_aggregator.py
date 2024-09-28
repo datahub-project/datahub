@@ -32,7 +32,11 @@ from datahub.metadata.urns import (
     QueryUrn,
     SchemaFieldUrn,
 )
-from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverInterface
+from datahub.sql_parsing.schema_resolver import (
+    SchemaResolver,
+    SchemaResolverInterface,
+    _SchemaResolverWithExtras,
+)
 from datahub.sql_parsing.sql_parsing_common import QueryType, QueryTypeProps
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
@@ -369,8 +373,8 @@ class SqlParsingAggregator(Closeable):
             )
         # Schema resolver for special case (_MISSING_SESSION_ID)
         # This is particularly useful for via temp table lineage if session id is not available.
-        self._missing_session_schema_resolver = self._schema_resolver.with_temp_tables(
-            {}
+        self._missing_session_schema_resolver = _SchemaResolverWithExtras(
+            base_resolver=self._schema_resolver, extra_schemas={}
         )
 
         # Initialize internal data structures.
@@ -871,7 +875,7 @@ class SqlParsingAggregator(Closeable):
 
             # Also update schema resolver for missing session id
             if parsed.session_id == _MISSING_SESSION_ID and parsed.inferred_schema:
-                self._missing_session_schema_resolver.with_temp_tables(
+                self._missing_session_schema_resolver.add_temp_tables(
                     {out_table: parsed.inferred_schema}
                 )
 

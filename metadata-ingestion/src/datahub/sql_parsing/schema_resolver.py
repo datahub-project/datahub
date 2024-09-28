@@ -42,11 +42,6 @@ class SchemaResolverInterface(Protocol):
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         ...
 
-    def with_temp_tables(
-        self, temp_tables: Dict[str, Optional[List[SchemaFieldClass]]]
-    ) -> "SchemaResolverInterface":
-        ...
-
     def __hash__(self) -> int:
         # Mainly to make lru_cache happy in methods that accept a schema resolver.
         return id(self)
@@ -247,7 +242,7 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
             return urn, self._extra_schemas[urn]
         return self._base_resolver.resolve_table(table)
 
-    def with_temp_tables(
+    def add_temp_tables(
         self, temp_tables: Dict[str, Optional[List[SchemaFieldClass]]]
     ) -> SchemaResolverInterface:
         self._extra_schemas.update(
