@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.analytics.resolver;
 
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,7 +31,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -153,12 +153,11 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
                             .setAnd(
                                 new CriterionArray(
                                     ImmutableList.of(
-                                        new Criterion()
-                                            .setField(CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME)
-                                            .setCondition(Condition.GREATER_THAN)
-                                            .setValue(
-                                                String.valueOf(
-                                                    trailingMonthDateRange.getStart())))))))),
+                                        buildCriterion(
+                                            CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME,
+                                            Condition.GREATER_THAN,
+                                            String.valueOf(
+                                                trailingMonthDateRange.getStart())))))))),
         Collections.singletonList(
             new SortCriterion()
                 .setField(CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME)

@@ -22,6 +22,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
 
 import com.linkedin.metadata.resources.restli.RestliUtils;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.services.RestrictedService;
@@ -53,7 +54,6 @@ import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.DeleteEntityResponse;
@@ -984,16 +984,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     // Construct the filter.
     List<Criterion> criteria = new ArrayList<>();
-    criteria.add(QueryUtils.newCriterion("urn", urn.toString()));
+    criteria.add(CriterionUtils.buildCriterion("urn", Condition.EQUAL, urn.toString()));
     if (startTimeMillis != null) {
       criteria.add(
-          QueryUtils.newCriterion(
-              ES_FIELD_TIMESTAMP, startTimeMillis.toString(), Condition.GREATER_THAN_OR_EQUAL_TO));
+              CriterionUtils.buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.GREATER_THAN_OR_EQUAL_TO, startTimeMillis.toString()));
     }
     if (endTimeMillis != null) {
       criteria.add(
-          QueryUtils.newCriterion(
-              ES_FIELD_TIMESTAMP, endTimeMillis.toString(), Condition.LESS_THAN_OR_EQUAL_TO));
+              CriterionUtils.buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, endTimeMillis.toString()));
     }
     final Filter filter = QueryUtils.getFilterFromCriteria(criteria);
 

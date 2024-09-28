@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -27,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -80,7 +82,7 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
           "Malformed input provided: owners cannot be applied to subresources.");
     }
 
-    OwnerUtils.validateAuthorizedToUpdateOwners(context, resourceUrn);
+    OwnerUtils.validateAuthorizedToUpdateOwners(context, resourceUrn, _entityClient);
     LabelUtils.validateResource(
         opContext,
         resourceUrn,
