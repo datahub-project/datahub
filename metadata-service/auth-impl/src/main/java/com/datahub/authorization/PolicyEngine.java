@@ -252,11 +252,15 @@ public class PolicyEngine {
 
   private boolean checkCondition(
       Set<String> fieldValues, String filterValue, PolicyMatchCondition condition) {
-    if (condition == PolicyMatchCondition.EQUALS) {
-      return fieldValues.contains(filterValue);
+    switch (condition) {
+      case EQUALS:
+        return fieldValues.contains(filterValue);
+      case STARTS_WITH:
+        return fieldValues.stream().anyMatch(v -> v.startsWith(filterValue));
+      default:
+        log.error("Unsupported condition {}", condition);
+        return false;
     }
-    log.error("Unsupported condition {}", condition);
-    return false;
   }
 
   /**

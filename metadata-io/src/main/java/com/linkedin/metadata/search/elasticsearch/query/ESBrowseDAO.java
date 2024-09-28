@@ -125,7 +125,7 @@ public class ESBrowseDAO {
       @Nullable Filter filters,
       int from,
       int size) {
-    final Map<String, String> requestMap = SearchUtils.getRequestMap(filters);
+    final Map<String, List<String>> requestMap = SearchUtils.getRequestMap(filters);
 
     final OperationContext finalOpContext =
         opContext.withSearchFlags(
@@ -213,7 +213,7 @@ public class ESBrowseDAO {
       @Nonnull OperationContext opContext,
       @Nonnull String indexName,
       @Nonnull String path,
-      @Nonnull Map<String, String> requestMap) {
+      @Nonnull Map<String, List<String>> requestMap) {
     final SearchRequest searchRequest = new SearchRequest(indexName);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(0);
@@ -235,7 +235,7 @@ public class ESBrowseDAO {
   private QueryBuilder buildQueryString(
       @Nonnull OperationContext opContext,
       @Nonnull String path,
-      @Nonnull Map<String, String> requestMap,
+      @Nonnull Map<String, List<String>> requestMap,
       boolean isGroupQuery) {
     final int browseDepthVal = getPathDepth(path);
 
@@ -253,7 +253,7 @@ public class ESBrowseDAO {
       queryBuilder.filter(QueryBuilders.termQuery(BROWSE_PATH_DEPTH, browseDepthVal));
     }
 
-    requestMap.forEach((field, val) -> queryBuilder.filter(QueryBuilders.termQuery(field, val)));
+    requestMap.forEach((field, vals) -> queryBuilder.filter(QueryBuilders.termsQuery(field, vals)));
 
     return queryBuilder;
   }
@@ -272,7 +272,7 @@ public class ESBrowseDAO {
       @Nonnull OperationContext opContext,
       @Nonnull String indexName,
       @Nonnull String path,
-      @Nonnull Map<String, String> requestMap,
+      @Nonnull Map<String, List<String>> requestMap,
       int from,
       int size) {
     final SearchRequest searchRequest = new SearchRequest(indexName);
@@ -302,7 +302,7 @@ public class ESBrowseDAO {
       @Nonnull OperationContext opContext,
       @Nonnull String indexName,
       @Nonnull String path,
-      @Nonnull Map<String, String> requestMap,
+      @Nonnull Map<String, List<String>> requestMap,
       @Nullable Object[] sort,
       @Nullable String pitId,
       @Nonnull String keepAlive,
@@ -610,7 +610,11 @@ public class ESBrowseDAO {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     QueryBuilder query =
         SearchRequestHandler.getBuilder(
-                entitySpec, searchConfiguration, customSearchConfiguration, queryFilterRewriteChain)
+                opContext.getEntityRegistry(),
+                entitySpec,
+                searchConfiguration,
+                customSearchConfiguration,
+                queryFilterRewriteChain)
             .getQuery(
                 finalOpContext,
                 input,
@@ -647,6 +651,7 @@ public class ESBrowseDAO {
 
     QueryBuilder query =
         SearchRequestHandler.getBuilder(
+                finalOpContext.getEntityRegistry(),
                 entitySpecs,
                 searchConfiguration,
                 customSearchConfiguration,

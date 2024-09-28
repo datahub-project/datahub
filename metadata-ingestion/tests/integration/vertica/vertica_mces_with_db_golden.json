@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "database": "Vmart"
             },
-            "name": "Vmart"
+            "name": "Vmart",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -99,7 +100,8 @@
                 "database": "Vmart",
                 "schema": "public"
             },
-            "name": "public"
+            "name": "public",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -250,7 +252,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:46:11.762979+00:00",
+                            "create_time": "2024-09-16 16:02:50.658164+00:00",
                             "table_size": "0 KB"
                         },
                         "name": "clicks",
@@ -427,7 +429,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.748139+00:00",
+                            "create_time": "2024-09-16 16:02:28.089168+00:00",
                             "table_size": "2119 KB"
                         },
                         "name": "customer_dimension",
@@ -838,7 +840,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.756539+00:00",
+                            "create_time": "2024-09-16 16:02:28.095005+00:00",
                             "table_size": "145 KB"
                         },
                         "name": "date_dimension",
@@ -1249,7 +1251,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.761468+00:00",
+                            "create_time": "2024-09-16 16:02:28.098768+00:00",
                             "table_size": "327 KB"
                         },
                         "name": "employee_dimension",
@@ -1621,7 +1623,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.768272+00:00",
+                            "create_time": "2024-09-16 16:02:28.103834+00:00",
                             "table_size": "2567 KB"
                         },
                         "name": "inventory_fact",
@@ -1837,7 +1839,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:46:11.881911+00:00",
+                            "create_time": "2024-09-16 16:02:50.776030+00:00",
                             "table_size": "0 KB"
                         },
                         "name": "phrases",
@@ -1988,7 +1990,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.751522+00:00",
+                            "create_time": "2024-09-16 16:02:28.091210+00:00",
                             "table_size": "19 KB"
                         },
                         "name": "product_dimension",
@@ -2399,7 +2401,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.754039+00:00",
+                            "create_time": "2024-09-16 16:02:28.093134+00:00",
                             "table_size": "3 KB"
                         },
                         "name": "promotion_dimension",
@@ -2693,7 +2695,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:46:11.751917+00:00",
+                            "create_time": "2024-09-16 16:02:50.650973+00:00",
                             "table_size": "0 KB"
                         },
                         "name": "readings",
@@ -2870,7 +2872,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.763788+00:00",
+                            "create_time": "2024-09-16 16:02:28.100511+00:00",
                             "table_size": "1 KB"
                         },
                         "name": "shipping_dimension",
@@ -3060,7 +3062,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.759103+00:00",
+                            "create_time": "2024-09-16 16:02:28.096888+00:00",
                             "table_size": "1 KB"
                         },
                         "name": "vendor_dimension",
@@ -3302,7 +3304,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:46:11.212820+00:00",
+                            "create_time": "2024-09-16 16:02:50.005433+00:00",
                             "table_size": "0 KB"
                         },
                         "name": "vmart_load_success",
@@ -3453,7 +3455,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.766036+00:00",
+                            "create_time": "2024-09-16 16:02:28.102151+00:00",
                             "table_size": "2 KB"
                         },
                         "name": "warehouse_dimension",
@@ -3669,7 +3671,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:46:11.778456+00:00",
+                            "create_time": "2024-09-16 16:02:50.666684+00:00",
                             "table_size": "0 KB",
                             "view_definition": "SELECT sum(customer_dimension.annual_income) AS SUM, customer_dimension.customer_state FROM public.customer_dimension WHERE (customer_dimension.customer_key IN (SELECT store_sales_fact.customer_key FROM store.store_sales_fact)) GROUP BY customer_dimension.customer_state ORDER BY customer_dimension.customer_state",
                             "is_view": "True"
@@ -3809,10 +3811,10 @@
                 "platform": "vertica",
                 "env": "PROD",
                 "database": "Vmart",
-                "database": "Vmart",
                 "schema": "store"
             },
-            "name": "store"
+            "name": "store",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -3963,7 +3965,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.773986+00:00",
+                            "create_time": "2024-09-16 16:02:28.107790+00:00",
                             "table_size": "2 KB"
                         },
                         "name": "store_dimension",
@@ -4335,7 +4337,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.781744+00:00",
+                            "create_time": "2024-09-16 16:02:28.113651+00:00",
                             "table_size": "8646 KB"
                         },
                         "name": "store_orders_fact",
@@ -4720,7 +4722,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.776427+00:00",
+                            "create_time": "2024-09-16 16:02:28.109623+00:00",
                             "table_size": "225096 KB"
                         },
                         "name": "store_sales_fact",
@@ -5037,7 +5039,8 @@
                 "database": "Vmart",
                 "schema": "online_sales"
             },
-            "name": "online_sales"
+            "name": "online_sales",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -5188,7 +5191,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.789350+00:00",
+                            "create_time": "2024-09-16 16:02:28.119351+00:00",
                             "table_size": "6 KB"
                         },
                         "name": "call_center_dimension",
@@ -5482,7 +5485,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.786989+00:00",
+                            "create_time": "2024-09-16 16:02:28.117625+00:00",
                             "table_size": "9 KB"
                         },
                         "name": "online_page_dimension",
@@ -5698,7 +5701,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2024-06-18 12:45:49.791761+00:00",
+                            "create_time": "2024-09-16 16:02:28.121084+00:00",
                             "table_size": "182385 KB"
                         },
                         "name": "online_sales_fact",
@@ -6052,13 +6055,13 @@
                 "platform": "vertica",
                 "env": "PROD",
                 "database": "Vmart",
-                "database": "Vmart",
                 "cluster_type": "Enterprise",
-                "cluster_size": "243 GB",
+                "cluster_size": "103 GB",
                 "subcluster": " ",
                 "communal_storage_path": ""
             },
-            "name": "Vmart"
+            "name": "Vmart",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -6131,9 +6134,10 @@
                 "schema": "public",
                 "projection_count": "12",
                 "udx_list": "APPROXIMATE_COUNT_DISTINCT_SYNOPSIS_INFO, APPROXIMATE_MEDIAN, APPROXIMATE_PERCENTILE, AcdDataToCount, AcdDataToLongSyn, AcdDataToSyn, AcdSynToCount, AcdSynToSyn, DelimitedExport, DelimitedExportMulti, EmptyMap, Explode, FAvroParser, FCefParser, FCsvParser, FDelimitedPairParser, FDelimitedParser, FIDXParser, FJSONParser, FRegexParser, FlexTokenizer, JsonExport, JsonExportMulti, KafkaAvroParser, KafkaCheckBrokers, KafkaExport, KafkaInsertDelimiters, KafkaInsertLengths, KafkaJsonParser, KafkaListManyTopics, KafkaListTopics, KafkaOffsets, KafkaParser, KafkaSource, KafkaTopicDetails, MSE, MapAggregate, MapAggregate, MapContainsKey, MapContainsKey, MapContainsValue, MapContainsValue, MapDelimitedExtractor, MapItems, MapItems, MapJSONExtractor, MapKeys, MapKeys, MapKeysInfo, MapKeysInfo, MapLookup, MapLookup, MapLookup, MapPut, MapRegexExtractor, MapSize, MapSize, MapToString, MapToString, MapValues, MapValues, MapValuesOrField, MapVersion, MapVersion, OrcExport, OrcExportMulti, PRC, ParquetExport, ParquetExportMulti, PickBestType, PickBestType, PickBestType, ROC, STV_AsGeoJSON, STV_AsGeoJSON, STV_AsGeoJSON, STV_Create_Index, STV_Create_Index, STV_Create_Index, STV_DWithin, STV_DWithin, STV_DWithin, STV_Describe_Index, STV_Drop_Index, STV_Export2Shapefile, STV_Extent, STV_Extent, STV_ForceLHR, STV_Geography, STV_Geography, STV_GeographyPoint, STV_Geometry, STV_Geometry, STV_GeometryPoint, STV_GeometryPoint, STV_GetExportShapefileDirectory, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_Intersect, STV_IsValidReason, STV_IsValidReason, STV_IsValidReason, STV_LineStringPoint, STV_LineStringPoint, STV_LineStringPoint, STV_MemSize, STV_MemSize, STV_MemSize, STV_NN, STV_NN, STV_NN, STV_PolygonPoint, STV_PolygonPoint, STV_PolygonPoint, STV_Refresh_Index, STV_Refresh_Index, STV_Refresh_Index, STV_Rename_Index, STV_Reverse, STV_SetExportShapefileDirectory, STV_ShpCreateTable, STV_ShpParser, STV_ShpSource, ST_Area, ST_Area, ST_Area, ST_AsBinary, ST_AsBinary, ST_AsBinary, ST_AsText, ST_AsText, ST_AsText, ST_Boundary, ST_Buffer, ST_Centroid, ST_Contains, ST_Contains, ST_Contains, ST_ConvexHull, ST_Crosses, ST_Difference, ST_Disjoint, ST_Disjoint, ST_Disjoint, ST_Distance, ST_Distance, ST_Distance, ST_Envelope, ST_Equals, ST_Equals, ST_Equals, ST_GeoHash, ST_GeoHash, ST_GeoHash, ST_GeographyFromText, ST_GeographyFromWKB, ST_GeomFromGeoHash, ST_GeomFromGeoJSON, ST_GeomFromGeoJSON, ST_GeomFromText, ST_GeomFromText, ST_GeomFromWKB, ST_GeomFromWKB, ST_GeometryN, ST_GeometryN, ST_GeometryN, ST_GeometryType, ST_GeometryType, ST_GeometryType, ST_Intersection, ST_Intersects, ST_Intersects, ST_IsEmpty, ST_IsEmpty, ST_IsEmpty, ST_IsSimple, ST_IsSimple, ST_IsSimple, ST_IsValid, ST_IsValid, ST_IsValid, ST_Length, ST_Length, ST_Length, ST_NumGeometries, ST_NumGeometries, ST_NumGeometries, ST_NumPoints, ST_NumPoints, ST_NumPoints, ST_Overlaps, ST_PointFromGeoHash, ST_PointN, ST_PointN, ST_PointN, ST_Relate, ST_SRID, ST_SRID, ST_SRID, ST_Simplify, ST_SimplifyPreserveTopology, ST_SymDifference, ST_Touches, ST_Touches, ST_Touches, ST_Transform, ST_Union, ST_Union, ST_Within, ST_Within, ST_Within, ST_X, ST_X, ST_X, ST_XMax, ST_XMax, ST_XMax, ST_XMin, ST_XMin, ST_XMin, ST_Y, ST_Y, ST_Y, ST_YMax, ST_YMax, ST_YMax, ST_YMin, ST_YMin, ST_YMin, ST_intersects, SetMapKeys, Summarize_CatCol, Summarize_CatCol, Summarize_CatCol, Summarize_CatCol, Summarize_CatCol, Summarize_NumCol, Unnest, VoltageSecureAccess, VoltageSecureAccess, VoltageSecureConfigure, VoltageSecureConfigureGlobal, VoltageSecureProtect, VoltageSecureProtect, VoltageSecureProtectAllKeys, VoltageSecureRefreshPolicy, VoltageSecureVersion, append_centers, apply_bisecting_kmeans, apply_iforest, apply_inverse_pca, apply_inverse_svd, apply_kmeans, apply_kprototypes, apply_normalize, apply_one_hot_encoder, apply_pca, apply_svd, approximate_quantiles, ar_create_blobs, ar_final_newton, ar_save_model, ar_transition_newton, arima_bfgs, arima_line_search, arima_save_model, avg_all_columns_local, bisecting_kmeans_init_model, bk_apply_best_kmeans_results, bk_compute_totss_local, bk_finalize_model, bk_get_rows_in_active_cluster, bk_kmeans_compute_local_centers, bk_kmeans_compute_withinss, bk_kmeans_fast_random_init, bk_kmeans_slow_random_init, bk_kmeanspp_init_cur_cluster, bk_kmeanspp_reset_blob, bk_kmeanspp_select_new_centers, bk_kmeanspp_within_chunk_sum, bk_save_final_model, bk_write_new_cluster_level, blob_to_table, bufUdx, bufUdx, calc_pseudo_centers, calculate_alpha_linear, calculate_hessian_linear1, calculate_hessian_linear2, chi_squared, cleanup_kmeans_files, compute_and_save_global_center, compute_and_save_new_centers, compute_local_totss, compute_local_withinss, compute_new_local_centers, confusion_matrix, coordinate_descent_covariance, corr_matrix, count_rows_in_blob, create_aggregator_blob, error_rate, evaluate_naive_bayes_model, evaluate_reg_model, evaluate_svm_model, export_model_files, finalize_blob_resource_group, get_attr_minmax, get_attr_robust_zscore, get_attr_zscore, get_model_attribute, get_model_summary, get_robust_zscore_median, iforest_create_blobs, iforest_phase0_udf1, iforest_phase0_udf2, iforest_phase1_udf1, iforest_phase1_udf2, iforest_phase1_udf3, iforest_phase1_udf4, iforest_phase2_udf1, iforest_phase2_udf2, iforest_phase2_udf3, iforest_phase2_udf4, iforest_save_model, import_model_files, isOrContains, kmeansAddMetricsToModel, kmeans_init_blobs, kmeans_to_write_final_centers, lift_table, line_search_logistic1, line_search_logistic2, load_rows_into_blocks, map_factor, math_op, matrix_global_xtx, matrix_local_xtx, mode_finder, model_converter, naive_bayes_phase1, naive_bayes_phase1_blob, naive_bayes_phase2, pca_prep1_global, pca_prep1_local, pca_prep2, pmml_parser, predict_arima, predict_autoregressor, predict_linear_reg, predict_logistic_reg, predict_moving_average, predict_naive_bayes, predict_naive_bayes_classes, predict_pmml, predict_poisson_reg, predict_rf_classifier, predict_rf_classifier_classes, predict_rf_regressor, predict_svm_classifier, predict_svm_regressor, predict_xgb_classifier, predict_xgb_classifier_classes, predict_xgb_regressor, random_init, random_init_write, read_from_dfblob, read_map_factor, read_ptree, read_tree, reg_final_bfgs, reg_final_newton, reg_transition_bfgs, reg_transition_newton, reg_write_model, remove_blob, reverse_normalize, rf_blob, rf_clean, rf_phase0_udf1, rf_phase0_udf2, rf_phase1_udf1, rf_phase1_udf2, rf_phase1_udf3, rf_phase1_udf4, rf_phase2_udf1, rf_phase2_udf2, rf_phase2_udf3, rf_phase2_udf4, rf_predictor_importance, rf_save_model, rsquared, save_cv_result, save_pca_model, save_svd_model, save_svm_model, select_new_centers, store_minmax_model, store_one_hot_encoder_model, store_robust_zscore_model, store_zscore_model, table_to_blob, table_to_dfblob, tokenize, topk, update_and_return_sum_of_squared_distances, upgrade_model_format, writeInitialKmeansModelToDfs, xgb_create_blobs, xgb_phase0_udf1, xgb_phase0_udf2, xgb_phase1_udf1, xgb_phase1_udf2, xgb_phase1_udf3, xgb_phase2_udf1, xgb_phase2_udf2, xgb_phase2_udf3, xgb_predictor_importance, xgb_prune, xgb_save_model, yule_walker, ",
-                "udx_language": "ApproximateLib -- Approximate package |  FlexTableLib -- Flexible Tables Data Load and Query |  OrcExportLib -- Orc export package |  JsonExportLib -- Json data export package |  PlaceLib -- Geospatial package |  ParquetExportLib -- Parquet export package |  ComplexTypesLib -- Functions for Complex Types |  VoltageSecureLib -- Voltage SecureData Connector |  KafkaLib -- Kafka streaming load and export |  MachineLearningLib -- Machine learning package |  DelimitedExportLib -- Delimited data export package |  TransformFunctions -- User-defined Python library |  "
+                "udx_language": "ParquetExportLib -- Parquet export package |  DelimitedExportLib -- Delimited data export package |  ApproximateLib -- Approximate package |  ComplexTypesLib -- Functions for Complex Types |  FlexTableLib -- Flexible Tables Data Load and Query |  JsonExportLib -- Json data export package |  PlaceLib -- Geospatial package |  VoltageSecureLib -- Voltage SecureData Connector |  MachineLearningLib -- Machine learning package |  OrcExportLib -- Orc export package |  KafkaLib -- Kafka streaming load and export |  TransformFunctions -- User-defined Python library |  "
             },
-            "name": "public"
+            "name": "public",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -9538,7 +9542,8 @@
                 "udx_list": "",
                 "udx_language": ""
             },
-            "name": "store"
+            "name": "store",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -10763,7 +10768,8 @@
                 "udx_list": "",
                 "udx_language": ""
             },
-            "name": "online_sales"
+            "name": "online_sales",
+            "env": "PROD"
         }
     },
     "systemMetadata": {

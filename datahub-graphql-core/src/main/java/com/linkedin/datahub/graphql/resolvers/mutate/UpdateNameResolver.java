@@ -87,8 +87,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
 
   private Boolean updateGlossaryTermName(
       Urn targetUrn, UpdateNameInput input, QueryContext context) {
-    final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
-    if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)) {
+    if (GlossaryUtils.canUpdateGlossaryEntity(targetUrn, context, _entityClient)) {
       try {
         GlossaryTermInfo glossaryTermInfo =
             (GlossaryTermInfo)
@@ -123,8 +122,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
 
   private Boolean updateGlossaryNodeName(
       Urn targetUrn, UpdateNameInput input, QueryContext context) {
-    final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
-    if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)) {
+    if (GlossaryUtils.canUpdateGlossaryEntity(targetUrn, context, _entityClient)) {
       try {
         GlossaryNodeInfo glossaryNodeInfo =
             (GlossaryNodeInfo)

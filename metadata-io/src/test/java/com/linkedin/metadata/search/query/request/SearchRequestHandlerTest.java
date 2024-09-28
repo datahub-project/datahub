@@ -1,5 +1,8 @@
 package com.linkedin.metadata.search.query.request;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
+import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
@@ -36,7 +39,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchQueryBuilder;
-import org.opensearch.index.query.MultiMatchQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
@@ -97,7 +99,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     EntitySpec entitySpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
     SearchRequestHandler datasetHandler =
         SearchRequestHandler.getBuilder(
-            entitySpec, testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext.getEntityRegistry(),
+            entitySpec,
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY);
 
     /*
       Ensure efficient query performance, we do not expect upstream/downstream/fineGrained lineage
@@ -118,6 +124,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     EntitySpec entitySpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
     SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
+            operationContext.getEntityRegistry(),
             TestEntitySpecBuilder.getSpec(),
             testQueryConfig,
             null,
@@ -147,7 +154,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   public void testSearchRequestHandlerHighlightingTurnedOff() {
     SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext.getEntityRegistry(),
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
             operationContext.withSearchFlags(
@@ -188,7 +199,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   public void testSearchRequestHandler() {
     SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext.getEntityRegistry(),
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
             operationContext.withSearchFlags(
@@ -228,7 +243,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         highlightBuilder.fields().stream()
             .map(HighlightBuilder.Field::name)
             .collect(Collectors.toList());
-    assertEquals(fields.size(), 22);
+    assertEquals(fields.size(), 32);
     List<String> highlightableFields =
         ImmutableList.of(
             "keyPart1",
@@ -240,7 +255,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             "nestedArrayArrayField",
             "customProperties",
             "esObjectField",
-            "wordGramField");
+            "wordGramField",
+            "esObjectFieldLong",
+            "esObjectFieldBoolean",
+            "esObjectFieldFloat",
+            "esObjectFieldDouble",
+            "esObjectFieldInteger");
     highlightableFields.forEach(
         field -> {
           assertTrue(fields.contains(field), "Missing: " + field);
@@ -252,7 +272,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   public void testAggregationsInSearch() {
     SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext.getEntityRegistry(),
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY);
     final String nestedAggString =
         String.format("_entityType%stextFieldOverride", AGGREGATION_SEPARATOR_CHAR);
     SearchRequest searchRequest =
@@ -321,7 +345,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     final SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext.getEntityRegistry(),
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY);
 
     final BoolQueryBuilder testQuery = constructFilterQuery(requestHandler, false);
 
@@ -342,8 +370,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
   private BoolQueryBuilder constructFilterQuery(
       SearchRequestHandler requestHandler, boolean scroll) {
-    final Criterion filterCriterion =
-        new Criterion().setField("keyword").setCondition(Condition.EQUAL).setValue("some value");
+    final Criterion filterCriterion = buildCriterion("keyword", Condition.EQUAL, "some value");
 
     final Filter filterWithoutRemovedCondition =
         new Filter()
@@ -409,14 +436,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
   private BoolQueryBuilder constructRemovedQuery(
       SearchRequestHandler requestHandler, boolean scroll) {
-    final Criterion filterCriterion =
-        new Criterion().setField("keyword").setCondition(Condition.EQUAL).setValue("some value");
+    final Criterion filterCriterion = buildCriterion("keyword", Condition.EQUAL, "some value");
 
-    final Criterion removedCriterion =
-        new Criterion()
-            .setField("removed")
-            .setCondition(Condition.EQUAL)
-            .setValue(String.valueOf(false));
+    final Criterion removedCriterion = buildCriterion("removed", Condition.EQUAL, "false");
 
     final Filter filterWithRemovedCondition =
         new Filter()
@@ -489,12 +511,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   //  field EQUAL [value1, value2, ...]
   @Test
   public void testFilterFieldTagsByValues() {
-    final Criterion filterCriterion =
-        new Criterion()
-            .setField("fieldTags")
-            .setCondition(Condition.EQUAL)
-            .setValue("v1")
-            .setValues(new StringArray("v1", "v2"));
+    final Criterion filterCriterion = buildCriterion("fieldTags", Condition.EQUAL, "v1", "v2");
 
     final BoolQueryBuilder testQuery = getQuery(filterCriterion);
 
@@ -536,88 +553,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     }
   }
 
-  // For fields that are one of EDITABLE_FIELD_TO_QUERY_PAIRS, we want to make sure
-  // a filter that has a single value will result in one filter for each field in the
-  // pair of fields
-  @Test
-  public void testFilterFieldTagsByValue() {
-    final Criterion filterCriterion =
-        new Criterion().setField("fieldTags").setCondition(Condition.EQUAL).setValue("v1");
-
-    final BoolQueryBuilder testQuery = getQuery(filterCriterion);
-
-    // bool -> must -> [bool] -> should -> [bool] -> must -> [bool] -> should -> [bool] -> should ->
-    // [match]
-    List<MultiMatchQueryBuilder> matchQueryBuilders =
-        testQuery.filter().stream()
-            .filter(or -> or instanceof BoolQueryBuilder)
-            .flatMap(or -> ((BoolQueryBuilder) or).should().stream())
-            .filter(should -> should instanceof BoolQueryBuilder)
-            .flatMap(should -> ((BoolQueryBuilder) should).filter().stream())
-            .filter(must -> must instanceof BoolQueryBuilder)
-            .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
-            .filter(should -> should instanceof BoolQueryBuilder)
-            .flatMap(should -> ((BoolQueryBuilder) should).should().stream())
-            .filter(should -> should instanceof MultiMatchQueryBuilder)
-            .map(should -> (MultiMatchQueryBuilder) should)
-            .collect(Collectors.toList());
-
-    assertTrue(matchQueryBuilders.size() == 2, "Expected to find two match queries");
-    Map<String, String> matchMap = new HashMap<>();
-    matchQueryBuilders.forEach(
-        matchQueryBuilder -> {
-          Set<String> fields = matchQueryBuilder.fields().keySet();
-          assertTrue(matchQueryBuilder.value() instanceof String);
-          fields.forEach(field -> matchMap.put(field, (String) matchQueryBuilder.value()));
-        });
-
-    assertTrue(matchMap.containsKey("fieldTags.keyword"));
-    assertTrue(matchMap.containsKey("editedFieldTags.keyword"));
-    for (String value : matchMap.values()) {
-      assertTrue(value.equals("v1"));
-    }
-  }
-
-  // Test fields not in EDITABLE_FIELD_TO_QUERY_PAIRS with a single value
-  @Test
-  public void testFilterPlatformByValue() {
-    final Criterion filterCriterion =
-        new Criterion().setField("platform").setCondition(Condition.EQUAL).setValue("mysql");
-
-    final BoolQueryBuilder testQuery = getQuery(filterCriterion);
-
-    // bool -> filter -> [bool] -> should -> [bool] -> filter -> [bool] -> should -> [match]
-    List<MultiMatchQueryBuilder> matchQueryBuilders =
-        testQuery.filter().stream()
-            .filter(or -> or instanceof BoolQueryBuilder)
-            .flatMap(or -> ((BoolQueryBuilder) or).should().stream())
-            .filter(should -> should instanceof BoolQueryBuilder)
-            .flatMap(should -> ((BoolQueryBuilder) should).filter().stream())
-            .filter(must -> must instanceof BoolQueryBuilder)
-            .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
-            .filter(should -> should instanceof MultiMatchQueryBuilder)
-            .map(should -> (MultiMatchQueryBuilder) should)
-            .collect(Collectors.toList());
-
-    assertTrue(matchQueryBuilders.size() == 1, "Expected to find one match query");
-    MultiMatchQueryBuilder matchQueryBuilder = matchQueryBuilders.get(0);
-    assertEquals(
-        matchQueryBuilder.fields(),
-        Map.of(
-            "platform", 1.0f,
-            "platform.*", 1.0f));
-    assertEquals(matchQueryBuilder.value(), "mysql");
-  }
-
   // Test fields not in EDITABLE_FIELD_TO_QUERY_PAIRS with a list of values
   @Test
   public void testFilterPlatformByValues() {
     final Criterion filterCriterion =
-        new Criterion()
-            .setField("platform")
-            .setCondition(Condition.EQUAL)
-            .setValue("mysql")
-            .setValues(new StringArray("mysql", "bigquery"));
+        buildCriterion("platform", Condition.EQUAL, "mysql", "bigquery");
 
     final BoolQueryBuilder testQuery = getQuery(filterCriterion);
 
@@ -652,13 +592,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testBrowsePathQueryFilter() {
     // Condition: has `browsePaths` AND does NOT have `browsePathV2`
-    Criterion missingBrowsePathV2 = new Criterion();
-    missingBrowsePathV2.setCondition(Condition.IS_NULL);
-    missingBrowsePathV2.setField("browsePathV2");
+    Criterion missingBrowsePathV2 = buildIsNullCriterion("browsePathV2");
     // Excludes entities without browsePaths
-    Criterion hasBrowsePathV1 = new Criterion();
-    hasBrowsePathV1.setCondition(Condition.EXISTS);
-    hasBrowsePathV1.setField("browsePaths");
+    Criterion hasBrowsePathV1 = buildExistsCriterion("browsePaths");
 
     CriterionArray criterionArray = new CriterionArray();
     criterionArray.add(missingBrowsePathV2);
@@ -702,7 +638,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     final SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext.getEntityRegistry(),
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY);
 
     return (BoolQueryBuilder)
         requestHandler
