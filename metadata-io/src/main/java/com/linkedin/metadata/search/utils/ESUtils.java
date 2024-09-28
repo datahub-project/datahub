@@ -8,7 +8,7 @@ import static com.linkedin.metadata.query.filter.Condition.RELATED_INCL;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.SUBFIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
-import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -25,7 +25,6 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -177,9 +176,7 @@ public class ESUtils {
           .getCriteria()
           .forEach(
               criterion -> {
-                if (!criterion.getValue().trim().isEmpty()
-                    || criterion.hasValues()
-                    || criterion.getCondition() == Condition.IS_NULL) {
+                if (criterion.hasValues() || criterion.getCondition() == Condition.IS_NULL) {
                   andQueryBuilder.must(
                       getQueryBuilderFromCriterion(
                           criterion,
@@ -209,7 +206,6 @@ public class ESUtils {
         .forEach(
             criterion -> {
               if (Set.of(Condition.EXISTS, Condition.IS_NULL).contains(criterion.getCondition())
-                  || (criterion.hasValue() && !criterion.getValue().trim().isEmpty())
                   || criterion.hasValues()) {
                 if (!criterion.isNegated()) {
                   // `filter` instead of `must` (enables caching and bypasses scoring)
@@ -539,20 +535,13 @@ public class ESUtils {
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     final BoolQueryBuilder orQueryBuilder = new BoolQueryBuilder();
     for (String field : fields) {
-      Criterion criterionToQuery = new Criterion();
-      criterionToQuery.setCondition(criterion.getCondition());
-      criterionToQuery.setNegated(criterion.isNegated());
-      if (criterion.hasValues()) {
-        criterionToQuery.setValues(criterion.getValues());
-      }
-      if (criterion.hasValue()) {
-        criterionToQuery.setValue(criterion.getValue());
-      }
-      criterionToQuery.setField(
-          toKeywordField(field, isTimeseries, opContext.getAspectRetriever()));
       orQueryBuilder.should(
           getQueryBuilderFromCriterionForSingleField(
-                  criterionToQuery,
+                  buildCriterion(
+                      toKeywordField(field, isTimeseries, opContext.getAspectRetriever()),
+                      criterion.getCondition(),
+                      criterion.isNegated(),
+                      criterion.getValues()),
                   isTimeseries,
                   searchableFieldTypes,
                   null,
@@ -583,7 +572,7 @@ public class ESUtils {
       return QueryBuilders.boolQuery()
           .must(QueryBuilders.existsQuery(fieldName))
           .queryName(queryName != null ? queryName : fieldName);
-    } else if (criterion.hasValues() || criterion.hasValue()) {
+    } else if (criterion.hasValues()) {
       if (condition == Condition.EQUAL) {
         return buildEqualsConditionFromCriterion(
                 fieldName, criterion, isTimeseries, searchableFieldTypes, aspectRetriever)
@@ -637,23 +626,10 @@ public class ESUtils {
           QueryBuilders.wildcardQuery(
                   toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
                   String.format(wildcardPattern, ESUtils.escapeReservedCharacters(value.trim())))
-              .queryName(queryName != null ? queryName : fieldName));
+              .queryName(queryName != null ? queryName : fieldName)
+              .caseInsensitive(true));
     }
     return boolQuery;
-  }
-
-  private static QueryBuilder buildWildcardQueryWithSingleValue(
-      @Nonnull final String fieldName,
-      @Nonnull final Criterion criterion,
-      final boolean isTimeseries,
-      @Nullable String queryName,
-      @Nonnull AspectRetriever aspectRetriever,
-      String wildcardPattern) {
-    return QueryBuilders.wildcardQuery(
-            toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
-            String.format(
-                wildcardPattern, ESUtils.escapeReservedCharacters(criterion.getValue().trim())))
-        .queryName(queryName != null ? queryName : fieldName);
   }
 
   private static QueryBuilder buildContainsConditionFromCriterion(
@@ -663,11 +639,7 @@ public class ESUtils {
       final boolean isTimeseries,
       @Nonnull AspectRetriever aspectRetriever) {
 
-    if (!criterion.getValues().isEmpty()) {
-      return buildWildcardQueryWithMultipleValues(
-          fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s*");
-    }
-    return buildWildcardQueryWithSingleValue(
+    return buildWildcardQueryWithMultipleValues(
         fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s*");
   }
 
@@ -678,11 +650,7 @@ public class ESUtils {
       final boolean isTimeseries,
       @Nonnull AspectRetriever aspectRetriever) {
 
-    if (!criterion.getValues().isEmpty()) {
-      return buildWildcardQueryWithMultipleValues(
-          fieldName, criterion, isTimeseries, queryName, aspectRetriever, "%s*");
-    }
-    return buildWildcardQueryWithSingleValue(
+    return buildWildcardQueryWithMultipleValues(
         fieldName, criterion, isTimeseries, queryName, aspectRetriever, "%s*");
   }
 
@@ -693,11 +661,7 @@ public class ESUtils {
       final boolean isTimeseries,
       @Nonnull AspectRetriever aspectRetriever) {
 
-    if (!criterion.getValues().isEmpty()) {
-      return buildWildcardQueryWithMultipleValues(
-          fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s");
-    }
-    return buildWildcardQueryWithSingleValue(
+    return buildWildcardQueryWithMultipleValues(
         fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s");
   }
 
@@ -707,19 +671,8 @@ public class ESUtils {
       final boolean isTimeseries,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull AspectRetriever aspectRetriever) {
-    /*
-     * If the newer 'values' field of Criterion.pdl is set, then we
-     * handle using the following code to allow multi-match.
-     */
-    if (!criterion.getValues().isEmpty()) {
-      return buildEqualsConditionFromCriterionWithValues(
-          fieldName, criterion, isTimeseries, searchableFieldTypes, aspectRetriever);
-    }
-    /*
-     * Otherwise, we are likely using the deprecated 'value' field.
-     * We handle using the legacy code path below.
-     */
-    return buildEqualsFromCriterionWithValue(fieldName, criterion, isTimeseries, aspectRetriever);
+    return buildEqualsConditionFromCriterionWithValues(
+        fieldName, criterion, isTimeseries, searchableFieldTypes, aspectRetriever);
   }
 
   /**
@@ -793,12 +746,7 @@ public class ESUtils {
 
     // Determine criterion value, range query only accepts single value so take first value in
     // values if multiple
-    String criterionValueString;
-    if (!criterion.getValues().isEmpty()) {
-      criterionValueString = criterion.getValues().get(0).trim();
-    } else {
-      criterionValueString = criterion.getValue().trim();
-    }
+    String criterionValueString = criterion.getValues().get(0).trim();
     Object criterionValue;
     String documentFieldName;
     if (fieldTypes.contains(BOOLEAN_FIELD_TYPE)) {
@@ -825,48 +773,6 @@ public class ESUtils {
     } else /*if (condition == Condition.LESS_THAN_OR_EQUAL_TO)*/ {
       return QueryBuilders.rangeQuery(documentFieldName).lte(criterionValue).queryName(fieldName);
     }
-  }
-
-  /**
-   * Builds an instance of {@link QueryBuilder} representing an EQUALS condition which was created
-   * using the deprecated 'value' field of Criterion.pdl model.
-   *
-   * <p>Previously, we supported comma-separate values inside of a single string field, thus we have
-   * to account for splitting and matching against each value below.
-   *
-   * <p>For all new code, we should be using the new 'values' field for performing multi-match. This
-   * is simply retained for backwards compatibility of the search API.
-   */
-  @Deprecated
-  private static QueryBuilder buildEqualsFromCriterionWithValue(
-      @Nonnull final String fieldName,
-      @Nonnull final Criterion criterion,
-      final boolean isTimeseries,
-      @Nonnull AspectRetriever aspectRetriever) {
-    // If the value is an URN style value, then we do not attempt to split it by comma (for obvious
-    // reasons)
-    if (isUrn(criterion.getValue())) {
-      return QueryBuilders.matchQuery(
-              toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
-              criterion.getValue().trim())
-          .queryName(fieldName)
-          .analyzer(KEYWORD_ANALYZER);
-    }
-    final BoolQueryBuilder filters = new BoolQueryBuilder();
-    // Cannot assume the existence of a .keyword or other subfield (unless contains `.`)
-    // Cannot assume the type of the underlying field or subfield thus KEYWORD_ANALYZER is forced
-    List<String> fields =
-        criterion.getField().contains(".")
-            ? List.of(criterion.getField())
-            : List.of(criterion.getField(), criterion.getField() + ".*");
-    Arrays.stream(criterion.getValue().trim().split("\\s*,\\s*"))
-        .forEach(
-            elem ->
-                filters.should(
-                    QueryBuilders.multiMatchQuery(elem, fields.toArray(new String[0]))
-                        .queryName(fieldName)
-                        .analyzer(KEYWORD_ANALYZER)));
-    return filters;
   }
 
   @Nonnull

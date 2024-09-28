@@ -230,6 +230,10 @@ public class GraphIndexUtils {
         newEdge.getUpdatedActor(),
         newEdge.getProperties(),
         oldEdge.getLifecycleOwner(),
-        oldEdge.getVia());
+        oldEdge.getVia(),
+        oldEdge.getViaStatus(),
+        oldEdge.getLifecycleOwnerStatus(),
+        oldEdge.getSourceStatus(),
+        oldEdge.getDestinationStatus());
   }
 }

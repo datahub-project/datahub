@@ -34,12 +34,16 @@ function Home() {
           <Enterprise />
         </Section>
       </div>
+      <div className={clsx(styles.weeklyDemoSection)}>
+        <div>Curious? Drop by and say hi!</div>
+        <Link to="https://www.acryldata.io/webinars/weekly-live-demo">Weekly Live Demos →</Link>
+      </div>
       <div className={clsx("hero", styles.hero)}>
         <div className="container" style={{ paddingTop: '12vh', paddingBottom: '12vh' }}>
           <div className="row row__padded">
             <div  className={clsx(styles.col, styles.hero__cta, "col col--7")}>
-              <h1 className={styles.hero__title}>Get your free trial.</h1>
-              <div className={clsx(styles.hero__subtitle)}>Data Discovery, Data Quality and Data Governance unified.</div>
+              <h1 className={styles.hero__title}>Start your free trial<br/>today.</h1>
+              <div className={clsx(styles.hero__subtitle)}>Unify Discovery, Observability and Governance<br/>for data and AI.</div>
               <div>
                 <Link className={clsx(styles.button, styles.bookButton, "button button--primary button--lg")} to="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup">
                   Book Demo

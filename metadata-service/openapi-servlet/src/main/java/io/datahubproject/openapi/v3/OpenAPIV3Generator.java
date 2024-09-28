@@ -20,6 +20,7 @@ import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -137,6 +138,7 @@ public class OpenAPIV3Generator {
     final Paths paths = new Paths();
     entityRegistry.getEntitySpecs().values().stream()
         .filter(e -> definitionNames.contains(e.getName()))
+        .sorted(Comparator.comparing(EntitySpec::getName))
         .forEach(
             e -> {
               paths.addPathItem(
@@ -151,10 +153,12 @@ public class OpenAPIV3Generator {
             });
     entityRegistry.getEntitySpecs().values().stream()
         .filter(e -> definitionNames.contains(e.getName()))
+        .sorted(Comparator.comparing(EntitySpec::getName))
         .forEach(
             e -> {
               e.getAspectSpecs().stream()
                   .filter(a -> definitionNames.contains(a.getName()))
+                  .sorted(Comparator.comparing(AspectSpec::getName))
                   .forEach(
                       a ->
                           paths.addPathItem(
