@@ -870,7 +870,7 @@ class SqlParsingAggregator(Closeable):
             ] = query_fingerprint
 
             # Also update schema resolver for missing session id
-            if parsed.session_id is _MISSING_SESSION_ID and parsed.inferred_schema:
+            if parsed.session_id == _MISSING_SESSION_ID and parsed.inferred_schema:
                 self._missing_session_schema_resolver.with_temp_tables(
                     {out_table: parsed.inferred_schema}
                 )
