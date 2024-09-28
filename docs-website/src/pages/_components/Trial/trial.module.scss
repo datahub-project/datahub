@@ -94,7 +94,7 @@
     .gradientTop, .gradientBottom {
       position: absolute;
       background: linear-gradient(#FFFFFF, #FFFFFF00);
-      height: 160px;
+      height: 100px;
       width: 100%;
       z-index: 10;
     }
@@ -135,7 +135,7 @@
           height: 49%;
           border-radius: 35px;
           background-color: #fff;
-          border: 1px solid #aaa;
+          border: 1px solid #ddd;
           // background-image: linear-gradient(to bottom, #FC526333, #FC5263);
         }
 
@@ -146,7 +146,7 @@
           padding-left: 2rem;
           padding-right: 1.5rem;
           background-color: #fff;
-          border: 1px solid #aaa;
+          border: 1px solid #ddd;
           // background-image: linear-gradient(
           //   to bottom,
           //   #77B750,
@@ -183,7 +183,7 @@
           padding-right: 1.5rem;
           // background-image: linear-gradient(to bottom, #1890FF80, #1890FF);
           background-color: #fff;
-          border: 1px solid #aaa;
+          border: 1px solid #ddd;
           height: 49%;
           border-radius: 35px;
         }
@@ -195,7 +195,7 @@
           padding-left: 2rem;
           padding-right: 1.5rem;
           background-color: #fff;
-          border: 1px solid #aaa;
+          border: 1px solid #ddd;
           // background-image: linear-gradient(
           //   to bottom,
           //   #EFB300,
