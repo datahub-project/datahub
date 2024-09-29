@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.jobs;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -15,7 +17,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -121,13 +122,12 @@ public class EntityRunsResolver
     CriterionArray array =
         new CriterionArray(
             ImmutableList.of(
-                new Criterion()
-                    .setField(
-                        direction.equals(RelationshipDirection.INCOMING)
-                            ? INPUT_FIELD_NAME
-                            : OUTPUT_FIELD_NAME)
-                    .setCondition(Condition.EQUAL)
-                    .setValue(entityUrn)));
+                buildCriterion(
+                    direction.equals(RelationshipDirection.INCOMING)
+                        ? INPUT_FIELD_NAME
+                        : OUTPUT_FIELD_NAME,
+                    Condition.EQUAL,
+                    entityUrn)));
     final Filter filter = new Filter();
     filter.setOr(
         new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(array))));
