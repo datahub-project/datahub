@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.fixtures;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
 import static io.datahubproject.test.search.SearchTestUtils.*;
 import static org.testng.Assert.assertEquals;
@@ -14,7 +15,6 @@ import static org.testng.Assert.assertTrue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.datahub.graphql.types.container.ContainerType;
@@ -1464,10 +1464,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                   Filter filter = new Filter();
                   ArrayList<Criterion> criteria = new ArrayList<>();
                   Criterion hasPlatformCriterion =
-                      new Criterion()
-                          .setField(fieldName)
-                          .setCondition(Condition.EQUAL)
-                          .setValue(testPlatform);
+                      buildCriterion(fieldName, Condition.EQUAL, testPlatform);
                   criteria.add(hasPlatformCriterion);
                   filter.setOr(
                       new ConjunctiveCriterionArray(
@@ -2000,10 +1997,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
-                                    new Criterion()
-                                        .setField("hasOwners")
-                                        .setValue("")
-                                        .setValues(new StringArray(ImmutableList.of("true"))))))));
+                                    buildCriterion("hasOwners", Condition.EQUAL, "true"))))));
     SearchResult searchResult =
         searchAcrossEntities(
             getOperationContext(),
@@ -2025,10 +2019,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
-                                    new Criterion()
-                                        .setField("numInputDatasets")
-                                        .setValue("")
-                                        .setValues(new StringArray(ImmutableList.of("1"))))))));
+                                    buildCriterion("numInputDatasets", Condition.EQUAL, "1"))))));
     SearchResult searchResult =
         searchAcrossEntities(
             getOperationContext(),
