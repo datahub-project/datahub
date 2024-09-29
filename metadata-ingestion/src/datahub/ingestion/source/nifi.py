@@ -201,6 +201,7 @@ class BidirectionalComponentGraph:
     def __init__(self):
         self.outgoing: Dict[str, Set[str]] = defaultdict(set)
         self.incoming: Dict[str, Set[str]] = defaultdict(set)
+        self.connections_cnt = 0
 
     def add_connection(self, from_component: str, to_component: str) -> None:
         # this is sanity check
@@ -209,6 +210,7 @@ class BidirectionalComponentGraph:
 
         self.outgoing[from_component].add(to_component)
         self.incoming[to_component].add(from_component)
+        self.connections_cnt += 1
 
         if outgoing_duplicated or incoming_duplicated:
             logger.warning(
@@ -218,6 +220,7 @@ class BidirectionalComponentGraph:
     def remove_connection(self, from_component: str, to_component: str) -> None:
         self.outgoing[from_component].discard(to_component)
         self.incoming[to_component].discard(from_component)
+        self.connections_cnt -= 1
 
     def get_outgoing_connections(self, component: str) -> Set[str]:
         return self.outgoing[component]
@@ -233,7 +236,7 @@ class BidirectionalComponentGraph:
         )
         outgoing = self.outgoing[component]
         logger.debug(
-            f"Recognized {len(incoming)} outgoing connections to the component"
+            f"Recognized {len(outgoing)} outgoing connections from the component"
         )
 
         for i in incoming:
@@ -254,8 +257,10 @@ class BidirectionalComponentGraph:
         del self.outgoing[component]
         del self.incoming[component]
 
+        self.connections_cnt -= deleted_connections_cnt
+
     def __len__(self):
-        return len(self.incoming)
+        return self.connections_cnt
 
 
 TOKEN_ENDPOINT = "access/token"
