@@ -2,7 +2,8 @@ package com.linkedin.metadata.kafka;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.testng.AssertJUnit.*;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
@@ -19,7 +20,8 @@ import org.testng.annotations.Test;
 @ActiveProfiles("test")
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-    classes = {MceConsumerApplication.class, MceConsumerApplicationTestConfiguration.class})
+    classes = {MceConsumerApplication.class, MceConsumerApplicationTestConfiguration.class},
+    properties = {"authentication.enabled=false"})
 public class MceConsumerApplicationTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private TestRestTemplate restTemplate;
@@ -38,7 +40,7 @@ public class MceConsumerApplicationTest extends AbstractTestNGSpringContextTests
     String response =
         this.restTemplate.postForObject(
             "/gms/aspects?action=restoreIndices", "{\"urn\":\"\"}", String.class);
-    assertTrue(response.contains(mockResult.toString()));
+    assertTrue(response.contains(mockResult.toString()), String.format("Found: %s", response));
   }
 
   @Test

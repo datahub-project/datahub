@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -30,7 +31,6 @@ import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -571,25 +571,15 @@ public class DeleteEntityService {
       // first, get all entities with this form assigned on it
       final CriterionArray incompleteFormsArray = new CriterionArray();
       incompleteFormsArray.add(
-          new Criterion()
-              .setField("incompleteForms")
-              .setValue(deletedUrn.toString())
-              .setCondition(Condition.EQUAL));
+          buildCriterion("incompleteForms", Condition.EQUAL, deletedUrn.toString()));
       final CriterionArray completedFormsArray = new CriterionArray();
       completedFormsArray.add(
-          new Criterion()
-              .setField("completedForms")
-              .setValue(deletedUrn.toString())
-              .setCondition(Condition.EQUAL));
+          buildCriterion("completedForms", Condition.EQUAL, deletedUrn.toString()));
       // next, get all metadata tests created for this form
       final CriterionArray metadataTestSourceArray = new CriterionArray();
       metadataTestSourceArray.add(
-          new Criterion()
-              .setField("sourceEntity")
-              .setValue(deletedUrn.toString())
-              .setCondition(Condition.EQUAL));
-      metadataTestSourceArray.add(
-          new Criterion().setField("sourceType").setValue("FORMS").setCondition(Condition.EQUAL));
+          buildCriterion("sourceEntity", Condition.EQUAL, deletedUrn.toString()));
+      metadataTestSourceArray.add(buildCriterion("sourceType", Condition.EQUAL, "FORMS"));
       Filter filter =
           new Filter()
               .setOr(
