@@ -160,7 +160,7 @@ class DataHubReportingExtractGraphSource(Source):
                 ],
             }
 
-            index = f"{index_prefix}_graph_service_v1"
+            index = f"{index_prefix}graph_service_v1"
             response = server.create_pit(index, keep_alive="10m")
 
             # TODO: Save PIT, we can resume processing based on <pit, search_after> tuple
