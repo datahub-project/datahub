@@ -15,7 +15,6 @@ export const Logo = (props) => {
 
 <Logo />
 
-
 <!--
 HOSTED_DOCS_ONLY-->
 <p align="center">
