@@ -34,7 +34,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
-    DatasetSubTypes,
 )
 from datahub.ingestion.source.powerbi.config import (
     Constant,

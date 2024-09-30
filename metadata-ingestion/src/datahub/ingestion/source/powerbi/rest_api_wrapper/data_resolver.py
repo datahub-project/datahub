@@ -1,9 +1,8 @@
 import logging
-import math
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from time import sleep
-from typing import Any, Dict, List, Optional, Union, Iterator
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 import msal
 import requests
@@ -14,6 +13,7 @@ from urllib3 import Retry
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.source.powerbi.config import Constant
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    App,
     Column,
     Dashboard,
     Measure,
@@ -21,11 +21,12 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Page,
     PowerBIDataset,
     Report,
+    ReportType,
     Table,
     Tile,
     User,
     Workspace,
-    new_powerbi_dataset, ReportType, App, AppContainerKey,
+    new_powerbi_dataset,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.profiling_utils import (
     process_column_result,
@@ -145,8 +146,8 @@ class DataResolverBase(ABC):
 
     @abstractmethod
     def _get_app(
-            self,
-            app_id: str,
+        self,
+        app_id: str,
     ) -> Optional[Dict]:
         pass
 
@@ -242,9 +243,7 @@ class DataResolverBase(ABC):
 
         for page in self.itr_pages(
             endpoint=group_endpoint,
-            parameter_override={
-                "$filter": "type eq 'Workspace'"
-            },
+            parameter_override={"$filter": "type eq 'Workspace'"},
         ):
             output.extend(page)
 
@@ -292,24 +291,28 @@ class DataResolverBase(ABC):
         return reports
 
     def get_app(
-            self,
-            app_id: str,
+        self,
+        app_id: str,
     ) -> Optional[App]:
 
-        raw_app: dict = self._get_app(
+        raw_app: Optional[Dict] = self._get_app(
             app_id=app_id,
         )
 
-        assert Constant.id in raw_app, f"{Constant.ID} is required field not present in server response"
+        if raw_app is None:
+            return None
 
-        assert Constant.NAME in raw_app, f"{Constant.NAME} is required field not present in server response"
+        assert (
+            Constant.ID in raw_app
+        ), f"{Constant.ID} is required field not present in server response"
+
+        assert (
+            Constant.NAME in raw_app
+        ), f"{Constant.NAME} is required field not present in server response"
 
         return App(
             id=raw_app[Constant.ID],
             name=raw_app[Constant.NAME],
-            app_container_key=AppContainerKey(
-                App.get_urn_part(raw_app[Constant.ID])
-            ),
             description=raw_app.get(Constant.DESCRIPTION),
             last_update=raw_app.get(Constant.LAST_UPDATE),
         )
@@ -404,7 +407,7 @@ class DataResolverBase(ABC):
     def itr_pages(
         self,
         endpoint: str,
-        parameter_override: Dict={},
+        parameter_override: Dict = {},
     ) -> Iterator[List[Dict]]:
         params: dict = {
             "$skip": 0,
@@ -424,14 +427,17 @@ class DataResolverBase(ABC):
 
             response.raise_for_status()
 
-            assert Constant.VALUE in response.json(), "'value' key is not present in paginated response"
+            assert (
+                Constant.VALUE in response.json()
+            ), "'value' key is not present in paginated response"
 
-            if not response.json()[Constant.VALUE]: # if it is an empty list then break
+            if not response.json()[Constant.VALUE]:  # if it is an empty list then break
                 break
 
             yield response.json()[Constant.VALUE]
 
             page_number += 1
+
 
 class RegularAPIResolver(DataResolverBase):
     # Regular access endpoints
@@ -445,7 +451,6 @@ class RegularAPIResolver(DataResolverBase):
         Constant.PAGE_BY_REPORT: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}/pages",
         Constant.DATASET_EXECUTE_QUERIES: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/executeQueries",
         Constant.GET_WORKSPACE_APP: "{MY_ORG_URL}/apps/{APP_ID}",
-
     }
 
     def get_dataset(
@@ -703,8 +708,8 @@ class RegularAPIResolver(DataResolverBase):
         table.column_count = column_count
 
     def _get_app(
-            self,
-            app_id: str,
+        self,
+        app_id: str,
     ) -> Optional[Dict]:
 
         app_endpoint = self.API_ENDPOINTS[Constant.GET_WORKSPACE_APP].format(
@@ -736,7 +741,7 @@ class AdminAPIResolver(DataResolverBase):
         Constant.ENTITY_USER_LIST: "{POWERBI_ADMIN_BASE_URL}/{ENTITY}/{ENTITY_ID}/users",
         Constant.DATASET_LIST: "{POWERBI_ADMIN_BASE_URL}/groups/{WORKSPACE_ID}/datasets",
         Constant.WORKSPACE_MODIFIED_LIST: "{POWERBI_ADMIN_BASE_URL}/workspaces/modified",
-        Constant.GET_WORKSPACE_APP: "{POWERBI_ADMIN_BASE_URL}/apps"
+        Constant.GET_WORKSPACE_APP: "{POWERBI_ADMIN_BASE_URL}/apps",
     }
 
     def create_scan_job(self, workspace_ids: List[str]) -> str:
@@ -1037,10 +1042,9 @@ class AdminAPIResolver(DataResolverBase):
         logger.debug("Profile dataset is unsupported in Admin API")
         return None
 
-
     def _get_app(
-            self,
-            app_id: str,
+        self,
+        app_id: str,
     ) -> Optional[Dict]:
 
         app_endpoint = self.API_ENDPOINTS[Constant.GET_WORKSPACE_APP].format(
@@ -1050,9 +1054,7 @@ class AdminAPIResolver(DataResolverBase):
         # Hit PowerBi
         logger.debug(f"Request to app URL={app_endpoint}")
 
-        for page in self.itr_pages(
-            endpoint=app_endpoint
-        ):
+        for page in self.itr_pages(endpoint=app_endpoint):
             for app in page:
                 if Constant.ID in app and app_id == app[Constant.ID]:
                     return app

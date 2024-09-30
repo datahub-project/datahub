@@ -36,8 +36,10 @@ class WorkspaceKey(ContainerKey):
 class DatasetKey(ContainerKey):
     dataset: str
 
+
 class AppContainerKey(ContainerKey):
     app: str
+
 
 @dataclass
 class Workspace:
@@ -189,13 +191,11 @@ class Page:
 class App:
     id: str
     name: str
-    app_container_key: AppContainerKey
     description: Optional[str]
     last_update: Optional[str]
 
-    @staticmethod
-    def get_urn_part(id_: str):
-        return f"apps.{id_}"
+    def get_urn_part(self):
+        return f"apps.{self.id}"
 
 
 @dataclass
@@ -226,6 +226,7 @@ class User:
 
     def __hash__(self):
         return hash(self.__members())
+
 
 class ReportType(Enum):
     PaginatedReport = "PaginatedReport"

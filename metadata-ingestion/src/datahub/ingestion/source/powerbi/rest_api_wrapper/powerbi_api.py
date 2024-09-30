@@ -13,6 +13,7 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.rest_api_wrapper import data_resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FIELD_TYPE_MAPPING,
+    App,
     Column,
     Dashboard,
     Measure,
@@ -20,7 +21,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Report,
     Table,
     User,
-    Workspace, App,
+    Workspace,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
@@ -209,6 +210,7 @@ class PowerBiAPI:
                 dashboard_endorsements={},
                 scan_result={},
                 independent_datasets=[],
+                app=None,
             )
             for workspace in groups
         ]
@@ -236,6 +238,7 @@ class PowerBiAPI:
                     dashboard_endorsements={},
                     scan_result={},
                     independent_datasets=[],
+                    app=None,
                 )
                 for workspace_id in modified_workspace_ids
             ]
@@ -245,8 +248,8 @@ class PowerBiAPI:
         return workspaces
 
     def get_app(
-            self,
-            app_id: str,
+        self,
+        app_id: str,
     ) -> Optional[App]:
         return self._get_resolver().get_app(
             app_id=app_id,
@@ -403,6 +406,9 @@ class PowerBiAPI:
                 id=workspace_metadata[Constant.ID],
                 name=workspace_metadata[Constant.NAME],
                 type=workspace_metadata[Constant.TYPE],
+                app=self.get_app(workspace_metadata.get(Constant.APP_ID))
+                if workspace_metadata.get(Constant.APP_ID)
+                else None,
                 datasets={},
                 dashboards=[],
                 reports=[],
