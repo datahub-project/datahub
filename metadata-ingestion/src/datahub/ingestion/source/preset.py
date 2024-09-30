@@ -91,29 +91,31 @@ class PresetSource(SupersetSource):
         super().__init__(ctx, config)
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
-        self.login()
+        self.session = self.login()
 
     def login(self):
-        logger.info(f"self.config is {self.config}")
-
-        login_response = requests.post(
-            f"{self.config.manager_uri}/v1/auth/",
-            json={"name": self.config.api_key, "secret": self.config.api_secret},
-        )
+        try:
+            login_response = requests.post(
+                f"{self.config.manager_uri}/v1/auth/",
+                json={"name": self.config.api_key, "secret": self.config.api_secret},
+            )
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to authenticate with Preset: {e}")
+            raise e
 
         self.access_token = login_response.json()["payload"]["access_token"]
         logger.debug("Got access token from Preset")
 
-        self.session = requests.Session()
-        self.session.headers.update(
+        requests_session = requests.Session()
+        requests_session.headers.update(
             {
                 "Authorization": f"Bearer {self.access_token}",
                 "Content-Type": "application/json",
                 "Accept": "*/*",
             }
         )
-
         # Test the connection
-        test_response = self.session.get(f"{self.config.connect_uri}/version")
+        test_response = requests_session.get(f"{self.config.connect_uri}/version")
         if not test_response.ok:
             logger.error("Unable to connect to workspace")
+        return requests_session
