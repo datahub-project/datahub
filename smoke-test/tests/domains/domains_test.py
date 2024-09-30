@@ -1,39 +1,27 @@
 import pytest
 import tenacity
 
-from tests.utils import (
-    delete_urns_from_file,
-    get_frontend_url,
-    get_gms_url,
-    get_sleep_info,
-    ingest_file_via_rest,
-)
+from tests.utils import delete_urns_from_file, get_sleep_info, ingest_file_via_rest
 
 sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(request):
+def ingest_cleanup_data(auth_session, graph_client, request):
     print("ingesting domains test data")
-    ingest_file_via_rest("tests/domains/data.json")
+    ingest_file_via_rest(auth_session, "tests/domains/data.json")
     yield
     print("removing domains test data")
-    delete_urns_from_file("tests/domains/data.json")
-
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
+    delete_urns_from_file(graph_client, "tests/domains/data.json")
 
 
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_more_domains(frontend_session, list_domains_json, before_count):
+def _ensure_more_domains(auth_session, list_domains_json, before_count):
     # Get new count of Domains
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=list_domains_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=list_domains_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -49,11 +37,12 @@ def _ensure_more_domains(frontend_session, list_domains_json, before_count):
     assert after_count == before_count + 1
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_list_get_domain(frontend_session):
+@pytest.mark.dependency()
+def test_create_list_get_domain(auth_session):
     # Setup: Delete the domain (if exists)
-    response = frontend_session.post(
-        f"{get_gms_url()}/entities?action=delete", json={"urn": "urn:li:domain:test id"}
+    response = auth_session.post(
+        f"{auth_session.gms_url()}/entities?action=delete",
+        json={"urn": "urn:li:domain:test id"},
     )
 
     # Get count of existing secrets
@@ -74,8 +63,8 @@ def test_create_list_get_domain(frontend_session):
         "variables": {"input": {"start": "0", "count": "20"}},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=list_domains_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=list_domains_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -107,8 +96,8 @@ def test_create_list_get_domain(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=create_domain_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=create_domain_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -121,7 +110,7 @@ def test_create_list_get_domain(frontend_session):
     domain_urn = res_data["data"]["createDomain"]
 
     _ensure_more_domains(
-        frontend_session=frontend_session,
+        auth_session=auth_session,
         list_domains_json=list_domains_json,
         before_count=before_count,
     )
@@ -141,8 +130,8 @@ def test_create_list_get_domain(frontend_session):
         "variables": {"urn": domain_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=get_domain_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=get_domain_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -161,15 +150,15 @@ def test_create_list_get_domain(frontend_session):
     delete_json = {"urn": domain_urn}
 
     # Cleanup: Delete the domain
-    response = frontend_session.post(
-        f"{get_gms_url()}/entities?action=delete", json=delete_json
+    response = auth_session.post(
+        f"{auth_session.gms_url()}/entities?action=delete", json=delete_json
     )
 
     response.raise_for_status()
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_create_list_get_domain"])
-def test_set_unset_domain(frontend_session, ingest_cleanup_data):
+@pytest.mark.dependency(depends=["test_create_list_get_domain"])
+def test_set_unset_domain(auth_session, ingest_cleanup_data):
     # Set and Unset a Domain for a dataset. Note that this doesn't test for adding domains to charts, dashboards, charts, & jobs.
     dataset_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tags-terms-sample-kafka,PROD)"
@@ -183,8 +172,8 @@ def test_set_unset_domain(frontend_session, ingest_cleanup_data):
         "variables": {"entityUrn": dataset_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=unset_domain_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=unset_domain_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -201,8 +190,8 @@ def test_set_unset_domain(frontend_session, ingest_cleanup_data):
         "variables": {"entityUrn": dataset_urn, "domainUrn": domain_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=set_domain_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=set_domain_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -230,8 +219,8 @@ def test_set_unset_domain(frontend_session, ingest_cleanup_data):
         "variables": {"urn": dataset_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=get_dataset_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=get_dataset_json
     )
     response.raise_for_status()
     res_data = response.json()

@@ -3,8 +3,8 @@ baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 
 # App Layer
 authentication:
-  # Enable if you want all requests to the Metadata Service to be authenticated. Disabled by default.
-  enabled: ${METADATA_SERVICE_AUTH_ENABLED:false}
+  # Enable if you want all requests to the Metadata Service to be authenticated.
+  enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
 
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
@@ -43,8 +43,8 @@ authorization:
     enabled: ${AUTH_POLICIES_ENABLED:true}
     cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
     cachePolicyFetchSize: ${POLICY_CACHE_FETCH_SIZE:1000}
-  # Enables authorization of reads, writes, and deletes on REST APIs. Defaults to false for backwards compatibility, but should become true down the road
-  restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:false}
+  # Enables authorization of reads, writes, and deletes on REST APIs.
+  restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:true}
   view:
     enabled: ${VIEW_AUTHORIZATION_ENABLED:false}
     recommendations:
