@@ -695,7 +695,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             created=None,
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
-        dataset_url = f"{self.config.display_uri}{dataset_data.get('url', '')}"
+        dataset_url = f"{self.config.display_uri}{dataset_data.get('explore_url', '')}"
         metrics = [
             metric.get("metric_name")
             for metric in (dataset_response.get("result", {}).get("metrics", []))
@@ -723,7 +723,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         ## Create Lineage:
         db_platform_instance = self.get_platform_from_database_id(database_id)
 
-        if sql != "":
+        if sql:
             #To Account for virtual datasets
             parsed_query_object = create_lineage_sql_parsed_result(
                 query=sql,
@@ -751,10 +751,11 @@ class SupersetSource(StatefulIngestionSourceBase):
                     UpstreamClass(
                         type=DatasetLineageTypeClass.TRANSFORMED,
                         dataset=upstream_dataset,
+                        # query=self.get_query_instance_urn_from_query('query_data'),
                     )
+                    # for input_table_urn in parsed_query_object.in_tables
                 ]
             )
-
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
@@ -781,6 +782,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             payload = dataset_response.json()
             total_datasets = payload["count"]
             for dataset_data in payload["result"]:
+
                 dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
