@@ -567,7 +567,7 @@ public class ESUtils {
     final AspectRetriever aspectRetriever = opContext.getAspectRetriever();
     final String fieldName = toParentField(criterion.getField(), aspectRetriever);
 
-    boolean enableCaseInsensitiveSearches =false;
+    boolean enableCaseInsensitiveSearches;
 
     if (condition == Condition.IS_NULL) {
       return QueryBuilders.boolQuery()
@@ -611,7 +611,7 @@ public class ESUtils {
             .rewrite(
                 opContext,
                 buildEqualsConditionFromCriterion(
-                    fieldName, criterion, isTimeseries, searchableFieldTypes, aspectRetriever,enableCaseInsensitiveSearches))
+                    fieldName, criterion, isTimeseries, searchableFieldTypes, aspectRetriever, enableCaseInsensitiveSearches))
             .queryName(queryName != null ? queryName : fieldName);
       }
     }
