@@ -99,7 +99,7 @@ function SidebarLogicSection({ title, statement, highlightedStrings }: HelperPro
                                     showFormatted={showFormatted}
                                 />
                             )}
-                            <SyntaxHighlighter language="sql" wrapLongLines showLineNumbers lineProps={lineProps}>
+                            <SyntaxHighlighter language="sql" showLineNumbers lineProps={lineProps}>
                                 {showFormatted ? formattedLogic : statement}
                             </SyntaxHighlighter>
                         </ModalSyntaxContainer>
