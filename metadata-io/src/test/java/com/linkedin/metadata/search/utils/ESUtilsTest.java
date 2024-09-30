@@ -151,6 +151,91 @@ public class ESUtilsTest {
   }
 
   @Test
+  public void testGetQueryBuilderFromCriterionIEqualValues() {   //Test case insensitive searches and special characters
+
+    final Criterion singleValueCriterion =
+            new Criterion()
+                    .setField("myTestField")
+                    .setCondition(Condition.IEQUAL)
+                    .setValues(new StringArray(ImmutableList.of("value@!1")));
+
+    QueryBuilder result =
+            ESUtils.getQueryBuilderFromCriterion(
+                    singleValueCriterion,
+                    false,
+                    new HashMap<>(),
+                    mock(OperationContext.class),
+                    QueryFilterRewriteChain.EMPTY);
+
+    String expected =
+            "{\n"
+                    + "  \"bool\" : {\n"
+                    + "    \"should\" : [\n"
+                    + "      {\n"
+                    + "        \"term\" : {\n"
+                    + "          \"myTestField.keyword\" : {\n"
+                    + "            \"value\" : \"value@!1\",\n"
+                    + "            \"case_insensitive\" : true,\n"
+                    + "            \"boost\" : 1.0\n"
+                    + "          }\n"
+                    + "        }\n"
+                    + "      }\n"
+                    + "    ],\n"
+                    + "    \"adjust_pure_negative\" : true,\n"
+                    + "    \"boost\" : 1.0,\n"
+                    + "    \"_name\" : \"myTestField\"\n"
+                    + "  }\n"
+                    + "}";
+
+    final Criterion multiValueCriterion =
+            new Criterion()
+                    .setField("myTestField")
+                    .setCondition(Condition.IEQUAL)
+                    .setValues(new StringArray(ImmutableList.of("value@!1", "value@!2")));
+
+    result =
+            ESUtils.getQueryBuilderFromCriterion(
+                    multiValueCriterion,
+                    false,
+                    new HashMap<>(),
+                    mock(OperationContext.class),
+                    QueryFilterRewriteChain.EMPTY);
+
+    expected =
+            "{\n"
+                    + "  \"bool\" : {\n"
+                    + "    \"should\" : [\n"
+                    + "      {\n"
+                    + "        \"term\" : {\n"
+                    + "          \"myTestField.keyword\" : {\n"
+                    + "            \"value\" : \"value@!1\",\n"
+                    + "            \"case_insensitive\" : true,\n"
+                    + "            \"boost\" : 1.0\n"
+                    + "          }\n"
+                    + "        }\n"
+                    + "      },\n"
+                    + "      {\n"
+                    + "        \"term\" : {\n"
+                    + "          \"myTestField.keyword\" : {\n"
+                    + "            \"value\" : \"value@!2\",\n"
+                    + "            \"case_insensitive\" : true,\n"
+                    + "            \"boost\" : 1.0\n"
+                    + "          }\n"
+                    + "        }\n"
+                    + "      }\n"
+                    + "    ],\n"
+                    + "    \"adjust_pure_negative\" : true,\n"
+                    + "    \"boost\" : 1.0,\n"
+                    + "    \"_name\" : \"myTestField\"\n"
+                    + "  }\n"
+                    + "}";
+
+    Assert.assertEquals(result.toString(), expected);
+
+
+  }
+
+  @Test
   public void testGetQueryBuilderFromCriterionContain() {
     final Criterion singleValueCriterion =
         buildCriterion("myTestField", Condition.CONTAIN, "value1");
