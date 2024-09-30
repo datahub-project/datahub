@@ -511,7 +511,7 @@ class TableauConfig(
 
     access_role_ingestion: Optional[AccessRolesIngestionConfig] = Field(
         default=None,
-        description="Settings for configuration of access roles ingestion.",
+        description="Configuration settings for ingesting access roles. This allows Tableau groups to be imported as DataHub Roles.",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -3297,7 +3297,7 @@ class TableauSiteSource:
                     description=self.config.access_role_ingestion.role_description,
                 )
 
-                logger.info(f"Upsert role '{role_urn}'.")
+                logger.debug(f"Upsert role '{role_urn}'.")
                 yield MetadataChangeProposalWrapper(
                     aspect=role_properties,
                     entityUrn=role_urn,
