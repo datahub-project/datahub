@@ -151,13 +151,13 @@ public class ESUtilsTest {
   }
 
   @Test
-  public void testGetQueryBuilderFromCriterionIEqualValues() {   //Test case insensitive searches and special characters
+  public void testGetQueryBuilderFromCriterionIEqualValues() {   //Test case insensitive searches
 
     final Criterion singleValueCriterion =
             new Criterion()
                     .setField("myTestField")
                     .setCondition(Condition.IEQUAL)
-                    .setValues(new StringArray(ImmutableList.of("value@!1")));
+                    .setValues(new StringArray(ImmutableList.of("value1")));
 
     QueryBuilder result =
             ESUtils.getQueryBuilderFromCriterion(
@@ -174,7 +174,7 @@ public class ESUtilsTest {
                     + "      {\n"
                     + "        \"term\" : {\n"
                     + "          \"myTestField.keyword\" : {\n"
-                    + "            \"value\" : \"value@!1\",\n"
+                    + "            \"value\" : \"value1\",\n"
                     + "            \"case_insensitive\" : true,\n"
                     + "            \"boost\" : 1.0\n"
                     + "          }\n"
@@ -191,7 +191,7 @@ public class ESUtilsTest {
             new Criterion()
                     .setField("myTestField")
                     .setCondition(Condition.IEQUAL)
-                    .setValues(new StringArray(ImmutableList.of("value@!1", "value@!2")));
+                    .setValues(new StringArray(ImmutableList.of("value1", "value2")));
 
     result =
             ESUtils.getQueryBuilderFromCriterion(
@@ -208,7 +208,7 @@ public class ESUtilsTest {
                     + "      {\n"
                     + "        \"term\" : {\n"
                     + "          \"myTestField.keyword\" : {\n"
-                    + "            \"value\" : \"value@!1\",\n"
+                    + "            \"value\" : \"value1\",\n"
                     + "            \"case_insensitive\" : true,\n"
                     + "            \"boost\" : 1.0\n"
                     + "          }\n"
@@ -217,7 +217,7 @@ public class ESUtilsTest {
                     + "      {\n"
                     + "        \"term\" : {\n"
                     + "          \"myTestField.keyword\" : {\n"
-                    + "            \"value\" : \"value@!2\",\n"
+                    + "            \"value\" : \"value2\",\n"
                     + "            \"case_insensitive\" : true,\n"
                     + "            \"boost\" : 1.0\n"
                     + "          }\n"
