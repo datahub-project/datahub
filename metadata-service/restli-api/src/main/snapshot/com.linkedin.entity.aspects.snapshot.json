@@ -1486,7 +1486,13 @@
     }, {
       "name" : "lastModified",
       "type" : "com.linkedin.common.ChangeAuditStamps",
-      "doc" : "Captures information about who created/last modified/deleted this dashboard and when"
+      "doc" : "Captures information about who created/last modified/deleted this dashboard and when",
+      "Searchable" : {
+        "/lastModified/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME"
+        }
+      }
     }, {
       "name" : "dashboardUrl",
       "type" : "com.linkedin.common.Url",

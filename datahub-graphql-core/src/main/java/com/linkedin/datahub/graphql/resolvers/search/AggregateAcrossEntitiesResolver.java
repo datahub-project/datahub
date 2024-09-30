@@ -71,10 +71,15 @@ public class AggregateAcrossEntitiesResolver
                   ? SearchUtils.combineFilters(inputFilter, formFilter)
                   : inputFilter;
 
-          final SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
+          final SearchFlags searchFlags =
+              input.getSearchFlags() != null
+                  ? mapInputFlags(context, input.getSearchFlags())
+                  : new SearchFlags();
 
           final List<String> facets =
               input.getFacets() != null && input.getFacets().size() > 0 ? input.getFacets() : null;
+          // do not include default facets if we're requesting any facets specifically
+          searchFlags.setIncludeDefaultFacets(facets == null || facets.size() <= 0);
 
           List<String> finalEntities =
               maybeResolvedView != null

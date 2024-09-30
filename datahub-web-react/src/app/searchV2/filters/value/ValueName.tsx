@@ -6,13 +6,14 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getEntityTypeFilterValueDisplayName } from './utils';
 import { UNIT_SEPARATOR } from '../../utils/constants';
 import { getV1FieldPathFromSchemaFieldUrn } from '../../../lineageV2/lineageUtils';
+import { getStructuredPropFilterDisplayName } from '../utils';
 
-function getTextFieldName(value: FilterValue) {
+function getTextFieldName(field: FilterField, value: FilterValue) {
     let textFieldName = value.displayName || value.value;
     if (textFieldName.startsWith('urn:li:schemaField:')) {
         textFieldName = getV1FieldPathFromSchemaFieldUrn(textFieldName);
     }
-    return textFieldName;
+    return getStructuredPropFilterDisplayName(field.field, value.value, field.entity) || textFieldName;
 }
 
 interface Props {
@@ -27,7 +28,7 @@ export default function ValueName({ field, value }: Props) {
         case FieldType.TEXT:
         case FieldType.BOOLEAN:
         case FieldType.ENUM:
-            return <>{getTextFieldName(value)}</>;
+            return <>{getTextFieldName(field, value)}</>;
         case FieldType.ENTITY:
             return (
                 <>{(value.entity && entityRegistry.getDisplayName(value.entity?.type, value.entity)) || undefined}</>

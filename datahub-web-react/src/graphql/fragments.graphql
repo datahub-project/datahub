@@ -1616,6 +1616,12 @@ fragment entityDisplayNameFields on Entity {
     ... on DataPlatformInstance {
         instanceId
     }
+    ... on StructuredPropertyEntity {
+        definition {
+            displayName
+            qualifiedName
+        }
+    }
 }
 
 fragment entityPlatformFields on Entity {

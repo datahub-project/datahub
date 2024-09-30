@@ -10,6 +10,7 @@ import { operatorRequiresValues } from './operator/operator';
 import { FilterOperatorType, FilterPredicate, FilterValue } from './types';
 import ValueSelector from './value/ValueSelector';
 import ValueName from './value/ValueName';
+import { useFilterDisplayName } from './utils';
 
 const Values = styled.div`
     border: 1.5px solid transparent;
@@ -82,6 +83,7 @@ export default function SelectedFilter({
 }: SelectedFilterProps) {
     const { field, operator, values, defaultValueOptions } = predicate;
     const showValueSelector = operatorRequiresValues(predicate.operator) || false;
+    const displayName = useFilterDisplayName(predicate.field);
 
     return (
         <Container
@@ -91,7 +93,7 @@ export default function SelectedFilter({
         >
             <FilterName>
                 {(field.icon && <Icon>{field.icon}</Icon>) || null}
-                {field.displayName || field.field}
+                {displayName || field.field}
             </FilterName>
             <OperatorSelector predicate={predicate} onChangeOperator={onChangeOperator} />
             {showValueSelector && field.useDatePicker && (

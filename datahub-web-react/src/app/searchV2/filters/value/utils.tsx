@@ -1,3 +1,6 @@
+import { useMemo } from 'react';
+import { ENTITY_FILTER_NAME } from '@src/app/search/utils/constants';
+import useGetSearchQueryInputs from '@src/app/search/useGetSearchQueryInputs';
 import { EntityRegistry } from '../../../../entityRegistryContext';
 import {
     useAggregateAcrossEntitiesQuery,
@@ -8,7 +11,7 @@ import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { FILTER_DELIMITER } from '../../utils/constants';
 import { EntityFilterField, FieldType, FilterField, FilterOperatorType, FilterValueOption } from '../types';
-import { filterOptionsWithSearch } from '../utils';
+import { filterOptionsWithSearch, getStructuredPropFilterDisplayName } from '../utils';
 
 const MAX_AGGREGATION_COUNT = 40;
 
@@ -37,15 +40,21 @@ export const mapFilterCountsToZero = (options: FilterValueOption[]) => {
  * TODO: Determine if we need to provide an option context that would help with filtering.
  */
 export const useLoadAggregationOptions = (field: FilterField, visible: boolean, includeCounts: boolean) => {
+    const { entityFilters, query, orFilters, viewUrn } = useGetSearchQueryInputs(
+        useMemo(() => [field.field], [field.field]),
+    );
     const { data, loading } = useAggregateAcrossEntitiesQuery({
         skip: !visible,
         variables: {
             input: {
-                query: '*',
+                query,
                 facets: [field.field],
                 searchFlags: {
                     maxAggValues: MAX_AGGREGATION_COUNT,
                 },
+                types: field.field === ENTITY_FILTER_NAME ? null : entityFilters,
+                orFilters,
+                viewUrn,
             },
         },
         fetchPolicy: 'cache-first',
@@ -62,6 +71,7 @@ export const useLoadAggregationOptions = (field: FilterField, visible: boolean, 
             entity: aggregation.entity,
             icon: field.icon,
             count: includeCounts ? aggregation.count : undefined,
+            displayName: getStructuredPropFilterDisplayName(field.field, aggregation.value, field.entity),
         };
     });
     return { options: options || [], loading };

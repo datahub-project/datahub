@@ -1,4 +1,8 @@
+import moment from 'moment-timezone';
+import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { FolderFilled } from '@ant-design/icons';
+import { DATE_TYPE_URN } from '@src/app/shared/constants';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 import {
@@ -12,6 +16,7 @@ import {
     FacetMetadata,
     FilterOperator,
     GlossaryTerm,
+    StructuredPropertyEntity,
     Tag,
 } from '../../../types.generated';
 import { IconStyleType } from '../../entity/Entity';
@@ -41,6 +46,7 @@ import {
     PROPOSED_GLOSSARY_TERMS_FILTER_NAME,
     PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME,
     LAST_MODIFIED_FILTER_NAME,
+    STRUCTURED_PROPERTIES_FILTER_NAME,
 } from '../utils/constants';
 import { EntityRegistry } from '../../../entityRegistryContext';
 import { ANTD_GRAY } from '../../entity/shared/constants';
@@ -49,7 +55,7 @@ import { FACETS_TO_ENTITY_TYPES } from './constants';
 import { FieldType, FilterField, FilterOperatorType, FilterOptionType, FilterPredicate } from './types';
 import { capitalizeFirstLetterOnly, forcePluralize, pluralizeIfIrregular } from '../../shared/textUtil';
 import { convertBackendToFrontendOperatorType } from './operator/operator';
-import { ALL_FILTER_FIELDS } from './field/fields';
+import { ALL_FILTER_FIELDS, STRUCTURED_PROPERTY_FILTER } from './field/fields';
 import { getSubTypeIcon } from '../../entityV2/shared/components/subtypes';
 import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
 import { DomainColoredIcon } from '../../entityV2/shared/links/DomainColoredIcon';
@@ -285,6 +291,9 @@ export function sortFacets(facetA: FacetMetadata, facetB: FacetMetadata, sortedF
 }
 
 export function getFilterDropdownIcon(field: string) {
+    if (field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)) {
+        return STRUCTURED_PROPERTY_FILTER.icon;
+    }
     return ALL_FILTER_FIELDS.find((filterField) => filterField.field === field)?.icon;
 }
 
@@ -442,7 +451,8 @@ function getKnownFilterField(field: string): FilterField | undefined {
 }
 
 function getDynamicFilterField(field: string, availableFilters: FacetMetadata[]): FilterField {
-    const filterDisplayName = availableFilters?.find((availableFilter) => availableFilter.field === field)?.displayName;
+    const associatedAvailableFilter = availableFilters?.find((availableFilter) => availableFilter.field === field);
+    const filterDisplayName = associatedAvailableFilter?.displayName;
     const filterAggregations = availableFilters?.find(
         (availableFilter) => availableFilter.field === field,
     )?.aggregations;
@@ -452,6 +462,7 @@ function getDynamicFilterField(field: string, availableFilters: FacetMetadata[])
         type: getFilterFieldType(field, filterAggregations || []),
         entityTypes: getFilterEntityTypes(field, filterAggregations),
         icon: getFilterDropdownIcon(field),
+        entity: associatedAvailableFilter?.entity || undefined,
     };
 }
 
@@ -474,19 +485,43 @@ function getFilterValues(filter: FacetFilterInput, availableFilters: FacetMetada
 }
 
 function getDefaultFilterOptions(filter: FacetFilterInput, availableFilters: FacetMetadata[]) {
-    const filterAggregations = availableFilters?.find((availableFilter) =>
-        availableFilter.field.includes(filter?.field),
-    )?.aggregations;
+    const currentFilter = availableFilters?.find((availableFilter) => availableFilter.field.includes(filter?.field));
+    const filterAggregations = currentFilter?.aggregations;
     return (
         filterAggregations?.map((agg) => {
             return {
                 value: agg.value,
                 entity: agg.entity || null,
                 count: agg.count,
-                displayName: agg.displayName || undefined,
+                displayName:
+                    agg.displayName ||
+                    getStructuredPropFilterDisplayName(filter.field, agg.value, currentFilter?.entity),
             };
         }) || []
     );
+}
+
+export function getStructuredPropFilterDisplayName(field: string, value: string, entity?: Entity | null) {
+    const isStructuredPropertyValue = field.startsWith('structuredProperties.');
+    if (!isStructuredPropertyValue) return undefined;
+
+    // check for structured prop entity values
+    if (value.startsWith('urn:li:')) {
+        // this value is an urn, handle entity display names elsewhere
+        return undefined;
+    }
+
+    // check for structured prop date values
+    if (entity && (entity as StructuredPropertyEntity).definition?.valueType?.urn === DATE_TYPE_URN) {
+        return moment(parseInt(value, 10)).tz('GMT').format('MM/DD/YYYY').toString();
+    }
+
+    // check for structured prop number values
+    if (!Number.isNaN(parseFloat(value))) {
+        return parseFloat(value).toString();
+    }
+
+    return removeMarkdown(value);
 }
 
 /**
@@ -619,4 +654,12 @@ export function useElementDimensions(ref) {
     }, [ref]);
 
     return dimensions;
+}
+
+export function useFilterDisplayName(filter: FacetMetadata | FilterField) {
+    const entityRegistry = useEntityRegistryV2();
+
+    return filter.entity
+        ? entityRegistry.getDisplayName(filter.entity.type, filter.entity)
+        : capitalizeFirstLetterOnly(filter.displayName);
 }

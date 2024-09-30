@@ -96,7 +96,7 @@ const StructuredPropsTable = ({
                 return (
                     <NameColumn>
                         <IconContainer>
-                            <TableIcon />
+                            <TableIcon color="#705EE4" />
                         </IconContainer>
                         <DataContainer>
                             <div>

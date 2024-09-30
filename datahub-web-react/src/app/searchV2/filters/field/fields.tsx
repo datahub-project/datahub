@@ -1,5 +1,6 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
 import { TimerOutlined } from '@mui/icons-material';
+import TableIcon from '@src/images/table-icon.svg?react';
 import React from 'react';
 import {
     BookOutlined,
@@ -38,6 +39,7 @@ import {
     OWNERS_FILTER_NAME,
     PLATFORM_FILTER_NAME,
     REMOVED_FILTER_NAME,
+    STRUCTURED_PROPERTIES_FILTER_NAME,
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
 } from '../../utils/constants';
@@ -188,6 +190,13 @@ export const DATA_PRODUCT_FILTER: FilterField = {
     displayName: FIELD_TO_LABEL[DATA_PRODUCT_FILTER_NAME],
     type: FieldType.ENTITY,
     entityTypes: [EntityType.DataProduct],
+};
+
+export const STRUCTURED_PROPERTY_FILTER: FilterField = {
+    field: STRUCTURED_PROPERTIES_FILTER_NAME,
+    displayName: FIELD_TO_LABEL[STRUCTURED_PROPERTIES_FILTER_NAME],
+    type: FieldType.TEXT,
+    icon: <Icon component={TableIcon} />,
 };
 
 const DAY_IN_MILLIS = 24 * 60 * 60 * 1000;

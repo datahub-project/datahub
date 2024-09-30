@@ -5,6 +5,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import OptionsDropdownMenu from '../OptionsDropdownMenu';
 import { deduplicateOptions, useFilterOptionsBySearchQuery, useLoadAggregationOptions } from './utils';
 import { OptionMenu } from './styledComponents';
+import { useFilterDisplayName } from '../utils';
 
 interface Props {
     field: FilterField;
@@ -28,7 +29,7 @@ export default function EnumValueMenu({
     className,
 }: Props) {
     const entityRegistry = useEntityRegistry();
-    const { displayName } = field;
+    const displayName = useFilterDisplayName(field);
 
     // Ideally we would not have staged values, and filters would update automatically.
     const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);

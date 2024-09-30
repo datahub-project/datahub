@@ -39,6 +39,7 @@ public class AggregationQueryBuilderTest {
 
   private static AspectRetriever aspectRetriever;
   private static AspectRetriever aspectRetrieverV1;
+  private static String DEFAULT_FILTER = "_index";
 
   @BeforeClass
   public static void setup() throws RemoteInvocationException, URISyntaxException {
@@ -221,16 +222,19 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(),
             ImmutableList.of("test1", "test2", "hasTest1"));
-    Assert.assertEquals(aggs.size(), 3);
+    Assert.assertEquals(aggs.size(), 5);
     Set<String> facets = aggs.stream().map(AggregationBuilder::getName).collect(Collectors.toSet());
-    Assert.assertEquals(ImmutableSet.of("test1", "test2", "hasTest1"), facets);
+    Assert.assertEquals(
+        ImmutableSet.of("test1", "test2", "hasTest1", "_entityType", "_entityType␞typeNames"),
+        facets);
 
     // Case 2: Ask for fields that should NOT exist.
     aggs =
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(),
             ImmutableList.of("hasTest2"));
-    Assert.assertEquals(aggs.size(), 0);
+    Assert.assertEquals(
+        aggs.size(), 2); // default has two fields already, hasTest2 will not be in there
   }
 
   @Test
@@ -246,7 +250,7 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
             List.of("structuredProperties.ab.fgh.ten"));
-    Assert.assertEquals(aggs.size(), 1);
+    Assert.assertEquals(aggs.size(), 3);
     AggregationBuilder aggBuilder = aggs.get(0);
     Assert.assertTrue(aggBuilder instanceof TermsAggregationBuilder);
     TermsAggregationBuilder agg = (TermsAggregationBuilder) aggBuilder;
@@ -261,12 +265,18 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
             List.of("structuredProperties.ab.fgh.ten", "structuredProperties.hello"));
-    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(
+        aggs.size(),
+        4); // has two default filters (_entityType, _entityType␞typeNames) both get mapped to
+    // _index
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
             .collect(Collectors.toSet()),
-        Set.of("structuredProperties.ab_fgh_ten.keyword", "structuredProperties.hello.keyword"));
+        Set.of(
+            "structuredProperties.ab_fgh_ten.keyword",
+            "structuredProperties.hello.keyword",
+            DEFAULT_FILTER));
   }
 
   @Test
@@ -282,7 +292,7 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetrieverV1),
             List.of("structuredProperties.ab.fgh.ten"));
-    Assert.assertEquals(aggs.size(), 1);
+    Assert.assertEquals(aggs.size(), 3);
     AggregationBuilder aggBuilder = aggs.get(0);
     Assert.assertTrue(aggBuilder instanceof TermsAggregationBuilder);
     TermsAggregationBuilder agg = (TermsAggregationBuilder) aggBuilder;
@@ -299,14 +309,18 @@ public class AggregationQueryBuilderTest {
             List.of(
                 "structuredProperties.ab.fgh.ten",
                 "structuredProperties._versioned.hello.00000000000001.string"));
-    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(
+        aggs.size(),
+        4); // has two default filters (_entityType, _entityType␞typeNames) both get mapped to
+    // _index
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
             .collect(Collectors.toSet()),
         Set.of(
             "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword",
-            "structuredProperties._versioned.hello.00000000000001.string.keyword"));
+            "structuredProperties._versioned.hello.00000000000001.string.keyword",
+            DEFAULT_FILTER));
   }
 
   @Test
@@ -363,7 +377,7 @@ public class AggregationQueryBuilderTest {
                 "hasTest1",
                 "structuredProperties.ab.fgh.ten",
                 "structuredProperties.hello"));
-    Assert.assertEquals(aggs.size(), 5);
+    Assert.assertEquals(aggs.size(), 7);
     Set<String> facets =
         aggs.stream()
             .map(aggB -> ((TermsAggregationBuilder) aggB).field())
@@ -375,7 +389,8 @@ public class AggregationQueryBuilderTest {
             "test2.keyword",
             "hasTest1",
             "structuredProperties.ab_fgh_ten.keyword",
-            "structuredProperties.hello.keyword"));
+            "structuredProperties.hello.keyword",
+            DEFAULT_FILTER));
   }
 
   @Test
@@ -432,7 +447,10 @@ public class AggregationQueryBuilderTest {
                 "hasTest1",
                 "structuredProperties.ab.fgh.ten",
                 "structuredProperties.hello"));
-    Assert.assertEquals(aggs.size(), 5);
+    Assert.assertEquals(
+        aggs.size(),
+        7); // has two default filters (_entityType, _entityType␞typeNames) both get mapped to
+    // _index
     Set<String> facets =
         aggs.stream()
             .map(aggB -> ((TermsAggregationBuilder) aggB).field())
@@ -444,7 +462,8 @@ public class AggregationQueryBuilderTest {
             "test2.keyword",
             "hasTest1",
             "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword",
-            "structuredProperties._versioned.hello.00000000000001.string.keyword"));
+            "structuredProperties._versioned.hello.00000000000001.string.keyword",
+            DEFAULT_FILTER));
   }
 
   @Test

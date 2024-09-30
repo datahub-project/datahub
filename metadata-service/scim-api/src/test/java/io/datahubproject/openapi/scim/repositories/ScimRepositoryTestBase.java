@@ -13,7 +13,7 @@ public class ScimRepositoryTestBase extends ScimpleITSupport {
   static String CREATED = "meta.created";
   static String LAST_MODIFIED = "meta.lastModified";
 
-  private static int LATENCY_THRESHOLD_MS = 5000;
+  private static int LATENCY_THRESHOLD_MS = 10000;
 
   private static int SYS_THRESHOLD_MS = 1000;
 

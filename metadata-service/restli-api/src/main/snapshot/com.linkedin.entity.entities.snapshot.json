@@ -1889,7 +1889,13 @@
     }, {
       "name" : "lastModified",
       "type" : "com.linkedin.common.ChangeAuditStamps",
-      "doc" : "Captures information about who created/last modified/deleted this dashboard and when"
+      "doc" : "Captures information about who created/last modified/deleted this dashboard and when",
+      "Searchable" : {
+        "/lastModified/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME"
+        }
+      }
     }, {
       "name" : "dashboardUrl",
       "type" : "com.linkedin.common.Url",
@@ -6511,6 +6517,12 @@
       "doc" : "Extra fields to fetch from the search documents\nNote: This will be added on top of the default fields that is controlled\n      by the server",
       "default" : [ ],
       "optional" : true
+    }, {
+      "name" : "includeDefaultFacets",
+      "type" : "boolean",
+      "doc" : "Include default facets when getting facets to aggregate on in search requests.\nBy default we include these, but custom aggregation requests don't need them.",
+      "default" : true,
+      "optional" : true
     } ]
   }, {
     "type" : "enum",
@@ -6755,6 +6767,11 @@
       "name" : "displayName",
       "type" : "string",
       "doc" : "Name of the filter to be displayed in the UI",
+      "optional" : true
+    }, {
+      "name" : "entity",
+      "type" : "com.linkedin.common.Urn",
+      "doc" : "Entity associated with this facet",
       "optional" : true
     }, {
       "name" : "aggregations",

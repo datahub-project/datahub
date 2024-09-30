@@ -2,10 +2,13 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntityNames;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -14,6 +17,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
@@ -122,6 +126,14 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             }
             /* END SAAS ONLY */
 
+            boolean shouldIncludeStructuredPropertyFacets =
+                input.getSearchFlags() != null
+                        && input.getSearchFlags().getIncludeStructuredPropertyFacets() != null
+                    ? input.getSearchFlags().getIncludeStructuredPropertyFacets()
+                    : false;
+            List<String> structuredPropertyFacets =
+                shouldIncludeStructuredPropertyFacets ? getStructuredPropertyFacets(context) : null;
+
             return UrnSearchResultsMapper.map(
                 context,
                 _entityClient.searchAcrossEntities(
@@ -132,6 +144,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                     start,
                     count,
                     sortCriteria,
+                    structuredPropertyFacets,
                     predicateJson));
           } catch (Exception e) {
             log.error(
@@ -151,5 +164,28 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private List<String> getStructuredPropertyFacets(final QueryContext context) {
+    try {
+
+      SearchResult result =
+          _entityClient.searchAcrossEntities(
+              context.getOperationContext(),
+              getEntityNames(ImmutableList.of(EntityType.STRUCTURED_PROPERTY)),
+              "*",
+              null, // TODO: add filter for structured props selected to be filtered on once
+              // implemented
+              0,
+              100,
+              Collections.emptyList(),
+              null);
+      return result.getEntities().stream()
+          .map(entity -> String.format("structuredProperties.%s", entity.getEntity().getId()))
+          .collect(Collectors.toList());
+    } catch (Exception e) {
+      log.error("Failed to get structured property facets to filter on", e);
+      return Collections.emptyList();
+    }
   }
 }

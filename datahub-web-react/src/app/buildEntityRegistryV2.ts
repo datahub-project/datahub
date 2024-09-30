@@ -22,6 +22,7 @@ import { DataPlatformInstanceEntity } from './entityV2/dataPlatformInstance/Data
 import { RoleEntity } from './entityV2/Access/RoleEntity';
 import { QueryEntity } from './entityV2/query/QueryEntity';
 import { SchemaFieldEntity } from './entityV2/schemaField/SchemaFieldEntity';
+import { StructuredPropertyEntity } from './entityV2/structuredProperty/StructuredPropertyEntity';
 
 export default function buildEntityRegistryV2() {
     const registry = new EntityRegistry();
@@ -48,5 +49,6 @@ export default function buildEntityRegistryV2() {
     registry.register(new DataPlatformInstanceEntity());
     registry.register(new QueryEntity());
     registry.register(new SchemaFieldEntity());
+    registry.register(new StructuredPropertyEntity());
     return registry;
 }
