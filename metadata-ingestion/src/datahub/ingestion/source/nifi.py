@@ -201,6 +201,7 @@ class BidirectionalComponentGraph:
     def __init__(self):
         self.outgoing: Dict[str, Set[str]] = defaultdict(set)
         self.incoming: Dict[str, Set[str]] = defaultdict(set)
+        # this will not count duplicates/removal of non-existing connections correctly - it is only for quick check
         self.connections_cnt = 0
 
     def add_connection(self, from_component: str, to_component: str) -> None:
@@ -782,7 +783,7 @@ class NifiSource(Source):
             provenance = provenance_response.json().get("provenance", {})
             total = provenance.get("results", {}).get("total")
             totalCount = provenance.get("results", {}).get("totalCount")
-            logger.debug(f"Retrieved {total} of {totalCount}")
+            logger.debug(f"Retrieved {totalCount} of {total}")
             provenance_uri = provenance.get("uri")
             logger.debug(f"Retrieving provenance uri: {provenance_uri}")
             provenance_response = self.session.get(provenance_uri)
