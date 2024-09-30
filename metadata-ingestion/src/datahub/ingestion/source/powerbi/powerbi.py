@@ -1337,12 +1337,13 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         if self.source_config.extract_independent_datasets is False:
             if workspace.independent_datasets:
                 self.reporter.info(
-                    title="Skip Independent Dataset",
+                    title="Skipped Independent Dataset",
                     message="Some datasets are not used in any visualizations. To ingest them, enable the `extract_independent_datasets` flag",
                     context=",".join(
                         [
-                            dataset.description
+                            dataset.name
                             for dataset in workspace.independent_datasets
+                            if dataset.name
                         ]
                     ),
                 )
