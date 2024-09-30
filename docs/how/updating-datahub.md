@@ -60,6 +60,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- Downgrade to previous version is not automatically supported.
+
 ## 0.14.0.2
 
 ### Breaking Changes
