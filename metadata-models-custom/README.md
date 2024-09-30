@@ -53,7 +53,7 @@ This will create a zip file in the build/dist folder. Then change your directory
 
 This will install the zip file as a datahub plugin. It is installed at `~/.datahub/plugins/models/` and if you list the directory you should see the following path if you are following the customDataQualityRules implementation example: `~/.datahub/plugins/models/mycompany-dq-model/0.0.0-dev/`
 
-### Build a versioned artifact
+### Build a versioned artifact 
 ```
 ../gradlew -PprojVersion=0.0.1 build
 ```
