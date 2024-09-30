@@ -21,7 +21,7 @@ enum Condition {
   EQUAL
 
   /**
-   * Represent the relation: field = value (case insensitive), e.g. platform = hdfs
+   * Represent the relation: field = value and support case insensitive values, e.g. platform = hdfs
    */
   IEQUAL
 
