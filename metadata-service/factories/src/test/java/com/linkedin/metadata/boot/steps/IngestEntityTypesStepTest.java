@@ -17,9 +17,17 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.jetbrains.annotations.NotNull;
 import org.mockito.Mockito;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class IngestEntityTypesStepTest {
+
+  @BeforeTest
+  public static void beforeTest() {
+    PathSpecBasedSchemaAnnotationVisitor.class
+        .getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+  }
 
   @Test
   public void testExecuteTestEntityRegistry() throws Exception {
