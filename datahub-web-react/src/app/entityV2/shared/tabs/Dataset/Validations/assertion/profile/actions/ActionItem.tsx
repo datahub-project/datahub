@@ -49,6 +49,7 @@ export const ActionItem = ({
                     key={key}
                     disabled={disabled}
                     title={!isExpandedView ? tip : undefined}
+                    isExpandedView={isExpandedView}
                 >
                     {icon}
                 </ActionItemButton>

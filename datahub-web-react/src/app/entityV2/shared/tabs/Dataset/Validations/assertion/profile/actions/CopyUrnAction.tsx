@@ -29,7 +29,6 @@ export const CopyUrnAction = ({ assertion, isExpandedView = false }: Props) => {
     const [isUrnCopied, setIsUrnCopied] = useState(false);
     return (
         <ActionItem
-            placement="left"
             key="copy-urn"
             tip="Copy urn for this assertion"
             onClick={() => {

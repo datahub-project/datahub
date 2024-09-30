@@ -87,7 +87,6 @@ export const DeleteAction = ({ assertion, monitor, canEdit, refetch, isExpandedV
     return (
         <ActionItem
             key="delete"
-            placement="left"
             tip={canEdit ? authorizedTip : unauthorizedTip}
             disabled={!canEdit}
             onClick={onDeleteAssertion}

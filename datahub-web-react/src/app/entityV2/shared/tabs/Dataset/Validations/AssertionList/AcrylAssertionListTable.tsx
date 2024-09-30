@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Table, Empty } from 'antd';
 import { AssertionType, DataContract, Entity } from '@src/types.generated';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { RightOutlined } from '@ant-design/icons';
+import { DownOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
 import { AssertionProfileDrawer } from '../assertion/profile/AssertionProfileDrawer';
@@ -22,9 +22,9 @@ type Props = {
     canEditSqlAssertions: boolean;
 };
 
-const ExpandIcon = styled(RightOutlined)<{ expanded: boolean }>`
+const ExpandIcon = styled(DownOutlined)<{ expanded: boolean }>`
     transition: transform 0.3s ease-in-out;
-    transform: rotate(${(props) => (props.expanded ? 90 : 0)}deg);
+    transform: rotate(${(props) => (props.expanded ? 180 : 0)}deg);
 `;
 
 export const AcrylAssertionListTable = ({

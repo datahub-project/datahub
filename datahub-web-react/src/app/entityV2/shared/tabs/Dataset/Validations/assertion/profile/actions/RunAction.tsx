@@ -60,7 +60,6 @@ export const RunAction = ({ assertion, monitor, canEdit, refetch, isExpandedView
     return (
         <>
             <ActionItem
-                placement="left"
                 key="run-action"
                 tip={!isActive ? isActiveTip : unauthorizedTip}
                 disabled={runDisabled}
