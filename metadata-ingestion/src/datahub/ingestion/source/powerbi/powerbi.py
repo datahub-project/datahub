@@ -447,12 +447,11 @@ class Mapper:
                 aspect_name=Constant.SUBTYPES,
                 aspect=SubTypesClass(
                     typeNames=[
-                        DatasetSubTypes.POWERBI_DATASET_TABLE,
-                        DatasetSubTypes.VIEW,
+                        BIContainerSubTypes.POWERBI_DATASET_TABLE,
                     ]
                 ),
             )
-            # normally the person who configure the dataset will be the most accurate person for ownership
+            # normally, the person who configures the dataset will be the most accurate person for ownership
             if (
                 self.__config.extract_ownership
                 and self.__config.ownership.dataset_configured_by_as_owner
@@ -827,7 +826,7 @@ class Mapper:
         container_work_units = gen_containers(
             container_key=self.workspace_key,
             name=workspace.name,
-            sub_types=[BIContainerSubTypes.POWERBI_WORKSPACE],
+            sub_types=[workspace.type],
         )
         return container_work_units
 
@@ -1165,7 +1164,7 @@ class Mapper:
             entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
             aspect_name=SubTypesClass.ASPECT_NAME,
-            aspect=SubTypesClass(typeNames=[Constant.REPORT_TYPE_NAME]),
+            aspect=SubTypesClass(typeNames=[report.type]),
         )
 
         list_of_mcps = [

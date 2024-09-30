@@ -293,6 +293,7 @@ class DataResolverBase(ABC):
             Report(
                 id=raw_instance.get(Constant.ID),
                 name=raw_instance.get(Constant.NAME),
+                type=raw_instance.get(Constant.TYPE),
                 webUrl=raw_instance.get(Constant.WEB_URL),
                 embedUrl=raw_instance.get(Constant.EMBED_URL),
                 description=raw_instance.get(Constant.DESCRIPTION, ""),

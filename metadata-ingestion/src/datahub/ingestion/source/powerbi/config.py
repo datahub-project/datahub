@@ -118,6 +118,7 @@ class Constant:
     CHART_COUNT = "chartCount"
     WORKSPACE_NAME = "workspaceName"
     DATASET_WEB_URL = "datasetWebUrl"
+    TYPE = "type"
 
 
 @dataclass

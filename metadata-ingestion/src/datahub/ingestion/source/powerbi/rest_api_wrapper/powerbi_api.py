@@ -201,6 +201,7 @@ class PowerBiAPI:
             Workspace(
                 id=workspace[Constant.ID],
                 name=workspace[Constant.NAME],
+                type=workspace[Constant.TYPE],
                 datasets={},
                 dashboards=[],
                 reports=[],
@@ -226,6 +227,7 @@ class PowerBiAPI:
             workspaces = [
                 Workspace(
                     id=workspace_id,
+                    type="",
                     name="",
                     datasets={},
                     dashboards=[],
@@ -390,8 +392,9 @@ class PowerBiAPI:
         workspaces = []
         for workspace_metadata in scan_result["workspaces"]:
             cur_workspace = Workspace(
-                id=workspace_metadata["id"],
-                name=workspace_metadata["name"],
+                id=workspace_metadata[Constant.ID],
+                name=workspace_metadata[Constant.NAME],
+                type=workspace_metadata[Constant.TYPE],
                 datasets={},
                 dashboards=[],
                 reports=[],
@@ -403,7 +406,7 @@ class PowerBiAPI:
             cur_workspace.scan_result = workspace_metadata
             cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
 
-            # Fetch endorsements tag if it is enabled from configuration
+            # Fetch endorsement tag if it is enabled from configuration
             if self.__config.extract_endorsements_to_tags:
                 cur_workspace.dashboard_endorsements = self._get_dashboard_endorsements(
                     cur_workspace.scan_result

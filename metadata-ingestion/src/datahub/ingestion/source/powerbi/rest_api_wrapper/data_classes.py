@@ -41,6 +41,7 @@ class DatasetKey(ContainerKey):
 class Workspace:
     id: str
     name: str
+    type: str
     dashboards: List["Dashboard"]
     reports: List["Report"]
     datasets: Dict[str, "PowerBIDataset"]
@@ -215,6 +216,7 @@ class User:
 class Report:
     id: str
     name: str
+    type: str
     webUrl: Optional[str]
     embedUrl: str
     description: str
