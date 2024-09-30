@@ -21,6 +21,7 @@ from datahub.emitter.mce_builder import (
     make_domain_urn,
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
 )
 from datahub.emitter.mcp_builder import (
     add_domain_to_entity_wu
@@ -78,6 +79,9 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     UpstreamClass,
     DatasetLineageTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -398,8 +402,14 @@ class SupersetSource(StatefulIngestionSourceBase):
         if platform_name == "awsathena":
             return "athena"
         return platform_name
-
-    # @lru_cache(maxsize=None) -> look into caching
+    
+    @lru_cache(maxsize=None)
+    def get_dataset_info(self, dataset_id):
+        dataset_response = self.session.get(
+            f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}"
+        ).json()
+        return dataset_response
+    
     def get_datasource_urn_from_id(self, dataset_response, platform_instance):
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
@@ -550,9 +560,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         datasource_id = chart_data.get("datasource_id")
 
-        dataset_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/dataset/{datasource_id}"
-        ).json()
+        dataset_response = self.get_dataset_info(datasource_id)
         datasource_urn = self.get_datasource_urn_from_id(dataset_response, 'preset')
 
         params = json.loads(chart_data.get("params"))
@@ -635,7 +643,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     def gen_schema_fields(self, column_data):
         ## TODO: Remove column limit
         schema_fields: List[SchemaField] = []
-        for col in column_data[:3]:
+        for col in column_data:
             data_type = SUPERSET_FIELD_TYPE_MAPPINGS.get(col.get("type"))
             field = SchemaField(
                 fieldPath=col.get("column_name"),
@@ -676,9 +684,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     
 ## Ingestion for Preset Dataset
     def construct_dataset_from_dataset_data(self, dataset_data):
-        dataset_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/dataset/{dataset_data.get('id')}"
-        ).json()
+        dataset_response = self.get_dataset_info(dataset_data.get("id"))
         datasource_urn = self.get_datasource_urn_from_id(dataset_response, 'preset')
         ## Check API format for dataset
         modified_actor = f"urn:li:corpuser:{(dataset_data.get('changed_by') or {}).get('username', 'unknown')}"
@@ -733,15 +739,50 @@ class SupersetSource(StatefulIngestionSourceBase):
                 env=self.config.env,
             )
 
+            cll: List[ColumnLineageInfo] = (
+                parsed_query_object.column_lineage
+                if parsed_query_object.column_lineage is not None
+                else []
+            )
+
+            fine_grained_lineages: List[FineGrainedLineageClass] = []
+
+            table_urn = None
+
+            for cll_info in cll:
+                if table_urn is None:
+                    for column_ref in cll_info.upstreams:
+                        table_urn = column_ref.table
+                        break
+
+                downstream = (
+                    [make_schema_field_urn(datasource_urn, cll_info.downstream.column)]
+                    if cll_info.downstream is not None
+                    and cll_info.downstream.column is not None
+                    else []
+                )
+                upstreams = [
+                    make_schema_field_urn(column_ref.table, column_ref.column)
+                    for column_ref in cll_info.upstreams
+                ]
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=downstream,
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=upstreams,
+                    )
+                )
+
             upstream_lineage = UpstreamLineageClass(
                 upstreams=[
                     UpstreamClass(
                         type=DatasetLineageTypeClass.TRANSFORMED,
                         dataset=input_table_urn,
-                        # query=self.get_query_instance_urn_from_query('query_data'),
                     )
                     for input_table_urn in parsed_query_object.in_tables
-                ]
+                ],
+                fineGrainedLineages=fine_grained_lineages,
             )
         else:
             ## To account for Physical datasets
@@ -751,9 +792,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     UpstreamClass(
                         type=DatasetLineageTypeClass.TRANSFORMED,
                         dataset=upstream_dataset,
-                        # query=self.get_query_instance_urn_from_query('query_data'),
                     )
-                    # for input_table_urn in parsed_query_object.in_tables
                 ]
             )
 
@@ -765,24 +804,23 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
         current_dataset_page = 0
-        # we will set total datasets to the actual number after we get the response
+        # We will set total datasets to the actual number after we get the response
         total_datasets = PAGE_SIZE
 
         while current_dataset_page * PAGE_SIZE <= total_datasets:
-            dataset_response = self.session.get(
+            full_dataset_response = self.session.get(
                 f"{self.config.connect_uri}/api/v1/dataset/",
                 params=f"q=(page:{current_dataset_page},page_size:{PAGE_SIZE})",
             )
-            if dataset_response.status_code != 200:
-                logger.warning(f"Failed to get dataset data: {dataset_response.text}")
-            dataset_response.raise_for_status()
+            if full_dataset_response.status_code != 200:
+                logger.warning(f"Failed to get dataset data: {full_dataset_response.text}")
+            full_dataset_response.raise_for_status()
 
             current_dataset_page += 1
 
-            payload = dataset_response.json()
+            payload = full_dataset_response.json()
             total_datasets = payload["count"]
             for dataset_data in payload["result"]:
-
                 dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
@@ -793,8 +831,8 @@ class SupersetSource(StatefulIngestionSourceBase):
 
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        # yield from self.emit_dashboard_mces()
-        # yield from self.emit_chart_mces()
+        yield from self.emit_dashboard_mces()
+        yield from self.emit_chart_mces()
         yield from self.emit_dataset_mces()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
