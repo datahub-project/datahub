@@ -53,7 +53,6 @@ class Workspace:
     dashboard_endorsements: Dict[str, List[str]]
     scan_result: dict
     independent_datasets: List["PowerBIDataset"]
-    app: Optional["App"]
 
     def get_urn_part(self, workspace_id_as_urn_part: Optional[bool] = False) -> str:
         # shouldn't use workspace name, as they can be the same?
@@ -245,6 +244,7 @@ class Report:
     pages: List["Page"]
     users: List["User"]
     tags: List[str]
+    app: Optional["App"]
 
     def get_urn_part(self):
         return f"reports.{self.id}"
@@ -282,6 +282,7 @@ class Dashboard:
     tiles: List["Tile"]
     users: List["User"]
     tags: List[str]
+    app: Optional["App"]
     webUrl: Optional[str] = None
 
     def get_urn_part(self):

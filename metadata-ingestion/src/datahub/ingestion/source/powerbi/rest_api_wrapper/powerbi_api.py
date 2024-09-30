@@ -183,7 +183,6 @@ class PowerBiAPI:
 
         fill_ownership()
         fill_tags()
-
         return reports
 
     def get_workspaces(self) -> List[Workspace]:
@@ -210,7 +209,6 @@ class PowerBiAPI:
                 dashboard_endorsements={},
                 scan_result={},
                 independent_datasets=[],
-                app=None,
             )
             for workspace in groups
         ]
@@ -238,7 +236,6 @@ class PowerBiAPI:
                     dashboard_endorsements={},
                     scan_result={},
                     independent_datasets=[],
-                    app=None,
                 )
                 for workspace_id in modified_workspace_ids
             ]
@@ -406,9 +403,6 @@ class PowerBiAPI:
                 id=workspace_metadata[Constant.ID],
                 name=workspace_metadata[Constant.NAME],
                 type=workspace_metadata[Constant.TYPE],
-                app=self.get_app(workspace_metadata.get(Constant.APP_ID))
-                if workspace_metadata.get(Constant.APP_ID)
-                else None,
                 datasets={},
                 dashboards=[],
                 reports=[],

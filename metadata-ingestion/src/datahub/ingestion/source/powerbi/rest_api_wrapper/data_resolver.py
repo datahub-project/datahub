@@ -1,6 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
+from functools import lru_cache
 from time import sleep
 from typing import Any, Dict, Iterator, List, Optional, Union
 
@@ -98,6 +99,8 @@ class DataResolverBase(ABC):
             ),
         )
 
+        self.get_app = lru_cache(maxsize=128)(self._get_app)
+
     @abstractmethod
     def get_groups_endpoint(self) -> str:
         pass
@@ -145,7 +148,7 @@ class DataResolverBase(ABC):
         pass
 
     @abstractmethod
-    def _get_app(
+    def __get_app(
         self,
         app_id: str,
     ) -> Optional[Dict]:
@@ -229,6 +232,9 @@ class DataResolverBase(ABC):
                 tiles=[],
                 users=[],
                 tags=[],
+                app=self.get_app(instance.get(Constant.APP_ID))
+                if instance.get(Constant.APP_ID)
+                else None,
             )
             for instance in dashboards_dict
             if instance is not None
@@ -284,18 +290,21 @@ class DataResolverBase(ABC):
                 users=[],  # It will be fetched using Admin Fetcher based on condition
                 tags=[],  # It will be fetched using Admin Fetcher based on condition
                 dataset=workspace.datasets.get(raw_instance.get(Constant.DATASET_ID)),
+                app=self.get_app(raw_instance.get(Constant.APP_ID))
+                if raw_instance.get(Constant.APP_ID)
+                else None,
             )
             for raw_instance in fetch_reports()
         ]
 
         return reports
 
-    def get_app(
+    def _get_app(
         self,
         app_id: str,
     ) -> Optional[App]:
 
-        raw_app: Optional[Dict] = self._get_app(
+        raw_app: Optional[Dict] = self.__get_app(
             app_id=app_id,
         )
 
@@ -707,7 +716,7 @@ class RegularAPIResolver(DataResolverBase):
 
         table.column_count = column_count
 
-    def _get_app(
+    def __get_app(
         self,
         app_id: str,
     ) -> Optional[Dict]:
@@ -1042,7 +1051,7 @@ class AdminAPIResolver(DataResolverBase):
         logger.debug("Profile dataset is unsupported in Admin API")
         return None
 
-    def _get_app(
+    def __get_app(
         self,
         app_id: str,
     ) -> Optional[Dict]:
