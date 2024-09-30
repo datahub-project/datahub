@@ -60,6 +60,38 @@ public class CreateStructuredPropertyResolverTest {
   }
 
   @Test
+  public void testGetMismatchIdAndQualifiedName() throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient(true);
+    CreateStructuredPropertyResolver resolver =
+        new CreateStructuredPropertyResolver(mockEntityClient);
+
+    CreateStructuredPropertyInput testInput =
+        new CreateStructuredPropertyInput(
+            "mismatched",
+            "io.acryl.test",
+            "Display Name",
+            "description",
+            true,
+            null,
+            null,
+            null,
+            null,
+            new ArrayList<>());
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    // Validate ingest is not called
+    Mockito.verify(mockEntityClient, Mockito.times(0))
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
+  }
+
+  @Test
   public void testGetUnauthorized() throws Exception {
     EntityClient mockEntityClient = initMockEntityClient(true);
     CreateStructuredPropertyResolver resolver =

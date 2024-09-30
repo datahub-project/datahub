@@ -335,8 +335,9 @@ input CreateStructuredPropertyInput {
 
     """
     The unique fully qualified name of this structured property, dot delimited.
+    This will be required to match the ID of this structured property.
     """
-    qualifiedName: String!
+    qualifiedName: String
 
     """
     The optional display name for this property

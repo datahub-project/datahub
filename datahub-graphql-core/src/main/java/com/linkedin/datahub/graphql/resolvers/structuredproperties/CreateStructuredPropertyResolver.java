@@ -25,7 +25,6 @@ import com.linkedin.structured.StructuredPropertyKey;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 
@@ -54,14 +53,21 @@ public class CreateStructuredPropertyResolver
                   "Unable to create structured property. Please contact your admin.");
             }
             final StructuredPropertyKey key = new StructuredPropertyKey();
-            final String id = input.getId() != null ? input.getId() : UUID.randomUUID().toString();
+            final String id =
+                StructuredPropertyUtils.getPropertyId(input.getId(), input.getQualifiedName());
             key.setId(id);
             final Urn propertyUrn =
                 EntityKeyUtils.convertEntityKeyToUrn(key, STRUCTURED_PROPERTY_ENTITY_NAME);
+
+            if (_entityClient.exists(context.getOperationContext(), propertyUrn)) {
+              throw new IllegalArgumentException(
+                  "A structured property already exists with this urn");
+            }
+
             StructuredPropertyDefinitionPatchBuilder builder =
                 new StructuredPropertyDefinitionPatchBuilder().urn(propertyUrn);
 
-            builder.setQualifiedName(input.getQualifiedName());
+            builder.setQualifiedName(id);
             builder.setValueType(input.getValueType());
             input.getEntityTypes().forEach(builder::addEntityType);
             if (input.getDisplayName() != null) {

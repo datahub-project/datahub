@@ -75,8 +75,6 @@ const StructuredPropsDrawer = ({
     };
 
     const handleSubmit = () => {
-        const formData = form.getFieldsValue();
-
         if (isEditMode) {
             form.validateFields().then(() => {
                 const updateValues = {
@@ -124,10 +122,6 @@ const StructuredPropsDrawer = ({
                     });
             });
         } else {
-            // Add default qualified name based on the displayName
-            if (!formData.qualifiedName)
-                form.setFieldValue('qualifiedName', formData.displayName?.replace(/\s/g, '').toLowerCase());
-
             form.validateFields().then(() => {
                 const createInput = {
                     ...form.getFieldsValue(),
@@ -176,6 +170,7 @@ const StructuredPropsDrawer = ({
                     </Button>
                 </FooterContainer>
             }
+            destroyOnClose
         >
             <StyledSpin spinning={isLoading} indicator={<LoadingOutlined />}>
                 <StructuredPropsForm
