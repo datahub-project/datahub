@@ -197,11 +197,13 @@ class Forms(ConfigModel):
                         title=prompt.title,
                         description=prompt.description,
                         type=prompt.type,
-                        structuredPropertyParams=StructuredPropertyParamsClass(
-                            urn=prompt.structured_property_urn
-                        )
-                        if prompt.structured_property_urn
-                        else None,
+                        structuredPropertyParams=(
+                            StructuredPropertyParamsClass(
+                                urn=prompt.structured_property_urn
+                            )
+                            if prompt.structured_property_urn
+                            else None
+                        ),
                         required=prompt.required,
                     )
                 )
@@ -339,9 +341,11 @@ class Forms(ConfigModel):
                     title=prompt_raw.title,
                     description=prompt_raw.description,
                     type=prompt_raw.type,
-                    structured_property_urn=prompt_raw.structuredPropertyParams.urn
-                    if prompt_raw.structuredPropertyParams
-                    else None,
+                    structured_property_urn=(
+                        prompt_raw.structuredPropertyParams.urn
+                        if prompt_raw.structuredPropertyParams
+                        else None
+                    ),
                 )
             )
         return Forms(

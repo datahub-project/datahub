@@ -16,7 +16,9 @@ def get_long_description():
 
 _version: str = package_metadata["__version__"]
 _self_pin = (
-    f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
+    f"=={_version}"
+    if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
+    else ""
 )
 
 
@@ -81,7 +83,8 @@ dev_requirements = {
     "pytest-cov>=2.8.1",
     "tox",
     "tox-uv",
-    "deepdiff",
+    # Missing numpy requirement in 8.0.0
+    "deepdiff!=8.0.0",
     "tenacity",
     "build",
     "twine",

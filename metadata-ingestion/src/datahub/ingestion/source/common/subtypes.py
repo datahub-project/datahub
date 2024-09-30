@@ -1,7 +1,7 @@
-from enum import Enum
+from datahub.utilities.str_enum import StrEnum
 
 
-class DatasetSubTypes(str, Enum):
+class DatasetSubTypes(StrEnum):
     # Generic SubTypes
     TABLE = "Table"
     VIEW = "View"
@@ -17,13 +17,18 @@ class DatasetSubTypes(str, Enum):
     POWERBI_DATASET_TABLE = "PowerBI Dataset Table"
     QLIK_DATASET = "Qlik Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
+    SHARDED_TABLE = "Sharded Table"
+    EXTERNAL_TABLE = "External Table"
     SIGMA_DATASET = "Sigma Dataset"
+    SAC_MODEL = "Model"
+    SAC_IMPORT_DATA_MODEL = "Import Data Model"
+    SAC_LIVE_DATA_MODEL = "Live Data Model"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
 
 
-class DatasetContainerSubTypes(str, Enum):
+class DatasetContainerSubTypes(StrEnum):
     # Generic SubTypes
     DATABASE = "Database"
     SCHEMA = "Schema"
@@ -38,7 +43,7 @@ class DatasetContainerSubTypes(str, Enum):
     ABS_CONTAINER = "ABS container"
 
 
-class BIContainerSubTypes(str, Enum):
+class BIContainerSubTypes(StrEnum):
     LOOKER_FOLDER = "Folder"
     LOOKML_PROJECT = "LookML Project"
     LOOKML_MODEL = "LookML Model"
@@ -52,11 +57,11 @@ class BIContainerSubTypes(str, Enum):
     MODE_COLLECTION = "Collection"
 
 
-class JobContainerSubTypes(str, Enum):
+class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
 
 
-class BIAssetSubTypes(str, Enum):
+class BIAssetSubTypes(StrEnum):
     # Generic SubTypes
     REPORT = "Report"
 
@@ -69,5 +74,10 @@ class BIAssetSubTypes(str, Enum):
 
     # Mode
     MODE_REPORT = "Report"
+    MODE_DATASET = "Dataset"
     MODE_QUERY = "Query"
     MODE_CHART = "Chart"
+
+    # SAP Analytics Cloud
+    SAC_STORY = "Story"
+    SAC_APPLICATION = "Application"

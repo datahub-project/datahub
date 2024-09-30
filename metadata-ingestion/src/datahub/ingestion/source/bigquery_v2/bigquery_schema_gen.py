@@ -1,16 +1,12 @@
 import logging
 import re
 from collections import defaultdict
-from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union, cast
+from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 
 from google.cloud.bigquery.table import TableListItem
 
 from datahub.configuration.pattern_utils import is_schema_allowed, is_tag_allowed
-from datahub.emitter.mce_builder import (
-    make_data_platform_urn,
-    make_dataplatform_instance_urn,
-    make_tag_urn,
-)
+from datahub.emitter.mce_builder import make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import BigQueryDatasetKey, ContainerKey, ProjectIdKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -41,6 +37,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_EXTERNAL_DATASET_URL_TEMPLATE,
     BQ_EXTERNAL_TABLE_URL_TEMPLATE,
+    BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.common.subtypes import (
@@ -160,16 +157,15 @@ class BigQuerySchemaGenerator:
         domain_registry: Optional[DomainRegistry],
         sql_parser_schema_resolver: SchemaResolver,
         profiler: BigqueryProfiler,
-        dataset_urn_builder: Callable[[str, str, str], str],
+        identifiers: BigQueryIdentifierBuilder,
     ):
         self.config = config
         self.report = report
-        self.bigquery_data_dictionary = bigquery_data_dictionary
+        self.schema_api = bigquery_data_dictionary
         self.domain_registry = domain_registry
         self.sql_parser_schema_resolver = sql_parser_schema_resolver
         self.profiler = profiler
-        self.gen_dataset_urn = dataset_urn_builder
-        self.platform: str = "bigquery"
+        self.identifiers = identifiers
 
         self.classification_handler = ClassificationHandler(self.config, self.report)
         self.data_reader: Optional[BigQueryDataReader] = None
@@ -192,7 +188,11 @@ class BigQuerySchemaGenerator:
 
     @property
     def store_table_refs(self):
-        return self.config.include_table_lineage or self.config.include_usage_statistics
+        return (
+            self.config.include_table_lineage
+            or self.config.include_usage_statistics
+            or self.config.use_queries_v2
+        )
 
     def get_project_workunits(
         self, project: BigqueryProject
@@ -205,12 +205,8 @@ class BigQuerySchemaGenerator:
         self, dataset_urn: str, project_id: str
     ) -> MetadataWorkUnit:
         aspect = DataPlatformInstanceClass(
-            platform=make_data_platform_urn(self.platform),
-            instance=(
-                make_dataplatform_instance_urn(self.platform, project_id)
-                if self.config.include_data_platform_instance
-                else None
-            ),
+            platform=self.identifiers.make_data_platform_urn(),
+            instance=self.identifiers.make_dataplatform_instance_urn(project_id),
         )
         return MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=aspect
@@ -220,7 +216,7 @@ class BigQuerySchemaGenerator:
         return BigQueryDatasetKey(
             project_id=db_name,
             dataset_id=schema,
-            platform=self.platform,
+            platform=self.identifiers.platform,
             env=self.config.env,
             backcompat_env_as_instance=True,
         )
@@ -228,7 +224,7 @@ class BigQuerySchemaGenerator:
     def gen_project_id_key(self, database: str) -> ContainerKey:
         return ProjectIdKey(
             project_id=database,
-            platform=self.platform,
+            platform=self.identifiers.platform,
             env=self.config.env,
             backcompat_env_as_instance=True,
         )
@@ -246,7 +242,11 @@ class BigQuerySchemaGenerator:
         )
 
     def gen_dataset_containers(
-        self, dataset: str, project_id: str, tags: Optional[Dict[str, str]] = None
+        self,
+        dataset: str,
+        project_id: str,
+        tags: Optional[Dict[str, str]] = None,
+        extra_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_dataset_key(project_id, dataset)
 
@@ -276,6 +276,7 @@ class BigQuerySchemaGenerator:
                 else None
             ),
             tags=tags_joined,
+            extra_properties=extra_properties,
         )
 
     def _process_project(
@@ -285,14 +286,12 @@ class BigQuerySchemaGenerator:
 
         project_id = bigquery_project.id
         try:
-            bigquery_project.datasets = (
-                self.bigquery_data_dictionary.get_datasets_for_project_id(project_id)
+            bigquery_project.datasets = self.schema_api.get_datasets_for_project_id(
+                project_id
             )
         except Exception as e:
 
-            if (
-                self.config.project_id or self.config.project_ids
-            ) and "not enabled BigQuery." in str(e):
+            if self.config.project_ids and "not enabled BigQuery." in str(e):
                 action_mesage = (
                     "The project has not enabled BigQuery API. "
                     "Did you mistype project id in recipe ?"
@@ -322,7 +321,8 @@ class BigQuerySchemaGenerator:
                     f"Excluded project '{project_id}' since no datasets were found. {action_message}"
                 )
             else:
-                yield from self.gen_project_id_containers(project_id)
+                if self.config.include_schema_metadata:
+                    yield from self.gen_project_id_containers(project_id)
                 self.report.warning(
                     title="No datasets found in project",
                     message=action_message,
@@ -330,7 +330,8 @@ class BigQuerySchemaGenerator:
                 )
             return
 
-        yield from self.gen_project_id_containers(project_id)
+        if self.config.include_schema_metadata:
+            yield from self.gen_project_id_containers(project_id)
 
         self.report.num_project_datasets_to_scan[project_id] = len(
             bigquery_project.datasets
@@ -374,9 +375,9 @@ class BigQuerySchemaGenerator:
                     yield wu
             except Exception as e:
                 if self.config.is_profiling_enabled():
-                    action_mesage = "Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission?"
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission?"
                 else:
-                    action_mesage = "Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission?"
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission?"
 
                 self.report.failure(
                     title="Unable to get tables for dataset",
@@ -402,9 +403,17 @@ class BigQuerySchemaGenerator:
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = bigquery_dataset.name
 
-        yield from self.gen_dataset_containers(
-            dataset_name, project_id, bigquery_dataset.labels
-        )
+        if self.config.include_schema_metadata:
+            yield from self.gen_dataset_containers(
+                dataset_name,
+                project_id,
+                bigquery_dataset.labels,
+                (
+                    {"location": bigquery_dataset.location}
+                    if bigquery_dataset.location
+                    else None
+                ),
+            )
 
         columns = None
 
@@ -414,12 +423,8 @@ class BigQuerySchemaGenerator:
                 max_calls=self.config.requests_per_min, period=60
             )
 
-        if (
-            self.config.include_tables
-            or self.config.include_views
-            or self.config.include_table_snapshots
-        ):
-            columns = self.bigquery_data_dictionary.get_columns_for_dataset(
+        if self.config.include_schema_metadata:
+            columns = self.schema_api.get_columns_for_dataset(
                 project_id=project_id,
                 dataset_name=dataset_name,
                 column_limit=self.config.column_limit,
@@ -428,10 +433,31 @@ class BigQuerySchemaGenerator:
                 report=self.report,
                 rate_limiter=rate_limiter,
             )
+        elif self.store_table_refs:
+            # Need table_refs to calculate lineage and usage
+            for table_item in self.schema_api.list_tables(dataset_name, project_id):
+                identifier = BigqueryTableIdentifier(
+                    project_id=project_id,
+                    dataset=dataset_name,
+                    table=table_item.table_id,
+                )
+                if not self.config.table_pattern.allowed(identifier.raw_table_name()):
+                    self.report.report_dropped(identifier.raw_table_name())
+                    continue
+                try:
+                    self.table_refs.add(
+                        str(BigQueryTableRef(identifier).get_sanitized_table_ref())
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Could not create table ref for {table_item.path}: {e}"
+                    )
+            yield from []
+            return
 
         if self.config.include_tables:
             db_tables[dataset_name] = list(
-                self.get_tables_for_dataset(project_id, dataset_name)
+                self.get_tables_for_dataset(project_id, bigquery_dataset)
             )
 
             for table in db_tables[dataset_name]:
@@ -457,31 +483,10 @@ class BigQuerySchemaGenerator:
                         )
                     ),
                 )
-        elif self.store_table_refs:
-            # Need table_refs to calculate lineage and usage
-            for table_item in self.bigquery_data_dictionary.list_tables(
-                dataset_name, project_id
-            ):
-                identifier = BigqueryTableIdentifier(
-                    project_id=project_id,
-                    dataset=dataset_name,
-                    table=table_item.table_id,
-                )
-                if not self.config.table_pattern.allowed(identifier.raw_table_name()):
-                    self.report.report_dropped(identifier.raw_table_name())
-                    continue
-                try:
-                    self.table_refs.add(
-                        str(BigQueryTableRef(identifier).get_sanitized_table_ref())
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Could not create table ref for {table_item.path}: {e}"
-                    )
 
         if self.config.include_views:
             db_views[dataset_name] = list(
-                self.bigquery_data_dictionary.get_views_for_dataset(
+                self.schema_api.get_views_for_dataset(
                     project_id,
                     dataset_name,
                     self.config.is_profiling_enabled(),
@@ -500,7 +505,7 @@ class BigQuerySchemaGenerator:
 
         if self.config.include_table_snapshots:
             db_snapshots[dataset_name] = list(
-                self.bigquery_data_dictionary.get_snapshots_for_dataset(
+                self.schema_api.get_snapshots_for_dataset(
                     project_id,
                     dataset_name,
                     self.config.is_profiling_enabled(),
@@ -693,7 +698,9 @@ class BigQuerySchemaGenerator:
         if table.max_shard_id:
             custom_properties["max_shard_id"] = str(table.max_shard_id)
             custom_properties["is_sharded"] = str(True)
-            sub_types = ["sharded table"] + sub_types
+            sub_types = [DatasetSubTypes.SHARDED_TABLE] + sub_types
+        if table.external:
+            sub_types = [DatasetSubTypes.EXTERNAL_TABLE] + sub_types
 
         tags_to_add = None
         if table.labels and self.config.capture_table_label_as_tag:
@@ -747,7 +754,9 @@ class BigQuerySchemaGenerator:
             viewLogic=view_definition_string or "",
         )
         yield MetadataChangeProposalWrapper(
-            entityUrn=self.gen_dataset_urn(project_id, dataset_name, table.name),
+            entityUrn=self.identifiers.gen_dataset_urn(
+                project_id, dataset_name, table.name
+            ),
             aspect=view_properties_aspect,
         ).as_workunit()
 
@@ -786,7 +795,9 @@ class BigQuerySchemaGenerator:
         tags_to_add: Optional[List[str]] = None,
         custom_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        dataset_urn = self.gen_dataset_urn(project_id, dataset_name, table.name)
+        dataset_urn = self.identifiers.gen_dataset_urn(
+            project_id, dataset_name, table.name
+        )
 
         status = Status(removed=False)
         yield MetadataChangeProposalWrapper(
@@ -954,7 +965,7 @@ class BigQuerySchemaGenerator:
     ) -> MetadataWorkUnit:
         schema_metadata = SchemaMetadata(
             schemaName=str(dataset_name),
-            platform=make_data_platform_urn(self.platform),
+            platform=self.identifiers.make_data_platform_urn(),
             version=0,
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
@@ -974,50 +985,61 @@ class BigQuerySchemaGenerator:
     def get_tables_for_dataset(
         self,
         project_id: str,
-        dataset_name: str,
+        dataset: BigqueryDataset,
     ) -> Iterable[BigqueryTable]:
         # In bigquery there is no way to query all tables in a Project id
         with PerfTimer() as timer:
+
+            # PARTITIONS INFORMATION_SCHEMA view is not available for BigLake tables
+            # based on Amazon S3 and Blob Storage data.
+            # https://cloud.google.com/bigquery/docs/omni-introduction#limitations
+            # Omni Locations - https://cloud.google.com/bigquery/docs/omni-introduction#locations
+            with_partitions = self.config.have_table_data_read_permission and not (
+                dataset.location
+                and dataset.location.lower().startswith(("aws-", "azure-"))
+            )
+
             # Partitions view throw exception if we try to query partition info for too many tables
             # so we have to limit the number of tables we query partition info.
             # The conn.list_tables returns table infos that information_schema doesn't contain and this
             # way we can merge that info with the queried one.
             # https://cloud.google.com/bigquery/docs/information-schema-partitions
-            max_batch_size: int = (
-                self.config.number_of_datasets_process_in_batch
-                if not self.config.have_table_data_read_permission
-                else self.config.number_of_datasets_process_in_batch_if_profiling_enabled
-            )
+            if with_partitions:
+                max_batch_size = (
+                    self.config.number_of_datasets_process_in_batch_if_profiling_enabled
+                )
+            else:
+                max_batch_size = self.config.number_of_datasets_process_in_batch
 
             # We get the list of tables in the dataset to get core table properties and to be able to process the tables in batches
             # We collect only the latest shards from sharded tables (tables with _YYYYMMDD suffix) and ignore temporary tables
             table_items = self.get_core_table_details(
-                dataset_name, project_id, self.config.temp_table_dataset_prefix
+                dataset.name, project_id, self.config.temp_table_dataset_prefix
             )
 
             items_to_get: Dict[str, TableListItem] = {}
             for table_item in table_items:
                 items_to_get[table_item] = table_items[table_item]
                 if len(items_to_get) % max_batch_size == 0:
-                    yield from self.bigquery_data_dictionary.get_tables_for_dataset(
+                    yield from self.schema_api.get_tables_for_dataset(
                         project_id,
-                        dataset_name,
+                        dataset.name,
                         items_to_get,
-                        with_data_read_permission=self.config.have_table_data_read_permission,
+                        with_partitions=with_partitions,
                         report=self.report,
                     )
                     items_to_get.clear()
 
             if items_to_get:
-                yield from self.bigquery_data_dictionary.get_tables_for_dataset(
+                yield from self.schema_api.get_tables_for_dataset(
                     project_id,
-                    dataset_name,
+                    dataset.name,
                     items_to_get,
-                    with_data_read_permission=self.config.have_table_data_read_permission,
+                    with_partitions=with_partitions,
                     report=self.report,
                 )
 
-        self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(
+        self.report.metadata_extraction_sec[f"{project_id}.{dataset.name}"] = round(
             timer.elapsed_seconds(), 2
         )
 
@@ -1028,9 +1050,7 @@ class BigQuerySchemaGenerator:
         # Dict to store sharded table and the last seen max shard id
         sharded_tables: Dict[str, TableListItem] = {}
 
-        for table in self.bigquery_data_dictionary.list_tables(
-            dataset_name, project_id
-        ):
+        for table in self.schema_api.list_tables(dataset_name, project_id):
             table_identifier = BigqueryTableIdentifier(
                 project_id=project_id,
                 dataset=dataset_name,

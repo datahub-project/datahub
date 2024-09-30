@@ -18,6 +18,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    StatusClass,
     TagAssociationClass,
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
@@ -108,10 +109,10 @@ class DataJob:
         self, materialize_iolets: bool = True
     ) -> Iterable[MetadataChangeProposalWrapper]:
         env: Optional[str] = None
-        if self.flow_urn.cluster in ALL_ENV_TYPES:
-            env = self.flow_urn.cluster
+        if self.flow_urn.cluster.upper() in ALL_ENV_TYPES:
+            env = self.flow_urn.cluster.upper()
         else:
-            logger.warning(
+            logger.debug(
                 f"cluster {self.flow_urn.cluster} is not a valid environment type so Environment filter won't work."
             )
         mcp = MetadataChangeProposalWrapper(
@@ -123,6 +124,14 @@ class DataJob:
                 customProperties=self.properties,
                 externalUrl=self.url,
                 env=env,
+            ),
+        )
+        yield mcp
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=str(self.urn),
+            aspect=StatusClass(
+                removed=False,
             ),
         )
         yield mcp

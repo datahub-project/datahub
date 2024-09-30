@@ -55,7 +55,6 @@ logger.debug("this is the sample debug line")
 #3. click on the `log` option
 ```
 
-
 > **P.S. if you are not able to see the log lines, then restart the `airflow scheduler` and rerun the DAG**
 
 ### (Optional) Set up your Python environment for developing on Dagster Plugin
@@ -68,6 +67,29 @@ cd metadata-ingestion-modules/dagster-plugin
 source venv/bin/activate
 datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
 ```
+
+### (Optional) Set up your Python environment for developing on Prefect Plugin
+
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/prefect-plugin
+../../gradlew :metadata-ingestion-modules:prefect-plugin:installDev
+source venv/bin/activate
+datahub version   # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
+
+### (Optional) Set up your Python environment for developing on GX Plugin
+
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/gx-plugin
+../../gradlew :metadata-ingestion-modules:gx-plugin:installDev
+source venv/bin/activate
+datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
+
 ### Common setup issues
 
 Common issues (click to expand):
@@ -102,6 +124,18 @@ pip cache purge
   <summary>Failure to install confluent_kafka: "error: command 'x86_64-linux-gnu-gcc' failed with exit status 1"</summary>
 
 This sometimes happens if there's a version mismatch between the Kafka's C library and the Python wrapper library. Try running `pip install confluent_kafka==1.5.0` and then retrying.
+
+</details>
+
+<details>
+  <summary>Conflict: acryl-datahub requires pydantic 1.10</summary>
+
+The base `acryl-datahub` package supports both Pydantic 1.x and 2.x. However, some of our specific sources require Pydantic 1.x because of transitive dependencies.
+
+If you're primarily using `acryl-datahub` for the SDKs, you can install `acryl-datahub` and some extras, like `acryl-datahub[sql-parser]`, without getting conflicts related to Pydantic versioning.
+
+We recommend not installing full ingestion sources into your main environment (e.g. avoid having a dependency on `acryl-datahub[snowflake]` or other ingestion sources).
+Instead, we recommend using UI-based ingestion or isolating the ingestion pipelines using [virtual environments](https://docs.python.org/3/library/venv.html). If you're using an orchestrator, they often have first-class support for virtual environments - here's an [example for Airflow](./schedule_docs/airflow.md).
 
 </details>
 

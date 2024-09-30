@@ -198,7 +198,7 @@ def _table_level_lineage(
                 sqlglot.exp.Update,
                 sqlglot.exp.Delete,
                 sqlglot.exp.Merge,
-                sqlglot.exp.AlterTable,
+                sqlglot.exp.Alter,
             )
             # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
             # the `this` on the INSERT part isn't a table.
@@ -837,7 +837,10 @@ def _translate_internal_column_lineage(
                 raw_column_lineage.downstream.column_type.sql(dialect=dialect)
                 if raw_column_lineage.downstream.column_type
                 and raw_column_lineage.downstream.column_type.this
-                != sqlglot.exp.DataType.Type.UNKNOWN
+                not in {
+                    sqlglot.exp.DataType.Type.UNKNOWN,
+                    sqlglot.exp.DataType.Type.NULL,
+                }
                 else None
             ),
         ),
@@ -1017,9 +1020,8 @@ def _sqlglot_lineage_inner(
     )
 
 
-@functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)
-def sqlglot_lineage(
-    sql: str,
+def _sqlglot_lineage_nocache(
+    sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
@@ -1086,6 +1088,28 @@ def sqlglot_lineage(
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
+
+
+_sqlglot_lineage_cached = functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)(
+    _sqlglot_lineage_nocache
+)
+
+
+def sqlglot_lineage(
+    sql: sqlglot.exp.ExpOrStr,
+    schema_resolver: SchemaResolverInterface,
+    default_db: Optional[str] = None,
+    default_schema: Optional[str] = None,
+    default_dialect: Optional[str] = None,
+) -> SqlParsingResult:
+    if schema_resolver.includes_temp_tables():
+        return _sqlglot_lineage_nocache(
+            sql, schema_resolver, default_db, default_schema, default_dialect
+        )
+    else:
+        return _sqlglot_lineage_cached(
+            sql, schema_resolver, default_db, default_schema, default_dialect
+        )
 
 
 def create_lineage_sql_parsed_result(

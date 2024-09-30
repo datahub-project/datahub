@@ -17,6 +17,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    StatusClass,
     TagAssociationClass,
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
@@ -113,13 +114,11 @@ class DataFlow:
 
     def _get_env(self) -> Optional[str]:
         env: Optional[str] = None
-        if self.cluster in ALL_ENV_TYPES:
-            env = self.cluster
-        elif self.env in ALL_ENV_TYPES:
-            env = self.env
+        if self.env and self.env.upper() in ALL_ENV_TYPES:
+            env = self.env.upper()
         else:
-            logger.warning(
-                f"cluster {self.cluster} and {self.env} is not a valid environment type so Environment filter won't work."
+            logger.debug(
+                f"{self.env} is not a valid environment type so Environment filter won't work."
             )
         return env
 
@@ -154,6 +153,14 @@ class DataFlow:
                 customProperties=self.properties,
                 externalUrl=self.url,
                 env=env,
+            ),
+        )
+        yield mcp
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=str(self.urn),
+            aspect=StatusClass(
+                removed=False,
             ),
         )
         yield mcp

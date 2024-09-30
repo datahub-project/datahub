@@ -1,0 +1,460 @@
+[
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "_access_control": "None",
+                "catchup": "False",
+                "description": "'An example dag with jinja template'",
+                "doc_md": "None",
+                "fileloc": "<fileloc>",
+                "is_paused_upon_creation": "None",
+                "start_date": "None",
+                "tags": "['example_tag']",
+                "timezone": "Timezone('UTC')"
+            },
+            "externalUrl": "http://airflow.example.com/tree?dag_id=datahub_emitter_operator_jinja_template_dag",
+            "name": "datahub_emitter_operator_jinja_template_dag",
+            "description": "An example dag with jinja template",
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:example_tag"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:example_tag",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "datahub_emitter_operator_jinja_template_dag"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "['jdoe@example.com']",
+                "label": "'datahub_emitter_operator_jinja_template_dag_task'",
+                "execution_timeout": "datetime.timedelta(seconds=300)",
+                "sla": "None",
+                "task_id": "'datahub_emitter_operator_jinja_template_dag_task'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "[]",
+                "inlets": "[]",
+                "outlets": "[]",
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.18.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"DatahubEmitterOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"execution_timeout\": \"<<non-serializable: timedelta>>\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"mapped\": false, \"operator_class\": \"datahub_airflow_plugin.operators.datahub.DatahubEmitterOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"datahub_emitter_operator_jinja_template_dag_task\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=datahub_emitter_operator_jinja_template_dag&_flt_3_task_id=datahub_emitter_operator_jinja_template_dag_task",
+            "name": "datahub_emitter_operator_jinja_template_dag_task",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:example_tag"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c3af9aae54b864f2542b99a50e0402e3",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "run_id": "manual_run_test",
+                "duration": "<duration>",
+                "start_date": "<start_date>",
+                "end_date": "<end_date>",
+                "execution_date": "2023-09-27 21:34:38+00:00",
+                "try_number": "0",
+                "max_tries": "0",
+                "external_executor_id": "None",
+                "state": "running",
+                "operator": "DatahubEmitterOperator",
+                "priority_weight": "1",
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=datahub_emitter_operator_jinja_template_dag_task&dag_id=datahub_emitter_operator_jinja_template_dag&map_index=-1",
+                "orchestrator": "airflow",
+                "dag_id": "datahub_emitter_operator_jinja_template_dag",
+                "task_id": "datahub_emitter_operator_jinja_template_dag_task"
+            },
+            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=datahub_emitter_operator_jinja_template_dag_task&dag_id=datahub_emitter_operator_jinja_template_dag&map_index=-1",
+            "name": "datahub_emitter_operator_jinja_template_dag_datahub_emitter_operator_jinja_template_dag_task_manual_run_test",
+            "type": "BATCH_AD_HOC",
+            "created": {
+                "time": 1726621020280,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c3af9aae54b864f2542b99a50e0402e3",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
+            "upstreamInstances": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c3af9aae54b864f2542b99a50e0402e3",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1726621020280,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED",
+            "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.mcpw_example,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "mcpw_example 2023-09-27"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.mcpw_example_20230927T213438,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "mcpw_example 2023-09-27"
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.lineage_example,DEV)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "jinjaTemplate": "2023-09-27"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.lineage_example_20230927T213438,DEV)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "jinjaTemplate": "2023-09-27"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "['jdoe@example.com']",
+                "label": "'datahub_emitter_operator_jinja_template_dag_task'",
+                "execution_timeout": "datetime.timedelta(seconds=300)",
+                "sla": "None",
+                "task_id": "'datahub_emitter_operator_jinja_template_dag_task'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "[]",
+                "inlets": "[]",
+                "outlets": "[]",
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.18.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"DatahubEmitterOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"execution_timeout\": \"<<non-serializable: timedelta>>\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"mapped\": false, \"operator_class\": \"datahub_airflow_plugin.operators.datahub.DatahubEmitterOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"datahub_emitter_operator_jinja_template_dag_task\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=datahub_emitter_operator_jinja_template_dag&_flt_3_task_id=datahub_emitter_operator_jinja_template_dag_task",
+            "name": "datahub_emitter_operator_jinja_template_dag_task",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:example_tag"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c3af9aae54b864f2542b99a50e0402e3",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1726621020427,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "airflow"
+            }
+        }
+    }
+}
+]

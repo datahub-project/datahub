@@ -2,6 +2,7 @@ package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -27,7 +28,11 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.TestEntityUtil;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.MetadataChangeProposalConfig;
+import com.linkedin.metadata.config.cache.CacheConfiguration;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.cache.SearchCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -37,7 +42,6 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -52,6 +56,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilde
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
@@ -122,7 +127,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     operationContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
                 new SnapshotEntityRegistry(new Snapshot()),
-                new IndexConventionImpl("lineage_search_service_test", "MD5"))
+                new IndexConventionImpl(
+                    IndexConventionImpl.IndexConventionConfig.builder()
+                        .prefix("lineage_search_service_test")
+                        .hashIdAlgo("MD5")
+                        .build()))
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildEntitySearchService();
@@ -139,10 +148,25 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
         new EntityDocCountCacheConfiguration();
     entityDocCountCacheConfiguration.setTtlSeconds(600L);
 
-    SearchLineageCacheConfiguration searchLineageCacheConfiguration =
-        new SearchLineageCacheConfiguration();
-    searchLineageCacheConfiguration.setTtlSeconds(600L);
-    searchLineageCacheConfiguration.setLightningThreshold(withLightingCache ? -1 : 300);
+    DataHubAppConfiguration appConfig = new DataHubAppConfiguration();
+    appConfig.setCache(new CacheConfiguration());
+    appConfig.getCache().setSearch(new SearchCacheConfiguration());
+    appConfig.getCache().getSearch().setLineage(new SearchLineageCacheConfiguration());
+    appConfig.getCache().getSearch().getLineage().setTtlSeconds(600L);
+    appConfig
+        .getCache()
+        .getSearch()
+        .getLineage()
+        .setLightningThreshold(withLightingCache ? -1 : 300);
+    appConfig.setMetadataChangeProposal(new MetadataChangeProposalConfig());
+    appConfig
+        .getMetadataChangeProposal()
+        .setSideEffects(new MetadataChangeProposalConfig.SideEffectsConfig());
+    appConfig
+        .getMetadataChangeProposal()
+        .getSideEffects()
+        .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
+    appConfig.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(false);
 
     lineageSearchService =
         spy(
@@ -157,7 +181,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
                 graphService,
                 cacheManager.getCache("test"),
                 withCache,
-                searchLineageCacheConfiguration));
+                appConfig));
   }
 
   @BeforeMethod
@@ -183,9 +207,14 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getSearchConfiguration(),
-            null);
+            null,
+            QueryFilterRewriteChain.EMPTY);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(searchClientSpy, getSearchConfiguration(), getCustomSearchConfiguration());
+        new ESBrowseDAO(
+            searchClientSpy,
+            getSearchConfiguration(),
+            getCustomSearchConfiguration(),
+            QueryFilterRewriteChain.EMPTY);
     ESWriteDAO writeDAO = new ESWriteDAO(searchClientSpy, getBulkProcessor(), 1);
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }
@@ -206,7 +235,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   @Test
   public void testSearchService() throws Exception {
     when(graphService.getLineage(
-            eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(), anyInt(), eq(null)))
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt()))
         .thenReturn(mockResult(Collections.emptyList()));
     LineageSearchResult searchResult = searchAcrossLineage(null, TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
@@ -215,7 +249,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     clearCache(false);
 
     when(graphService.getLineage(
-            eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(), anyInt(), eq(null)))
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -236,16 +275,16 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     elasticSearchService.upsertDocument(
-        operationContext, ENTITY_NAME, document.toString(), urn.toString());
+        getOperationContext(), ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
     when(graphService.getLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            anyInt(),
-            eq(new LineageFlags())))
+            anyInt()))
         .thenReturn(mockResult(Collections.emptyList()));
     searchResult = searchAcrossLineage(null, TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
@@ -253,12 +292,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     clearCache(false);
 
     when(graphService.getLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            anyInt(),
-            eq(new LineageFlags())))
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -268,12 +307,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(0).getDegree().intValue(), 1);
 
-    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree.keyword", "1"), TEST1);
+    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree", "1"), TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(0).getDegree().intValue(), 1);
 
-    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree.keyword", "2"), TEST1);
+    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree", "2"), TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
     clearCache(false);
@@ -285,7 +324,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
     elasticSearchService.upsertDocument(
-        operationContext, ENTITY_NAME, document2.toString(), urn2.toString());
+        getOperationContext(), ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
     Mockito.reset(searchClientSpy);
@@ -301,12 +340,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     clearCache(false);
 
     when(graphService.getLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            anyInt(),
-            eq(new LineageFlags())))
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -321,12 +360,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     // Case 1: Use the maxHops in the cache.
     when(graphService.getLineage(
+            eq(getOperationContext()),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags())))
+            eq(1000)))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -334,9 +373,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     searchResult =
         lineageSearchService.searchAcrossLineage(
-            getOperationContext()
-                .withSearchFlags(flags -> flags.setSkipCache(true))
-                .withLineageFlags(flags -> flags),
+            getOperationContext(),
             TEST_URN,
             LineageDirection.DOWNSTREAM,
             ImmutableList.of(ENTITY_NAME),
@@ -350,19 +387,17 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     Mockito.verify(graphService, times(1))
         .getLineage(
+            eq(getOperationContext()),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags()));
+            eq(1000));
 
     // Hit the cache on second attempt
     searchResult =
         lineageSearchService.searchAcrossLineage(
-            getOperationContext()
-                .withSearchFlags(flags -> flags.setSkipCache(false))
-                .withLineageFlags(flags -> flags),
+            getOperationContext(),
             TEST_URN,
             LineageDirection.DOWNSTREAM,
             ImmutableList.of(ENTITY_NAME),
@@ -375,21 +410,23 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     Mockito.verify(graphService, times(1))
         .getLineage(
+            eq(getOperationContext()),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags()));
+            eq(1000));
 
     // Case 2: Use the start and end time in the cache.
     when(graphService.getLineage(
+            eq(
+                getOperationContext()
+                    .withLineageFlags(f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L))))
+            eq(1000)))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -398,7 +435,6 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     searchResult =
         lineageSearchService.searchAcrossLineage(
             getOperationContext()
-                .withSearchFlags(flags -> flags.setSkipCache(false))
                 .withLineageFlags(flags -> flags.setStartTimeMillis(0L).setEndTimeMillis(1L)),
             TEST_URN,
             LineageDirection.DOWNSTREAM,
@@ -413,18 +449,19 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     Mockito.verify(graphService, times(1))
         .getLineage(
+            eq(
+                getOperationContext()
+                    .withLineageFlags(f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L)));
+            eq(1000));
 
     // Hit the cache on second attempt
     searchResult =
         lineageSearchService.searchAcrossLineage(
             getOperationContext()
-                .withSearchFlags(flags -> flags.setSkipCache(false))
                 .withLineageFlags(flags -> flags.setStartTimeMillis(0L).setEndTimeMillis(1L)),
             TEST_URN,
             LineageDirection.DOWNSTREAM,
@@ -438,22 +475,29 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     Mockito.verify(graphService, times(1))
         .getLineage(
+            eq(
+                getOperationContext()
+                    .withLineageFlags(f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L)));
+            eq(1000));
 
     clearCache(false);
 
     // Cleanup
-    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn.toString());
-    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn2.toString());
+    elasticSearchService.deleteDocument(getOperationContext(), ENTITY_NAME, urn.toString());
+    elasticSearchService.deleteDocument(getOperationContext(), ENTITY_NAME, urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
     when(graphService.getLineage(
-            eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(), anyInt()))
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -466,12 +510,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   @Test
   public void testScrollAcrossLineage() throws Exception {
     when(graphService.getLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            anyInt(),
-            eq(new LineageFlags())))
+            anyInt()))
         .thenReturn(mockResult(Collections.emptyList()));
     LineageScrollResult scrollResult = scrollAcrossLineage(null, TEST1);
     assertEquals(scrollResult.getNumEntities().intValue(), 0);
@@ -482,12 +526,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     clearCache(false);
 
     when(graphService.getLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            anyInt(),
-            eq(new LineageFlags())))
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -514,12 +558,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     syncAfterWrite(getBulkProcessor());
 
     when(graphService.getLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            anyInt(),
-            eq(new LineageFlags())))
+            anyInt()))
         .thenReturn(mockResult(Collections.emptyList()));
     scrollResult = scrollAcrossLineage(null, TEST1);
     assertEquals(scrollResult.getNumEntities().intValue(), 0);
@@ -528,12 +572,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     clearCache(false);
 
     when(graphService.getLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            anyInt(),
-            eq(new LineageFlags())))
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -544,24 +588,29 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(scrollResult.getEntities().get(0).getDegree().intValue(), 1);
     assertNull(scrollResult.getScrollId());
 
-    scrollResult = scrollAcrossLineage(QueryUtils.newFilter("degree.keyword", "1"), TEST1);
+    scrollResult = scrollAcrossLineage(QueryUtils.newFilter("degree", "1"), TEST1);
     assertEquals(scrollResult.getNumEntities().intValue(), 1);
     assertEquals(scrollResult.getEntities().get(0).getEntity(), urn);
     assertEquals(scrollResult.getEntities().get(0).getDegree().intValue(), 1);
     assertNull(scrollResult.getScrollId());
 
-    scrollResult = scrollAcrossLineage(QueryUtils.newFilter("degree.keyword", "2"), TEST1);
+    scrollResult = scrollAcrossLineage(QueryUtils.newFilter("degree", "2"), TEST1);
     assertEquals(scrollResult.getNumEntities().intValue(), 0);
     assertEquals(scrollResult.getEntities().size(), 0);
     assertNull(scrollResult.getScrollId());
     clearCache(false);
 
     // Cleanup
-    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn.toString());
+    elasticSearchService.deleteDocument(getOperationContext(), ENTITY_NAME, urn.toString());
     syncAfterWrite(getBulkProcessor());
 
     when(graphService.getLineage(
-            eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(), anyInt()))
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -583,24 +632,24 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     resetService(true, true);
 
     when(graphService.getLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            anyInt(),
-            eq(new LineageFlags())))
+            anyInt()))
         .thenReturn(mockResult(Collections.emptyList()));
     LineageSearchResult searchResult = searchAcrossLineage(null, testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache(true);
 
     when(graphService.getLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            anyInt(),
-            eq(new LineageFlags())))
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -616,16 +665,16 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     elasticSearchService.upsertDocument(
-        operationContext, ENTITY_NAME, document.toString(), urn.toString());
+        getOperationContext(), ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
     when(graphService.getLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            anyInt(),
-            eq(new LineageFlags())))
+            anyInt()))
         .thenReturn(mockResult(Collections.emptyList()));
     searchResult = searchAcrossLineage(null, testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
@@ -633,12 +682,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     clearCache(true);
 
     when(graphService.getLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            anyInt(),
-            eq(new LineageFlags())))
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -650,14 +699,14 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     verify(lineageSearchService, times(1))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
-    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree.keyword", "1"), testStar);
+    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree", "1"), testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(0).getDegree().intValue(), 1);
     verify(lineageSearchService, times(2))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
-    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree.keyword", "2"), testStar);
+    searchResult = searchAcrossLineage(QueryUtils.newFilter("degree", "2"), testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
     verify(lineageSearchService, times(3))
@@ -671,7 +720,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
     elasticSearchService.upsertDocument(
-        operationContext, ENTITY_NAME, document2.toString(), urn2.toString());
+        getOperationContext(), ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
     searchResult = searchAcrossLineage(null, testStar);
@@ -682,12 +731,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     clearCache(true);
 
     when(graphService.getLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            anyInt(),
-            eq(new LineageFlags())))
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -705,12 +754,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     // Case 1: Use the maxHops in the cache.
     when(graphService.getLineage(
+            eq(getOperationContext()),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags())))
+            eq(1000)))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -718,9 +767,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     searchResult =
         lineageSearchService.searchAcrossLineage(
-            getOperationContext()
-                .withSearchFlags(flags -> flags.setSkipCache(false))
-                .withLineageFlags(flags -> flags),
+            getOperationContext(),
             TEST_URN,
             LineageDirection.DOWNSTREAM,
             ImmutableList.of(ENTITY_NAME),
@@ -734,21 +781,19 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     verify(graphService, times(1))
         .getLineage(
+            eq(getOperationContext()),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags()));
+            eq(1000));
     verify(lineageSearchService, times(1))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
     // Hit the cache on second attempt
     searchResult =
         lineageSearchService.searchAcrossLineage(
-            getOperationContext()
-                .withSearchFlags(flags -> flags.setSkipCache(false))
-                .withLineageFlags(flags -> flags),
+            getOperationContext(),
             TEST_URN,
             LineageDirection.DOWNSTREAM,
             ImmutableList.of(ENTITY_NAME),
@@ -761,23 +806,25 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     verify(graphService, times(1))
         .getLineage(
+            eq(getOperationContext()),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags()));
+            eq(1000));
     verify(lineageSearchService, times(2))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
     // Case 2: Use the start and end time in the cache.
     when(graphService.getLineage(
+            eq(
+                getOperationContext()
+                    .withLineageFlags(f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L))))
+            eq(1000)))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -786,7 +833,6 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     searchResult =
         lineageSearchService.searchAcrossLineage(
             getOperationContext()
-                .withSearchFlags(flags -> flags.setSkipCache(false))
                 .withLineageFlags(flags -> flags.setStartTimeMillis(0L).setEndTimeMillis(1L)),
             TEST_URN,
             LineageDirection.DOWNSTREAM,
@@ -803,12 +849,14 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     System.out.println(invocations);
     verify(graphService, times(1))
         .getLineage(
+            eq(
+                getOperationContext()
+                    .withLineageFlags(f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L)));
+            eq(1000));
     verify(lineageSearchService, times(3))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
@@ -816,7 +864,6 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     searchResult =
         lineageSearchService.searchAcrossLineage(
             getOperationContext()
-                .withSearchFlags(flags -> flags.setSkipCache(false))
                 .withLineageFlags(flags -> flags.setStartTimeMillis(0L).setEndTimeMillis(1L)),
             TEST_URN,
             LineageDirection.DOWNSTREAM,
@@ -830,12 +877,14 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     verify(graphService, times(1))
         .getLineage(
+            eq(
+                getOperationContext()
+                    .withLineageFlags(f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L)));
+            eq(1000));
     verify(lineageSearchService, times(4))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
@@ -847,9 +896,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     // Entity
     searchResult =
         lineageSearchService.searchAcrossLineage(
-            getOperationContext()
-                .withSearchFlags(flags -> flags.setSkipCache(false))
-                .withLineageFlags(flags -> flags),
+            getOperationContext(),
             TEST_URN,
             LineageDirection.DOWNSTREAM,
             ImmutableList.of(DATASET_ENTITY_NAME),
@@ -868,7 +915,6 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     searchResult =
         lineageSearchService.searchAcrossLineage(
             getOperationContext()
-                .withSearchFlags(flags -> flags.setSkipCache(false))
                 .withLineageFlags(flags -> flags.setStartTimeMillis(0L).setEndTimeMillis(1L)),
             TEST_URN,
             LineageDirection.DOWNSTREAM,
@@ -881,12 +927,14 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             10);
     Mockito.verify(graphService, times(1))
         .getLineage(
+            eq(
+                operationContext.withLineageFlags(
+                    f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L)));
+            eq(1000));
     verify(lineageSearchService, times(2))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
     assertEquals(searchResult.getNumEntities().intValue(), 0);
@@ -895,23 +943,17 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     // Platform
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
     Criterion platform1Crit =
-        new Criterion()
-            .setField("platform")
-            .setValue("urn:li:dataPlatform:kafka")
-            .setCondition(Condition.EQUAL);
+        buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:kafka");
     CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
-    Criterion degreeCrit =
-        new Criterion().setField("degree.keyword").setValue("2").setCondition(Condition.EQUAL);
+    Criterion degreeCrit = buildCriterion("degree", Condition.EQUAL, "2");
     conCritArr.add(
         new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(degreeCrit))));
     Filter filter = new Filter().setOr(conCritArr);
 
     searchResult =
         lineageSearchService.searchAcrossLineage(
-            getOperationContext()
-                .withSearchFlags(flags -> flags.setSkipCache(false))
-                .withLineageFlags(flags -> flags),
+            getOperationContext(),
             TEST_URN,
             LineageDirection.DOWNSTREAM,
             ImmutableList.of(ENTITY_NAME),
@@ -929,9 +971,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     // Cached
     searchResult =
         lineageSearchService.searchAcrossLineage(
-            getOperationContext()
-                .withSearchFlags(flags -> flags.setSkipCache(false))
-                .withLineageFlags(flags -> flags),
+            getOperationContext(),
             TEST_URN,
             LineageDirection.DOWNSTREAM,
             ImmutableList.of(ENTITY_NAME),
@@ -943,12 +983,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             10);
     verify(graphService, times(1))
         .getLineage(
+            eq(getOperationContext()),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags()));
+            eq(1000));
     verify(lineageSearchService, times(4))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
     assertEquals(searchResult.getNumEntities().intValue(), 0);
@@ -958,9 +998,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     Filter originFilter = QueryUtils.newFilter("origin", "PROD");
     searchResult =
         lineageSearchService.searchAcrossLineage(
-            getOperationContext()
-                .withSearchFlags(flags -> flags.setSkipCache(false))
-                .withLineageFlags(flags -> flags),
+            getOperationContext(),
             TEST_URN,
             LineageDirection.DOWNSTREAM,
             ImmutableList.of(ENTITY_NAME),
@@ -979,7 +1017,6 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     searchResult =
         lineageSearchService.searchAcrossLineage(
             getOperationContext()
-                .withSearchFlags(flags -> flags.setSkipCache(false))
                 .withLineageFlags(flags -> flags.setStartTimeMillis(0L).setEndTimeMillis(1L)),
             TEST_URN,
             LineageDirection.DOWNSTREAM,
@@ -992,12 +1029,14 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             10);
     verify(graphService, times(1))
         .getLineage(
+            eq(
+                getOperationContext()
+                    .withLineageFlags(f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
             eq(LineageDirection.DOWNSTREAM),
             anyInt(),
             anyInt(),
-            eq(1000),
-            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L)));
+            eq(1000));
     verify(lineageSearchService, times(6))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
     assertEquals(searchResult.getNumEntities().intValue(), 0);
@@ -1006,12 +1045,17 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     clearCache(true);
 
     // Cleanup
-    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn.toString());
-    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn2.toString());
+    elasticSearchService.deleteDocument(getOperationContext(), ENTITY_NAME, urn.toString());
+    elasticSearchService.deleteDocument(getOperationContext(), ENTITY_NAME, urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
     when(graphService.getLineage(
-            eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(), anyInt()))
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -1078,12 +1122,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     // Set up filters
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
-    Criterion platform1Crit =
-        new Criterion().setField("platform").setValue(kafkaPlatform).setCondition(Condition.EQUAL);
+    Criterion platform1Crit = buildCriterion("platform", Condition.EQUAL, kafkaPlatform);
+
     CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
-    Criterion originCrit =
-        new Criterion().setField("origin").setValue("DEV").setCondition(Condition.EQUAL);
+    Criterion originCrit = buildCriterion("origin", Condition.EQUAL, "DEV");
+
     conCritArr.add(
         new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(originCrit))));
 
@@ -1154,10 +1198,9 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     // Set up filters
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
-    Criterion platform1Crit =
-        new Criterion().setField("platform").setValue(kafkaPlatform).setCondition(Condition.EQUAL);
-    Criterion platform2Crit =
-        new Criterion().setField("platform").setValue(hivePlatform).setCondition(Condition.EQUAL);
+    Criterion platform1Crit = buildCriterion("platform", Condition.EQUAL, kafkaPlatform);
+
+    Criterion platform2Crit = buildCriterion("platform", Condition.EQUAL, hivePlatform);
     CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
     critArr = new CriterionArray(ImmutableList.of(platform2Crit));
@@ -1232,9 +1275,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   // Convenience method to reduce spots where we're sending the same params
   private LineageSearchResult searchAcrossLineage(@Nullable Filter filter, @Nullable String input) {
     return lineageSearchService.searchAcrossLineage(
-        getOperationContext()
-            .withSearchFlags(flags -> flags.setSkipCache(true))
-            .withLineageFlags(flags -> flags),
+        getOperationContext().withSearchFlags(flags -> flags.setSkipCache(true)),
         TEST_URN,
         LineageDirection.DOWNSTREAM,
         ImmutableList.of(),
@@ -1295,19 +1336,15 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     // Set up filters
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
-    Criterion platform1Crit =
-        new Criterion().setField("platform").setValue(kafkaPlatform).setCondition(Condition.EQUAL);
-    Criterion platform2Crit =
-        new Criterion().setField("platform").setValue(hivePlatform).setCondition(Condition.EQUAL);
+    Criterion platform1Crit = buildCriterion("platform", Condition.EQUAL, kafkaPlatform);
+
+    Criterion platform2Crit = buildCriterion("platform", Condition.EQUAL, hivePlatform);
+
     CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
     critArr = new CriterionArray(ImmutableList.of(platform2Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
-    Criterion originCrit =
-        new Criterion()
-            .setField("origin")
-            .setValue(FabricType.PROD.name())
-            .setCondition(Condition.EQUAL);
+    Criterion originCrit = buildCriterion("origin", Condition.EQUAL, FabricType.PROD.name());
     conCritArr.add(
         new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(originCrit))));
 
