@@ -11,7 +11,6 @@ import com.linkedin.metadata.aspect.hooks.ExtendedModelStructuredPropertyMutator
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
-import com.linkedin.metadata.boot.steps.BackfillBrowsePathsV2Step;
 import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
@@ -35,7 +34,6 @@ import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
 import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
-import com.linkedin.metadata.boot.steps.UpgradeDefaultBrowsePathsStep;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
 import com.linkedin.metadata.config.ForwardingActionConfiguration;
 import com.linkedin.metadata.config.structuredProperties.extensions.ModelExtensionValidationConfiguration;
@@ -123,12 +121,6 @@ public class BootstrapManagerFactory {
   @Autowired private ConfigurationProvider _configurationProvider;
 
   @Autowired private IntegrationsService integrationsService;
-
-  @Value("${bootstrap.upgradeDefaultBrowsePaths.enabled}")
-  private Boolean _upgradeDefaultBrowsePathsEnabled;
-
-  @Value("${bootstrap.backfillBrowsePathsV2.enabled}")
-  private Boolean _backfillBrowsePathsV2Enabled;
 
   @Value("${bootstrap.defaultPersonas.enabled}")
   private Boolean _defaultPersonasEnabled;
@@ -220,14 +212,6 @@ public class BootstrapManagerFactory {
                 ingestDefaultTagsStep)
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
-
-    if (_upgradeDefaultBrowsePathsEnabled) {
-      finalSteps.add(new UpgradeDefaultBrowsePathsStep(_entityService));
-    }
-
-    if (_backfillBrowsePathsV2Enabled) {
-      finalSteps.add(new BackfillBrowsePathsV2Step(_entityService, _searchService));
-    }
 
     if (_defaultPersonasEnabled) {
       finalSteps.add(new IngestDefaultPersonasAndViews(_entityService, _entityRegistry));
