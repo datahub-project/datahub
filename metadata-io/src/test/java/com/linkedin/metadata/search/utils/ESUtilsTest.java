@@ -188,6 +188,8 @@ public class ESUtilsTest {
                     + "  }\n"
                     + "}";
 
+    Assert.assertEquals(result.toString(), expected);
+
     final Criterion multiValueCriterion =
             new Criterion()
                     .setField("myTestField")

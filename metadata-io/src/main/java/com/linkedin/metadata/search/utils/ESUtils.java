@@ -676,7 +676,7 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       final boolean isTimeseries,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      @Nonnull AspectRetriever aspectRetriever,boolean enableCaseInsensitiveSearches ) {
+      @Nonnull AspectRetriever aspectRetriever, boolean enableCaseInsensitiveSearches ) {
     return buildEqualsConditionFromCriterionWithValues(
         fieldName, criterion, isTimeseries, searchableFieldTypes, aspectRetriever, enableCaseInsensitiveSearches);
   }
