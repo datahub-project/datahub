@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import traceback
@@ -1167,17 +1168,30 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         config = KafkaConnectSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def get_connector_payload(self) -> Dict:
+        connector_response = self.session.get(
+            f"{self.config.connect_uri}/connectors",
+        )
+        try:
+            connector_response.raise_for_status()
+            payload = connector_response.json()
+            return payload
+        except requests.exceptions.HTTPError as e:
+            try:
+                payload = connector_response.json()
+                logger.error(f"Error message: {payload}")
+            except json.JSONDecodeError:
+                logger.error(f"Error message: {connector_response.text}")
+            logger.error(f"Error {e} during fetching connectors. Skipping...")
+            raise e
+
     def get_connectors_manifest(self) -> List[ConnectorManifest]:
         """Get Kafka Connect connectors manifest using REST API.
         Enrich with lineages metadata.
         """
         connectors_manifest = list()
 
-        connector_response = self.session.get(
-            f"{self.config.connect_uri}/connectors",
-        )
-
-        payload = connector_response.json()
+        payload = self.get_connector_payload()
 
         for c in payload:
             connector_url = f"{self.config.connect_uri}/connectors/{c}"
