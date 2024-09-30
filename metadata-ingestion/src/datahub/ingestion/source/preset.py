@@ -114,8 +114,8 @@ class PresetSource(SupersetSource):
                 "Accept": "*/*",
             }
         )
-
         # Test the connection
         test_response = requests_session.get(f"{self.config.connect_uri}/version")
         if not test_response.ok:
             logger.error("Unable to connect to workspace")
+        return requests_session
