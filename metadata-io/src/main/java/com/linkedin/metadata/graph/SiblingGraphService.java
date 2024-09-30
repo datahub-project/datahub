@@ -64,13 +64,7 @@ public class SiblingGraphService {
     if (separateSiblings) {
       return ValidationUtils.validateEntityLineageResult(
           opContext,
-          _graphService.getLineage(
-              entityUrn,
-              direction,
-              offset,
-              count,
-              maxHops,
-              opContext.getSearchContext().getLineageFlags()),
+          _graphService.getLineage(opContext, entityUrn, direction, offset, count, maxHops),
           _entityService);
     }
 
@@ -81,13 +75,7 @@ public class SiblingGraphService {
     }
 
     EntityLineageResult entityLineage =
-        _graphService.getLineage(
-            entityUrn,
-            direction,
-            offset,
-            count,
-            maxHops,
-            opContext.getSearchContext().getLineageFlags());
+        _graphService.getLineage(opContext, entityUrn, direction, offset, count, maxHops);
 
     Siblings siblingAspectOfEntity =
         (Siblings) _entityService.getLatestAspect(opContext, entityUrn, SIBLINGS_ASPECT_NAME);

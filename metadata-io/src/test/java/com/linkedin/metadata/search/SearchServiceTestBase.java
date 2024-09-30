@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 
@@ -11,7 +12,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -30,6 +30,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilde
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
@@ -131,10 +132,14 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getSearchConfiguration(),
-            null);
+            null,
+            QueryFilterRewriteChain.EMPTY);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            getSearchClient(), getSearchConfiguration(), getCustomSearchConfiguration());
+            getSearchClient(),
+            getSearchConfiguration(),
+            getCustomSearchConfiguration(),
+            QueryFilterRewriteChain.EMPTY);
     ESWriteDAO writeDAO = new ESWriteDAO(getSearchClient(), getBulkProcessor(), 1);
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }
@@ -236,19 +241,9 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @Test
   public void testAdvancedSearchOr() throws Exception {
-    final Criterion filterCriterion =
-        new Criterion()
-            .setField("platform")
-            .setCondition(Condition.EQUAL)
-            .setValue("hive")
-            .setValues(new StringArray(ImmutableList.of("hive")));
+    final Criterion filterCriterion = buildCriterion("platform", Condition.EQUAL, "hive");
 
-    final Criterion subtypeCriterion =
-        new Criterion()
-            .setField("subtypes")
-            .setCondition(Condition.EQUAL)
-            .setValue("")
-            .setValues(new StringArray(ImmutableList.of("view")));
+    final Criterion subtypeCriterion = buildCriterion("subtypes", Condition.EQUAL, "view");
 
     final Filter filterWithCondition =
         new Filter()
@@ -324,19 +319,9 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @Test
   public void testAdvancedSearchSoftDelete() throws Exception {
-    final Criterion filterCriterion =
-        new Criterion()
-            .setField("platform")
-            .setCondition(Condition.EQUAL)
-            .setValue("hive")
-            .setValues(new StringArray(ImmutableList.of("hive")));
+    final Criterion filterCriterion = buildCriterion("platform", Condition.EQUAL, "hive");
 
-    final Criterion removedCriterion =
-        new Criterion()
-            .setField("removed")
-            .setCondition(Condition.EQUAL)
-            .setValue("")
-            .setValues(new StringArray(ImmutableList.of("true")));
+    final Criterion removedCriterion = buildCriterion("removed", Condition.EQUAL, "true");
 
     final Filter filterWithCondition =
         new Filter()
@@ -414,13 +399,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @Test
   public void testAdvancedSearchNegated() throws Exception {
-    final Criterion filterCriterion =
-        new Criterion()
-            .setField("platform")
-            .setCondition(Condition.EQUAL)
-            .setValue("hive")
-            .setNegated(true)
-            .setValues(new StringArray(ImmutableList.of("hive")));
+    final Criterion filterCriterion = buildCriterion("platform", Condition.EQUAL, true, "hive");
 
     final Filter filterWithCondition =
         new Filter()

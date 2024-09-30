@@ -173,6 +173,9 @@ class BigQueryQueriesExtractor:
             format_queries=False,
         )
         self.report.sql_aggregator = self.aggregator.report
+        self.report.num_discovered_tables = (
+            len(self.discovered_tables) if self.discovered_tables else None
+        )
 
     @functools.cached_property
     def local_temp_path(self) -> pathlib.Path:
@@ -201,6 +204,7 @@ class BigQueryQueriesExtractor:
                 and self.discovered_tables
                 and str(BigQueryTableRef(table)) not in self.discovered_tables
             ):
+                self.report.inferred_temp_tables.add(name)
                 return True
 
         except Exception:
@@ -247,19 +251,25 @@ class BigQueryQueriesExtractor:
                         self.report.num_queries_by_project[project.id] += 1
                         queries.append(entry)
         self.report.num_total_queries = len(queries)
+        logger.info(f"Found {self.report.num_total_queries} total queries")
 
         with self.report.audit_log_preprocessing_timer:
             # Preprocessing stage that deduplicates the queries using query hash per usage bucket
+            # Note: FileBackedDict is an ordered dictionary, so the order of execution of
+            # queries is inherently maintained
             queries_deduped: FileBackedDict[Dict[int, ObservedQuery]]
             queries_deduped = self.deduplicate_queries(queries)
             self.report.num_unique_queries = len(queries_deduped)
+            logger.info(f"Found {self.report.num_unique_queries} unique queries")
 
         with self.report.audit_log_load_timer:
             i = 0
-            for query_instances in queries_deduped.values():
-                for _, query in query_instances.items():
+            for _, query_instances in queries_deduped.items():
+                for query in query_instances.values():
                     if i > 0 and i % 10000 == 0:
                         logger.info(f"Added {i} query log entries to SQL aggregator")
+                        if self.report.sql_aggregator:
+                            logger.info(self.report.sql_aggregator.as_string())
 
                     self.aggregator.add(query)
                     i += 1

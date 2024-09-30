@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "database": "db1"
             },
-            "name": "db1"
+            "name": "db1",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -117,7 +118,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Oct 19 13:26:12 UTC 2023",
+                            "CreateTime:": "Tue Aug 20 15:11:23 UTC 2024",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore",
@@ -127,7 +128,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1697721972",
+                            "Table Parameters: transient_lastDdlTime": "1724166683",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -267,7 +268,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Oct 19 13:26:12 UTC 2023",
+                            "CreateTime:": "Tue Aug 20 15:11:23 UTC 2024",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test",
@@ -279,7 +280,7 @@
                             "Table Parameters: numRows": "1",
                             "Table Parameters: rawDataSize": "32",
                             "Table Parameters: totalSize": "33",
-                            "Table Parameters: transient_lastDdlTime": "1697721976",
+                            "Table Parameters: transient_lastDdlTime": "1724166687",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -457,11 +458,11 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Oct 19 13:26:18 UTC 2023",
+                            "CreateTime:": "Tue Aug 20 15:11:30 UTC 2024",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Table Type:": "VIRTUAL_VIEW",
-                            "Table Parameters: transient_lastDdlTime": "1697721978",
+                            "Table Parameters: transient_lastDdlTime": "1724166690",
                             "SerDe Library:": "null",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -638,7 +639,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Oct 19 13:26:18 UTC 2023",
+                            "CreateTime:": "Tue Aug 20 15:11:31 UTC 2024",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test",
@@ -648,7 +649,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1697721978",
+                            "Table Parameters: transient_lastDdlTime": "1724166691",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -792,7 +793,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Oct 19 13:26:18 UTC 2023",
+                            "CreateTime:": "Tue Aug 20 15:11:30 UTC 2024",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test",
@@ -802,7 +803,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1697721978",
+                            "Table Parameters: transient_lastDdlTime": "1724166690",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -995,7 +996,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Oct 19 13:26:08 UTC 2023",
+                            "CreateTime:": "Tue Aug 20 15:11:20 UTC 2024",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
@@ -1005,7 +1006,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "5812",
-                            "Table Parameters: transient_lastDdlTime": "1697721968",
+                            "Table Parameters: transient_lastDdlTime": "1724166680",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -1157,7 +1158,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Oct 19 13:26:12 UTC 2023",
+                            "CreateTime:": "Tue Aug 20 15:11:23 UTC 2024",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test",
@@ -1167,7 +1168,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1697721972",
+                            "Table Parameters: transient_lastDdlTime": "1724166683",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -1338,14 +1339,14 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Oct 19 13:26:18 UTC 2023",
+                            "CreateTime:": "Tue Aug 20 15:11:30 UTC 2024",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test_view_materialized",
                             "Table Type:": "MATERIALIZED_VIEW",
                             "Table Parameters: numFiles": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1697721978",
+                            "Table Parameters: transient_lastDdlTime": "1724166690",
                             "SerDe Library:": "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
                             "InputFormat:": "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat",
@@ -1518,7 +1519,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Oct 19 13:26:18 UTC 2023",
+                            "CreateTime:": "Tue Aug 20 15:11:30 UTC 2024",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test",
@@ -1528,7 +1529,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1697721978",
+                            "Table Parameters: transient_lastDdlTime": "1724166690",
                             "SerDe Library:": "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
                             "InputFormat:": "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat",
@@ -1767,7 +1768,8 @@
                 "env": "PROD",
                 "database": "db2"
             },
-            "name": "db2"
+            "name": "db2",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -1873,7 +1875,7 @@
                         "customProperties": {
                             "Database:": "db2",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Oct 19 13:26:10 UTC 2023",
+                            "CreateTime:": "Tue Aug 20 15:11:22 UTC 2024",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db2.db/pokes",
@@ -1882,7 +1884,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "5812",
-                            "Table Parameters: transient_lastDdlTime": "1697721971",
+                            "Table Parameters: transient_lastDdlTime": "1724166683",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -2003,7 +2005,8 @@
                 "env": "PROD",
                 "database": "default"
             },
-            "name": "default"
+            "name": "default",
+            "env": "PROD"
         }
     },
     "systemMetadata": {

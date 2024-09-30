@@ -14,6 +14,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -287,9 +288,42 @@ public class SearchDocumentTransformer {
           .forEach(
               fieldValue -> {
                 String[] keyValues = fieldValue.toString().split("=");
-                String key = keyValues[0];
-                String value = keyValues[1];
-                dictDoc.put(key, value);
+                String key = keyValues[0], value = "";
+                if (keyValues.length > 1) {
+                  value = keyValues[1];
+                  if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.BOOLEAN)) {
+                    dictDoc.set(
+                        key, JsonNodeFactory.instance.booleanNode(Boolean.parseBoolean(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.INT)) {
+                    dictDoc.set(key, JsonNodeFactory.instance.numberNode(Integer.parseInt(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.DOUBLE)) {
+                    dictDoc.set(
+                        key, JsonNodeFactory.instance.numberNode(Double.parseDouble(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.LONG)) {
+                    dictDoc.set(key, JsonNodeFactory.instance.numberNode(Long.parseLong(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.FLOAT)) {
+                    dictDoc.set(key, JsonNodeFactory.instance.numberNode(Float.parseFloat(value)));
+                  } else {
+                    dictDoc.put(key, value);
+                  }
+                } else {
+                  dictDoc.put(key, value);
+                }
               });
       searchDocument.set(fieldName, dictDoc);
     } else if (!fieldValues.isEmpty()) {
@@ -355,13 +389,9 @@ public class SearchDocumentTransformer {
         // By default run toString
       default:
         String value = fieldValue.toString();
-        // If index type is BROWSE_PATH, make sure the value starts with a slash
-        if (fieldType == FieldType.BROWSE_PATH && !value.startsWith("/")) {
-          value = "/" + value;
-        }
         return value.isEmpty()
             ? Optional.empty()
-            : Optional.of(JsonNodeFactory.instance.textNode(fieldValue.toString()));
+            : Optional.of(JsonNodeFactory.instance.textNode(value));
     }
   }
 

@@ -112,9 +112,9 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
                 bkt.upload_file(
                     full_path,
                     rel_path,  # Set content type for `no_extension/small` file to text/csv
-                    ExtraArgs={"ContentType": "text/csv"}
-                    if "." not in rel_path
-                    else {},
+                    ExtraArgs=(
+                        {"ContentType": "text/csv"} if "." not in rel_path else {}
+                    ),
                 )
                 s3_client.put_object_tagging(
                     Bucket=bucket_name,
@@ -242,6 +242,7 @@ def test_data_lake_local_ingest(
         golden_path=f"{test_resources_dir}/golden-files/local/golden_mces_{source_file}",
         ignore_paths=[
             r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\[\d+\]\['value'\]\['time'\]",
             r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['created'\]\['time'\]",
             # root[41]['aspect']['json']['fieldProfiles'][0]['sampleValues'][0]
             r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",

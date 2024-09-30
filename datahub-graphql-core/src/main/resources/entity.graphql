@@ -85,6 +85,11 @@ type Query {
     role(urn: String!): Role
 
     """
+    Fetch a Structured Property by primary key (urn)
+    """
+    structuredProperty(urn: String!): StructuredPropertyEntity
+
+    """
     Fetch a ERModelRelationship by primary key (urn)
     """
     erModelRelationship(urn: String!): ERModelRelationship
@@ -9157,6 +9162,10 @@ enum PolicyMatchCondition {
   Whether the field matches the value
   """
   EQUALS
+  """
+  Whether the field value starts with the value
+  """
+  STARTS_WITH
 }
 
 """

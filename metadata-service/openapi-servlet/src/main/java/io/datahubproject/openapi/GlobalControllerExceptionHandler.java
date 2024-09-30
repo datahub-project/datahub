@@ -1,11 +1,14 @@
 package io.datahubproject.openapi;
 
+import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
+import io.datahubproject.openapi.exception.UnauthorizedException;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.ConversionNotSupportedException;
 import org.springframework.core.Ordered;
 import org.springframework.core.convert.ConversionFailedException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -29,5 +32,24 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   @ExceptionHandler(InvalidUrnException.class)
   public static ResponseEntity<Map<String, String>> handleUrnException(InvalidUrnException e) {
     return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.BAD_REQUEST);
+  }
+
+  @ExceptionHandler(APIThrottleException.class)
+  public static ResponseEntity<Map<String, String>> handleThrottleException(
+      APIThrottleException e) {
+
+    HttpHeaders headers = new HttpHeaders();
+    if (e.getDurationMs() >= 0) {
+      headers.add(HttpHeaders.RETRY_AFTER, String.valueOf(e.getDurationSeconds()));
+    }
+
+    return new ResponseEntity<>(
+        Map.of("error", e.getMessage()), headers, HttpStatus.TOO_MANY_REQUESTS);
+  }
+
+  @ExceptionHandler(UnauthorizedException.class)
+  public static ResponseEntity<Map<String, String>> handleUnauthorizedException(
+      UnauthorizedException e) {
+    return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.FORBIDDEN);
   }
 }

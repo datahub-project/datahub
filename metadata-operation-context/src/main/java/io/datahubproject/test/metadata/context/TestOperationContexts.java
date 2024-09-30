@@ -259,6 +259,12 @@ public class TestOperationContexts {
         .asSession(RequestContext.TEST, authorizer, sessionAuthorization);
   }
 
+  public static OperationContext userContextNoSearchAuthorization(
+      @Nonnull RequestContext requestContext) {
+    return systemContextNoSearchAuthorization(defaultEntityRegistry())
+        .asSession(requestContext, Authorizer.EMPTY, TEST_USER_AUTH);
+  }
+
   @Builder
   public static class EmptyAspectRetriever implements AspectRetriever {
     private final Supplier<EntityRegistry> entityRegistrySupplier;

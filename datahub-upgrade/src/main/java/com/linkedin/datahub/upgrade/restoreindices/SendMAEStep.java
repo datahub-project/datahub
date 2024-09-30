@@ -16,6 +16,7 @@ import io.ebean.ExpressionList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -189,7 +190,12 @@ public class SendMAEStep implements UpgradeStep {
             context.report().addLine(String.format("Rows processed this loop %d", rowsProcessed));
             start += args.batchSize;
           } catch (InterruptedException | ExecutionException e) {
-            return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+            if (e.getCause() instanceof NoSuchElementException) {
+              context.report().addLine("End of data.");
+              break;
+            } else {
+              return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+            }
           }
         }
       } else {
