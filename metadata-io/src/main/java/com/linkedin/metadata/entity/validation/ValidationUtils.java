@@ -281,6 +281,8 @@ public class ValidationUtils {
       boolean includeSoftDeleted) {
 
     if (enforceSQLExistence) {
+      // TODO: Always set includeSoftDeleted to true once 0.3.7 OSS merge occurs, as soft deleted
+      //  results will be filtered by graph service
       Set<Urn> existingUrns =
           entityService.exists(
               opContext,

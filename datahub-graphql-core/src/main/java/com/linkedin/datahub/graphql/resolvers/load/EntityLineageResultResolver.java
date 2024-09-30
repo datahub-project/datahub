@@ -25,6 +25,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.RestrictedService;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -68,7 +69,8 @@ public class EntityLineageResultResolver
     @Nullable
     final Long endTimeMillis =
         ResolverUtils.getLineageEndTimeMillis(input.getStartTimeMillis(), input.getEndTimeMillis());
-    @Nullable final Boolean includeGhostEntities = input.getIncludeGhostEntities();
+    final Boolean includeGhostEntities =
+        Optional.ofNullable(input.getIncludeGhostEntities()).orElse(false);
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
@@ -81,6 +83,8 @@ public class EntityLineageResultResolver
                 _siblingGraphService.getLineage(
                     context
                         .getOperationContext()
+                        .withSearchFlags(
+                            searchFlags -> searchFlags.setIncludeSoftDeleted(includeGhostEntities))
                         .withLineageFlags(
                             flags ->
                                 flags
@@ -92,7 +96,7 @@ public class EntityLineageResultResolver
                     count != null ? count : 100,
                     1,
                     separateSiblings != null ? input.getSeparateSiblings() : false,
-                    Boolean.TRUE.equals(input.getIncludeGhostEntities()),
+                    input.getIncludeGhostEntities(),
                     new HashSet<>());
 
             Set<Urn> restrictedUrns = new HashSet<>();
