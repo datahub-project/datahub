@@ -1291,6 +1291,7 @@ where valid conditions include
     - CONTAIN
     - END_WITH
     - EQUAL
+    - IEQUAL (Supports case insensitive equals)
     - GREATER_THAN
     - GREATER_THAN_OR_EQUAL_TO
     - LESS_THAN
