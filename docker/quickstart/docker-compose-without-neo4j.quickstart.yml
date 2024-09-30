@@ -97,6 +97,7 @@ services:
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
+    - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
     healthcheck:

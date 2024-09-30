@@ -1,6 +1,7 @@
 package com.linkedin.metadata.boot.steps;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
+import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
 import com.google.common.collect.ImmutableList;
@@ -13,7 +14,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
 import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -89,13 +89,10 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
       throws Exception {
 
     // Condition: has `browsePaths` AND does NOT have `browsePathV2`
-    Criterion missingBrowsePathV2 = new Criterion();
-    missingBrowsePathV2.setCondition(Condition.IS_NULL);
-    missingBrowsePathV2.setField("browsePathV2");
+    Criterion missingBrowsePathV2 = buildIsNullCriterion("browsePathV2");
+
     // Excludes entities without browsePaths
-    Criterion hasBrowsePathV1 = new Criterion();
-    hasBrowsePathV1.setCondition(Condition.EXISTS);
-    hasBrowsePathV1.setField("browsePaths");
+    Criterion hasBrowsePathV1 = buildExistsCriterion("browsePaths");
 
     CriterionArray criterionArray = new CriterionArray();
     criterionArray.add(missingBrowsePathV2);
