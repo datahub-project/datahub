@@ -101,6 +101,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
+
     Assert.assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
