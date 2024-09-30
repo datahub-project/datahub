@@ -4,7 +4,7 @@ __author__ = "Shabbir Mohammed Hussain, Shehroz Abdullah, Hamza Rehman"
 
 import re
 import logging
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.metadata.schema_classes import (
@@ -141,13 +141,24 @@ class DremioController:
         )
 
     @staticmethod
-    def __prepare_schema_metadata(schema: str, table_name: str, result: List[Dict]) -> SchemaMetadataClass:
+    def __prepare_schema_metadata(
+            schema: str,
+            table_name: str,
+            result: List[Dict],
+    ) -> SchemaMetadataClass:
         fields = [
             SchemaFieldClass(
                 fieldPath=row['COLUMN_NAME'],
                 type=SchemaFieldDataTypeClass(
-                    type=DremioController.__get_schema_field_type(row["DATA_TYPE"], row["COLUMN_SIZE"])[1]),
-                nativeDataType=DremioController.__get_schema_field_type(row["DATA_TYPE"], row["COLUMN_SIZE"])[2],
+                    type=DremioController.__get_schema_field_type(
+                        row["DATA_TYPE"],
+                        row["COLUMN_SIZE"]
+                    )[1],
+                ),
+                nativeDataType=DremioController.__get_schema_field_type(
+                    row["DATA_TYPE"],
+                    row["COLUMN_SIZE"]
+                )[2],
                 nullable=row['IS_NULLABLE'].lower() == "yes",
             )
             for row in result
@@ -194,20 +205,6 @@ class DremioController:
             else []
         )
 
-    def __create_schema_field(
-            self,
-            row: dict
-    ) -> SchemaFieldClass:
-        fp_type, type_cls, raw_type = self.__get_schema_field_type(
-            row["DATA_TYPE"], row["COLUMN_SIZE"]
-        )
-        return SchemaFieldClass(
-            fieldPath=row['COLUMN_NAME'],
-            type=SchemaFieldDataTypeClass(type=type_cls),
-            nativeDataType=raw_type,
-            nullable=f"{row['IS_NULLABLE']}".lower() == "yes",
-        )
-
     def get_parents(self, schema: str, dataset: str):
         return self.dremio_api.get_view_parents(schema, dataset)
 
@@ -220,22 +217,21 @@ class DremioController:
         data_size = f"({data_size})" if data_size else ""
         if data_type == "boolean":
             return data_type, BooleanTypeClass(), f"{data_type}{data_size}"
-        elif data_type == "binary varying":
+        if data_type == "binary varying":
             return data_type, BytesTypeClass(), f"{data_type}{data_size}"
-        elif data_type in ["decimal", "integer", "bigint", "float", "double"]:
+        if data_type in ["decimal", "integer", "bigint", "float", "double"]:
             return data_type, NumberTypeClass(), f"{data_type}{data_size}"
-        elif data_type in ["timestamp", "date"]:
+        if data_type in ["timestamp", "date"]:
             return data_type, DateTypeClass(), f"{data_type}{data_size}"
-        elif data_type == "time":
+        if data_type == "time":
             return data_type, TimeTypeClass(), f"{data_type}{data_size}"
-        elif data_type in ["char", "character", "character varying"]:
+        if data_type in ["char", "character", "character varying"]:
             return data_type, StringTypeClass(), f"{data_type}{data_size}"
-        elif data_type in ["row", "struct", "list", "map"]:
+        if data_type in ["row", "struct", "list", "map"]:
             return data_type, RecordTypeClass(), f"{data_type}{data_size}"
-        elif data_type == "array":
+        if data_type == "array":
             return data_type, ArrayTypeClass(), f"{data_type}{data_size}"
-        else:
-            return data_type, NullTypeClass(), f"{data_type}{data_size}"
+        return data_type, NullTypeClass(), f"{data_type}{data_size}"
 
     def get_dremio_sources(self) -> List[Dict[str, str]]:
         """

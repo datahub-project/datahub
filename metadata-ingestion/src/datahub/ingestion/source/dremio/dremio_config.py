@@ -1,5 +1,7 @@
 from typing import Optional, Dict, List, Type, Set
+from time import time
 import certifi
+from pydantic import Field, validator
 
 from datahub.configuration.common import ConfigModel, AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -11,8 +13,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import FabricTypeClass
-
-from pydantic import Field, validator
 
 
 class DremioSourceMapping(ConfigModel):
@@ -132,21 +132,21 @@ class DremioSourceConfig(ConfigModel, StatefulIngestionConfigBase):
 
 
     @validator("authentication_method")
-    def validate_auth_method(cls, v):
+    def validate_auth_method(cls, value):
         allowed_methods = ["password", "PAT"]
-        if v not in allowed_methods:
+        if value not in allowed_methods:
             raise ValueError(
                 f"authentication_method must be one of {allowed_methods}",
             )
-        return v
+        return value
 
     @validator("password")
-    def validate_password(cls, v, values):
-        if values.get("authentication_method") == "PAT" and not v:
+    def validate_password(cls, value, values):
+        if values.get("authentication_method") == "PAT" and not value:
             raise ValueError(
                 "Password (Personal Access Token) is required when using PAT authentication",
             )
-        return v
+        return value
 
 
 class DremioState(GenericCheckpointState):
@@ -251,12 +251,14 @@ class DremioCheckpointState(GenericCheckpointState):
             self.add_dremio_job(urn)
 
         # Update the last updated timestamp
-        if hasattr(mcp, 'systemMetadata') and mcp.systemMetadata and mcp.systemMetadata.lastObserved:
+        if hasattr(
+            mcp,
+            'systemMetadata',
+        ) and mcp.systemMetadata and mcp.systemMetadata.lastObserved:
             self.add_last_updated_timestamp(urn, mcp.systemMetadata.lastObserved)
         else:
             # If systemMetadata is not available in MCP, you might want to use
             # the current timestamp or handle this case differently
-            from time import time
             self.add_last_updated_timestamp(urn, time())
 
     def add_scanned_urn(self, urn: str) -> None:
@@ -286,8 +288,3 @@ class DremioStaleEntityRemovalHandler(StaleEntityRemovalHandler):
             run_id=run_id,
         )
         self.source = source
-
-
-
-
-

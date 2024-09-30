@@ -3,12 +3,23 @@ source:
   config:
     # Coordinates
     hostname: localhost
-    port: 26257
+    port: 9047
+    tls: true
 
     # Credentials
     authentication_method: password
     username: user
     password: pass
+
+    include_query_lineage: True
+
+    source_mappings:
+      - platform: s3
+        platform_name: samples
+
+    schema_pattern:
+      allow:
+        - ".*"
 
 sink:
   # sink configs

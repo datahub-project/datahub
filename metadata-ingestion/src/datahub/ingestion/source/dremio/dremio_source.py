@@ -39,12 +39,24 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator, KnownQueryLineageInfo, ObservedQuery
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    SqlParsingAggregator,
+    KnownQueryLineageInfo,
+    ObservedQuery,
+)
 
 from datahub.ingestion.source.dremio.dremio_api import DremioQuery
-from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig, DremioCheckpointState, DremioSourceMapping
-from datahub.ingestion.source.dremio.dremio_source_controller import DremioController
-from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import DremioToDataHubSourceTypeMapping
+from datahub.ingestion.source.dremio.dremio_config import (
+    DremioSourceConfig,
+    DremioCheckpointState,
+    DremioSourceMapping
+)
+from datahub.ingestion.source.dremio.dremio_source_controller import (
+    DremioController
+)
+from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
+    DremioToDataHubSourceTypeMapping
+)
 
 logger = logging.getLogger(__name__)
 
@@ -137,8 +149,8 @@ class DremioSource(StatefulIngestionSourceBase):
         for source in dremio_sources:
             source_name = source.get("name").lower()
             source_type = source.get("type").lower()
-            rootPath = source.get("rootPath").lower() if source.get("rootPath") else ""
-            databaseName = source.get("databaseName").lower() if source.get("databaseName") else ""
+            root_path = source.get("rootPath").lower() if source.get("rootPath") else ""
+            database_name = source.get("databaseName").lower() if source.get("databaseName") else ""
             source_present = False
             source_platform_name = source_name
 
@@ -159,8 +171,8 @@ class DremioSource(StatefulIngestionSourceBase):
                             source_type
                         )
                     )
-                    source_map[source_platform_name].rootPath = rootPath
-                    source_map[source_platform_name].databaseName = databaseName
+                    source_map[source_platform_name].rootPath = root_path
+                    source_map[source_platform_name].databaseName = database_name
                     source_present = True
                     break
 
@@ -169,11 +181,13 @@ class DremioSource(StatefulIngestionSourceBase):
                     dremio_source_type = self.reference_source_mapping.get_category(
                         source_type
                     )
-                except Exception as e:
+                except Exception as exc:
                     logger.info(
                         (f"Source {source_type} is not a standard Dremio source type.",
-                         f"Adding source_type {source_type} to mapping as database")
+                         f"Adding source_type {source_type} to mapping as database",
+                         exc)
                     )
+
                     self.reference_source_mapping.add_mapping(
                         source_type,
                         source_name
@@ -200,12 +214,13 @@ class DremioSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         datasets = self.dremio_controller.get_datasets()
+
         dataset_infos = [
             DatasetInfo(
                 schema=schema,
                 table=table,
                 type=typ,
-                definition=definition
+                definition=definition,
             )
             for schema, table, typ, definition in datasets
         ]
@@ -235,7 +250,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
         if self.config.include_query_lineage:
-            yield from self.get_query_lineage_workunits()
+            self.get_query_lineage_workunits()
 
         # Generate workunit for aggregated SQL parsing results
         for mcp in self.sql_parsing_aggregator.gen_metadata():
@@ -253,7 +268,7 @@ class DremioSource(StatefulIngestionSourceBase):
 
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=make_data_platform_urn(
-                self.get_platform()
+                self.get_platform(),
             ),
             name=f"dremio.{schema_str}.{dataset_info.table}".lower(),
             env=self.config.env,
@@ -272,12 +287,12 @@ class DremioSource(StatefulIngestionSourceBase):
                 dataset_info.schema, list
             ) else [dataset_info.schema],
             table_name=dataset_info.table,
-            all_tables_and_columns=self.dremio_controller.get_all_tables_and_columns()
+            all_tables_and_columns=self.dremio_controller.get_all_tables_and_columns(),
         )
 
         aspects["subTypes"] = SubTypesClass(
             typeNames=[
-                dataset_info.type.title()
+                dataset_info.type.title(),
             ]
         )
 
@@ -285,7 +300,7 @@ class DremioSource(StatefulIngestionSourceBase):
             platform=f"urn:li:dataPlatform:{self.get_platform()}",
             instance=(
                 make_dataplatform_instance_urn(
-                    self.get_platform(), self.config.platform_instance
+                    self.get_platform(), self.config.platform_instance,
                 )
                 if self.config.platform_instance
                 else None
@@ -295,7 +310,7 @@ class DremioSource(StatefulIngestionSourceBase):
         if aspects.get("schemaMetadata"):
             self.sql_parsing_aggregator.register_schema(
                 urn=dataset_urn,
-                schema=aspects.get("schemaMetadata")
+                schema=aspects.get("schemaMetadata"),
             )
 
         for aspect_name, aspect in aspects.items():
@@ -326,7 +341,6 @@ class DremioSource(StatefulIngestionSourceBase):
                     self.generate_view_lineage(
                         schema=dataset_info.schema,
                         table=dataset_info.table,
-                        definition=dataset_info.definition,
                         dataset_urn=dataset_urn,
                     )
                 )
@@ -351,7 +365,7 @@ class DremioSource(StatefulIngestionSourceBase):
                         upstreams=[
                             UpstreamClass(
                                 dataset=upstream_urn,
-                                type=DatasetLineageTypeClass.COPY
+                                type=DatasetLineageTypeClass.COPY,
                             )
                         ]
                     )
@@ -366,12 +380,13 @@ class DremioSource(StatefulIngestionSourceBase):
                     self.sql_parsing_aggregator.add_known_lineage_mapping(
                         upstream_urn=upstream_urn,
                         downstream_urn=dataset_urn,
-                        lineage_type=DatasetLineageTypeClass.COPY
+                        lineage_type=DatasetLineageTypeClass.COPY,
                     )
 
                     workunits.append(
                         MetadataWorkUnit(
-                            id=f"{dataset_urn}-upstreamLineage", mcp=mcp
+                            id=f"{dataset_urn}-upstreamLineage",
+                            mcp=mcp,
                         )
                     )
 
@@ -403,16 +418,20 @@ class DremioSource(StatefulIngestionSourceBase):
             aspect=SubTypesClass(typeNames=["View"]),
             changeType=ChangeTypeClass.UPSERT,
         )
-        yield MetadataWorkUnit(id=f"{dataset_urn}-subTypes", mcp=subtypes_mcp)
+
+        yield MetadataWorkUnit(
+            id=f"{dataset_urn}-subTypes",
+            mcp=subtypes_mcp,
+        )
 
     def generate_view_lineage(
-            self, schema: List[str], table: str, definition: str, dataset_urn: str
+            self, schema: List[str], table: str, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
         # Join the schema list into a string, as expected by get_parents
         schema_str = '.'.join(schema)
         upstream_tables = self.dremio_controller.get_parents(
             schema=schema_str,
-            dataset=table
+            dataset=table,
         )
         if upstream_tables:
             upstream_urns = [
@@ -453,23 +472,27 @@ class DremioSource(StatefulIngestionSourceBase):
 
             yield MetadataWorkUnit(id=f"{dataset_urn}-upstreamLineage", mcp=mcp)
 
-    def get_query_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_query_lineage_workunits(self):
         queries = self.dremio_controller.get_all_queries()
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_query = {executor.submit(self.process_query, query): query for query in queries}
+            future_to_query = {
+                executor.submit(
+                    self.process_query,
+                    query,
+                ): query for query in queries
+            }
+
             for future in as_completed(future_to_query):
                 query = future_to_query[future]
                 try:
-                    wu = future.result()
-                    if wu:
-                        yield wu
+                    future.result()
                 except Exception as exc:
                     self.report.report_failure(
                         f"Failed to process query {query.job_id}: {exc}"
                     )
 
-    def process_query(self, query: DremioQuery) -> Optional[MetadataWorkUnit]:
+    def process_query(self, query: DremioQuery):
         if query.query and query.affected_dataset:
             upstream_urns = [
                 make_dataset_urn_with_platform_instance(
@@ -501,19 +524,17 @@ class DremioSource(StatefulIngestionSourceBase):
                 )
             )
 
-            # Add observed query
-            self.sql_parsing_aggregator.add_observed_query(
-                ObservedQuery(
-                    query=query.query,
-                    timestamp=query.submitted_ts,
-                    user=CorpUserUrn(
-                        username=query.username,
-                    ),
-                    default_db="dremio",
-                )
+        # Add observed query
+        self.sql_parsing_aggregator.add_observed_query(
+            ObservedQuery(
+                query=query.query,
+                timestamp=query.submitted_ts,
+                user=CorpUserUrn(
+                    username=query.username,
+                ),
+                default_db="dremio",
             )
-
-        return None
+        )
 
     def _map_dremio_dataset_to_urn(
             self,
@@ -525,17 +546,17 @@ class DremioSource(StatefulIngestionSourceBase):
         if not mapping:
             return None
 
-        rootPath = ""
-        databaseName = ""
+        root_path = ""
+        database_name = ""
 
         if mapping.dremio_source_type == "file_object_storage":
             if mapping.rootPath:
-                rootPath = f"{mapping.rootPath[1:]}/"
-            dremio_dataset = f"{rootPath}{'/'.join(dremio_path[1:])}/{dremio_dataset}"
+                root_path = f"{mapping.rootPath[1:]}/"
+            dremio_dataset = f"{root_path}{'/'.join(dremio_path[1:])}/{dremio_dataset}"
         else:
             if mapping.databaseName:
-                databaseName = f"{mapping.databaseName}."
-            dremio_dataset = f"{databaseName}{'.'.join(dremio_path[1:])}.{dremio_dataset}"
+                database_name = f"{mapping.databaseName}."
+            dremio_dataset = f"{database_name}{'.'.join(dremio_path[1:])}.{dremio_dataset}"
 
         if mapping.platform_instance:
             return make_dataset_urn_with_platform_instance(
@@ -544,16 +565,16 @@ class DremioSource(StatefulIngestionSourceBase):
                 platform_instance=mapping.platform_instance,
                 env=self.config.env
             )
-        else:
-            return make_dataset_urn_with_platform_instance(
-                platform=mapping.platform,
-                name=dremio_dataset,
-                platform_instance=None,
-                env=self.config.env
-            )
 
-    @staticmethod
+        return make_dataset_urn_with_platform_instance(
+            platform=mapping.platform,
+            name=dremio_dataset,
+            platform_instance=None,
+            env=self.config.env
+        )
+
     def make_dremio_space_urn(
+            self,
             space_name: str,
             platform_instance: Optional[str],
     ) -> str:
@@ -569,8 +590,8 @@ class DremioSource(StatefulIngestionSourceBase):
             )
         )
 
-    @staticmethod
     def make_dremio_folder_urn(
+            self,
             space_name: str,
             directory_path: List[str],
             platform_instance: Optional[str],
