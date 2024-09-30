@@ -690,7 +690,7 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       final boolean isTimeseries,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      @Nonnull AspectRetriever aspectRetriever,boolean enableCaseInsensitiveSearch) {
+      @Nonnull AspectRetriever aspectRetriever, boolean enableCaseInsensitiveSearch) {
     Set<String> fieldTypes = getFieldTypes(searchableFieldTypes, fieldName, aspectRetriever);
     if (fieldTypes.size() > 1) {
       log.warn(
