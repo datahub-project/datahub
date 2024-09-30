@@ -1341,9 +1341,8 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     message="Some datasets are not used in any visualizations. To ingest them, enable the `extract_independent_datasets` flag",
                     context=",".join(
                         [
-                            dataset.name
+                            dataset.description
                             for dataset in workspace.independent_datasets
-                            if dataset.name
                         ]
                     ),
                 )
