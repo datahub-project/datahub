@@ -3,13 +3,13 @@
 import json
 import logging
 import re
+import requests
+
 from datetime import datetime
+from sqlglot import parse_one
 from time import sleep
 from typing import Dict, List, Optional
 from urllib.parse import quote
-
-import requests
-from sqlglot import parse_one
 
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 
@@ -95,7 +95,7 @@ class DremioQuery:
         affected_datasets: Optional[str] = None,
     ):
         self.job_id = job_id
-        self.username = username
+        self.username = username,
         self.submitted_ts = self._get_submitted_ts(submitted_ts)
         self.query = self._get_query(query)
         self.query_without_comments = self.get_raw_query(query)
@@ -114,7 +114,7 @@ class DremioQuery:
         return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
 
     def _get_query(self, query: str) -> str:
-        return str(query).replace("'", "'")
+        return str(query).replace("\'", "'")
 
     def _get_query_type(self) -> str:
         query_operator = re.split(
@@ -187,9 +187,7 @@ class DremioAPIOperations:
         )
         self.is_dremio_cloud: bool = connection_args.get("is_dremio_cloud")
 
-        self._verify: bool = connection_args.get("tls") and not connection_args.get(
-            "disable_certificate_verification"
-        )
+        self._verify: bool = connection_args.get("tls") and not connection_args.get("disable_certificate_verification")
         self.set_credentials()
         self.all_tables = []
         self.all_tables_and_columns = self._get_all_tables_and_columns()
@@ -212,14 +210,12 @@ class DremioAPIOperations:
                     pass
                 break
             else:
-                raise RuntimeError(
-                    "Credentials cannot be refreshed. Please check your username and password"
-                )
+                raise "Credentials cannot be refreshed. Please check your username and password"
 
     def execute_get_request(self, url: str) -> Dict:
         """execute a get request on dremio"""
         response = requests.get(
-            url=(self.base_url + url), headers=self.headers, verify=self._verify
+            url=(self.base_url + url), headers=self.headers, verify=self._verify,
         )
         return response.json()
 
@@ -254,9 +250,7 @@ class DremioAPIOperations:
         else:
             response = self._execute_post_request_to_get_headers(
                 headers={"content-type": "application/json"},
-                data=json.dumps(
-                    {"userName": self.username, "password": self._password}
-                ),
+                data=json.dumps({"userName": self.username, "password": self._password}),
             )
             self.headers = {
                 "content-type": "application/json",
@@ -266,7 +260,8 @@ class DremioAPIOperations:
     def execute_query(self, query: str) -> List[Dict]:
         """Execute sql query"""
         response = self.execute_post_request(
-            url="/sql", data=json.dumps({"sql": query})
+            url="/sql",
+            data=json.dumps({"sql": query})
         )
         return self.fetch_results(response["id"])
 
@@ -305,7 +300,14 @@ class DremioAPIOperations:
         increment_val = 1
         last_val = 0
         while increment_val <= len(schema_split):
-            url_encoded = quote(".".join(schema_split[last_val:increment_val]), safe="")
+            url_encoded = quote(
+                ".".join(
+                    schema_split[
+                        last_val:increment_val
+                    ]
+                ),
+                safe=''
+            )
             response = self.execute_get_request(
                 f"/catalog/by-path/{schema_str}/{url_encoded}",
             )
@@ -321,15 +323,7 @@ class DremioAPIOperations:
             f"/catalog/by-path/{schema_str}/{quote(dataset, safe='')}",
         ).get("id")
 
-    # @staticmethod
-    # def _get_unique_concatenated_values(dicts, key1, key2):
-    #     unique_values = [
-    #         f"{d[key1]}.{d[key2]}"
-    #         for d in dicts if key1 in d and key2 in d
-    #     ]
-    #     return unique_values
-
-    def _get_all_tables_and_columns(self):
+    def _get_all_tables_and_columns(self) -> Dict:
         all_tables_and_columns_dict: Dict = {}
         all_tables_and_columns = self.execute_query(
             DremioSQLQueries.QUERY_ALL_TABLES_AND_COLUMNS
@@ -337,13 +331,17 @@ class DremioAPIOperations:
 
         schema_list = []
         for record in all_tables_and_columns:
-            schema_list.append(record.get("TABLE_SCHEMA"))
+            schema_list.append(
+                record.get("TABLE_SCHEMA")
+            )
         distinct_schemas = set(schema_list)
 
         distinct_schemas_dict_lookup = []
 
         for ds in distinct_schemas:
-            distinct_schemas_dict_lookup.append(self.validate_schema_format(ds))
+            distinct_schemas_dict_lookup.append(
+                self.validate_schema_format(ds)
+            )
 
         tables_list = []
 
@@ -351,11 +349,11 @@ class DremioAPIOperations:
             for schemas in distinct_schemas_dict_lookup:
                 if record.get("TABLE_SCHEMA") == schemas.get("original_path"):
                     tables_list.append(
+                        '"' +
+                        "\".\"".join(schemas.get("formatted_path")) +
+                        "." +
+                        record.get("TABLE_NAME") +
                         '"'
-                        + '"."'.join(schemas.get("formatted_path"))
-                        + "."
-                        + record.get("TABLE_NAME")
-                        + '"'
                     )
 
         self.all_tables = list(set(tables_list))
@@ -378,8 +376,7 @@ class DremioAPIOperations:
 
         if "." in schema:
             schema_path = self.execute_get_request(
-                f"/catalog/{self.get_dataset_id(schema=schema, dataset='')}"
-            ).get("path")
+                f"/catalog/{self.get_dataset_id(schema=schema, dataset='')}").get("path")
             return {"original_path": schema, "formatted_path": schema_path}
         else:
             return {"original_path": schema, "formatted_path": [schema]}
@@ -400,10 +397,13 @@ class DremioAPIOperations:
         parents_list = []
 
         if not self.is_dremio_cloud:
-            dataset_id = self.get_dataset_id(schema=".".join(schema), dataset=dataset)
+            dataset_id = self.get_dataset_id(schema=schema, dataset=dataset)
             parents = self.execute_get_request(
                 f"/catalog/{dataset_id}/graph",
             ).get("parents")
+
+            if not parents:
+                return []
 
             for parent in parents:
                 parent_path = ""
@@ -430,3 +430,51 @@ class DremioAPIOperations:
             )
 
         return queries
+
+    def get_sources(self) -> List[Dict]:
+        """
+        Query the Dremio sources API and return source information.
+        """
+        response = self.execute_get_request("/catalog")
+        sources_and_spaces = response.get("data", [])
+
+        # Process sources to include alias information
+        processed_sources = []
+        for source in sources_and_spaces:
+            if source.get("containerType") == "SOURCE":
+                source_config = self.execute_get_request(f"/catalog/{source.get('id')}")
+                processed_source = {
+                    "name": source_config.get("name"),
+                    "type": source_config.get("type"),
+                    "rootPath": source_config.get("config").get("rootPath"),
+                    "databaseName": source_config.get("config").get("databaseName"),
+                }
+                processed_sources.append(processed_source)
+
+        return processed_sources
+
+    def get_source_by_id(self, source_id: str) -> Optional[Dict]:
+        """
+        Fetch source details by ID.
+        """
+        response = self.execute_get_request(f"/source/{source_id}")
+        return response if response else None
+
+    def get_source_for_dataset(self, schema: str, dataset: str) -> Optional[Dict]:
+        """
+        Get source information for a dataset given its schema and name.
+        """
+        dataset_id = self.get_dataset_id(schema, dataset)
+        if not dataset_id:
+            return None
+
+        catalog_entry = self.execute_get_request(f"/catalog/{dataset_id}")
+        if not catalog_entry or 'path' not in catalog_entry:
+            return None
+
+        source_id = catalog_entry['path'][0]
+        return self.get_source_by_id(source_id)
+
+    def retrieve_table_and_column_list(self) -> Dict:
+        return self.all_tables_and_columns
+

@@ -19,26 +19,6 @@ class DremioSQLQueries:
         AND T.TABLE_SCHEMA not like 'sys%';
     """
 
-    QUERY_DATASETS_EE = """
-    SELECT
-        T.TABLE_SCHEMA,
-        T.TABLE_NAME,
-        T.TABLE_TYPE,
-        V.VIEW_DEFINITION
-    FROM
-        INFORMATION_SCHEMA."TABLES" AS T
-        LEFT JOIN INFORMATION_SCHEMA.VIEWS V ON
-        V.TABLE_CATALOG = T.TABLE_CATALOG
-        AND V.TABLE_SCHEMA = T.TABLE_SCHEMA
-        AND V.TABLE_NAME = T.TABLE_NAME
-    WHERE
-        (({collect_pds} AND {collect_system_tables}) OR
-        (NOT({collect_pds}) AND NOT({collect_system_tables}) AND T.TABLE_TYPE = 'VIEW') OR
-        ({collect_pds} AND NOT({collect_system_tables}) AND T.TABLE_TYPE IN ('TABLE','VIEW')) OR
-        (NOT({collect_pds}) AND {collect_system_tables} AND T.TABLE_TYPE IN ('SYSTEM_TABLE','VIEW')))
-        AND T.TABLE_SCHEMA not like 'sys%';
-    """
-
     QUERY_DATASET_SCHEMAS = """
     SELECT
         T.TABLE_SCHEMA,
