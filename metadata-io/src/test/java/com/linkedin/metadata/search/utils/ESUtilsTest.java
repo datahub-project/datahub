@@ -187,7 +187,7 @@ public class ESUtilsTest {
     Assert.assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
-            buildCriterion("myTestField", Condition.EQUAL, "value1", "value2");
+            buildCriterion("myTestField", Condition.IEQUAL, "value1", "value2");
 
     result =
         ESUtils.getQueryBuilderFromCriterion(
