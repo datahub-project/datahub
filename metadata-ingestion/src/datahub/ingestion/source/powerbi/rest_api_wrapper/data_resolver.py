@@ -3,7 +3,7 @@ import math
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from time import sleep
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Iterator
 
 import msal
 import requests
@@ -25,7 +25,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Tile,
     User,
     Workspace,
-    new_powerbi_dataset,
+    new_powerbi_dataset, ReportType, App, AppContainerKey,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.profiling_utils import (
     process_column_result,
@@ -57,7 +57,8 @@ def is_http_failure(response: Response, message: str) -> bool:
 
 class DataResolverBase(ABC):
     SCOPE: str = "https://analysis.windows.net/powerbi/api/.default"
-    BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/groups"
+    MY_ORG_URL = "https://api.powerbi.com/v1.0/myorg"
+    BASE_URL: str = f"{MY_ORG_URL}/groups"
     ADMIN_BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/admin"
     AUTHORITY: str = "https://login.microsoftonline.com/"
     TOP: int = 1000
@@ -140,6 +141,13 @@ class DataResolverBase(ABC):
 
     @abstractmethod
     def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
+        pass
+
+    @abstractmethod
+    def _get_app(
+            self,
+            app_id: str,
+    ) -> Optional[Dict]:
         pass
 
     def _get_authority_url(self):
@@ -229,42 +237,16 @@ class DataResolverBase(ABC):
 
     def get_groups(self) -> List[dict]:
         group_endpoint = self.get_groups_endpoint()
-        params: dict = {"$top": self.TOP, "$skip": 0, "$filter": "type eq 'Workspace'"}
 
-        def fetch_page(page_number: int) -> dict:
-            params["$skip"] = self.TOP * page_number
-            logger.debug(f"Query parameters = {params}")
-            response = self._request_session.get(
-                group_endpoint,
-                headers=self.get_authorization_header(),
-                params=params,
-            )
-            response.raise_for_status()
-            return response.json()
+        output: List[dict] = []
 
-        # Hit PowerBi
-        logger.debug(f"Request to groups endpoint URL={group_endpoint}")
-        zeroth_page = fetch_page(0)
-        logger.debug(f"Page 0 = {zeroth_page}")
-        if zeroth_page.get(Constant.ODATA_COUNT) is None:
-            logger.warning(
-                "@odata.count field is not present in response. Unable to fetch workspaces."
-            )
-            return []
-
-        number_of_items = zeroth_page[Constant.ODATA_COUNT]
-        number_of_pages = math.ceil(number_of_items / self.TOP)
-        output: List[dict] = zeroth_page[Constant.VALUE]
-        for page in range(
-            1, number_of_pages
-        ):  # start from 1 as 0th index already fetched
-            page_response = fetch_page(page)
-            if len(page_response[Constant.VALUE]) == 0:
-                break
-
-            logger.debug(f"Page {page} = {zeroth_page}")
-
-            output.extend(page_response[Constant.VALUE])
+        for page in self.itr_pages(
+            endpoint=group_endpoint,
+            parameter_override={
+                "$filter": "type eq 'Workspace'"
+            },
+        ):
+            output.extend(page)
 
         return output
 
@@ -293,7 +275,7 @@ class DataResolverBase(ABC):
             Report(
                 id=raw_instance.get(Constant.ID),
                 name=raw_instance.get(Constant.NAME),
-                type=raw_instance.get(Constant.TYPE),
+                type=ReportType[raw_instance.get(Constant.REPORT_TYPE)],
                 webUrl=raw_instance.get(Constant.WEB_URL),
                 embedUrl=raw_instance.get(Constant.EMBED_URL),
                 description=raw_instance.get(Constant.DESCRIPTION, ""),
@@ -308,6 +290,29 @@ class DataResolverBase(ABC):
         ]
 
         return reports
+
+    def get_app(
+            self,
+            app_id: str,
+    ) -> Optional[App]:
+
+        raw_app: dict = self._get_app(
+            app_id=app_id,
+        )
+
+        assert Constant.id in raw_app, f"{Constant.ID} is required field not present in server response"
+
+        assert Constant.NAME in raw_app, f"{Constant.NAME} is required field not present in server response"
+
+        return App(
+            id=raw_app[Constant.ID],
+            name=raw_app[Constant.NAME],
+            app_container_key=AppContainerKey(
+                App.get_urn_part(raw_app[Constant.ID])
+            ),
+            description=raw_app.get(Constant.DESCRIPTION),
+            last_update=raw_app.get(Constant.LAST_UPDATE),
+        )
 
     def get_report(self, workspace: Workspace, report_id: str) -> Optional[Report]:
         reports: List[Report] = self.get_reports(
@@ -396,6 +401,37 @@ class DataResolverBase(ABC):
 
         return tiles
 
+    def itr_pages(
+        self,
+        endpoint: str,
+        parameter_override: Dict={},
+    ) -> Iterator[List[Dict]]:
+        params: dict = {
+            "$skip": 0,
+            "$top": self.TOP,
+            **parameter_override,
+        }
+
+        page_number: int = 0
+
+        while True:
+            params["$skip"] = self.TOP * page_number
+            response = self._request_session.get(
+                endpoint,
+                headers=self.get_authorization_header(),
+                params=params,
+            )
+
+            response.raise_for_status()
+
+            assert Constant.VALUE in response.json(), "'value' key is not present in paginated response"
+
+            if not response.json()[Constant.VALUE]: # if it is an empty list then break
+                break
+
+            yield response.json()[Constant.VALUE]
+
+            page_number += 1
 
 class RegularAPIResolver(DataResolverBase):
     # Regular access endpoints
@@ -408,6 +444,8 @@ class RegularAPIResolver(DataResolverBase):
         Constant.REPORT_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports",
         Constant.PAGE_BY_REPORT: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}/pages",
         Constant.DATASET_EXECUTE_QUERIES: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/executeQueries",
+        Constant.GET_WORKSPACE_APP: "{MY_ORG_URL}/apps/{APP_ID}",
+
     }
 
     def get_dataset(
@@ -664,6 +702,27 @@ class RegularAPIResolver(DataResolverBase):
 
         table.column_count = column_count
 
+    def _get_app(
+            self,
+            app_id: str,
+    ) -> Optional[Dict]:
+
+        app_endpoint = self.API_ENDPOINTS[Constant.GET_WORKSPACE_APP].format(
+            MY_ORG_URL=DataResolverBase.MY_ORG_URL,
+            APP_ID=app_id,
+        )
+        # Hit PowerBi
+        logger.debug(f"Request to app URL={app_endpoint}")
+
+        response = self._request_session.get(
+            url=app_endpoint,
+            headers=self.get_authorization_header(),
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
 
 class AdminAPIResolver(DataResolverBase):
     # Admin access endpoints
@@ -677,6 +736,7 @@ class AdminAPIResolver(DataResolverBase):
         Constant.ENTITY_USER_LIST: "{POWERBI_ADMIN_BASE_URL}/{ENTITY}/{ENTITY_ID}/users",
         Constant.DATASET_LIST: "{POWERBI_ADMIN_BASE_URL}/groups/{WORKSPACE_ID}/datasets",
         Constant.WORKSPACE_MODIFIED_LIST: "{POWERBI_ADMIN_BASE_URL}/workspaces/modified",
+        Constant.GET_WORKSPACE_APP: "{POWERBI_ADMIN_BASE_URL}/apps"
     }
 
     def create_scan_job(self, workspace_ids: List[str]) -> str:
@@ -923,7 +983,7 @@ class AdminAPIResolver(DataResolverBase):
 
     def get_modified_workspaces(self, modified_since: str) -> List[str]:
         """
-        Get list of modified workspaces
+        Get a list of modified workspaces
         """
         modified_workspaces_endpoint = self.API_ENDPOINTS[
             Constant.WORKSPACE_MODIFIED_LIST
@@ -975,4 +1035,26 @@ class AdminAPIResolver(DataResolverBase):
         profile_pattern: Optional[AllowDenyPattern],
     ) -> None:
         logger.debug("Profile dataset is unsupported in Admin API")
+        return None
+
+
+    def _get_app(
+            self,
+            app_id: str,
+    ) -> Optional[Dict]:
+
+        app_endpoint = self.API_ENDPOINTS[Constant.GET_WORKSPACE_APP].format(
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            APP_ID=app_id,
+        )
+        # Hit PowerBi
+        logger.debug(f"Request to app URL={app_endpoint}")
+
+        for page in self.itr_pages(
+            endpoint=app_endpoint
+        ):
+            for app in page:
+                if Constant.ID in app and app_id == app[Constant.ID]:
+                    return app
+
         return None

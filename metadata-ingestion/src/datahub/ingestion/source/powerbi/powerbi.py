@@ -1164,7 +1164,7 @@ class Mapper:
             entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
             aspect_name=SubTypesClass.ASPECT_NAME,
-            aspect=SubTypesClass(typeNames=[report.type]),
+            aspect=SubTypesClass(typeNames=[report.type.value]),
         )
 
         list_of_mcps = [
@@ -1202,7 +1202,7 @@ class Mapper:
         logger.debug(f"Converting report={report.name} to datahub dashboard")
         # Convert user to CorpUser
         user_mcps = self.to_datahub_users(report.users)
-        # Convert pages to charts. A report has single dataset and same dataset used in pages to create visualization
+        # Convert pages to charts. A report has a single dataset and the same dataset used in pages to create visualization
         ds_mcps = self.to_datahub_dataset(report.dataset, workspace)
         chart_mcps = self.pages_to_chart(report.pages, workspace, ds_mcps)
 

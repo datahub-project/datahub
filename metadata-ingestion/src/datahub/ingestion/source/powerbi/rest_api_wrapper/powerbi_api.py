@@ -20,7 +20,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Report,
     Table,
     User,
-    Workspace,
+    Workspace, App,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
@@ -243,6 +243,14 @@ class PowerBiAPI:
             self.log_http_error(message="Unable to fetch list of modified workspaces.")
 
         return workspaces
+
+    def get_app(
+            self,
+            app_id: str,
+    ) -> Optional[App]:
+        return self._get_resolver().get_app(
+            app_id=app_id,
+        )
 
     def _get_scan_result(self, workspace_ids: List[str]) -> Any:
         scan_id: Optional[str] = None

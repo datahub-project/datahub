@@ -47,6 +47,7 @@ class Constant:
     WORKSPACE_ID = "workspaceId"
     DASHBOARD_ID = "powerbi.linkedin.com/dashboards/{}"
     DATASET_EXECUTE_QUERIES = "DATASET_EXECUTE_QUERIES_POST"
+    GET_WORKSPACE_APP = "GET_WORKSPACE_APP"
     DATASET_ID = "datasetId"
     REPORT_ID = "reportId"
     SCAN_ID = "ScanId"
@@ -119,6 +120,8 @@ class Constant:
     WORKSPACE_NAME = "workspaceName"
     DATASET_WEB_URL = "datasetWebUrl"
     TYPE = "type"
+    REPORT_TYPE = "reportType"
+    LAST_UPDATE = "lastUpdate"
 
 
 @dataclass
