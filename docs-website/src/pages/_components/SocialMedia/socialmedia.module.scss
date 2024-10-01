@@ -3,12 +3,12 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin: 80px auto;
-    width: 90vw;
-    height: calc(90vh - 70px);
-    min-height: 720px;
+    margin: 0 auto;
+    width: 100vw;
+    height: calc(70vh - 70px);
+    min-height: 600px;
     max-height: 1000px;
-    border-radius: 50px;
+    border-radius: 0;
     background-color: #545765cc;
     position: relative;
     overflow: hidden;
@@ -29,7 +29,7 @@
     width: 440px;
     height: 200px;
     background-color: #eee;
-    color: #000;
+    color: #fff;
     font-size: 1.8rem;
     display: flex;
     justify-content: flex-start;
@@ -47,7 +47,7 @@
     display: flex;
     justify-content: flex-start;
     height: 100%;
-    padding: 0 0 80px 152px;
+    padding: 0 0 0 152px;
 }
 
 .socialSubText {
@@ -64,7 +64,7 @@
 }
   
 .mediaIcons > svg {
-    color: white;
+    color: #fff;
     width: 38px;
     height: 38px;
 }
@@ -78,7 +78,7 @@
 .styledIcon {
     min-width: 74px;
     min-height: 74px;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(250, 250, 250, 0.2);
     border-radius: 16px;
     display: flex;
     justify-content: center;
@@ -92,7 +92,7 @@
 }
   
 .visitPageIcon > svg {
-    color: white;
+    color: #fff;
 }
   
 .statItem {
@@ -107,13 +107,13 @@
     gap: 14px;
     border: .5px solid transparent;
     transition: background-color 0.3s ease, border-color 0.3s ease;
-    color: white;
+    color: #fff;
     text-decoration: none;
 }
   
 .statItem:hover {
     background-color: #83889a80;
-    border-color: #ffffff;
+    border-color: #fff;
     position: relative;
     color: white;
     text-decoration: none;
@@ -143,7 +143,7 @@
     justify-content: center;
     flex-direction: column;
     align-items: flex-start;
-    padding-top: 200px;
+    // padding-top: 200px;
 }
   
 .videoStyles {
@@ -162,8 +162,8 @@
 }
   
 .carousalWrapper{
-    width: 50%;
-    min-width: 280px;
+    width: 40%;
+    min-width: 300px;
 }
 
 .carousalWrapper::before,
@@ -190,9 +190,9 @@
 .videoContainer {
     position: relative;
     height: 60vh;
-    max-height: 680px;
+    max-height: 520px;
     min-height: 400px;
-    margin-bottom: 40px;
+    margin-bottom: 24px;
     border-radius: 24px;
     overflow: hidden;
     background: #111;
@@ -311,7 +311,8 @@
         width: 100%;
         align-items: center;
         .socialSubText {
-            font-size: 1.2rem;
+            // font-size: 1.2rem;
+            font-size: 1.6rem;
             font-weight: 400;
             opacity: .75;
             text-align: center;
