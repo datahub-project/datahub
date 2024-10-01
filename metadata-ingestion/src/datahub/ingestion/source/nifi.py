@@ -781,9 +781,6 @@ class NifiSource(Source):
 
         if provenance_response.ok:
             provenance = provenance_response.json().get("provenance", {})
-            total = provenance.get("results", {}).get("total")
-            totalCount = provenance.get("results", {}).get("totalCount")
-            logger.debug(f"Retrieved {totalCount} of {total}")
             provenance_uri = provenance.get("uri")
             logger.debug(f"Retrieving provenance uri: {provenance_uri}")
             provenance_response = self.session.get(provenance_uri)
@@ -822,6 +819,9 @@ class NifiSource(Source):
             processor.last_event_time = str(last_event_time)
             self.delete_provenance(provenance_uri)
 
+            total = provenance.get("results", {}).get("total")
+            totalCount = provenance.get("results", {}).get("totalCount")
+            logger.debug(f"Retrieved {totalCount} of {total}")
             if total != str(totalCount):
                 logger.debug("Trying to retrieve more events for the same processor")
                 yield from self.fetch_provenance_events(
