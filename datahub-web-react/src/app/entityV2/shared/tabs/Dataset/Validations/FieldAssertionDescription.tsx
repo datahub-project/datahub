@@ -45,8 +45,9 @@ const StyledColumnTag = styled.div`
  */
 export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assertionDescription }: Props) => {
     const field = getFieldDescription(assertionInfo);
-    const operator = getFieldOperatorDescription({ assertionInfo, isPlural: showColumnTag });
     const transform = getFieldTransformDescription(assertionInfo);
+    // Do not pluralize if this is a metric assertion since you're checking one metric, not multiple values
+    const operator = getFieldOperatorDescription({ assertionInfo, isPlural: showColumnTag && !transform });
     const parameters = getFieldParametersDescription(assertionInfo);
     let descriptionContent = <>{assertionDescription}</>;
 
@@ -56,7 +57,7 @@ export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assert
                 {transform}
                 {transform ? ' of ' : ''}
                 {showColumnTag ? (
-                    'column values'
+                    (transform && 'column') || 'Values'
                 ) : (
                     <Typography.Text style={{ fontWeight: 'bold' }}>{field}</Typography.Text>
                 )}{' '}
