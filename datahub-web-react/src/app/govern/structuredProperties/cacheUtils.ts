@@ -17,6 +17,7 @@ const addToCache = (existingProperties, newProperty) => {
                 allowedValues: newProperty.definition.allowedValues,
                 created: newProperty.definition.created,
                 lastModified: newProperty.definition.lastModified,
+                filterStatus: newProperty.definition.filterStatus,
             },
             __typename: 'StructuredPropertyEntity',
         },

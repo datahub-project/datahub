@@ -23,6 +23,7 @@ import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PropertyCardinality;
 import com.linkedin.structured.PropertyValue;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.structured.StructuredPropertyFilterStatus;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
@@ -82,6 +83,10 @@ public class UpdateStructuredPropertyResolver
             }
             if (input.getNewEntityTypes() != null) {
               input.getNewEntityTypes().forEach(builder::addEntityType);
+            }
+            if (input.getFilterStatus() != null) {
+              builder.setFilterStatus(
+                  StructuredPropertyFilterStatus.valueOf(input.getFilterStatus().toString()));
             }
             builder.setLastModified(context.getOperationContext().getAuditStamp());
 

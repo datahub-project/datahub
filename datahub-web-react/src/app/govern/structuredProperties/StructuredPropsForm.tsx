@@ -40,7 +40,7 @@ const StructuredPropsForm = ({
     allowedValues,
     setAllowedValues,
 }: Props) => {
-    const { handleTypeUpdate } = useStructuredProp({
+    const { handleTypeUpdate, handleFilterStatusChange } = useStructuredProp({
         selectedProperty,
         form,
         setFormValues,
@@ -68,6 +68,7 @@ const StructuredPropsForm = ({
                     allowedTypes: entity.definition.typeQualifier?.allowedTypes?.map((entityType) => entityType.urn),
                 },
                 immutable: entity.definition.immutable,
+                filterStatus: entity.definition.filterStatus,
             };
 
             setFormValues(values);
@@ -166,7 +167,11 @@ const StructuredPropsForm = ({
                 setAllowedValues={setAllowedValues}
                 valueField={valueField}
             />
-            <AdvancedOptions isEditMode={isEditMode} />
+            <AdvancedOptions
+                isEditMode={isEditMode}
+                handleFilterStatusChange={handleFilterStatusChange}
+                formValues={formValues}
+            />
         </Form>
     );
 };

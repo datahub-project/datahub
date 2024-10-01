@@ -36,7 +36,8 @@ public class CreateStructuredPropertyResolverTest {
           null,
           null,
           null,
-          new ArrayList<>());
+          new ArrayList<>(),
+          null);
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -76,7 +77,8 @@ public class CreateStructuredPropertyResolverTest {
             null,
             null,
             null,
-            new ArrayList<>());
+            new ArrayList<>(),
+            null);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();

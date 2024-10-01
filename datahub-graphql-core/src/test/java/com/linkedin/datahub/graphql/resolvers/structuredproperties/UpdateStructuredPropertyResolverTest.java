@@ -33,6 +33,7 @@ public class UpdateStructuredPropertyResolverTest {
           null,
           null,
           null,
+          null,
           null);
 
   @Test

@@ -1738,6 +1738,7 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
             }
         }
         cardinality
+        filterStatus
         typeQualifier {
             allowedTypes {
                 urn

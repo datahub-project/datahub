@@ -99,15 +99,32 @@ record StructuredPropertyDefinition {
         }
         created: optional AuditStamp
 
-        /**
-         * Created Audit stamp
-         */
-        @Searchable = {
-          "/time": {
-           "fieldName": "lastModified",
-           "fieldType": "DATETIME"
-          }
-        }
-        lastModified: optional AuditStamp
+    /**
+     * Created Audit stamp
+     */
+    @Searchable = {
+      "/time": {
+       "fieldName": "lastModified",
+       "fieldType": "DATETIME"
+      }
+    }
+    lastModified: optional AuditStamp
+
+    /**
+     * The filter status of this structured property - whether it will show up in search filters or not
+     */
+    @Searchable = {
+      "fieldType": "KEYWORD"
+    }
+    filterStatus: optional enum StructuredPropertyFilterStatus {
+    /**
+     * This structured property will show up in search filters
+     */
+    ENABLED
+    /**
+     * This structured property will not show up in search filters
+    */
+    DISABLED
+  } = "DISABLED"
 }
 

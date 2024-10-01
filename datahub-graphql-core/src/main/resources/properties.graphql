@@ -120,6 +120,11 @@ type StructuredPropertyDefinition {
     Audit stamp for when this structured property was last modified
     """
     lastModified: ResolvedAuditStamp
+
+    """
+    The filter status of this structured property - whether it will show up in search filters or not
+    """
+    filterStatus: StructuredPropertyFilterStatus!
 }
 
 """
@@ -188,6 +193,22 @@ type NumberValue {
 The value of a property
 """
 union PropertyValue = StringValue | NumberValue
+
+"""
+The filter status of this structured property - whether it will show up in search filters or not
+"""
+enum StructuredPropertyFilterStatus {
+    """
+    This structured property will show up in search filters
+    """
+    ENABLED
+
+    """
+    This structured property will not show up in search filters
+    """
+    DISABLED
+}
+
 
 """
 An entry in an structured properties list represented as a tuple
@@ -381,6 +402,11 @@ input CreateStructuredPropertyInput {
     For example: ["urn:li:entityType:datahub.dataset"]
     """
     entityTypes: [String!]!
+
+    """
+    The filter status of this structured property - whether it will show up in search filters or not
+    """
+    filterStatus: StructuredPropertyFilterStatus
 }
 
 """
@@ -461,6 +487,11 @@ input UpdateStructuredPropertyInput {
     For backwards compatibility, this is append only.
     """
     newEntityTypes: [String!]
+
+    """
+    The filter status of this structured property - whether it will show up in search filters or not
+    """
+    filterStatus: StructuredPropertyFilterStatus
 }
 
 """

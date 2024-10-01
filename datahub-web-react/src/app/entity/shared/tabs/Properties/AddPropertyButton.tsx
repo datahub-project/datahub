@@ -141,7 +141,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, isV1Drawer }: Props) => {
                     </DropdownContainer>
                 )}
             >
-                <Tooltip title="Add stuctured property" placement="left">
+                <Tooltip title="Add structured property" placement="left" showArrow={false}>
                     <AddButton isThemeV2={isThemeV2} isV1Drawer={isV1Drawer}>
                         <Icon icon="Add" size={isV1Drawer ? 'lg' : '2xl'} color="white" />
                     </AddButton>

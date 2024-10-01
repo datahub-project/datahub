@@ -1,5 +1,11 @@
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { EntityType, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+import {
+    EntityType,
+    PropertyCardinality,
+    SearchResult,
+    StructuredPropertyEntity,
+    StructuredPropertyFilterStatus,
+} from '@src/types.generated';
 import { FormInstance } from 'antd';
 import { useMemo } from 'react';
 import { getEntityTypeUrn, StructuredProp, valueTypes } from './utils';
@@ -84,6 +90,17 @@ export default function useStructuredProp({
         else setCardinality(PropertyCardinality.Single);
     };
 
+    const handleFilterStatusChange = (showInFilters: boolean) => {
+        const filterStatus = showInFilters
+            ? StructuredPropertyFilterStatus.Enabled
+            : StructuredPropertyFilterStatus.Disabled;
+        handleSelectChange('filterStatus', filterStatus);
+        setFormValues((prev) => ({
+            ...prev,
+            filterStatus,
+        }));
+    };
+
     const disabledEntityTypeValues = useMemo(() => {
         return (selectedProperty?.entity as StructuredPropertyEntity)?.definition?.entityTypes?.map((type) => type.urn);
     }, [selectedProperty]);
@@ -101,5 +118,6 @@ export default function useStructuredProp({
         getEntitiesListOptions,
         disabledEntityTypeValues,
         disabledTypeQualifierValues,
+        handleFilterStatusChange,
     };
 }

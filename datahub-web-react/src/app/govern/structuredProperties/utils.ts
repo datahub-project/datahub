@@ -1,5 +1,11 @@
 import EntityRegistry from '@src/app/entityV2/EntityRegistry';
-import { AllowedValue, EntityType, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
+import {
+    AllowedValue,
+    EntityType,
+    PropertyCardinality,
+    StructuredPropertyEntity,
+    StructuredPropertyFilterStatus,
+} from '@src/types.generated';
 
 export type StructuredProp = {
     displayName?: string;
@@ -13,6 +19,7 @@ export type StructuredProp = {
     };
     immutable?: boolean;
     allowedValues?: AllowedValue[];
+    filterStatus?: StructuredPropertyFilterStatus;
 };
 
 export const valueTypes = [

@@ -9,7 +9,7 @@ import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
 import TableIcon from '@src/images/table-icon.svg?react';
-import { EntityType, SearchResult } from '@src/types.generated';
+import { EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { Dropdown, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { CardIcons } from '../Dashboard/Forms/styledComponents';
@@ -54,9 +54,13 @@ const StructuredPropsTable = ({
     const structuredProperties = data?.searchAcrossEntities?.searchResults || [];
 
     // Filter the table data based on the search query
-    const filteredProperties = structuredProperties.filter((prop: any) =>
-        prop.entity.definition?.displayName?.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
+    const filteredProperties = structuredProperties
+        .filter((prop: any) => prop.entity.definition?.displayName?.toLowerCase().includes(searchQuery.toLowerCase()))
+        .sort(
+            (propA, propB) =>
+                ((propB.entity as StructuredPropertyEntity).definition.created?.time || 0) -
+                ((propA.entity as StructuredPropertyEntity).definition.created?.time || 0),
+        );
 
     const [deleteStructuredProperty] = useDeleteStructuredPropertyMutation();
 

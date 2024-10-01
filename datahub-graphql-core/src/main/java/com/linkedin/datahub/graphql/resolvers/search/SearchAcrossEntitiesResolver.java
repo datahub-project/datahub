@@ -6,6 +6,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntit
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -15,6 +16,11 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
@@ -174,8 +180,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
               context.getOperationContext(),
               getEntityNames(ImmutableList.of(EntityType.STRUCTURED_PROPERTY)),
               "*",
-              null, // TODO: add filter for structured props selected to be filtered on once
-              // implemented
+              createStructuredPropertyFilter(),
               0,
               100,
               Collections.emptyList(),
@@ -187,5 +192,21 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
       log.error("Failed to get structured property facets to filter on", e);
       return Collections.emptyList();
     }
+  }
+
+  private Filter createStructuredPropertyFilter() {
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                ImmutableList.of(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    new Criterion()
+                                        .setField("filterStatus")
+                                        .setCondition(Condition.EQUAL)
+                                        .setValues(new StringArray(ImmutableList.of("ENABLED")))
+                                        .setValue("ENABLED")))))));
   }
 }

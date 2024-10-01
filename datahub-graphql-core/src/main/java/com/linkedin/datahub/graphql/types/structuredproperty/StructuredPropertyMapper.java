@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.PropertyCardinality;
 import com.linkedin.datahub.graphql.generated.StringValue;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyDefinition;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
+import com.linkedin.datahub.graphql.generated.StructuredPropertyFilterStatus;
 import com.linkedin.datahub.graphql.generated.TypeQualifier;
 import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -93,6 +94,8 @@ public class StructuredPropertyMapper
       definition.setLastModified(
           MapperUtils.createResolvedAuditStamp(gmsDefinition.getLastModified()));
     }
+    definition.setFilterStatus(
+        StructuredPropertyFilterStatus.valueOf(gmsDefinition.getFilterStatus().toString()));
     definition.setEntityTypes(
         gmsDefinition.getEntityTypes().stream()
             .map(this::createEntityTypeEntity)

@@ -101,6 +101,7 @@ const StructuredPropsDrawer = ({
                         updateValues,
                     ),
                     setCardinalityAsMultiple: cardinality === PropertyCardinality.Multiple,
+                    filterStatus: updateValues.filterStatus,
                 };
 
                 setIsLoading(true);

@@ -1,13 +1,40 @@
 import { Icon, Input, Text } from '@components';
-import { Collapse, Form, Tooltip } from 'antd';
+import { Checkbox, Collapse, Form, Tooltip } from 'antd';
+import { StructuredPropertyFilterStatus } from '@src/types.generated';
+import styled from 'styled-components';
 import React from 'react';
 import { CollapseHeader, FlexContainer, InputLabel, StyledCollapse } from './styledComponents';
+import { StructuredProp } from './utils';
+
+const CheckboxWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+    color: #374066;
+    p {
+        color: #374066;
+        font-weight: 500;
+    }
+`;
+
+const StyledText = styled.div`
+    display: inline-flex;
+    margin-left: -4px;
+`;
+
+const StyledFormItem = styled(Form.Item)`
+    // line-height: normal
+    margin: 0;
+`;
 
 interface Props {
     isEditMode: boolean;
+    formValues?: StructuredProp;
+    handleFilterStatusChange: (showInFilters: boolean) => void;
 }
 
-const AdvancedOptions = ({ isEditMode }: Props) => {
+const AdvancedOptions = ({ isEditMode, formValues, handleFilterStatusChange }: Props) => {
     return (
         <StyledCollapse
             ghost
@@ -46,6 +73,20 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
                         <Input label="" placeholder="Optional - Qualified Name" isDisabled={isEditMode} />
                     </Form.Item>
                 </Tooltip>
+                <CheckboxWrapper>
+                    <StyledFormItem name="filterStatus">
+                        <Checkbox
+                            checked={formValues?.filterStatus === StructuredPropertyFilterStatus.Enabled}
+                            onChange={(e) => handleFilterStatusChange(e.target.checked)}
+                        />
+                    </StyledFormItem>
+                    <Text size="md">Display in filters</Text>
+                    <StyledText>
+                        <Tooltip title="If enabled, this structured property will show up in your search filters.">
+                            <Icon icon="Info" size="lg" />
+                        </Tooltip>
+                    </StyledText>
+                </CheckboxWrapper>
             </Collapse.Panel>
         </StyledCollapse>
     );
