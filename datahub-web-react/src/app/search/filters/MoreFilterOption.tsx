@@ -1,9 +1,9 @@
 import { RightOutlined } from '@ant-design/icons';
+import { useFilterDisplayName } from '@src/app/searchV2/filters/utils';
 import { Dropdown } from 'antd';
 import React, { useRef } from 'react';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import OptionsDropdownMenu from './OptionsDropdownMenu';
 import { IconWrapper } from './SearchFilterView';
 import { MoreFilterOptionLabel } from './styledComponents';
@@ -40,6 +40,7 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
         onChangeFilters,
     });
     const filterIcon = getFilterDropdownIcon(filter.field);
+    const displayName = useFilterDisplayName(filter);
 
     return (
         <Dropdown
@@ -64,11 +65,11 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
                 onClick={() => updateIsMenuOpen(!isMenuOpen)}
                 $isActive={!!numActiveFilters}
                 isOpen={isMenuOpen}
-                data-testid={`more-filter-${capitalizeFirstLetterOnly(filter.displayName)?.replace(/\s/g, '-')}`}
+                data-testid={`more-filter-${displayName?.replace(/\s/g, '-')}`}
             >
                 <IconNameWrapper>
                     {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                    {capitalizeFirstLetterOnly(filter.displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                    {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 </IconNameWrapper>
                 <RightOutlined style={{ fontSize: '12px', height: '12px' }} />
             </MoreFilterOptionLabel>

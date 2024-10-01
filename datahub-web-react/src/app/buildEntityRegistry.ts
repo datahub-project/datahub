@@ -25,6 +25,7 @@ import { RoleEntity } from './entity/Access/RoleEntity';
 import { RestrictedEntity } from './entity/restricted/RestrictedEntity';
 import { BusinessAttributeEntity } from './entity/businessAttribute/BusinessAttributeEntity';
 import { SchemaFieldPropertiesEntity } from './entity/schemaField/SchemaFieldPropertiesEntity';
+import { StructuredPropertyEntity } from './entity/structuredProperty/StructuredPropertyEntity';
 
 export default function buildEntityRegistry() {
     const registry = new EntityRegistry();
@@ -54,5 +55,6 @@ export default function buildEntityRegistry() {
     registry.register(new BusinessAttributeEntity());
     registry.register(new SchemaFieldPropertiesEntity());
     registry.register(new QueryEntity());
+    registry.register(new StructuredPropertyEntity());
     return registry;
 }

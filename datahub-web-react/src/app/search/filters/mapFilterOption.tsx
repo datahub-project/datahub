@@ -45,7 +45,7 @@ export function mapFilterOption({
             />
         ),
         style: { padding: 0 },
-        displayName: displayName as string,
+        displayName: filterOption.displayName || (displayName as string),
         nestedOptions,
     };
 }

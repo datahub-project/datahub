@@ -49,9 +49,18 @@ function ActiveFilter({
     const filterEntity = getFilterEntity(filterFacet.field, filterValue, availableFilters);
     const filterLabelOverride = useGetBrowseV2LabelOverride(filterFacet.field, filterValue, entityRegistry);
     const filterRenderer = useFilterRendererRegistry();
+    const facetEntity = availableFilters?.find((f) => f.field === filterFacet.field)?.entity;
 
     const { icon, label } = !filterRenderer.hasRenderer(filterFacet.field)
-        ? getFilterIconAndLabel(filterFacet.field, filterValue, entityRegistry, filterEntity, 12, filterLabelOverride)
+        ? getFilterIconAndLabel(
+              filterFacet.field,
+              filterValue,
+              entityRegistry,
+              filterEntity,
+              12,
+              filterLabelOverride,
+              facetEntity,
+          )
         : {
               icon: filterRenderer.getIcon(filterFacet.field),
               label: filterRenderer.getValueLabel(filterFacet.field, filterValue),

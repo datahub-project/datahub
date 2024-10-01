@@ -8,6 +8,9 @@ import {
     TagOutlined,
     UserOutlined,
 } from '@ant-design/icons';
+import { STRUCTURED_PROPERTIES_FILTER_NAME } from '@src/app/searchV2/utils/constants';
+import { getStructuredPropFilterDisplayName } from '@src/app/searchV2/filters/utils';
+import { STRUCTURED_PROPERTY_FILTER } from '@src/app/searchV2/filters/field/fields';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 import {
@@ -174,6 +177,7 @@ export function getFilterIconAndLabel(
     filterEntity: Entity | null,
     size?: number,
     filterLabelOverride?: string | null,
+    facetEntity?: Entity | null,
 ) {
     let icon: React.ReactNode = null;
     let label: React.ReactNode = null;
@@ -211,6 +215,9 @@ export function getFilterIconAndLabel(
         label = newLabel;
     } else if (filterField === FORM_RESPONSES_FILTER) {
         label = getLabelForFormResponsesFilter(filterValue);
+    } else if (filterField.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)) {
+        label = getStructuredPropFilterDisplayName(filterField, filterValue, facetEntity);
+        icon = STRUCTURED_PROPERTY_FILTER.icon;
     } else {
         label = filterValue;
     }
@@ -270,6 +277,10 @@ export function sortFacets(facetA: FacetMetadata, facetB: FacetMetadata, sortedF
 }
 
 export function getFilterDropdownIcon(field: string) {
+    if (field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)) {
+        return STRUCTURED_PROPERTY_FILTER.icon as JSX.Element;
+    }
+
     switch (field) {
         case PLATFORM_FILTER_NAME:
             return <DatabaseOutlined />;
@@ -298,8 +309,13 @@ export function getFilterOptions(
     aggregations: AggregationMetadata[],
     selectedFilterOptions: FilterOptionType[],
     autoCompleteResults?: GetAutoCompleteMultipleResultsQuery,
+    filterEntity?: Entity | null,
 ) {
-    const aggregationFilterOptions = aggregations.map((agg) => ({ field: filterField, ...agg }));
+    const aggregationFilterOptions = aggregations.map((agg) => ({
+        field: filterField,
+        displayName: getStructuredPropFilterDisplayName(filterField, agg.value, filterEntity),
+        ...agg,
+    }));
 
     const searchResults = autoCompleteResults?.autoCompleteForMultiple?.suggestions.find((suggestion) =>
         FACETS_TO_ENTITY_TYPES[filterField]?.includes(suggestion.type),
