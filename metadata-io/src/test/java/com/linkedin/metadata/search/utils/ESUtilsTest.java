@@ -154,7 +154,8 @@ public class ESUtilsTest {
   @Test
   public void testGetQueryBuilderFromCriterionIEqualValues() { // Test case insensitive searches
 
-    final Criterion singleValueCriterion = buildCriterion("myTestField", Condition.IEQUAL, "value1");
+    final Criterion singleValueCriterion =
+        buildCriterion("myTestField", Condition.IEQUAL, "value1");
 
     QueryBuilder result =
         ESUtils.getQueryBuilderFromCriterion(
@@ -187,7 +188,7 @@ public class ESUtilsTest {
     Assert.assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
-            buildCriterion("myTestField", Condition.IEQUAL, "value1", "value2");
+        buildCriterion("myTestField", Condition.IEQUAL, "value1", "value2");
 
     result =
         ESUtils.getQueryBuilderFromCriterion(
