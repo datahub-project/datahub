@@ -13,6 +13,7 @@ import httpx
 import reactpy
 import starlette
 import starlette.background
+from asyncify import asyncify
 from datahub.secret.datahub_secret_store import (
     DataHubSecretStore,
     DataHubSecretStoreConfig,
@@ -94,7 +95,7 @@ async def actions_lifespan(app: fastapi.FastAPI) -> AsyncIterator[None]:
         logger.debug("Fetching registered actions.")
 
         try:
-            all_actions = graph.execute_graphql(
+            all_actions = await asyncify(graph.execute_graphql)(
                 query=actions_gql, operation_name="listActions"
             )
             logger.debug(f"Got actions: {all_actions}")
@@ -184,6 +185,16 @@ def get_config_from_details(action_urn: str, action_details: dict) -> dict:
     return recipe
 
 
+async def _get_action_details(action_urn: str) -> dict:
+    response = await asyncify(graph.execute_graphql)(
+        actions_gql, operation_name="getAction", variables={"urn": action_urn}
+    )
+    try:
+        return response["actionPipeline"]["details"]
+    except KeyError:
+        raise NoSuchPipeline(f"Action {action_urn} not found.")
+
+
 @actions_router.post("/{action_urn}/reload")
 async def reload_action(action_urn: str) -> None:
     """
@@ -194,9 +205,7 @@ async def reload_action(action_urn: str) -> None:
 
     logger.info(f"Reloading action {action_urn}.")
 
-    updated_details = graph.execute_graphql(
-        actions_gql, operation_name="getAction", variables={"urn": action_urn}
-    )["actionPipeline"]["details"]
+    updated_details = await _get_action_details(action_urn)
 
     await start_or_restart_action(action_urn, updated_details)
 
@@ -240,16 +249,12 @@ async def rollback_action(action_urn: str) -> str:
         action_spec = _get_action_spec(action_urn)
         config = action_spec.action_run.unresolved_config
     except NoSuchPipeline:
-        server_action_info = graph.execute_graphql(
-            actions_gql, operation_name="getAction", variables={"urn": action_urn}
-        )
-        if not server_action_info or server_action_info.get("actionPipeline") is None:
+        try:
+            updated_details = await _get_action_details(action_urn)
+        except NoSuchPipeline:
             raise HTTPException(
                 status.HTTP_404_NOT_FOUND, f"Action {action_urn} not found."
             )
-        updated_details = server_action_info.get("actionPipeline", {}).get(
-            "details", {}
-        )
         config = get_config_from_details(action_urn, updated_details)
 
     try:
@@ -304,9 +309,7 @@ async def bootstrap_action(action_urn: str) -> str:
         action_spec = _get_action_spec(action_urn)
         config = action_spec.action_run.unresolved_config
     except NoSuchPipeline:
-        updated_details = graph.execute_graphql(
-            actions_gql, operation_name="getAction", variables={"urn": action_urn}
-        )["actionPipeline"]["details"]
+        updated_details = await _get_action_details(action_urn)
         config = get_config_from_details(action_urn, updated_details)
 
     try:
@@ -375,7 +378,9 @@ async def action_ping(action_urn: str) -> str:
 async def action_stats(action_urn: str) -> dict:
     """Call the stats endpoint of the action."""
     try:
-        server_stats = graph.get_aspect(action_urn, models.DataHubActionStatusClass)
+        server_stats = await asyncify(graph.get_aspect)(
+            action_urn, models.DataHubActionStatusClass
+        )
     except Exception as e:
         logger.error(f"Error getting server stats: {e}")
         server_stats = None
@@ -388,13 +393,17 @@ async def action_stats(action_urn: str) -> dict:
         spec = _get_action_spec(action_urn)
         assert spec is not None
 
-    except (NoSuchPipeline, httpx.HTTPError):
-        # live stats are not available, set server stats live to STOPPED
+    except NoSuchPipeline:
+        # The action is not running, set server stats -> live to STOPPED
         if server_stats and server_stats.live:
             server_stats.live.statusCode = "STOPPED"
             server_stats.live.reportedTime = (
                 ActionStatsReporter._get_reporting_auditstamp()
             )
+
+    # TODO: Not all actions inherit from ReportingAction right now, and so
+    # they may not have DataHubActionStatus aspects. In those cases, we currently
+    # return a 404, but it might make sense to return {} instead.
 
     if server_stats:
         return server_stats.to_obj()

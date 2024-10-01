@@ -36,6 +36,10 @@ altair==4.2.0
     # via
     #   -r requirements.txt
     #   great-expectations
+annotated-types==0.7.0
+    # via
+    #   -r requirements.txt
+    #   xtyping
 ansicolors==1.1.8
     # via papermill
 anyio==3.7.1
@@ -78,6 +82,11 @@ async-timeout==4.0.3
     # via
     #   -r requirements.txt
     #   aiohttp
+asyncify==0.10.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
 attrs==23.2.0
     # via
     #   -r requirements.txt
@@ -296,6 +305,10 @@ frozenlist==1.4.0
     #   -r requirements.txt
     #   aiohttp
     #   aiosignal
+funkify==0.4.5
+    # via
+    #   -r requirements.txt
+    #   asyncify
 gitdb==4.0.11
     # via
     #   -r requirements.txt
@@ -1117,6 +1130,7 @@ typing-extensions==4.11.0
     #   typeguard
     #   typing-inspect
     #   uvicorn
+    #   xtyping
 typing-inspect==0.9.0
     # via
     #   -r requirements.txt
@@ -1187,6 +1201,10 @@ wrapt==1.16.0
     # via
     #   -r requirements.txt
     #   deprecated
+xtyping==0.8.2
+    # via
+    #   -r requirements.txt
+    #   asyncify
 yarl==1.9.4
     # via
     #   -r requirements.txt

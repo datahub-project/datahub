@@ -1,3 +1,4 @@
+import logging
 import os
 
 import fastapi
@@ -29,8 +30,14 @@ from datahub_integrations.slack.slack import private_router as slack_private_rou
 from datahub_integrations.slack.slack import public_router as slack_public_router
 from datahub_integrations.slack.slack import reload_slack_credentials
 from datahub_integrations.sql import router as sql_router
+from datahub_integrations.util.access_log import access_log
 
 app = FastAPI(lifespan=actions_lifespan)
+
+# Disable the uvicorn-native access logger and use our own.
+# As per https://github.com/Kludex/asgi-logger#usage
+logging.getLogger("uvicorn.access").handlers = []
+app.middleware("http")(access_log)
 
 external_router = APIRouter()
 internal_router = APIRouter(

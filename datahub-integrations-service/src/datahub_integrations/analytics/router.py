@@ -139,7 +139,7 @@ def schema(entity_urn: str) -> List[Field]:
 
 
 @router.get("/preview")
-async def preview(
+def preview(
     entity_urn: str, limit: int = 100, format: DataFormat = DataFormat.JSON
 ) -> StreamingResponse:
     """Return a preview of this dataset."""
@@ -175,9 +175,7 @@ def preview_stream(
 
 
 @router.get("/data")
-async def data(
-    entity_urn: str, format: DataFormat = DataFormat.JSON
-) -> StreamingResponse:
+def data(entity_urn: str, format: DataFormat = DataFormat.JSON) -> StreamingResponse:
     """Return the data of this dataset."""
 
     physical_location = extract_physical_location_or_throw(entity_urn)
@@ -193,7 +191,7 @@ async def data(
 
 
 @router.post("/query")
-async def query(
+def query(
     entity_urn: str,
     format: Optional[str] = None,
     project: Optional[list[str]] = None,

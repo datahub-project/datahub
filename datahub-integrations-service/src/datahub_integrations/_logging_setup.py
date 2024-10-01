@@ -31,6 +31,8 @@ class InterceptHandler(logging.Handler):
 logging.basicConfig(handlers=[InterceptHandler()], level=logging.INFO, force=True)
 for package in [*DATAHUB_PACKAGES, "datahub_integrations"]:
     logging.getLogger(package).setLevel(logging.INFO)
+
+# When in asyncio debug mode, we do want to see warnings related to blocking the main thread.
 logging.getLogger("asyncio").setLevel(logging.WARNING)
 
 

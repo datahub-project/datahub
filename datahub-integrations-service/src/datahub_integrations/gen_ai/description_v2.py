@@ -383,10 +383,17 @@ def get_table_and_column_level_glossary_terms(
     return table_level_terms, column_level_terms
 
 
+class ShellEntityError(Exception):
+    pass
+
+
 def extract_metadata_for_urn(
     entity: AspectBag, urn: str, graph_client: DataHubGraph
 ) -> Dict[str, dict]:
-    assert "schemaMetadata" in entity, f"Schema metadata not found in the entity {urn}"
+    if "schemaMetadata" not in entity:
+        raise ShellEntityError(
+            f"Schema metadata not found in the entity {urn}; likely a shell entity."
+        )
     column_metadata = {
         f"urn:li:schemaField:({urn},{field.fieldPath})": filter_schema_fields(field)
         for field in entity["schemaMetadata"].fields

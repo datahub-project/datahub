@@ -1,7 +1,8 @@
-import asyncio
 import logging
 from typing import List
 
+import anyio
+from asyncify import asyncify
 from datahub.metadata.schema_classes import NotificationRequestClass
 
 from datahub_integrations.notifications.sinks.context import NotificationContext
@@ -46,17 +47,15 @@ class NotificationSinkManager:
         await self.dispatch_notifications(request)
 
     async def dispatch_notifications(self, request: NotificationRequestClass) -> None:
-        tasks = [
-            asyncio.create_task(self.send_notification(sink, request))
-            for sink in self.sink_registry
-        ]
-        await asyncio.gather(*tasks)
+        async with anyio.create_task_group() as task_group:
+            for sink in self.sink_registry:
+                task_group.start_soon(self.send_notification, sink, request)
 
     async def send_notification(
         self, sink: NotificationSink, request: NotificationRequestClass
     ) -> None:
         try:
-            sink.send(request, NotificationContext())
+            await asyncify(sink.send)(request, NotificationContext())
             logger.info(
                 f"Successfully sent notification through {sink} for request {request}"
             )

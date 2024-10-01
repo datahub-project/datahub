@@ -13,6 +13,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.ratelimiter import RateLimiter
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.pipeline.pipeline_context import PipelineContext
@@ -82,8 +83,8 @@ class TermSuggestionActionConfig(TermEntitySelector):
     cardinality: CardinalityType = CardinalityType.MULTIPLE
     recommendation_action: AutomationApplyType = AutomationApplyType.PROPOSE
 
-    check_interval_seconds: int = 60
-    max_urns_per_check: int = 4
+    new_urn_interval: timedelta = timedelta(days=1)
+    max_urns_per_minute: int = 4
 
 
 class TermSuggestionAction(Action):
@@ -230,28 +231,45 @@ class BulkTermSuggester:
     def _thread_worker(self, shutdown_event: threading.Event) -> None:
         logger.info("Bulk term suggester worker thread started")
 
+        rate_limiter = RateLimiter(
+            max_calls=self.config.max_urns_per_minute,
+            period=timedelta(minutes=1).total_seconds(),
+        )
+
         while not shutdown_event.is_set():
             urns = self.find_urns()
-            if urns:
-                self.process_urns(urns)
-                logger.debug(
-                    f"Processed {len(urns)} urns, will wait {self.config.check_interval_seconds} seconds before processing more"
-                )
+
+            if not urns:
+                logger.info("No urns to process right now")
+
             else:
-                logger.debug(
-                    f"No urns to process right now, will try again in {self.config.check_interval_seconds} seconds"
-                )
+                for urn in urns:
+                    with rate_limiter:
+                        self.process_urns([urn])
+
+                    if shutdown_event.is_set():
+                        logger.info(
+                            "Shutdown event set while processing urns, exiting without processing all urns"
+                        )
+                        return
+
+                logger.debug(f"Finished processing {len(urns)} urns")
 
             # This is effectively a time.sleep, but also allows it to early exit
             # if the shutdown event is set.
-            if shutdown_event.wait(timeout=self.config.check_interval_seconds):
+            logger.info(
+                f"Waiting for {self.config.new_urn_interval.total_seconds()} seconds before searching for new urns"
+            )
+            if shutdown_event.wait(
+                timeout=self.config.new_urn_interval.total_seconds()
+            ):
                 break
 
         logger.info("Bulk term suggester got shutdown signal")
 
     def find_urns(self) -> list[str]:
         return get_urns_to_process(
-            self.graph, config=self.config, max_items=self.config.max_urns_per_check
+            self.graph, config=self.config, max_items=_APPLY_TO_TOP_N_DATASETS
         )
 
     def process_urns(self, urns: list[str]) -> None:
@@ -260,13 +278,17 @@ class BulkTermSuggester:
             glossary_nodes=self.config.glossary_node_urns,
         )
 
-        suggestions = suggest_terms_batch(
-            graph=self.graph, entity_urns=urns, universe_config=glossary_universe
-        )
-        # TODO add plumbing to include confidence scores
+        try:
+            suggestions = suggest_terms_batch(
+                graph=self.graph, entity_urns=urns, universe_config=glossary_universe
+            )
+            # TODO add plumbing to include confidence scores
 
-        for urn, suggestion in suggestions.items():
-            self.update_entity(urn, suggestion)
+            for urn, suggestion in suggestions.items():
+                self.update_entity(urn, suggestion)
+
+        except Exception as e:
+            logger.exception(f"Failed to process urns {urns}: {e}")
 
     def update_entity(self, urn: str, suggestion: SuggestedTerms) -> None:
         # Apply the cardinality config.

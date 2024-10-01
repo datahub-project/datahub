@@ -1,10 +1,17 @@
-import inflect
+import functools
 
-inflect_engine = inflect.engine()
+
+@functools.cache
+def _get_inflect_engine():
+    # The inflect library can be pretty slow to import, so we lazy-load it to improve
+    # startup time.
+    import inflect
+
+    return inflect.engine()
 
 
 def pluralize(word: str, count: int) -> str:
-    return inflect_engine.plural(word, count)
+    return _get_inflect_engine().plural(word, count)
 
 
 def truncate(text: str, max_length: int) -> str:

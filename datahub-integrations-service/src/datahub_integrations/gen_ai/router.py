@@ -11,6 +11,7 @@ from loguru import logger
 from datahub_integrations.app import graph as uncached_graph
 from datahub_integrations.gen_ai.cached_graph import make_cached_graph
 from datahub_integrations.gen_ai.description_v2 import (
+    ShellEntityError,
     generate_entity_descriptions_for_urn,
     parse_llm_output,
 )
@@ -171,8 +172,21 @@ def suggest_terms_batch(
 ) -> dict[str, SuggestedTerms]:
     glossary_info = fetch_glossary_info(graph_client=graph, universe=universe_config)
 
-    # TODO: make this async to run in parallel?
-    return {
-        entity_urn: _suggest_terms(graph, entity_urn, glossary_info)
-        for entity_urn in entity_urns
-    }
+    last_exception: Exception | None = None
+    results = {}
+    for entity_urn in entity_urns:
+        try:
+            results[entity_urn] = _suggest_terms(graph, entity_urn, glossary_info)
+        except ShellEntityError as e:
+            last_exception = last_exception or e
+            logger.debug(f"Skipping shell entity: {e}")
+        except Exception as e:
+            last_exception = e
+            logger.exception(f"Failed to suggest terms for {entity_urn}: {e}")
+
+    if entity_urns and not results and last_exception:
+        # If all of the calls fail, reraise one of the exceptions so we don't just
+        # silently fail.
+        raise last_exception
+
+    return results
