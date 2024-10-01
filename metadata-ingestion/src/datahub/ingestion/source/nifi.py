@@ -258,6 +258,8 @@ class BidirectionalComponentGraph:
         del self._outgoing[component]
         del self._incoming[component]
 
+        # for performance reasons we are not using `remove_connection` function when deleting an entire component,
+        # therefor we need to adjust the estimated count
         self._connections_cnt -= deleted_connections_cnt
 
     def __len__(self):
