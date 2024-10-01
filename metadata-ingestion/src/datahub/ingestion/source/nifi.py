@@ -199,19 +199,19 @@ class NifiSourceConfig(EnvConfigMixin):
 
 class BidirectionalComponentGraph:
     def __init__(self):
-        self.outgoing: Dict[str, Set[str]] = defaultdict(set)
-        self.incoming: Dict[str, Set[str]] = defaultdict(set)
-        # this will not count duplicates/removal of non-existing connections correctly - it is only for quick check
-        self.connections_cnt = 0
+        self._outgoing: Dict[str, Set[str]] = defaultdict(set)
+        self._incoming: Dict[str, Set[str]] = defaultdict(set)
+        # this will not count duplicates/removal of non-existing connections correctly - it is only there for a quick check
+        self._connections_cnt = 0
 
     def add_connection(self, from_component: str, to_component: str) -> None:
         # this is sanity check
-        outgoing_duplicated = to_component in self.outgoing[from_component]
-        incoming_duplicated = from_component in self.incoming[to_component]
+        outgoing_duplicated = to_component in self._outgoing[from_component]
+        incoming_duplicated = from_component in self._incoming[to_component]
 
-        self.outgoing[from_component].add(to_component)
-        self.incoming[to_component].add(from_component)
-        self.connections_cnt += 1
+        self._outgoing[from_component].add(to_component)
+        self._incoming[to_component].add(from_component)
+        self._connections_cnt += 1
 
         if outgoing_duplicated or incoming_duplicated:
             logger.warning(
@@ -219,23 +219,23 @@ class BidirectionalComponentGraph:
             )
 
     def remove_connection(self, from_component: str, to_component: str) -> None:
-        self.outgoing[from_component].discard(to_component)
-        self.incoming[to_component].discard(from_component)
-        self.connections_cnt -= 1
+        self._outgoing[from_component].discard(to_component)
+        self._incoming[to_component].discard(from_component)
+        self._connections_cnt -= 1
 
     def get_outgoing_connections(self, component: str) -> Set[str]:
-        return self.outgoing[component]
+        return self._outgoing[component]
 
     def get_incoming_connections(self, component: str) -> Set[str]:
-        return self.incoming[component]
+        return self._incoming[component]
 
     def delete_component(self, component: str) -> None:
         logger.debug(f"Deleting component with id: {component}")
-        incoming = self.incoming[component]
+        incoming = self._incoming[component]
         logger.debug(
             f"Recognized {len(incoming)} incoming connections to the component"
         )
-        outgoing = self.outgoing[component]
+        outgoing = self._outgoing[component]
         logger.debug(
             f"Recognized {len(outgoing)} outgoing connections from the component"
         )
@@ -245,9 +245,9 @@ class BidirectionalComponentGraph:
                 self.add_connection(i, o)
 
         for i in incoming:
-            self.outgoing[i].remove(component)
+            self._outgoing[i].remove(component)
         for o in outgoing:
-            self.incoming[o].remove(component)
+            self._incoming[o].remove(component)
 
         added_connections_cnt = len(incoming) * len(outgoing)
         deleted_connections_cnt = len(incoming) + len(outgoing)
@@ -255,13 +255,13 @@ class BidirectionalComponentGraph:
             f"Deleted {deleted_connections_cnt} connections and added {added_connections_cnt}"
         )
 
-        del self.outgoing[component]
-        del self.incoming[component]
+        del self._outgoing[component]
+        del self._incoming[component]
 
-        self.connections_cnt -= deleted_connections_cnt
+        self._connections_cnt -= deleted_connections_cnt
 
     def __len__(self):
-        return self.connections_cnt
+        return self._connections_cnt
 
 
 TOKEN_ENDPOINT = "access/token"
