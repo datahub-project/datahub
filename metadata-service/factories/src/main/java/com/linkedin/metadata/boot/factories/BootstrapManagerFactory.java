@@ -9,7 +9,6 @@ import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
-import com.linkedin.metadata.boot.steps.BackfillBrowsePathsV2Step;
 import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
@@ -25,7 +24,6 @@ import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
 import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
-import com.linkedin.metadata.boot.steps.UpgradeDefaultBrowsePathsStep;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -89,12 +87,6 @@ public class BootstrapManagerFactory {
 
   @Autowired private ConfigurationProvider _configurationProvider;
 
-  @Value("${bootstrap.upgradeDefaultBrowsePaths.enabled}")
-  private Boolean _upgradeDefaultBrowsePathsEnabled;
-
-  @Value("${bootstrap.backfillBrowsePathsV2.enabled}")
-  private Boolean _backfillBrowsePathsV2Enabled;
-
   @Value("${bootstrap.policies.file}")
   private Resource _policiesResource;
 
@@ -153,14 +145,6 @@ public class BootstrapManagerFactory {
                 restoreColumnLineageIndices,
                 ingestDataTypesStep,
                 ingestEntityTypesStep));
-
-    if (_upgradeDefaultBrowsePathsEnabled) {
-      finalSteps.add(new UpgradeDefaultBrowsePathsStep(_entityService));
-    }
-
-    if (_backfillBrowsePathsV2Enabled) {
-      finalSteps.add(new BackfillBrowsePathsV2Step(_entityService, _searchService));
-    }
 
     return new BootstrapManager(finalSteps);
   }
