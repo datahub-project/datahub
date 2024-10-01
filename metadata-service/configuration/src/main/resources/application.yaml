@@ -343,12 +343,6 @@ incidents:
     consumerGroupSuffix: ${INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 bootstrap:
-  upgradeDefaultBrowsePaths:
-    enabled: ${UPGRADE_DEFAULT_BROWSE_PATHS_ENABLED:false} # enable to run the upgrade to migrate legacy default browse paths to new ones
-  backfillBrowsePathsV2:
-    enabled: ${BACKFILL_BROWSE_PATHS_V2:false} # Enables running the backfill of browsePathsV2 upgrade step. There are concerns about the load of this step so hiding it behind a flag. Deprecating in favor of running through SystemUpdate
-  reprocessDefaultBrowsePathsV2:
-    enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false} # reprocess V2 browse paths which were set to the default: {"path":[{"id":"Default"}]}
   policies:
     file: ${BOOTSTRAP_POLICIES_FILE:classpath:boot/policies.json}
     # eg for local file
