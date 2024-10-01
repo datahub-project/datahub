@@ -1,6 +1,7 @@
 import React from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import { FieldAssertionInfo } from '../../../../../../types.generated';
 import {
     getFieldDescription,
@@ -13,6 +14,8 @@ import { REDESIGN_COLORS } from '../../../constants';
 type Props = {
     assertionInfo: FieldAssertionInfo;
     showColumnTag?: boolean;
+    // use below description which is present in assertion info object to decide whether to show description or generate dynamic one
+    assertionDescription?: Maybe<string>;
 };
 
 const StyledDescrptionContainer = styled.div`
@@ -40,24 +43,27 @@ const StyledColumnTag = styled.div`
  * if @param showColumnTag is true then description will be -> column values are greater than 5
  * if @param showColumnTag is false then description will be -> profileId is greater than 5
  */
-export const FieldAssertionDescription = ({ assertionInfo, showColumnTag }: Props) => {
+export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assertionDescription }: Props) => {
     const field = getFieldDescription(assertionInfo);
     const operator = getFieldOperatorDescription({ assertionInfo, isPlural: showColumnTag });
     const transform = getFieldTransformDescription(assertionInfo);
     const parameters = getFieldParametersDescription(assertionInfo);
+    let descriptionContent = <>{assertionDescription}</>;
 
-    const descriptionContent = (
-        <>
-            {transform}
-            {transform ? ' of ' : ''}
-            {showColumnTag ? (
-                'column values'
-            ) : (
-                <Typography.Text style={{ fontWeight: 'bold' }}>{field}</Typography.Text>
-            )}{' '}
-            {operator} {parameters}
-        </>
-    );
+    if (!assertionDescription) {
+        descriptionContent = (
+            <>
+                {transform}
+                {transform ? ' of ' : ''}
+                {showColumnTag ? (
+                    'column values'
+                ) : (
+                    <Typography.Text style={{ fontWeight: 'bold' }}>{field}</Typography.Text>
+                )}{' '}
+                {operator} {parameters}
+            </>
+        );
+    }
 
     return (
         <StyledDescrptionContainer>

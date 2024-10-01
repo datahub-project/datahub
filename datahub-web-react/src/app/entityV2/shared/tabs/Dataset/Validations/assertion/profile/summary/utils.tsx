@@ -67,6 +67,7 @@ const useBuildPrimaryLabel = (
             case AssertionType.Field:
                 primaryLabel = (
                     <FieldAssertionDescription
+                        assertionDescription={assertionInfo?.description}
                         assertionInfo={assertionInfo.fieldAssertion as FieldAssertionInfo}
                         showColumnTag={options?.showColumnTag}
                     />

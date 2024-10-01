@@ -356,10 +356,12 @@ export const getPlainTextDescriptionFromAssertion = (
     assertionInfo?: AssertionInfo,
     monitorSchedule?: CronSchedule,
 ): string => {
-    let primaryLabel = '';
+    // if description is present don't generate dynamic description
     if (assertionInfo?.description) {
-        primaryLabel = assertionInfo.description;
+        return assertionInfo.description;
     }
+
+    let primaryLabel = '';
     switch (assertionInfo?.type) {
         case AssertionType.Dataset:
             primaryLabel = getDatasetAssertionPlainTextDescription(

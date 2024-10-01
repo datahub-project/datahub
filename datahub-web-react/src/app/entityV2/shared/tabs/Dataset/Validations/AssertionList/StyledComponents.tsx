@@ -26,6 +26,9 @@ export const AssertionListStyledTable = styled(Table)`
     }
     &&& .ant-table-thead > tr > th {
         line-height: 5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     &&& .ant-table-cell {
         background-color: transparent;

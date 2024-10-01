@@ -19,6 +19,11 @@ const CategoryType = styled.div`
 const LastRun = styled(Typography.Text)`
     font-family: Mulish;
     color: ${REDESIGN_COLORS.BODY_TEXT};
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-width: 80px;
+    display: inline-block;
 `;
 
 const TABLE_HEADER_HEIGHT = 50;
