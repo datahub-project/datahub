@@ -2,6 +2,7 @@ import logging
 import pathlib
 from typing import Any, List
 from unittest import mock
+from unittest.mock import MagicMock
 
 import pydantic
 import pytest
@@ -14,13 +15,13 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
 from datahub.ingestion.source.looker.looker_template_language import (
     SpecialVariable,
+    load_and_preprocess_file,
     resolve_liquid_variable,
 )
 from datahub.ingestion.source.looker.lookml_source import (
     LookerModel,
     LookerRefinementResolver,
     LookMLSourceConfig,
-    load_lkml,
 )
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
@@ -870,7 +871,11 @@ def test_manifest_parser(pytestconfig: pytest.Config) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     manifest_file = test_resources_dir / "lkml_manifest_samples/complex-manifest.lkml"
 
-    manifest = load_lkml(manifest_file)
+    manifest = load_and_preprocess_file(
+        path=manifest_file,
+        source_config=MagicMock(),
+    )
+
     assert manifest
 
 
