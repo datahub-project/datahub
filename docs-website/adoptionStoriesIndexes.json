@@ -14,8 +14,6 @@
     {
       "name": "Visa",
       "slug": "visa",
-      "imageUrl": "/img/logos/companies/visa.png",
-      "imageSize": "large",
       "link": "https://blog.datahubproject.io/how-visa-uses-datahub-to-scale-data-governance-cace052d61c5",
       "linkType": "blog",
       "tagline": "How Visa uses DataHub to scale data governance",
