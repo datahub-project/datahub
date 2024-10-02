@@ -1,8 +1,8 @@
 import { Text } from '@components';
 import InfoTooltip from '@src/app/sharedV2/icons/InfoTooltip';
 import { Checkbox } from 'antd';
-import styled from 'styled-components';
 import React, { useContext, useState } from 'react';
+import styled from 'styled-components';
 import AddElement from './AddElement';
 import AddUsersModal from './AddUsersModal';
 import ManageFormContext from './ManageFormContext';
@@ -24,7 +24,7 @@ const AddRecipients = () => {
         <>
             <AddElement
                 heading="Add Recipients"
-                description="Select the users and groups who will complete this form"
+                description="Select users and groups who will be required to complete this form."
                 buttonLabel="Add Users or Groups"
                 buttonOnClick={() => setShowUsersModal(true)}
                 buttonTooltip="Assign specific users or groups"

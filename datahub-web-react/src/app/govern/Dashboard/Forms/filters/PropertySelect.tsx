@@ -20,7 +20,7 @@ const PropertySelect = ({ selectedProperty, properties, onChangeProperty }: Prop
         >
             {properties.map((prop) => (
                 <Select.Option key={prop.id} value={prop.id}>
-                    <Tooltip title={prop.description} placement="top">
+                    <Tooltip title={prop.description} placement="top" showArrow={false}>
                         <Text color="gray" type="span">
                             {prop.displayName}
                         </Text>

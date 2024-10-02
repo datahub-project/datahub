@@ -18,7 +18,14 @@ export default function InfoTooltip({ content, className }: Props) {
 
     return (
         <InfoWrapper className={className}>
-            <Tooltip placement="top" title={content} trigger="hover" open={showTooltip} onOpenChange={setShowTooltip}>
+            <Tooltip
+                placement="top"
+                title={content}
+                trigger="hover"
+                open={showTooltip}
+                onOpenChange={setShowTooltip}
+                showArrow={false}
+            >
                 {showTooltip ? <InfoCircleFilled /> : <InfoCircleOutlined />}
             </Tooltip>
         </InfoWrapper>

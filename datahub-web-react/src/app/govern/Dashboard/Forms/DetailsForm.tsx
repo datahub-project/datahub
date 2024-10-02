@@ -1,9 +1,15 @@
-import { Text, TextArea, Input } from '@src/alchemy-components';
+import { Input, Text, TextArea } from '@src/alchemy-components';
 import { FormState, FormType } from '@src/types.generated';
 import { Form, Select } from 'antd';
 import React, { useContext } from 'react';
 import ManageFormContext from './ManageFormContext';
-import { FieldLabel, FormFieldsContainer, SelectOptionContainer } from './styledComponents';
+import {
+    CustomDropdown,
+    FieldLabel,
+    FormFieldsContainer,
+    SelectOptionContainer,
+    StyledSelect,
+} from './styledComponents';
 import { useFormHandlers } from './useFormHandlers';
 
 const DetailsForm = () => {
@@ -16,8 +22,8 @@ const DetailsForm = () => {
         value: type,
         description:
             type === FormType.Completion
-                ? 'Crowdsource required attributes for your data assets.'
-                : 'Collect and formally verify required attributes for your data assets.',
+                ? 'Collect required information for specific data assets'
+                : 'Collect and require certification for required attributes',
     }));
     return (
         <Form form={form}>
@@ -52,10 +58,11 @@ const DetailsForm = () => {
                         },
                     ]}
                 >
-                    <Select
+                    <StyledSelect
                         placeholder="Select Form Type"
                         onChange={(value) => handleSelectChange('formType', value)}
                         disabled={formValues.state !== FormState.Draft}
+                        dropdownRender={(menu) => <CustomDropdown>{menu}</CustomDropdown>}
                     >
                         {formTypes.map((option) => {
                             return (
@@ -71,7 +78,7 @@ const DetailsForm = () => {
                                 </Select.Option>
                             );
                         })}
-                    </Select>
+                    </StyledSelect>
                 </Form.Item>
             </FormFieldsContainer>
         </Form>

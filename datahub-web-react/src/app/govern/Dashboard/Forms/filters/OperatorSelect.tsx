@@ -22,7 +22,7 @@ const OperatorSelect = ({ selectedOperator, operators, onChangeOperator }: Props
             {operators?.map((operator) => {
                 return (
                     <Select.Option value={operator.id.toLowerCase()} key={operator.id.toLowerCase()}>
-                        <Tooltip title={operator.description} placement="right">
+                        <Tooltip title={operator.description} placement="right" showArrow={false}>
                             <Text color="gray" type="span">
                                 {operator.displayName}
                             </Text>

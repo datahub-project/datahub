@@ -4,7 +4,7 @@ import theme from '@src/alchemy-components/theme';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { WARNING_COLOR_HEX } from '@src/app/entityV2/shared/tabs/Incident/incidentUtils';
 import { applyOpacity } from '@src/app/shared/styleUtils';
-import { Checkbox, Divider, Modal, Radio, Spin, Tag, Typography } from 'antd';
+import { Checkbox, Divider, Modal, Radio, Select, Spin, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 
 export const CreateFormContainer = styled.div`
@@ -17,7 +17,7 @@ export const CreateFormContainer = styled.div`
 export const ContentContainer = styled.div<{ $showV1Styles?: boolean }>`
     display: flex;
     flex-direction: column;
-    padding: 16px;
+    padding: 16px 0;
     margin-right: 16px;
     border-radius: 12px;
     flex: 1;
@@ -28,6 +28,11 @@ export const ContentContainer = styled.div<{ $showV1Styles?: boolean }>`
     box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.1);
 
     ${(props) => props.$showV1Styles && `margin: 8px 24px 0 24px;`}
+`;
+
+export const ContentWrapper = styled.div`
+    overflow: auto;
+    padding: 0 16px;
 `;
 
 export const FooterContainer = styled.div<{ $showV1Styles?: boolean }>`
@@ -105,10 +110,39 @@ export const StyledSpin = styled(Spin)`
     color: ${colors.violet};
 `;
 
+export const StyledSelect = styled(Select)`
+    .ant-select-selector {
+        height: 50px !important;
+    }
+
+    .ant-select-selection-item {
+        p {
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+    }
+
+    .ant-select-selection-placeholder {
+        display: flex;
+        align-items: center;
+    }
+`;
+
+export const CustomDropdown = styled.div`
+    .ant-select-item-option-content {
+        white-space: normal;
+    }
+`;
+
 export const SelectOptionContainer = styled.div`
     display: flex;
     flex-direction: column;
-    margin-top: 3px;
+    padding: 4px 0;
+
+    p {
+        line-height: 20px;
+    }
 `;
 
 export const OptionsContainer = styled.div`

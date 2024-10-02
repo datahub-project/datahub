@@ -66,7 +66,7 @@ const UserOrGroupItem = ({ userOrGroup, isGroup }: Props) => {
                     <Text color="gray"> {isGroup ? 'Group' : 'User'}</Text>
                 </CardData>
                 <CardIcons>
-                    <Tooltip title={isGroup ? 'Remove group' : 'Remove user'}>
+                    <Tooltip title={isGroup ? 'Remove group' : 'Remove user'} showArrow={false}>
                         <Icon icon="Delete" size="md" onClick={() => setShowConfirmDelete(true)} />
                     </Tooltip>
                 </CardIcons>

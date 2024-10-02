@@ -55,7 +55,7 @@ export const ManageFormContextProvider = ({ children }: { children: React.ReactN
             };
             setFormValues(values);
             form?.setFieldsValue(values);
-        }
+        } else form?.setFieldsValue({ formType: FormType.Completion });
     }, [data, form, setFormValues]);
 
     return (

@@ -6,11 +6,19 @@ import { v4 as uuidv4 } from 'uuid';
 import { questionTypes } from './formUtils';
 import ManageFormContext from './ManageFormContext';
 import CommonQuestionFields from './questionTypes/CommonQuestionFields';
+import DomainsQuestion from './questionTypes/DomainQuestion';
+import GlossaryTermsQuestion from './questionTypes/GlossaryTermsQuestion';
 import OwnershipQuestion from './questionTypes/OwnershipQuestion';
 import StructuredPropertyQuestion from './questionTypes/StructuredPropertyQuestion';
-import { FieldLabel, FormFieldsContainer, ModalFooter, SelectOptionContainer, StyledModal } from './styledComponents';
-import GlossaryTermsQuestion from './questionTypes/GlossaryTermsQuestion';
-import DomainsQuestion from './questionTypes/DomainQuestion';
+import {
+    CustomDropdown,
+    FieldLabel,
+    FormFieldsContainer,
+    ModalFooter,
+    SelectOptionContainer,
+    StyledModal,
+    StyledSelect,
+} from './styledComponents';
 
 interface Props {
     showQuestionModal: boolean;
@@ -116,9 +124,9 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                             },
                         ]}
                     >
-                        <Select
+                        <StyledSelect
                             placeholder="Select Question Type"
-                            onChange={(value) => {
+                            onChange={(value: any) => {
                                 resetDependentFields();
                                 setSelectedType(value);
                                 form.setFieldsValue(
@@ -129,33 +137,32 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                                           },
                                 );
                             }}
+                            dropdownRender={(menu) => <CustomDropdown>{menu}</CustomDropdown>}
                         >
                             {questionTypes.map((questionType) => {
                                 return (
                                     <Select.Option key={questionType.value} value={questionType.value}>
                                         <SelectOptionContainer>
-                                            <Text color="gray" weight="semiBold" size="md">
+                                            <Text color="gray" weight="medium" size="md">
                                                 {questionType.label}
                                             </Text>
-                                            <Text color="gray" size="sm">
+                                            <Text color="gray" weight="normal" size="sm">
                                                 {questionType.description}
                                             </Text>
                                         </SelectOptionContainer>
                                     </Select.Option>
                                 );
                             })}
-                        </Select>
+                        </StyledSelect>
                     </Form.Item>
 
                     {(selectedType === FormPromptType.StructuredProperty ||
                         selectedType === FormPromptType.FieldsStructuredProperty) && <StructuredPropertyQuestion />}
-
+                    {selectedType && <CommonQuestionFields isFormDisabled={isFormDisabled} />}
                     {selectedType === FormPromptType.Ownership && <OwnershipQuestion />}
                     {selectedType === FormPromptType.GlossaryTerms && <GlossaryTermsQuestion />}
                     {selectedType === FormPromptType.FieldsGlossaryTerms && <GlossaryTermsQuestion />}
                     {selectedType === FormPromptType.Domain && <DomainsQuestion />}
-
-                    {selectedType && <CommonQuestionFields isFormDisabled={isFormDisabled} />}
                 </FormFieldsContainer>
             </Form>
         </StyledModal>

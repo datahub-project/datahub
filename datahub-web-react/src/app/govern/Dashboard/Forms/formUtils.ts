@@ -6,9 +6,9 @@ import {
     CreatePromptInput,
     DomainParams,
     DomainParamsInput,
+    FormPrompt,
     FormState,
     FormType,
-    FormPrompt,
     GlossaryTermsParams,
     GlossaryTermsParamsInput,
     OwnershipParams,
@@ -52,43 +52,44 @@ export const questionTypes = [
     {
         label: 'Ownership',
         value: 'OWNERSHIP',
-        description: 'This question applies ownership to assets',
+        description: 'Require ownership for all assets assigned to this form',
     },
     {
         label: 'Documentation',
         value: 'DOCUMENTATION',
-        description: 'This question applies documentation to assets',
+        description: 'Require documentation for all assets assigned to this form',
     },
     {
         label: 'Column Documentation',
         value: 'FIELDS_DOCUMENTATION',
-        description: 'This question applies documentation to columns of assets',
+        description: 'Require documentation for all columns of the assets assigned to this form',
     },
     {
         label: 'Glossary Terms',
         value: 'GLOSSARY_TERMS',
-        description: 'This question applies glossary terms to assets',
+        description: 'Require glossary terms for all assets assigned to this form',
     },
     {
         label: 'Column Glossary Terms',
         value: 'FIELDS_GLOSSARY_TERMS',
-        description: 'This question applies glossary terms to columns of assets',
+        description: 'Require glossary terms for all columns of the assets assigned to this form',
     },
     {
         label: 'Structured Property',
         value: 'STRUCTURED_PROPERTY',
-        description: 'This question applies structured property to assets',
+        description: 'Require a specific type of structured property for all assets assigned to this form',
     },
 
     {
         label: 'Column Structured Property',
         value: 'FIELDS_STRUCTURED_PROPERTY',
-        description: 'This question applies structured property to columns of assets',
+        description:
+            'Require a specific type of structured property for all the columns of assets assigned to this form',
     },
     {
         label: 'Domain',
         value: 'DOMAIN',
-        description: 'This question applies domain to assets',
+        description: 'Require a domain for all assets assigned to this form',
     },
 ];
 

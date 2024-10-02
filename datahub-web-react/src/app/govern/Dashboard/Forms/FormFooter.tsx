@@ -1,17 +1,17 @@
 import { Button } from '@components';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
+import { useIsThemeV2 } from '@src/app/useIsThemeV2';
+import { PageRoutes } from '@src/conf/Global';
 import { useCreateFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
 import { FormState, FormType } from '@src/types.generated';
-import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import { Tooltip } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useHistory, useParams } from 'react-router';
 import { Link } from 'react-router-dom';
-import { PageRoutes } from '@src/conf/Global';
+import { mapPromptsToCreatePromptInput } from './formUtils';
 import ManageFormContext from './ManageFormContext';
 import { FooterContainer } from './styledComponents';
-import { mapPromptsToCreatePromptInput } from './formUtils';
 
 const FormFooter = () => {
     const history = useHistory();
@@ -149,12 +149,15 @@ const FormFooter = () => {
             <Link to={`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`}>
                 <Button variant="outline">Cancel</Button>
             </Link>
-            <Tooltip title="Save the current state of your compliance form.">
+            <Tooltip title="Save the current state of your compliance form." showArrow={false}>
                 <Button variant="outline" onClick={() => saveForm()}>
                     {formValues.state === FormState.Draft ? 'Save Draft' : 'Save'}
                 </Button>
             </Tooltip>
-            <Tooltip title={formValues.state === FormState.Published ? unpublishExplanation : publishExplanation}>
+            <Tooltip
+                title={formValues.state === FormState.Published ? unpublishExplanation : publishExplanation}
+                showArrow={false}
+            >
                 <Button onClick={() => form?.validateFields().then(() => setShowConfirmationModal(true))}>
                     {formValues.state === FormState.Published ? 'Unpublish' : 'Publish'}
                 </Button>

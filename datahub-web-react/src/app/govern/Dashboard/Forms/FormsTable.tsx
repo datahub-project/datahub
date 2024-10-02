@@ -1,6 +1,7 @@
 import { NetworkStatus } from '@apollo/client';
-import { colors, Icon, Pill, Table, typography } from '@components';
+import { colors, Icon, Pill, Table, Text, typography } from '@components';
 import { AlignmentOptions, ColorOptions } from '@src/alchemy-components/theme/config';
+import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import { toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
@@ -8,7 +9,6 @@ import { PageRoutes } from '@src/conf/Global';
 import { useDeleteFormMutation } from '@src/graphql/form.generated';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType, FormState } from '@src/types.generated';
-import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import { Dropdown, Tooltip, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
@@ -221,7 +221,7 @@ const FormsTable = () => {
                                     setShowConfirmDelete(true);
                                 }}
                             >
-                                Delete
+                                <Text color="red">Delete</Text>
                             </MenuItem>
                         ),
                     },
@@ -231,7 +231,7 @@ const FormsTable = () => {
                     <>
                         <CardIcons>
                             {record.entity.formInfo.status.state !== FormState.Draft && (
-                                <Tooltip title="View analytics for this form">
+                                <Tooltip title="View analytics for this form" showArrow={false}>
                                     <Icon
                                         icon="TrendingUp"
                                         size="md"

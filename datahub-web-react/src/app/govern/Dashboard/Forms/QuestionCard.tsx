@@ -58,10 +58,10 @@ const QuestionCard = ({ question, setShowQuestionModal, setCurrentQuestion }: Pr
                 <CardData width="20%">{question.required ? <MandatoryTag> Mandatory</MandatoryTag> : <></>}</CardData>
                 {formValues.state === FormState.Draft ? (
                     <CardIcons>
-                        <Tooltip title="Delete question">
+                        <Tooltip title="Delete question" showArrow={false}>
                             <Icon icon="Delete" size="md" onClick={() => setShowConfirmDelete(true)} />
                         </Tooltip>
-                        <Tooltip title="Edit question">
+                        <Tooltip title="Edit question" showArrow={false}>
                             <Icon
                                 icon="Edit"
                                 size="md"
@@ -73,7 +73,10 @@ const QuestionCard = ({ question, setShowQuestionModal, setCurrentQuestion }: Pr
                         </Tooltip>
                     </CardIcons>
                 ) : (
-                    <Tooltip title=" Questions cannot be edited once a form has been published. To edit questions create a new compliance form.">
+                    <Tooltip
+                        title=" Questions cannot be edited once a form has been published. To edit questions create a new compliance form."
+                        showArrow={false}
+                    >
                         <Button
                             variant="text"
                             onClick={() => {

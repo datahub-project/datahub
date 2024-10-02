@@ -6,7 +6,7 @@ import CreateFormHeader from './CreateFormHeader';
 import DetailsForm from './DetailsForm';
 import { FormMode } from './formUtils';
 import ManageFormContext from './ManageFormContext';
-import { ContentContainer, StyledSpin } from './styledComponents';
+import { ContentContainer, ContentWrapper, StyledSpin } from './styledComponents';
 
 interface Props {
     mode: FormMode;
@@ -22,11 +22,13 @@ const FormContent = ({ mode }: Props) => {
 
     return (
         <ContentContainer $showV1Styles={!isThemeV2}>
-            <StyledSpin spinning={isFormLoading} indicator={<LoadingOutlined />}>
-                <CreateFormHeader />
-                <DetailsForm />
-                <AddToForm />
-            </StyledSpin>
+            <ContentWrapper>
+                <StyledSpin spinning={isFormLoading} indicator={<LoadingOutlined />}>
+                    <CreateFormHeader />
+                    <DetailsForm />
+                    <AddToForm />
+                </StyledSpin>
+            </ContentWrapper>
         </ContentContainer>
     );
 };

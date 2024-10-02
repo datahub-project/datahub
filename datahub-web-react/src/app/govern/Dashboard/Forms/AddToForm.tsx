@@ -1,16 +1,16 @@
 import { LogicalOperatorType, LogicalPredicate } from '@src/app/tests/builder/steps/definition/builder/types';
-import { AndFilterInput, FormPrompt, FormState } from '@src/types.generated';
 import { convertLogicalPredicateToOrFilters } from '@src/app/tests/builder/steps/definition/builder/utils';
+import { AndFilterInput, FormPrompt, FormState } from '@src/types.generated';
 import { Divider } from 'antd';
 import React, { useContext, useState } from 'react';
 import AddElement from './AddElement';
 import AddQuestionModal from './AddQuestionModal';
 import AddRecipients from './AddRecipients';
+import AssetReviewModal from './AssetReviewModal';
 import LogicalFiltersBuilder from './filters/LogicalFiltersBuilder';
 import { properties } from './filters/properties';
 import ManageFormContext from './ManageFormContext';
 import QuestionsList from './QuestionsList';
-import AssetReviewModal from './AssetReviewModal';
 
 const AddToForm = () => {
     const { formValues, setFormValues } = useContext(ManageFormContext);
@@ -61,7 +61,7 @@ const AddToForm = () => {
             <Divider />
             <AddElement
                 heading="Assign Assets"
-                description="Select the assets to assign this form to"
+                description="Select the assets that this form must be completed for. Assets will be dynamically assigned using the filters provided below."
                 buttonLabel="Add Assets"
                 buttonOnClick={addFilters}
                 isButtonHidden={!!formValues.assets?.logicalPredicate}
