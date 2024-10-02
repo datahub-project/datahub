@@ -64,7 +64,7 @@ export interface FetchedEntityV2 {
     inputFields?: InputFields;
     canEditLineage?: boolean;
     health?: Health[];
-    lineageAssets?: LineageAsset[];
+    lineageAssets?: Map<string, LineageAsset>;
     lineageSiblingIcon?: string;
     containers?: GenericEntityProperties[];
     parent?: GenericEntityProperties; // Schema field parent

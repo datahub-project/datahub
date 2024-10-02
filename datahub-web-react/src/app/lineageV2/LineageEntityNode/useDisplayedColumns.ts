@@ -125,7 +125,7 @@ function getDisplayColumns(
 ): LineageDisplayColumn[] {
     if (!entity.lineageAssets) return [];
 
-    return entity.lineageAssets
+    return Array.from(entity.lineageAssets.values())
         .filter((asset): asset is ColumnAsset => asset.type === LineageAssetType.Column)
         .map((columnAsset) => {
             const columnRef = createColumnRef(urn, columnAsset.name);

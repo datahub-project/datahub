@@ -33,6 +33,7 @@ export default function LineageExplorer(props: Props) {
     });
     const [nodeVersion, setNodeVersion] = useState(0);
     const [dataVersion, setDataVersion] = useState(0);
+    const [columnEdgeVersion, setColumnEdgeVersion] = useState(0);
     const [displayVersion, setDisplayVersion] = useState<[number, string[]]>([0, []]);
     const [hideTransformations, setHideTransformations] = useShouldHideTransformations();
 
@@ -50,6 +51,8 @@ export default function LineageExplorer(props: Props) {
         setDataVersion,
         displayVersion,
         setDisplayVersion,
+        columnEdgeVersion,
+        setColumnEdgeVersion,
         hideTransformations,
         setHideTransformations,
         showGhostEntities,

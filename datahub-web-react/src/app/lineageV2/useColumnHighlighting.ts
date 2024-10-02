@@ -31,7 +31,7 @@ export default function useColumnHighlighting(
 } {
     const entityRegistry = useEntityRegistryV2();
     const { setEdges } = useReactFlow();
-    const { nodes, edges, nodeVersion, hideTransformations } = useContext(LineageNodesContext);
+    const { nodes, edges, nodeVersion, columnEdgeVersion, hideTransformations } = useContext(LineageNodesContext);
 
     const { cllHighlightedNodes, highlightedColumns, columnEdges } = useMemo(() => {
         const displayedNodeIds = new Set(shownUrns);
@@ -47,7 +47,8 @@ export default function useColumnHighlighting(
             validQueryIds,
             entityRegistry,
         });
-    }, [selectedColumn, hoveredColumn, nodes, edges, fineGrainedLineage, shownUrns, entityRegistry]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [columnEdgeVersion, selectedColumn, hoveredColumn, nodes, edges, fineGrainedLineage, shownUrns, entityRegistry]);
 
     useEffect(() => {
         // TODO: Figure out how to only add edges once columns are rendered? For now, just use timeout
@@ -122,7 +123,7 @@ function computeSingleColumnHighlights(
         //   i.e. the missing node's upstreams when searching downstream, and vice versa
         const missingNodeParents = new Map<string, Set<ColumnRef>>();
 
-        function addEdge(ref: ColumnRef, childRef: ColumnRef) {
+        function addEdge(ref: ColumnRef, childRef: ColumnRef, opacity = 1) {
             const fromRef = direction === LineageDirection.Downstream ? ref : childRef;
             const toRef = direction === LineageDirection.Downstream ? childRef : ref;
             const [fromUrn, fromField] = parseColumnRef(fromRef);
@@ -142,7 +143,7 @@ function computeSingleColumnHighlights(
                 targetHandle: toField ? toRef : undefined,
                 type: 'default',
                 markerEnd: { type: MarkerType.ArrowClosed },
-                style: { stroke, strokeWidth: 1.25 },
+                style: { stroke, strokeWidth: 1.25, opacity },
                 data: { isColumnEdge: true }, // Used to hide column edges
             });
         }
@@ -154,10 +155,15 @@ function computeSingleColumnHighlights(
             if (ref === undefined) {
                 break;
             }
-            const filterNodeEdge = addEdgeToLineageFilterNode(ref, direction, fgl, nodes);
+            const { filterNodeRef, opacity, showFilterNodeEdge } = addEdgeToLineageFilterNode(
+                ref,
+                direction,
+                fgl,
+                nodes,
+            );
             const [currentUrn] = parseColumnRef(ref);
-            if (displayedNodeIds.has(currentUrn) && filterNodeEdge) {
-                addEdge(ref, filterNodeEdge);
+            if (displayedNodeIds.has(currentUrn) && showFilterNodeEdge) {
+                addEdge(ref, filterNodeRef, opacity);
             }
 
             fgl.get(ref)?.forEach((fineGrainedOperationRef, childRef) => {
@@ -252,13 +258,22 @@ function addEdgeToLineageFilterNode(
     direction: LineageDirection,
     fgl: FineGrainedLineageMap,
     nodes: NodeContext['nodes'],
-): ColumnRef | null {
+): {
+    filterNodeRef: ColumnRef;
+    opacity: number;
+    showFilterNodeEdge: boolean;
+} {
     const [urn, field] = parseColumnRef(ref);
+    const filterNodeRef = createLineageFilterNodeId(urn, direction);
+
     const entity = nodes.get(urn)?.entity;
-    const lineageAsset = entity?.lineageAssets?.find((asset) => asset.name === field);
+    const lineageAsset = entity?.lineageAssets?.get(field);
     const cachedNumRelated =
         direction === LineageDirection.Downstream ? lineageAsset?.numDownstream : lineageAsset?.numUpstream;
-
-    if ((cachedNumRelated || 0) <= (fgl.get(ref)?.size || 0)) return null;
-    return createLineageFilterNodeId(urn, direction);
+    const isTentative = cachedNumRelated === undefined; // Not sure about count -- show half opaque edge
+    return {
+        filterNodeRef,
+        opacity: isTentative ? 0.5 : 1,
+        showFilterNodeEdge: (cachedNumRelated || 0) > (fgl.get(ref)?.size || 0) || isTentative,
+    };
 }

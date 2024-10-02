@@ -253,30 +253,33 @@ export default class EntityRegistry {
         };
     }
 
-    getLineageAssets(type: EntityType, data: EntityLineageV2Fragment): LineageAsset[] | undefined {
+    getLineageAssets(type: EntityType, data: EntityLineageV2Fragment): Map<string, LineageAsset> | undefined {
         // TODO: Fold into entity registry?
         if (data?.__typename === 'Domain') {
-            return data?.dataProducts?.searchResults.reduce<LineageAsset[]>((lst, r) => {
+            return data?.dataProducts?.searchResults.reduce((obj, r) => {
                 if (r.entity.__typename === 'DataProduct') {
-                    lst.push({
-                        name: this.getDisplayName(r.entity.type, r.entity),
-                        type: LineageAssetType.DataProduct,
-                        size: r.entity.entities?.total,
-                    });
+                    const name = this.getDisplayName(r.entity.type, r.entity);
+                    obj.set(name, { name, type: LineageAssetType.DataProduct, size: r.entity.entities?.total });
                 }
-                return lst;
-            }, []);
+                return obj;
+            }, new Map<string, LineageAsset>());
         }
         const fields = getSchemaFields(data, this.getGenericEntityProperties(type, data));
         if (fields) {
-            return fields.map((field) => ({
-                name: downgradeV2FieldPath(field.fieldPath),
-                type: LineageAssetType.Column,
-                dataType: field.type,
-                nativeDataType: field.nativeDataType,
-                numUpstream: field.schemaFieldEntity?.lineageFeatures?.upstreamCount,
-                numDownstream: field.schemaFieldEntity?.lineageFeatures?.downstreamCount,
-            }));
+            return new Map(
+                fields.map((field) => {
+                    const name = downgradeV2FieldPath(field.fieldPath);
+                    const value: LineageAsset = {
+                        name,
+                        type: LineageAssetType.Column,
+                        dataType: field.type,
+                        nativeDataType: field.nativeDataType,
+                        numUpstream: field.schemaFieldEntity?.lineageFeatures?.upstreamCount,
+                        numDownstream: field.schemaFieldEntity?.lineageFeatures?.downstreamCount,
+                    };
+                    return [name, value];
+                }),
+            );
         }
         return undefined;
     }

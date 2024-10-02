@@ -205,6 +205,8 @@ export interface NodeContext {
     setDataVersion: Dispatch<SetStateAction<number>>;
     displayVersion: [number, Urn[]];
     setDisplayVersion: Dispatch<SetStateAction<[number, Urn[]]>>;
+    columnEdgeVersion: number; // Used to force recalculation of column->column edges
+    setColumnEdgeVersion: Dispatch<SetStateAction<number>>;
     hideTransformations: boolean;
     setHideTransformations: (hide: boolean) => void;
     showGhostEntities: boolean;
@@ -226,6 +228,8 @@ export const LineageNodesContext = React.createContext<NodeContext>({
     setDataVersion: () => {},
     displayVersion: [0, []],
     setDisplayVersion: () => {},
+    columnEdgeVersion: 0,
+    setColumnEdgeVersion: () => {},
     hideTransformations: false,
     setHideTransformations: () => {},
     showGhostEntities: false,

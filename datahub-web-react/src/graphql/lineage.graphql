@@ -736,6 +736,7 @@ query getLineageCounts(
     $endTimeMillis: Long
     $excludeUpstream: Boolean = false
     $excludeDownstream: Boolean = false
+    $includeGhostEntities: Boolean = false
 ) {
     entity(urn: $urn) {
         urn
@@ -749,6 +750,7 @@ query getLineageCounts(
                     separateSiblings: $separateSiblings
                     startTimeMillis: $startTimeMillis
                     endTimeMillis: $endTimeMillis
+                    includeGhostEntities: $includeGhostEntities
                 }
             ) @skip(if: $excludeUpstream) {
                 filtered
@@ -762,6 +764,7 @@ query getLineageCounts(
                     separateSiblings: $separateSiblings
                     startTimeMillis: $startTimeMillis
                     endTimeMillis: $endTimeMillis
+                    includeGhostEntities: $includeGhostEntities
                 }
             ) @skip(if: $excludeDownstream) {
                 filtered
