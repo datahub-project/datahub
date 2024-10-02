@@ -108,10 +108,22 @@
       "imageSize": "medium",
       "link": "https://location.foursquare.com/resources/blog/leadership/foursquare-data-platform-from-fragmentation-to-control-plane/",
       "linkType": "blog",
-      "tagline": "\nFoursquare Data Platform: From Fragmentation to Control (Plane)",
+      "tagline": "Foursquare Data Platform: From Fragmentation to Control (Plane)",
       "category": "B2B & B2C",
       "platform": "cloud",
       "description": "<i>\"After evaluating several options (...) we chose DataHub as the control plane for our data platform and partnered with Acryl Data, which offers DataHub Cloud, a premium hosted version of DataHub. (...) Another important thing that worked in DataHub’s favor is the rich and flexible taxonomy it offered for modeling the various aspects of a data platform.\""
+    },
+    {
+      "name": "Deutsche Telekom",
+      "slug": "deutsche-telekom",
+      "imageUrl": "/img/logos/companies/deutsche-telekom.png",
+      "imageSize": "medium",
+      "link": "https://karanjindal95.medium.com/from-chaos-to-clarity-how-datahub-transformed-our-data-utilization-5b5151efd34a",
+      "linkType": "blog",
+      "tagline": "From Chaos to Clarity: How DataHub Transformed our Data Utilization",
+      "category": "B2B & B2C",
+      "platform": "cloud",
+      "description": "<i>\"The DataHub data catalog significantly supported our AI/ML team’s efforts by offering seamless access to detailed column descriptions and table schemas through its APIs. This comprehensive data accessibility enabled the team to efficiently develop a text-to-SQL tool, which translates natural language queries into SQL commands.\""
     },
     {
       "name": "Chime",
