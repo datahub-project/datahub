@@ -7,6 +7,8 @@ fragment ActionInfo on ActionPipeline {
         type
         name
         description
+        category
+        state
         config {
             recipe
             executorId

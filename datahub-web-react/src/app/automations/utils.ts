@@ -2,7 +2,7 @@ import _ from 'lodash';
 
 import { jsonToYaml } from '@app/ingest/source/utils';
 
-import { AUTOMATION_CATEGORY_NAME_TO_INFO, DEFAULT_AUTOMATION_CATEGORY } from '@app/automations/constants';
+import { AUTOMATION_CATEGORY_NAME_TO_INFO } from '@app/automations/constants';
 import type { AutomationTemplate } from '@app/automations/types';
 import { templates } from '@app/automations/recipes';
 
@@ -47,21 +47,6 @@ export const parseJSON = (value: string): any => {
     }
     return value;
 };
-
-export const simplifyDataForListView = (data: any) =>
-    data.map((item: any) => {
-        return {
-            key: item.urn || titleCase(item.details?.name),
-            urn: item.urn,
-            name: item.name || titleCase(item.details?.name),
-            description: item.details?.description,
-            category: item.category || DEFAULT_AUTOMATION_CATEGORY,
-            definition: item.details?.config?.recipe || item.definition?.json,
-            type: item.__typename,
-            updated: new Date(),
-            created: new Date(),
-        };
-    });
 
 // Fill YAML with form data
 export const getYaml = (recipe: any) => {

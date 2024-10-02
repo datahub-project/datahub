@@ -7,7 +7,9 @@ export const updateRecipe = (recipe, formData: any) => {
 
     return {
         ...recipe,
-        name: formData.name || recipe?.name,
+        name: formData.name || recipe?.name || '',
+        description: formData.description || recipe?.description || '',
+        category: formData.category || recipe?.category || '',
         action: {
             ...action,
             config: mapFormToConfig(formData, configMaps[action?.type], defaultConfigs[action?.type]),

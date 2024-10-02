@@ -32,11 +32,20 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
             if (allowedRadios.length === 1) {
                 return allowedRadios[0]; // If there's only one radio, return it.
             }
+
+            if (enabled) {
+                if (state?.terms?.length > 0 || state?.nodes?.length > 0) return 'some' as RadioValue;
+                if (state?.tags?.length > 0) return 'some' as RadioValue;
+                if (state?.tags?.length === 0 || state?.nodes?.length === 0 || state?.terms?.length === 0)
+                    return 'all' as RadioValue;
+            }
+
             if (!enabled) return 'none' as RadioValue;
-            if (enabled) return 'some' as RadioValue;
+
+            // Default to all
             return 'all' as RadioValue;
         },
-        [allowedRadios],
+        [allowedRadios, state],
     );
 
     const [selected, setSelected] = useState({
@@ -119,13 +128,13 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
                                 {
                                     label: 'Glossary Terms',
                                     type: EntityType.GlossaryTerm,
-                                    preselectedOptions: selected.terms.selected[EntityType.GlossaryTerm],
+                                    preselectedOptions: terms || [],
                                     enabled: fieldTypes.includes(EntityType.GlossaryTerm),
                                 },
                                 {
                                     label: 'Term Groups',
                                     type: EntityType.GlossaryNode,
-                                    preselectedOptions: selected.terms.selected[EntityType.GlossaryNode],
+                                    preselectedOptions: nodes || [],
                                     enabled: fieldTypes.includes(EntityType.GlossaryNode),
                                 },
                             ]}
@@ -146,7 +155,7 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
                                 {
                                     label: 'Tags',
                                     type: EntityType.Tag,
-                                    preselectedOptions: selected.tags.selected[EntityType.Tag],
+                                    preselectedOptions: tags || [],
                                     enabled: fieldTypes.includes(EntityType.Tag),
                                 },
                             ]}

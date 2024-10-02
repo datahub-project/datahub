@@ -5,7 +5,6 @@ import { Modal, Button } from 'antd';
 import { YamlEditor } from '../../ingest/source/builder/YamlEditor';
 
 import { Configure } from '../fields/configure';
-import { AutomationTypes } from '../constants';
 import { getYaml } from '../utils';
 
 import { useAutomationContext } from './AutomationProvider';
@@ -18,7 +17,7 @@ type AutomationEditModalProps = {
 };
 
 export const AutomationEditModal = ({ isOpen, setIsOpen }: AutomationEditModalProps) => {
-    const { type, name, localTemplate, formData, recipe, updateAutomation } = useAutomationContext();
+    const { name, localTemplate, formData, recipe, updateAutomation } = useAutomationContext();
     const [showYaml, setShowYaml] = useState(false);
 
     // Check if the form is disabled
@@ -51,12 +50,9 @@ export const AutomationEditModal = ({ isOpen, setIsOpen }: AutomationEditModalPr
     const formInfo = {
         modalTitle: 'Edit Automation',
         modalDescription: "Edit an existing automation's settings",
-        submitContent: 'Save', // generic, gets updated based on recipe items
+        submitContent: 'Save and Run', // generic, gets updated based on recipe items
         submitFn: handleUpdate,
     };
-
-    if (type === AutomationTypes.ACTION) formInfo.submitContent = 'Save and Run';
-    if (type === AutomationTypes.TEST) formInfo.submitContent = 'Save and Schedule';
 
     // Form states
     const showForm = !showYaml;

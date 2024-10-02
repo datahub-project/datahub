@@ -269,8 +269,8 @@ const details = {
             // State mapping to connect form data to the component's state
             // You can set default values for the state here
             state: {
-                name: undefined,
-                description: undefined,
+                name: '',
+                description: '',
                 category: DEFAULT_AUTOMATION_CATEGORY,
             } as DetailsStateType,
         },

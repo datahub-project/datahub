@@ -59,10 +59,12 @@ export const SelectDropdown = ({
 
     if (!enabled) return null;
 
+    const defaultOptions = preselectedOptions || selectedOptions || [];
+
     return (
         <div>
             <Label>
-                {selectedOptions?.length || 0} {label?.toLowerCase()} selected for propagation
+                {defaultOptions?.length || 0} {label?.toLowerCase()} selected for propagation
             </Label>
             <Select
                 mode="multiple"
@@ -72,7 +74,7 @@ export const SelectDropdown = ({
                 }))}
                 loading={loading}
                 status={error && 'error'}
-                value={selectedOptions}
+                value={defaultOptions}
                 placeholder={placeholder}
                 onChange={(value) => setSelectedOptions(value)}
                 onSearch={(q) => setQuery(q)}

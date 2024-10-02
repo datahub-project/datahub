@@ -54,7 +54,7 @@ export const Configure = ({ automation, isEdit = false }: Props) => {
 
     // Use effect that only runs once to update the form data in the context
     useEffect(() => {
-        const initialFormattedData = flattenObject(data);
+        const initialFormattedData = flattenObject({ ...data, ...formData });
         const initialUpdatedFormData = updateFormData(definition, initialFormattedData);
         setData(formatDataForState(initialUpdatedFormData));
         // Mark the initial mount as done

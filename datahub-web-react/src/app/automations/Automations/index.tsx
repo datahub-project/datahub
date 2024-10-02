@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-
 import { uniq, orderBy } from 'lodash';
 
 import { Button } from '@components';
@@ -36,7 +35,9 @@ const AutomationPage = () => {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
 
     // Get Categories
-    const categories = uniq(automations.map((automation: any) => automation.category));
+    const categories = uniq(
+        automations.map((automation: any) => automation.details?.category).filter((category) => category !== ''),
+    );
 
     // Build tabs
     const tabs: any = [
@@ -51,8 +52,8 @@ const AutomationPage = () => {
         tabs.push({
             key: category,
             label: category,
-            data: automations.filter((automation: any) => automation.category === category),
-            count: automations.filter((automation: any) => automation.category === category).length,
+            data: automations.filter((automation: any) => automation.details?.category === category),
+            count: automations.filter((automation: any) => automation.details?.category === category).length,
         });
     });
 

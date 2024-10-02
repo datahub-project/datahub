@@ -116,12 +116,9 @@ export const AutomationCreateModal = ({ isOpen, setIsOpen }: AutomationCreateMod
     const formInfo = {
         modalTitle: 'Create an Automation',
         modalDescription: 'Configure an automation that takes action when important things occur',
-        submitContent: 'Save', // generic, gets updated based on recipe items
+        submitContent: 'Save and Run', // generic, gets updated based on recipe items
         submitFn: handleCreate,
     };
-
-    if (automationType === AutomationTypes.ACTION) formInfo.submitContent = 'Save and Run';
-    if (automationType === AutomationTypes.TEST) formInfo.submitContent = 'Save and Schedule';
 
     // Form states
     const showPreselect = !automation;

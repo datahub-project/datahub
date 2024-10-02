@@ -3,9 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import { Switch } from 'antd';
 
-import { Heading, Text } from '@components';
-import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
-
 import {
     useStopActionPipelineMutation,
     useStartActionPipelineMutation,
@@ -13,22 +10,10 @@ import {
     useGetActionPipelineStatusQuery,
 } from '@graphql/actionPipeline.generated';
 
-import { env, AutomationStatus, AutomationActionStatus } from '@app/automations/constants';
+import { AutomationStatus, AutomationActionStatus } from '@app/automations/constants';
 import { parseJSON, truncateString } from '@app/automations/utils';
 
-import {
-    Description,
-    ListCardHeader,
-    ListCardBody,
-    ButtonsContainer,
-    StyledDivider,
-    Category,
-    Name,
-    Details,
-    ResultContainer,
-    ResultGroup,
-    TitleColumn,
-} from '../../components';
+import { Description, ListCardHeader, ButtonsContainer, Category, Name, TitleColumn } from '../../components';
 
 import { UndoConfirmationModal } from '../../UndoConfirmationModal';
 import { openSuccessNotification } from '../../Notifications';
@@ -38,153 +23,18 @@ import { ActionsMenu } from '../ActionsMenu';
 import { useAutomationContext } from '../../AutomationProvider';
 import { useBootstrapActionPipelineMutation } from '../../../../../graphql/actionPipeline.generated';
 
-const ActonDetails = ({ status, state }: any) => {
-    if (!state || !status) {
-        return (
-            <ResultContainer>
-                <div>
-                    <Heading size="md" weight="bold">
-                        Performance
-                    </Heading>
-                    <Text size="sm" color="black">
-                        Status unavailable.
-                    </Text>
-                </div>
-            </ResultContainer>
-        );
-    }
-
-    // Status from server
-    const { live, bootstrap, rollback } = status;
-
-    // Map to cleaner object
-    const rollbackStatus = {
-        totalAssetsProcessed: rollback?.customProperties?.total_assets_processed,
-        totalAssetsToProcess: rollback?.customProperties?.total_assets_to_process,
-        lastEventProcessTime: toLocalDateTimeString(
-            rollback?.customProperties?.eventProcessingStats?.last_event_processed_time,
-        ),
-        lastEventProcessTimeRelative: toRelativeTimeString(
-            rollback?.customProperties?.eventProcessingStats?.last_event_processed_time,
-        ),
-        endTime: toLocalDateTimeString(rollback?.endTime),
-        endTimeRelative: toRelativeTimeString(rollback?.endTime),
-    };
-
-    // Map to cleaner object
-    const bootstrapStatus = {
-        totalAssetsProcessed: bootstrap?.customProperties?.total_assets_processed,
-        totalAssetsToProcess: bootstrap?.customProperties?.total_assets_to_process,
-        lastEventProcessTime: toLocalDateTimeString(
-            bootstrap?.customProperties?.eventProcessingStats?.last_event_processed_time,
-        ),
-        lastEventProcessTimeRelative: toRelativeTimeString(
-            bootstrap?.customProperties?.eventProcessingStats?.last_event_processed_time,
-        ),
-        endTime: toLocalDateTimeString(bootstrap?.endTime),
-        endTimeRelative: toRelativeTimeString(bootstrap?.endTime),
-    };
-
-    // Map to cleaner object
-    const liveStatus = {
-        totalAssetsImpacted: live?.customProperties?.total_assets_impacted,
-        totalAssetsProcessed: live?.customProperties?.total_assets_processed,
-        totalActionsExecuted: live?.customProperties?.total_actions_executed,
-        startTime: toLocalDateTimeString(live?.startTime),
-        startTimeRelative: toRelativeTimeString(live?.startTime),
-    };
-
-    // Return the component
-    return (
-        <ResultContainer>
-            <div>
-                <Heading size="md" weight="bold">
-                    Performance
-                </Heading>
-                {bootstrap && (
-                    <>
-                        {bootstrap.statusCode === AutomationActionStatus.RUNNING && (
-                            <ResultGroup>
-                                <Text size="sm" color="black">
-                                    Scanning ― EST.{' '}
-                                    <strong>
-                                        {bootstrapStatus.totalAssetsToProcess} Assets <br /> Last Event Processed{' '}
-                                        {bootstrapStatus.lastEventProcessTime} (
-                                        {bootstrapStatus.lastEventProcessTimeRelative})
-                                    </strong>
-                                </Text>
-                                {/* <Text size="sm">Next scan scheduled: 1 week</Text> */}
-                            </ResultGroup>
-                        )}
-                        {bootstrap.statusCode === AutomationActionStatus.SUCCEEDED && (
-                            <ResultGroup>
-                                <Text size="sm" color="black">
-                                    Scanned ― {bootstrapStatus.totalAssetsProcessed} of{' '}
-                                    {bootstrap?.customProperties?.totalAssetsToProcess} Assets <br /> Completed{' '}
-                                    {bootstrapStatus.endTime} ({bootstrapStatus.endTimeRelative})
-                                </Text>
-                                {/* <Text size="sm">Next scan scheduled: 1 week</Text> */}
-                            </ResultGroup>
-                        )}
-                    </>
-                )}
-                {rollback && (
-                    <>
-                        {rollback.statusCode === AutomationActionStatus.RUNNING && (
-                            <ResultGroup>
-                                <Text size="sm" color="black">
-                                    <strong>Rollback ― </strong> {rollbackStatus.totalAssetsProcessed} Asset Processed ·{' '}
-                                    {rollbackStatus.totalAssetsToProcess} Assets to Process <br /> Last Event Processed{' '}
-                                    {rollbackStatus.lastEventProcessTime} ({rollbackStatus.lastEventProcessTimeRelative}
-                                    )
-                                </Text>
-                            </ResultGroup>
-                        )}
-                        {rollback.statusCode === AutomationActionStatus.SUCCEEDED && (
-                            <ResultGroup>
-                                <Text size="sm" color="black">
-                                    <strong>Rollback ― </strong> {rollbackStatus.totalAssetsProcessed} Asset Processed ·{' '}
-                                    {rollbackStatus.totalAssetsToProcess} Assets to Process <br /> Completed{' '}
-                                    {rollbackStatus.endTime} ({rollbackStatus.endTimeRelative})
-                                </Text>
-                            </ResultGroup>
-                        )}
-                    </>
-                )}
-                {live && live.statusCode === AutomationActionStatus.RUNNING && state !== AutomationStatus.INACTIVE && (
-                    <ResultGroup>
-                        <Text size="sm" color="black">
-                            <strong>Live Processing ―</strong> {liveStatus.totalAssetsImpacted} Assets Impacted ·{' '}
-                            {liveStatus.totalAssetsProcessed} Assets Processed · {liveStatus.totalActionsExecuted}{' '}
-                            Actions Executed <br /> Running Since {liveStatus.startTime} ({liveStatus.startTimeRelative}
-                            )
-                        </Text>
-                    </ResultGroup>
-                )}
-                {!live && live.statusCode === AutomationActionStatus.RUNNING && (
-                    <ResultGroup>
-                        <Text size="sm" color="black">
-                            <strong>Live Processing ―</strong> Fetching status…
-                        </Text>
-                    </ResultGroup>
-                )}
-            </div>
-        </ResultContainer>
-    );
-};
-
 interface ActionCardProps {
     automation: any;
     openEditModal: () => void;
 }
 
 export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
-    const { actionStatusPollingInterval, hideActionStatus } = env;
-    const { urn, category, description, name } = automation;
+    const { urn, details } = automation;
+    const { name, category, description } = details;
 
     const [showUndoConfirmation, setShowUndoConfirmation] = useState(false);
     const [status, setStatus] = useState<any>();
-    const [state, setState] = useState<any>();
+    const [state, setState] = useState<any>(details?.state);
 
     const [stopActionPipeline] = useStopActionPipelineMutation();
     const [startActionPipeline] = useStartActionPipelineMutation();
@@ -194,44 +44,39 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
     const { deleteAutomation } = useAutomationContext();
 
     // TODO: Remove this in favor for returning `status` on `list` query
-    const { data, refetch: refetchStatus } = useGetActionPipelineStatusQuery({
+    const { data } = useGetActionPipelineStatusQuery({
         skip: !urn,
-        pollInterval: actionStatusPollingInterval, // 1 minute
         fetchPolicy: 'no-cache',
         variables: { urn },
     });
 
-    const { details, status: rawStatus } = data?.actionPipeline || {};
+    const { status: rawStatus } = data?.actionPipeline || {};
 
     // Stop an Action
     const stopAction = () => {
         setState(AutomationStatus.INACTIVE);
-        stopActionPipeline({ variables: { urn: automation.urn } });
+        stopActionPipeline({ variables: { urn } });
         openSuccessNotification('Stopped automation!');
-        refetchStatus();
     };
 
     // Start an Action
     const runAction = () => {
         setState(AutomationStatus.ACTIVE);
-        startActionPipeline({ variables: { urn: automation.urn } });
+        startActionPipeline({ variables: { urn } });
         openSuccessNotification('Started automation!');
-        refetchStatus();
     };
 
     // Undo an Action
     const undoAction = () => {
-        rollbackActionPipeline({ variables: { urn: automation.urn } });
+        rollbackActionPipeline({ variables: { urn } });
         openSuccessNotification('Rollback started!');
-        refetchStatus();
         return setShowUndoConfirmation(false);
     };
 
     // Bootstrap an Action
     const bootstrapAction = () => {
-        bootstrapActionPipeline({ variables: { urn: automation.urn } });
+        bootstrapActionPipeline({ variables: { urn } });
         openSuccessNotification('Bootstrap started!');
-        refetchStatus();
     };
 
     // Delete Action
@@ -239,7 +84,9 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
         // Delete is handled by the context
         setState(AutomationStatus.INACTIVE);
         deleteAutomation?.();
-        openSuccessNotification('Deleted automation!');
+        setTimeout(() => {
+            openSuccessNotification('Deleted automation!');
+        }, 3000);
     };
 
     // Set status during poling of refetch
@@ -255,14 +102,13 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
     const isStopped = state === AutomationStatus.INACTIVE;
 
     // Sub Status States
-    // const isRollbacking = status?.rollback?.statusCode === AutomationActionStatus.RUNNING;
     const isBootstrapping = status?.bootstrap?.statusCode === AutomationActionStatus.RUNNING;
 
     return (
         <>
             <ListCardHeader status={state}>
                 <TitleColumn>
-                    <Category>{category.toString().toUpperCase()}</Category>
+                    <Category>{category.toString().toUpperCase() || 'Uncategorized'.toUpperCase()}</Category>
                     <Name>{name}</Name>
                 </TitleColumn>
                 <div className="deployedAndStatus">
@@ -331,14 +177,6 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
                 </div>
             </ListCardHeader>
             {description && <Description className="description">{truncateString(description, 125)}</Description>}
-            {!hideActionStatus && <StyledDivider />}
-            <ListCardBody>
-                {!hideActionStatus && (
-                    <Details>
-                        <ActonDetails status={status} state={state} />
-                    </Details>
-                )}
-            </ListCardBody>
             {showUndoConfirmation && (
                 <UndoConfirmationModal
                     showUndoConfirmation={showUndoConfirmation}

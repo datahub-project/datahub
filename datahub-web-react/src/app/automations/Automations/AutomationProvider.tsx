@@ -1,10 +1,13 @@
-import React, { useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import _ from 'lodash';
+/* eslint-disable no-param-reassign */
+import React, { useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import { message } from 'antd';
+import { isEqual } from 'lodash';
 
 import {
     useCreateActionPipelineMutation,
     useUpsertActionPipelineMutation,
     useDeleteActionPipelineMutation,
+    useGetActionPipelineQuery,
 } from '@graphql/actionPipeline.generated';
 
 import { AutomationTypes } from '@app/automations/constants';
@@ -29,6 +32,9 @@ export interface AutomationContextType {
     createAutomation?: (type: AutomationTypes) => void;
     updateAutomation?: () => void;
     deleteAutomation?: () => void;
+
+    // States
+    isLoading?: boolean;
 }
 
 export const AutomationContext = React.createContext<AutomationContextType>({
@@ -56,6 +62,12 @@ interface Props {
 }
 
 export const AutomationContextProvider = ({ context, children }: Props) => {
+    const { refetch } = useGetActionPipelineQuery({
+        variables: {
+            urn: context?.urn || '',
+        },
+    });
+
     const [createActionPipelineMutation] = useCreateActionPipelineMutation();
     const [upsertActionPipelineMutation] = useUpsertActionPipelineMutation();
     const [deleteActionPipeline] = useDeleteActionPipelineMutation();
@@ -63,101 +75,110 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
     // Overall context wrapper (manages the list of automations)
     const { refetchAutomations } = useAutomationsContext();
 
+    // This is the default recipe details
+    const details = useMemo(
+        () => ({
+            name: context?.name || '',
+            category: context?.category || '',
+            description: context?.description || '',
+        }),
+        [context],
+    );
+
     // This is the form data that will be updated
-    const [formData, setFormData] = useState<any>({});
+    const [formData, setFormData] = useState<any>({
+        name: context?.name || '',
+        category: context?.category || '',
+        description: context?.description || '',
+    });
 
     // This is the recipe that will be updated
-    const [recipe, setRecipe] = useState<any>(context?.definition || {});
+    const [recipe, setRecipe] = useState<any>({
+        ...details,
+    });
 
-    // Function to update formData based on recipe
-    const updateFormDataFromRecipe = useCallback(() => {
-        setFormData((prevFormData) => {
-            const data = updateFormData(recipe, prevFormData);
-            return data;
-        });
-    }, [recipe]);
+    // Update default recipe based on the context
+    useEffect(() => {
+        const r = { ...context?.definition, ...details } || {};
+        setRecipe(r);
+        setFormData(updateFormData(r, details));
+    }, [context, details]);
 
     // Update the form data when the recipe changes
     useEffect(() => {
-        if (!_.isEmpty(recipe)) {
-            updateFormDataFromRecipe();
+        const updatedFormData = updateFormData(recipe, formData);
+        if (!isEqual(updatedFormData, formData)) {
+            setFormData(updatedFormData);
         }
-    }, [recipe, updateFormDataFromRecipe]);
+    }, [recipe, formData]);
+
+    // Clean recipe config of actionPipeline graph fields
+    const cleanRecipe = (r: any) => {
+        // Remove description & category
+        delete r.description;
+        delete r.category;
+        return r;
+    };
 
     // Create Automation Function
-    const createAutomation = (type: AutomationTypes) => {
-        // Create an ACTION automation
-        if (type === AutomationTypes.ACTION) {
-            createActionPipelineMutation({
-                variables: {
-                    input: {
-                        name: formData.name || '',
-                        category: formData.category || '',
-                        description: formData.description,
-                        type: recipe.action.type,
-                        config: {
-                            recipe: JSON.stringify(recipe),
-                            version: undefined,
-                            executorId: 'default',
-                            debugMode: false,
-                        },
+    const createAutomation = () => {
+        message.loading({ content: 'Loading...', duration: 3 });
+        createActionPipelineMutation({
+            variables: {
+                input: {
+                    name: formData.name || '',
+                    category: formData.category || '',
+                    description: formData.description || '',
+                    type: recipe.action.type,
+                    config: {
+                        recipe: JSON.stringify(cleanRecipe(recipe)),
+                        version: undefined,
+                        executorId: 'default',
+                        debugMode: false,
                     },
                 },
-            }).finally(() => {
-                setTimeout(() => refetchAutomations?.(), 2000);
-            });
-        }
-
-        // Create a TEST automation
-        if (context?.type === AutomationTypes.TEST) {
-            // Create test
-        }
+            },
+        }).then(() => {
+            refetchAutomations?.(true); // Fetch list of automations
+            refetch?.(); // Fetch this automation
+        });
     };
 
     // Update Automation Function
     const updateAutomation = () => {
-        // Update an ACTION automation
-        if (context?.type === AutomationTypes.ACTION) {
-            upsertActionPipelineMutation({
-                variables: {
-                    urn: context?.urn || '',
-                    input: {
-                        name: formData.name || '',
-                        category: formData.category || '',
-                        description: formData.description,
-                        type: recipe.action.type,
-                        config: {
-                            recipe: JSON.stringify(recipe),
-                            version: undefined,
-                            executorId: 'default',
-                            debugMode: false,
-                        },
+        upsertActionPipelineMutation({
+            variables: {
+                urn: context?.urn || '',
+                input: {
+                    name: formData.name || '',
+                    category: formData.category || '',
+                    description: formData.description || '',
+                    type: recipe.action.type,
+                    config: {
+                        recipe: JSON.stringify(cleanRecipe(recipe)),
+                        version: undefined,
+                        executorId: 'default',
+                        debugMode: false,
                     },
                 },
-            }).then(() => refetchAutomations?.());
-        }
-
-        // Update a TEST automation
-        if (context?.type === AutomationTypes.TEST) {
-            // Update test
-        }
+            },
+        }).then(() => {
+            refetchAutomations?.(false); // Fetch list of automations
+            refetch?.(); // Fetch this automation
+        });
     };
 
     // Delete Automation Function
     const deleteAutomation = () => {
-        // Delete an ACTION automation
-        if (context?.type === AutomationTypes.ACTION) {
-            deleteActionPipeline({
-                variables: {
-                    urn: context?.urn || '',
-                },
-            }).then(() => refetchAutomations?.());
-        }
-
-        // Delete a TEST automation
-        if (context?.type === AutomationTypes.TEST) {
-            // Delete test
-        }
+        message.loading({ content: 'Loading...', duration: 3 });
+        deleteActionPipeline({
+            variables: {
+                urn: context?.urn || '',
+            },
+        }).then(() => {
+            refetchAutomations?.(true); // Fetch list of automations
+            refetch?.(); // Fetch this automation
+        });
     };
 
     return (
