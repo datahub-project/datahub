@@ -60,7 +60,7 @@ interface Props {
 
 const AddPropertyButton = ({ fieldUrn, refetch, isV1Drawer }: Props) => {
     const [searchQuery, setSearchQuery] = useState('');
-    const { entityData } = useEntityData();
+    const { entityData, entityType } = useEntityData();
     const isThemeV2 = useIsThemeV2();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
@@ -89,23 +89,31 @@ const AddPropertyButton = ({ fieldUrn, refetch, isV1Drawer }: Props) => {
         setIsEditModalVisible(true);
     };
 
+    // only display structured props that can be applied to the asset type
     const properties = useMemo(
         () =>
-            data?.searchAcrossEntities?.searchResults.map((prop) => {
-                const entity = prop.entity as StructuredPropertyEntity;
-                return {
-                    label: (
-                        <Option key={entity.urn} onClick={() => handleOptionClick(entity)}>
-                            <Text weight="semiBold" color="gray">
-                                {entity.definition?.displayName}
-                            </Text>
-                        </Option>
-                    ),
-                    key: entity.urn,
-                    name: entity.definition?.displayName || entity.urn,
-                };
-            }),
-        [data],
+            data?.searchAcrossEntities?.searchResults
+                .filter((result) =>
+                    (result.entity as StructuredPropertyEntity).definition.entityTypes.find((t) => {
+                        if (fieldUrn) return t.info.type === EntityType.SchemaField;
+                        return t.info.type === entityType;
+                    }),
+                )
+                .map((prop) => {
+                    const entity = prop.entity as StructuredPropertyEntity;
+                    return {
+                        label: (
+                            <Option key={entity.urn} onClick={() => handleOptionClick(entity)}>
+                                <Text weight="semiBold" color="gray">
+                                    {entity.definition?.displayName}
+                                </Text>
+                            </Option>
+                        ),
+                        key: entity.urn,
+                        name: entity.definition?.displayName || entity.urn,
+                    };
+                }),
+        [data, entityType, fieldUrn],
     );
 
     const canEditProperties =

@@ -78,11 +78,13 @@ const StructuredPropsFormSection = ({
                         {isEditMode && (
                             <SubTextContainer>
                                 <Text size="sm" weight="medium">
-                                    (Add-only)
+                                    <Tooltip
+                                        title="Once a structured property is created, you can only add new allowed asset types to preserve backwards compatibility"
+                                        showArrow={false}
+                                    >
+                                        (Add-only)
+                                    </Tooltip>
                                 </Text>
-                                <Tooltip title="Once a structured property is created, you can only add new allowed asset types to preserve backwards compatibility">
-                                    <Icon icon="Info" color="violet" size="md" />
-                                </Tooltip>
                             </SubTextContainer>
                         )}
                     </FieldLabel>
@@ -113,11 +115,13 @@ const StructuredPropsFormSection = ({
                     {isEditMode && (
                         <SubTextContainer>
                             <Text size="sm" weight="medium">
-                                (Add-only)
+                                <Tooltip
+                                    title="Once a structured property is created, you can only add to the applies to list to preserve backwards compatibility"
+                                    showArrow={false}
+                                >
+                                    (Add-only)
+                                </Tooltip>
                             </Text>
-                            <Tooltip title="Once a structured property is created, you can only add to the applies to list to preserve backwards compatibility">
-                                <Icon icon="Info" color="violet" size="md" />
-                            </Tooltip>
                         </SubTextContainer>
                     )}
                 </FieldLabel>

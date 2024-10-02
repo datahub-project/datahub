@@ -49,11 +49,10 @@ const AllowedValuesField = ({
                         {isEditMode && (
                             <SubTextContainer>
                                 <Text size="sm" weight="medium">
-                                    (Add-only)
+                                    <Tooltip title="Once a structured property is created, you can only add new allowed values to preserve backwards compatibility">
+                                        (Add-only)
+                                    </Tooltip>
                                 </Text>
-                                <Tooltip title="Once a structured property is created, you can only add new allowed values to preserve backwards compatibility">
-                                    <Icon icon="Info" color="violet" size="md" />
-                                </Tooltip>
                             </SubTextContainer>
                         )}
                     </FieldLabel>
