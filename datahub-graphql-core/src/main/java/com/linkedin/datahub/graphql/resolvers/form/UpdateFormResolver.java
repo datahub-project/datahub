@@ -105,6 +105,7 @@ public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> 
                 patchBuilder.setAssignedGroups(input.getActors().getGroups());
               }
             }
+            patchBuilder.setLastModified(context.getOperationContext().getAuditStamp());
             try {
               _entityClient.ingestProposal(
                   context.getOperationContext(), patchBuilder.build(), false);

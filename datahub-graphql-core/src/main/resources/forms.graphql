@@ -311,6 +311,16 @@ type FormInfo {
     Information about the state and status of this form
     """
     status: FormStatus!
+
+    """
+    Audit stamp for when this form was created
+    """
+    created: ResolvedAuditStamp
+
+    """
+    Audit stamp for when this form was last modified
+    """
+    lastModified: ResolvedAuditStamp
 }
 
 """

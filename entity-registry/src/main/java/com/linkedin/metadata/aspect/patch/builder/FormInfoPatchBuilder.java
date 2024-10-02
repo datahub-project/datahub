@@ -7,6 +7,7 @@ import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormStatus;
 import com.linkedin.form.FormType;
@@ -28,6 +29,10 @@ public class FormInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<FormInf
   public static final String USERS_FIELD = "users";
   public static final String GROUPS_FIELD = "groups";
   public static final String STATUS_FIELD = "status";
+  private static final String LAST_MODIFIED_KEY = "lastModified";
+  private static final String CREATED_KEY = "created";
+  private static final String TIME_KEY = "time";
+  private static final String ACTOR_KEY = "actor";
 
   public FormInfoPatchBuilder setName(@Nonnull String name) {
     this.pathValues.add(
@@ -223,6 +228,25 @@ public class FormInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<FormInf
     } catch (Exception e) {
       throw new IllegalArgumentException("Failed to set assigned users.", e);
     }
+  }
+
+  public FormInfoPatchBuilder setLastModified(@Nonnull AuditStamp lastModified) {
+    ObjectNode lastModifiedValue = instance.objectNode();
+    lastModifiedValue.put(TIME_KEY, lastModified.getTime());
+    lastModifiedValue.put(ACTOR_KEY, lastModified.getActor().toString());
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(), "/" + LAST_MODIFIED_KEY, lastModifiedValue));
+    return this;
+  }
+
+  public FormInfoPatchBuilder setCreated(@Nonnull AuditStamp created) {
+    ObjectNode createdValue = instance.objectNode();
+    createdValue.put(TIME_KEY, created.getTime());
+    createdValue.put(ACTOR_KEY, created.getActor().toString());
+    pathValues.add(
+        ImmutableTriple.of(PatchOperationType.ADD.getValue(), "/" + CREATED_KEY, createdValue));
+    return this;
   }
 
   @Override

@@ -33,6 +33,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -80,6 +81,13 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     formInfo.setPrompts(this.mapFormPrompts(gmsFormInfo, form.getUrn()));
     formInfo.setActors(mapFormActors(gmsFormInfo.getActors()));
     formInfo.setStatus(mapFormStatus(gmsFormInfo.getStatus()));
+    if (gmsFormInfo.getCreated() != null) {
+      formInfo.setCreated(MapperUtils.createResolvedAuditStamp(gmsFormInfo.getCreated()));
+    }
+    if (gmsFormInfo.getLastModified() != null) {
+      formInfo.setLastModified(MapperUtils.createResolvedAuditStamp(gmsFormInfo.getLastModified()));
+    }
+
     form.setInfo(formInfo);
   }
 

@@ -930,6 +930,20 @@ fragment searchResultsWithoutSchemaField on Entity {
                     actor
                 }
             }
+            created {
+                time
+                actor {
+                    urn
+                    ...entityDisplayNameFields
+                }
+            }
+            lastModified {
+                time
+                actor {
+                    urn
+                    ...entityDisplayNameFields
+                }
+            }
         }
     }
 

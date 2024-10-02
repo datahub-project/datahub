@@ -1832,6 +1832,20 @@ fragment formFields on Form {
         name
         description
         type
+        created {
+            time
+            actor {
+                urn
+                ...entityDisplayNameFields
+            }
+        }
+        lastModified {
+            time
+            actor {
+                urn
+                ...entityDisplayNameFields
+            }
+        }
         prompts {
             id
             formUrn

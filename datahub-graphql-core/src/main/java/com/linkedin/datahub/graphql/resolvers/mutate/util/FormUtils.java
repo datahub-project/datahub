@@ -315,6 +315,8 @@ public class FormUtils {
     }
     // always set status when creating a form
     result.setStatus(createFormStatus(context, input));
+    result.setCreated(context.getAuditStamp());
+    result.setLastModified(context.getAuditStamp());
 
     return result;
   }

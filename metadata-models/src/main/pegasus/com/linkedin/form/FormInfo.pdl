@@ -1,5 +1,6 @@
 namespace com.linkedin.form
 
+import com.linkedin.common.AuditStamp
 import com.linkedin.common.Urn
 
 /**
@@ -53,4 +54,26 @@ record FormInfo {
    * Information about the state and status of this form
    */
   status: FormStatus = { "state": "PUBLISHED" }
+
+  /**
+    * Created Audit stamp
+    */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdTime",
+      "fieldType": "DATETIME"
+    }
+  }
+  created: optional AuditStamp
+
+  /**
+    * Last Modified Audit stamp
+    */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModified",
+      "fieldType": "DATETIME"
+    }
+  }
+  lastModified: optional AuditStamp
 }
