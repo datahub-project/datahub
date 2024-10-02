@@ -347,8 +347,6 @@ bootstrap:
     file: ${BOOTSTRAP_POLICIES_FILE:classpath:boot/policies.json}
     # eg for local file
     # file: "file:///datahub/datahub-gms/resources/custom-policies.json"
-  ownershipTypes:
-    file: ${BOOTSTRAP_OWNERSHIP_TYPES_FILE:classpath:boot/ownership_types.json}
   servlets:
     waitTimeout: ${BOOTSTRAP_SERVLETS_WAITTIMEOUT:60} # Total waiting time in seconds for servlets to initialize
 
@@ -357,6 +355,8 @@ systemUpdate:
   maxBackOffs: ${BOOTSTRAP_SYSTEM_UPDATE_MAX_BACK_OFFS:50}
   backOffFactor: ${BOOTSTRAP_SYSTEM_UPDATE_BACK_OFF_FACTOR:2} # Multiplicative factor for back off, default values will result in waiting 5min 15s
   waitForSystemUpdate: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:true}
+  bootstrap:
+    mcpConfig: ${SYSTEM_UPDATE_BOOTSTRAP_MCP_CONFIG:bootstrap_mcps.yaml}
   dataJobNodeCLL:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_ENABLED:false}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_BATCH_SIZE:1000}
