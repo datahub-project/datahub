@@ -255,6 +255,7 @@ class BigqueryLineageExtractor:
             format_queries=True,
         )
         self.report.sql_aggregator = self.aggregator.report
+        self.gcs_uris_regex = re.compile(r"uris=\[([^\]]+)\]")
 
     def get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:
@@ -938,8 +939,9 @@ class BigqueryLineageExtractor:
             return
 
         # Expect URIs in `uris=[""]` format
-        uris_match = re.search(r"uris=\[([^\]]+)\]", ddl)
+        uris_match = self.gcs_uris_regex.search(ddl)
         if not uris_match:
+            logger.warning(f"Unable to parse GCS URI from the provided DDL {ddl}.")
             return
 
         uris_str = uris_match.group(1)
@@ -1009,7 +1011,6 @@ class BigqueryLineageExtractor:
                 dataset_urn
             )
             for gcs_dataset_urn in gcs_urns:
-                assert graph
                 schema_metadata_for_gcs: Optional[
                     SchemaMetadataClass
                 ] = graph.get_schema_metadata(gcs_dataset_urn)
@@ -1021,6 +1022,10 @@ class BigqueryLineageExtractor:
                         schema_metadata_for_gcs,
                     )
                     if not fine_grained_lineage:
+                        logger.warning(
+                            f"Failed to retrieve fine-grained lineage for dataset {dataset_urn} and GCS {gcs_dataset_urn}. "
+                            f"Check schema metadata: {schema_metadata} and GCS metadata: {schema_metadata_for_gcs}."
+                        )
                         continue
 
                     fine_grained_lineages.extend(fine_grained_lineage)
