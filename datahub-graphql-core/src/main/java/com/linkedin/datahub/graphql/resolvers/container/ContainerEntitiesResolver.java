@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.container;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -74,10 +75,7 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
           try {
 
             final Criterion filterCriterion =
-                new Criterion()
-                    .setField(CONTAINER_FIELD_NAME + ".keyword")
-                    .setCondition(Condition.EQUAL)
-                    .setValue(urn);
+                buildCriterion(CONTAINER_FIELD_NAME + ".keyword", Condition.EQUAL, urn);
 
             return UrnSearchResultsMapper.map(
                 context,

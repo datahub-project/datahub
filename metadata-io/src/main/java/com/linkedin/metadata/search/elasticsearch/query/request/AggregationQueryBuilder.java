@@ -421,8 +421,6 @@ public class AggregationQueryBuilder {
             .forEach(
                 value ->
                     addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
-      } else {
-        addMissingAggregationValueToAggregationMetadata(criterion.getValue(), originalAggMetadata);
       }
     } else {
       /*

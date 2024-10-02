@@ -1,12 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
@@ -60,11 +61,7 @@ public class BusinessAttributeUtils {
   }
 
   private static CriterionArray buildNameCriterion(@Nonnull final String name) {
-    return new CriterionArray(
-        new Criterion()
-            .setField(NAME_INDEX_FIELD_NAME)
-            .setValue(name)
-            .setCondition(Condition.EQUAL));
+    return new CriterionArray(buildCriterion(NAME_INDEX_FIELD_NAME, Condition.EQUAL, name));
   }
 
   public static SchemaFieldDataType mapSchemaFieldDataType(
