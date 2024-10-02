@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -39,6 +40,7 @@ public class AddOwnersResolverTest {
   @Test
   public void testGetSuccessNoExistingOwners() throws Exception {
     EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
             mockService.getAspect(
@@ -66,7 +68,7 @@ public class AddOwnersResolverTest {
                 eq(true)))
         .thenReturn(true);
 
-    AddOwnersResolver resolver = new AddOwnersResolver(mockService);
+    AddOwnersResolver resolver = new AddOwnersResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -102,6 +104,7 @@ public class AddOwnersResolverTest {
   @Test
   public void testGetSuccessExistingOwnerNewType() throws Exception {
     EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     com.linkedin.common.Ownership oldOwnership =
         new Ownership()
@@ -138,7 +141,7 @@ public class AddOwnersResolverTest {
                 eq(true)))
         .thenReturn(true);
 
-    AddOwnersResolver resolver = new AddOwnersResolver(mockService);
+    AddOwnersResolver resolver = new AddOwnersResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -168,6 +171,7 @@ public class AddOwnersResolverTest {
   @Test
   public void testGetSuccessDeprecatedTypeToOwnershipType() throws Exception {
     EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     com.linkedin.common.Ownership oldOwnership =
         new Ownership()
@@ -201,7 +205,7 @@ public class AddOwnersResolverTest {
                 eq(true)))
         .thenReturn(true);
 
-    AddOwnersResolver resolver = new AddOwnersResolver(mockService);
+    AddOwnersResolver resolver = new AddOwnersResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -231,6 +235,7 @@ public class AddOwnersResolverTest {
   @Test
   public void testGetSuccessMultipleOwnerTypes() throws Exception {
     EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     com.linkedin.common.Ownership oldOwnership =
         new Ownership()
@@ -281,7 +286,7 @@ public class AddOwnersResolverTest {
                 eq(true)))
         .thenReturn(true);
 
-    AddOwnersResolver resolver = new AddOwnersResolver(mockService);
+    AddOwnersResolver resolver = new AddOwnersResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -329,6 +334,7 @@ public class AddOwnersResolverTest {
   @Test
   public void testGetFailureOwnerDoesNotExist() throws Exception {
     EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
             mockService.getAspect(
@@ -343,7 +349,7 @@ public class AddOwnersResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
         .thenReturn(false);
 
-    AddOwnersResolver resolver = new AddOwnersResolver(mockService);
+    AddOwnersResolver resolver = new AddOwnersResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -367,6 +373,7 @@ public class AddOwnersResolverTest {
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
     EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
             mockService.getAspect(
@@ -381,7 +388,7 @@ public class AddOwnersResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
         .thenReturn(true);
 
-    AddOwnersResolver resolver = new AddOwnersResolver(mockService);
+    AddOwnersResolver resolver = new AddOwnersResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -405,8 +412,9 @@ public class AddOwnersResolverTest {
   @Test
   public void testGetUnauthorized() throws Exception {
     EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    AddOwnersResolver resolver = new AddOwnersResolver(mockService);
+    AddOwnersResolver resolver = new AddOwnersResolver(mockService, mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -430,12 +438,14 @@ public class AddOwnersResolverTest {
   @Test
   public void testGetEntityClientException() throws Exception {
     EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .ingestProposal(any(), any(AspectsBatchImpl.class), Mockito.anyBoolean());
 
-    AddOwnersResolver resolver = new AddOwnersResolver(Mockito.mock(EntityService.class));
+    AddOwnersResolver resolver =
+        new AddOwnersResolver(Mockito.mock(EntityService.class), mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
