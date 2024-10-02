@@ -1292,15 +1292,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         except (SDKError, DeserializeError) as e:
             logger.error(f"Failed to load dashboard from Looker API Error: {str(e)}")
             # A looker dashboard could be deleted in between the list and the get
-            error_type = (
-                "Deserialization Error"
-                if isinstance(e, DeserializeError)
-                else "SDK Error"
-            )
             self.reporter.report_warning(
-                title=f"Error Loading Dashboard: {error_type}",
+                title="Failed to fetch dashboard from the Looker API",
                 message="Error occurred while attempting to loading dashboard from Looker API. Skipping.",
                 context=f"Dashboard ID: {dashboard_id}",
+                exc=e,
             )
             return [], None, dashboard_id, start_time, datetime.datetime.now()
 

@@ -172,8 +172,6 @@ looker_common = {
     # LookML files with spaces between an item and the following comma.
     # See https://github.com/joshtemple/lkml/issues/73.
     "lkml>=1.3.4",
-    # Fixes https://github.com/looker-open-source/sdk-codegen/issues/1410 , cattrs appears to have introduced a breaking change starting in version 23.2.
-    "cattrs>=1.3,<23.2",
     *sqlglot_lib,
     "GitPython>2",
     "python-liquid",

@@ -1133,13 +1133,14 @@ class LookerExplore:
                     f"Failed to extract explore {explore_name} from model {model}: {e}"
                 )
         except DeserializeError as e:
-            logger.warning(
-                f"Failed to extract explore {explore_name} from model {model}, Error: {e}"
-            )
-            reporter.report_warning(
-                title=f"Failed to extract explore {explore_name} from model {model}",
-                message="Encountered exception while attempting to find dependent views for this chart",
-                context=f"Explore: {explore_name}, Mode: {model}",
+            reporter.warning(
+                title="Failed to fetch explore from the Looker API",
+                message=(
+                    "An error occurred while extracting the explore from the model. "
+                    "Please check the explore and model configurations."
+                ),
+                context=f"Explore: {explore_name}, Model: {model}",
+                exc=e,
             )
         except AssertionError:
             reporter.report_warning(
