@@ -332,10 +332,14 @@ class NifiProcessorProvenanceEventAnalyzer:
         }
 
     def process_s3_provenance_event(self, event):
+        logger.debug(f"Processing s3 provenance event: {event}")
         attributes = event.get("attributes", [])
         s3_bucket = get_attribute_value(attributes, "s3.bucket")
         s3_key = get_attribute_value(attributes, "s3.key")
         if not s3_key:
+            logger.debug(
+                "s3.key not present in the list of attributes, trying to use filename attribute instead"
+            )
             s3_key = get_attribute_value(attributes, "filename")
 
         s3_url = f"s3://{s3_bucket}/{s3_key}"
@@ -344,6 +348,7 @@ class NifiProcessorProvenanceEventAnalyzer:
         dataset_name = s3_path.replace("/", ".")
         platform = "s3"
         dataset_urn = builder.make_dataset_urn(platform, s3_path, self.env)
+        logger.debug(f"Reasoned s3 dataset urn: {dataset_urn}")
         return ExternalDataset(
             platform,
             dataset_name,
@@ -910,6 +915,11 @@ class NifiSource(Source):
         )
 
         for component in self.nifi_flow.components.values():
+            logger.debug(
+                f"Beginng construction of workunits for component {component.id} of type {component.type} and name {component.name}"
+            )
+            logger.debug(f"Inlets of the component: {component.inlets.keys()}")
+            logger.debug(f"Outlets of the component: {component.outlets.keys()}")
             job_name = component.name
             job_urn = builder.make_data_job_urn_with_flow(flow_urn, component.id)
 
@@ -937,6 +947,9 @@ class NifiSource(Source):
                     jobProperties["last_event_time"] = component.last_event_time
 
                 for dataset in component.inlets.values():
+                    logger.debug(
+                        f"Yielding dataset workunits for {dataset.dataset_urn} (inlet)"
+                    )
                     yield from self.construct_dataset_workunits(
                         dataset.platform,
                         dataset.dataset_name,
@@ -945,6 +958,9 @@ class NifiSource(Source):
                     )
 
                 for dataset in component.outlets.values():
+                    logger.debug(
+                        f"Yielding dataset workunits for {dataset.dataset_urn} (outlet)"
+                    )
                     yield from self.construct_dataset_workunits(
                         dataset.platform,
                         dataset.dataset_name,
@@ -1088,8 +1104,10 @@ class NifiSource(Source):
                         NifiEventType.FETCH,
                         NifiEventType.RECEIVE,
                     ]:
+                        logger.debug("Qualified the event as an inlet")
                         component.inlets[dataset.dataset_urn] = dataset
                     else:
+                        logger.debug("Qualified the event as an outlet")
                         component.outlets[dataset.dataset_urn] = dataset
 
     def authenticate(self):
@@ -1207,6 +1225,7 @@ class NifiSource(Source):
         inputJobs: List[str] = [],
         status: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        logger.debug(f"Begining construction of job workunit for {job_urn}")
         if job_properties:
             job_properties = {k: v for k, v in job_properties.items() if v is not None}
 
@@ -1229,8 +1248,12 @@ class NifiSource(Source):
         inlets.sort()
         outlets.sort()
         inputJobs.sort()
+        logger.debug(f"Inlets after sorting: {inlets}")
+        logger.debug(f"Outlets after sorting: {outlets}")
+        logger.debug(f"Input jobs after sorting: {inputJobs}")
 
         if self.config.incremental_lineage:
+            logger.debug("Preparing mcps for incremental lineage")
             patch_builder: DataJobPatchBuilder = DataJobPatchBuilder(job_urn)
             for inlet in inlets:
                 patch_builder.add_input_dataset(inlet)
@@ -1239,6 +1262,7 @@ class NifiSource(Source):
             for inJob in inputJobs:
                 patch_builder.add_input_datajob(inJob)
             for patch_mcp in patch_builder.build():
+                logger.debug(f"Preparing Patch MCP: {patch_mcp}")
                 yield MetadataWorkUnit(
                     id=f"{job_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
                 )
