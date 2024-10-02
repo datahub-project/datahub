@@ -210,12 +210,33 @@ def test_lineage_for_external_bq_table(mock_datahub_graph):
         graph=pipeline_context.graph,
     )
 
+    expected_schema_field_urns = [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer1,PROD),age)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer1,PROD),firstname)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer1,PROD),lastname)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer2,PROD),age)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer2,PROD),firstname)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer2,PROD),lastname)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer3/my_table,PROD),age)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer3/my_table,PROD),firstname)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer3/my_table,PROD),lastname)",
+    ]
     assert upstream_lineage
     assert len(upstream_lineage.upstreams) == 3
     assert (
         upstream_lineage.fineGrainedLineages
         and len(upstream_lineage.fineGrainedLineages) == 9
     )
+    # Extracting column URNs from upstream_lineage.upstreams
+    actual_schema_field_urns = [
+        fine_grained_lineage.upstreams[0]
+        if fine_grained_lineage.upstreams is not None
+        else []
+        for fine_grained_lineage in upstream_lineage.fineGrainedLineages
+    ]
+    assert all(
+        urn in expected_schema_field_urns for urn in actual_schema_field_urns
+    ), "Some expected column URNs are missing from fine grained lineage."
 
 
 def test_lineage_for_external_bq_table_no_column_lineage(mock_datahub_graph):
@@ -259,8 +280,18 @@ def test_lineage_for_external_bq_table_no_column_lineage(mock_datahub_graph):
         graph=pipeline_context.graph,
     )
 
+    expected_dataset_urns = [
+        "urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer2,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer3/my_table,PROD)",
+    ]
     assert upstream_lineage
     assert len(upstream_lineage.upstreams) == 3
+    # Extracting dataset URNs from upstream_lineage.upstreams
+    actual_dataset_urns = [upstream.dataset for upstream in upstream_lineage.upstreams]
+    assert all(
+        urn in actual_dataset_urns for urn in expected_dataset_urns
+    ), "Some expected dataset URNs are missing from upstream lineage."
     assert upstream_lineage.fineGrainedLineages is None
 
 
