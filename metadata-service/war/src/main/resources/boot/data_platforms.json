@@ -704,5 +704,15 @@
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/saclogo.svg"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:risingwave",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "risingwave",
+      "displayName": "RisingWave",
+      "type": "STREAMING_DB",
+      "logoUrl": "/assets/platforms/risingwavelogo.png"
+    }
   }
 ]

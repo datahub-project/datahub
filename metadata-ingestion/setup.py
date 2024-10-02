@@ -369,7 +369,9 @@ plugins: Dict[str, Set[str]] = {
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
-    "cockroachdb": sql_common | postgres_common | {"sqlalchemy-cockroachdb<2.0.0"},
+    "cockroachdb": sql_common
+    | postgres_common
+    | {"sqlalchemy-cockroachdb<2.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
@@ -478,9 +480,12 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
-    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
+    "powerbi": microsoft_common
+    | {"lark[regex]==1.1.4", "sqlparse"}
+    | sqlglot_lib,
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
+    "vertica": sql_common
+    | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
     "unity-catalog": databricks | sql_common | sqllineage_lib,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks | sql_common | sqllineage_lib,
@@ -488,6 +493,9 @@ plugins: Dict[str, Set[str]] = {
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
     "sac": sac,
+    "risingwave": sql_common
+    | postgres_common
+    | {"sqlalchemy-risingwave<2.0.0"},
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -630,6 +638,7 @@ base_dev_requirements = {
             "qlik-sense",
             "sigma",
             "sac",
+            "risingwave",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -746,6 +755,7 @@ entry_points = {
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
         "sac = datahub.ingestion.source.sac.sac:SACSource",
+        "risingwave = datahub.ingestion.source.sql.risingwave:RisingWaveSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
@@ -890,7 +900,9 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         ),
         "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
-        "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
+        "testing-utils": list(
+            test_api_requirements
+        ),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
         "debug": list(debug_requirements),
     },
