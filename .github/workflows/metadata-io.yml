@@ -70,7 +70,7 @@ jobs:
           cache: "pip"
       - name: Gradle build (and test)
         run: |
-          ./gradlew :metadata-io:test
+          ./gradlew :metadata-io:test --no-daemon
       - uses: actions/upload-artifact@v3
         if: always()
         with:
