@@ -398,6 +398,32 @@ queryConfigurations:
       boost_mode: multiply
 ```
 
+##### Example 4: Entity Ranking
+
+Alter the ranking of entities. For example, chart vs dashboard, you may want the dashboard
+to appear above charts. This can be done using the following function score and leverages a prefix match on the entity type
+of the URN. Depending on the entity the weight may have to be adjusted based on your data and the entities
+involved since often multiple field matches may shift weight towards one entity vs another.
+
+```yaml
+queryConfigurations:
+  - queryRegex: .*
+    
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+
+    functionScore:
+      functions:
+        - filter:
+            prefix:
+              urn:
+                value: 'urn:li:dashboard:'
+          weight: 1.5
+      score_mode: multiply
+      boost_mode: multiply
+```
+
 ### Search Autocomplete Configuration
 
 Similar to the options provided in the previous section for search configuration, there are autocomplete specific options

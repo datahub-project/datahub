@@ -34,6 +34,10 @@ function Home() {
           <Enterprise />
         </Section>
       </div>
+      <div className={clsx(styles.weeklyDemoSection)}>
+        <div>Curious? Drop by and say hi!</div>
+        <Link to="https://www.acryldata.io/webinars/weekly-live-demo">Weekly Live Demos →</Link>
+      </div>
       <div className={clsx("hero", styles.hero)}>
         <div className="container" style={{ paddingTop: '12vh', paddingBottom: '12vh' }}>
           <div className="row row__padded">
