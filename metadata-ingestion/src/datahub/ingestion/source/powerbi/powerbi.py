@@ -143,7 +143,6 @@ class Mapper:
         self,
         entity_type,
         entity_urn,
-        aspect_name,
         aspect,
         change_type=ChangeTypeClass.UPSERT,
     ):
@@ -154,7 +153,6 @@ class Mapper:
             entityType=entity_type,
             changeType=change_type,
             entityUrn=entity_urn,
-            aspectName=aspect_name,
             aspect=aspect,
         )
 
@@ -177,7 +175,6 @@ class Mapper:
         schema_mcp = self.new_mcp(
             entity_type=Constant.DATASET,
             entity_urn=ds_urn,
-            aspect_name=Constant.SCHEMA_METADATA,
             aspect=schema_metadata,
         )
         return [schema_mcp]
@@ -410,7 +407,6 @@ class Mapper:
                 view_prop_mcp = self.new_mcp(
                     entity_type=Constant.DATASET,
                     entity_urn=ds_urn,
-                    aspect_name=Constant.VIEW_PROPERTIES,
                     aspect=view_properties,
                 )
                 dataset_mcps.extend([view_prop_mcp])
@@ -426,7 +422,6 @@ class Mapper:
             info_mcp = self.new_mcp(
                 entity_type=Constant.DATASET,
                 entity_urn=ds_urn,
-                aspect_name=Constant.DATASET_PROPERTIES,
                 aspect=ds_properties,
             )
 
@@ -434,7 +429,6 @@ class Mapper:
             status_mcp = self.new_mcp(
                 entity_type=Constant.DATASET,
                 entity_urn=ds_urn,
-                aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
             if self.__config.extract_dataset_schema:
@@ -443,7 +437,6 @@ class Mapper:
             subtype_mcp = self.new_mcp(
                 entity_type=Constant.DATASET,
                 entity_urn=ds_urn,
-                aspect_name=Constant.SUBTYPES,
                 aspect=SubTypesClass(
                     typeNames=[
                         BIContainerSubTypes.POWERBI_DATASET_TABLE,
@@ -464,7 +457,6 @@ class Mapper:
                 owner_mcp = self.new_mcp(
                     entity_type=Constant.DATASET,
                     entity_urn=ds_urn,
-                    aspect_name=Constant.OWNERSHIP,
                     aspect=ownership,
                 )
                 dataset_mcps.extend([owner_mcp])
@@ -606,7 +598,6 @@ class Mapper:
         info_mcp = self.new_mcp(
             entity_type=Constant.CHART,
             entity_urn=chart_urn,
-            aspect_name=Constant.CHART_INFO,
             aspect=chart_info_instance,
         )
 
@@ -614,7 +605,6 @@ class Mapper:
         status_mcp = self.new_mcp(
             entity_type=Constant.CHART,
             entity_urn=chart_urn,
-            aspect_name=Constant.STATUS,
             aspect=StatusClass(removed=False),
         )
 
@@ -633,7 +623,6 @@ class Mapper:
         chart_key_mcp = self.new_mcp(
             entity_type=Constant.CHART,
             entity_urn=chart_urn,
-            aspect_name=Constant.CHART_KEY,
             aspect=ChartUrn.from_string(chart_urn).to_key_aspect(),
         )
 
@@ -642,7 +631,6 @@ class Mapper:
         browse_path_mcp = self.new_mcp(
             entity_type=Constant.CHART,
             entity_urn=chart_urn,
-            aspect_name=Constant.BROWSERPATH,
             aspect=browse_path,
         )
         result_mcps = [
@@ -710,7 +698,6 @@ class Mapper:
         info_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.DASHBOARD_INFO,
             aspect=dashboard_info_cls,
         )
 
@@ -718,7 +705,6 @@ class Mapper:
         removed_status_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.STATUS,
             aspect=StatusClass(removed=False),
         )
 
@@ -732,7 +718,6 @@ class Mapper:
         dashboard_key_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.DASHBOARD_KEY,
             aspect=dashboard_key_cls,
         )
 
@@ -750,7 +735,6 @@ class Mapper:
             owner_mcp = self.new_mcp(
                 entity_type=Constant.DASHBOARD,
                 entity_urn=dashboard_urn,
-                aspect_name=Constant.OWNERSHIP,
                 aspect=ownership,
             )
 
@@ -761,7 +745,6 @@ class Mapper:
         browse_path_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.BROWSERPATH,
             aspect=browse_path,
         )
 
@@ -893,7 +876,6 @@ class Mapper:
             tags_mcp = self.new_mcp(
                 entity_type=entity_type,
                 entity_urn=entity_urn,
-                aspect_name=Constant.GLOBAL_TAGS,
                 aspect=self.transform_tags(tags),
             )
             list_of_mcps.append(tags_mcp)
@@ -918,7 +900,6 @@ class Mapper:
         user_key_mcp = self.new_mcp(
             entity_type=Constant.CORP_USER,
             entity_urn=user_urn,
-            aspect_name=Constant.CORP_USER_KEY,
             aspect=user_key,
         )
 
@@ -1063,7 +1044,6 @@ class Mapper:
             info_mcp = self.new_mcp(
                 entity_type=Constant.CHART,
                 entity_urn=chart_urn,
-                aspect_name=Constant.CHART_INFO,
                 aspect=chart_info_instance,
             )
 
@@ -1071,7 +1051,6 @@ class Mapper:
             status_mcp = self.new_mcp(
                 entity_type=Constant.CHART,
                 entity_urn=chart_urn,
-                aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
             # Subtype mcp
@@ -1087,7 +1066,6 @@ class Mapper:
             browse_path_mcp = self.new_mcp(
                 entity_type=Constant.CHART,
                 entity_urn=chart_urn,
-                aspect_name=Constant.BROWSERPATH,
                 aspect=browse_path,
             )
             list_of_mcps = [info_mcp, status_mcp, subtype_mcp, browse_path_mcp]
@@ -1140,7 +1118,6 @@ class Mapper:
         info_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.DASHBOARD_INFO,
             aspect=dashboard_info_cls,
         )
 
@@ -1148,7 +1125,6 @@ class Mapper:
         removed_status_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.STATUS,
             aspect=StatusClass(removed=False),
         )
 
@@ -1162,7 +1138,6 @@ class Mapper:
         dashboard_key_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.DASHBOARD_KEY,
             aspect=dashboard_key_cls,
         )
         # Report Ownership
@@ -1179,7 +1154,6 @@ class Mapper:
             owner_mcp = self.new_mcp(
                 entity_type=Constant.DASHBOARD,
                 entity_urn=dashboard_urn,
-                aspect_name=Constant.OWNERSHIP,
                 aspect=ownership,
             )
 
@@ -1190,14 +1164,12 @@ class Mapper:
         browse_path_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.BROWSERPATH,
             aspect=browse_path,
         )
 
         sub_type_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=SubTypesClass.ASPECT_NAME,
             aspect=SubTypesClass(typeNames=[report.type.value]),
         )
 

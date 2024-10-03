@@ -69,8 +69,8 @@ class BIAssetSubTypes(StrEnum):
     LOOKER_LOOK = "Look"
 
     # PowerBI
-    POWERBI_TILE = "PowerBI Tile"
-    POWERBI_PAGE = "PowerBI Page"
+    POWERBI_TILE = "Tile"
+    POWERBI_PAGE = "Page"
 
     # Mode
     MODE_REPORT = "Report"

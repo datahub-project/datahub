@@ -19,6 +19,7 @@ from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Page,
     Report,
+    ReportType,
     Workspace,
 )
 from tests.test_helpers import mce_helpers, test_connection_helpers
@@ -1439,6 +1440,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
     mock_workspace: Workspace = Workspace(
         id="64ED5CAD-7C10-4684-8180-826122881108",
         name="demo-workspace",
+        type="Workspace",
         datasets={},
         dashboards=[],
         reports=[],
@@ -1446,6 +1448,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
         dashboard_endorsements={},
         scan_result={},
         independent_datasets=[],
+        app=None,
     )
     # Fetch actual reports
     reports: List[Report] = cast(
@@ -1485,6 +1488,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
         Report(
             id=report[Constant.ID],
             name=report[Constant.NAME],
+            type=ReportType.PowerBIReport,
             webUrl="",
             embedUrl="",
             description=report[Constant.DESCRIPTION],
@@ -1502,6 +1506,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
             users=[],
             tags=[],
             dataset=mock_workspace.datasets.get(report[Constant.DATASET_ID]),
+            app_reference=None,
         )
         for report in mock_reports
     ]
