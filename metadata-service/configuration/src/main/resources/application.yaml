@@ -3,8 +3,8 @@ baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 
 # App Layer
 authentication:
-  # Enable if you want all requests to the Metadata Service to be authenticated. Disabled by default.
-  enabled: ${METADATA_SERVICE_AUTH_ENABLED:false}
+  # Enable if you want all requests to the Metadata Service to be authenticated.
+  enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
 
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
@@ -43,8 +43,8 @@ authorization:
     enabled: ${AUTH_POLICIES_ENABLED:true}
     cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
     cachePolicyFetchSize: ${POLICY_CACHE_FETCH_SIZE:1000}
-  # Enables authorization of reads, writes, and deletes on REST APIs. Defaults to false for backwards compatibility, but should become true down the road
-  restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:false}
+  # Enables authorization of reads, writes, and deletes on REST APIs.
+  restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:true}
   view:
     enabled: ${VIEW_AUTHORIZATION_ENABLED:false}
     recommendations:
@@ -343,12 +343,6 @@ incidents:
     consumerGroupSuffix: ${INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 bootstrap:
-  upgradeDefaultBrowsePaths:
-    enabled: ${UPGRADE_DEFAULT_BROWSE_PATHS_ENABLED:false} # enable to run the upgrade to migrate legacy default browse paths to new ones
-  backfillBrowsePathsV2:
-    enabled: ${BACKFILL_BROWSE_PATHS_V2:false} # Enables running the backfill of browsePathsV2 upgrade step. There are concerns about the load of this step so hiding it behind a flag. Deprecating in favor of running through SystemUpdate
-  reprocessDefaultBrowsePathsV2:
-    enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false} # reprocess V2 browse paths which were set to the default: {"path":[{"id":"Default"}]}
   policies:
     file: ${BOOTSTRAP_POLICIES_FILE:classpath:boot/policies.json}
     # eg for local file

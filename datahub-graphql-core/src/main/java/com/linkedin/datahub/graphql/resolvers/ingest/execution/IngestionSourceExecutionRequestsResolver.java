@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -62,10 +64,7 @@ public class IngestionSourceExecutionRequestsResolver
 
             // 1. Fetch the related edges
             final Criterion filterCriterion =
-                new Criterion()
-                    .setField(INGESTION_SOURCE_FIELD_NAME)
-                    .setCondition(Condition.EQUAL)
-                    .setValue(urn);
+                buildCriterion(INGESTION_SOURCE_FIELD_NAME, Condition.EQUAL, urn);
 
             final SearchResult executionsSearchResult =
                 _entityClient.filter(

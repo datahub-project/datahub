@@ -1,25 +1,19 @@
 import pytest
 
-from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
+from tests.utils import delete_urns_from_file, ingest_file_via_rest
 
 
 @pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(request):
+def ingest_cleanup_data(auth_session, graph_client, request):
     print("ingesting containers test data")
-    ingest_file_via_rest("tests/containers/data.json")
+    ingest_file_via_rest(auth_session, "tests/containers/data.json")
     yield
     print("removing containers test data")
-    delete_urns_from_file("tests/containers/data.json")
+    delete_urns_from_file(graph_client, "tests/containers/data.json")
 
 
 @pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
-
-
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_get_full_container(frontend_session, ingest_cleanup_data):
+def test_get_full_container(auth_session, ingest_cleanup_data):
     container_urn = "urn:li:container:SCHEMA"
     container_name = "datahub_schema"
     container_description = "The DataHub schema"
@@ -97,8 +91,8 @@ def test_get_full_container(frontend_session, ingest_cleanup_data):
         "variables": {"urn": container_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=get_container_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=get_container_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -124,8 +118,8 @@ def test_get_full_container(frontend_session, ingest_cleanup_data):
     assert container["glossaryTerms"] is None
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_get_full_container"])
-def test_get_parent_container(frontend_session, ingest_cleanup_data):
+@pytest.mark.dependency(depends=["test_get_full_container"])
+def test_get_parent_container(auth_session):
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
 
     # Get count of existing secrets
@@ -144,8 +138,8 @@ def test_get_parent_container(frontend_session, ingest_cleanup_data):
         "variables": {"urn": dataset_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=get_dataset_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=get_dataset_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -159,8 +153,8 @@ def test_get_parent_container(frontend_session, ingest_cleanup_data):
     assert dataset["container"]["properties"]["name"] == "datahub_schema"
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_get_full_container"])
-def test_update_container(frontend_session, ingest_cleanup_data):
+@pytest.mark.dependency(depends=["test_get_full_container"])
+def test_update_container(auth_session):
     container_urn = "urn:li:container:SCHEMA"
 
     new_tag = "urn:li:tag:Test"
@@ -177,8 +171,8 @@ def test_update_container(frontend_session, ingest_cleanup_data):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=add_tag_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_tag_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -201,8 +195,8 @@ def test_update_container(frontend_session, ingest_cleanup_data):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=add_term_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_term_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -227,8 +221,8 @@ def test_update_container(frontend_session, ingest_cleanup_data):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=add_owner_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_owner_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -252,8 +246,8 @@ def test_update_container(frontend_session, ingest_cleanup_data):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=add_link_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_link_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -276,8 +270,8 @@ def test_update_container(frontend_session, ingest_cleanup_data):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=update_description_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=update_description_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -327,8 +321,8 @@ def test_update_container(frontend_session, ingest_cleanup_data):
         "variables": {"urn": container_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=get_container_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=get_container_json
     )
     response.raise_for_status()
     res_data = response.json()

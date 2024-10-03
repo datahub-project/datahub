@@ -1,4 +1,5 @@
-from typing import Callable, List, Optional, Union, cast
+import logging
+from typing import Callable, Dict, List, Optional, Sequence, Union, cast
 
 from datahub.configuration.common import (
     ConfigurationError,
@@ -8,11 +9,18 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.emitter.mce_builder import Aspect
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.transformer.dataset_transformer import DatasetDomainTransformer
-from datahub.metadata.schema_classes import DomainsClass
+from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
+    DomainsClass,
+    MetadataChangeProposalClass,
+)
 from datahub.utilities.registries.domain_registry import DomainRegistry
+
+logger = logging.getLogger(__name__)
 
 
 class AddDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
@@ -23,6 +31,8 @@ class AddDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
 
     _resolve_domain_fn = pydantic_resolve_key("get_domains_to_add")
 
+    is_container: bool = False
+
 
 class SimpleDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
     domains: List[str]
@@ -30,6 +40,7 @@ class SimpleDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
 
 class PatternDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
     domain_pattern: KeyValuePattern = KeyValuePattern.all()
+    is_container: bool = False
 
 
 class AddDatasetDomain(DatasetDomainTransformer):
@@ -89,6 +100,56 @@ class AddDatasetDomain(DatasetDomainTransformer):
             mce_domain.domains.extend(domains_to_add)
 
         return mce_domain
+
+    def handle_end_of_stream(
+        self,
+    ) -> Sequence[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
+        domain_mcps: List[MetadataChangeProposalWrapper] = []
+        container_domain_mapping: Dict[str, List[str]] = {}
+
+        logger.debug("Generating Domains for containers")
+
+        if not self.config.is_container:
+            return domain_mcps
+
+        for entity_urn, domain_to_add in (
+            (urn, self.config.get_domains_to_add(urn)) for urn in self.entity_map.keys()
+        ):
+            if not domain_to_add or not domain_to_add.domains:
+                continue
+
+            assert self.ctx.graph
+            browse_paths = self.ctx.graph.get_aspect(entity_urn, BrowsePathsV2Class)
+            if not browse_paths:
+                continue
+
+            for path in browse_paths.path:
+                container_urn = path.urn
+
+                if not container_urn or not container_urn.startswith(
+                    "urn:li:container:"
+                ):
+                    continue
+
+                if container_urn not in container_domain_mapping:
+                    container_domain_mapping[container_urn] = domain_to_add.domains
+                else:
+                    container_domain_mapping[container_urn] = list(
+                        set(
+                            container_domain_mapping[container_urn]
+                            + domain_to_add.domains
+                        )
+                    )
+
+        for urn, domains in container_domain_mapping.items():
+            domain_mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=DomainsClass(domains=domains),
+                )
+            )
+
+        return domain_mcps
 
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
@@ -156,6 +217,7 @@ class PatternAddDatasetDomain(AddDatasetDomain):
             get_domains_to_add=resolve_domain,
             semantics=config.semantics,
             replace_existing=config.replace_existing,
+            is_container=config.is_container,
         )
         super().__init__(generic_config, ctx)
 

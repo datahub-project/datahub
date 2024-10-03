@@ -26,7 +26,6 @@ import com.linkedin.metadata.query.GroupingCriterionArray;
 import com.linkedin.metadata.query.GroupingSpec;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -358,14 +357,14 @@ public class LineageSearchService {
                 .map(ConjunctiveCriterion::getAnd)
                 .flatMap(CriterionArray::stream)
                 .filter(criterion -> "platform".equals(criterion.getField()))
-                .map(Criterion::getValue)
+                .flatMap(criterion -> criterion.getValues().stream())
                 .collect(Collectors.toSet());
         originCriteriaValues =
             inputFilters.getOr().stream()
                 .map(ConjunctiveCriterion::getAnd)
                 .flatMap(CriterionArray::stream)
                 .filter(criterion -> "origin".equals(criterion.getField()))
-                .map(Criterion::getValue)
+                .flatMap(criterion -> criterion.getValues().stream())
                 .collect(Collectors.toSet());
       }
       boolean isNotFiltered =
