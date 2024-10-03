@@ -1104,10 +1104,8 @@ class NifiSource(Source):
                         NifiEventType.FETCH,
                         NifiEventType.RECEIVE,
                     ]:
-                        logger.debug("Qualified the event as an inlet")
                         component.inlets[dataset.dataset_urn] = dataset
                     else:
-                        logger.debug("Qualified the event as an outlet")
                         component.outlets[dataset.dataset_urn] = dataset
 
     def authenticate(self):
