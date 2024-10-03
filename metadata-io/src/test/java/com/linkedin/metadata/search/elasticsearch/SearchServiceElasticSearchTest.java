@@ -10,6 +10,7 @@ import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
@@ -25,7 +26,10 @@ public class SearchServiceElasticSearchTest extends SearchServiceTestBase {
   @Autowired private ESBulkProcessor _bulkProcessor;
   @Autowired private ESIndexBuilder _esIndexBuilder;
   @Autowired private SearchConfiguration _searchConfiguration;
-  @Autowired private CustomSearchConfiguration _customSearchConfiguration;
+
+  @Autowired
+  @Qualifier("defaultTestCustomSearchConfig")
+  private CustomSearchConfiguration _customSearchConfiguration;
 
   @NotNull
   @Override
