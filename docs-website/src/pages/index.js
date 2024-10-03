@@ -21,7 +21,7 @@ import CloseButton from "@ant-design/icons/CloseCircleFilled";
 
 const companyIndexes = require("../../adoptionStoriesIndexes.json");
 const companies = companyIndexes.companies;
-const keyCompanySlugs = ["netflix", "visa", "pinterest", "airtel", "optum"];
+const keyCompanySlugs = ["netflix", "pinterest", "airtel", "notion", "optum"];
 const keyCompanies = keyCompanySlugs
   .map((slug) => companies.find((co) => co.slug === slug))
   .filter((isDefined) => isDefined);
