@@ -1715,7 +1715,15 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     assertTrue(
         result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
         String.format("%s - Expected search results to include matched fields", query));
-    assertEquals(result.getEntities().size(), 2);
+    assertEquals(
+        result.getEntities().size(),
+        2,
+        String.format(
+            "Query: `%s` Results: %s",
+            query,
+            result.getEntities().stream()
+                .map(SearchEntity::getEntity)
+                .collect(Collectors.toList())));
   }
 
   @Test
@@ -1738,7 +1746,15 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     assertTrue(
         result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
         String.format("%s - Expected search results to include matched fields", query));
-    assertEquals(result.getEntities().size(), 2);
+    assertEquals(
+        result.getEntities().size(),
+        2,
+        String.format(
+            "Query: `%s` Results: %s",
+            query,
+            result.getEntities().stream()
+                .map(SearchEntity::getEntity)
+                .collect(Collectors.toList())));
   }
 
   @Test
@@ -1908,7 +1924,15 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
         String.format("%s - Expected search results to include matched fields", query));
 
-    assertEquals(result.getEntities().size(), 2);
+    assertEquals(
+        result.getEntities().size(),
+        2,
+        String.format(
+            "Query: `%s` Results: %s",
+            query,
+            result.getEntities().stream()
+                .map(SearchEntity::getEntity)
+                .collect(Collectors.toList())));
     assertEquals(
         result.getEntities().get(0).getEntity().toString(),
         "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",

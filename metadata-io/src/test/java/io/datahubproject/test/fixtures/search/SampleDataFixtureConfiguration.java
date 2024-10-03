@@ -196,7 +196,8 @@ public class SampleDataFixtureConfiguration {
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             _searchConfiguration,
             _customSearchConfiguration,
-            queryFilterRewriteChain);
+            queryFilterRewriteChain,
+            true);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
             _searchClient,
