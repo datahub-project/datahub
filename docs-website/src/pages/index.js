@@ -21,7 +21,7 @@ import CloseButton from "@ant-design/icons/CloseCircleFilled";
 
 const companyIndexes = require("../../adoptionStoriesIndexes.json");
 const companies = companyIndexes.companies;
-const keyCompanySlugs = ["netflix", "pinterest", "airtel", "notion", "optum"];
+const keyCompanySlugs = ["netflix", "pinterest", "notion", "snap", "optum"];//, "airtel"];
 const keyCompanies = keyCompanySlugs
   .map((slug) => companies.find((co) => co.slug === slug))
   .filter((isDefined) => isDefined);
@@ -63,7 +63,7 @@ function Home() {
         </div>
         <div className="company_logos_list_wrapper">
           {keyCompanies.map((company) => (
-            <a href={`/adoption-stories#${company.slug}`}>
+            <a href={company.slug != "snap" ? `/adoption-stories#${company.slug}` : undefined}>
               <img
                 src={useBaseUrl(company.imageUrl)}
                 alt={company.name}
@@ -72,6 +72,7 @@ function Home() {
               />
             </a>
           ))}
+          <a href="/adoption-stories" class="more_link">+ More</a>
         </div>
         {/* <div style={{ textAlign: "center", margin: "1rem" }}>
           <Link
