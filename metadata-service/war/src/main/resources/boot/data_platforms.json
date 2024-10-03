@@ -674,5 +674,15 @@
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/saclogo.svg"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:neo4j",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "Neo4j",
+      "displayName": "Neo4j",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/neo4j.png"
+    }
   }
 ]

@@ -1,0 +1,15 @@
+source:
+    type: 'neo4j'
+    config:
+        uri: 'neo4j+ssc://host:7687'
+        username: 'neo4j'
+        password: 'password'
+        gms_server: &gms_server 'http://localhost:8080'
+        node_tag: 'Node'
+        relationship_tag: 'Relationship'
+        environment: 'PROD'
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: *gms_server
