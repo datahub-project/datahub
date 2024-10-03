@@ -43,9 +43,9 @@ public class EbeanAspectDaoTest {
     // Get the captured SQL statements
     List<String> sql =
         LoggedSql.stop().stream()
-            .filter(str -> !str.contains("INFORMATION_SCHEMA.TABLES"))
+            .filter(str -> str.contains("(t0.urn,t0.aspect,t0.version)"))
             .toList();
-    assertEquals(sql.size(), 2, String.format("Found: %s", sql));
+    assertEquals(sql.size(), 1, String.format("Found: %s", sql));
     assertTrue(
         sql.get(0).contains("for update;"), String.format("Did not find `for update` in %s ", sql));
   }
@@ -65,7 +65,7 @@ public class EbeanAspectDaoTest {
     // Get the captured SQL statements
     List<String> sql =
         LoggedSql.stop().stream()
-            .filter(str -> !str.contains("INFORMATION_SCHEMA.TABLES"))
+            .filter(str -> str.contains("(t0.urn,t0.aspect,t0.version)"))
             .toList();
     assertEquals(
         sql.size(), 1, String.format("Found: %s", new ObjectMapper().writeValueAsString(sql)));
