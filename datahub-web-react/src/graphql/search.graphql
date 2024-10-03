@@ -935,6 +935,10 @@ fragment searchResultsWithoutSchemaField on Entity {
                 actor {
                     urn
                     ...entityDisplayNameFields
+                    editableProperties {
+                        displayName
+                        pictureLink
+                    }
                 }
             }
             lastModified {
@@ -942,6 +946,10 @@ fragment searchResultsWithoutSchemaField on Entity {
                 actor {
                     urn
                     ...entityDisplayNameFields
+                    editableProperties {
+                        displayName
+                        pictureLink
+                    }
                 }
             }
         }

@@ -19,6 +19,7 @@ export const SelectBase = styled.div<SelectStyleProps>(({ isDisabled, isReadOnly
     transition: sharedTransition,
     justifyContent: 'space-between',
     alignItems: 'center',
+    overflow: 'auto',
 }));
 
 /**
@@ -166,8 +167,6 @@ export const StyledClearButton = styled(Button)({
     border: `1px solid ${colors.gray[200]}`,
     color: colors.black,
     padding: '1px',
-    position: 'absolute',
-    right: '35px',
 
     '&:hover': {
         backgroundColor: colors.violet[100],

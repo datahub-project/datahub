@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { Icon, Pill } from '@components';
 
 import {
-    SelectBase,
-    OptionList,
+    ActionButtonsContainer,
     Container,
     Dropdown,
-    SearchInputContainer,
-    SearchInput,
-    SelectLabel,
-    SearchIcon,
+    OptionList,
     Placeholder,
-    ActionButtonsContainer,
+    SearchIcon,
+    SearchInput,
+    SearchInputContainer,
+    SelectBase,
+    SelectLabel,
     StyledClearButton,
 } from '../components';
 
@@ -29,7 +29,6 @@ const LabelDisplayWrapper = styled.div`
     gap: 4px;
     max-height: 125px;
     min-height: 16px;
-    overflow: auto;
 `;
 
 interface SelectLabelDisplayProps {

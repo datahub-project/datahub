@@ -1,12 +1,11 @@
 import { Text } from '@components';
 import InfoTooltip from '@src/app/sharedV2/icons/InfoTooltip';
-import { Checkbox } from 'antd';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 import AddElement from './AddElement';
 import AddUsersModal from './AddUsersModal';
 import ManageFormContext from './ManageFormContext';
-import { OwnershipCheckbox } from './styledComponents';
+import { OwnershipCheckbox, StyledCheckbox } from './styledComponents';
 import { useFormHandlers } from './useFormHandlers';
 import UsersList from './UsersList';
 
@@ -30,8 +29,8 @@ const AddRecipients = () => {
                 buttonTooltip="Assign specific users or groups"
             />
             <OwnershipCheckbox>
-                <Checkbox checked={formValues.actors?.owners} onChange={(e) => handleOwnersCheckBox(e)} />
-                <Text size="lg" color="gray">
+                <StyledCheckbox checked={formValues.actors?.owners} onChange={(e) => handleOwnersCheckBox(e)} />
+                <Text color="gray">
                     Assign to Asset Owners
                     <StyledText>
                         <InfoTooltip content="Owners of the assigned assets will be requested to complete the form." />

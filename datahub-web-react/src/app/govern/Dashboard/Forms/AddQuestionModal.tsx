@@ -1,4 +1,5 @@
 import { Button, Text } from '@src/alchemy-components';
+import { WARNING_COLOR_HEX } from '@src/app/entityV2/shared/tabs/Incident/incidentUtils';
 import { FormPrompt, FormPromptType, FormState } from '@src/types.generated';
 import { Form, Select } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
@@ -9,15 +10,19 @@ import CommonQuestionFields from './questionTypes/CommonQuestionFields';
 import DomainsQuestion from './questionTypes/DomainQuestion';
 import GlossaryTermsQuestion from './questionTypes/GlossaryTermsQuestion';
 import OwnershipQuestion from './questionTypes/OwnershipQuestion';
+import RequiredField from './questionTypes/RequiredField';
 import StructuredPropertyQuestion from './questionTypes/StructuredPropertyQuestion';
 import {
     CustomDropdown,
     FieldLabel,
+    FooterButtonsContainer,
     FormFieldsContainer,
     ModalFooter,
     SelectOptionContainer,
+    StyledExclamationOutlined,
     StyledModal,
     StyledSelect,
+    WarningWrapper,
 } from './styledComponents';
 
 interface Props {
@@ -36,10 +41,26 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
 
     const isFormDisabled = formValues.state !== FormState.Draft;
 
+    const quesType = form.getFieldValue('type') || '';
+    const required = question ? form.getFieldValue('required') : !quesType.startsWith('FIELD');
+    const [isRequired, setIsRequired] = useState<boolean>(required);
+
+    useEffect(() => {
+        setIsRequired(required);
+    }, [required]);
+
     useEffect(() => {
         form.setFieldsValue(question || {});
         setSelectedType(question?.type);
     }, [form, question]);
+
+    useEffect(() => {
+        const questionObject = questionTypes.find((type) => type.value === selectedType);
+        form.setFieldsValue({
+            title: questionObject?.defaultTitle,
+            description: questionObject?.defaultDescription,
+        });
+    }, [selectedType, form]);
 
     const handleCreateOrUpdateQuestion = () => {
         const formData = form.getFieldsValue(true);
@@ -98,16 +119,19 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
             onCancel={handleModalClose}
             footer={
                 <ModalFooter>
-                    {isFormDisabled ? (
-                        <Button onClick={handleModalClose}>Close</Button>
-                    ) : (
-                        <>
-                            <Button variant="text" onClick={handleModalClose}>
-                                Cancel
-                            </Button>
-                            <Button onClick={handleCreateOrUpdateQuestion}>{question ? 'Update' : 'Create'}</Button>
-                        </>
-                    )}
+                    <RequiredField form={form} isRequired={isRequired} setIsRequired={setIsRequired} />
+                    <FooterButtonsContainer>
+                        {isFormDisabled ? (
+                            <Button onClick={handleModalClose}>Close</Button>
+                        ) : (
+                            <>
+                                <Button variant="text" onClick={handleModalClose}>
+                                    Cancel
+                                </Button>
+                                <Button onClick={handleCreateOrUpdateQuestion}>{question ? 'Update' : 'Create'}</Button>
+                            </>
+                        )}
+                    </FooterButtonsContainer>
                 </ModalFooter>
             }
             destroyOnClose
@@ -131,8 +155,9 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                                 setSelectedType(value);
                                 form.setFieldsValue(
                                     question
-                                        ? { ...question, required: !(value as string).startsWith('FIELD') }
+                                        ? { ...question, type: value, required: !(value as string).startsWith('FIELD') }
                                         : {
+                                              type: value,
                                               required: !(value as string).startsWith('FIELD'),
                                           },
                                 );
@@ -163,6 +188,16 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                     {selectedType === FormPromptType.GlossaryTerms && <GlossaryTermsQuestion />}
                     {selectedType === FormPromptType.FieldsGlossaryTerms && <GlossaryTermsQuestion />}
                     {selectedType === FormPromptType.Domain && <DomainsQuestion />}
+
+                    {isRequired && quesType.startsWith('FIELD') && (
+                        <WarningWrapper>
+                            <StyledExclamationOutlined color={WARNING_COLOR_HEX} />
+                            <span>
+                                <strong>Are you sure?</strong> All columns will need an anwer to this question
+                                individually to complete the form.
+                            </span>
+                        </WarningWrapper>
+                    )}
                 </FormFieldsContainer>
             </Form>
         </StyledModal>

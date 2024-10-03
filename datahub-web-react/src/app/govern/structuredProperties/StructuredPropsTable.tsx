@@ -1,6 +1,7 @@
 import { useApolloClient } from '@apollo/client';
 import { Icon, Pill, Table, Text } from '@components';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { CustomAvatar } from '@src/app/shared/avatar';
 import { toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
@@ -9,7 +10,7 @@ import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
 import TableIcon from '@src/images/table-icon.svg?react';
-import { EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+import { Entity, EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { Dropdown, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { CardIcons } from '../Dashboard/Forms/styledComponents';
@@ -186,10 +187,12 @@ const StructuredPropsTable = ({
                 return (
                     <>
                         {createdByUser && (
-                            <CreatedByContainer>
-                                <CustomAvatar size={20} name={name} photoUrl={avatarUrl} />
-                                <Text size="sm">{name}</Text>
-                            </CreatedByContainer>
+                            <HoverEntityTooltip entity={createdByUser as Entity} showArrow={false}>
+                                <CreatedByContainer>
+                                    <CustomAvatar size={20} name={name} photoUrl={avatarUrl} />
+                                    <Text size="sm">{name}</Text>
+                                </CreatedByContainer>
+                            </HoverEntityTooltip>
                         )}
                     </>
                 );

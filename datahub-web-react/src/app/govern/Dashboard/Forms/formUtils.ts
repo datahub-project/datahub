@@ -53,31 +53,43 @@ export const questionTypes = [
         label: 'Ownership',
         value: 'OWNERSHIP',
         description: 'Require ownership for all assets assigned to this form',
+        defaultTitle: 'Select owners for this asset',
+        defaultDescription: 'Choose the owners of this asset.',
     },
     {
         label: 'Documentation',
         value: 'DOCUMENTATION',
         description: 'Require documentation for all assets assigned to this form',
+        defaultTitle: 'Provide a description for this asset',
+        defaultDescription: 'Provide a detailed description for this data asset.',
     },
     {
         label: 'Column Documentation',
         value: 'FIELDS_DOCUMENTATION',
         description: 'Require documentation for all columns of the assets assigned to this form',
+        defaultTitle: 'Provide a description for this column',
+        defaultDescription: 'Provide a detailed description for this column.',
     },
     {
         label: 'Glossary Terms',
         value: 'GLOSSARY_TERMS',
         description: 'Require glossary terms for all assets assigned to this form',
+        defaultTitle: 'Select Glossary Terms for this asset',
+        defaultDescription: 'Choose Glossary Terms that should be applied to this asset.',
     },
     {
         label: 'Column Glossary Terms',
         value: 'FIELDS_GLOSSARY_TERMS',
         description: 'Require glossary terms for all columns of the assets assigned to this form',
+        defaultTitle: 'Select Glossary Terms for this column',
+        defaultDescription: 'Choose Glossary Terms that should be applied to this column.',
     },
     {
         label: 'Structured Property',
         value: 'STRUCTURED_PROPERTY',
         description: 'Require a specific type of structured property for all assets assigned to this form',
+        defaultTitle: undefined,
+        defaultDescription: undefined,
     },
 
     {
@@ -85,11 +97,15 @@ export const questionTypes = [
         value: 'FIELDS_STRUCTURED_PROPERTY',
         description:
             'Require a specific type of structured property for all the columns of assets assigned to this form',
+        defaultTitle: undefined,
+        defaultDescription: undefined,
     },
     {
         label: 'Domain',
         value: 'DOMAIN',
         description: 'Require a domain for all assets assigned to this form',
+        defaultTitle: 'Select a Domain for this asset',
+        defaultDescription: 'Select the Domain that is responsible for this asset',
     },
 ];
 
@@ -131,3 +147,8 @@ export function mapPromptsToCreatePromptInput(prompts: FormPrompt[]): CreateProm
         domainParams: prompt.domainParams ? mapDomainParams(prompt.domainParams) : undefined,
     }));
 }
+
+export const PUBLISH_EXPLANATION = 'Publishing will assign the form to the selected assets and users.';
+export const PUBLISH_MODAL_TEXT = `Are you sure? ${PUBLISH_EXPLANATION}`;
+export const UNPUBLISH_EXPLANATION = 'Unpublishing will hide this form from selected assets and users.';
+export const UNPUBLISH_MODAL_TEXT = `Are you sure? ${UNPUBLISH_EXPLANATION}`;

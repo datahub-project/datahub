@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { PageRoutes } from '../../../../conf/Global';
 import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 import { StyledButton } from '../../../shared/share/v2/styledComponents';
+import { StyledSearch } from '../../structuredProperties/styledComponents';
 import FormsTable from './FormsTable';
 
 const Container = styled.div`
@@ -40,6 +41,12 @@ const FormsContainer = styled.div`
 const FormsTab = () => {
     const history = useHistory();
 
+    const [searchQuery, setSearchQuery] = useState<string>('');
+
+    const handleSearch = (value) => {
+        setSearchQuery(value);
+    };
+
     return (
         <Container>
             <FormsSection>
@@ -53,8 +60,14 @@ const FormsTab = () => {
                         Create Form
                     </StyledButton>
                 </SectionHeader>
+                <StyledSearch
+                    placeholder="Search"
+                    onSearch={handleSearch}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    allowClear
+                />
                 <FormsContainer>
-                    <FormsTable />
+                    <FormsTable searchQuery={searchQuery} />
                 </FormsContainer>
             </FormsSection>
         </Container>

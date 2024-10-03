@@ -1764,32 +1764,22 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
             time
             actor {
                 urn
-                type
-                username
-                properties {
-                    displayName
-                    email
-                }
                 editableProperties {
                     displayName
                     pictureLink
                 }
+                ...entityDisplayNameFields
             }
         }
         lastModified {
             time
             actor {
                 urn
-                type
-                username
-                properties {
-                    displayName
-                    email
-                }
                 editableProperties {
                     displayName
                     pictureLink
                 }
+                ...entityDisplayNameFields
             }
         }
     }
@@ -1837,6 +1827,10 @@ fragment formFields on Form {
             actor {
                 urn
                 ...entityDisplayNameFields
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
             }
         }
         lastModified {
@@ -1844,6 +1838,10 @@ fragment formFields on Form {
             actor {
                 urn
                 ...entityDisplayNameFields
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
             }
         }
         prompts {

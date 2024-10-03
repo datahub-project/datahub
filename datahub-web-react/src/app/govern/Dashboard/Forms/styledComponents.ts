@@ -193,8 +193,19 @@ export const StyledRadioGroup = styled(Radio.Group)`
 
 export const ModalFooter = styled.div`
     display: flex;
+    justify-content: space-between;
+`;
+
+export const FooterButtonsContainer = styled.div`
+    display: flex;
     gap: 16px;
     justify-content: end;
+`;
+
+export const RequiredFieldContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 10px;
 `;
 
 export const CardsList = styled.div`
@@ -309,7 +320,6 @@ export const StyledCheckbox = styled(Checkbox)<{ checked?: boolean; indeterminat
         border: 1px solid ${colors.gray[300]} !important;
         border-radius: 3px;
     }
-    margin-left: auto;
     ${(props) =>
         props.checked &&
         !props.indeterminate &&
@@ -342,14 +352,14 @@ export const StyledLabel = styled.label`
     margin-left: 8px;
 `;
 
-export const WarningWarpper = styled.div`
+export const WarningWrapper = styled.div`
     background-color: ${applyOpacity(WARNING_COLOR_HEX, 8)};
     border: 1px solid ${applyOpacity(WARNING_COLOR_HEX, 20)};
     border-radius: 4px;
     padding: 6px 4px;
     font-size: 14px;
     color: ${colors.gray[1600]};
-    margin: -14px 0 20px 0;
+    margin: 0 0 20px 0;
     display: flex;
     align-items: center;
 `;

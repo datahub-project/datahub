@@ -1,20 +1,25 @@
 import { NetworkStatus } from '@apollo/client';
 import { colors, Icon, Pill, Table, Text, typography } from '@components';
 import { AlignmentOptions, ColorOptions } from '@src/alchemy-components/theme/config';
+import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
+import { CustomAvatar } from '@src/app/shared/avatar';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import { toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { PageRoutes } from '@src/conf/Global';
-import { useDeleteFormMutation } from '@src/graphql/form.generated';
+import { useFormAnalyticsQuery } from '@src/graphql/analytics.generated';
+import { useDeleteFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType, FormState } from '@src/types.generated';
+import { Entity, EntityType, FormState } from '@src/types.generated';
 import { Dropdown, Tooltip, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import EmptyForms from './EmptyForms';
+import { UNPUBLISH_MODAL_TEXT } from './formUtils';
 import { CardIcons } from './styledComponents';
 
 const FormName = styled(Typography.Text)`
@@ -57,12 +62,29 @@ const MenuItem = styled.div`
     font-family: ${typography.fonts.body};
 `;
 
-const FormsTable = () => {
+export const EditedByContainer = styled.div`
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    border-radius: 20px;
+    border: 1px solid ${colors.gray[1400]};
+`;
+
+interface Props {
+    searchQuery: string;
+}
+
+const FormsTable = ({ searchQuery }: Props) => {
+    const entityRegistry = useEntityRegistryV2();
     const history = useHistory();
     const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
+    const [showConfirmUnpublish, setShowConfirmUnpublish] = useState<boolean>(false);
+
     const [currentForm, setCurrentForm] = useState();
 
     const [deleteForm] = useDeleteFormMutation();
+    const [updateForm] = useUpdateFormMutation();
 
     const inputs = {
         types: [EntityType.Form],
@@ -88,7 +110,28 @@ const FormsTable = () => {
 
     const formsData = searchData?.searchAcrossEntities?.searchResults || [];
 
+    // Filter the table data based on the search query and sort by published most recently
+    const filteredForms = formsData
+        .filter((prop: any) => prop.entity.formInfo.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+        .sort((propA, propB) => {
+            const timeA =
+                ((propA.entity as any).formInfo.status.state === FormState.Published &&
+                    (propA.entity as any).formInfo.status?.lastModified?.time) ||
+                0;
+            const timeB =
+                ((propB.entity as any).formInfo.status.state === FormState.Published &&
+                    (propB.entity as any).formInfo.status?.lastModified?.time) ||
+                0;
+
+            return timeB - timeA;
+        });
+
     const isLoading = loading || networkStatus === NetworkStatus.refetch;
+
+    // Fetch max snapshot date
+    const { data: snapshot, loading: snapshotLoading } = useFormAnalyticsQuery({
+        variables: { input: { queryString: `select max(snapshot_date) from '{{ table }}'` } },
+    });
 
     useEffect(() => {
         refetch();
@@ -122,6 +165,34 @@ const FormsTable = () => {
 
     const handleDeleteClose = () => {
         setShowConfirmDelete(false);
+        setCurrentForm(undefined);
+    };
+
+    const handleUnpublishForm = (formData) => {
+        showToastMessage(ToastType.LOADING, 'Unpublishing form', 1);
+        updateForm({
+            variables: {
+                input: {
+                    urn: formData.entity.urn,
+                    state: FormState.Unpublished,
+                },
+            },
+        })
+            .then(() => {
+                showToastMessage(ToastType.SUCCESS, 'Form unpublished successfully!', 3);
+                refetch();
+            })
+            .catch(() => {
+                showToastMessage(ToastType.ERROR, 'Failed to unpublished form', 3);
+            })
+            .finally(() => {
+                setShowConfirmUnpublish(false);
+                setCurrentForm(undefined);
+            });
+    };
+
+    const handleUnpublishClose = () => {
+        setShowConfirmUnpublish(false);
         setCurrentForm(undefined);
     };
 
@@ -195,6 +266,38 @@ const FormsTable = () => {
             },
         },
         {
+            title: 'Last Edited By',
+            key: 'lastEditedBy',
+            render: (record) => {
+                const lastEditedByUser = record.entity.formInfo.lastModified?.actor;
+                const name = lastEditedByUser && entityRegistry.getDisplayName(EntityType.CorpUser, lastEditedByUser);
+                const avatarUrl = lastEditedByUser?.editableProperties?.pictureLink || undefined;
+
+                return (
+                    <>
+                        {lastEditedByUser && (
+                            <HoverEntityTooltip entity={lastEditedByUser as Entity} showArrow={false}>
+                                <EditedByContainer>
+                                    <CustomAvatar size={20} name={name} photoUrl={avatarUrl} />
+                                    <Text size="sm">{name}</Text>
+                                </EditedByContainer>
+                            </HoverEntityTooltip>
+                        )}
+                    </>
+                );
+            },
+            sorter: (sourceA, sourceB) => {
+                const lastEditedByUserA = sourceA.entity.formInfo.lastModified?.actor;
+                const nameA =
+                    lastEditedByUserA && entityRegistry.getDisplayName(EntityType.CorpUser, lastEditedByUserA);
+                const lastEditedByUserB = sourceB.entity.formInfo.lastModified?.actor;
+                const nameB =
+                    lastEditedByUserB && entityRegistry.getDisplayName(EntityType.CorpUser, lastEditedByUserB);
+
+                return nameA?.localeCompare(nameB);
+            },
+        },
+        {
             title: '',
             key: 'actions',
             alignment: 'right' as AlignmentOptions,
@@ -227,10 +330,29 @@ const FormsTable = () => {
                     },
                 ];
 
+                if (record.entity.formInfo.status?.state === FormState.Published) {
+                    items.splice(1, 0, {
+                        key: '2',
+                        label: (
+                            <MenuItem
+                                onClick={() => {
+                                    setCurrentForm(record);
+                                    setShowConfirmUnpublish(true);
+                                }}
+                            >
+                                Unpublish
+                            </MenuItem>
+                        ),
+                    });
+                }
+
+                // Is the integration service available/online?
+                const integrationServiceOffline = !snapshotLoading && snapshot?.formAnalytics?.errors !== null;
+
                 return (
                     <>
                         <CardIcons>
-                            {record.entity.formInfo.status.state !== FormState.Draft && (
+                            {!integrationServiceOffline && record.entity.formInfo.status.state !== FormState.Draft && (
                                 <Tooltip title="View analytics for this form" showArrow={false}>
                                     <Icon
                                         icon="TrendingUp"
@@ -255,13 +377,21 @@ const FormsTable = () => {
 
     return (
         <>
-            <Table columns={formColumns} data={formsData} isLoading={isLoading} isScrollable />
+            <Table columns={formColumns} data={filteredForms} isLoading={isLoading} isScrollable />
             <ConfirmationModal
                 isOpen={showConfirmDelete}
                 handleClose={handleDeleteClose}
                 handleConfirm={() => handleDeleteForm(currentForm)}
                 modalTitle="Confirm Delete"
                 modalText="Are you sure you want to delete the form?"
+            />
+            <ConfirmationModal
+                isOpen={showConfirmUnpublish}
+                handleClose={handleUnpublishClose}
+                handleConfirm={() => handleUnpublishForm(currentForm)}
+                modalTitle="Confirm Unpublish"
+                modalText={UNPUBLISH_MODAL_TEXT}
+                confirmButtonText="Unpublish"
             />
         </>
     );

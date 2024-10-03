@@ -9,7 +9,13 @@ import { Tooltip } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useHistory, useParams } from 'react-router';
 import { Link } from 'react-router-dom';
-import { mapPromptsToCreatePromptInput } from './formUtils';
+import {
+    mapPromptsToCreatePromptInput,
+    PUBLISH_EXPLANATION,
+    PUBLISH_MODAL_TEXT,
+    UNPUBLISH_EXPLANATION,
+    UNPUBLISH_MODAL_TEXT,
+} from './formUtils';
 import ManageFormContext from './ManageFormContext';
 import { FooterContainer } from './styledComponents';
 
@@ -139,11 +145,6 @@ const FormFooter = () => {
         }
     };
 
-    const publishExplanation = 'Publishing will assign the form to the selected assets and users.';
-    const publishModalText = `Are you sure? ${publishExplanation}`;
-    const unpublishExplanation = 'Unpublishing will hide this form from selected assets and users.';
-    const unpublishModalText = `Are you sure? ${unpublishExplanation}`;
-
     return (
         <FooterContainer $showV1Styles={!isThemeV2}>
             <Link to={`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`}>
@@ -155,7 +156,7 @@ const FormFooter = () => {
                 </Button>
             </Tooltip>
             <Tooltip
-                title={formValues.state === FormState.Published ? unpublishExplanation : publishExplanation}
+                title={formValues.state === FormState.Published ? UNPUBLISH_EXPLANATION : PUBLISH_EXPLANATION}
                 showArrow={false}
             >
                 <Button onClick={() => form?.validateFields().then(() => setShowConfirmationModal(true))}>
@@ -172,7 +173,7 @@ const FormFooter = () => {
                     )
                 }
                 modalTitle={`Confirm ${formValues.state === FormState.Published ? 'Unpublish' : 'Publish'}`}
-                modalText={formValues.state === FormState.Published ? unpublishModalText : publishModalText}
+                modalText={formValues.state === FormState.Published ? UNPUBLISH_MODAL_TEXT : PUBLISH_MODAL_TEXT}
                 confirmButtonText={formValues.state === FormState.Published ? 'Unpublish' : 'Publish'}
             />
         </FooterContainer>
