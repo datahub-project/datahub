@@ -138,20 +138,7 @@ class ElasticToSchemaFieldConverter:
         for columnName, column in elastic_schema_dict.items():
             elastic_type: Optional[str] = column.get("type")
             nested_props: Optional[Dict[str, Any]] = column.get(PROPERTIES)
-            if elastic_type is not None:
-                self._prefix_name_stack.append(f"[type={elastic_type}].{columnName}")
-                schema_field_data_type = self.get_column_type(elastic_type)
-                schema_field = SchemaField(
-                    fieldPath=self._get_cur_field_path(),
-                    nativeDataType=elastic_type,
-                    type=schema_field_data_type,
-                    description=None,
-                    nullable=True,
-                    recursive=False,
-                )
-                yield schema_field
-                self._prefix_name_stack.pop()
-            elif nested_props:
+            if nested_props:
                 self._prefix_name_stack.append(f"[type={PROPERTIES}].{columnName}")
                 schema_field = SchemaField(
                     fieldPath=self._get_cur_field_path(),
@@ -163,6 +150,19 @@ class ElasticToSchemaFieldConverter:
                 )
                 yield schema_field
                 yield from self._get_schema_fields(nested_props)
+                self._prefix_name_stack.pop()
+            elif elastic_type is not None:
+                self._prefix_name_stack.append(f"[type={elastic_type}].{columnName}")
+                schema_field_data_type = self.get_column_type(elastic_type)
+                schema_field = SchemaField(
+                    fieldPath=self._get_cur_field_path(),
+                    nativeDataType=elastic_type,
+                    type=schema_field_data_type,
+                    description=None,
+                    nullable=True,
+                    recursive=False,
+                )
+                yield schema_field
                 self._prefix_name_stack.pop()
             else:
                 # Unexpected! Log a warning.
