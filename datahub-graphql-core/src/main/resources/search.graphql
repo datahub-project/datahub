@@ -522,6 +522,11 @@ enum FilterOperator {
   EQUAL
 
   """
+  Represent the relation: field = value (case-insensitive), e.g. platform = HDFS
+  """
+  IEQUAL
+
+  """
   * Represent the relation: String field is one of the array values to, e.g. name in ["Profile", "Event"]
   """
   IN
@@ -576,10 +581,6 @@ enum FilterOperator {
   """
   RELATED_INCL
 
-  """
-  Represent the relation: field = value and support case insensitive values, e.g. platform = hdfs
-  """
-  IEQUAL
 }
 
 """
