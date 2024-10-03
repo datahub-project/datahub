@@ -13,6 +13,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -662,11 +664,40 @@ public class SearchRequestHandler {
                                       Collections.emptySet())))
                       .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
+              List<SearchableFieldSpec> objectFieldSpec = entitySpec.getSearchableFieldSpecs().stream()
+                      .filter(searchableFieldSpec -> searchableFieldSpec.getSearchableAnnotation().getFieldType() == SearchableAnnotation.FieldType.OBJECT).collect(Collectors.toList());
+
+              Map<String, Set<SearchableAnnotation.FieldType>> objectFieldTypes = new HashMap<>();
+
+              objectFieldSpec.forEach(fieldSpec -> {
+                String fieldName = fieldSpec.getSearchableAnnotation().getFieldName();
+                DataSchema.Type dataType = ((MapDataSchema) fieldSpec.getPegasusSchema()).getValues().getType();
+
+                Set<SearchableAnnotation.FieldType> fieldType;
+
+                switch (dataType) {
+                  case BOOLEAN:
+                    fieldType = Set.of(SearchableAnnotation.FieldType.BOOLEAN);
+                    break;
+                  case INT:
+                    fieldType = Set.of(SearchableAnnotation.FieldType.COUNT);
+                    break;
+                  case DOUBLE:
+                  case LONG:
+                  case FLOAT:
+                    fieldType = Set.of(SearchableAnnotation.FieldType.DOUBLE);
+                    break;
+                  default:
+                    fieldType = Set.of(SearchableAnnotation.FieldType.TEXT);
+                    break;
+                }
+                objectFieldTypes.put(fieldName, fieldType);
+                annotationFieldTypes.remove(fieldName);
+              });
+
               return Stream.concat(
-                  annotationFieldTypes.entrySet().stream(),
-                  Stream.concat(
-                      mappingFieldTypes.entrySet().stream(), aliasFieldTypes.entrySet().stream()));
-            })
+                  Stream.concat(objectFieldTypes.entrySet().stream(), annotationFieldTypes.entrySet().stream()),
+                  Stream.concat(mappingFieldTypes.entrySet().stream(), aliasFieldTypes.entrySet().stream()));})
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
