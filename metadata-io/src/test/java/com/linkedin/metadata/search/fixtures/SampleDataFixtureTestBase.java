@@ -971,8 +971,13 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
               actualCount,
               expectedCount,
               String.format(
-                  "Search term `%s` has %s fulltext results, expected %s results.",
-                  key, actualCount, expectedCount));
+                  "Search term `%s` has %s fulltext results, expected %s results. Results: %s",
+                  key,
+                  actualCount,
+                  expectedCount,
+                  value.getEntities().stream()
+                      .map(SearchEntity::getEntity)
+                      .collect(Collectors.toList())));
         });
 
     Map<String, Integer> expectedStructuredMinimums =
@@ -998,8 +1003,13 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
               actualCount,
               expectedCount,
               String.format(
-                  "Search term `%s` has %s structured results, expected %s results.",
-                  key, actualCount, expectedCount));
+                  "Search term `%s` has %s structured results, expected %s results. Results: %s",
+                  key,
+                  actualCount,
+                  expectedCount,
+                  value.getEntities().stream()
+                      .map(SearchEntity::getEntity)
+                      .collect(Collectors.toList())));
         });
   }
 
@@ -1318,6 +1328,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     String query = "logging_events";
     final int batchSize = 1;
     int totalResults = 0;
+    List<Urn> resultUrns = new ArrayList<>();
     String scrollId = null;
     do {
       ScrollResult result =
@@ -1325,10 +1336,11 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
       int numResults = result.hasEntities() ? result.getEntities().size() : 0;
       assertTrue(numResults <= batchSize);
       totalResults += numResults;
+      resultUrns.addAll(result.getEntities().stream().map(SearchEntity::getEntity).toList());
       scrollId = result.getScrollId();
     } while (scrollId != null);
     // expect 2 total matching results
-    assertEquals(totalResults, 2);
+    assertEquals(totalResults, 2, String.format("query `%s` Results: %s", query, resultUrns));
   }
 
   @Test
