@@ -721,7 +721,7 @@ public class ESUtils {
           StructuredPropertyUtils.toElasticsearchFieldType(fieldName, aspectRetriever);
     } else {
       Set<SearchableAnnotation.FieldType> fieldTypes =
-          searchableFields.getOrDefault(fieldName, Collections.emptySet());
+          searchableFields.getOrDefault(fieldName.split("\\.")[0], Collections.emptySet());
       finalFieldTypes =
           fieldTypes.stream().map(ESUtils::getElasticTypeForFieldType).collect(Collectors.toSet());
     }
@@ -747,6 +747,7 @@ public class ESUtils {
     // Determine criterion value, range query only accepts single value so take first value in
     // values if multiple
     String criterionValueString = criterion.getValues().get(0).trim();
+
     Object criterionValue;
     String documentFieldName;
     if (fieldTypes.contains(BOOLEAN_FIELD_TYPE)) {

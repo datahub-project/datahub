@@ -10,10 +10,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -745,6 +748,63 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
+    Assert.assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderForObjectFields() {
+    final Criterion singleValueCriterion =
+            new Criterion()
+                    .setField("testObjectField.numericField")
+                    .setCondition(Condition.EQUAL)
+                    .setValues(new StringArray(ImmutableList.of("10")));
+
+    Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes = new HashMap<>();
+    searchableFieldTypes.put("testObjectField", Set.of(SearchableAnnotation.FieldType.DOUBLE));
+
+    QueryBuilder result =
+            ESUtils.getQueryBuilderFromCriterion(
+                    singleValueCriterion,
+                    false,
+                    searchableFieldTypes,
+                    mock(OperationContext.class),
+                    QueryFilterRewriteChain.EMPTY);
+    String expected =
+            "{\n"
+                    + "  \"terms\" : {\n"
+                    + "    \"testObjectField.numericField\" : [\n"
+                    + "      10\n"
+                    + "    ],\n"
+                    + "    \"boost\" : 1.0,\n"
+                    + "    \"_name\" : \"testObjectField.numericField\"\n"
+                    + "  }\n"
+                    + "}";
+    Assert.assertEquals(result.toString(), expected);
+
+    final Criterion multiValueCriterion =
+            new Criterion()
+                    .setField("testObjectField.numericField")
+                    .setCondition(Condition.EQUAL)
+                    .setValues(new StringArray(ImmutableList.of("10", "20")));
+
+    result =
+            ESUtils.getQueryBuilderFromCriterion(
+                    multiValueCriterion,
+                    false,
+                    searchableFieldTypes,
+                    mock(OperationContext.class),
+                    QueryFilterRewriteChain.EMPTY);
+    expected =
+            "{\n"
+                    + "  \"terms\" : {\n"
+                    + "    \"testObjectField.numericField\" : [\n"
+                    + "      10,\n"
+                    + "      20\n"
+                    + "    ],\n"
+                    + "    \"boost\" : 1.0,\n"
+                    + "    \"_name\" : \"testObjectField.numericField\"\n"
+                    + "  }\n"
+                    + "}";
     Assert.assertEquals(result.toString(), expected);
   }
 }
