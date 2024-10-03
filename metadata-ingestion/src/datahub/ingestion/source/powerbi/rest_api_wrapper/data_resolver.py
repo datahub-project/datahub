@@ -253,7 +253,6 @@ class DataResolverBase(ABC):
 
         for page in self.itr_pages(
             endpoint=group_endpoint,
-            parameter_override={"$filter": "type eq 'Workspace'"},
         ):
             output.extend(page)
 
@@ -1016,7 +1015,7 @@ class AdminAPIResolver(DataResolverBase):
             POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
         )
         parameters: Dict[str, Any] = {
-            "excludePersonalWorkspaces": True,
+            "excludePersonalWorkspaces": False,
             "excludeInActiveWorkspaces": True,
             "modifiedSince": modified_since,
         }

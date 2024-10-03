@@ -478,6 +478,18 @@ class PowerBiAPI:
 
         workspaces = []
         for workspace_metadata in scan_result["workspaces"]:
+            if (
+                workspace_metadata.get(Constant.STATE) == Constant.ACTIVE
+                and workspace_metadata[Constant.TYPE]
+                not in self.__config.workspace_type_filter
+            ):
+                self.__reporter.info(
+                    title="Skipped Workspace",
+                    message="Workspace is skipped because of workspace_type_filter",
+                    context=f"workspace-name={workspace_metadata[Constant.NAME]}",
+                )
+                continue
+
             cur_workspace = Workspace(
                 id=workspace_metadata[Constant.ID],
                 name=workspace_metadata[Constant.NAME],

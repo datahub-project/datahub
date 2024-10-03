@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 import pydantic
 from pydantic import validator
@@ -126,6 +126,8 @@ class Constant:
     REPORTS = "reports"
     ORIGINAL_REPORT_OBJECT_ID = "originalReportObjectId"
     APP_SUB_TYPE = "App"
+    STATE = "state"
+    ACTIVE = "Active"
 
 
 @dataclass
@@ -451,6 +453,13 @@ class PowerBiDashboardSourceConfig(
     patch_metadata: bool = pydantic.Field(
         default=True,
         description="Patch dashboard metadata",
+    )
+
+    workspace_type_filter: List[
+        Literal["Workspace", "Personal", "AdminWorkspace", "AdminInsights"]
+    ] = pydantic.Field(
+        default=["Workspace"],
+        description="Ingest the metadata of the workspace where the workspace type corresponds to the specified workspace_type_filter.",
     )
 
     @root_validator(skip_on_failure=True)
