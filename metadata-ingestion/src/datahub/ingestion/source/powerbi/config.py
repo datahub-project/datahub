@@ -123,6 +123,9 @@ class Constant:
     REPORT_TYPE = "reportType"
     LAST_UPDATE = "lastUpdate"
     APP_ID = "appId"
+    REPORTS = "reports"
+    ORIGINAL_REPORT_OBJECT_ID = "originalReportObjectId"
+    APP_SUB_TYPE = "App"
 
 
 @dataclass

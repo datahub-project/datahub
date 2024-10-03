@@ -772,6 +772,18 @@ class Mapper:
             dashboard_key_mcp,
         ]
 
+        if dashboard.app_reference is not None:
+            list_of_mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=dashboard_urn,
+                    aspect=ContainerClass(
+                        container=self.generate_app_container_key(
+                            dashboard.app_reference
+                        ).as_urn()
+                    ),
+                )
+            )
+
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
 
@@ -826,6 +838,29 @@ class Mapper:
             container_key=self.workspace_key,
             name=workspace.name,
             sub_types=[workspace.type],
+        )
+        return container_work_units
+
+    def generate_app_container_key(
+        self, app: powerbi_data_classes.App
+    ) -> powerbi_data_classes.AppContainerKey:
+
+        return powerbi_data_classes.AppContainerKey(
+            platform=self.__config.platform_name,
+            platform_instance=self.__config.platform_instance,
+            env=self.__config.env,
+            app=app.get_urn_part(),
+        )
+
+    def generate_container_for_app(
+        self, app: powerbi_data_classes.App
+    ) -> Iterable[MetadataWorkUnit]:
+        app_key = self.generate_app_container_key(app)
+
+        container_work_units = gen_containers(
+            container_key=app_key,
+            name=app.name,
+            sub_types=[Constant.APP_SUB_TYPE],
         )
         return container_work_units
 
@@ -1174,6 +1209,18 @@ class Mapper:
             sub_type_mcp,
         ]
 
+        if report.app_reference is not None:
+            list_of_mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=dashboard_urn,
+                    aspect=ContainerClass(
+                        container=self.generate_app_container_key(
+                            report.app_reference
+                        ).as_urn()
+                    ),
+                )
+            )
+
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
 
@@ -1265,7 +1312,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             self.source_config
         )
         try:
-            self.powerbi_client = PowerBiAPI(self.source_config)
+            self.powerbi_client = PowerBiAPI(
+                config=self.source_config,
+                reporter=self.reporter,
+            )
         except Exception as e:
             logger.warning(e)
             exit(
@@ -1286,7 +1336,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
-            PowerBiAPI(PowerBiDashboardSourceConfig.parse_obj_allow_extras(config_dict))
+            PowerBiAPI(
+                PowerBiDashboardSourceConfig.parse_obj_allow_extras(config_dict),
+                PowerBiDashboardSourceReport(),
+            )
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
@@ -1340,6 +1393,13 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
 
+    def emit_app_work_units(
+        self,
+        workspace: powerbi_data_classes.Workspace,
+    ) -> Iterable[MetadataWorkUnit]:
+        if workspace.app:
+            yield from self.mapper.generate_container_for_app(app=workspace.app)
+
     def get_workspace_workunit(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
@@ -1349,8 +1409,11 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             for workunit in workspace_workunits:
-                # Return workunit to Datahub Ingestion framework
+                # Return workunit to a Datahub Ingestion framework
                 yield workunit
+
+        yield from self.emit_app_work_units(workspace=workspace)
+
         for dashboard in workspace.dashboards:
             try:
                 # Fetch PowerBi users for dashboards

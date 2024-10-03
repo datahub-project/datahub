@@ -99,7 +99,7 @@ class DataResolverBase(ABC):
             ),
         )
 
-        self.get_app = lru_cache(maxsize=128)(self._get_app)
+        self.get_app = lru_cache(maxsize=128)(self.__get_app)
 
     @abstractmethod
     def get_groups_endpoint(self) -> str:
@@ -148,7 +148,7 @@ class DataResolverBase(ABC):
         pass
 
     @abstractmethod
-    def __get_app(
+    def _get_app(
         self,
         app_id: str,
     ) -> Optional[Dict]:
@@ -232,12 +232,16 @@ class DataResolverBase(ABC):
                 tiles=[],
                 users=[],
                 tags=[],
-                app=self.get_app(instance.get(Constant.APP_ID))
-                if instance.get(Constant.APP_ID)
-                else None,
+                app_reference=None,  # App `Id` is available in a scan result
             )
             for instance in dashboards_dict
-            if instance is not None
+            if (
+                instance is not None
+                and Constant.APP_ID
+                not in instance  # As we add dashboards to the App, Power BI starts
+                # providing duplicate dashboard information,
+                # where the duplicate includes an AppId, while the original dashboard does not.
+            )
         ]
 
         return dashboards
@@ -273,7 +277,7 @@ class DataResolverBase(ABC):
             )
             response.raise_for_status()
             response_dict = response.json()
-            logger.debug(f"Request response = {response_dict}")
+            logger.debug(f"Report Request response = {response_dict}")
             return response_dict.get(Constant.VALUE, [])
 
         reports: List[Report] = [
@@ -290,21 +294,24 @@ class DataResolverBase(ABC):
                 users=[],  # It will be fetched using Admin Fetcher based on condition
                 tags=[],  # It will be fetched using Admin Fetcher based on condition
                 dataset=workspace.datasets.get(raw_instance.get(Constant.DATASET_ID)),
-                app=self.get_app(raw_instance.get(Constant.APP_ID))
-                if raw_instance.get(Constant.APP_ID)
-                else None,
+                app_reference=None,
             )
             for raw_instance in fetch_reports()
+            if Constant.APP_ID
+            not in raw_instance  # As we add reports to the App, Power BI starts providing
+            # duplicate report information,
+            # where the duplicate includes an AppId,
+            # while the original report does not.
         ]
 
         return reports
 
-    def _get_app(
+    def __get_app(
         self,
         app_id: str,
     ) -> Optional[App]:
 
-        raw_app: Optional[Dict] = self.__get_app(
+        raw_app: Optional[Dict] = self._get_app(
             app_id=app_id,
         )
 
@@ -324,6 +331,10 @@ class DataResolverBase(ABC):
             name=raw_app[Constant.NAME],
             description=raw_app.get(Constant.DESCRIPTION),
             last_update=raw_app.get(Constant.LAST_UPDATE),
+            dashboards=[],  # dashboards and reports of App are available in scan-result response
+            reports=[],  # There is an App section in documentation https://learn.microsoft.com/en-us/rest/api/power-bi/dashboards/get-dashboards-in-group#code-try-0
+            # However the report API mentioned in that section is not returning the reports
+            # We will collect these details from the scan-result.
         )
 
     def get_report(self, workspace: Workspace, report_id: str) -> Optional[Report]:
@@ -716,7 +727,7 @@ class RegularAPIResolver(DataResolverBase):
 
         table.column_count = column_count
 
-    def __get_app(
+    def _get_app(
         self,
         app_id: str,
     ) -> Optional[Dict]:
@@ -1051,7 +1062,7 @@ class AdminAPIResolver(DataResolverBase):
         logger.debug("Profile dataset is unsupported in Admin API")
         return None
 
-    def __get_app(
+    def _get_app(
         self,
         app_id: str,
     ) -> Optional[Dict]:
