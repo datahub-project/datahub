@@ -12,6 +12,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -22,6 +23,7 @@ import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -43,6 +45,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -63,11 +66,13 @@ import org.opensearch.client.indices.GetMappingsResponse;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortBuilder;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
 public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringContextTests {
+  public static final String DEFAULT_CONFIG = "search_config.yaml";
+  public static final YAMLMapper MAPPER = new YAMLMapper();
 
   @Nonnull
   protected abstract SearchService getSearchService();
@@ -80,6 +85,9 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   @Nonnull
   protected abstract OperationContext getOperationContext();
+
+  @Nonnull
+  protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
 
   @Test
   public void testSearchFieldConfig() throws IOException {
@@ -2024,7 +2032,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   @Test
   public void testFilterOnHasValuesField() {
-    AssertJUnit.assertNotNull(getSearchService());
+    assertNotNull(getSearchService());
     Filter filter =
         new Filter()
             .setOr(
@@ -2046,7 +2054,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   @Test
   public void testFilterOnNumValuesField() {
-    AssertJUnit.assertNotNull(getSearchService());
+    assertNotNull(getSearchService());
     Filter filter =
         new Filter()
             .setOr(
@@ -2064,6 +2072,34 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
             "*",
             filter);
     assertEquals(searchResult.getEntities().size(), 4);
+  }
+
+  /**
+   * Ensure default search configuration matches the test fixture configuration (allowing for some
+   * differences)
+   */
+  @Test
+  public void testConfig() throws IOException {
+    final CustomSearchConfiguration defaultConfig;
+    try (InputStream stream = new ClassPathResource(DEFAULT_CONFIG).getInputStream()) {
+      defaultConfig = MAPPER.readValue(stream, CustomSearchConfiguration.class);
+    }
+
+    final CustomSearchConfiguration fixtureConfig =
+        MAPPER.readValue(
+            MAPPER.writeValueAsBytes(getCustomSearchConfiguration()),
+            CustomSearchConfiguration.class);
+
+    // test specifics
+    ((List<Map<String, Object>>)
+            fixtureConfig.getQueryConfigurations().get(1).getFunctionScore().get("functions"))
+        .remove(1);
+
+    ((List<Map<String, Object>>)
+            fixtureConfig.getQueryConfigurations().get(2).getFunctionScore().get("functions"))
+        .remove(1);
+
+    assertEquals(fixtureConfig, defaultConfig);
   }
 
   private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request)

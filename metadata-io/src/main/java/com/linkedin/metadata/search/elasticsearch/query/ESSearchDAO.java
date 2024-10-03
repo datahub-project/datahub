@@ -636,16 +636,17 @@ public class ESSearchDAO {
     }
   }
 
-  private static void testLog(ObjectMapper mapper, SearchRequest searchRequest) {
+  private void testLog(ObjectMapper mapper, SearchRequest searchRequest) {
     try {
+      log.warn("SearchRequest(custom): {}", mapper.writeValueAsString(customSearchConfiguration));
       final String[] indices = searchRequest.indices();
       log.warn(
           String.format(
-              "SearchRequest: %s",
+              "SearchRequest(indices): %s",
               mapper.writerWithDefaultPrettyPrinter().writeValueAsString(indices)));
       log.warn(
           String.format(
-              "SearchRequest: %s",
+              "SearchRequest(query): %s",
               mapper.writeValueAsString(mapper.readTree(searchRequest.source().toString()))));
     } catch (JsonProcessingException e) {
       log.warn("Error writing test log");

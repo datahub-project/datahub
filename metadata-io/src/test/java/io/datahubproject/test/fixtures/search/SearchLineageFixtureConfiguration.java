@@ -143,7 +143,7 @@ public class SearchLineageFixtureConfiguration {
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             searchConfiguration,
-            null,
+            customSearchConfiguration,
             queryFilterRewriteChain);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(

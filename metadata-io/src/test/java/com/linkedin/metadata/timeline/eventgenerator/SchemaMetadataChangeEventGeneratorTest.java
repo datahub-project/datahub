@@ -1,6 +1,6 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
-import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
