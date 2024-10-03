@@ -9,16 +9,16 @@ const caseStudyData = [
     image: "https://datahubproject.io/img/logos/companies/netflix.png",
     link: "https://datahubproject.io/adoption-stories/#netflix",
   },
-  // {
-  //   title: "Scaling Data Governance",
-  //   description:
-  //     "How VISA Uses DataHub to Scale Data Governance.",
-  //   tag: "Finance",
-  //   backgroundImage:
-  //     "https://miro.medium.com/v2/resize:fit:2000/format:webp/1*mtC4j8J-jumJKWg8RuR6xQ@2x.png",
-  //   image: "https://datahubproject.io/img/logos/companies/visa.png",
-  //   link: "https://datahubproject.io/adoption-stories/#visa",
-  // },
+  {
+    title: "Scaling Data Governance",
+    description:
+      "How VISA Uses DataHub to Scale Data Governance.",
+    tag: "Finance",
+    backgroundImage:
+      "https://miro.medium.com/v2/resize:fit:2000/format:webp/1*mtC4j8J-jumJKWg8RuR6xQ@2x.png",
+    image: "/img/logos/companies/visa_text.png",
+    link: "https://datahubproject.io/adoption-stories/#visa",
+  },
   {
     title: "Ensuring Data Reliability",
     description:
