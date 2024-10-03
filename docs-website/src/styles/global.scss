@@ -399,7 +399,7 @@ div[class^="announcementBar"] {
   .text {
     padding-right: 24px;
     color: #777;
-    font-size: 1.25rem;
+    font-size: 1.2rem;
     line-height: 1.5rem;
   }
 
@@ -409,6 +409,16 @@ div[class^="announcementBar"] {
     align-items: center;
     flex-grow: 1;
     justify-content: space-around;
+
+
+    .more_link {
+      font-size: 1.25rem;
+      color: #bbb;
+      font-weight: 600;
+      text-decoration: none;
+      position: relative;
+      top: -.4rem;
+    }
   }
   .company_logo {
     max-width: 80px;
@@ -486,6 +496,9 @@ div[class^="announcementBar"] {
     }
     .company_logos_list_wrapper {
       width: 100%;
+      .more_link {
+        display: none;
+      }
     }
     .company_logo {
       max-width: 60px;

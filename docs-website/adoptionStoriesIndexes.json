@@ -55,6 +55,12 @@
       "description": "Pinterest adopted a DataHub project to enhance metadata management for its big data query platform, facilitating better data navigation and understanding."
     },
     {
+      "name": "Snap, Inc.",
+      "slug": "snap",
+      "imageUrl": "/img/logos/companies/snap.png",
+      "imageSize": "small"
+    },
+    {
       "name": "Airtel",
       "slug": "airtel",
       "imageUrl": "/img/logos/companies/airtel.png",
