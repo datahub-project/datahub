@@ -179,6 +179,7 @@ public class ESUtilsTest {
             + "      }\n"
             + "    ],\n"
             + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
@@ -222,6 +223,7 @@ public class ESUtilsTest {
             + "      }\n"
             + "    ],\n"
             + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
@@ -258,6 +260,7 @@ public class ESUtilsTest {
             + "      }\n"
             + "    ],\n"
             + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
@@ -301,6 +304,7 @@ public class ESUtilsTest {
             + "      }\n"
             + "    ],\n"
             + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
@@ -337,6 +341,7 @@ public class ESUtilsTest {
             + "      }\n"
             + "    ],\n"
             + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
@@ -379,6 +384,7 @@ public class ESUtilsTest {
             + "      }\n"
             + "    ],\n"
             + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
@@ -540,6 +546,7 @@ public class ESUtilsTest {
             + "      }\n"
             + "    ],\n"
             + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
@@ -582,6 +589,7 @@ public class ESUtilsTest {
             + "      }\n"
             + "    ],\n"
             + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
