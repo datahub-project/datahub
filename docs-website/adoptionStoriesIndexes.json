@@ -111,7 +111,7 @@
       "tagline": "Foursquare Data Platform: From Fragmentation to Control (Plane)",
       "category": "B2B & B2C",
       "platform": "cloud",
-      "description": "<i>\"After evaluating several options (...) we chose DataHub as the control plane for our data platform and partnered with Acryl Data, which offers DataHub Cloud, a premium hosted version of DataHub. (...) Another important thing that worked in DataHub’s favor is the rich and flexible taxonomy it offered for modeling the various aspects of a data platform.\""
+      "description": "<i>\"After evaluating several options (...) we chose DataHub as the control plane for our data platform and partnered with Acryl Data, which offers DataHub Cloud, a premium hosted version of DataHub. (...) Another important thing that worked in DataHub’s favor is the rich and flexible taxonomy it offered for modeling the various aspects of a data platform.\"</i>"
     },
     {
       "name": "Deutsche Telekom",
