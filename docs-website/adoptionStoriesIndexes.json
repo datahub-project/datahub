@@ -99,7 +99,7 @@
       "tagline": "Data Products Reliability: The Power of Metadata",
       "category": "B2B & B2C",
       "platform": "cloud",
-      "description": "<i>\"Leveraging our Datahub catalog, we have centralized metadata access for all data products. This integration eliminates the dependency on Airflow metadata alone for defining contracts, enabling flexible definitions for both building blocks and business metrics.\""
+      "description": "<i>\"Leveraging our Datahub catalog, we have centralized metadata access for all data products. This integration eliminates the dependency on Airflow metadata alone for defining contracts, enabling flexible definitions for both building blocks and business metrics.\"</i>"
     },
     {
       "name": "Foursquare",
@@ -123,7 +123,7 @@
       "tagline": "From Chaos to Clarity: How DataHub Transformed our Data Utilization",
       "category": "B2B & B2C",
       "platform": "cloud",
-      "description": "<i>\"The DataHub data catalog significantly supported our AI/ML team’s efforts by offering seamless access to detailed column descriptions and table schemas through its APIs. This comprehensive data accessibility enabled the team to efficiently develop a text-to-SQL tool, which translates natural language queries into SQL commands.\""
+      "description": "<i>\"The DataHub data catalog significantly supported our AI/ML team’s efforts by offering seamless access to detailed column descriptions and table schemas through its APIs. This comprehensive data accessibility enabled the team to efficiently develop a text-to-SQL tool, which translates natural language queries into SQL commands.\"</i>"
     },
     {
       "name": "Chime",
