@@ -552,6 +552,10 @@ public class ESUtils {
     return orQueryBuilder;
   }
 
+  private static boolean isCaseInsensitiveSearchEnabled(Condition condition) {
+    return condition == Condition.IEQUAL;
+  }
+
   @Nonnull
   private static QueryBuilder getQueryBuilderFromCriterionForSingleField(
       @Nonnull Criterion criterion,
@@ -564,6 +568,8 @@ public class ESUtils {
     final AspectRetriever aspectRetriever = opContext.getAspectRetriever();
     final String fieldName = toParentField(criterion.getField(), aspectRetriever);
 
+    boolean enableCaseInsensitiveSearch;
+
     if (condition == Condition.IS_NULL) {
       return QueryBuilders.boolQuery()
           .mustNot(QueryBuilders.existsQuery(fieldName))
@@ -573,9 +579,15 @@ public class ESUtils {
           .must(QueryBuilders.existsQuery(fieldName))
           .queryName(queryName != null ? queryName : fieldName);
     } else if (criterion.hasValues()) {
-      if (condition == Condition.EQUAL) {
+      if (condition == Condition.EQUAL || condition == Condition.IEQUAL) {
+        enableCaseInsensitiveSearch = isCaseInsensitiveSearchEnabled(condition);
         return buildEqualsConditionFromCriterion(
-                fieldName, criterion, isTimeseries, searchableFieldTypes, aspectRetriever)
+                fieldName,
+                criterion,
+                isTimeseries,
+                searchableFieldTypes,
+                aspectRetriever,
+                enableCaseInsensitiveSearch)
             .queryName(queryName != null ? queryName : fieldName);
       } else if (RANGE_QUERY_CONDITIONS.contains(condition)) {
         return buildRangeQueryFromCriterion(
@@ -596,7 +608,7 @@ public class ESUtils {
         return buildEndsWithConditionFromCriterion(
             fieldName, criterion, queryName, isTimeseries, aspectRetriever);
       } else if (Set.of(ANCESTORS_INCL, DESCENDANTS_INCL, RELATED_INCL).contains(condition)) {
-
+        enableCaseInsensitiveSearch = isCaseInsensitiveSearchEnabled(condition);
         return QueryFilterRewriterContext.builder()
             .queryFilterRewriteChain(queryFilterRewriteChain)
             .condition(condition)
@@ -605,7 +617,12 @@ public class ESUtils {
             .rewrite(
                 opContext,
                 buildEqualsConditionFromCriterion(
-                    fieldName, criterion, isTimeseries, searchableFieldTypes, aspectRetriever))
+                    fieldName,
+                    criterion,
+                    isTimeseries,
+                    searchableFieldTypes,
+                    aspectRetriever,
+                    enableCaseInsensitiveSearch))
             .queryName(queryName != null ? queryName : fieldName);
       }
     }
@@ -670,9 +687,15 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       final boolean isTimeseries,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull AspectRetriever aspectRetriever,
+      boolean enableCaseInsensitiveSearch) {
     return buildEqualsConditionFromCriterionWithValues(
-        fieldName, criterion, isTimeseries, searchableFieldTypes, aspectRetriever);
+        fieldName,
+        criterion,
+        isTimeseries,
+        searchableFieldTypes,
+        aspectRetriever,
+        enableCaseInsensitiveSearch);
   }
 
   /**
@@ -684,7 +707,8 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       final boolean isTimeseries,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull AspectRetriever aspectRetriever,
+      boolean enableCaseInsensitiveSearch) {
     Set<String> fieldTypes = getFieldTypes(searchableFieldTypes, fieldName, aspectRetriever);
     if (fieldTypes.size() > 1) {
       log.warn(
@@ -704,6 +728,21 @@ public class ESUtils {
           criterion.getValues().stream().map(Double::parseDouble).collect(Collectors.toList());
       return QueryBuilders.termsQuery(fieldName, doubleValues).queryName(fieldName);
     }
+
+    if (enableCaseInsensitiveSearch) {
+      BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+      criterion
+          .getValues()
+          .forEach(
+              value ->
+                  boolQuery.should(
+                      QueryBuilders.termQuery(
+                              toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
+                              value.trim())
+                          .caseInsensitive(true)));
+      return boolQuery;
+    }
+
     return QueryBuilders.termsQuery(
             toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
             criterion.getValues())
