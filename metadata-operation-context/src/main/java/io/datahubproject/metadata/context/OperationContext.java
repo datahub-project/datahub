@@ -402,6 +402,11 @@ public class OperationContext implements AuthorizationSession {
     return objectMapperContext.getObjectMapper();
   }
 
+  @Nonnull
+  public ObjectMapper getYamlMapper() {
+    return objectMapperContext.getYamlMapper();
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
