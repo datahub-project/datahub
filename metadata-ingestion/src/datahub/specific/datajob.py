@@ -330,7 +330,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/outputDatasetEdges/{self.quote(str(input))}",
+            path=f"/outputDatasetEdges/{self.quote(str(output))}",
             value=output_edge,
         )
         return self
