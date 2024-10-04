@@ -16,6 +16,7 @@ from typing import (
 )
 
 from looker_sdk.error import SDKError
+from looker_sdk.rtl.serialize import DeserializeError
 from looker_sdk.sdk.api40.models import (
     Dashboard,
     DashboardElement,
@@ -1288,12 +1289,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 dashboard_id=dashboard_id,
                 fields=fields,
             )
-        except SDKError:
+        except (SDKError, DeserializeError) as e:
             # A looker dashboard could be deleted in between the list and the get
             self.reporter.report_warning(
-                title="Error Loading Dashboard",
+                title="Failed to fetch dashboard from the Looker API",
                 message="Error occurred while attempting to loading dashboard from Looker API. Skipping.",
                 context=f"Dashboard ID: {dashboard_id}",
+                exc=e,
             )
             return [], None, dashboard_id, start_time, datetime.datetime.now()
 
