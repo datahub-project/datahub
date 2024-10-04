@@ -79,11 +79,10 @@ def scan_init_response(request, context):
 def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
     override_data = override_data or {}
     api_vs_response = {
-        "https://api.powerbi.com/v1.0/myorg/groups": {
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                "@odata.count": 3,
                 "value": [
                     {
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
@@ -106,6 +105,14 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ],
             },
         },
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [],
+            },
+        }
+        ,
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
             "method": "GET",
             "status_code": 200,
@@ -319,6 +326,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
                         "name": "demo-workspace",
                         "state": "Active",
+                        "type": "Workspace",
                         "datasets": [
                             {
                                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
@@ -474,6 +482,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                             {
                                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                                "reportType": "PowerBIReport",
                                 "name": "SalesMarketing",
                                 "description": "Acryl sales marketing report",
                             }
@@ -490,6 +499,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     {
                         "id": "64ED5CAD-7C22-4684-8180-826122881108",
                         "name": "second-demo-workspace",
+                        "type": "Workspace",
                         "state": "Active",
                         "datasets": [
                             {
@@ -516,6 +526,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                             {
                                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                                "reportType": "PowerBIReport",
                                 "name": "SalesMarketing",
                                 "description": "Acryl sales marketing report",
                             }
@@ -537,6 +548,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     {
                         "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                         "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                        "reportType": "PowerBIReport",
                         "name": "SalesMarketing",
                         "description": "Acryl sales marketing report",
                         "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
@@ -551,6 +563,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
             "json": {
                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                "reportType": "PowerBIReport",
                 "name": "SalesMarketing",
                 "description": "Acryl sales marketing report",
                 "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
@@ -1543,6 +1556,7 @@ def test_reports_with_failed_page_request(
                         {
                             "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                             "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                            "reportType": "PowerBIReport",
                             "name": "SalesMarketing",
                             "description": "Acryl sales marketing report",
                             "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715",
@@ -1551,6 +1565,7 @@ def test_reports_with_failed_page_request(
                         {
                             "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                             "id": "e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
+                            "reportType": "PowerBIReport",
                             "name": "Product",
                             "description": "Acryl product report",
                             "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
@@ -1566,6 +1581,7 @@ def test_reports_with_failed_page_request(
                     "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                     "id": "5b218778-e7a5-4d73-8187-f10824047715",
                     "name": "SalesMarketing",
+                    "reportType": "PowerBIReport",
                     "description": "Acryl sales marketing report",
                     "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715",
                     "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=64ED5CAD-7C10-4684-8180-826122881108",
@@ -1577,6 +1593,7 @@ def test_reports_with_failed_page_request(
                 "json": {
                     "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                     "id": "e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
+                    "reportType": "PowerBIReport",
                     "name": "Product",
                     "description": "Acryl product report",
                     "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
@@ -1652,11 +1669,10 @@ def test_independent_datasets_extraction(
     register_mock_api(
         request_mock=requests_mock,
         override_data={
-            "https://api.powerbi.com/v1.0/myorg/groups": {
+            "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
                 "method": "GET",
                 "status_code": 200,
                 "json": {
-                    "@odata.count": 3,
                     "value": [
                         {
                             "id": "64ED5CAD-7C10-4684-8180-826122881108",
@@ -1667,6 +1683,13 @@ def test_independent_datasets_extraction(
                     ],
                 },
             },
+            "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "value": [],
+                },
+            },
             "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/4674efd1-603c-4129-8d82-03cf2be05aff": {
                 "method": "GET",
                 "status_code": 200,
@@ -1675,6 +1698,7 @@ def test_independent_datasets_extraction(
                         {
                             "id": "64ED5CAD-7C10-4684-8180-826122881108",
                             "name": "demo-workspace",
+                            "type": "Workspace",
                             "state": "Active",
                             "datasets": [
                                 {

@@ -63,8 +63,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -138,8 +137,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -213,8 +211,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -288,8 +285,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -363,8 +359,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -438,8 +433,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -513,8 +507,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -588,8 +581,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -663,8 +655,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -785,7 +776,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Tile"
+                "Tile"
             ]
         }
     },
@@ -910,11 +901,12 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
     "changeType": "UPSERT",
-    "aspectName": "chartKey",
+    "aspectName": "subTypes",
     "aspect": {
         "json": {
-            "dashboardTool": "powerbi",
-            "chartId": "charts.23212598-23b5-4980-87cc-5fc0ecd84385"
+            "typeNames": [
+                "Tile"
+            ]
         }
     },
     "systemMetadata": {
@@ -927,12 +919,11 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
+    "aspectName": "chartKey",
     "aspect": {
         "json": {
-            "typeNames": [
-                "PowerBI Tile"
-            ]
+            "dashboardTool": "powerbi",
+            "chartId": "charts.23212598-23b5-4980-87cc-5fc0ecd84385"
         }
     },
     "systemMetadata": {
@@ -1213,8 +1204,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -1288,8 +1278,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -1363,8 +1352,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -1438,8 +1426,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -1513,8 +1500,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -1588,8 +1574,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -1663,8 +1648,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -1783,7 +1767,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Page"
+                "Page"
             ]
         }
     },
@@ -1904,11 +1888,11 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,pages.5b218778-e7a5-4d73-8187-f10824047715.ReportSection1)",
     "changeType": "UPSERT",
-    "aspectName": "browsePaths",
+    "aspectName": "subTypes",
     "aspect": {
         "json": {
-            "paths": [
-                "/powerbi/demo-workspace"
+            "typeNames": [
+                "Page"
             ]
         }
     },
@@ -1922,11 +1906,11 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,pages.5b218778-e7a5-4d73-8187-f10824047715.ReportSection1)",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
+    "aspectName": "browsePaths",
     "aspect": {
         "json": {
-            "typeNames": [
-                "PowerBI Page"
+            "paths": [
+                "/powerbi/demo-workspace"
             ]
         }
     },
