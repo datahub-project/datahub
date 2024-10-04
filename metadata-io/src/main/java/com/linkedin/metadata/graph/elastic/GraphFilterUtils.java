@@ -37,9 +37,12 @@ public class GraphFilterUtils {
     if (removed) {
       finalQuery.filter(QueryBuilders.termQuery(statusField, removed.toString()));
     } else {
-      finalQuery.minimumShouldMatch(1);
       finalQuery.should(QueryBuilders.termQuery(statusField, removed.toString()));
       finalQuery.should(QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery(statusField)));
+    }
+
+    if (!finalQuery.should().isEmpty()) {
+      finalQuery.minimumShouldMatch(1);
     }
 
     return finalQuery;
@@ -102,7 +105,7 @@ public class GraphFilterUtils {
      * 2. The createdOn and updatedOn window does not exist on the edge at all (support legacy cases)
      * 3. Special lineage case: The edge is marked as a "manual" edge, meaning that the time filters should NOT be applied.
      */
-    BoolQueryBuilder timeFilterQuery = QueryBuilders.boolQuery();
+    BoolQueryBuilder timeFilterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
     timeFilterQuery.should(buildTimeWindowFilter(startTimeMillis, endTimeMillis));
     timeFilterQuery.should(buildTimestampsMissingFilter());
     timeFilterQuery.should(buildManualLineageFilter());
@@ -158,7 +161,7 @@ public class GraphFilterUtils {
    */
   private static QueryBuilder buildTimeWindowFilter(
       final long startTimeMillis, final long endTimeMillis) {
-    final BoolQueryBuilder timeWindowQuery = QueryBuilders.boolQuery();
+    final BoolQueryBuilder timeWindowQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
 
     /*
      * To perform comparison:
@@ -198,7 +201,7 @@ public class GraphFilterUtils {
 
   private static QueryBuilder buildNotExistsFilter(String fieldName) {
     // This filter returns 'true' if the field DOES NOT EXIST or it exists but is equal to 0.
-    final BoolQueryBuilder notExistsFilter = QueryBuilders.boolQuery();
+    final BoolQueryBuilder notExistsFilter = QueryBuilders.boolQuery().minimumShouldMatch(1);
     notExistsFilter.should(QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery(fieldName)));
     notExistsFilter.should(QueryBuilders.boolQuery().must(QueryBuilders.termQuery(fieldName, 0L)));
     return notExistsFilter;
