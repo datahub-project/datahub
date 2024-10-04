@@ -70,6 +70,13 @@ services:
     depends_on:
       datahub-gms-debug:
         condition: service_healthy
+  datahub-integrations-quickstart-debug-consumers:
+    <<: *datahub-integrations-service-dev
+    profiles:
+      - debug-consumers
+    depends_on:
+      datahub-gms-debug-consumers:
+        condition: service_healthy
   datahub-integrations-quickstart-dev-head:
     <<: *datahub-integrations-service-dev-head
     profiles:
@@ -95,6 +102,13 @@ services:
       - debug
     depends_on:
       datahub-gms-debug:
+        condition: service_healthy
+  datahub-executor-quickstart-debug-consumers:
+    <<: *datahub-executor-dev
+    profiles:
+      - debug-consumers
+    depends_on:
+      datahub-gms-debug-consumers:
         condition: service_healthy
   datahub-executor-quickstart-dev-head:
     <<: *datahub-executor-dev-head
