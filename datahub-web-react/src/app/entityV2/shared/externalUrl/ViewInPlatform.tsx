@@ -18,6 +18,7 @@ const Link = styled.a`
 
     border-radius: 4px;
     padding: 4px 6px;
+    margin: 0px 4px;
 
     background: ${REDESIGN_COLORS.LIGHT_TEXT_DARK_BACKGROUND};
     color: ${REDESIGN_COLORS.TITLE_PURPLE};

@@ -9,7 +9,7 @@ import { AddLinkModal } from '../components/styled/AddLinkModal';
 import { LinkList } from '../tabs/Documentation/components/LinkList';
 import { SectionContainer, SummaryTabHeaderTitle } from './HeaderComponents';
 
-const UNEXPANDED_HEIGHT = 230;
+const UNEXPANDED_HEIGHT = 2000;
 
 const DocumentationWrapper = styled.div<{ canExpand?: boolean }>`
     position: relative;

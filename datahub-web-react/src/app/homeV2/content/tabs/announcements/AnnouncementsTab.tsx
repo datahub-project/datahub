@@ -4,6 +4,7 @@ import { useGetAnnouncements } from './useGetAnnouncements';
 import AnnouncementsSkeleton from './AnnouncementsSkeleton';
 import { AnnouncementCard } from './AnnouncementCard';
 import { V2_HOME_PAGE_ANNOUNCEMENTS_ID } from '../../../../onboarding/configV2/HomePageOnboardingConfig';
+import { EmptyAnnouncements } from './EmptyAnnouncements';
 
 const List = styled.div`
     display: flex;
@@ -22,12 +23,16 @@ export const AnnouncementsTab = () => {
         <>
             {loading && <AnnouncementsSkeleton />}
             <List id={V2_HOME_PAGE_ANNOUNCEMENTS_ID}>
-                {sortedAnnouncements.map((announcement) => (
-                    <AnnouncementCard
-                        key={`${announcement.content.title}-${announcement.content.description}`}
-                        announcement={announcement}
-                    />
-                ))}
+                {sortedAnnouncements?.length ? (
+                    sortedAnnouncements.map((announcement) => (
+                        <AnnouncementCard
+                            key={`${announcement.content.title}-${announcement.content.description}`}
+                            announcement={announcement}
+                        />
+                    ))
+                ) : (
+                    <EmptyAnnouncements />
+                )}
             </List>
         </>
     );

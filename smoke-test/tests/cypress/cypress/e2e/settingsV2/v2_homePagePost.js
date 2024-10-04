@@ -64,8 +64,9 @@ describe("create announcement and link post", () => {
     clickOnMoreOption();
     cy.clickOptionWithText("Delete");
     cy.clickOptionWithText("Yes");
-    cy.reload();
     homePageRedirection();
+    cy.wait(500);
+    cy.reload();
     cy.ensureTextNotPresent("Test Announcement Title Updated");
   });
 
@@ -97,8 +98,9 @@ describe("create announcement and link post", () => {
     clickOnMoreOption();
     cy.clickOptionWithText("Delete");
     cy.clickOptionWithText("Yes");
-    cy.reload();
     homePageRedirection();
+    cy.wait(500);
+    cy.reload();
     cy.ensureTextNotPresent("Test Link Updated Title");
   });
 });

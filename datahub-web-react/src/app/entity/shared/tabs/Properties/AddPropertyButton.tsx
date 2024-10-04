@@ -80,8 +80,8 @@ const AddPropertyButton = ({ fieldUrn, refetch, isV1Drawer }: Props) => {
         fetchPolicy: 'cache-first',
     });
 
-    const [selectedProperty, setSelectedProperty] = useState<StructuredPropertyEntity>(
-        data?.searchAcrossEntities?.searchResults[0].entity as StructuredPropertyEntity,
+    const [selectedProperty, setSelectedProperty] = useState<StructuredPropertyEntity | undefined>(
+        data?.searchAcrossEntities?.searchResults?.[0]?.entity as StructuredPropertyEntity | undefined,
     );
 
     const handleOptionClick = (property: StructuredPropertyEntity) => {
@@ -155,14 +155,16 @@ const AddPropertyButton = ({ fieldUrn, refetch, isV1Drawer }: Props) => {
                     </AddButton>
                 </Tooltip>
             </Dropdown>
-            <EditStructuredPropertyModal
-                isOpen={isEditModalVisible}
-                closeModal={() => setIsEditModalVisible(false)}
-                structuredProperty={selectedProperty}
-                associatedUrn={fieldUrn || entityData?.urn}
-                refetch={refetch}
-                isAddMode
-            />
+            {selectedProperty && (
+                <EditStructuredPropertyModal
+                    isOpen={isEditModalVisible}
+                    closeModal={() => setIsEditModalVisible(false)}
+                    structuredProperty={selectedProperty}
+                    associatedUrn={fieldUrn || entityData?.urn}
+                    refetch={refetch}
+                    isAddMode
+                />
+            )}
         </>
     );
 };

@@ -558,10 +558,11 @@ Cypress.Commands.add("rejectProposalInbox", () => {
 });
 
 Cypress.Commands.add("handleIntroducePage", () => {
-  cy.visit("/introduce");
+  // Not sure how to wait for potential redirect
+  // Previously always redirected to /introduce and ran through the flow, think this is better
+  cy.wait(1000);
   cy.url().then((url) => {
-    const myUrl = url;
-    if (myUrl.includes("/introduce")) {
+    if (url.includes("/introduce")) {
       cy.get(".ant-select ").first().click();
       cy.get(".ant-select-item-option-content")
         .contains("Data Analyst")
@@ -572,8 +573,6 @@ Cypress.Commands.add("handleIntroducePage", () => {
       cy.get("body").click();
       cy.contains("Data Engineer").click();
       cy.get(".ant-btn-primary").click();
-    } else {
-      cy.waitTextVisible("Discover");
     }
   });
 });

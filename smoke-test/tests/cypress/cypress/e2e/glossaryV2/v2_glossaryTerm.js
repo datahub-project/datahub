@@ -40,9 +40,7 @@ const deleteGlossary = (message) => {
 };
 
 const elementVisibility = () => {
-  cy.get('a[href*="urn:li"] span[class^="ant-typography"]').should(
-    "be.visible",
-  );
+  cy.get('[data-testid^="preview-urn:"]').should("be.visible");
 };
 
 const enterKeyInSearchBox = (text) => {
@@ -63,18 +61,18 @@ describe("glossaryTerm", () => {
 
   it("can search related entities by query", () => {
     createTerm("GlossaryNewTerm");
-    cy.clickOptionWithSpecificClass(".anticon-link", 0);
+    cy.clickFirstOptionWithTestId("glossary-batch-add");
     elementVisibility();
     cy.get(".ant-checkbox-input").first().click();
     cy.clickOptionWithId("#continueButton");
     cy.waitTextVisible("Added Glossary Term to entities!");
-    cy.clickOptionWithSpecificClass(".anticon.anticon-appstore", 0);
+    cy.clickTextOptionWithClass(".ant-tabs-tab", "Related Assets");
     invokeTextFromElement(
-      'a[href*="urn:li"] span[class^="ant-typography"]',
+      '[data-testid^="preview-urn:"] div[data-testid="entity-title"]',
     ).then((assetText) => {
       enterKeyInSearchBox(assetText);
       cy.wait(2000);
-      cy.get('a[href*="urn:li"] span[class^="ant-typography"]')
+      cy.get('[data-testid^="preview-urn:"] div[data-testid="entity-title"]')
         .first()
         .should("have.text", assetText);
     });
@@ -92,7 +90,7 @@ describe("glossaryTerm", () => {
       .click();
     cy.mouseHoverOnFirstElement(".ant-tag");
     invokeTextFromElement(".ant-tooltip-inner").then((assetText) => {
-      cy.get('a[href*="urn:li"] span[class^="ant-typography"]')
+      cy.get('[data-testid^="preview-urn:"] div[data-testid="entity-title"]')
         .first()
         .should("be.visible")
         .click();

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Tooltip, Typography } from 'antd';
+import { Tooltip } from 'antd';
 import styled from 'styled-components';
 import SearchTextHighlighter from '../searchV2/matches/SearchTextHighlighter';
 import { PreviewType } from '../entityV2/Entity';
@@ -15,19 +15,15 @@ const EntityTitleContainer = styled.div`
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    width: 100%;
-
     font-size: 16px;
 `;
 
 export const StyledLink = styled(Link)`
     display: block;
-    max-width: 75%;
+    max-width: 80%;
 `;
 
-const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
-    display: block;
-
+const EntityTitle = styled.div<{ $titleSizePx?: number }>`
     &&& {
         font-size: ${(props) => props.$titleSizePx || 16}px;
         font-weight: 700;
@@ -95,15 +91,13 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
         <EntityTitleContainer>
             <StyledLink to={url} {...linkProps}>
                 {previewType === PreviewType.HOVER_CARD ? (
-                    <CardEntityTitle
-                        onClick={onClick}
-                        ellipsis={{ tooltip: { title: name, showArrow: false, mouseEnterDelay: 0.5 } }}
-                        $titleSizePx={titleSizePx}
-                    >
-                        {name || ''}
-                    </CardEntityTitle>
+                    <Tooltip title={name}>
+                        <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx} data-testid="entity-title">
+                            {name || ''}
+                        </CardEntityTitle>
+                    </Tooltip>
                 ) : (
-                    <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
+                    <EntityTitle onClick={onClick} $titleSizePx={titleSizePx} data-testid="entity-title">
                         <SearchTextHighlighter field="name" text={name || ''} />
                     </EntityTitle>
                 )}

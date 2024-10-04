@@ -41,6 +41,7 @@ const ButtonWrapper = styled.div`
     display: flex;
     align-items: center;
     overflow: hidden;
+
     & button:hover {
         opacity: 0.9;
     }
@@ -220,20 +221,33 @@ function EntityActions(props: Props) {
             <ButtonWrapper>
                 {actionItems.has(EntityActionItem.BATCH_ADD_GLOSSARY_TERM) && (
                     <Tooltip title="Add Glossary Term to Assets" showArrow={false} placement="bottom">
-                        <TransparentButton size="large" onClick={() => setIsBatchAddGlossaryTermModalVisible(true)}>
+                        <TransparentButton
+                            size="large"
+                            onClick={() => setIsBatchAddGlossaryTermModalVisible(true)}
+                            data-testid="glossary-batch-add"
+                        >
                             <LinkOutlined /> Add to Assets
                         </TransparentButton>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DOMAIN) && (
                     <Tooltip title="Add Assets to Domain" showArrow={false} placement="bottom">
-                        <TransparentButton size="large" onClick={() => setIsBatchSetDomainModalVisible(true)}>
+                        <TransparentButton
+                            size="large"
+                            onClick={() => setIsBatchSetDomainModalVisible(true)}
+                            data-testid="domain-batch-add"
+                        >
                             <LinkOutlined /> Add to Assets
                         </TransparentButton>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DATA_PRODUCT) && (
-                    <Tooltip title="Add Assets to Data Product" showArrow={false} placement="bottom">
+                    <Tooltip
+                        title="Add Assets to Data Product"
+                        showArrow={false}
+                        placement="bottom"
+                        data-testid="data-product-batch-add"
+                    >
                         <TransparentButton size="large" onClick={() => setIsBatchSetDataProductModalVisible(true)}>
                             <LinkOutlined />
                             Add Assets

@@ -2,6 +2,7 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
+import { Tooltip } from 'antd';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
 import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
 import { DisplayProperties, EntityType, GlossaryNode, GlossaryTerm } from '../../types.generated';
@@ -129,32 +130,34 @@ function GlossaryEntityItem(props: Props) {
     const maxDepth = countMaxDepth(descendants || []);
 
     return (
-        <ItemWrapper type={type} entityData={entityData}>
-            <Link to={`${entityRegistry.getEntityUrl(type, urn)}`}>
-                <GlossaryItem>
-                    {type === EntityType.GlossaryNode && !entityData.urn ? (
-                        <GlossaryNodeCard
-                            name={name}
-                            type={type}
-                            description={description}
-                            displayProperties={displayProperties}
-                            urn={urn}
-                            termCount={termCount}
-                            nodeCount={nodeCount}
-                            maxDepth={maxDepth}
-                        />
-                    ) : (
-                        <GlossaryTermItem
-                            name={name}
-                            description={description}
-                            type={type}
-                            urn={urn}
-                            entityData={entityData}
-                        />
-                    )}
-                </GlossaryItem>
-            </Link>
-        </ItemWrapper>
+        <Tooltip title={name} showArrow={false} placement="top">
+            <ItemWrapper type={type} entityData={entityData}>
+                <Link to={`${entityRegistry.getEntityUrl(type, urn)}`}>
+                    <GlossaryItem>
+                        {type === EntityType.GlossaryNode && !entityData.urn ? (
+                            <GlossaryNodeCard
+                                name={name}
+                                type={type}
+                                description={description}
+                                displayProperties={displayProperties}
+                                urn={urn}
+                                termCount={termCount}
+                                nodeCount={nodeCount}
+                                maxDepth={maxDepth}
+                            />
+                        ) : (
+                            <GlossaryTermItem
+                                name={name}
+                                description={description}
+                                type={type}
+                                urn={urn}
+                                entityData={entityData}
+                            />
+                        )}
+                    </GlossaryItem>
+                </Link>
+            </ItemWrapper>
+        </Tooltip>
     );
 }
 

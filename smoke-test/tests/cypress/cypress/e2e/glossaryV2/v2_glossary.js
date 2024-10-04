@@ -6,8 +6,6 @@ const glossaryTermGroup = "CypressGlossaryGroup";
 let myUrl;
 
 const nevigateGlossaryPage = () => {
-  const themeV2 = Cypress.env("VIRTUAL_ENV");
-  console.log("VIRTUAL_ENV:", themeV2); // Output: true
   cy.visit("/glossary");
   cy.waitTextVisible("Business Glossary");
 };

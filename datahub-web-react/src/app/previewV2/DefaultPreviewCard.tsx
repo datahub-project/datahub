@@ -164,13 +164,6 @@ const ActionsAndStatusSection = styled.div`
     gap: 5px;
 `;
 
-const HeaderContainer = styled.div`
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    width: 100%;
-`;
-
 const Documentation = styled.div`
     width: 90%;
     overflow: hidden;
@@ -263,7 +256,7 @@ export default function DefaultPreviewCard({
     const { removeRelationship, removeButtonText } = useRemoveRelationship(entityType);
 
     return (
-        <PreviewContainer data-testid={dataTestID}>
+        <PreviewContainer data-testid={dataTestID ?? `preview-${urn}`}>
             {(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
                 <GlossaryPreviewCardDecoration urn={urn} entityData={previewData} displayProperties={undefined} />
             )}
@@ -283,20 +276,18 @@ export default function DefaultPreviewCard({
                             ) : (
                                 <div />
                             )}
-                            <HeaderContainer>
-                                <EntityHeader
-                                    name={name}
-                                    onClick={onClick}
-                                    previewType={previewType}
-                                    titleSizePx={titleSizePx}
-                                    url={url}
-                                    urn={urn}
-                                    deprecation={deprecation}
-                                    health={health}
-                                    degree={degree}
-                                    connectionName={previewData?.name}
-                                />
-                            </HeaderContainer>
+                            <EntityHeader
+                                name={name}
+                                onClick={onClick}
+                                previewType={previewType}
+                                titleSizePx={titleSizePx}
+                                url={url}
+                                urn={urn}
+                                deprecation={deprecation}
+                                health={health}
+                                degree={degree}
+                                connectionName={previewData?.name}
+                            />
                         </LeftContainer>
 
                         <ActionsAndStatusSection>
