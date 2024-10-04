@@ -14,8 +14,6 @@
     {
       "name": "Visa",
       "slug": "visa",
-      "imageUrl": "/img/logos/companies/visa.png",
-      "imageSize": "large",
       "link": "https://blog.datahubproject.io/how-visa-uses-datahub-to-scale-data-governance-cace052d61c5",
       "linkType": "blog",
       "tagline": "How Visa uses DataHub to scale data governance",
@@ -55,6 +53,12 @@
       "tagline": "DataHub Project at Pinterest",
       "category": "B2B & B2C",
       "description": "Pinterest adopted a DataHub project to enhance metadata management for its big data query platform, facilitating better data navigation and understanding."
+    },
+    {
+      "name": "Snap, Inc.",
+      "slug": "snap",
+      "imageUrl": "/img/logos/companies/snap.png",
+      "imageSize": "small"
     },
     {
       "name": "Airtel",
