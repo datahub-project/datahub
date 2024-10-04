@@ -27,6 +27,7 @@ import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeMethod;
@@ -39,7 +40,10 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
   private OperationContext opContext;
 
   @Autowired private SearchConfiguration searchConfiguration;
-  @Autowired private CustomSearchConfiguration customSearchConfiguration;
+
+  @Autowired
+  @Qualifier("defaultTestCustomSearchConfig")
+  private CustomSearchConfiguration customSearchConfiguration;
 
   @BeforeMethod
   public void setup() throws RemoteInvocationException, URISyntaxException {

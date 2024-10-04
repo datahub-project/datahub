@@ -99,15 +99,18 @@ record SchemaField {
     },
     "/tags/*/attribution/time": {
         "fieldName": "fieldTagAttributionDates",
-        "fieldType": "DATETIME"
+        "fieldType": "DATETIME",
+        "queryByDefault": false,
       },
     "/tags/*/attribution/actor": {
         "fieldName": "fieldTagAttributionActors",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false,
       },
     "/tags/*/attribution/source": {
         "fieldName": "fieldTagAttributionSources",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false,
       },
   }
   globalTags: optional GlobalTags
@@ -129,15 +132,18 @@ record SchemaField {
     },
     "/terms/*/attribution/time": {
         "fieldName": "fieldTermAttributionDates",
-        "fieldType": "DATETIME"
+        "fieldType": "DATETIME",
+        "queryByDefault": false,
       },
     "/terms/*/attribution/actor": {
         "fieldName": "fieldTermAttributionActors",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false,
       },
     "/terms/*/attribution/source": {
         "fieldName": "fieldTermAttributionSources",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false,
       },
   }
   glossaryTerms: optional GlossaryTerms
