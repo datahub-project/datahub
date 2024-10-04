@@ -1209,7 +1209,7 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "PRD", "TST" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "PRD", "TST", "SANDBOX" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
@@ -1220,6 +1220,7 @@
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
       "RVW" : "Designates review fabrics",
+      "SANDBOX" : "Designates sandbox fabrics",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
       "TST" : "Alternative Test spelling",
@@ -4999,11 +5000,7 @@
                     "name" : "description",
                     "type" : "string",
                     "doc" : "Documentation of the MLPrimaryKey",
-                    "optional" : true,
-                    "Searchable" : {
-                      "fieldType" : "TEXT",
-                      "hasValuesFieldName" : "hasDescription"
-                    }
+                    "optional" : true
                   }, {
                     "name" : "dataType",
                     "type" : "com.linkedin.common.MLFeatureDataType",
