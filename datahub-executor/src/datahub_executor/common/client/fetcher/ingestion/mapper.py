@@ -45,7 +45,7 @@ def graphql_to_ingestion_sources(
 
 
 def ingestion_sources_to_execution_requests(
-    ingestion_sources: List[IngestionSource],
+    ingestion_sources: List[IngestionSource], default_cli_version: str
 ) -> List[ExecutionRequest]:
     execution_requests = []
 
@@ -62,9 +62,11 @@ def ingestion_sources_to_execution_requests(
                 args={
                     "urn": ingestion_source.urn,
                     "recipe": json.dumps(recipe),
-                    "version": ingestion_source.config.version
-                    if ingestion_source.config.version
-                    else "latest",
+                    "version": (
+                        ingestion_source.config.version
+                        if ingestion_source.config.version
+                        else default_cli_version
+                    ),
                     "debug_mode": ingestion_source.config.debug_mode,
                     **ingestion_source.config.extra_args,
                 },

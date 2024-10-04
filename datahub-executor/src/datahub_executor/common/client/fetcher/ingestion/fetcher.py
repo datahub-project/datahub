@@ -51,8 +51,22 @@ class IngestionFetcher(Fetcher):
         )
         return graphql_to_ingestion_sources(result)
 
+    def _fetch_default_cli_version(self) -> str:
+        """
+        Fetch the default CLI version from the API.
+        """
+
+        server_config = self.graph.get_server_config()
+
+        # We don't have any fallbacks here - if we can't figure out the version to run with,
+        # we should fail loudly.
+        return server_config["managedIngestion"]["defaultCliVersion"]
+
     def fetch_execution_requests(self) -> List[ExecutionRequestSchedule]:
         raw = self._fetch_ingestion_sources()
-        ingestions = ingestion_sources_to_execution_requests(raw)
+        default_cli_version = self._fetch_default_cli_version()
+        ingestions = ingestion_sources_to_execution_requests(
+            raw, default_cli_version=default_cli_version
+        )
         self.touch()
         return ingestions
