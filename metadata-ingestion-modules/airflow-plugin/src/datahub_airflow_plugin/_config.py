@@ -50,6 +50,8 @@ class DatahubLineageConfig(ConfigModel):
 
     disable_openlineage_plugin: bool = True
 
+    render_templates: bool = True
+
     # Note that this field is only respected by the lineage backend.
     # The Airflow plugin behaves as if it were set to True.
     graceful_exceptions: bool = True
@@ -84,6 +86,7 @@ def get_lineage_config() -> DatahubLineageConfig:
     disable_openlineage_plugin = conf.get(
         "datahub", "disable_openlineage_plugin", fallback=True
     )
+    render_templates = conf.get("datahub", "render_templates", fallback=True)
     datajob_url_link = conf.get(
         "datahub", "datajob_url_link", fallback=DatajobUrl.TASKINSTANCE.value
     )
@@ -102,4 +105,5 @@ def get_lineage_config() -> DatahubLineageConfig:
         debug_emitter=debug_emitter,
         disable_openlineage_plugin=disable_openlineage_plugin,
         datajob_url_link=datajob_url_link,
+        enable_render_templates=render_templates,
     )
