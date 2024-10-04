@@ -101,6 +101,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
+
     Assert.assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
@@ -147,6 +148,85 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
+    Assert.assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromCriterionIEqualValues() { // Test case insensitive searches
+
+    final Criterion singleValueCriterion =
+        buildCriterion("myTestField", Condition.IEQUAL, "value1");
+
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
+
+    String expected =
+        "{\n"
+            + "  \"bool\" : {\n"
+            + "    \"should\" : [\n"
+            + "      {\n"
+            + "        \"term\" : {\n"
+            + "          \"myTestField.keyword\" : {\n"
+            + "            \"value\" : \"value1\",\n"
+            + "            \"case_insensitive\" : true,\n"
+            + "            \"boost\" : 1.0\n"
+            + "          }\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"myTestField\"\n"
+            + "  }\n"
+            + "}";
+
+    Assert.assertEquals(result.toString(), expected);
+
+    final Criterion multiValueCriterion =
+        buildCriterion("myTestField", Condition.IEQUAL, "value1", "value2");
+
+    result =
+        ESUtils.getQueryBuilderFromCriterion(
+            multiValueCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
+
+    expected =
+        "{\n"
+            + "  \"bool\" : {\n"
+            + "    \"should\" : [\n"
+            + "      {\n"
+            + "        \"term\" : {\n"
+            + "          \"myTestField.keyword\" : {\n"
+            + "            \"value\" : \"value1\",\n"
+            + "            \"case_insensitive\" : true,\n"
+            + "            \"boost\" : 1.0\n"
+            + "          }\n"
+            + "        }\n"
+            + "      },\n"
+            + "      {\n"
+            + "        \"term\" : {\n"
+            + "          \"myTestField.keyword\" : {\n"
+            + "            \"value\" : \"value2\",\n"
+            + "            \"case_insensitive\" : true,\n"
+            + "            \"boost\" : 1.0\n"
+            + "          }\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"myTestField\"\n"
+            + "  }\n"
+            + "}";
+
     Assert.assertEquals(result.toString(), expected);
   }
 
