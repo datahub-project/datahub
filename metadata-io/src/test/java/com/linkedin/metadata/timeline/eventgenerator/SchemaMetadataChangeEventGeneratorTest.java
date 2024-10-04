@@ -6,6 +6,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
+import com.linkedin.metadata.timeline.data.dataset.DatasetSchemaFieldChangeEvent;
 import com.linkedin.metadata.timeline.data.dataset.SchemaFieldModificationCategory;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.restli.internal.server.util.DataMapUtils;
@@ -18,6 +19,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.commons.io.IOUtils;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
@@ -46,12 +48,11 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
 
   private static void compareModificationCategories(
       Set<String> expectedCategories, List<ChangeEvent> actual) {
-    Set<String> actualModificationCategories = new HashSet<>();
-    actual.forEach(
-        changeEvent -> {
-          actualModificationCategories.add(
-              changeEvent.getParameters().get("modificationCategory").toString());
-        });
+    Set<String> actualModificationCategories =
+        actual.stream()
+            .filter(changeEvent -> changeEvent instanceof DatasetSchemaFieldChangeEvent)
+            .map(changeEvent -> changeEvent.getParameters().get("modificationCategory").toString())
+            .collect(Collectors.toSet());
     assertEquals(actualModificationCategories, expectedCategories);
   }
 
@@ -320,9 +321,11 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
 
     List<ChangeEvent> actual3 = test.getChangeEvents(urn, entity, aspect, to4, to5, auditStamp);
     compareDescriptions(
-        Set.of("A forwards & backwards compatible change due to the newly added field 'ID1'."),
+        Set.of(
+            "A forwards & backwards compatible change due to the newly added field 'ID1'.",
+            "The description 'My Third Description' for the field 'ID1' has been added."),
         actual3);
-    assertEquals(actual3.size(), 1);
+    assertEquals(actual3.size(), 2);
     compareModificationCategories(
         Set.of(SchemaFieldModificationCategory.OTHER.toString()), actual3);
   }

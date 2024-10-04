@@ -55,7 +55,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
       AuditStamp auditStamp) {
     String baseDescription = (baseField != null) ? baseField.getDescription() : null;
     String targetDescription = (targetField != null) ? targetField.getDescription() : null;
-    if (baseField != null && baseDescription == null && targetDescription != null) {
+    if (baseDescription == null && targetDescription != null) {
       // Description got added.
       return ChangeEvent.builder()
           .operation(ChangeOperation.ADD)
@@ -432,6 +432,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
               .fieldUrn(getSchemaFieldUrn(datasetUrn, targetField))
               .nullable(targetField.isNullable())
               .auditStamp(auditStamp)
+              .modificationCategory(SchemaFieldModificationCategory.OTHER)
               .build());
     }
     List<ChangeEvent> propChangeEvents =
