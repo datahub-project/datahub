@@ -12,6 +12,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -22,6 +23,7 @@ import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -43,6 +45,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -63,11 +66,13 @@ import org.opensearch.client.indices.GetMappingsResponse;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortBuilder;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
 public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringContextTests {
+  public static final String DEFAULT_CONFIG = "search_config.yaml";
+  public static final YAMLMapper MAPPER = new YAMLMapper();
 
   @Nonnull
   protected abstract SearchService getSearchService();
@@ -80,6 +85,9 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   @Nonnull
   protected abstract OperationContext getOperationContext();
+
+  @Nonnull
+  protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
 
   @Test
   public void testSearchFieldConfig() throws IOException {
@@ -971,8 +979,13 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
               actualCount,
               expectedCount,
               String.format(
-                  "Search term `%s` has %s fulltext results, expected %s results.",
-                  key, actualCount, expectedCount));
+                  "Search term `%s` has %s fulltext results, expected %s results. Results: %s",
+                  key,
+                  actualCount,
+                  expectedCount,
+                  value.getEntities().stream()
+                      .map(SearchEntity::getEntity)
+                      .collect(Collectors.toList())));
         });
 
     Map<String, Integer> expectedStructuredMinimums =
@@ -998,8 +1011,13 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
               actualCount,
               expectedCount,
               String.format(
-                  "Search term `%s` has %s structured results, expected %s results.",
-                  key, actualCount, expectedCount));
+                  "Search term `%s` has %s structured results, expected %s results. Results: %s",
+                  key,
+                  actualCount,
+                  expectedCount,
+                  value.getEntities().stream()
+                      .map(SearchEntity::getEntity)
+                      .collect(Collectors.toList())));
         });
   }
 
@@ -1318,6 +1336,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     String query = "logging_events";
     final int batchSize = 1;
     int totalResults = 0;
+    List<Urn> resultUrns = new ArrayList<>();
     String scrollId = null;
     do {
       ScrollResult result =
@@ -1325,10 +1344,11 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
       int numResults = result.hasEntities() ? result.getEntities().size() : 0;
       assertTrue(numResults <= batchSize);
       totalResults += numResults;
+      resultUrns.addAll(result.getEntities().stream().map(SearchEntity::getEntity).toList());
       scrollId = result.getScrollId();
     } while (scrollId != null);
     // expect 2 total matching results
-    assertEquals(totalResults, 2);
+    assertEquals(totalResults, 2, String.format("query `%s` Results: %s", query, resultUrns));
   }
 
   @Test
@@ -1703,7 +1723,15 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     assertTrue(
         result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
         String.format("%s - Expected search results to include matched fields", query));
-    assertEquals(result.getEntities().size(), 2);
+    assertEquals(
+        result.getEntities().size(),
+        2,
+        String.format(
+            "Query: `%s` Results: %s",
+            query,
+            result.getEntities().stream()
+                .map(SearchEntity::getEntity)
+                .collect(Collectors.toList())));
   }
 
   @Test
@@ -1726,7 +1754,15 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     assertTrue(
         result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
         String.format("%s - Expected search results to include matched fields", query));
-    assertEquals(result.getEntities().size(), 2);
+    assertEquals(
+        result.getEntities().size(),
+        2,
+        String.format(
+            "Query: `%s` Results: %s",
+            query,
+            result.getEntities().stream()
+                .map(SearchEntity::getEntity)
+                .collect(Collectors.toList())));
   }
 
   @Test
@@ -1896,7 +1932,15 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
         String.format("%s - Expected search results to include matched fields", query));
 
-    assertEquals(result.getEntities().size(), 2);
+    assertEquals(
+        result.getEntities().size(),
+        2,
+        String.format(
+            "Query: `%s` Results: %s",
+            query,
+            result.getEntities().stream()
+                .map(SearchEntity::getEntity)
+                .collect(Collectors.toList())));
     assertEquals(
         result.getEntities().get(0).getEntity().toString(),
         "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
@@ -1988,7 +2032,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   @Test
   public void testFilterOnHasValuesField() {
-    AssertJUnit.assertNotNull(getSearchService());
+    assertNotNull(getSearchService());
     Filter filter =
         new Filter()
             .setOr(
@@ -2010,7 +2054,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   @Test
   public void testFilterOnNumValuesField() {
-    AssertJUnit.assertNotNull(getSearchService());
+    assertNotNull(getSearchService());
     Filter filter =
         new Filter()
             .setOr(
@@ -2028,6 +2072,34 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
             "*",
             filter);
     assertEquals(searchResult.getEntities().size(), 4);
+  }
+
+  /**
+   * Ensure default search configuration matches the test fixture configuration (allowing for some
+   * differences)
+   */
+  @Test
+  public void testConfig() throws IOException {
+    final CustomSearchConfiguration defaultConfig;
+    try (InputStream stream = new ClassPathResource(DEFAULT_CONFIG).getInputStream()) {
+      defaultConfig = MAPPER.readValue(stream, CustomSearchConfiguration.class);
+    }
+
+    final CustomSearchConfiguration fixtureConfig =
+        MAPPER.readValue(
+            MAPPER.writeValueAsBytes(getCustomSearchConfiguration()),
+            CustomSearchConfiguration.class);
+
+    // test specifics
+    ((List<Map<String, Object>>)
+            fixtureConfig.getQueryConfigurations().get(1).getFunctionScore().get("functions"))
+        .remove(1);
+
+    ((List<Map<String, Object>>)
+            fixtureConfig.getQueryConfigurations().get(2).getFunctionScore().get("functions"))
+        .remove(1);
+
+    assertEquals(fixtureConfig, defaultConfig);
   }
 
   private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request)
