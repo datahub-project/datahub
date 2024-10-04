@@ -41,7 +41,7 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
         changeEvent -> {
           actualDescriptions.add(changeEvent.getDescription());
         });
-    assertEquals(expectedDescriptions, actualDescriptions);
+    assertEquals(actualDescriptions, expectedDescriptions);
   }
 
   private static void compareModificationCategories(
@@ -52,7 +52,7 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
           actualModificationCategories.add(
               changeEvent.getParameters().get("modificationCategory").toString());
         });
-    assertEquals(expectedCategories, actualModificationCategories);
+    assertEquals(actualModificationCategories, expectedCategories);
   }
 
   private static Aspect<SchemaMetadata> getSchemaMetadata(List<SchemaField> schemaFieldList) {
@@ -234,6 +234,97 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
     List<ChangeEvent> actual = test.getChangeEvents(urn, entity, aspect, from, to, auditStamp);
 
     assertEquals(14, actual.size());
+  }
+
+  @Test
+  public void testSchemaFieldPrimaryKeyChangeRenameAdd() throws Exception {
+    // When a rename cannot be detected, treated as drop -> add
+    SchemaMetadataChangeEventGenerator test = new SchemaMetadataChangeEventGenerator();
+
+    Urn urn = getTestUrn();
+    String entity = "dataset";
+    String aspect = "schemaMetadata";
+    AuditStamp auditStamp = getTestAuditStamp();
+
+    Aspect<SchemaMetadata> from =
+        getSchemaMetadata(
+            List.of(
+                new SchemaField()
+                    .setFieldPath("ID")
+                    .setNativeDataType("NUMBER(16,1)")
+                    .setDescription("My Description"),
+                new SchemaField()
+                    .setFieldPath("ID2")
+                    .setNativeDataType("NUMBER(16,1)")
+                    .setDescription("My Other Description")));
+    from.getValue().setPrimaryKeys(new StringArray(List.of("ID")));
+    Aspect<SchemaMetadata> to3 =
+        getSchemaMetadata(
+            List.of(
+                new SchemaField()
+                    .setFieldPath("ID")
+                    .setNativeDataType("NUMBER(16,1)")
+                    .setDescription("My Description"),
+                new SchemaField()
+                    .setFieldPath("ID2")
+                    .setNativeDataType("NUMBER(16,1)")
+                    .setDescription("My Other Description")));
+    to3.getValue().setPrimaryKeys(new StringArray(List.of("ID2")));
+    List<ChangeEvent> actual = test.getChangeEvents(urn, entity, aspect, from, to3, auditStamp);
+    compareDescriptions(
+        Set.of(
+            "A backwards incompatible change due to a primary key constraint change. "
+                + "The following fields were removed: 'ID'. The following fields were added: 'ID2'."),
+        actual);
+    assertEquals(1, actual.size());
+    compareModificationCategories(Set.of(SchemaFieldModificationCategory.OTHER.toString()), actual);
+
+    Aspect<SchemaMetadata> to4 =
+        getSchemaMetadata(
+            List.of(
+                new SchemaField()
+                    .setFieldPath("IDZ")
+                    .setNativeDataType("NUMBER(16,1)")
+                    .setDescription("My Description"),
+                new SchemaField()
+                    .setFieldPath("ID2")
+                    .setNativeDataType("NUMBER(16,1)")
+                    .setDescription("My Other Description")));
+    to4.getValue().setPrimaryKeys(new StringArray(List.of("ID2")));
+
+    List<ChangeEvent> actual2 = test.getChangeEvents(urn, entity, aspect, to3, to4, auditStamp);
+    compareDescriptions(
+        Set.of(
+            "A forwards & backwards compatible change due to renaming of the field 'ID to IDZ'."),
+        actual2);
+    assertEquals(1, actual2.size());
+    compareModificationCategories(
+        Set.of(SchemaFieldModificationCategory.RENAME.toString()), actual2);
+
+    Aspect<SchemaMetadata> to5 =
+        getSchemaMetadata(
+            List.of(
+                new SchemaField()
+                    .setFieldPath("IDZ")
+                    .setNativeDataType("NUMBER(16,1)")
+                    .setDescription("My Description"),
+                new SchemaField()
+                    .setFieldPath("ID1")
+                    .setNativeDataType("NUMBER(16,1)")
+                    .setDescription("My Third Description"),
+                new SchemaField()
+                    .setFieldPath("ID2")
+                    .setNativeDataType("NUMBER(16,1)")
+                    .setDescription("My Other Description")));
+    to5.getValue().setPrimaryKeys(new StringArray(List.of("ID2")));
+
+    List<ChangeEvent> actual3 = test.getChangeEvents(urn, entity, aspect, to4, to5, auditStamp);
+    compareDescriptions(
+        Set.of("A forwards & backwards compatible change due to the newly added field 'ID1'."),
+        actual3);
+    assertEquals(actual3.size(), 1);
+    compareModificationCategories(
+        Set.of(SchemaFieldModificationCategory.OTHER.toString()), actual3);
   }
 
   // CHECKSTYLE:OFF
