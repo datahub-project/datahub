@@ -2,16 +2,17 @@ import React, { useState } from "react";
 import Layout from "@theme/Layout";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import useBaseUrl from "@docusaurus/useBaseUrl";
-import Hero from "../../_components/Hero";
+import Hero from "../_components/Hero";
 import QuickstartContent from "../../_components/QuickstartContent";
 import Ecosystem from "../../_components/Ecosystem";
-import Community from "../../_components/Community";
 import SocialMedia from "../../_components/SocialMedia";
 import CaseStudy from "../../_components/CaseStudy";
 import styles from "./styles.module.scss";
 import CloseButton from "@ant-design/icons/CloseCircleFilled";
 import Link from "@docusaurus/Link";
 import clsx from "clsx";
+import quickstartData from "./discoveryQuickstartContent";
+import heroContent from "./discoveryHeroContent";
 
 const companyIndexes = require("../../../../adoptionStoriesIndexes.json");
 const companies = companyIndexes.companies;
@@ -48,7 +49,7 @@ function Home() {
           <iframe src="https://www.acryldata.io/tour" />
         </div>
       ) : null}
-      <Hero onOpenTourModal={onOpenTourModal} />
+      <Hero onOpenTourModal={onOpenTourModal} heroContent={heroContent}/>
       <div className="comapny__logos">
         <div className="text">
           Trusted by industry leaders&nbsp;
@@ -77,7 +78,7 @@ function Home() {
           </a>
         </div>
       </div>
-      <QuickstartContent />
+      <QuickstartContent quickstartContent={quickstartData} />
       <div className={clsx("testimonials", styles.testimonials)}>
         <div className="testimonials__content">
           <div className="testimonials__card">
@@ -85,9 +86,9 @@ function Home() {
               <div className="testimonials__quote_title">
                 Enter end-to-end <br />Data Discovery.
               </div>
-              <div className="testimonials__quote_description">
-                Seamlessly integrated with DataHub Cloud's <br /> Data Observability & Governance solutions.
-              </div>
+              <span className="testimonials__quote_description">
+                Seamlessly integrated with DataHub Cloud's <br /> <span className="testimonials__quote_black">Data Observability</span> & <span className="testimonials__quote_black">Governance</span> solutions.
+              </span>
             </div>
             <div className="testimonials__logo">
               <img src={useBaseUrl("/img/solutions/discovery-icons-group.png")} />
