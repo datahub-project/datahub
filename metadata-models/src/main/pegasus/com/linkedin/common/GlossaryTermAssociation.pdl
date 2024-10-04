@@ -36,15 +36,18 @@ record GlossaryTermAssociation {
   @Searchable = {
     "/time": {
         "fieldName": "termAttributionDates",
-        "fieldType": "DATETIME"
+        "fieldType": "DATETIME",
+        "queryByDefault": false,
       },
     "/actor": {
         "fieldName": "termAttributionActors",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false,
       },
     "/source": {
         "fieldName": "termAttributionSources",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false,
       },
   }
   attribution: optional MetadataAttribution
