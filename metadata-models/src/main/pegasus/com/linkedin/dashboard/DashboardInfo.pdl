@@ -101,6 +101,19 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   datasetEdges: optional array[Edge]
 
   /**
+   * Dashboards included by this dashboard.
+   * Some dashboard entities (e.g. PowerBI Apps) can contain other dashboards.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Contains",
+      "entityTypes": [ "dashboard" ],
+      "isLineage": true
+    }
+  }
+  dashboards: array[Urn] = [ ]
+
+  /**
    * Captures information about who created/last modified/deleted this dashboard and when
    */
   lastModified: ChangeAuditStamps
