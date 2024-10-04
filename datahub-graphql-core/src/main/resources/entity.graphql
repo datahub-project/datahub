@@ -2726,6 +2726,11 @@ enum FabricType {
     Designates review fabrics
     """
     RVW
+
+    """
+    Designates sandbox fabrics
+    """
+    SANDBOX
 }
 
 """
