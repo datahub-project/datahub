@@ -110,7 +110,9 @@ def _wait_for_dag_finish(
 
 @contextlib.contextmanager
 def _run_airflow(
-    tmp_path: pathlib.Path, dags_folder: pathlib.Path, is_v1: bool
+    tmp_path: pathlib.Path,
+    dags_folder: pathlib.Path,
+    is_v1: bool,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -163,6 +165,10 @@ def _run_airflow(
             conn_type="sqlite",
             host=str(tmp_path / "my_sqlite.db"),
         ).get_uri(),
+        # Ensure that the plugin waits for metadata to be written.
+        # Note that we could also disable the RUN_IN_THREAD entirely,
+        # but I want to minimize the difference between CI and prod.
+        "DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT": "30",
         # Convenience settings.
         "AIRFLOW__DATAHUB__LOG_LEVEL": "DEBUG",
         "AIRFLOW__DATAHUB__DEBUG_EMITTER": "True",
@@ -272,6 +278,8 @@ test_cases = [
     DagTestCase("basic_iolets"),
     DagTestCase("snowflake_operator", success=False, v2_only=True),
     DagTestCase("sqlite_operator", v2_only=True),
+    DagTestCase("custom_operator_dag", v2_only=True),
+    DagTestCase("datahub_emitter_operator_jinja_template_dag", v2_only=True),
 ]
 
 

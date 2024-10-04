@@ -33,6 +33,8 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.util.Arrays;
@@ -62,14 +64,16 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Nonnull
   protected abstract ESIndexBuilder getIndexBuilder();
 
-  private final IndexConvention _indexConvention = IndexConventionImpl.NO_PREFIX;
+  private final IndexConvention _indexConvention = IndexConventionImpl.noPrefix("MD5");
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
+  private OperationContext operationContext;
 
   private static final String TAG_RELATIONSHIP = "SchemaFieldTaggedWith";
 
   @BeforeClass
   public void setup() {
+    operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
     _client = buildService(_graphQueryConfiguration.isEnableMultiPathSearch());
     _client.reindexAll(Collections.emptySet());
   }
@@ -101,14 +105,16 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     ESGraphQueryDAO readDAO =
         new ESGraphQueryDAO(
             getSearchClient(), lineageRegistry, _indexConvention, _graphQueryConfiguration);
-    ESGraphWriteDAO writeDAO = new ESGraphWriteDAO(_indexConvention, getBulkProcessor(), 1);
+    ESGraphWriteDAO writeDAO =
+        new ESGraphWriteDAO(_indexConvention, getBulkProcessor(), 1, _graphQueryConfiguration);
     return new ElasticSearchGraphService(
         lineageRegistry,
         getBulkProcessor(),
         _indexConvention,
         writeDAO,
         readDAO,
-        getIndexBuilder());
+        getIndexBuilder(),
+        "MD5");
   }
 
   @Override
@@ -275,6 +281,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     RelatedEntitiesResult result =
         getGraphService()
             .findRelatedEntities(
+                operationContext,
                 Collections.singletonList(datasetType),
                 newFilter(Collections.singletonMap("urn", datasetUrn.toString())),
                 Collections.singletonList("tag"),
@@ -289,6 +296,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     result =
         getGraphService()
             .findRelatedEntities(
+                operationContext,
                 Collections.singletonList(datasetType),
                 newFilter(Collections.singletonMap("urn", datasetUrn.toString())),
                 Collections.singletonList("tag"),
@@ -471,15 +479,17 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
       @Nullable Integer entitiesExploredPerHopLimit) {
     return getGraphService()
         .getLineage(
+            operationContext.withLineageFlags(
+                f ->
+                    new LineageFlags()
+                        .setStartTimeMillis(startTime, SetMode.REMOVE_IF_NULL)
+                        .setEndTimeMillis(endTime, SetMode.REMOVE_IF_NULL)
+                        .setEntitiesExploredPerHopLimit(
+                            entitiesExploredPerHopLimit, SetMode.REMOVE_IF_NULL)),
             urn,
             direction,
             0,
             count,
-            3,
-            new LineageFlags()
-                .setStartTimeMillis(startTime, SetMode.REMOVE_IF_NULL)
-                .setEndTimeMillis(endTime, SetMode.REMOVE_IF_NULL)
-                .setEntitiesExploredPerHopLimit(
-                    entitiesExploredPerHopLimit, SetMode.REMOVE_IF_NULL));
+            3);
   }
 }

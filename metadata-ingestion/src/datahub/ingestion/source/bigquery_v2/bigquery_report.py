@@ -11,7 +11,8 @@ from datahub.ingestion.glossary.classification_mixin import ClassificationReport
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
-from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
+from datahub.utilities.lossy_collections import LossyDict, LossyList, LossySet
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
@@ -30,8 +31,9 @@ class BigQuerySchemaApiPerfReport(Report):
     num_get_views_for_dataset_api_requests: int = 0
     num_get_snapshots_for_dataset_api_requests: int = 0
 
-    list_projects: PerfTimer = field(default_factory=PerfTimer)
-    list_datasets: PerfTimer = field(default_factory=PerfTimer)
+    list_projects_timer: PerfTimer = field(default_factory=PerfTimer)
+    list_projects_with_labels_timer: PerfTimer = field(default_factory=PerfTimer)
+    list_datasets_timer: PerfTimer = field(default_factory=PerfTimer)
 
     get_columns_for_dataset_sec: float = 0
     get_tables_for_dataset_sec: float = 0
@@ -54,6 +56,21 @@ class BigQueryProcessingPerfReport(Report):
     sql_parsing_sec: PerfTimer = field(default_factory=PerfTimer)
     store_usage_event_sec: PerfTimer = field(default_factory=PerfTimer)
     usage_state_size: Optional[str] = None
+
+
+@dataclass
+class BigQueryQueriesExtractorReport(Report):
+    query_log_fetch_timer: PerfTimer = field(default_factory=PerfTimer)
+    audit_log_preprocessing_timer: PerfTimer = field(default_factory=PerfTimer)
+    audit_log_load_timer: PerfTimer = field(default_factory=PerfTimer)
+    sql_aggregator: Optional[SqlAggregatorReport] = None
+    num_queries_by_project: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+
+    num_total_queries: int = 0
+    num_unique_queries: int = 0
+
+    num_discovered_tables: Optional[int] = None
+    inferred_temp_tables: LossySet[str] = field(default_factory=LossySet)
 
 
 @dataclass
@@ -141,10 +158,8 @@ class BigQueryV2Report(
 
     snapshots_scanned: int = 0
 
-    num_view_definitions_parsed: int = 0
-    num_view_definitions_failed_parsing: int = 0
-    num_view_definitions_failed_column_parsing: int = 0
-    view_definitions_parsing_failures: LossyList[str] = field(default_factory=LossyList)
+    # view lineage
+    sql_aggregator: Optional[SqlAggregatorReport] = None
 
     read_reasons_stat: Counter[str] = field(default_factory=collections.Counter)
     operation_types_stat: Counter[str] = field(default_factory=collections.Counter)
@@ -168,6 +183,8 @@ class BigQueryV2Report(
     usage_start_time: Optional[datetime] = None
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
+
+    queries_extractor: Optional[BigQueryQueriesExtractorReport] = None
 
     def set_ingestion_stage(self, project_id: str, stage: str) -> None:
         self.report_ingestion_stage_start(f"{project_id}: {stage}")

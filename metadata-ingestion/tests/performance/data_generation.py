@@ -7,6 +7,7 @@ We could also get more human data by using Faker.
 
 This is a work in progress, built piecemeal as needed.
 """
+
 import random
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict

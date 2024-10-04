@@ -22,6 +22,7 @@ import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -63,9 +64,7 @@ public class AggregateAcrossEntitiesResolver
                       UrnUtils.getUrn(input.getViewUrn()))
                   : null;
 
-          final Filter inputFilter =
-              ResolverUtils.buildFilter(
-                  null, input.getOrFilters(), context.getOperationContext().getAspectRetriever());
+          final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
 
           final SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
 
@@ -94,7 +93,7 @@ public class AggregateAcrossEntitiesResolver
                         : inputFilter,
                     0,
                     0, // 0 entity count because we don't want resolved entities
-                    null,
+                    Collections.emptyList(),
                     facets));
           } catch (Exception e) {
             log.error(

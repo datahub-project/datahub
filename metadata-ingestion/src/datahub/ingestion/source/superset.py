@@ -233,6 +233,8 @@ class SupersetSource(StatefulIngestionSourceBase):
             platform_name = get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
         if platform_name == "awsathena":
             return "athena"
+        if platform_name == "clickhousedb":
+            return "clickhouse"
         return platform_name
 
     @lru_cache(maxsize=None)

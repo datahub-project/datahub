@@ -83,9 +83,11 @@ def make_usage_workunit(
         budget_per_query: int = int(queries_character_limit / top_n_queries)
         top_sql_queries = [
             trim_query(
-                format_sql_query(query, keyword_case="upper", reindent_aligned=True)
-                if format_sql_queries
-                else query,
+                (
+                    format_sql_query(query, keyword_case="upper", reindent_aligned=True)
+                    if format_sql_queries
+                    else query
+                ),
                 budget_per_query=budget_per_query,
                 query_trimmer_string=query_trimmer_string,
             )
@@ -149,7 +151,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
             self.userFreq[user_email] += count
 
         if query:
-            self.queryCount += 1
+            self.queryCount += count
             self.queryFreq[query] += count
         for column in fields:
             self.columnFreq[column] += count
@@ -295,21 +297,25 @@ def convert_usage_aggregation_class(
             uniqueUserCount=obj.metrics.uniqueUserCount,
             totalSqlQueries=obj.metrics.totalSqlQueries,
             topSqlQueries=obj.metrics.topSqlQueries,
-            userCounts=[
-                DatasetUserUsageCountsClass(
-                    user=u.user, count=u.count, userEmail=u.userEmail
-                )
-                for u in obj.metrics.users
-                if u.user is not None
-            ]
-            if obj.metrics.users
-            else None,
-            fieldCounts=[
-                DatasetFieldUsageCountsClass(fieldPath=f.fieldName, count=f.count)
-                for f in obj.metrics.fields
-            ]
-            if obj.metrics.fields
-            else None,
+            userCounts=(
+                [
+                    DatasetUserUsageCountsClass(
+                        user=u.user, count=u.count, userEmail=u.userEmail
+                    )
+                    for u in obj.metrics.users
+                    if u.user is not None
+                ]
+                if obj.metrics.users
+                else None
+            ),
+            fieldCounts=(
+                [
+                    DatasetFieldUsageCountsClass(fieldPath=f.fieldName, count=f.count)
+                    for f in obj.metrics.fields
+                ]
+                if obj.metrics.fields
+                else None
+            ),
         )
         return MetadataChangeProposalWrapper(entityUrn=obj.resource, aspect=aspect)
     else:

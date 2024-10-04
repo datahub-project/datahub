@@ -12,6 +12,7 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigQuerySchemaApi
+from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilder
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -96,7 +97,9 @@ class BigQueryTestConnection:
                 client: bigquery.Client = config.get_bigquery_client()
                 assert client
                 bigquery_data_dictionary = BigQuerySchemaApi(
-                    BigQueryV2Report().schema_api_perf, client
+                    report=BigQueryV2Report().schema_api_perf,
+                    projects_client=config.get_projects_client(),
+                    client=client,
                 )
                 result = bigquery_data_dictionary.get_datasets_for_project_id(
                     project_id, 10
@@ -110,7 +113,7 @@ class BigQueryTestConnection:
                     project_id=project_id,
                     dataset_name=result[0].name,
                     tables={},
-                    with_data_read_permission=config.have_table_data_read_permission,
+                    with_partitions=config.have_table_data_read_permission,
                     report=BigQueryV2Report(),
                 )
                 if len(list(tables)) == 0:
@@ -134,7 +137,10 @@ class BigQueryTestConnection:
         report: BigQueryV2Report,
     ) -> CapabilityReport:
         lineage_extractor = BigqueryLineageExtractor(
-            connection_conf, report, lambda ref: ""
+            connection_conf,
+            report,
+            schema_resolver=SchemaResolver(platform="bigquery"),
+            identifiers=BigQueryIdentifierBuilder(connection_conf, report),
         )
         for project_id in project_ids:
             try:
@@ -158,7 +164,7 @@ class BigQueryTestConnection:
             connection_conf,
             report,
             schema_resolver=SchemaResolver(platform="bigquery"),
-            dataset_urn_builder=lambda ref: "",
+            identifiers=BigQueryIdentifierBuilder(connection_conf, report),
         )
         for project_id in project_ids:
             try:

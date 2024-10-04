@@ -186,6 +186,42 @@ def test_file_dict_stores_counter() -> None:
         assert in_memory_counters[i].most_common(2) == cache[str(i)].most_common(2)
 
 
+def test_file_dict_ordering() -> None:
+    """
+    We require that FileBackedDict maintains insertion order, similar to Python's
+    built-in dict. This test makes one of each and validates that they behave the same.
+    """
+
+    cache = FileBackedDict[int](
+        serializer=str,
+        deserializer=int,
+        cache_max_size=1,
+    )
+    data = {}
+
+    num_items = 14
+
+    for i in range(num_items):
+        cache[str(i)] = i
+        data[str(i)] = i
+
+    assert list(cache.items()) == list(data.items())
+
+    # Try some deletes.
+    for i in range(3, num_items, 3):
+        del cache[str(i)]
+        del data[str(i)]
+
+    assert list(cache.items()) == list(data.items())
+
+    # And some updates + inserts.
+    for i in range(2, num_items, 2):
+        cache[str(i)] = i * 10
+        data[str(i)] = i * 10
+
+    assert list(cache.items()) == list(data.items())
+
+
 @dataclass
 class Pair:
     x: int

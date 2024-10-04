@@ -293,6 +293,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSet
 import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.CreateStructuredPropertyResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.DeleteStructuredPropertyResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.RemoveStructuredPropertiesResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpdateStructuredPropertyResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpsertStructuredPropertiesResolver;
@@ -724,7 +725,7 @@ public class GmsGraphQLEngine {
    * Returns a {@link Supplier} responsible for creating a new {@link DataLoader} from a {@link
    * LoadableType}.
    */
-  public Map<String, Function<QueryContext, DataLoader<?, ?>>> loaderSuppliers(
+  public static Map<String, Function<QueryContext, DataLoader<?, ?>>> loaderSuppliers(
       final Collection<? extends LoadableType<?, ?>> loadableTypes) {
     return loadableTypes.stream()
         .collect(
@@ -1034,6 +1035,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("assertion", getResolver(assertionType))
                 .dataFetcher("form", getResolver(formType))
                 .dataFetcher("view", getResolver(dataHubViewType))
+                .dataFetcher("structuredProperty", getResolver(structuredPropertyType))
                 .dataFetcher("listPolicies", new ListPoliciesResolver(this.entityClient))
                 .dataFetcher("getGrantedPrivileges", new GetGrantedPrivilegesResolver())
                 .dataFetcher("listUsers", new ListUsersResolver(this.entityClient))
@@ -1135,16 +1137,16 @@ public class GmsGraphQLEngine {
         });
   }
 
-  private DataFetcher getResolver(LoadableType<?, String> loadableType) {
-    return getResolver(loadableType, this::getUrnField);
+  private static DataFetcher getResolver(LoadableType<?, String> loadableType) {
+    return getResolver(loadableType, GmsGraphQLEngine::getUrnField);
   }
 
-  private <T, K> DataFetcher getResolver(
+  private static <T, K> DataFetcher getResolver(
       LoadableType<T, K> loadableType, Function<DataFetchingEnvironment, K> keyProvider) {
     return new LoadableTypeResolver<>(loadableType, keyProvider);
   }
 
-  private String getUrnField(DataFetchingEnvironment env) {
+  private static String getUrnField(DataFetchingEnvironment env) {
     return env.getArgument(URN_FIELD_NAME);
   }
 
@@ -1190,13 +1192,15 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateDescription",
                   new UpdateDescriptionResolver(entityService, this.entityClient))
-              .dataFetcher("addOwner", new AddOwnerResolver(entityService))
-              .dataFetcher("addOwners", new AddOwnersResolver(entityService))
-              .dataFetcher("batchAddOwners", new BatchAddOwnersResolver(entityService))
-              .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
-              .dataFetcher("batchRemoveOwners", new BatchRemoveOwnersResolver(entityService))
+              .dataFetcher("addOwner", new AddOwnerResolver(entityService, entityClient))
+              .dataFetcher("addOwners", new AddOwnersResolver(entityService, entityClient))
+              .dataFetcher(
+                  "batchAddOwners", new BatchAddOwnersResolver(entityService, entityClient))
+              .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService, entityClient))
+              .dataFetcher(
+                  "batchRemoveOwners", new BatchRemoveOwnersResolver(entityService, entityClient))
               .dataFetcher("addLink", new AddLinkResolver(entityService, this.entityClient))
-              .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
+              .dataFetcher("removeLink", new RemoveLinkResolver(entityService, entityClient))
               .dataFetcher("addGroupMembers", new AddGroupMembersResolver(this.groupService))
               .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(this.groupService))
               .dataFetcher("createGroup", new CreateGroupResolver(this.groupService))
@@ -1210,7 +1214,8 @@ public class GmsGraphQLEngine {
               .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
               .dataFetcher(
                   "setDomain", new SetDomainResolver(this.entityClient, this.entityService))
-              .dataFetcher("batchSetDomain", new BatchSetDomainResolver(this.entityService))
+              .dataFetcher(
+                  "batchSetDomain", new BatchSetDomainResolver(this.entityService, entityClient))
               .dataFetcher(
                   "updateDeprecation",
                   new UpdateDeprecationResolver(this.entityClient, this.entityService))
@@ -1343,6 +1348,9 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateStructuredProperty",
                   new UpdateStructuredPropertyResolver(this.entityClient))
+              .dataFetcher(
+                  "deleteStructuredProperty",
+                  new DeleteStructuredPropertyResolver(this.entityClient))
               .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
               .dataFetcher(
                   "updateIncidentStatus",
@@ -2116,6 +2124,9 @@ public class GmsGraphQLEngine {
                             .getAllowedTypes().stream()
                                 .map(entityTypeType.getKeyProvider())
                                 .collect(Collectors.toList()))));
+    builder.type(
+        "StructuredPropertyEntity",
+        typeWiring -> typeWiring.dataFetcher("exists", new EntityExistsResolver(entityService)));
   }
 
   /**
@@ -2728,9 +2739,11 @@ public class GmsGraphQLEngine {
                         corpUserType,
                         (env) -> {
                           final FormActorAssignment actors = env.getSource();
-                          return actors.getUsers().stream()
-                              .map(CorpUser::getUrn)
-                              .collect(Collectors.toList());
+                          return actors.getUsers() != null
+                              ? actors.getUsers().stream()
+                                  .map(CorpUser::getUrn)
+                                  .collect(Collectors.toList())
+                              : null;
                         }))
                 .dataFetcher(
                     "groups",
@@ -2738,9 +2751,11 @@ public class GmsGraphQLEngine {
                         corpGroupType,
                         (env) -> {
                           final FormActorAssignment actors = env.getSource();
-                          return actors.getGroups().stream()
-                              .map(CorpGroup::getUrn)
-                              .collect(Collectors.toList());
+                          return actors.getGroups() != null
+                              ? actors.getGroups().stream()
+                                  .map(CorpGroup::getUrn)
+                                  .collect(Collectors.toList())
+                              : null;
                         }))
                 .dataFetcher("isAssignedToMe", new IsFormAssignedToMeResolver(groupService)));
   }
@@ -3021,7 +3036,7 @@ public class GmsGraphQLEngine {
                     })));
   }
 
-  private <T, K> DataLoader<K, DataFetcherResult<T>> createDataLoader(
+  private static <T, K> DataLoader<K, DataFetcherResult<T>> createDataLoader(
       final LoadableType<T, K> graphType, final QueryContext queryContext) {
     BatchLoaderContextProvider contextProvider = () -> queryContext;
     DataLoaderOptions loaderOptions =

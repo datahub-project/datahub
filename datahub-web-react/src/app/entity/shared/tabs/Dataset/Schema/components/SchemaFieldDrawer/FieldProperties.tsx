@@ -4,6 +4,8 @@ import { SchemaField, StdDataType } from '../../../../../../../../types.generate
 import { SectionHeader, StyledDivider } from './components';
 import { mapStructuredPropertyValues } from '../../../../Properties/useStructuredProperties';
 import StructuredPropertyValue from '../../../../Properties/StructuredPropertyValue';
+import { EditColumn } from '../../../../Properties/Edit/EditColumn';
+import { useGetEntityWithSchema } from '../../useGetEntitySchema';
 
 const PropertyTitle = styled.div`
     font-size: 14px;
@@ -13,6 +15,8 @@ const PropertyTitle = styled.div`
 
 const PropertyWrapper = styled.div`
     margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
 `;
 
 const PropertiesWrapper = styled.div`
@@ -29,37 +33,50 @@ interface Props {
 
 export default function FieldProperties({ expandedField }: Props) {
     const { schemaFieldEntity } = expandedField;
+    const { refetch } = useGetEntityWithSchema(true);
+    const properties =
+        schemaFieldEntity?.structuredProperties?.properties?.filter((prop) => prop.structuredProperty.exists) || [];
 
-    if (!schemaFieldEntity?.structuredProperties?.properties?.length) return null;
+    if (!schemaFieldEntity || !properties.length) return null;
 
     return (
         <>
             <SectionHeader>Properties</SectionHeader>
             <PropertiesWrapper>
-                {schemaFieldEntity.structuredProperties.properties.map((structuredProp) => {
+                {properties.map((structuredProp) => {
                     const isRichText =
                         structuredProp.structuredProperty.definition.valueType?.info.type === StdDataType.RichText;
                     const valuesData = mapStructuredPropertyValues(structuredProp);
                     const hasMultipleValues = valuesData.length > 1;
 
                     return (
-                        <PropertyWrapper>
-                            <PropertyTitle>{structuredProp.structuredProperty.definition.displayName}</PropertyTitle>
-                            {hasMultipleValues ? (
-                                <StyledList>
-                                    {valuesData.map((value) => (
-                                        <li>
+                        <PropertyWrapper key={structuredProp.structuredProperty.urn}>
+                            <div>
+                                <PropertyTitle>
+                                    {structuredProp.structuredProperty.definition.displayName}
+                                </PropertyTitle>
+                                {hasMultipleValues ? (
+                                    <StyledList>
+                                        {valuesData.map((value) => (
+                                            <li>
+                                                <StructuredPropertyValue value={value} isRichText={isRichText} />
+                                            </li>
+                                        ))}
+                                    </StyledList>
+                                ) : (
+                                    <>
+                                        {valuesData.map((value) => (
                                             <StructuredPropertyValue value={value} isRichText={isRichText} />
-                                        </li>
-                                    ))}
-                                </StyledList>
-                            ) : (
-                                <>
-                                    {valuesData.map((value) => (
-                                        <StructuredPropertyValue value={value} isRichText={isRichText} />
-                                    ))}
-                                </>
-                            )}
+                                        ))}
+                                    </>
+                                )}
+                            </div>
+                            <EditColumn
+                                structuredProperty={structuredProp.structuredProperty}
+                                associatedUrn={schemaFieldEntity.urn}
+                                values={valuesData.map((v) => v.value) || []}
+                                refetch={refetch}
+                            />
                         </PropertyWrapper>
                     );
                 })}

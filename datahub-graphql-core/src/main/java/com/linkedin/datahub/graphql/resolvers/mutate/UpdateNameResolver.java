@@ -4,9 +4,11 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.persistAspect;
 
 import com.linkedin.businessattribute.BusinessAttributeInfo;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -20,6 +22,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.BusinessAttributeUtils
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.dataproduct.DataProductProperties;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
@@ -70,6 +73,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
               return updateDataProductName(targetUrn, input, context);
             case Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME:
               return updateBusinessAttributeName(targetUrn, input, environment.getContext());
+            case Constants.DATASET_ENTITY_NAME:
+              return updateDatasetName(targetUrn, input, environment.getContext());
             default:
               throw new RuntimeException(
                   String.format(
@@ -82,8 +87,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
 
   private Boolean updateGlossaryTermName(
       Urn targetUrn, UpdateNameInput input, QueryContext context) {
-    final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
-    if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)) {
+    if (GlossaryUtils.canUpdateGlossaryEntity(targetUrn, context, _entityClient)) {
       try {
         GlossaryTermInfo glossaryTermInfo =
             (GlossaryTermInfo)
@@ -118,8 +122,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
 
   private Boolean updateGlossaryNodeName(
       Urn targetUrn, UpdateNameInput input, QueryContext context) {
-    final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
-    if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)) {
+    if (GlossaryUtils.canUpdateGlossaryEntity(targetUrn, context, _entityClient)) {
       try {
         GlossaryNodeInfo glossaryNodeInfo =
             (GlossaryNodeInfo)
@@ -226,6 +229,37 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
             actor,
             _entityService);
 
+        return true;
+      } catch (Exception e) {
+        throw new RuntimeException(
+            String.format("Failed to perform update against input %s", input), e);
+      }
+    }
+    throw new AuthorizationException(
+        "Unauthorized to perform this action. Please contact your DataHub administrator.");
+  }
+
+  // udpates editable dataset properties aspect's name field
+  private Boolean updateDatasetName(Urn targetUrn, UpdateNameInput input, QueryContext context) {
+    if (AuthorizationUtils.canEditProperties(targetUrn, context)) {
+      try {
+        if (input.getName() != null) {
+          final EditableDatasetProperties editableDatasetProperties =
+              new EditableDatasetProperties();
+          editableDatasetProperties.setName(input.getName());
+          final AuditStamp auditStamp = new AuditStamp();
+          Urn actor = UrnUtils.getUrn(context.getActorUrn());
+          auditStamp.setActor(actor, SetMode.IGNORE_NULL);
+          auditStamp.setTime(System.currentTimeMillis());
+          editableDatasetProperties.setLastModified(auditStamp);
+          persistAspect(
+              context.getOperationContext(),
+              targetUrn,
+              Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+              editableDatasetProperties,
+              actor,
+              _entityService);
+        }
         return true;
       } catch (Exception e) {
         throw new RuntimeException(

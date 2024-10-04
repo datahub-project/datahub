@@ -15,9 +15,17 @@ def get_long_description():
 
 rest_common = {"requests", "requests_file"}
 
+sqlglot_lib = {
+    # Using an Acryl fork of sqlglot.
+    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
+    "acryl-sqlglot[rs]==24.0.1.dev7",
+}
+
 _version: str = package_metadata["__version__"]
 _self_pin = (
-    f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
+    f"=={_version}"
+    if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
+    else ""
 )
 
 base_requirements = {
@@ -28,6 +36,7 @@ base_requirements = {
     # Ignoring the dependency below because it causes issues with the vercel built wheel install
     # f"acryl-datahub[datahub-rest]{_self_pin}",
     "acryl-datahub[datahub-rest]",
+    *sqlglot_lib,
 }
 
 mypy_stubs = {
@@ -51,6 +60,9 @@ mypy_stubs = {
 base_dev_requirements = {
     *base_requirements,
     *mypy_stubs,
+    "dagster-aws >= 0.11.0",
+    "dagster-snowflake >= 0.11.0",
+    "dagster-snowflake-pandas >= 0.11.0",
     "black==22.12.0",
     "coverage>=5.1",
     "flake8>=6.0.0",
@@ -65,7 +77,8 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "tox",
-    "deepdiff",
+    # Missing numpy requirement in 8.0.0
+    "deepdiff!=8.0.0",
     "requests-mock",
     "freezegun",
     "jsonpickle",

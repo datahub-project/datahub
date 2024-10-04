@@ -263,8 +263,11 @@ def get_column_type(
                 break
 
     if TypeClass is None:
-        sql_report.report_warning(
-            dataset_name, f"unable to map type {column_type!r} to metadata schema"
+        sql_report.info(
+            title="Unable to map column types to DataHub types",
+            message="Got an unexpected column type. The column's parsed field type will not be populated.",
+            context=f"{dataset_name} - {column_type!r}",
+            log=False,
         )
         TypeClass = NullTypeClass
 
@@ -431,7 +434,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         if engine and hasattr(engine, "url") and hasattr(engine.url, "database"):
             if engine.url.database is None:
                 return ""
-            return str(engine.url.database).strip('"').lower()
+            return str(engine.url.database).strip('"')
         else:
             raise Exception("Unable to get database name from Sqlalchemy inspector")
 
@@ -1030,11 +1033,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         field = SchemaField(
             fieldPath=column["name"],
             type=get_column_type(self.report, dataset_name, column["type"]),
-            nativeDataType=full_type
-            if full_type is not None
-            else get_native_data_type_for_sqlalchemy_type(
-                column["type"],
-                inspector=inspector,
+            nativeDataType=(
+                full_type
+                if full_type is not None
+                else get_native_data_type_for_sqlalchemy_type(
+                    column["type"],
+                    inspector=inspector,
+                )
             ),
             description=column.get("comment", None),
             nullable=column["nullable"],

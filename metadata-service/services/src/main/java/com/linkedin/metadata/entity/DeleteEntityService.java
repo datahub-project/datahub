@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -30,7 +31,6 @@ import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -49,6 +49,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -93,6 +94,7 @@ public class DeleteEntityService {
 
     RelatedEntitiesResult relatedEntities =
         _graphService.findRelatedEntities(
+            opContext,
             null,
             newFilter("urn", urn.toString()),
             null,
@@ -130,6 +132,7 @@ public class DeleteEntityService {
         sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
         relatedEntities =
             _graphService.findRelatedEntities(
+                opContext,
                 null,
                 newFilter("urn", urn.toString()),
                 null,
@@ -342,9 +345,9 @@ public class DeleteEntityService {
    */
   private void deleteAspect(
       @Nonnull OperationContext opContext, Urn urn, String aspectName, RecordTemplate prevAspect) {
-    final RollbackResult rollbackResult =
+    final Optional<RollbackResult> rollbackResult =
         _entityService.deleteAspect(opContext, urn.toString(), aspectName, new HashMap<>(), true);
-    if (rollbackResult == null || rollbackResult.getNewValue() != null) {
+    if (rollbackResult.isEmpty() || rollbackResult.get().getNewValue() != null) {
       log.error(
           "Failed to delete aspect with references. Before {}, after: null, please check GMS logs"
               + " logs for more information",
@@ -568,25 +571,15 @@ public class DeleteEntityService {
       // first, get all entities with this form assigned on it
       final CriterionArray incompleteFormsArray = new CriterionArray();
       incompleteFormsArray.add(
-          new Criterion()
-              .setField("incompleteForms")
-              .setValue(deletedUrn.toString())
-              .setCondition(Condition.EQUAL));
+          buildCriterion("incompleteForms", Condition.EQUAL, deletedUrn.toString()));
       final CriterionArray completedFormsArray = new CriterionArray();
       completedFormsArray.add(
-          new Criterion()
-              .setField("completedForms")
-              .setValue(deletedUrn.toString())
-              .setCondition(Condition.EQUAL));
+          buildCriterion("completedForms", Condition.EQUAL, deletedUrn.toString()));
       // next, get all metadata tests created for this form
       final CriterionArray metadataTestSourceArray = new CriterionArray();
       metadataTestSourceArray.add(
-          new Criterion()
-              .setField("sourceEntity")
-              .setValue(deletedUrn.toString())
-              .setCondition(Condition.EQUAL));
-      metadataTestSourceArray.add(
-          new Criterion().setField("sourceType").setValue("FORMS").setCondition(Condition.EQUAL));
+          buildCriterion("sourceEntity", Condition.EQUAL, deletedUrn.toString()));
+      metadataTestSourceArray.add(buildCriterion("sourceType", Condition.EQUAL, "FORMS"));
       Filter filter =
           new Filter()
               .setOr(
@@ -729,11 +722,11 @@ public class DeleteEntityService {
             .collect(Collectors.toList());
     List<FormAssociation> completedForms =
         formsAspect.getCompletedForms().stream()
-            .filter(completedForm -> completedForm.getUrn() != deletedUrn)
+            .filter(completedForm -> !completedForm.getUrn().equals(deletedUrn))
             .collect(Collectors.toList());
     final List<FormVerificationAssociation> verifications =
         formsAspect.getVerifications().stream()
-            .filter(verification -> verification.getForm() != deletedUrn)
+            .filter(verification -> !verification.getForm().equals(deletedUrn))
             .collect(Collectors.toList());
 
     updatedAspect.get().setIncompleteForms(new FormAssociationArray(incompleteForms));

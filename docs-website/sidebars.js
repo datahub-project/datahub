@@ -99,6 +99,23 @@ module.exports = {
           ],
         },
         {
+          label: "Automations",
+          type: "category",
+          items: [
+            {
+              label: "Documentation Propagation",
+              type: "doc",
+              id: "docs/automations/docs-propagation",
+            },
+            {
+              label: "Snowflake Tag Sync",
+              type: "doc",
+              id: "docs/automations/snowflake-tag-propagation",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
           label: "Business Attributes",
           type: "doc",
           id: "docs/businessattributes",
@@ -290,6 +307,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_5",
             "docs/managed-datahub/release-notes/v_0_3_4",
             "docs/managed-datahub/release-notes/v_0_3_3",
             "docs/managed-datahub/release-notes/v_0_3_2",
@@ -429,6 +447,11 @@ module.exports = {
         },
         {
           type: "doc",
+          id: "docs/lineage/prefect",
+          label: "Prefect",
+        },
+        {
+          type: "doc",
           id: "metadata-integration/java/acryl-spark-lineage/README",
           label: "Spark",
         },
@@ -527,7 +550,12 @@ module.exports = {
       "Advanced Guides": [
         "docs/how/delete-metadata",
         "docs/how/configuring-authorization-with-apache-ranger",
-        "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
+        {
+          "SCIM Provisioning": [
+            "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
+            "docs/managed-datahub/configuring-identity-provisioning-with-okta",
+          ],
+        },
         "docs/how/backup-datahub",
         "docs/how/restore-indices",
         "docs/advanced/db-retention",
@@ -607,6 +635,7 @@ module.exports = {
         "docs/advanced/browse-paths-upgrade",
         "docs/browseV2/browse-paths-v2",
         "docs/plugins",
+        "docs/advanced/bootstrap-mcps",
       ],
     },
     {
@@ -895,6 +924,8 @@ module.exports = {
     // "metadata-integration/java/openlineage-converter/README"
     //"metadata-ingestion-modules/airflow-plugin/README"
     //"metadata-ingestion-modules/dagster-plugin/README"
+    //"metadata-ingestion-modules/prefect-plugin/README"
+    //"metadata-ingestion-modules/gx-plugin/README"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
     // "docs/what/entity",
@@ -924,6 +955,8 @@ module.exports = {
     // "docs/_api-guide-template"
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
+    // "smoke-test/tests/openapi/README"
+    // "docs/SECURITY_STANCE"
     // ],
   ],
 };

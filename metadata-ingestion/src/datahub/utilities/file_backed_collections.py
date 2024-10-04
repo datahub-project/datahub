@@ -35,8 +35,13 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 _DEFAULT_FILE_NAME = "sqlite.db"
 _DEFAULT_TABLE_NAME = "data"
-_DEFAULT_MEMORY_CACHE_MAX_SIZE = 2000
-_DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 200
+
+# As per https://stackoverflow.com/questions/7106016/too-many-sql-variables-error-in-django-with-sqlite3
+# the default SQLITE_MAX_VARIABLE_NUMBER is 999. There's a few places where we embed one id from every
+# item in the cache into a query (e.g. when implementing __len__), so we need to be careful not to
+# exceed this limit.
+_DEFAULT_MEMORY_CACHE_MAX_SIZE = 900
+_DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 150
 
 # https://docs.python.org/3/library/sqlite3.html#sqlite-and-python-types
 # Datetimes get converted to strings
@@ -178,6 +183,12 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     """A dict-like object that stores its data in a temporary SQLite database.
 
     This is useful for storing large amounts of data that don't fit in memory.
+
+    Like a standard Python dict / OrderedDict, it maintains insertion order.
+
+    It maintains a small in-memory cache to avoid having to serialize/deserialize
+    data from the database too often. This is an implementation detail that isn't
+    exposed to the user.
     """
 
     # Use a predefined connection, able to be shared across multiple FileBacked* objects
@@ -207,8 +218,9 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             self.cache_eviction_batch_size > 0
         ), "cache_eviction_batch_size must be positive"
 
-        assert "key" not in self.extra_columns, '"key" is a reserved column name'
-        assert "value" not in self.extra_columns, '"value" is a reserved column name'
+        for reserved_column in ("key", "value", "rowid"):
+            if reserved_column in self.extra_columns:
+                raise ValueError(f'"{reserved_column}" is a reserved column name')
 
         if self.shared_connection:
             self._conn = self.shared_connection
@@ -222,10 +234,13 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         self._active_object_cache = collections.OrderedDict()
 
         # Create the table.
+        # We could use the built-in sqlite `rowid` column, but that can get changed
+        # if a VACUUM is performed and would break our ordering guarantees.
         if_not_exists = "IF NOT EXISTS" if self._conn.allow_table_name_reuse else ""
         self._conn.execute(
             f"""CREATE TABLE {if_not_exists} {self.tablename} (
-                key TEXT PRIMARY KEY,
+                rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+                key TEXT UNIQUE,
                 value BLOB
                 {''.join(f', {column_name} BLOB' for column_name in self.extra_columns.keys())}
             )"""
@@ -275,13 +290,20 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                 items_to_write.append(tuple(values))
 
         if items_to_write:
+            # Tricky: By using a INSERT INTO ... ON CONFLICT (key) structure, we can
+            # ensure that the rowid remains the same if a value is updated but is
+            # autoincremented when rows are inserted.
             self._conn.executemany(
-                f"""INSERT OR REPLACE INTO {self.tablename} (
+                f"""INSERT INTO {self.tablename} (
                     key,
                     value
                     {''.join(f', {column_name}' for column_name in self.extra_columns.keys())}
                 )
-                VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})""",
+                VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})
+                ON CONFLICT (key) DO UPDATE SET
+                    value = excluded.value
+                    {''.join(f', {column_name} = excluded.{column_name}' for column_name in self.extra_columns.keys())}
+                """,
                 items_to_write,
             )
 
@@ -328,6 +350,13 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             self[key] = default
             return default
 
+    def setdefault(self, key: str, default: _VT) -> _VT:
+        # In almost all cases where setdefault is used, we want to always mark the
+        # value as dirty, even if the key already exists. While `for_mutation` is
+        # preferred, it's easy to accidentally use the default `setdefault`
+        # implementation in a subtly unsafe way, so we override it here.
+        return self.for_mutation(key, default=default)
+
     def __delitem__(self, key: str) -> None:
         in_cache = False
         if key in self._active_object_cache:
@@ -351,14 +380,15 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             self._active_object_cache[key] = self._active_object_cache[key][0], True
 
     def __iter__(self) -> Iterator[str]:
-        # Cache should be small, so safe set cast to avoid mutation during iteration
-        cache_keys = set(self._active_object_cache.keys())
-        yield from cache_keys
+        self.flush()
 
-        cursor = self._conn.execute(f"SELECT key FROM {self.tablename}")
+        # Our active object cache should now be empty, so it's fine to
+        # just pull from the DB.
+        cursor = self._conn.execute(
+            f"SELECT key FROM {self.tablename} ORDER BY rowid ASC"
+        )
         for row in cursor:
-            if row[0] not in cache_keys:
-                yield row[0]
+            yield row[0]
 
     def items_snapshot(
         self, cond_sql: Optional[str] = None

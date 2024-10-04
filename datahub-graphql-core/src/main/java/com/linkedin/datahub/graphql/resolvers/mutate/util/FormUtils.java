@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -18,7 +20,6 @@ import com.linkedin.form.FormPromptArray;
 import com.linkedin.form.FormPromptType;
 import com.linkedin.form.FormType;
 import com.linkedin.form.StructuredPropertyParams;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -31,7 +32,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 public class FormUtils {
 
@@ -61,16 +61,13 @@ public class FormUtils {
   /** Map a GraphQL CreateDynamicFormAssignmentInput to the GMS DynamicFormAssignment aspect */
   @Nonnull
   public static DynamicFormAssignment mapDynamicFormAssignment(
-      @Nonnull final CreateDynamicFormAssignmentInput input,
-      @Nullable AspectRetriever aspectRetriever) {
+      @Nonnull final CreateDynamicFormAssignmentInput input) {
     Objects.requireNonNull(input, "input must not be null");
 
     final DynamicFormAssignment result = new DynamicFormAssignment();
     final Filter filter =
         new Filter()
-            .setOr(
-                ResolverUtils.buildConjunctiveCriterionArrayWithOr(
-                    input.getOrFilters(), aspectRetriever));
+            .setOr(ResolverUtils.buildConjunctiveCriterionArrayWithOr(input.getOrFilters()));
     result.setFilter(filter);
     return result;
   }
@@ -100,11 +97,7 @@ public class FormUtils {
 
   private static Criterion buildFormCriterion(
       @Nonnull final String formUrn, @Nonnull final String field, final boolean negated) {
-    return new Criterion()
-        .setField(field)
-        .setValue(formUrn)
-        .setCondition(Condition.EQUAL)
-        .setNegated(negated);
+    return buildCriterion(field, Condition.EQUAL, negated, formUrn);
   }
 
   private static boolean isActorExplicitlyAssigned(
@@ -202,7 +195,7 @@ public class FormUtils {
     if (input.getGroups() != null) {
       UrnArray groupUrns = new UrnArray();
       input.getGroups().forEach(group -> groupUrns.add(UrnUtils.getUrn(group)));
-      result.setUsers(groupUrns);
+      result.setGroups(groupUrns);
     }
 
     return result;

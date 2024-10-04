@@ -13,15 +13,17 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 @Builder
 @Getter
+@EqualsAndHashCode
 public class EntityRegistryContext implements ContextInterface {
   public static final EntityRegistryContext EMPTY =
       EntityRegistryContext.builder().build(EmptyEntityRegistry.EMPTY);
 
-  @Nonnull private final EntityRegistry entityRegistry;
+  @EqualsAndHashCode.Exclude @Nonnull private final EntityRegistry entityRegistry;
   @Nonnull private final Map<String, Set<String>> entityToAspectsMap;
 
   public Set<String> getEntityAspectNames(String entityType) {

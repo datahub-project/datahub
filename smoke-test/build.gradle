@@ -19,7 +19,7 @@ node {
   version = '21.2.0'
 
   // Version of Yarn to use.
-  yarnVersion = '1.22.1'
+  yarnVersion = '1.22.22'
 
   // Base URL for fetching node distributions (set nodeDistBaseUrl if you have a mirror).
   if (project.hasProperty('nodeDistBaseUrl')) {
@@ -42,12 +42,19 @@ node {
 task yarnInstall(type: YarnTask) {
   println  "Root directory:  ${project.rootDir}";
   environment = ['NODE_OPTIONS': '--openssl-legacy-provider']
-  args = ['install', '--cwd', "${project.rootDir}/smoke-test/tests/cypress"]
+  args = ['install', '--network-timeout', '300000', '--cwd', "${project.rootDir}/smoke-test/tests/cypress"]
 }
+
 task cypressLint(type: YarnTask, dependsOn: yarnInstall) {
   environment = ['NODE_OPTIONS': '--openssl-legacy-provider']
   // TODO: Run a full lint instead of just format.
   args = ['--cwd', "${project.rootDir}/smoke-test/tests/cypress", 'run', 'format']
+}
+
+task cypressLintFix(type: YarnTask, dependsOn: yarnInstall) {
+  environment = ['NODE_OPTIONS': '--openssl-legacy-provider']
+  // TODO: Run a full lint instead of just format.
+  args = ['--cwd', "${project.rootDir}/smoke-test/tests/cypress", 'run', 'format', '--write']
 }
 
 task installDev(type: Exec) {
@@ -57,7 +64,7 @@ task installDev(type: Exec) {
     commandLine 'bash', '-c',
         "set -x && " +
         "${python_executable} -m venv ${venv_name} && " +
-        "${venv_name}/bin/python -m pip install --upgrade pip uv wheel setuptools && " +
+        "${venv_name}/bin/python -m pip install --upgrade uv && " +
         "set +x && source ${venv_name}/bin/activate && set -x && " +
         "uv pip install -r requirements.txt && " +
         "touch ${venv_name}/.build_install_dev_sentinel"
@@ -86,10 +93,7 @@ task pythonLintFix(type: Exec, dependsOn: installDev) {
  */
 task noCypressSuite0(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
-    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
-    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
     environment 'TEST_STRATEGY', 'no_cypress_suite0'
-    environment "ELASTIC_ID_HASH_ALGO", "MD5"
 
     workingDir = project.projectDir
     commandLine 'bash', '-c',
@@ -99,10 +103,7 @@ task noCypressSuite0(type: Exec, dependsOn: [installDev, ':metadata-ingestion:in
 
 task noCypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
-    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
-    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
     environment 'TEST_STRATEGY', 'no_cypress_suite1'
-    environment "ELASTIC_ID_HASH_ALGO", "MD5"
 
     workingDir = project.projectDir
     commandLine 'bash', '-c',
@@ -112,10 +113,7 @@ task noCypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:in
 
 task cypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
-    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
-    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
     environment 'TEST_STRATEGY', 'cypress_suite1'
-    environment "ELASTIC_ID_HASH_ALGO", "MD5"
 
     workingDir = project.projectDir
     commandLine 'bash', '-c',
@@ -125,10 +123,7 @@ task cypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:inst
 
 task cypressRest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
-    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
-    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
     environment 'TEST_STRATEGY', 'cypress_rest'
-    environment "ELASTIC_ID_HASH_ALGO", "MD5"
 
     workingDir = project.projectDir
     commandLine 'bash', '-c',
@@ -141,9 +136,6 @@ task cypressRest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:instal
  */
 task cypressDev(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
-    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
-    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
-    environment "ELASTIC_ID_HASH_ALGO", "MD5"
 
     workingDir = project.projectDir
     commandLine 'bash', '-c',
@@ -156,13 +148,18 @@ task cypressDev(type: Exec, dependsOn: [installDev, ':metadata-ingestion:install
  */
 task cypressData(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
-    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
-    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
     environment 'RUN_UI', 'false'
-    environment "ELASTIC_ID_HASH_ALGO", "MD5"
 
     workingDir = project.projectDir
     commandLine 'bash', '-c',
             "source ${venv_name}/bin/activate && set -x && " +
                     "./cypress-dev.sh"
+}
+
+task lint {
+    dependsOn pythonLint, cypressLint
+}
+
+task lintFix {
+    dependsOn pythonLintFix
 }

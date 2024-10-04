@@ -5,9 +5,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.mxe.SystemMetadata;
-import com.linkedin.util.Pair;
 import io.datahubproject.openapi.models.GenericEntity;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -42,9 +39,7 @@ public class GenericEntityV3 extends LinkedHashMap<String, Object>
   public static class GenericEntityV3Builder {
 
     public GenericEntityV3 build(
-        ObjectMapper objectMapper,
-        @Nonnull Urn urn,
-        Map<String, Pair<RecordTemplate, SystemMetadata>> aspects) {
+        ObjectMapper objectMapper, @Nonnull Urn urn, Map<String, AspectItem> aspects) {
       Map<String, GenericAspectV3> jsonObjectMap =
           aspects.entrySet().stream()
               .map(
@@ -53,13 +48,18 @@ public class GenericEntityV3 extends LinkedHashMap<String, Object>
                       String aspectName = entry.getKey();
                       Map<String, Object> aspectValue =
                           objectMapper.readValue(
-                              RecordUtils.toJsonString(entry.getValue().getFirst())
+                              RecordUtils.toJsonString(entry.getValue().getAspect())
                                   .getBytes(StandardCharsets.UTF_8),
                               new TypeReference<>() {});
                       Map<String, Object> systemMetadata =
-                          entry.getValue().getSecond() != null
+                          entry.getValue().getSystemMetadata() != null
                               ? objectMapper.convertValue(
-                                  entry.getValue().getSecond(), new TypeReference<>() {})
+                                  entry.getValue().getSystemMetadata(), new TypeReference<>() {})
+                              : null;
+                      Map<String, Object> auditStamp =
+                          entry.getValue().getAuditStamp() != null
+                              ? objectMapper.convertValue(
+                                  entry.getValue().getAuditStamp().data(), new TypeReference<>() {})
                               : null;
 
                       return Map.entry(
@@ -67,6 +67,7 @@ public class GenericEntityV3 extends LinkedHashMap<String, Object>
                           GenericAspectV3.builder()
                               .value(aspectValue)
                               .systemMetadata(systemMetadata)
+                              .auditStamp(auditStamp)
                               .build());
                     } catch (IOException ex) {
                       throw new RuntimeException(ex);

@@ -36,6 +36,7 @@ jobs:
                 "maggiehays",
                 "pedro93",
                 "RyanHolstien",
+                "sakethvarma397",
                 "Kunal-kankriya",
                 "purnimagarg1",
                 "dushayntAW",
@@ -60,18 +61,14 @@ jobs:
             contains(
               fromJson('[
                 "siladitya2",
-                "sgomezvillamor",
-                "ngamanda",
-                "HarveyLeo",
-                "frsann",
                 "bossenti",
-                "nikolakasev",
                 "PatrickfBraz",
                 "cuong-pham",
                 "sudhakarast",
                 "tkdrahn",
                 "rtekal",
-                "sgm44"
+                "mikeburke24",
+                "DSchmidtDev"
               ]'), 
               github.actor
             ) 

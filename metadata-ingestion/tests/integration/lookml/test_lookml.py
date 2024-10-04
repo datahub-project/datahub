@@ -2,6 +2,7 @@ import logging
 import pathlib
 from typing import Any, List
 from unittest import mock
+from unittest.mock import MagicMock
 
 import pydantic
 import pytest
@@ -14,13 +15,13 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
 from datahub.ingestion.source.looker.looker_template_language import (
     SpecialVariable,
+    load_and_preprocess_file,
     resolve_liquid_variable,
 )
 from datahub.ingestion.source.looker.lookml_source import (
     LookerModel,
     LookerRefinementResolver,
     LookMLSourceConfig,
-    load_lkml,
 )
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
@@ -870,7 +871,11 @@ def test_manifest_parser(pytestconfig: pytest.Config) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     manifest_file = test_resources_dir / "lkml_manifest_samples/complex-manifest.lkml"
 
-    manifest = load_lkml(manifest_file)
+    manifest = load_and_preprocess_file(
+        path=manifest_file,
+        source_config=MagicMock(),
+    )
+
     assert manifest
 
 
@@ -1027,6 +1032,33 @@ def test_field_tag_ingest(pytestconfig, tmp_path, mock_time):
     pipeline.raise_from_status(raise_warnings=True)
 
     golden_path = test_resources_dir / "field_tag_ingestion_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_drop_hive(pytestconfig, tmp_path, mock_time):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "drop_hive_dot.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/drop_hive_dot",
+    )
+
+    new_recipe["source"]["config"]["connection_to_platform_map"] = {
+        "my_connection": "hive"
+    }
+
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    golden_path = test_resources_dir / "drop_hive_dot_golden.json"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_out_file,

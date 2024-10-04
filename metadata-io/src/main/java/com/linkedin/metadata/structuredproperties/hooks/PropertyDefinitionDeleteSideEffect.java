@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX;
+import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -20,7 +21,6 @@ import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -170,12 +170,11 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
       final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
       final CriterionArray andCriterion = new CriterionArray();
 
-      final Criterion propertyExistsCriterion = new Criterion();
       // Cannot rely on automatic field name since the definition is deleted
-      propertyExistsCriterion.setField(
-          STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
-              + StructuredPropertyUtils.toElasticsearchFieldName(propertyUrn, definition));
-      propertyExistsCriterion.setCondition(Condition.EXISTS);
+      final Criterion propertyExistsCriterion =
+          buildExistsCriterion(
+              STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
+                  + StructuredPropertyUtils.toElasticsearchFieldName(propertyUrn, definition));
 
       andCriterion.add(propertyExistsCriterion);
       conjunction.setAnd(andCriterion);

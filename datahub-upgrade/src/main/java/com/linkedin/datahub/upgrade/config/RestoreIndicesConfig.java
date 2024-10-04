@@ -8,37 +8,23 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import io.ebean.Database;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.DependsOn;
 
 @Slf4j
 @Configuration
 public class RestoreIndicesConfig {
-  @Autowired ApplicationContext applicationContext;
 
   @Bean(name = "restoreIndices")
-  @DependsOn({
-    "ebeanServer",
-    "entityService",
-    "systemMetadataService",
-    "searchService",
-    "graphService"
-  })
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
-  public RestoreIndices createInstance() {
-    final Database ebeanServer = applicationContext.getBean(Database.class);
-    final EntityService<?> entityService = applicationContext.getBean(EntityService.class);
-    final SystemMetadataService systemMetadataService =
-        applicationContext.getBean(SystemMetadataService.class);
-    final EntitySearchService entitySearchService =
-        applicationContext.getBean(EntitySearchService.class);
-    final GraphService graphService = applicationContext.getBean(GraphService.class);
-
+  public RestoreIndices createInstance(
+      final Database ebeanServer,
+      final EntityService<?> entityService,
+      final EntitySearchService entitySearchService,
+      final GraphService graphService,
+      final SystemMetadataService systemMetadataService) {
     return new RestoreIndices(
         ebeanServer, entityService, systemMetadataService, entitySearchService, graphService);
   }

@@ -1,3 +1,4 @@
+import doctest
 from datetime import timedelta
 from typing import Dict, List, Union
 from unittest import mock
@@ -7,10 +8,8 @@ from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.dbt.dbt_cloud import (
-    DBTCloudConfig,
-    infer_metadata_endpoint,
-)
+from datahub.ingestion.source.dbt import dbt_cloud
+from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig
 from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
@@ -247,7 +246,6 @@ def test_dbt_config_prefer_sql_parser_lineage():
         "catalog_path": "dummy_path",
         "target_platform": "dummy_platform",
         "skip_sources_in_lineage": True,
-        "entities_enabled": {"sources": "NO"},
         "prefer_sql_parser_lineage": True,
     }
     config = DBTCoreConfig.parse_obj(config_dict)
@@ -402,17 +400,7 @@ def test_dbt_cloud_config_with_defined_metadata_endpoint():
 
 
 def test_infer_metadata_endpoint() -> None:
-    assert (
-        infer_metadata_endpoint("https://cloud.getdbt.com")
-        == "https://metadata.cloud.getdbt.com/graphql"
-    )
-    assert (
-        infer_metadata_endpoint("https://prefix.us1.dbt.com")
-        == "https://prefix.metadata.us1.dbt.com/graphql"
-    )
-    assert (
-        infer_metadata_endpoint("http://dbt.corp.internal")
-    ) == "http://metadata.dbt.corp.internal/graphql"
+    assert doctest.testmod(dbt_cloud, raise_on_error=True).attempted > 0
 
 
 def test_dbt_time_parsing() -> None:

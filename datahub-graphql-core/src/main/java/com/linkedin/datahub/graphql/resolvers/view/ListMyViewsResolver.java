@@ -79,7 +79,7 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
                         viewType,
                         context.getActorUrn(),
                         context.getOperationContext().getAspectRetriever()),
-                    DEFAULT_SORT_CRITERION,
+                    Collections.singletonList(DEFAULT_SORT_CRITERION),
                     start,
                     count);
 
@@ -132,6 +132,6 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
     filterCriteria.setAnd(andConditions);
 
     // Currently, there is no way to fetch the views belonging to another user.
-    return buildFilter(Collections.emptyList(), ImmutableList.of(filterCriteria), aspectRetriever);
+    return buildFilter(Collections.emptyList(), ImmutableList.of(filterCriteria));
   }
 }

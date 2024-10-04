@@ -15,6 +15,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,27 +30,36 @@ import org.springframework.stereotype.Component;
 @Component
 @Import({EntityRegistryFactory.class, IngestionSchedulerFactory.class})
 public class IngestionSchedulerHook implements MetadataChangeLogHook {
-  private final IngestionScheduler _scheduler;
-  private final boolean _isEnabled;
+  private final IngestionScheduler scheduler;
+  private final boolean isEnabled;
   private OperationContext systemOperationContext;
+  @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public IngestionSchedulerHook(
       @Nonnull final IngestionScheduler scheduler,
-      @Nonnull @Value("${ingestionScheduler.enabled:true}") Boolean isEnabled) {
-    _scheduler = scheduler;
-    _isEnabled = isEnabled;
+      @Nonnull @Value("${ingestionScheduler.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${ingestionScheduler.consumerGroupSuffix}") String consumerGroupSuffix) {
+    this.scheduler = scheduler;
+    this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public IngestionSchedulerHook(
+      @Nonnull final IngestionScheduler scheduler, @Nonnull Boolean isEnabled) {
+    this(scheduler, isEnabled, "");
   }
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @Override
   public IngestionSchedulerHook init(@Nonnull OperationContext systemOperationContext) {
     this.systemOperationContext = systemOperationContext;
-    _scheduler.init();
+    scheduler.init();
     return this;
   }
 
@@ -66,11 +76,11 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
       final Urn urn = getUrnFromEvent(event);
 
       if (ChangeType.DELETE.equals(event.getChangeType())) {
-        _scheduler.unscheduleNextIngestionSourceExecution(urn);
+        scheduler.unscheduleNextIngestionSourceExecution(urn);
       } else {
         // Update the scheduler to reflect the latest changes.
         final DataHubIngestionSourceInfo info = getInfoFromEvent(event);
-        _scheduler.scheduleNextIngestionSourceExecution(urn, info);
+        scheduler.scheduleNextIngestionSourceExecution(urn, info);
       }
     }
   }
@@ -138,6 +148,6 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
 
   @VisibleForTesting
   IngestionScheduler scheduler() {
-    return _scheduler;
+    return scheduler;
   }
 }

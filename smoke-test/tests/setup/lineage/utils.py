@@ -7,7 +7,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
 from datahub.metadata.schema_classes import (
@@ -200,7 +200,7 @@ def create_upstream_mcp(
 
 
 def emit_mcps(
-    emitter: DatahubRestEmitter, mcps: List[MetadataChangeProposalWrapper]
+    graph_client: DataHubGraph, mcps: List[MetadataChangeProposalWrapper]
 ) -> None:
     for mcp in mcps:
-        emitter.emit_mcp(mcp)
+        graph_client.emit_mcp(mcp)

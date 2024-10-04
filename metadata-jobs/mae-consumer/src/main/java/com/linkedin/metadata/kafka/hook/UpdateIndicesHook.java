@@ -2,7 +2,7 @@ package com.linkedin.metadata.kafka.hook;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.linkedin.gms.factory.common.GraphServiceFactory;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
@@ -12,7 +12,9 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
@@ -21,7 +23,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Import({
-  GraphServiceFactory.class,
   EntitySearchServiceFactory.class,
   TimeseriesAspectServiceFactory.class,
   EntityRegistryFactory.class,
@@ -34,15 +35,27 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   private final boolean isEnabled;
   private final boolean reprocessUIEvents;
   private OperationContext systemOperationContext;
+  @Getter private final String consumerGroupSuffix;
 
+  @Autowired
   public UpdateIndicesHook(
       UpdateIndicesService updateIndicesService,
       @Nonnull @Value("${updateIndices.enabled:true}") Boolean isEnabled,
       @Nonnull @Value("${featureFlags.preProcessHooks.reprocessEnabled:false}")
-          Boolean reprocessUIEvents) {
+          Boolean reprocessUIEvents,
+      @Nonnull @Value("${updateIndices.consumerGroupSuffix}") String consumerGroupSuffix) {
     this.updateIndicesService = updateIndicesService;
     this.isEnabled = isEnabled;
     this.reprocessUIEvents = reprocessUIEvents;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public UpdateIndicesHook(
+      UpdateIndicesService updateIndicesService,
+      @Nonnull Boolean isEnabled,
+      @Nonnull Boolean reprocessUIEvents) {
+    this(updateIndicesService, isEnabled, reprocessUIEvents, "");
   }
 
   @Override

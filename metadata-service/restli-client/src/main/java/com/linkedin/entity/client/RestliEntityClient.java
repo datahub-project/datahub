@@ -1,5 +1,7 @@
 package com.linkedin.entity.client;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -12,7 +14,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.AspectsDoGetTimeseriesAspectValuesRequestBuilder;
-import com.linkedin.entity.AspectsDoIngestProposalRequestBuilder;
+import com.linkedin.entity.AspectsDoIngestProposalBatchRequestBuilder;
 import com.linkedin.entity.AspectsGetRequestBuilder;
 import com.linkedin.entity.AspectsRequestBuilders;
 import com.linkedin.entity.EntitiesBatchGetRequestBuilder;
@@ -50,6 +52,7 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.ListResult;
@@ -58,15 +61,17 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortCriterionArray;
 import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.MetadataChangeProposalArray;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
@@ -98,6 +103,7 @@ import javax.mail.MethodNotSupportedException;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.NotImplementedException;
+import org.opensearch.core.common.util.CollectionUtils;
 
 @Slf4j
 public class RestliEntityClient extends BaseClient implements EntityClient {
@@ -589,7 +595,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    *
    * @param input search query
    * @param filter search filters
-   * @param sortCriterion sort criterion
+   * @param sortCriteria sort criteria
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return Snapshot key
@@ -602,7 +608,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Filter filter,
-      SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException {
@@ -620,8 +626,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.filterParam(filter);
     }
 
-    if (sortCriterion != null) {
-      requestBuilder.sortParam(sortCriterion);
+    if (!CollectionUtils.isEmpty(sortCriteria)) {
+      requestBuilder.sortParam(sortCriteria.get(0));
+      requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
     }
 
     if (searchFlags != null) {
@@ -643,10 +650,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SortCriterion sortCriterion)
+      List<SortCriterion> sortCriteria)
       throws RemoteInvocationException {
     return searchAcrossEntities(
-        opContext, entities, input, filter, start, count, sortCriterion, null);
+        opContext, entities, input, filter, start, count, sortCriteria, null);
   }
 
   /**
@@ -670,7 +677,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable List<String> facets)
       throws RemoteInvocationException {
 
@@ -692,8 +699,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.searchFlagsParam(searchFlags);
     }
 
-    if (sortCriterion != null) {
-      requestBuilder.sortParam(sortCriterion);
+    if (!CollectionUtils.isEmpty(sortCriteria)) {
+      requestBuilder.sortParam(sortCriteria.get(0));
+      requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
     }
 
     return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
@@ -743,7 +751,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String input,
       @Nullable Integer maxHops,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException {
@@ -770,6 +778,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     if (lineageFlags.getEndTimeMillis() != null) {
       requestBuilder.endTimeMillisParam(lineageFlags.getEndTimeMillis());
     }
+
+    if (!CollectionUtils.isEmpty(sortCriteria)) {
+      requestBuilder.sortParam(sortCriteria.get(0));
+      requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
+    }
+
     requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
 
     return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
@@ -785,7 +799,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String input,
       @Nullable Integer maxHops,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
       int count)
@@ -815,6 +829,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     if (lineageFlags.getEndTimeMillis() != null) {
       requestBuilder.endTimeMillisParam(lineageFlags.getEndTimeMillis());
     }
+
+    if (!CollectionUtils.isEmpty(sortCriteria)) {
+      requestBuilder.sortParam(sortCriteria.get(0));
+      requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
+    }
+
     requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
 
     return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
@@ -903,7 +923,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException {
@@ -914,8 +934,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .filterParam(filter)
             .startParam(start)
             .countParam(count);
-    if (sortCriterion != null) {
-      requestBuilder.sortParam(sortCriterion);
+    if (!CollectionUtils.isEmpty(sortCriteria)) {
+      requestBuilder.sortParam(sortCriteria.get(0));
+      requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
     }
     return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
@@ -1047,23 +1068,36 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         .getValues();
   }
 
-  /**
-   * Ingest a MetadataChangeProposal event.
-   *
-   * @return the urn string ingested
-   */
+  @Nonnull
   @Override
-  public String ingestProposal(
+  public List<String> batchIngestProposals(
       @Nonnull OperationContext opContext,
-      @Nonnull final MetadataChangeProposal metadataChangeProposal,
-      final boolean async)
+      @Nonnull Collection<MetadataChangeProposal> metadataChangeProposals,
+      boolean async)
       throws RemoteInvocationException {
-    final AspectsDoIngestProposalRequestBuilder requestBuilder =
+    final AspectsDoIngestProposalBatchRequestBuilder requestBuilder =
         ASPECTS_REQUEST_BUILDERS
-            .actionIngestProposal()
-            .proposalParam(metadataChangeProposal)
+            .actionIngestProposalBatch()
+            .proposalsParam(new MetadataChangeProposalArray(metadataChangeProposals))
             .asyncParam(String.valueOf(async));
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    String result =
+        sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return metadataChangeProposals.stream()
+        .map(
+            proposal -> {
+              if ("success".equals(result)) {
+                if (proposal.getEntityUrn() != null) {
+                  return proposal.getEntityUrn().toString();
+                } else {
+                  EntitySpec entitySpec =
+                      opContext.getEntityRegistry().getEntitySpec(proposal.getEntityType());
+                  return EntityKeyUtils.getUrnFromProposal(proposal, entitySpec.getKeyAspectSpec())
+                      .toString();
+                }
+              }
+              return null;
+            })
+        .collect(Collectors.toList());
   }
 
   @Override
@@ -1148,18 +1182,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     CriterionArray criteria =
         params.entrySet().stream()
             .filter(e -> Objects.nonNull(e.getValue()))
-            .map(e -> newCriterion(e.getKey(), e.getValue(), Condition.EQUAL))
+            .map(e -> buildCriterion(e.getKey(), Condition.EQUAL, e.getValue()))
             .collect(Collectors.toCollection(CriterionArray::new));
     return new Filter()
         .setOr(
             new ConjunctiveCriterionArray(
                 ImmutableList.of(new ConjunctiveCriterion().setAnd(criteria))));
-  }
-
-  @Nonnull
-  public static Criterion newCriterion(
-      @Nonnull String field, @Nonnull String value, @Nonnull Condition condition) {
-    return new Criterion().setField(field).setValue(value).setCondition(condition);
   }
 
   @Nonnull

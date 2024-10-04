@@ -28,6 +28,9 @@ from typing_extensions import LiteralString
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
+    auto_patch_last_modified,
+)
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
@@ -47,7 +50,7 @@ from datahub.utilities.type_annotations import get_class_from_annotation
 
 logger = logging.getLogger(__name__)
 
-_MAX_CONTEXT_STRING_LENGTH = 300
+_MAX_CONTEXT_STRING_LENGTH = 1000
 
 
 class SourceCapability(Enum):
@@ -443,6 +446,7 @@ class Source(Closeable, metaclass=ABCMeta):
             ),
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
+            auto_patch_last_modified,
         ]
 
     @staticmethod

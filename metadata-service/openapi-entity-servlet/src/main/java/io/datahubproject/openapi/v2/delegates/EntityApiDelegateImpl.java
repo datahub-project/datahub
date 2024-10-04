@@ -61,6 +61,7 @@ import io.datahubproject.openapi.util.OpenApiEntitiesUtil;
 import io.datahubproject.openapi.v1.entities.EntitiesController;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -177,11 +178,6 @@ public class EntityApiDelegateImpl<I, O, S> {
     try {
       Urn entityUrn = Urn.createFromString(urn);
       final Authentication auth = AuthenticationContext.getAuthentication();
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(
-          auth, _authorizationChain, EXISTS, List.of(entityUrn))) {
-        throw new UnauthorizedException(
-            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
-      }
       OperationContext opContext =
           OperationContext.asSession(
               systemOperationContext,
@@ -191,6 +187,11 @@ public class EntityApiDelegateImpl<I, O, S> {
               _authorizationChain,
               auth,
               true);
+
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(entityUrn))) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
+      }
 
       if (_entityService.exists(opContext, entityUrn, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
@@ -241,11 +242,6 @@ public class EntityApiDelegateImpl<I, O, S> {
       Urn entityUrn = Urn.createFromString(urn);
 
       final Authentication auth = AuthenticationContext.getAuthentication();
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(
-          auth, _authorizationChain, EXISTS, List.of(entityUrn))) {
-        throw new UnauthorizedException(
-            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
-      }
       OperationContext opContext =
           OperationContext.asSession(
               systemOperationContext,
@@ -255,6 +251,11 @@ public class EntityApiDelegateImpl<I, O, S> {
               _authorizationChain,
               auth,
               true);
+
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(entityUrn))) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
+      }
 
       if (_entityService.exists(opContext, entityUrn, aspect, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
@@ -611,13 +612,6 @@ public class EntityApiDelegateImpl<I, O, S> {
         OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-
-    if (!AuthUtil.isAPIAuthorizedEntityType(
-        authentication, _authorizationChain, READ, entitySpec.getName())) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to search entities.");
-    }
-
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -628,12 +622,23 @@ public class EntityApiDelegateImpl<I, O, S> {
             authentication,
             true);
 
-    // TODO multi-field sort
-    SortCriterion sortCriterion = new SortCriterion();
-    sortCriterion.setField(Optional.ofNullable(sort).map(s -> s.get(0)).orElse("urn"));
-    sortCriterion.setOrder(
-        com.linkedin.metadata.query.filter.SortOrder.valueOf(
-            Optional.ofNullable(sortOrder).map(Enum::name).orElse("ASCENDING")));
+    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, READ, entitySpec.getName())) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to search entities.");
+    }
+
+    List<SortCriterion> sortCriteria =
+        Optional.ofNullable(sort).orElse(Collections.singletonList("urn")).stream()
+            .map(
+                sortField -> {
+                  SortCriterion sortCriterion = new SortCriterion();
+                  sortCriterion.setField(sortField);
+                  sortCriterion.setOrder(
+                      com.linkedin.metadata.query.filter.SortOrder.valueOf(
+                          Optional.ofNullable(sortOrder).map(Enum::name).orElse("ASCENDING")));
+                  return sortCriterion;
+                })
+            .collect(Collectors.toList());
 
     ScrollResult result =
         _searchService.scrollAcrossEntities(
@@ -641,12 +646,12 @@ public class EntityApiDelegateImpl<I, O, S> {
             List.of(entitySpec.getName()),
             query,
             null,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             null,
             count);
 
-    if (!AuthUtil.isAPIAuthorizedResult(authentication, _authorizationChain, result)) {
+    if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }

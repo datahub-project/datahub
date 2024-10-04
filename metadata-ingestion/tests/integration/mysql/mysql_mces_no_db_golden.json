@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "database": "dataCharmer"
             },
-            "name": "dataCharmer"
+            "name": "dataCharmer",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -434,8 +435,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 10,
             "columnCount": 6,
@@ -592,8 +593,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 112,
             "columnCount": 4,
@@ -1012,7 +1013,8 @@
                 "env": "PROD",
                 "database": "metagalaxy"
             },
-            "name": "metagalaxy"
+            "name": "metagalaxy",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -1722,7 +1724,8 @@
                 "env": "PROD",
                 "database": "northwind"
             },
-            "name": "northwind"
+            "name": "northwind",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -2145,8 +2148,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 5,
             "columnCount": 6,
@@ -2277,8 +2280,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 0,
             "columnCount": 3,
@@ -2320,7 +2323,8 @@
                 "env": "PROD",
                 "database": "test_cases"
             },
-            "name": "test_cases"
+            "name": "test_cases",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -2636,8 +2640,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 0,
             "columnCount": 1,
@@ -2666,8 +2670,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 0,
             "columnCount": 1,

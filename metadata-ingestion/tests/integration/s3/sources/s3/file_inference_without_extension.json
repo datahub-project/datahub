@@ -1,0 +1,19 @@
+{
+  "type": "s3",
+  "config": {
+    "platform_instance": "test-platform-instance",
+    "env": "DEV",
+    "use_s3_content_type": true,
+    "path_specs": [{
+      "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/*"
+    }],
+    "aws_config": {
+      "aws_region": "us-east-1",
+      "aws_access_key_id": "testing",
+      "aws_secret_access_key": "testing"
+    },
+    "profiling": {
+      "enabled": false
+    }
+  }
+}
