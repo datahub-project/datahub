@@ -755,18 +755,6 @@ class Mapper:
             dashboard_key_mcp,
         ]
 
-        if dashboard.app_reference is not None:
-            list_of_mcps.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=dashboard_urn,
-                    aspect=ContainerClass(
-                        container=self.generate_app_container_key(
-                            dashboard.app_reference
-                        ).as_urn()
-                    ),
-                )
-            )
-
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
 
@@ -1180,18 +1168,6 @@ class Mapper:
             dashboard_key_mcp,
             sub_type_mcp,
         ]
-
-        if report.app_reference is not None:
-            list_of_mcps.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=dashboard_urn,
-                    aspect=ContainerClass(
-                        container=self.generate_app_container_key(
-                            report.app_reference
-                        ).as_urn()
-                    ),
-                )
-            )
 
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
