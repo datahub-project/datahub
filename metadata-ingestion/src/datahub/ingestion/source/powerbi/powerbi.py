@@ -1365,13 +1365,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
 
-    def emit_app_work_units(
-        self,
-        workspace: powerbi_data_classes.Workspace,
-    ) -> Iterable[MetadataWorkUnit]:
-        if workspace.app:
-            yield from self.mapper.generate_container_for_app(app=workspace.app)
-
     def get_workspace_workunit(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
@@ -1383,8 +1376,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             for workunit in workspace_workunits:
                 # Return workunit to a Datahub Ingestion framework
                 yield workunit
-
-        yield from self.emit_app_work_units(workspace=workspace)
 
         for dashboard in workspace.dashboards:
             try:
