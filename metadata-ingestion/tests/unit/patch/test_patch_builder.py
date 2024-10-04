@@ -262,5 +262,3 @@ def test_datajob_patch_builder():
             ),
         )
     ]
-
-    print(patcher.build())
