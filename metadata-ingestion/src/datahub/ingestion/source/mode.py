@@ -686,7 +686,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
     def _get_datahub_friendly_platform(self, adapter, platform):
         # Map adaptor names to what datahub expects in
-        # https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
+        # https://github.com/datahub-project/datahub/blob/master/metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml
 
         platform_mapping = {
             "jdbc:athena": "athena",
