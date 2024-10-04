@@ -10,8 +10,8 @@ import javax.annotation.Nonnull;
 
 public class DataProductPropertiesTemplate implements ArrayMergingTemplate<DataProductProperties> {
 
-  private static final String ASSETS_FIELD_NAME = "assets";
-  private static final String KEY_FIELD_NAME = "destinationUrn";
+  public static final String ASSETS_FIELD_NAME = "assets";
+  public static final String KEY_FIELD_NAME = "destinationUrn";
 
   @Override
   public DataProductProperties getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
