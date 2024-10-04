@@ -147,6 +147,8 @@ class BigQueryQueriesExtractor:
         self.report = BigQueryQueriesExtractorReport()
         self.discovered_tables = set(discovered_tables) if discovered_tables else None
 
+        logger.info(f"Discovered Tables: {discovered_tables}")
+
         self.structured_report = structured_report
 
         self.aggregator = SqlParsingAggregator(
@@ -204,6 +206,7 @@ class BigQueryQueriesExtractor:
                 and self.discovered_tables
                 and str(BigQueryTableRef(table)) not in self.discovered_tables
             ):
+                logger.info(f"inferred as temp table {name}")
                 self.report.inferred_temp_tables.add(name)
                 return True
 
@@ -218,6 +221,7 @@ class BigQueryQueriesExtractor:
                 self.discovered_tables
                 and str(BigQueryTableRef(table)) not in self.discovered_tables
             ):
+                logger.info(f"not allowed table {name}")
                 return False
             return self.filters.is_allowed(table)
         except Exception:
