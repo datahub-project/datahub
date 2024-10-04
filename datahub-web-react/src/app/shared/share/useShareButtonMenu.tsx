@@ -1,10 +1,13 @@
 import React from 'react';
 import { MenuProps } from 'antd';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { EntityType } from '../../../types.generated';
 import CopyLinkMenuItem from './items/CopyLinkMenuItem';
 import CopyUrnMenuItem from './items/CopyUrnMenuItem';
 import EmailMenuItem from './items/EmailMenuItem';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import MetadataShareItem from './items/MetadataShareItem/MetadataShareItem';
 
 interface ShareButtonMenuProps {
     urn: string;
@@ -15,8 +18,12 @@ interface ShareButtonMenuProps {
 
 export default function useShareButtonMenu({ urn, entityType, subType, name }: ShareButtonMenuProps): MenuProps {
     const entityRegistry = useEntityRegistry();
+    const { entityData } = useEntityData();
+    const appConfig = useAppConfig();
+    const { metadataShareEnabled } = appConfig.config.featureFlags;
     const displayName = name || urn;
     const displayType = subType || entityRegistry.getEntityName(entityType) || entityType;
+    const canShareEntity = entityData?.privileges?.canShareEntity;
 
     const items = [
         navigator.clipboard && {
@@ -32,6 +39,13 @@ export default function useShareButtonMenu({ urn, entityType, subType, name }: S
             label: <EmailMenuItem key="2" urn={urn} name={displayName} type={displayType} />,
         },
     ];
+
+    if (metadataShareEnabled && canShareEntity) {
+        items.push({
+            key: 3,
+            label: <MetadataShareItem key="3" />,
+        });
+    }
 
     return { items };
 }
