@@ -6,7 +6,9 @@ import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -78,6 +80,24 @@ public class ESSearchDAO {
   @Nonnull private final SearchConfiguration searchConfiguration;
   @Nullable private final CustomSearchConfiguration customSearchConfiguration;
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
+  private final boolean testLoggingEnabled;
+
+  public ESSearchDAO(
+      RestHighLevelClient client,
+      boolean pointInTimeCreationEnabled,
+      String elasticSearchImplementation,
+      @Nonnull SearchConfiguration searchConfiguration,
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+    this(
+        client,
+        pointInTimeCreationEnabled,
+        elasticSearchImplementation,
+        searchConfiguration,
+        customSearchConfiguration,
+        queryFilterRewriteChain,
+        false);
+  }
 
   public long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName) {
     return docCount(opContext, entityName, null);
@@ -279,6 +299,11 @@ public class ESSearchDAO {
     searchRequest.indices(
         entityNames.stream().map(indexConvention::getEntityIndexName).toArray(String[]::new));
     searchRequestTimer.stop();
+
+    if (testLoggingEnabled) {
+      testLog(opContext.getObjectMapper(), searchRequest);
+    }
+
     // Step 2: execute the query and extract results, validated against document model as well
     return executeAndExtract(opContext, entitySpecs, searchRequest, transformedFilters, from, size);
   }
@@ -478,6 +503,11 @@ public class ESSearchDAO {
     }
 
     scrollRequestTimer.stop();
+
+    if (testLoggingEnabled) {
+      testLog(opContext.getObjectMapper(), searchRequest);
+    }
+
     return executeAndExtract(
         opContext, entitySpecs, searchRequest, transformedFilters, keepAlive, size);
   }
@@ -603,6 +633,23 @@ public class ESSearchDAO {
     } catch (IOException e) {
       log.error("Failed to explain query.", e);
       throw new IllegalStateException("Failed to explain query:", e);
+    }
+  }
+
+  private void testLog(ObjectMapper mapper, SearchRequest searchRequest) {
+    try {
+      log.warn("SearchRequest(custom): {}", mapper.writeValueAsString(customSearchConfiguration));
+      final String[] indices = searchRequest.indices();
+      log.warn(
+          String.format(
+              "SearchRequest(indices): %s",
+              mapper.writerWithDefaultPrettyPrinter().writeValueAsString(indices)));
+      log.warn(
+          String.format(
+              "SearchRequest(query): %s",
+              mapper.writeValueAsString(mapper.readTree(searchRequest.source().toString()))));
+    } catch (JsonProcessingException e) {
+      log.warn("Error writing test log");
     }
   }
 }
