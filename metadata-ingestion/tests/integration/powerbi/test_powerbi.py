@@ -71,6 +71,9 @@ def scan_init_response(request, context):
         "64ED5CAD-7C10-4684-8180-826122881108||64ED5CAD-7C22-4684-8180-826122881108": {
             "id": "a674efd1-603c-4129-8d82-03cf2be05aff"
         },
+        "90E9E256-3D6D-4D38-86C8-6CCCBD8C170C": {
+            "id": "4278EDC0-85AA-4BF2-B96A-2BC6C82B73C3"
+        },
     }
 
     return w_id_vs_response[workspace_id]
@@ -111,8 +114,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
             "json": {
                 "value": [],
             },
-        }
-        ,
+        },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
             "method": "GET",
             "status_code": 200,
@@ -235,6 +237,11 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     },
                 ]
             },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/90E9E256-3D6D-4D38-86C8-6CCCBD8C170C/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"value": []},
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/dashboards/7D668CAD-8FFC-4505-9215-655BCA5BEBAE/tiles": {
             "method": "GET",
@@ -689,6 +696,131 @@ def test_powerbi_ingest(
     pipeline.run()
     pipeline.raise_from_status()
     golden_file = "golden_test_ingest.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_powerbi_workspace_type_filter(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    enable_logging()
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        request_mock=requests_mock,
+        override_data={
+            "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "value": [
+                        {
+                            "id": "90E9E256-3D6D-4D38-86C8-6CCCBD8C170C",
+                            "isReadOnly": True,
+                            "name": "Jane Smith Workspace",
+                            "type": "PersonalGroup",
+                            "state": "Active",
+                        },
+                        {
+                            "id": "C6B5DBBC-7580-406C-A6BE-72628C28801C",
+                            "isReadOnly": True,
+                            "name": "Sales",
+                            "type": "Workspace",
+                            "state": "Active",
+                        },
+                    ],
+                },
+            },
+            "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "value": [],
+                },
+            },
+            "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/4278EDC0-85AA-4BF2-B96A-2BC6C82B73C3": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "workspaces": [
+                        {
+                            "id": "90E9E256-3D6D-4D38-86C8-6CCCBD8C170C",
+                            "name": "Jane Smith Workspace",
+                            "type": "PersonalGroup",
+                            "state": "Active",
+                            "datasets": [],
+                        },
+                    ]
+                },
+            },
+            "https://api.powerbi.com/v1.0/myorg/groups/90E9E256-3D6D-4D38-86C8-6CCCBD8C170C/dashboards": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "value": [
+                        {
+                            "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
+                            "isReadOnly": True,
+                            "displayName": "test_dashboard",
+                            "description": "Description of test dashboard",
+                            "embedUrl": "https://localhost/dashboards/embed/1",
+                            "webUrl": "https://localhost/dashboards/web/1",
+                        }
+                    ]
+                },
+            },
+            "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/4278EDC0-85AA-4BF2-B96A-2BC6C82B73C3": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "status": "SUCCEEDED",
+                },
+            },
+        },
+    )
+
+    default_config: dict = default_source_config()
+
+    del default_config["workspace_id"]
+    del default_config["workspace_id_pattern"]
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_config,
+                    "extract_workspaces_to_containers": True,
+                    "workspace_type_filter": [
+                        "PersonalGroup",
+                    ],
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_personal_ingest.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,

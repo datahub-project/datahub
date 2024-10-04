@@ -64,7 +64,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
             "json": {
                 "value": [
                     {
-                       "id": "64ED5CAD-7C10-4684-8180-826122881108",
+                        "id": "64ED5CAD-7C10-4684-8180-826122881108",
                         "isReadOnly": True,
                         "name": "demo-workspace",
                         "type": "Workspace",

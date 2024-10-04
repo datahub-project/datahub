@@ -1307,6 +1307,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             workspace
             for workspace in all_workspaces
             if self.source_config.workspace_id_pattern.allowed(workspace.id)
+            and workspace.type in self.source_config.workspace_type_filter
         ]
 
         logger.info(f"Number of workspaces = {len(all_workspaces)}")

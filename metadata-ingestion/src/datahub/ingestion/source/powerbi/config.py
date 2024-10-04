@@ -350,7 +350,7 @@ class PowerBiDashboardSourceConfig(
     )
     modified_since: Optional[str] = pydantic.Field(
         default=None,
-        description="Get only recently modified workspaces based on modified_since datetime '2023-02-10T00:00:00.0000000Z', excludePersonalWorkspaces and excludeInActiveWorkspaces limit to last 30 days",
+        description="Get only recently modified workspaces based on modified_since datetime '2023-02-10T00:00:00.0000000Z', excludeInActiveWorkspaces limit to last 30 days",
     )
     extract_dashboards: bool = pydantic.Field(
         default=True,
@@ -456,7 +456,9 @@ class PowerBiDashboardSourceConfig(
     )
 
     workspace_type_filter: List[
-        Literal["Workspace", "Personal", "AdminWorkspace", "AdminInsights"]
+        Literal[
+            "Workspace", "PersonalGroup", "Personal", "AdminWorkspace", "AdminInsights"
+        ]
     ] = pydantic.Field(
         default=["Workspace"],
         description="Ingest the metadata of the workspace where the workspace type corresponds to the specified workspace_type_filter.",

@@ -246,13 +246,14 @@ class DataResolverBase(ABC):
 
         return dashboards
 
-    def get_groups(self) -> List[dict]:
+    def get_groups(self, filter_: Dict) -> List[dict]:
         group_endpoint = self.get_groups_endpoint()
 
         output: List[dict] = []
 
         for page in self.itr_pages(
             endpoint=group_endpoint,
+            parameter_override=filter_,
         ):
             output.extend(page)
 

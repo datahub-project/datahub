@@ -193,13 +193,24 @@ class PowerBiAPI:
         return reports
 
     def get_workspaces(self) -> List[Workspace]:
+        modified_workspace_ids: List[str] = []
+
         if self.__config.modified_since:
-            workspaces = self.get_modified_workspaces()
-            return workspaces
+            modified_workspace_ids = self.get_modified_workspaces()
 
         groups: List[dict] = []
+        filter_: Dict[str, str] = {}
         try:
-            groups = self._get_resolver().get_groups()
+            if modified_workspace_ids:
+                id_filter: List[str] = []
+
+                for id_ in modified_workspace_ids:
+                    id_filter.append(f"id eq {id_}")
+
+                filter_["$filter"] = " or ".join(id_filter)
+
+            groups = self._get_resolver().get_groups(filter_=filter_)
+
         except:
             self.log_http_error(message="Unable to fetch list of workspaces")
             raise  # we want this exception to bubble up
@@ -222,36 +233,20 @@ class PowerBiAPI:
         ]
         return workspaces
 
-    def get_modified_workspaces(self) -> List[Workspace]:
-        workspaces: List[Workspace] = []
+    def get_modified_workspaces(self) -> List[str]:
+        modified_workspace_ids: List[str] = []
 
         if self.__config.modified_since is None:
-            return workspaces
+            return modified_workspace_ids
 
         try:
             modified_workspace_ids = self.__admin_api_resolver.get_modified_workspaces(
                 self.__config.modified_since
             )
-            workspaces = [
-                Workspace(
-                    id=workspace_id,
-                    type="",
-                    name="",
-                    datasets={},
-                    dashboards=[],
-                    reports=[],
-                    report_endorsements={},
-                    dashboard_endorsements={},
-                    scan_result={},
-                    independent_datasets=[],
-                    app=None,
-                )
-                for workspace_id in modified_workspace_ids
-            ]
         except:
             self.log_http_error(message="Unable to fetch list of modified workspaces.")
 
-        return workspaces
+        return modified_workspace_ids
 
     def get_app(
         self,
