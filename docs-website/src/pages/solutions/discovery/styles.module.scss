@@ -251,7 +251,7 @@
   
 
   .testimonials {
-    background: #f1f1f1;
+    background: linear-gradient(90deg, #F8F9F9 0%, #E9EAEC 100%);
   
     :global {
       .testimonials__content {
@@ -299,6 +299,7 @@
             max-width: 90%;
             padding-left: 2rem;
             color: #2e2e38;
+
             .testimonials__quote_title {
               font-family: "Manrope";
               font-style: normal;
@@ -306,6 +307,7 @@
               font-size: 2.2rem;
               line-height: 2.8rem;
               position: relative;
+              margin: 1rem auto;
   
               .quote {
                 display: inline;

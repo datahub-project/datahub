@@ -4,8 +4,7 @@ import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import Hero from "../_components/Hero";
 import QuickstartContent from "../../_components/QuickstartContent";
-import Ecosystem from "../../_components/Ecosystem";
-import SocialMedia from "../../_components/SocialMedia";
+import Tiles from "../_components/Tiles";
 import CaseStudy from "../../_components/CaseStudy";
 import styles from "./styles.module.scss";
 import CloseButton from "@ant-design/icons/CloseCircleFilled";
@@ -13,13 +12,8 @@ import Link from "@docusaurus/Link";
 import clsx from "clsx";
 import quickstartData from "./discoveryQuickstartContent";
 import heroContent from "./discoveryHeroContent";
-
-const companyIndexes = require("../../../../adoptionStoriesIndexes.json");
-const companies = companyIndexes.companies;
-const keyCompanySlugs = ["netflix", "pinterest", "notion", "snap", "optum"]; //, "airtel"];
-const keyCompanies = keyCompanySlugs
-  .map((slug) => companies.find((co) => co.slug === slug))
-  .filter((isDefined) => isDefined);
+import Integrations from "../_components/Integrations";
+import tilesContent from "./discoveryTilesContent";
 
 function Home() {
   const context = useDocusaurusContext();
@@ -50,34 +44,7 @@ function Home() {
         </div>
       ) : null}
       <Hero onOpenTourModal={onOpenTourModal} heroContent={heroContent}/>
-      <div className="comapny__logos">
-        <div className="text">
-          Trusted by industry leaders&nbsp;
-          <br />
-          around the world.
-        </div>
-        <div className="company_logos_list_wrapper">
-          {keyCompanies.map((company) => (
-            <a
-              href={
-                company.slug != "snap"
-                  ? `/adoption-stories#${company.slug}`
-                  : undefined
-              }
-            >
-              <img
-                src={useBaseUrl(company.imageUrl)}
-                alt={company.name}
-                title={company.name}
-                className={"company_logo"}
-              />
-            </a>
-          ))}
-          <a href="/adoption-stories" class="more_link">
-            + More
-          </a>
-        </div>
-      </div>
+      <Integrations />
       <QuickstartContent quickstartContent={quickstartData} />
       <div className={clsx("testimonials", styles.testimonials)}>
         <div className="testimonials__content">
@@ -96,8 +63,7 @@ function Home() {
           </div>
         </div>
       </div>
-      <Ecosystem />
-      <SocialMedia />
+      <Tiles tilesContent={tilesContent}/>
       <CaseStudy />
       <div className={styles.container}>
       <div className={styles.trial}>

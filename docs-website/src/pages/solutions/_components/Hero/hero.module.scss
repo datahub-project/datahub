@@ -73,6 +73,7 @@
     border-radius: var(--number-scales-2s-full, 999px);
     background: var(--semantics-surface-default, #1890FF);
     color: white;
+    
   }
 
   .cta__secondary {
@@ -83,8 +84,5 @@
     border-radius: var(--number-scales-2s-full, 999px);
     border: 1px solid var(--semantics-border-default, #1890FF);
     background: var(--semantics-bg-bg-white, #FFF);
-    &:hover {
-      background-color: rgba($color: #fff, $alpha: .3);
-    }
   }
 }

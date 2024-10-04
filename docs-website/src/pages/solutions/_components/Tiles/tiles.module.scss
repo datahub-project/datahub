@@ -1,0 +1,150 @@
+.ecosystem_section {
+  background: white;
+  padding: 4vh 0;
+  padding-bottom: 6vh;
+  display: flex;
+  justify-content: center;
+
+  .ecosystem_section_content {
+    width: 70%;
+    min-width: 800px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2rem 0rem;
+
+    .ecosystem_section_upper_content {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: left;
+      padding-top: 1rem;
+
+      .ecosystem_section_heading {
+        font-size: 3.5rem;
+        line-height: 4rem;
+        font-weight: 400;
+        font-family: Manrope;
+      }
+    }
+
+    .ecosystem_section_lower_content {
+      margin-top: 48px;
+      display: flex;
+      flex-direction: row;
+
+      .itemWrappers {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .itemWrapper {
+        margin-bottom: 16px;
+        display: flex;
+        justify-content: center;
+      }
+
+      .item {
+        border-radius: 20px;
+        align-items: end;
+        justify-content: start;
+        padding: 36px 32px;
+        white-space: normal;
+        cursor: pointer;
+        transition: all 0.3s ease-in-out;
+        text-decoration: none;
+        background-color: #fff;
+        border: 1px solid #ddd;
+        box-shadow: none;
+
+        &:hover {
+          box-shadow: 0px 2px 12px 0px #0000001c;
+          border: 1px solid #333;
+          .itemLinkOpenArrow {
+            opacity: 1;
+          }
+        }
+
+        .item__title {
+          color: var(--primitives-text-text-heading, #373a47);
+          font-family: Manrope;
+          font-size: 2rem;
+          font-style: normal;
+          font-weight: 600;
+          line-height: normal;
+        }
+
+        .item__subtitle {
+          color: var(--primitives-text-tex-subtext, #777e99);
+          font-family: Manrope;
+          font-size: 1.5rem;
+          font-style: normal;
+          font-weight: 500;
+          line-height: normal;
+        }
+      }
+
+      .diagramItem {
+        display: flex;
+        border-radius: 20px;
+        overflow: hidden;
+        aspect-ratio: 1;
+        height: 100%;
+        border: 1px solid #f0f0f3;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(253, 249, 241, 0.9) 100%);
+        justify-content: center;
+        background-repeat: no-repeat;
+        background-position: center;
+      }
+
+    }
+  }
+
+  .item, .diagramItem {
+    margin: 8px;
+  }
+
+  @media only screen and (max-width: 800px) {
+    .ecosystem_section_content {
+      width: 90%;
+      min-width: 0;
+      height: auto !important;
+      padding-bottom: 48px;
+      padding-top: 48px;
+
+      .ecosystem_section_upper_content {
+        height: auto !important;
+
+        .ecosystem_section_heading {
+          font-size: 1.75rem;
+          line-height: 2.25rem;
+        }
+      }
+
+      .ecosystem_section_lower_content {
+        height: auto;
+        margin-top: 8px;
+        flex-direction: column;
+
+        .itemWrapper {
+          display: flex;
+          flex-direction: column-reverse;
+          margin-bottom: 24px;
+
+          &:nth-child(odd) {
+            align-items: flex-start;
+          }
+          &:nth-child(even) {
+            align-items: flex-end; // Diagonal placement for every alternate row
+          }
+        }
+
+        .item {
+          padding: 24px 12px;
+        }
+      }
+    }
+  }
+}
