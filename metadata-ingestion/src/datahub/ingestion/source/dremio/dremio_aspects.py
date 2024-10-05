@@ -12,8 +12,12 @@ import logging
 from typing import Dict, Optional, Union, List
 
 from datahub._codegen.aspect import _Aspect
-from datahub.emitter.mce_builder import make_dataplatform_instance_urn, make_container_urn, make_user_urn, \
-    make_group_urn
+from datahub.emitter.mce_builder import (
+    make_dataplatform_instance_urn,
+    make_container_urn,
+    make_user_urn,
+    make_group_urn,
+)
 from datahub.ingestion.source.metadata.business_glossary import make_glossary_term_urn
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
@@ -48,13 +52,13 @@ from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     GlossaryTermKeyClass,
     GlossaryTermInfoClass,
-    StatusClass
+    StatusClass,
 )
 
 from datahub.ingestion.source.dremio.dremio_api import (
     DremioDataset,
     DremioContainer,
-    DremioGlossaryTerm
+    DremioGlossaryTerm,
 )
 
 logger = logging.getLogger(__name__)
@@ -68,10 +72,9 @@ class DremioAspects:
         platform_instance: Optional[str]=None,
         env: Optional[Union[FabricTypeClass, str]]=FabricTypeClass.PROD,
     ):
-        self.platform=platform
+        self.platform = platform
         self.platform_instance = platform_instance
         self.env = env
-
 
     # def get_datasets(self):
     #     """Get datasets from Dremio and filter the datasets"""
@@ -145,9 +148,9 @@ class DremioAspects:
     #     )
 
     def get_container_urn(
-            self,
-            name: str,
-            path: Optional[List[str]],
+        self,
+        name: str,
+        path: Optional[List[str]],
     ) -> str:
 
         if path:
@@ -155,99 +158,78 @@ class DremioAspects:
                 guid=str(
                     uuid.uuid5(
                         namespace,
-                        self.platform +
-                        "".join(path) +
-                        name +
-                        self.platform_instance
+                        self.platform + "".join(path) + name + self.platform_instance
                     )
                 )
             )
 
         return make_container_urn(
             guid=str(
-                uuid.uuid5(
-                    namespace,
-                    self.platform +
-                    name +
-                    self.platform_instance
-                )
+                uuid.uuid5(namespace, self.platform + name + self.platform_instance)
             )
         )
 
 
     def populate_container_aspects(
-            self,
-            container: DremioContainer,
+        self,
+        container: DremioContainer,
     ) -> Dict[str, _Aspect]:
         aspects = {}
 
-        aspects["containerProperties"] = (
-            ContainerPropertiesClass(
-                name=container.container_name,
-                qualifiedName=f"{'.'.join(container.path) + '.' if container.path else ''}{container.container_name}",
-                description=container.description,
-                env=self.env
-            )
+        aspects["containerProperties"] = ContainerPropertiesClass(
+            name=container.container_name,
+            qualifiedName=f"{'.'.join(container.path) + '.' if container.path else ''}{container.container_name}",
+            description=container.description,
+            env=self.env
         )
+
 
         if container.path:
 
-            aspects["browsePathsV2"] = (
-                BrowsePathsV2Class(
-                    path=[
-                        BrowsePathEntryClass(
-                            id=container.path[browse_path_level],
-                            urn=self.get_container_urn(
-                                name=container.container_name,
-                                path=container.path[:browse_path_level],
-                            ),
-                        ) for browse_path_level in range(len(container.path))
-                    ]
-                )
+            aspects["browsePathsV2"] = BrowsePathsV2Class(
+                path=[
+                    BrowsePathEntryClass(
+                        id=container.path[browse_path_level],
+                        urn=self.get_container_urn(
+                            name=container.container_name,
+                            path=container.path[:browse_path_level],
+                        ),
+                    ) for browse_path_level in range(len(container.path))
+                ]
             )
 
-            aspects["container"] = (
-                ContainerClass(
-                    container=self.get_container_urn(
-                        path=container.path,
-                        name="",
-                    )
+
+            aspects["container"] = ContainerClass(
+                container=self.get_container_urn(
+                    path=container.path,
+                    name="",
                 )
             )
 
         else:
-            aspects["browsePathsV2"] = (
-                BrowsePathsV2Class(
-                    path=[]
-                )
+            aspects["browsePathsV2"] = BrowsePathsV2Class(
+                path=[]
             )
 
-
-        aspects["dataPlatformInstance"] = (
-            DataPlatformInstanceClass(
-                platform=f"urn:li:dataPlatform:dremio",
-                instance=(
-                    make_dataplatform_instance_urn(
-                        self.platform, self.platform_instance,
-                    )
-                    if self.platform_instance
-                    else None
+        aspects["dataPlatformInstance"] = DataPlatformInstanceClass(
+            platform=f"urn:li:dataPlatform:dremio",
+            instance=(
+                make_dataplatform_instance_urn(
+                    self.platform, self.platform_instance,
                 )
+                if self.platform_instance
+                else None
             )
         )
 
-        aspects["subTypes"] = (
-            SubTypesClass(
-                typeNames=[
-                    container.subclass,
-                ]
-            )
+        aspects["subTypes"] = SubTypesClass(
+            typeNames=[
+                container.subclass,
+            ]
         )
 
-        aspects["status"] = (
-            StatusClass(
-                removed=False,
-            )
+        aspects["status"] = StatusClass(
+            removed=False,
         )
 
         return aspects
@@ -266,20 +248,18 @@ class DremioAspects:
         #     )
         # )
 
-        aspects["datasetProperties"] = (
-            DatasetPropertiesClass(
-                name=dataset.resource_name,
-                qualifiedName=f"{'.'.join(dataset.path)}.{dataset.resource_name}",
-                description=dataset.description,
-                created=TimeStampClass(
-                    time=round(
-                        datetime.strptime(
-                            dataset.created,
-                            '%Y-%m-%d %H:%M:%S.%f'
-                        ).timestamp() * 1000
-                    ),
+        aspects["datasetProperties"] = DatasetPropertiesClass(
+            name=dataset.resource_name,
+            qualifiedName=f"{'.'.join(dataset.path)}.{dataset.resource_name}",
+            description=dataset.description,
+            created=TimeStampClass(
+                time=round(
+                    datetime.strptime(
+                        dataset.created,
+                        '%Y-%m-%d %H:%M:%S.%f'
+                    ).timestamp() * 1000
                 ),
-            )
+            ),
         )
 
         if dataset.owner_type == "USER":
@@ -287,122 +267,104 @@ class DremioAspects:
         else:
             owner = make_group_urn(dataset.owner)
 
-        aspects["ownership"] = (
-            OwnershipClass(
-                owners=[
-                    OwnerClass(
-                        owner=owner,
-                        type=OwnershipTypeClass.TECHNICAL_OWNER,
-                    )
-                ]
-            )
-        )
-
-        aspects["subTypes"] = (
-            SubTypesClass(
-                typeNames=[
-                    dataset.dataset_type.value,
-                ]
-            )
-        )
-
-        aspects["dataPlatformInstance"] = (
-            DataPlatformInstanceClass(
-                platform=f"urn:li:dataPlatform:dremio",
-                instance=(
-                    make_dataplatform_instance_urn(
-                        self.platform, self.platform_instance,
-                    )
-                    if self.platform_instance
-                    else None
+        aspects["ownership"] = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=owner,
+                    type=OwnershipTypeClass.TECHNICAL_OWNER,
                 )
-            )
+            ]
         )
 
-        aspects["browsePathsV2"] = (
-            BrowsePathsV2Class(
-                path=[
-                    BrowsePathEntryClass(
-                        id=dataset.path[browse_path_level],
-                        urn=self.get_container_urn(
-                            path=dataset.path[:browse_path_level],
-                            name="",
-                        ),
-                    ) for browse_path_level in range(len(dataset.path))
-                ]
-            )
+        aspects["subTypes"] = SubTypesClass(
+            typeNames=[
+                dataset.dataset_type.value,
+            ]
         )
 
-        aspects["container"] = (
-            ContainerClass(
-                container=self.get_container_urn(
-                    path=dataset.path,
-                    name="",
+        aspects["dataPlatformInstance"] = DataPlatformInstanceClass(
+            platform=f"urn:li:dataPlatform:dremio",
+            instance=(
+                make_dataplatform_instance_urn(
+                    self.platform, self.platform_instance,
                 )
+                if self.platform_instance
+                else None
+            )
+        )
+
+        aspects["browsePathsV2"] = BrowsePathsV2Class(
+            path=[
+                BrowsePathEntryClass(
+                    id=dataset.path[browse_path_level],
+                    urn=self.get_container_urn(
+                        path=dataset.path[:browse_path_level],
+                        name="",
+                    ),
+                ) for browse_path_level in range(len(dataset.path))
+            ]
+        )
+
+        aspects["container"] = ContainerClass(
+            container=self.get_container_urn(
+                path=dataset.path,
+                name="",
             )
         )
 
         if dataset.glossary_terms:
-            aspects["glossaryTerms"] = (
-                GlossaryTermsClass(
-                    terms=[
-                        GlossaryTermAssociationClass(
-                            urn=term.urn,
-                        )
-                    for term in dataset.glossary_terms
-                    ],
-                    auditStamp=AuditStampClass(
-                        time=round(time.time() * 1000),
-                        actor="urn:li:corpuser:admin",
-                    ),
-                )
+            aspects["glossaryTerms"] = GlossaryTermsClass(
+                terms=[
+                    GlossaryTermAssociationClass(
+                        urn=term.urn,
+                    )
+                for term in dataset.glossary_terms
+                ],
+                auditStamp=AuditStampClass(
+                    time=round(time.time() * 1000),
+                    actor="urn:li:corpuser:admin",
+                ),
             )
 
         if dataset.columns:
-            aspects["schemaMetadata"] = (
-                SchemaMetadataClass(
-                    schemaName=f"{'.'.join(dataset.path)}.{dataset.resource_name}",
-                    platform="urn:li:dataPlatform:dremio",
-                    version=0,
-                    fields=[
-                        SchemaFieldClass(
-                            fieldPath=column.name,
-                            type=SchemaFieldDataTypeClass(
-                                type=self.__get_schema_field_type(
-                                    column.data_type,
-                                    column.column_size
-                                )[1],
-                            ),
-                            nativeDataType=self.__get_schema_field_type(
+            aspects["schemaMetadata"] = SchemaMetadataClass(
+                schemaName=f"{'.'.join(dataset.path)}.{dataset.resource_name}",
+                platform="urn:li:dataPlatform:dremio",
+                version=0,
+                fields=[
+                    SchemaFieldClass(
+                        fieldPath=column.name,
+                        type=SchemaFieldDataTypeClass(
+                            type=self.__get_schema_field_type(
                                 column.data_type,
                                 column.column_size
-                            )[2],
-                            nullable=column.is_nullable=="YES",
-                        )
-                        for column in dataset.columns
-                    ],
-                    platformSchema=MySqlDDLClass(""),
-                    hash=""
-                )
+                            )[1],
+                        ),
+                        nativeDataType=self.__get_schema_field_type(
+                            column.data_type,
+                            column.column_size
+                        )[2],
+                        nullable=column.is_nullable=="YES",
+                    )
+                    for column in dataset.columns
+                ],
+                platformSchema=MySqlDDLClass(""),
+                hash=""
             )
 
             if dataset.sql_definition:
-                aspects["viewProperties"] = (
-                    ViewPropertiesClass(
-                        materialized=False,
-                        viewLanguage="SQL",
-                        viewLogic=dataset.sql_definition,
-                    )
+                aspects["viewProperties"] = ViewPropertiesClass(
+                    materialized=False,
+                    viewLanguage="SQL",
+                    viewLogic=dataset.sql_definition,
                 )
 
         else:
             logger.warning(f"Dataset {dataset.path}.{dataset.resource_name} has not been queried in Dremio")
             logger.warning(f"Dataset {dataset.path}.{dataset.resource_name} will have a null schema")
 
-        aspects["status"] = (
-            StatusClass(
-                removed=False,
-            )
+        aspects["status"] = StatusClass(
+            removed=False,
         )
 
         return aspects
@@ -413,10 +375,8 @@ class DremioAspects:
     ) -> Dict[str, _Aspect]:
         aspects = {}
 
-        aspects["glossaryTermKey"] = (
-            GlossaryTermKeyClass(
-                name=glossary_term.glossary_term
-            )
+        aspects["glossaryTermKey"] = GlossaryTermKeyClass(
+            name=glossary_term.glossary_term
         )
 
         return aspects
@@ -445,3 +405,4 @@ class DremioAspects:
         if data_type == "array":
             return data_type, ArrayTypeClass(), f"{data_type}{data_size}"
         return data_type, NullTypeClass(), f"{data_type}{data_size}"
+    
