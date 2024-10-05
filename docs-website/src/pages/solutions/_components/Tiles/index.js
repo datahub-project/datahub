@@ -19,21 +19,40 @@ const Tiles = ({ tilesContent }) => {
                 <div
                   key={index}
                   className={clsx("row", styles.itemWrapper, {
-                    [styles.alternate]: index % 2 !== 0, // Alternate placing for diagonal effect on mobile
+                    [styles.alternate]: index % 2 === 0,
                   })}
                 >
-                  <div className={clsx(styles.item, "col col--5")}>
-                    <div className={styles.item_content}>
-                      <div className={styles.item__title}>{item.title}</div>
-                      <div className={styles.item__subtitle}>{item.subtitle}</div>
-                    </div>
-                  </div>
-                  <div
-                    className={clsx(styles.diagramItem, "col col--5")}
-                    style={{
-                      backgroundImage: `url(${useBaseUrl(item.imgSrc)})`,
-                    }}
-                  ></div>
+                  {index % 2 !== 0 ? (
+                    <>
+                      <div
+                        className={clsx(styles.diagramItem, styles.evenDiagramItem, "col col--5")}
+                        style={{
+                          backgroundImage: `url(${useBaseUrl(item.imgSrc)})`,
+                        }}
+                      ></div>
+                      <div className={clsx(styles.item, styles.evenItem, "col col--5")}>
+                        <div className={styles.item_content}>
+                          <div className={styles.item__title}>{item.title}</div>
+                          <div className={styles.item__subtitle}>{item.subtitle}</div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className={clsx(styles.item, styles.oddItem, "col col--5")}>
+                        <div className={clsx(styles.item_content)}>
+                          <div className={styles.item__title}>{item.title}</div>
+                          <div className={styles.item__subtitle}>{item.subtitle}</div>
+                        </div>
+                      </div>
+                      <div
+                        className={clsx(styles.diagramItem, styles.oddDiagramItem, "col col--5")}
+                        style={{
+                          backgroundImage: `url(${useBaseUrl(item.imgSrc)})`,
+                        }}
+                      ></div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>

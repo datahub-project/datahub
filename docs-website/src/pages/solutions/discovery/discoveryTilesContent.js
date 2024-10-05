@@ -1,4 +1,5 @@
-const tilesContent = {
+const tilesContent = [
+  {
       title: "Enable self-service data discovery.",
       theme: "dark",
       tileItems: [
@@ -18,28 +19,49 @@ const tilesContent = {
           imgSrc: "/img/solutions/discovery-tile-3.png",
         }
       ]
+    },
+    {
+      title: "Unlock the full potential of automated data lineage.",
+      theme: "light",
+      tileItems: [
+        {
+          title: "Demystify complex, cross-platform dependency chains.",
+          subtitle: "Find out when things go wrong, with alerts that reach your team where they work—whether it’s Slack, email, or anywhere else.",
+          imgSrc: "/img/solutions/discovery/discovery-tile-1.png",
+        },
+        {
+          title: "Know your data’s Impact.",
+          subtitle: "Instantly identify downstream consumers of your data. Enable seamless communication and collaboration across your data ecosystem.",
+          imgSrc: "/img/solutions/discovery/discovery-tile-2.png",
+        },
+        {
+          title: "Illuminate the black box of data transformations.",
+          subtitle: "Shine a light on how your key metrics are derived. Automated lineage provides transparency, fostering trust in your data-driven decisions.",
+          imgSrc: "/img/solutions/discovery/discovery-tile-3.png",
+        }
+      ]
+    },
+    {
+      title: "Build trust in the relevance and accuracy of your data.",
+      theme: "dark",
+      tileItems: [
+        {
+          title: "Increase your data confidence.",
+          subtitle: "Tailor search experiences for every user type, from analysts to executives. Foster company-wide engagement and turn every employee into a data champion.",
+          imgSrc: "/img/solutions/discovery/discovery-tile-1.png",
+        },
+        {
+          title: "Time travel through your data's evolution.",
+          subtitle: "View the shape and content of your data as it changes over time. Gain confidence in your current data by understanding its past.",
+          imgSrc: "/img/solutions/discovery/discovery-tile-2.png",
+        },
+        {
+          title: "Your data quality companion, everywhere you work.",
+          subtitle: "Seamlessly integrate DataHub's insights into your BI tools and communication channels. Keep data trust at the forefront of every decision.",
+          imgSrc: "/img/solutions/discovery/discovery-tile-3.png",
+        }
+      ]
     }
-    // {
-    //   title: "Unlock the full potential of automated data lineage.",
-    //   theme: "light",
-    //   tileItems: [
-    //     {
-    //       title: "Demystify complex, cross-platform dependency chains.",
-    //       subtitle: "Find out when things go wrong, with alerts that reach your team where they work—whether it’s Slack, email, or anywhere else.",
-    //       imgSrc: "/img/solutions/discovery/discovery-tile-1.png",
-    //     },
-    //     {
-    //       title: "Know your data’s Impact.",
-    //       subtitle: "Instantly identify downstream consumers of your data. Enable seamless communication and collaboration across your data ecosystem.",
-    //       imgSrc: "/img/solutions/discovery/discovery-tile-2.png",
-    //     },
-    //     {
-    //       title: "Illuminate the black box of data transformations.",
-    //       subtitle: "Shine a light on how your key metrics are derived. Automated lineage provides transparency, fostering trust in your data-driven decisions.",
-    //       imgSrc: "/img/solutions/discovery/discovery-tile-3.png",
-    //     }
-    //   ]
-    // }
-// ]
+]
   
   export default tilesContent;

@@ -63,7 +63,11 @@ function Home() {
           </div>
         </div>
       </div>
-      <Tiles tilesContent={tilesContent}/>
+      <div>
+        {tilesContent.map((content, index) => (
+          <Tiles key={index} tilesContent={content} />
+        ))}
+      </div>
       <CaseStudy />
       <div className={styles.container}>
       <div className={styles.trial}>
