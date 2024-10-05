@@ -6,8 +6,10 @@ from pydantic import Field, validator
 from datahub.configuration.common import ConfigModel, AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from datahub.ingestion.source.state.stale_entity_removal_handler import StaleEntityRemovalHandler, \
-    StatefulStaleMetadataRemovalConfig
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
@@ -125,7 +127,6 @@ class DremioSourceConfig(ConfigModel, StatefulIngestionConfigBase):
         description="Whether to include copy lineage",
     )
 
-
     @validator("authentication_method")
     def validate_auth_method(cls, value):
         allowed_methods = ["password", "PAT"]
@@ -148,6 +149,7 @@ class DremioState(GenericCheckpointState):
     """
     Serialized state for Dremio ingestion runs.
     """
+
     urn_to_timestamp: Dict[str, float] = {}
 
     def add_urn_timestamp(
@@ -168,6 +170,7 @@ class DremioCheckpointState(GenericCheckpointState):
     """
     Checkpoint state for Dremio ingestion runs.
     """
+
     dremio_datasets: Set[str] = set()
     dremio_views: Set[str] = set()
     dremio_jobs: Set[str] = set()
@@ -175,14 +178,14 @@ class DremioCheckpointState(GenericCheckpointState):
     scanned_urns: List[str] = []
 
     def add_dremio_dataset(
-            self,
-            dataset_urn: str,
+        self,
+        dataset_urn: str,
     ) -> None:
         self.dremio_datasets.add(dataset_urn)
 
     def add_dremio_view(
-            self,
-            view_urn: str,
+        self,
+        view_urn: str,
     ) -> None:
         self.dremio_views.add(view_urn)
 
@@ -190,15 +193,15 @@ class DremioCheckpointState(GenericCheckpointState):
         self.dremio_jobs.add(job_urn)
 
     def add_last_updated_timestamp(
-            self,
-            urn: str,
-            timestamp: float,
+        self,
+        urn: str,
+        timestamp: float,
     ) -> None:
         self.last_updated_timestamps[urn] = timestamp
 
     def get_last_updated_timestamp(
-            self,
-            urn: str,
+        self,
+        urn: str,
     ) -> Optional[float]:
         return self.last_updated_timestamps.get(urn)
 
@@ -218,11 +221,7 @@ class DremioCheckpointState(GenericCheckpointState):
         self.last_updated_timestamps.clear()
 
     def get_all_entity_urns(self) -> Set[str]:
-        return self.dremio_datasets.union(
-            self.dremio_views
-        ).union(
-            self.dremio_jobs
-        )
+        return self.dremio_datasets.union(self.dremio_views).union(self.dremio_jobs)
 
     def convert_to_checkpoint(self) -> Dict[str, bool]:
         checkpoint = {}
@@ -246,11 +245,15 @@ class DremioCheckpointState(GenericCheckpointState):
             self.add_dremio_job(urn)
 
         # Update the last updated timestamp
-        if hasattr(
-            mcp,
-            'systemMetadata',
-        ) and mcp.systemMetadata and mcp.systemMetadata.lastObserved:
-            self.add_last_updated_timestamp(urn, mcp.systemMetadata.lastObserved)
+        if (
+            hasattr(
+                mcp,
+                'systemMetadata',
+            )
+            and mcp.systemMetadata
+            and mcp.systemMetadata.lastObserved
+        ):
+                self.add_last_updated_timestamp(urn, mcp.systemMetadata.lastObserved)
         else:
             # If systemMetadata is not available in MCP, you might want to use
             # the current timestamp or handle this case differently
@@ -262,18 +265,19 @@ class DremioCheckpointState(GenericCheckpointState):
     def get_urns(self) -> List[str]:
         return self.scanned_urns
 
+
 class DremioStaleEntityRemovalHandler(StaleEntityRemovalHandler):
     """
     Manages the deletion of stale entities during Dremio ingestion runs.
     """
 
     def __init__(
-            self,
-            source: StatefulIngestionSourceBase,
-            config: StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
-            state_type_class: Type[DremioCheckpointState],
-            pipeline_name: Optional[str],
-            run_id: str,
+        self,
+        source: StatefulIngestionSourceBase,
+        config: StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
+        state_type_class: Type[DremioCheckpointState],
+        pipeline_name: Optional[str],
+        run_id: str,
     ):
         super().__init__(
             source=source,
