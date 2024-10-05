@@ -94,17 +94,12 @@ class DremioSourceConfig(ConfigModel, StatefulIngestionConfigBase):
     )
 
     # Entity Filters
-    collect_pds: bool = Field(
-        default=False,
-        description="Whether to collect physical datasets",
-    )
-
-    collect_system_tables: bool = Field(
-        default=False,
-        description="Whether to collect Dremio system tables",
-    )
-
     schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for schemas to filter",
+    )
+
+    dataset_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for schemas to filter",
     )
