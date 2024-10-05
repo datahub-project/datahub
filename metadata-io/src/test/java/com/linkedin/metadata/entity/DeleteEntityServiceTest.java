@@ -2,7 +2,9 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static org.mockito.Mockito.*;
-import static org.testng.AssertJUnit.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
