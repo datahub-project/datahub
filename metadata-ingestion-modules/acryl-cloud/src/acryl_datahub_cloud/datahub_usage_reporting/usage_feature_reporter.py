@@ -2,21 +2,32 @@ import logging
 import math
 import os
 import re
+import tempfile
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import partial
 from itertools import chain
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy
 import polars
+import pyarrow as pa
+import pyarrow.parquet as pq
 from elasticsearch.client import Elasticsearch
 from opensearchpy import OpenSearch
 from pydantic import Field
 from scipy.stats import expon
 
+from acryl_datahub_cloud.datahub_usage_reporting.usage_feature_patch_builder import (
+    UsageFeaturePatchBuilder,
+)
 from acryl_datahub_cloud.elasticsearch.config import ElasticSearchClientConfig
+from acryl_datahub_cloud.metadata.schema_classes import (
+    QueryUsageFeaturesClass,
+    UsageFeaturesClass,
+)
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -26,7 +37,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -38,7 +50,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
-from datahub.metadata.schema_classes import UsageFeaturesClass
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -49,6 +60,21 @@ dbt_platform_regexp = re.compile(r"urn:li:dataset:\(urn:li:dataPlatform:dbt,.*\)
 
 GET_SOFT_DELETED_ENTITIES = {
     "sort": [{"urn": {"order": "asc"}}],
+}
+
+GET_QUERY_ENTITIES = {
+    "sort": [{"urn": {"order": "asc"}}],
+    "query": {
+        "bool": {
+            "filter": {
+                "bool": {
+                    "must_not": [
+                        {"term": {"source": "MANUAL"}},
+                    ]
+                }
+            }
+        }
+    },
 }
 
 GET_UPSTREAMS = {
@@ -124,6 +150,22 @@ DATASET_WRITE_USAGE_COMPOSITE_QUERY = {
         "urn_count": {
             "composite": {
                 "sources": [{"dataset_operationaspect_v1": {"terms": {"field": "urn"}}}]
+            }
+        }
+    },
+}
+
+GET_QUERY_USAGE_QUERY = {
+    "sort": [{"urn": {"order": "asc"}}],
+    "query": {
+        "bool": {
+            "filter": {
+                "bool": {
+                    "must": [
+                        {"range": {"@timestamp": {"gte": "now-30d/d", "lt": "now/d"}}},
+                        {"term": {"isExploded": False}},
+                    ]
+                }
             }
         }
     },
@@ -208,6 +250,12 @@ class DataHubUsageFeatureReportingSourceConfig(StatefulIngestionConfigBase):
     chart_usage_enabled: bool = Field(
         True, description="Flag to enable or disable chart usage statistics collection."
     )
+
+    query_usage_enabled: bool = Field(
+        default=False,
+        description="Flag to enable or disable query usage statistics collection.",
+    )
+
     sibling_usage_enabled: bool = Field(
         True,
         description="Flag to enable or disable the setting dataset usage statistics for sibling entities (only DBT siblings are set).",
@@ -221,6 +269,21 @@ class DataHubUsageFeatureReportingSourceConfig(StatefulIngestionConfigBase):
     set_upstream_table_max_modification_time_for_views: bool = Field(
         True,
         description="Flag to enable setting the max modification time for views based on their upstream tables' modification time.'",
+    )
+
+    streaming_mode: bool = Field(
+        True,
+        description="Flag to enable polars streaming mode.'",
+    )
+
+    disable_write_usage: bool = Field(
+        False,
+        description="Flag to disable write usage statistics collection.'",
+    )
+
+    generate_patch: bool = Field(
+        True,
+        description="Flag to generate MCP patch for usage features.'",
     )
 
 
@@ -276,6 +339,10 @@ class DatahubUsageFeatureReport(IngestionStageReport, StatefulIngestionReport):
     dataset_usage_processing_time: PerfTimer = PerfTimer()
     dashboard_usage_processing_time: PerfTimer = PerfTimer()
     chart_usage_processing_time: PerfTimer = PerfTimer()
+    query_usage_processing_time: PerfTimer = PerfTimer()
+    query_platforms_count: Dict[str, int] = field(
+        default_factory=lambda: defaultdict(lambda: 0)
+    )
 
 
 @platform_name(id="datahub", platform_name="DataHub")
@@ -283,6 +350,7 @@ class DatahubUsageFeatureReport(IngestionStageReport, StatefulIngestionReport):
 @support_status(SupportStatus.INCUBATING)
 class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     platform = "datahub"
+    temp_files_to_clean: List[str] = []
 
     def __init__(
         self, ctx: PipelineContext, config: DataHubUsageFeatureReportingSourceConfig
@@ -291,6 +359,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         # super().__init__(ctx)
         self.config: DataHubUsageFeatureReportingSourceConfig = config
         self.report: DatahubUsageFeatureReport = DatahubUsageFeatureReport()
+        self.ctx = ctx
 
         # We compile regexpes in advance for faster matching
         self.compiled_regexp_factor: List[Tuple[re.Pattern[str], float]] = []
@@ -346,7 +415,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 if match:
                     platform = match.group(1)
                 else:
-                    logging.warning("Platform not found in urn. Skipping...")
+                    logger.warning("Platform not found in urn. Skipping...")
                     continue
 
                 yield {
@@ -366,7 +435,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 if match:
                     platform = match.group(1)
                 else:
-                    logging.warning("Platform not found in urn. Skipping...")
+                    logger.warning("Platform not found in urn. Skipping...")
                     continue
 
                 yield {
@@ -378,6 +447,40 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 f"Write Operation aspect processing took {time_taken:.3f} seconds"
             )
 
+    def queries_entities_batch(self, results: Iterable) -> Iterable[Dict]:
+        with PerfTimer() as timer:
+
+            for doc in results:
+                if "platform" not in doc["_source"] or not doc["_source"]["platform"]:
+                    logger.warning(
+                        f"Platform not found in query { doc['_source']['urn']}. Skipping..."
+                    )
+                    continue
+
+                self.report.query_platforms_count[doc["_source"]["platform"]] = (
+                    self.report.query_platforms_count[doc["_source"]["platform"]] + 1
+                )
+
+                yield {
+                    "entity_urn": doc["_source"]["urn"],
+                    "last_modified_at": (
+                        doc["_source"]["lastModifiedAt"]
+                        if "lastModifiedAt" in doc["_source"]
+                        else (
+                            doc["_source"]["lastModifiedAt"]
+                            if "lastModifiedAt" in doc["_source"]
+                            else None
+                        )
+                    ),
+                    "platform": doc["_source"]["platform"],
+                    "removed": doc["_source"]["removed"]
+                    if "removed" in doc["_source"]
+                    else False,
+                }
+
+            time_taken = timer.elapsed_seconds()
+            logger.info(f"Query entities processing took {time_taken:.3f} seconds")
+
     def process_dashboard_usage(self, results: Iterable) -> Iterable[Dict]:
         for doc in results:
             match = re.match(dashboard_chart_platform_regexp, doc["_source"]["urn"])
@@ -385,7 +488,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 platform = match.group(1)
                 self.report.dashboard_platforms_count[platform] += 1
             else:
-                logging.warning("Platform not found in urn. Skipping...")
+                logger.warning("Platform not found in urn. Skipping...")
                 continue
 
             yield {
@@ -416,6 +519,35 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 "platform": platform,
             }
 
+    def process_query_usage(self, results: Iterable) -> Iterable[Dict]:
+        for doc in results:
+            yield {
+                "timestampMillis": doc["_source"]["timestampMillis"],
+                "lastObserved": doc["_source"]["systemMetadata"]["lastObserved"],
+                "urn": doc["_source"]["urn"],
+                "eventGranularity": (
+                    doc["_source"]["eventGranularity"]
+                    if "eventGranularity" in doc["_source"]
+                    else None
+                ),
+                "partitionSpec": doc["_source"]["partitionSpec"],
+                "queryCount": (
+                    doc["_source"]["queryCount"]
+                    if "queryCount" in doc["_source"]
+                    else 0
+                ),
+                "uniqueUserCount": (
+                    doc["_source"]["uniqueUserCount"]
+                    if "uniqueUserCount" in doc["_source"]
+                    else None
+                ),
+                "userCounts": (
+                    doc["_source"]["event"]["userCounts"]
+                    if "userCounts" in doc["_source"]["event"]
+                    else []
+                ),
+            }
+
     def upstream_lineage_batch(self, results: Iterable) -> Iterable[Dict]:
         for doc in results:
             if (
@@ -431,7 +563,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             if source_platform_match:
                 source_platform = source_platform_match.group(1)
             else:
-                logging.warning("Source Platform not found in urn. Skipping...")
+                logger.warning("Source Platform not found in urn. Skipping...")
                 continue
 
             destination_platform_match = re.match(
@@ -440,7 +572,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             if destination_platform_match:
                 destination_platform = destination_platform_match.group(1)
             else:
-                logging.warning("Destination Platform not found in urn. Skipping...")
+                logger.warning("Destination Platform not found in urn. Skipping...")
                 continue
 
             # In some case like Tableau there is dataset which marked as view and points to a dataset on another platform
@@ -462,7 +594,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                     platform = match.group(1)
                     self.report.dataset_platforms_count[platform] += 1
                 else:
-                    logging.warning("Platform not found in urn. Skipping...")
+                    logger.warning("Platform not found in urn. Skipping...")
                     continue
 
                 yield {
@@ -620,6 +752,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         urn_field: str = "urn",
         platform_field: str = "platform",
         prefix: Optional[str] = None,
+        use_exp_cdf: Optional[bool] = None,
     ) -> polars.LazyFrame:
 
         logger.debug(f"Generating rank and percentile for {count_field} field")
@@ -630,7 +763,8 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             .alias(f"{prefix}rank")
         )
 
-        if self.config.use_exp_cdf:
+        use_exp_cdf = self.config.use_exp_cdf if use_exp_cdf is None else use_exp_cdf
+        if use_exp_cdf:
             lf = lf.with_columns(
                 polars.col(count_field)
                 .map_batches(exp_cdf, return_dtype=polars.Int64)
@@ -665,18 +799,107 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
         return lf
 
+    @staticmethod
+    def polars_to_arrow_schema(polars_schema: Dict[str, polars.DataType]) -> pa.Schema:
+        def convert_dtype(polars_dtype: polars.DataType) -> pa.DataType:
+            type_mapping: Dict[polars.DataType, pa.DataType] = {
+                polars.Boolean(): pa.bool_(),
+                polars.Int8(): pa.int8(),
+                polars.Int16(): pa.int16(),
+                polars.Int32(): pa.int32(),
+                polars.Int64(): pa.int64(),
+                polars.UInt8(): pa.uint8(),
+                polars.UInt16(): pa.uint16(),
+                polars.UInt32(): pa.uint32(),
+                polars.UInt64(): pa.uint64(),
+                polars.Float32(): pa.float32(),
+                polars.Float64(): pa.float64(),
+                polars.Utf8(): pa.string(),
+                polars.Date(): pa.date32(),
+                polars.Datetime(): pa.timestamp("ns"),
+                polars.Time(): pa.time64("ns"),
+                polars.Duration(): pa.duration("ns"),
+            }
+
+            if polars_dtype in [type(key) for key in type_mapping.keys()]:
+                return type_mapping[polars_dtype]
+            elif polars_dtype == polars.Categorical():
+                return pa.dictionary(index_type=pa.int32(), value_type=pa.string())
+            else:
+                raise ValueError(f"Unsupported Polars dtype: {polars_dtype}")
+
+        fields = [(name, convert_dtype(dtype)) for name, dtype in polars_schema.items()]
+        return pa.schema(fields)
+
+    def load_es_data_to_lf(
+        self, index: str, query: Dict, read_function: Callable, schema: Dict
+    ) -> polars.LazyFrame:
+        es_data = self.load_data_from_es(
+            index,
+            query,
+            read_function,
+        )
+
+        with tempfile.NamedTemporaryFile(
+            delete=False, mode="wb", suffix=".parquet"
+        ) as temp_file:
+            tempfile_name = temp_file.name
+            logger.debug(f"Creating temporary file {tempfile_name}")
+            self.temp_files_to_clean.append(tempfile_name)
+
+            # Create a PyArrow schema from the provided schema dict
+            pa_schema = self.polars_to_arrow_schema(schema)
+
+            # Initialize the ParquetWriter
+            with pq.ParquetWriter(tempfile_name, pa_schema) as writer:
+                batch_size = (
+                    1000  # Adjust this value based on your data and memory constraints
+                )
+                current_batch = []
+
+                for row in es_data:
+                    current_batch.append(row)
+
+                    if len(current_batch) >= batch_size:
+                        # Convert the batch to a PyArrow Table
+                        table = pa.Table.from_pylist(current_batch, schema=pa_schema)
+
+                        # Write the batch
+                        writer.write_table(table)
+
+                        # Clear the current batch
+                        current_batch = []
+
+                # Write any remaining rows
+                if current_batch:
+                    table = pa.Table.from_pylist(current_batch, schema=pa_schema)
+                    writer.write_table(table)
+
+        return polars.scan_parquet(tempfile_name)
+
     def load_write_usage(
         self, soft_deleted_entities_df: polars.LazyFrame
     ) -> polars.LazyFrame:
-        wdf = polars.LazyFrame(
-            self.load_data_from_es(
-                "dataset_operationaspect_v1",
-                DATASET_WRITE_USAGE_RAW_QUERY,
-                self.write_stat_raw_batch,
-            ),
-            schema={"urn": polars.Categorical, "platform": polars.Categorical},
-            strict=True,
-        )
+
+        if self.config.streaming_mode:
+            wdf = self.load_es_data_to_lf(
+                index="dataset_operationaspect_v1",
+                query=DATASET_WRITE_USAGE_RAW_QUERY,
+                read_function=self.write_stat_raw_batch,
+                schema={"urn": polars.Categorical, "platform": polars.Categorical},
+            )
+            wdf = wdf.cast({polars.String: polars.Categorical})
+        else:
+            wdf = polars.LazyFrame(
+                self.load_data_from_es(
+                    "dataset_operationaspect_v1",
+                    DATASET_WRITE_USAGE_RAW_QUERY,
+                    self.write_stat_raw_batch,
+                ),
+                schema={"urn": polars.Categorical, "platform": polars.Categorical},
+                strict=True,
+            )
+
         wdf = wdf.group_by(polars.col("urn"), polars.col("platform")).agg(
             polars.col("urn").count().alias("write_count"),
         )
@@ -692,7 +915,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             .drop(["removed"])
         )
 
-        return wdf
+        return wdf.collect(streaming=self.config.streaming_mode).lazy()
 
     def load_write_usage_server_side_aggregation(
         self, soft_deleted_entities_df: polars.LazyFrame
@@ -800,7 +1023,22 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             chart_usage_df = self.generate_chart_usage()
             yield from self.generate_mcp_from_lazyframe(chart_usage_df)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def generate_query_usage_mcps(self) -> Iterable[MetadataWorkUnit]:
+        with polars.StringCache():
+            logger.info("Generate Query Usage")
+            query_usage_df = self.generate_query_usage()
+            yield from self.generate_query_usage_mcp_from_lazyframe(query_usage_df)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        """A list of functions that transforms the workunits produced by this source.
+        Run in order, first in list is applied first. Be careful with order when overriding.
+        """
+
+        return [
+            partial(auto_workunit_reporter, self.get_report()),
+        ]
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.dataset_usage_enabled:
             with self.report.dataset_usage_processing_time as timer:
                 self.report.report_ingestion_stage_start("generate dataset usage")
@@ -824,6 +1062,15 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
                 time_taken = timer.elapsed_seconds()
                 logger.info(f"Chart Usage generation took {time_taken:.3f}")
+
+        if self.config.query_usage_enabled:
+            with self.report.query_usage_processing_time as timer:
+                self.report.report_ingestion_stage_start("generate query usage")
+
+                yield from self.generate_query_usage_mcps()
+
+                time_taken = timer.elapsed_seconds()
+                logger.info(f"Query Usage generation took {time_taken:.3f}")
 
     def generate_mcp_from_lazyframe(
         self, lazy_frame: polars.LazyFrame
@@ -918,11 +1165,15 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                     int(row["write_count"])
                     if "write_count" in row and row["write_count"]
                     else 0
+                    if not self.config.disable_write_usage
+                    else None
                 ),
                 writeCountPercentileLast30Days=(
                     int(row["write_rank_percentile"])
                     if "write_count" in row and row["write_rank_percentile"]
                     else 0
+                    if not self.config.disable_write_usage
+                    else None
                 ),
                 writeCountRankLast30Days=(
                     int(row["write_rank"])
@@ -950,10 +1201,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 combinedSearchRankingMultiplier=search_ranking_multipliers.combinedSearchRankingMultiplier,
             )
 
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=row["urn"], aspect=usage_feature
-            )
-            yield mcp.as_workunit(is_primary_source=False)
+            yield from self.generate_usage_feature_mcp(row["urn"], usage_feature)
 
             if (
                 "siblings" in row
@@ -962,15 +1210,72 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             ):
                 for sibling in row["siblings"]:
                     if dbt_platform_regexp.match(sibling):
-                        dbt_sibling_mcp = MetadataChangeProposalWrapper(
-                            entityUrn=sibling, aspect=usage_feature
+                        yield from self.generate_usage_feature_mcp(
+                            sibling, usage_feature
                         )
-                        self.report.sibling_usage_count += 1
-                        yield dbt_sibling_mcp.as_workunit(is_primary_source=False)
+
+    def generate_query_usage_mcp_from_lazyframe(
+        self, lazy_frame: polars.LazyFrame
+    ) -> Iterable[MetadataWorkUnit]:
+        num = 0
+        for row in lazy_frame.collect().to_struct():
+            num += 1
+
+            query_usage_features = QueryUsageFeaturesClass(
+                queryCountLast30Days=(
+                    int(row["totalSqlQueries"])
+                    if "totalSqlQueries" in row and row["totalSqlQueries"]
+                    else 0
+                ),
+                queryCountTotal=None,  # This is not implemented
+                runsPercentileLast30days=(
+                    int(row["queries_rank_percentile"])
+                    if "queries_rank_percentile" in row
+                    and row["queries_rank_percentile"]
+                    else 0
+                ),
+                lastExecutedAt=(
+                    int(row["last_modified_at"])
+                    if "last_modified_at" in row and row["last_modified_at"]
+                    else 0
+                ),
+                topUsersLast30Days=(
+                    list(chain.from_iterable(row["top_users"]))
+                    if row["top_users"]
+                    else None
+                ),
+                queryCostLast30Days=None,  # Not implemented yet
+            )
+
+            yield from self.generate_query_usage_feature_mcp(
+                row["urn"], query_usage_features
+            )
+
+    def generate_usage_feature_mcp(
+        self, urn: str, usage_feature: UsageFeaturesClass
+    ) -> Iterable[MetadataWorkUnit]:
+        if self.config.generate_patch:
+            usage_feature_patch_builder = UsageFeaturePatchBuilder(urn=urn)
+            usage_feature_patch_builder.apply_usage_features(usage_feature)
+            for mcp in usage_feature_patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=MetadataWorkUnit.generate_workunit_id(mcp),
+                    mcp_raw=mcp,
+                    is_primary_source=False,
+                )
+        else:
+            mcw = MetadataChangeProposalWrapper(entityUrn=urn, aspect=usage_feature)
+            yield mcw.as_workunit(is_primary_source=False)
+
+    def generate_query_usage_feature_mcp(
+        self, urn: str, query_usage_features: QueryUsageFeaturesClass
+    ) -> Iterable[MetadataWorkUnit]:
+        mcw = MetadataChangeProposalWrapper(entityUrn=urn, aspect=query_usage_features)
+        yield mcw.as_workunit(is_primary_source=False)
 
     def generate_chart_usage(self) -> polars.LazyFrame:
-        usage_index = "chartindex_v2"
-        entity_index = "chart_chartusagestatisticsaspect_v1"
+        entity_index = "chartindex_v2"
+        usage_index = "chart_chartusagestatisticsaspect_v1"
 
         return self.generate_dashboard_chart_usage(entity_index, usage_index)
 
@@ -1095,6 +1400,83 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
         return lf
 
+    def generate_query_usage(self) -> polars.LazyFrame:
+        usage_index = "query_queryusagestatisticsaspect_v1"
+        entity_index = "queryindex_v2"
+
+        query_entities = polars.LazyFrame(
+            self.load_data_from_es(
+                index=entity_index,
+                query=GET_QUERY_ENTITIES,
+                process_function=self.queries_entities_batch,
+            ),
+            schema={
+                "entity_urn": polars.Categorical,
+                "last_modified_at": polars.Int64,
+                "platform": polars.Categorical,
+                "removed": polars.Boolean,
+            },
+            strict=True,
+        )
+
+        lf: polars.LazyFrame = polars.LazyFrame(
+            self.load_data_from_es(
+                index=usage_index,
+                query=GET_QUERY_USAGE_QUERY,
+                process_function=self.process_query_usage,
+            ),
+            schema={
+                "timestampMillis": polars.Int64,
+                "lastObserved": polars.Int64,
+                "urn": polars.Categorical,
+                "eventGranularity": polars.String,
+                "partitionSpec": polars.Struct(
+                    {
+                        "partition": polars.String,
+                    }
+                ),
+                "queryCount": polars.Int64,
+                "userCounts": polars.List(
+                    polars.Struct(
+                        {
+                            "usageCount": polars.Int64,
+                            "user": polars.String,
+                        }
+                    )
+                ),
+            },
+        )
+
+        lf = query_entities.join(
+            lf, left_on="entity_urn", right_on="urn", how="left", coalesce=False
+        ).filter(
+            polars.col("removed") == False  # noqa: E712
+        )
+
+        total_queries = lf.group_by("urn", "platform").agg(
+            polars.col("queryCount").sum().alias("totalSqlQueries"),
+            polars.col("last_modified_at").max().alias("last_modified_at"),
+        )
+
+        top_users = self.generate_top_users(lf, "usageCount")
+
+        usage_with_top_users = top_users.join(total_queries, on="urn", how="inner")
+
+        usage_with_top_users_with_ranks = self.gen_rank_and_percentile(
+            lf=usage_with_top_users,
+            count_field="totalSqlQueries",
+            urn_field="urn",
+            platform_field="platform",
+            prefix="queries_",
+            use_exp_cdf=False,
+        )
+
+        usage_with_top_users_with_ranks = usage_with_top_users_with_ranks.sort(
+            by=["platform", "queries_rank"], descending=[False, False]
+        )
+
+        return usage_with_top_users_with_ranks
+
     def generate_dataset_usage(self) -> polars.LazyFrame:
         datasets_lf = self.get_datasets()
         if self.config.set_upstream_table_max_modification_time_for_views:
@@ -1155,11 +1537,21 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             by=["platform", "queries_rank"], descending=[False, False]
         )
 
-        # Calculate write usage
-        if self.config.use_server_side_aggregation:
-            write_lf = self.load_write_usage_server_side_aggregation(datasets_lf)
+        if not self.config.disable_write_usage:
+            # Calculate write usage
+            if self.config.use_server_side_aggregation:
+                write_lf = self.load_write_usage_server_side_aggregation(datasets_lf)
+            else:
+                write_lf = self.load_write_usage(datasets_lf)
         else:
-            write_lf = self.load_write_usage(datasets_lf)
+            logger.info("Write usage disabled")
+            write_lf = polars.LazyFrame(
+                schema={
+                    "urn": polars.Categorical,
+                    "platform": polars.Categorical,
+                    "write_count": polars.Int64,
+                }
+            )
 
         usage_and_write_lf = (
             usage_with_top_users_with_ranks.join(
@@ -1321,3 +1713,9 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> SourceReport:
         return self.report
+
+    def __del__(self) -> None:
+        for temp_file in self.temp_files_to_clean:
+            logger.info(f"Cleaning up temp file: {temp_file}")
+            os.remove(temp_file)
+        self.temp_files_to_clean = []
