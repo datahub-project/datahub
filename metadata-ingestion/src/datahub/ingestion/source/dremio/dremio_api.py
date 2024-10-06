@@ -1,5 +1,6 @@
 """This Module contains utility functions for dremio source"""
 import concurrent.futures
+from time import sleep, time
 from collections import deque, defaultdict
 from enum import Enum
 
@@ -13,7 +14,6 @@ import json
 import logging
 import re
 from datetime import datetime
-from time import sleep
 from typing import Dict, List, Optional, Any, Deque, Union
 from urllib.parse import quote
 
@@ -325,31 +325,53 @@ class DremioAPIOperations:
                 "authorization": f"_dremio{response['token']}",
             }
 
-    def execute_query(self, query: str) -> List[Dict]:
-        """Execute sql query"""
-        response = self.execute_post_request(
-            url="/sql",
-            data=json.dumps({"sql": query})
-        )
-        return self.fetch_results(response["id"])
+    def execute_query(self, query: str, timeout: int = 300) -> List[Dict]:
+        """Execute SQL query with timeout and error handling"""
+        try:
+            response = self.execute_post_request(
+                url="/sql",
+                data=json.dumps({"sql": query})
+            )
 
-    def get_job_status(self, job_id: str):
-        """Check job status"""
-        return self.execute_get_request(
-            url=f"/job/{job_id}/",
-        )
+            if 'errorMessage' in response:
+                raise RuntimeError(f"SQL Error: {response['errorMessage']}")
 
-    def get_job_result(self, job_id: str, offset: int = 0, limit: int = 500):
-        """Get job results in batches"""
-        return self.execute_get_request(
-            url=f"/job/{job_id}/results?offset={offset}&limit={limit}",
-        )
+            job_id = response["id"]
 
-    def fetch_results(self, job_id: str):
-        """Cumulate job results"""
-        while self.get_job_status(job_id)["jobState"] != "COMPLETED":
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(self.fetch_results, job_id)
+                try:
+                    return future.result(timeout=timeout)
+                except concurrent.futures.TimeoutError:
+                    self.cancel_query(job_id)
+                    raise TimeoutError(f"Query execution timed out after {timeout} seconds")
+
+        except requests.RequestException as e:
+            raise RuntimeError(f"Error executing query: {str(e)}")
+
+    def fetch_results(self, job_id: str) -> List[Dict]:
+        """Fetch job results with status checking"""
+        start_time = time()
+        while True:
+            status = self.get_job_status(job_id)
+            if status["jobState"] == "COMPLETED":
+                break
+            elif status["jobState"] == "FAILED":
+                error_message = status.get("errorMessage", "Unknown error")
+                raise RuntimeError(f"Query failed: {error_message}")
+            elif status["jobState"] == "CANCELED":
+                raise RuntimeError("Query was canceled")
+
+            if time() - start_time > 300:  # 5 minutes timeout
+                self.cancel_query(job_id)
+                raise TimeoutError("Query execution timed out while fetching results")
+
             sleep(3)
 
+        return self._fetch_all_results(job_id)
+
+    def _fetch_all_results(self, job_id: str) -> List[Dict]:
+        """Fetch all results for a completed job"""
         limit = 500
         offset = 0
         rows = []
@@ -363,6 +385,28 @@ class DremioAPIOperations:
                 break
 
         return rows
+
+    def cancel_query(self, job_id: str) -> None:
+        """Cancel a running query"""
+        try:
+            self.execute_post_request(
+                url=f"/job/{job_id}/cancel",
+                data=json.dumps({})
+            )
+        except Exception as e:
+            logger.error(f"Failed to cancel query {job_id}: {str(e)}")
+
+    def get_job_status(self, job_id: str):
+        """Check job status"""
+        return self.execute_get_request(
+            url=f"/job/{job_id}/",
+        )
+
+    def get_job_result(self, job_id: str, offset: int = 0, limit: int = 500):
+        """Get job results in batches"""
+        return self.execute_get_request(
+            url=f"/job/{job_id}/results?offset={offset}&limit={limit}",
+        )
 
     def get_dataset_id(self, schema: str, dataset: str) -> str:
         schema_split = schema.split(".")
@@ -889,6 +933,11 @@ class DremioDataset:
             self.parents = api_operations.get_view_parents(
                 dataset_id=self.resource_id,
             )
+
+    def get_profile_data(self, profiler) -> Dict:
+        full_table_name = '"' + '"."'.join(self.path) + '"."' + self.resource_name + '"'
+        columns = [(col.name, col.data_type) for col in self.columns]
+        return profiler.profile_table(full_table_name, columns)
 
 
 class DremioContainer:

@@ -1,20 +1,33 @@
-from typing import Optional, Dict, List, Type, Set
-from time import time
+from dataclasses import dataclass
+from typing import Optional, List
 import certifi
 from pydantic import Field, validator
 
 from datahub.configuration.common import ConfigModel, AllowDenyPattern
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-    StatefulStaleMetadataRemovalConfig,
-)
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
-    StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import FabricTypeClass
+
+
+class ProfileConfig(GEProfilingConfig):
+    partition_profiling_enabled: bool = Field(
+        default=False,
+        description="Partition profiling disabled for Dremio.",
+    )
+    include_field_median_value: bool = Field(
+        default=False,
+        description="Median causes a number of issues in Dremio.",
+    )
+    query_timeout: int = Field(
+        default=300,
+        description="Time before cancelling Dremio profiling query"
+    )
+
+    row_count: bool = True
+    column_count: bool = True
+    sample_values: bool = True
 
 
 class DremioSourceMapping(ConfigModel):
@@ -89,7 +102,10 @@ class DremioSourceConfig(ConfigModel, StatefulIngestionConfigBase):
         default="",
         description="Platform instance for the source.",
     )
-
+    domain: Optional[str] = Field(
+        default=None,
+        description="Domain for all source objects.",
+    )
     source_mappings: Optional[List[DremioSourceMapping]] = Field(
         default=None,
         description="Mappings from Dremio sources to DataHub platforms and datasets.",
@@ -100,10 +116,19 @@ class DremioSourceConfig(ConfigModel, StatefulIngestionConfigBase):
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for schemas to filter",
     )
-
     dataset_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for schemas to filter",
+    )
+
+    #Profiling
+    profile_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for tables to profile",
+    )
+    profiling: ProfileConfig = Field(
+        default=ProfileConfig(),
+        description="Configuration for profiling",
     )
 
     # Advanced Configs
@@ -143,147 +168,3 @@ class DremioSourceConfig(ConfigModel, StatefulIngestionConfigBase):
                 "Password (Personal Access Token) is required when using PAT authentication",
             )
         return value
-
-
-class DremioState(GenericCheckpointState):
-    """
-    Serialized state for Dremio ingestion runs.
-    """
-
-    urn_to_timestamp: Dict[str, float] = {}
-
-    def add_urn_timestamp(
-            self,
-            urn: str,
-            timestamp: float,
-    ) -> None:
-        self.urn_to_timestamp[urn] = timestamp
-
-    def get_urn_timestamp(
-            self,
-            urn: str,
-    ) -> Optional[float]:
-        return self.urn_to_timestamp.get(urn)
-
-
-class DremioCheckpointState(GenericCheckpointState):
-    """
-    Checkpoint state for Dremio ingestion runs.
-    """
-
-    dremio_datasets: Set[str] = set()
-    dremio_views: Set[str] = set()
-    dremio_jobs: Set[str] = set()
-    last_updated_timestamps: Dict[str, float] = {}
-    scanned_urns: List[str] = []
-
-    def add_dremio_dataset(
-        self,
-        dataset_urn: str,
-    ) -> None:
-        self.dremio_datasets.add(dataset_urn)
-
-    def add_dremio_view(
-        self,
-        view_urn: str,
-    ) -> None:
-        self.dremio_views.add(view_urn)
-
-    def add_dremio_job(self, job_urn: str) -> None:
-        self.dremio_jobs.add(job_urn)
-
-    def add_last_updated_timestamp(
-        self,
-        urn: str,
-        timestamp: float,
-    ) -> None:
-        self.last_updated_timestamps[urn] = timestamp
-
-    def get_last_updated_timestamp(
-        self,
-        urn: str,
-    ) -> Optional[float]:
-        return self.last_updated_timestamps.get(urn)
-
-    def is_dremio_dataset_seen(self, dataset_urn: str) -> bool:
-        return dataset_urn in self.dremio_datasets
-
-    def is_dremio_view_seen(self, view_urn: str) -> bool:
-        return view_urn in self.dremio_views
-
-    def is_dremio_job_seen(self, job_urn: str) -> bool:
-        return job_urn in self.dremio_jobs
-
-    def clear_dremio_state(self) -> None:
-        self.dremio_datasets.clear()
-        self.dremio_views.clear()
-        self.dremio_jobs.clear()
-        self.last_updated_timestamps.clear()
-
-    def get_all_entity_urns(self) -> Set[str]:
-        return self.dremio_datasets.union(self.dremio_views).union(self.dremio_jobs)
-
-    def convert_to_checkpoint(self) -> Dict[str, bool]:
-        checkpoint = {}
-        for urn in self.get_all_entity_urns():
-            checkpoint[urn] = True
-        return checkpoint
-
-    def update_state(self, mcp: MetadataChangeProposalWrapper) -> None:
-        urn = mcp.entityUrn
-        if urn.startswith("urn:li:dataset"):
-            if mcp.aspectName == "subTypes":
-                subtypes = mcp.aspect.get("typeNames", [])
-                if "View" in subtypes:
-                    self.add_dremio_view(urn)
-                else:
-                    self.add_dremio_dataset(urn)
-            else:
-                # If we can't determine if it's a view, default to dataset
-                self.add_dremio_dataset(urn)
-        elif urn.startswith("urn:li:dataJob"):
-            self.add_dremio_job(urn)
-
-        # Update the last updated timestamp
-        if (
-            hasattr(
-                mcp,
-                'systemMetadata',
-            )
-            and mcp.systemMetadata
-            and mcp.systemMetadata.lastObserved
-        ):
-                self.add_last_updated_timestamp(urn, mcp.systemMetadata.lastObserved)
-        else:
-            # If systemMetadata is not available in MCP, you might want to use
-            # the current timestamp or handle this case differently
-            self.add_last_updated_timestamp(urn, time())
-
-    def add_scanned_urn(self, urn: str) -> None:
-        self.scanned_urns.append(urn)
-
-    def get_urns(self) -> List[str]:
-        return self.scanned_urns
-
-
-class DremioStaleEntityRemovalHandler(StaleEntityRemovalHandler):
-    """
-    Manages the deletion of stale entities during Dremio ingestion runs.
-    """
-
-    def __init__(
-        self,
-        source: StatefulIngestionSourceBase,
-        config: StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
-        state_type_class: Type[DremioCheckpointState],
-        pipeline_name: Optional[str],
-        run_id: str,
-    ):
-        super().__init__(
-            source=source,
-            config=config,
-            state_type_class=state_type_class,
-            pipeline_name=pipeline_name,
-            run_id=run_id,
-        )
-        self.source = source
