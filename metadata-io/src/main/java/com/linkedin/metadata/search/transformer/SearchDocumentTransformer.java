@@ -210,8 +210,13 @@ public class SearchDocumentTransformer {
                     fieldName,
                     JsonNodeFactory.instance.booleanNode((Boolean) firstValue.orElse(false)));
               } else {
-                searchDocument.set(
-                    fieldName, JsonNodeFactory.instance.booleanNode(!fieldValues.isEmpty()));
+                final boolean hasValue;
+                if (DataSchema.Type.STRING.equals(valueType)) {
+                  hasValue = firstValue.isPresent() && !String.valueOf(firstValue.get()).isEmpty();
+                } else {
+                  hasValue = !fieldValues.isEmpty();
+                }
+                searchDocument.set(fieldName, JsonNodeFactory.instance.booleanNode(hasValue));
               }
             });
 
@@ -390,7 +395,7 @@ public class SearchDocumentTransformer {
       default:
         String value = fieldValue.toString();
         return value.isEmpty()
-            ? Optional.empty()
+            ? Optional.of(JsonNodeFactory.instance.nullNode())
             : Optional.of(JsonNodeFactory.instance.textNode(value));
     }
   }

@@ -108,6 +108,8 @@ dockerCompose {
         environment.put "ACTIONS_EXTRA_PACKAGES", 'acryl-datahub-actions[executor] acryl-datahub-actions'
         environment.put "ACTIONS_CONFIG", 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml'
         environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false' // disabled when built locally
+        // disabled for spark-lineage smoke-test
+        environment.put 'DATAHUB_LOCAL_COMMON_ENV', "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env"
 
         useComposeFiles = ['profiles/docker-compose.yml']
         projectName = 'datahub'

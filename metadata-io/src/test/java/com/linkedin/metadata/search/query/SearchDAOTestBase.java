@@ -1,6 +1,8 @@
 package com.linkedin.metadata.search.query;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.fixtures.SampleDataFixtureTestBase.DEFAULT_CONFIG;
+import static com.linkedin.metadata.search.fixtures.SampleDataFixtureTestBase.MAPPER;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
 import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
@@ -12,6 +14,7 @@ import static org.testng.Assert.fail;
 
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -27,15 +30,17 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
-import com.linkedin.metadata.search.opensearch.SearchDAOOpenSearchTest;
 import com.linkedin.metadata.utils.SearchUtil;
 import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.client.RestHighLevelClient;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
@@ -46,6 +51,10 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   protected abstract SearchConfiguration getSearchConfiguration();
 
   protected abstract OperationContext getOperationContext();
+
+  protected abstract ESSearchDAO getESSearchDao();
+
+  protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
 
   @Test
   public void testTransformFilterForEntitiesNoChange() {
@@ -413,30 +422,21 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
 
   @Test
   public void testExplain() {
-    ESSearchDAO searchDAO =
-        new ESSearchDAO(
-            getSearchClient(),
-            false,
-            this instanceof SearchDAOOpenSearchTest
-                ? ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH
-                : ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
-            null,
-            QueryFilterRewriteChain.EMPTY);
     ExplainResponse explainResponse =
-        searchDAO.explain(
-            getOperationContext()
-                .withSearchFlags(flags -> ElasticSearchService.DEFAULT_SERVICE_SEARCH_FLAGS),
-            "*",
-            "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact."
-                + "ca_border_wait_times,PROD)",
-            DATASET_ENTITY_NAME,
-            null,
-            null,
-            null,
-            null,
-            10,
-            null);
+        getESSearchDao()
+            .explain(
+                getOperationContext()
+                    .withSearchFlags(flags -> ElasticSearchService.DEFAULT_SERVICE_SEARCH_FLAGS),
+                "*",
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact."
+                    + "ca_border_wait_times,PROD)",
+                DATASET_ENTITY_NAME,
+                null,
+                null,
+                null,
+                null,
+                10,
+                null);
 
     assertNotNull(explainResponse);
     assertEquals(explainResponse.getIndex(), "smpldat_datasetindex_v2");
@@ -444,6 +444,34 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
         explainResponse.getId(),
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.ca_border_wait_times,PROD)");
     assertTrue(explainResponse.isExists());
-    assertEquals(explainResponse.getExplanation().getValue(), 18.0f);
+    assertEquals(explainResponse.getExplanation().getValue(), 1.25f);
+  }
+
+  /**
+   * Ensure default search configuration matches the test fixture configuration (allowing for some
+   * differences)
+   */
+  @Test
+  public void testConfig() throws IOException {
+    final CustomSearchConfiguration defaultConfig;
+    try (InputStream stream = new ClassPathResource(DEFAULT_CONFIG).getInputStream()) {
+      defaultConfig = MAPPER.readValue(stream, CustomSearchConfiguration.class);
+    }
+
+    final CustomSearchConfiguration fixtureConfig =
+        MAPPER.readValue(
+            MAPPER.writeValueAsBytes(getCustomSearchConfiguration()),
+            CustomSearchConfiguration.class);
+
+    // test specifics
+    ((List<Map<String, Object>>)
+            fixtureConfig.getQueryConfigurations().get(1).getFunctionScore().get("functions"))
+        .remove(1);
+
+    ((List<Map<String, Object>>)
+            fixtureConfig.getQueryConfigurations().get(2).getFunctionScore().get("functions"))
+        .remove(1);
+
+    assertEquals(fixtureConfig, defaultConfig);
   }
 }
