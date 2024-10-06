@@ -20,7 +20,6 @@ from datahub.emitter.mce_builder import (
     make_domain_urn,
 )
 from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
-from datahub.ingestion.source.metadata.business_glossary import make_glossary_term_urn
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     SchemaMetadataClass,
@@ -41,7 +40,6 @@ from datahub.metadata.schema_classes import (
     TimeStampClass,
     SubTypesClass,
     DataPlatformInstanceClass,
-    DatasetKeyClass,
     FabricTypeClass,
     OwnershipClass,
     OwnerClass,
@@ -52,7 +50,6 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     ContainerClass,
     ContainerPropertiesClass,
-    GlossaryTermKeyClass,
     GlossaryTermInfoClass,
     StatusClass,
     DatasetProfileClass,
@@ -156,6 +153,10 @@ class DremioAspects:
         aspects[DataPlatformInstanceClass.get_aspect_name()] = self._create_data_platform_instance()
         aspects[SubTypesClass.ASPECT_NAME] = SubTypesClass(typeNames=[container.subclass])
         aspects[StatusClass.ASPECT_NAME] = StatusClass(removed=False)
+
+        if container.glossary_terms:
+            aspects[GlossaryTermsClass.ASPECT_NAME] = self._create_glossary_terms(container)
+
         return aspects
 
     def populate_dataset_aspects(self, dataset: DremioDataset) -> Dict[str, _Aspect]:
@@ -189,7 +190,6 @@ class DremioAspects:
     def populate_glossary_term_aspects(self, glossary_term: DremioGlossaryTerm) -> Dict[str, _Aspect]:
         return {
             GlossaryTermInfoClass.ASPECT_NAME: self._create_glossary_term_info(glossary_term),
-            DataPlatformInstanceClass.ASPECT_NAME: self._create_data_platform_instance()
         }
 
     def populate_profile_aspect(self, profile_data: Dict) -> DatasetProfileClass:
@@ -267,7 +267,13 @@ class DremioAspects:
             ]
         )
 
-    def _create_glossary_terms(self, dataset: DremioDataset) -> GlossaryTermsClass:
+    def _create_glossary_terms(
+            self,
+            dataset: Union[
+                DremioDataset,
+                DremioContainer,
+            ],
+    ) -> GlossaryTermsClass:
         return GlossaryTermsClass(
             terms=[
                 GlossaryTermAssociationClass(urn=term.urn)

@@ -4,7 +4,7 @@ from collections import defaultdict
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Iterable, List, Optional, Dict, Any, Callable
+from typing import Iterable, List, Optional, Dict, Any
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.decorators import (
@@ -47,7 +47,7 @@ from datahub.ingestion.source.dremio.dremio_api import (
     DremioDataset,
     DremioEdition,
     DremioContainer,
-    DremioDatasetType,
+    DremioDatasetType, DremioGlossaryTerm,
 )
 from datahub.ingestion.source.dremio.dremio_config import (
     DremioSourceConfig,
@@ -220,17 +220,22 @@ class DremioSource(StatefulIngestionSourceBase):
 
         containers = self.dremio_catalog.get_containers()
 
-        self.thread_execution(
-            function=self.process_container,
-            entities=containers,
-        )
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            future_to_dataset = {
+                executor.submit(self.process_container, container): container
+                for container in containers
+            }
+
+            for future in as_completed(future_to_dataset):
+                container_info = future_to_dataset[future]
+                try:
+                    yield from future.result()
+                except Exception as exc:
+                    self.report.report_failure(
+                        f"Failed to process dataset {container_info.path}.{container_info.resource_name}: {exc}"
+                    )
 
         datasets = self.dremio_catalog.get_datasets()
-
-        self.thread_execution(
-            function=self.process_dataset,
-            entities=datasets,
-        )
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             future_to_dataset = {
@@ -249,6 +254,23 @@ class DremioSource(StatefulIngestionSourceBase):
 
         if self.config.include_query_lineage:
             self.get_query_lineage_workunits()
+
+        glossary_terms = self.dremio_catalog.get_glossary_terms()
+
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            future_to_dataset = {
+                executor.submit(self.process_glossary_term, glossary_term): glossary_term
+                for glossary_term in glossary_terms
+            }
+
+            for future in as_completed(future_to_dataset):
+                glossary_term_info = future_to_dataset[future]
+                try:
+                    yield from future.result()
+                except Exception as exc:
+                    self.report.report_failure(
+                        f"Failed to process glossary term {glossary_term_info.glossary_term}: {exc}"
+                    )
 
         # Generate workunit for aggregated SQL parsing results
         for mcp in self.sql_parsing_aggregator.gen_metadata():
@@ -277,19 +299,20 @@ class DremioSource(StatefulIngestionSourceBase):
         )
 
         for aspect_name, aspect in aspects.items():
-            mcp = MetadataChangeProposalWrapper(
-                entityType="container",
-                entityUrn=container_urn,
-                aspectName=aspect_name,
-                aspect=aspect,
-                changeType=ChangeTypeClass.UPSERT,
-            )
-            workunits.append(
-                MetadataWorkUnit(
-                    id=f"{container_urn}-{aspect_name}",
-                    mcp=mcp,
+            if aspect is not None:
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="container",
+                    entityUrn=container_urn,
+                    aspectName=aspect_name,
+                    aspect=aspect,
+                    changeType=ChangeTypeClass.UPSERT,
                 )
-            )
+                workunits.append(
+                    MetadataWorkUnit(
+                        id=f"{container_urn}-{aspect_name}",
+                        mcp=mcp,
+                    )
+                )
 
         return workunits
 
@@ -326,19 +349,20 @@ class DremioSource(StatefulIngestionSourceBase):
             )
 
         for aspect_name, aspect in aspects.items():
-            mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                entityUrn=dataset_urn,
-                aspectName=aspect_name,
-                aspect=aspect,
-                changeType=ChangeTypeClass.UPSERT,
-            )
-            workunits.append(
-                MetadataWorkUnit(
-                    id=f"{dataset_urn}-{aspect_name}",
-                    mcp=mcp,
+            if aspect is not None:
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    entityUrn=dataset_urn,
+                    aspectName=aspect_name,
+                    aspect=aspect,
+                    changeType=ChangeTypeClass.UPSERT,
                 )
-            )
+                workunits.append(
+                    MetadataWorkUnit(
+                        id=f"{dataset_urn}-{aspect_name}",
+                        mcp=mcp,
+                    )
+                )
 
         if dataset_info.dataset_type == DremioDatasetType.VIEW:
             if self.dremio_catalog.edition == DremioEdition.ENTERPRISE:
@@ -395,6 +419,42 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
         return workunits
+
+    def process_glossary_term(self, glossary_term_info: DremioGlossaryTerm) -> List[MetadataWorkUnit]:
+        """
+        Process a Dremio container and generate metadata workunits.
+        """
+
+        workunits = []
+
+        glossary_term_urn = glossary_term_info.urn
+
+        self.stale_entity_removal_handler.add_entity_to_state(
+            type="glossaryTerm",
+            urn=glossary_term_urn
+        )
+
+        aspects = self.dremio_aspects.populate_glossary_term_aspects(
+            glossary_term=glossary_term_info,
+        )
+
+        for aspect_name, aspect in aspects.items():
+            if aspect is not None:
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="glossaryTerm",
+                    entityUrn=glossary_term_urn,
+                    aspectName=aspect_name,
+                    aspect=aspect,
+                    changeType=ChangeTypeClass.UPSERT,
+                )
+                workunits.append(
+                    MetadataWorkUnit(
+                        id=f"{glossary_term_urn}-{aspect_name}",
+                        mcp=mcp,
+                    )
+                )
+
+            return workunits
 
     def generate_view_lineage(
             self, parents: List[str], dataset_urn: str
@@ -544,19 +604,6 @@ class DremioSource(StatefulIngestionSourceBase):
             platform_instance=None,
             env=self.config.env
         )
-
-    def thread_execution(self, function: Callable, entities):
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_dataset = {
-                executor.submit(function, entity): entity
-                for entity in entities
-            }
-
-            for future in as_completed(future_to_dataset):
-                try:
-                    yield from future.result()
-                except Exception as exc:
-                    self.report.report_failure(exc)
 
     def get_report(self) -> SourceReport:
         """
