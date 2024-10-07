@@ -104,8 +104,8 @@ class DremioEdition(Enum):
     COMMUNITY = "COMMUNITY"
 
 class DremioDatasetType(Enum):
-    VIEW = "VIEW"
-    TABLE = "TABLE"
+    VIEW = "View"
+    TABLE = "Table"
 
 class DremioQuery:
     job_id: str
