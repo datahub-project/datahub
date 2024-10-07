@@ -558,7 +558,7 @@ def get_platform(connection_type: str) -> str:
     # connection_type taken from
     # https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_concepts_connectiontype.htm
     #  datahub platform mapping is found here
-    # https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
+    # https://github.com/datahub-project/datahub/blob/master/metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml
 
     if connection_type in ("textscan", "textclean", "excel-direct", "excel", "csv"):
         platform = "external"

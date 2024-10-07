@@ -522,6 +522,11 @@ enum FilterOperator {
   EQUAL
 
   """
+  Represent the relation: field = value (case-insensitive), e.g. platform = HDFS
+  """
+  IEQUAL
+
+  """
   * Represent the relation: String field is one of the array values to, e.g. name in ["Profile", "Event"]
   """
   IN
@@ -575,6 +580,7 @@ enum FilterOperator {
   Represent the relation: URN field matches any nested child or parent in addition to the given URN
   """
   RELATED_INCL
+
 }
 
 """

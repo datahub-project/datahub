@@ -635,6 +635,7 @@ module.exports = {
         "docs/advanced/browse-paths-upgrade",
         "docs/browseV2/browse-paths-v2",
         "docs/plugins",
+        "docs/advanced/bootstrap-mcps",
       ],
     },
     {
