@@ -7,6 +7,7 @@ import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
+import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
@@ -79,5 +80,28 @@ public class SpringStandardPluginConfiguration {
     return new SchemaFieldSideEffect()
         .setConfig(config)
         .setEntityChangeEventGeneratorRegistry(entityChangeEventGeneratorRegistry);
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.sideEffects.dataProductUnset.enabled",
+      havingValue = "true")
+  public MCPSideEffect dataProductUnsetSideEffect() {
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .enabled(true)
+            .className(DataProductUnsetSideEffect.class.getName())
+            .supportedOperations(
+                List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE", "DELETE", "PATCH"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DATA_PRODUCT_ENTITY_NAME)
+                        .aspectName(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
+                        .build()))
+            .build();
+
+    log.info("Initialized {}", SchemaFieldSideEffect.class.getName());
+    return new DataProductUnsetSideEffect().setConfig(config);
   }
 }
