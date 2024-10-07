@@ -812,29 +812,6 @@ class Mapper:
         )
         return container_work_units
 
-    def generate_app_container_key(
-        self, app: powerbi_data_classes.App
-    ) -> powerbi_data_classes.AppContainerKey:
-
-        return powerbi_data_classes.AppContainerKey(
-            platform=self.__config.platform_name,
-            platform_instance=self.__config.platform_instance,
-            env=self.__config.env,
-            app=app.get_urn_part(),
-        )
-
-    def generate_container_for_app(
-        self, app: powerbi_data_classes.App
-    ) -> Iterable[MetadataWorkUnit]:
-        app_key = self.generate_app_container_key(app)
-
-        container_work_units = gen_containers(
-            container_key=app_key,
-            name=app.name,
-            sub_types=[Constant.APP_SUB_TYPE],
-        )
-        return container_work_units
-
     def generate_container_for_dataset(
         self, dataset: powerbi_data_classes.PowerBIDataset
     ) -> Iterable[MetadataChangeProposalWrapper]:

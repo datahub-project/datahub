@@ -37,10 +37,6 @@ class DatasetKey(ContainerKey):
     dataset: str
 
 
-class AppContainerKey(ContainerKey):
-    app: str
-
-
 @dataclass
 class Workspace:
     id: str
@@ -53,7 +49,6 @@ class Workspace:
     dashboard_endorsements: Dict[str, List[str]]
     scan_result: dict
     independent_datasets: List["PowerBIDataset"]
-    app: Optional["App"]
 
     def get_urn_part(self, workspace_id_as_urn_part: Optional[bool] = False) -> str:
         # shouldn't use workspace name, as they can be the same?
@@ -188,31 +183,6 @@ class Page:
 
 
 @dataclass
-class AppDashboard:
-    id: str
-    original_dashboard_id: str
-
-
-@dataclass
-class AppReport:
-    id: str
-    original_report_id: str
-
-
-@dataclass
-class App:
-    id: str
-    name: str
-    description: Optional[str]
-    last_update: Optional[str]
-    dashboards: List["AppDashboard"]
-    reports: List["AppReport"]
-
-    def get_urn_part(self):
-        return f"apps.{self.id}"
-
-
-@dataclass
 class User:
     id: str
     displayName: str
@@ -259,7 +229,6 @@ class Report:
     pages: List["Page"]
     users: List["User"]
     tags: List[str]
-    app_reference: Optional["App"]
 
     def get_urn_part(self):
         return f"reports.{self.id}"
@@ -298,7 +267,6 @@ class Dashboard:
     users: List["User"]
     tags: List[str]
     webUrl: Optional[str]
-    app_reference: Optional["App"]
 
     def get_urn_part(self):
         return f"dashboards.{self.id}"

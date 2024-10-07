@@ -489,7 +489,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                             {
                                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
-                                "reportType": "PowerBIReport",
+                                "reportType": "PaginatedReport",
                                 "name": "SalesMarketing",
                                 "description": "Acryl sales marketing report",
                             }
@@ -536,7 +536,14 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                 "reportType": "PowerBIReport",
                                 "name": "SalesMarketing",
                                 "description": "Acryl sales marketing report",
-                            }
+                            },
+                            {
+                                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                                "id": "584cf13a-1485-41c2-a514-b1bb66fff163",
+                                "reportType": "PaginatedReport",
+                                "name": "SalesMarketing",
+                                "description": "Acryl sales marketing report",
+                            },
                         ],
                     },
                 ]
@@ -560,7 +567,16 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "description": "Acryl sales marketing report",
                         "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
                         "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
-                    }
+                    },
+                    {
+                        "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                        "id": "584cf13a-1485-41c2-a514-b1bb66fff163",
+                        "reportType": "PaginatedReport",
+                        "name": "Printable SalesMarketing",
+                        "description": "Acryl sales marketing report",
+                        "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/584cf13a-1485-41c2-a514-b1bb66fff163",
+                        "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=584cf13a-1485-41c2-a514-b1bb66fff163&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
+                    },
                 ]
             },
         },
@@ -575,6 +591,19 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 "description": "Acryl sales marketing report",
                 "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
                 "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/584cf13a-1485-41c2-a514-b1bb66fff163": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "id": "584cf13a-1485-41c2-a514-b1bb66fff163",
+                "reportType": "PaginatedReport",
+                "name": "Printable SalesMarketing",
+                "description": "Acryl sales marketing report",
+                "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/584cf13a-1485-41c2-a514-b1bb66fff163",
+                "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=584cf13a-1485-41c2-a514-b1bb66fff163&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/pages": {
@@ -594,6 +623,11 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     },
                 ]
             },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/584cf13a-1485-41c2-a514-b1bb66fff163/pages": {
+            "method": "GET",
+            "status_code": 400,  # Pages API is not supported for PaginatedReport
+            "text": '{"error":{"code":"InvalidRequest","message":"Request is currently not supported for RDL reports"}}',
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/parameters": {
             "method": "GET",
@@ -633,7 +667,8 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
-            json=api_vs_response[url]["json"],
+            json=api_vs_response[url].get("json"),
+            text=api_vs_response[url].get("text"),
             status_code=api_vs_response[url]["status_code"],
         )
 
@@ -1593,7 +1628,6 @@ def validate_pipeline(pipeline: Pipeline) -> None:
         dashboard_endorsements={},
         scan_result={},
         independent_datasets=[],
-        app=None,
     )
     # Fetch actual reports
     reports: List[Report] = cast(
@@ -1651,7 +1685,6 @@ def validate_pipeline(pipeline: Pipeline) -> None:
             users=[],
             tags=[],
             dataset=mock_workspace.datasets.get(report[Constant.DATASET_ID]),
-            app_reference=None,
         )
         for report in mock_reports
     ]
@@ -1697,7 +1730,7 @@ def test_reports_with_failed_page_request(
                         {
                             "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                             "id": "e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
-                            "reportType": "PowerBIReport",
+                            "reportType": "PaginatedReport",
                             "name": "Product",
                             "description": "Acryl product report",
                             "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
