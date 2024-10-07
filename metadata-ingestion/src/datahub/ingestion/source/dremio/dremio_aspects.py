@@ -218,7 +218,7 @@ class DremioAspects:
                         id=entity.path[browse_path_level],
                         urn=self.get_container_urn(
                             name=entity.container_name if hasattr(entity, 'container_name') else "",
-                            path=entity.path[:browse_path_level],
+                            path=entity.path[:browse_path_level+1],
                         ),
                     ) for browse_path_level in range(len(entity.path))
                 ]
