@@ -283,7 +283,8 @@ class PowerBiDashboardSourceConfig(
     # PowerBi workspace identifier
     workspace_id_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter PowerBI workspaces in ingestion",
+        description="Regex patterns to filter PowerBI workspaces in ingestion."
+        " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
     )
 
     # Dataset type mapping PowerBI support many type of data-sources. Here user need to define what type of PowerBI
@@ -461,7 +462,8 @@ class PowerBiDashboardSourceConfig(
         ]
     ] = pydantic.Field(
         default=["Workspace"],
-        description="Ingest the metadata of the workspace where the workspace type corresponds to the specified workspace_type_filter.",
+        description="Ingest the metadata of the workspace where the workspace type corresponds to the specified workspace_type_filter."
+        " Note: This field works in conjunction with 'workspace_id_pattern' and both must be considered when filtering workspaces.",
     )
 
     @root_validator(skip_on_failure=True)
