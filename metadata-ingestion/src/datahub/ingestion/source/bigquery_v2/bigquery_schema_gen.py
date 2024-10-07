@@ -710,7 +710,7 @@ class BigQuerySchemaGenerator:
             tags_to_add.extend(
                 [
                     make_tag_urn(f"""{k}:{v}""")
-                    if not v.startswith("urn_li_encoded_tag_")
+                    if not v.startswith(ENCODED_TAG_PREFIX)
                     else self.modified_base32decode(v)
                     for k, v in table.labels.items()
                     if is_tag_allowed(self.config.capture_table_label_as_tag, k)
@@ -738,7 +738,7 @@ class BigQuerySchemaGenerator:
         if table.labels and self.config.capture_view_label_as_tag:
             tags_to_add = [
                 make_tag_urn(f"""{k}:{v}""")
-                if not v.startswith("urn_li_encoded_tag_")
+                if not v.startswith(ENCODED_TAG_PREFIX)
                 else self.modified_base32decode(v)
                 for k, v in table.labels.items()
                 if is_tag_allowed(self.config.capture_view_label_as_tag, k)
