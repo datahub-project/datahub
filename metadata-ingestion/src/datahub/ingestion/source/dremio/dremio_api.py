@@ -881,7 +881,7 @@ class DremioDataset:
     resource_name: str
     path: List[str]
     location_id: str
-    columns: List[DremioDatasetColumn] = []
+    columns: Optional[List[DremioDatasetColumn]]
     sql_definition: Optional[str]
     dataset_type: DremioDatasetType
     owner: Optional[str]
@@ -901,7 +901,8 @@ class DremioDataset:
         self.resource_name = dataset_details.get("TABLE_NAME")
         self.path = dataset_details.get("TABLE_SCHEMA")[1:-1].split(", ")[:-1]
         self.location_id = dataset_details.get("LOCATION_ID")
-        self.columns = dataset_details.get("COLUMNS")
+        if dataset_details.get("COLUMNS"):
+            self.columns = dataset_details.get("COLUMNS")
         self.sql_definition = dataset_details.get("VIEW_DEFINITION")
 
         if self.sql_definition:

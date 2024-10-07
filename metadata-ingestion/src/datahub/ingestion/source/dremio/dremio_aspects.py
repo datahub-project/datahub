@@ -171,7 +171,7 @@ class DremioAspects:
         if dataset.glossary_terms:
             aspects[GlossaryTermsClass.ASPECT_NAME] = self._create_glossary_terms(dataset)
 
-        if dataset.columns:
+        if dataset.columns[0].name:
             aspects[SchemaMetadataClass.ASPECT_NAME] = self._create_schema_metadata(dataset)
             if self.profiling_enabled:
                 profile_data = dataset.get_profile_data(self.profiler)
@@ -180,11 +180,9 @@ class DremioAspects:
                     aspects[DatasetProfileClass.ASPECT_NAME] = profile_aspect
                 except Exception as exc:
                     logger.error(exc)
-        else:
-            logger.warning(f"Dataset {dataset.path}.{dataset.resource_name} has not been queried in Dremio")
-            logger.warning(f"Dataset {dataset.path}.{dataset.resource_name} will have a null schema")
 
         aspects[StatusClass.ASPECT_NAME] = StatusClass(removed=False)
+
         return aspects
 
     def populate_glossary_term_aspects(self, glossary_term: DremioGlossaryTerm) -> Dict[str, _Aspect]:
