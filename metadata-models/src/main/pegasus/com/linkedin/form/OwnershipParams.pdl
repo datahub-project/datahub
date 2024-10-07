@@ -14,11 +14,23 @@ record OwnershipParams {
   /**
    * An optional list of allowed owners to choose from
    */
+  @Relationship = {
+    "/*": {
+      "name": "allowedOwnerOn",
+      "entityTypes": [ "corpuser", "corpGroup" ]
+    }
+  }
   allowedOwners: optional array[Urn]
 
   /**
    * An optional list of ownership type urns to choose from. If this is empty, all types will be allowed.
    * If only one type is provided, the user will be required to set that type when responding.
    */
+  @Relationship = {
+    "/*": {
+      "name": "allowedOwnershipTypeOn",
+      "entityTypes": [ "ownershipType" ]
+    }
+  }
   allowedOwnershipTypes: optional array[Urn]
 }

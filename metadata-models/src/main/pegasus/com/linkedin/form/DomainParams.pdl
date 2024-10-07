@@ -9,5 +9,11 @@ record DomainParams {
   /**
    * An optional list of allowed domains to choose from
    */
+  @Relationship = {
+    "/*": {
+      "name": "allowedDomainOn",
+      "entityTypes": [ "domain" ]
+    }
+  }
   allowedDomains: optional array[Urn]
 }

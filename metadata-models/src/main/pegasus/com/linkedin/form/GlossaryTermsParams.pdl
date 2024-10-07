@@ -14,11 +14,23 @@ record GlossaryTermsParams {
   /**
    * An optional list of allowed glossary terms to choose from
    */
+  @Relationship = {
+    "/*": {
+      "name": "allowedTermOn",
+      "entityTypes": [ "glossaryTerm" ]
+    }
+  }
   allowedTerms: optional array[Urn]
 
   /**
    * An optional list of glossary term groups where a selection set of terms are underneath.
    * Right now this is not recursive. Provided a term group, we will display its direct children as options.
    */
+  @Relationship = {
+    "/*": {
+      "name": "allowedTermGroupOn",
+      "entityTypes": [ "glossaryNode" ]
+    }
+  }
   allowedTermGroups: optional array[Urn]
 }

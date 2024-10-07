@@ -33,6 +33,7 @@ import com.linkedin.metadata.boot.steps.MigrateIncidentsSummaryStep;
 import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
 import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
+import com.linkedin.metadata.boot.steps.RestoreFormInfoIndicesStep;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
 import com.linkedin.metadata.config.ForwardingActionConfiguration;
@@ -171,6 +172,8 @@ public class BootstrapManagerFactory {
     final IngestDataTypesStep ingestDataTypesStep = new IngestDataTypesStep(_entityService);
     final IngestEntityTypesStep ingestEntityTypesStep = new IngestEntityTypesStep(_entityService);
     final IngestDefaultTagsStep ingestDefaultTagsStep = new IngestDefaultTagsStep(_entityService);
+    final RestoreFormInfoIndicesStep restoreFormInfoIndicesStep =
+        new RestoreFormInfoIndicesStep(_entityService);
 
     final MigrateAssertionsSummaryStep assertionsSummaryStep =
         new MigrateAssertionsSummaryStep(
@@ -207,6 +210,7 @@ public class BootstrapManagerFactory {
                 assertionsSummaryStep,
                 incidentsSummaryStep,
                 migrateFreshnessAssertionCronToSinceTheLastCheckStep,
+                restoreFormInfoIndicesStep,
                 // Saas-only
                 _ingestMetadataTestsStep,
                 ingestDefaultTagsStep)
