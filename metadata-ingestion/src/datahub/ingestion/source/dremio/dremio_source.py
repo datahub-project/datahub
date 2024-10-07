@@ -221,18 +221,18 @@ class DremioSource(StatefulIngestionSourceBase):
         containers = self.dremio_catalog.get_containers()
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_dataset = {
+            future_to_container = {
                 executor.submit(self.process_container, container): container
                 for container in containers
             }
 
-            for future in as_completed(future_to_dataset):
-                container_info = future_to_dataset[future]
+            for future in as_completed(future_to_container):
+                container_info = future_to_container[future]
                 try:
                     yield from future.result()
                 except Exception as exc:
                     self.report.report_failure(
-                        f"Failed to process dataset {container_info.path}.{container_info.resource_name}: {exc}"
+                        f"Failed to process dataset {'.'.join(container_info.path)}.{container_info.resource_name}: {exc}"
                     )
 
         datasets = self.dremio_catalog.get_datasets()
@@ -249,7 +249,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     yield from future.result()
                 except Exception as exc:
                     self.report.report_failure(
-                        f"Failed to process dataset {dataset_info.path}.{dataset_info.resource_name}: {exc}"
+                        f"Failed to process dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name}: {exc}"
                     )
 
         if self.config.include_query_lineage:
@@ -258,13 +258,13 @@ class DremioSource(StatefulIngestionSourceBase):
         glossary_terms = self.dremio_catalog.get_glossary_terms()
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_dataset = {
+            future_to_glossary_term = {
                 executor.submit(self.process_glossary_term, glossary_term): glossary_term
                 for glossary_term in glossary_terms
             }
 
-            for future in as_completed(future_to_dataset):
-                glossary_term_info = future_to_dataset[future]
+            for future in as_completed(future_to_glossary_term):
+                glossary_term_info = future_to_glossary_term[future]
                 try:
                     yield from future.result()
                 except Exception as exc:

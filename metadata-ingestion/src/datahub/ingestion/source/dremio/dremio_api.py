@@ -1,5 +1,6 @@
 """This Module contains utility functions for dremio source"""
 import concurrent.futures
+import warnings
 from time import sleep, time
 from collections import deque, defaultdict
 from enum import Enum
@@ -16,6 +17,7 @@ import re
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Deque, Union
 from urllib.parse import quote
+from urllib3.exceptions import InsecureRequestWarning
 
 import requests
 
@@ -246,6 +248,9 @@ class DremioAPIOperations:
                     connection_args.tls
                     and not connection_args.disable_certificate_verification
             )
+
+            if not self._verify:
+                warnings.simplefilter('ignore', InsecureRequestWarning)
 
             self.set_credentials()
 
@@ -714,7 +719,7 @@ class DremioAPIOperations:
                     exc,
                 )
             )
-            return
+        return
 
     def get_description_for_resource(self, resource_id: str) -> Optional[str]:
         """
@@ -733,7 +738,7 @@ class DremioAPIOperations:
                     exc,
                 )
             )
-            return
+        return
 
     def get_source_type(
             self,
@@ -881,7 +886,7 @@ class DremioDataset:
     resource_name: str
     path: List[str]
     location_id: str
-    columns: Optional[List[DremioDatasetColumn]]
+    columns: List[DremioDatasetColumn]
     sql_definition: Optional[str]
     dataset_type: DremioDatasetType
     owner: Optional[str]
@@ -897,12 +902,16 @@ class DremioDataset:
             dataset_details: dict,
             api_operations: DremioAPIOperations,
     ):
+        self.glossary_terms: List[DremioGlossaryTerm] = []
         self.resource_id = dataset_details.get("RESOURCE_ID")
         self.resource_name = dataset_details.get("TABLE_NAME")
         self.path = dataset_details.get("TABLE_SCHEMA")[1:-1].split(", ")[:-1]
         self.location_id = dataset_details.get("LOCATION_ID")
-        if dataset_details.get("COLUMNS"):
+        #Protect against null columns returned
+        if dataset_details.get("COLUMNS")[0].name:
             self.columns = dataset_details.get("COLUMNS")
+        else:
+            self.columns = []
         self.sql_definition = dataset_details.get("VIEW_DEFINITION")
 
         if self.sql_definition:
@@ -946,7 +955,6 @@ class DremioContainer:
     location_id: str
     path: List[str]
     description: Optional[str]
-    glossary_terms: List[DremioGlossaryTerm] = []
     subclass: str
 
     def __init__(
@@ -963,13 +971,6 @@ class DremioContainer:
         self.description = api_operations.get_description_for_resource(
             resource_id=location_id,
         )
-
-        for glossary_term in api_operations.get_tags_for_resource(
-            resource_id=location_id,
-        ):
-            self.glossary_terms.append(
-                DremioGlossaryTerm(glossary_term=glossary_term)
-            )
 
 class DremioSource(DremioContainer):
     subclass: str = "Dremio Source"
@@ -1088,21 +1089,6 @@ class DremioCatalog:
                             api_operations=self.dremio_api,
                         )
                     )
-
-            for container in self.sources:
-                for glossary_term in container.glossary_terms:
-                    if glossary_term not in self.glossary_terms:
-                        self.glossary_terms.append(glossary_term)
-
-            for container in self.spaces:
-                for glossary_term in container.glossary_terms:
-                    if glossary_term not in self.glossary_terms:
-                        self.glossary_terms.append(glossary_term)
-
-            for container in self.folders:
-                for glossary_term in container.glossary_terms:
-                    if glossary_term not in self.glossary_terms:
-                        self.glossary_terms.append(glossary_term)
 
         logging.info("Containers retrieved from source")
 

@@ -152,10 +152,8 @@ class DremioAspects:
         aspects[ContainerClass.ASPECT_NAME] = self._create_container_class(container)
         aspects[DataPlatformInstanceClass.get_aspect_name()] = self._create_data_platform_instance()
         aspects[SubTypesClass.ASPECT_NAME] = SubTypesClass(typeNames=[container.subclass])
-        aspects[StatusClass.ASPECT_NAME] = StatusClass(removed=False)
 
-        if container.glossary_terms:
-            aspects[GlossaryTermsClass.ASPECT_NAME] = self._create_glossary_terms(container)
+        aspects[StatusClass.ASPECT_NAME] = StatusClass(removed=False)
 
         return aspects
 
@@ -171,7 +169,7 @@ class DremioAspects:
         if dataset.glossary_terms:
             aspects[GlossaryTermsClass.ASPECT_NAME] = self._create_glossary_terms(dataset)
 
-        if dataset.columns[0].name:
+        if dataset.columns:
             aspects[SchemaMetadataClass.ASPECT_NAME] = self._create_schema_metadata(dataset)
             if self.profiling_enabled:
                 profile_data = dataset.get_profile_data(self.profiler)
@@ -267,15 +265,12 @@ class DremioAspects:
 
     def _create_glossary_terms(
             self,
-            dataset: Union[
-                DremioDataset,
-                DremioContainer,
-            ],
+            entity: DremioDataset
     ) -> GlossaryTermsClass:
         return GlossaryTermsClass(
             terms=[
                 GlossaryTermAssociationClass(urn=term.urn)
-                for term in dataset.glossary_terms
+                for term in entity.glossary_terms
             ],
             auditStamp=AuditStampClass(
                 time=round(time.time() * 1000),
