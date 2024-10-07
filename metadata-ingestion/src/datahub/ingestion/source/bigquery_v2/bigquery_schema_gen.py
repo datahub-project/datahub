@@ -196,6 +196,18 @@ class BigQuerySchemaGenerator:
             or self.config.use_queries_v2
         )
 
+    def modified_base32decode(self, text_to_decode: str) -> str:
+        # When we sync from DataHub to BigQuery, we encode the tags as modified base32 strings.
+        # BiqQuery labels only support lowercase letters, international characters, numbers, or underscores.
+        # So we need to modify the base32 encoding to replace the padding character `=` with `_` and convert to lowercase.
+        if not text_to_decode.startswith("%s" % ENCODED_TAG_PREFIX):
+            return text_to_decode
+        text_to_decode = (
+            text_to_decode.replace(ENCODED_TAG_PREFIX, "").upper().replace("_", "=")
+        )
+        text = b32decode(text_to_decode.encode("utf-8")).decode("utf-8")
+        return text
+
     def get_project_workunits(
         self, project: BigqueryProject
     ) -> Iterable[MetadataWorkUnit]:
@@ -790,18 +802,6 @@ class BigQuerySchemaGenerator:
             sub_types=[DatasetSubTypes.BIGQUERY_TABLE_SNAPSHOT],
             custom_properties=custom_properties,
         )
-
-    def modified_base32decode(self, text_to_decode: str) -> str:
-        # When we sync from DataHub to BigQuery, we encode the tags as modified base32 strings.
-        # BiqQuery labels only support lowercase letters, international characters, numbers, or underscores.
-        # So we need to modify the base32 encoding to replace the padding character `=` with `_` and convert to lowercase.
-        if not text_to_decode.startswith("%s" % ENCODED_TAG_PREFIX):
-            return text_to_decode
-        text_to_decode = (
-            text_to_decode.replace(ENCODED_TAG_PREFIX, "").upper().replace("_", "=")
-        )
-        text = b32decode(text_to_decode.encode("utf-8")).decode("utf-8")
-        return text
 
     def gen_dataset_workunits(
         self,
