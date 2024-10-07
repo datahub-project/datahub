@@ -8,7 +8,7 @@ interface Props {
 
 export function getFieldDescriptionDetails({ schemaFieldEntity, editableFieldInfo, defaultDescription }: Props) {
     const documentations = schemaFieldEntity?.documentation?.documentations;
-    let latestDocumentation: typeof documentations[0] | undefined;
+    let latestDocumentation: (typeof documentations)[0] | undefined;
 
     if (documentations && documentations.length > 0) {
         latestDocumentation = documentations.reduce((latest, current) => {
