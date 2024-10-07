@@ -1,6 +1,6 @@
 package com.linkedin.metadata.extractor;
 
-import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 import com.datahub.test.TestEntityAspect;
 import com.datahub.test.TestEntityAspectArray;

@@ -58,6 +58,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.opensearch.action.search.SearchRequest;
@@ -80,7 +81,7 @@ public class SearchRequestHandler {
   private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
   private final List<EntitySpec> entitySpecs;
-  private final Set<String> defaultQueryFieldNames;
+  @Getter private final Set<String> defaultQueryFieldNames;
   @Nonnull private final HighlightBuilder highlights;
 
   private final SearchConfiguration configs;
