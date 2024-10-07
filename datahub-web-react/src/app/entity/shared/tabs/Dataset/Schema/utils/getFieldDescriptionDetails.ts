@@ -1,4 +1,8 @@
-import { EditableSchemaFieldInfo, SchemaFieldEntity } from '../../../../../../../types.generated';
+import {
+    EditableSchemaFieldInfo,
+    SchemaFieldEntity,
+    DocumentationAssociation,
+} from '../../../../../../../types.generated';
 
 interface Props {
     schemaFieldEntity?: SchemaFieldEntity | null;
@@ -8,7 +12,7 @@ interface Props {
 
 export function getFieldDescriptionDetails({ schemaFieldEntity, editableFieldInfo, defaultDescription }: Props) {
     const documentations = schemaFieldEntity?.documentation?.documentations;
-    let latestDocumentation: (typeof documentations)[0] | undefined;
+    let latestDocumentation: DocumentationAssociation | undefined;
 
     if (documentations && documentations.length > 0) {
         latestDocumentation = documentations.reduce((latest, current) => {
