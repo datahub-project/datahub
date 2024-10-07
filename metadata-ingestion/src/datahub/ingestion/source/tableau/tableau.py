@@ -459,6 +459,11 @@ class TableauConfig(
         description="When enabled, sites are added as containers and therefore visible in the folder structure within Datahub.",
     )
 
+    ingest_hidden_views: bool = Field(
+        True,
+        description="When enabled, hidden views are ingested into Datahub. Default is True.",
+    )
+
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
@@ -2908,7 +2913,10 @@ class TableauSiteSource:
             c.DASHBOARDS_CONNECTION,
             dashboards_filter,
         ):
-            yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
+            if dashboard.get(c.LUID):
+                yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
+            else:
+                logger.info(f"Skip dashboard {dashboard.get(c.ID)} because it's hidden (no luid available)")
 
     def get_tags(self, obj: dict) -> Optional[List[str]]:
         tag_list = obj.get(c.TAGS, [])
