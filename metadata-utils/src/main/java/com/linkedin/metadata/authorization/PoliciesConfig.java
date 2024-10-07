@@ -877,13 +877,19 @@ public class PoliciesConfig {
                       .put(ApiOperation.CREATE, DENY_ACCESS)
                       .put(
                           ApiOperation.READ,
-                          Disjunctive.disjoint(VIEW_ANALYTICS_PRIVILEGE, GET_ANALYTICS_PRIVILEGE, MANAGE_SYSTEM_OPERATIONS_PRIVILEGE))
+                          Disjunctive.disjoint(
+                              VIEW_ANALYTICS_PRIVILEGE,
+                              GET_ANALYTICS_PRIVILEGE,
+                              MANAGE_SYSTEM_OPERATIONS_PRIVILEGE))
                       .put(ApiOperation.UPDATE, DENY_ACCESS)
                       .put(ApiOperation.DELETE, DENY_ACCESS)
                       .put(
                           ApiOperation.EXISTS,
                           Disjunctive.disjoint(
-                              VIEW_ANALYTICS_PRIVILEGE, GET_ANALYTICS_PRIVILEGE, SEARCH_PRIVILEGE, MANAGE_SYSTEM_OPERATIONS_PRIVILEGE))
+                              VIEW_ANALYTICS_PRIVILEGE,
+                              GET_ANALYTICS_PRIVILEGE,
+                              SEARCH_PRIVILEGE,
+                              MANAGE_SYSTEM_OPERATIONS_PRIVILEGE))
                       .build())
               .put(
                   ApiGroup.TIMESERIES,
