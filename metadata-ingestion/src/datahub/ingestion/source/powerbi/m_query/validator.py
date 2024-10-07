@@ -15,7 +15,7 @@ def validate_parse_tree(
     :param tree: tree to validate as per functions supported by m_parser module
     :param native_query_enabled: Whether user want to extract lineage from native query
     :return: first argument is False if validation is failed and second argument would contain the error message.
-             in-case of valid tree the first argument is True and second argument would be None.
+             in the case of valid tree, the first argument is True and the second argument would be None.
     """
     functions: List[str] = tree_function.get_all_function_name(tree)
     if len(functions) == 0:
