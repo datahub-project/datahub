@@ -75,9 +75,9 @@ Lineage is emitted as received from Tableau's metadata API for
 The ingestion can be configured to ingest Tableau permissions as access roles. This enables users to request access to Tableau assets from Datahub.
 The Tableau group permissions are fetched from the Tableau API, optionally transformed to your needs, and then added as roles to the Tableau asset in Datahub. Currently, this is only available for Workbooks.
 
-Assuming you have groups in Tableau with names such as `AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer` or `AB_XY00-Tableau-Access_A_123_PROJECT_XY_Analyst` and corresponding IAM roles like `AR-Tableau-PROJECT_XY_Consumer` or `AR-Tableau-PROJECT_XY_Analyst`.
-Using the recipe below, would filter the groups that end with "_Consumer" and transform the group names into the corresponding IAM roles.
-With `group_substring_start` and `group_substring_end` you can define a substring of the group name to be used as role name and `role_prefix` can be used to add a prefix to the generated role name.
+Assuming you have groups in Tableau with names such as `AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer` or `AB_XY00-Tableau-Access_A_123_PROJECT_XY_Analyst` and corresponding roles (e.g. in an IAM tool) like `AR-Tableau-PROJECT_XY_Consumer` or `AR-Tableau-PROJECT_XY_Analyst`.
+Using the recipe below, would filter the groups that end with "_Consumer" and transform the group names into the corresponding roles.
+With `group_start_index` and `group_end_index` you can define a substring of the group name to be used as role name and `role_prefix` can be used to add a prefix to the generated role name.
 The role names then act as a substitute of `$ROLE_NAME` in the `request_url` and result in access request URLs like `https://iam.example.com/accessRequest?role=AR-Tableau-PROJECT_XY_Consumer`, for example.
 ```
 source:
@@ -88,8 +88,8 @@ source:
     access_role_ingestion:
       enable_workbooks: True
       role_prefix: "AR-Tableau-"
-      group_substring_start: 29
-      role_description: "IAM role required to access this Tableau asset."
+      group_start_index: 29
+      role_description: "Role required to access this Tableau asset."
       displayed_capabilities: ["Read", "Write", "Delete"]
       request_url: "https://iam.example.com/accessRequest?role=$ROLE_NAME"
       group_name_pattern:

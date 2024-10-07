@@ -222,7 +222,7 @@ class TableauConnectionConfig(ConfigModel):
 
     session_trust_env: bool = Field(
         False,
-        description="Configures the trust_env property in the requests session. If set to false (default value) it will bypass proxy settings.",
+        description="Configures the trust_env property in the requests session. If set to false (default value) it will bypass proxy settings. See https://requests.readthedocs.io/en/latest/api/#requests.Session.trust_env for more information.",
     )
 
     extract_column_level_lineage: bool = Field(
@@ -274,9 +274,7 @@ class TableauConnectionConfig(ConfigModel):
                 },
             )
 
-            if not self.session_trust_env:
-                # From https://stackoverflow.com/a/50159273/5004662.
-                server._session.trust_env = False
+            server._session.trust_env = self.session_trust_env
 
             # Setup request retries.
             adapter = HTTPAdapter(
@@ -326,17 +324,17 @@ class AccessRolesIngestionConfig(ConfigModel):
 
     role_prefix: str = Field(
         default="",
-        description="Prefix to append to the group name when generating the role name used in the request_url.",
+        description="Specify a prefix that will be prepended to the group name to create the role name used in the request URL.",
     )
 
-    group_substring_start: Optional[int] = Field(
+    group_start_index: Optional[int] = Field(
         default=None,
-        description="Use this property if you only need a substring of the group in Tableau to create the role used in the request_url.",
+        description="Index to specify where to start extracting a substring from the Tableau group name to form the role name in the request URL. The index is zero based.",
     )
 
-    group_substring_end: Optional[int] = Field(
+    group_end_index: Optional[int] = Field(
         default=None,
-        description="Use this property if you only need a substring of the group in Tableau to create the role used in the request_url.",
+        description="Index to specify where to end the extraction of a substring from the Tableau group name to form the role name in the request URL.",
     )
 
     role_description: str = Field(
@@ -3255,15 +3253,13 @@ class TableauSiteSource:
     def _extract_role_name_from_group(self, group_name: str) -> str:
         if not self.config.access_role_ingestion:
             return group_name
-        if self.config.access_role_ingestion.group_substring_start is not None:
-            start = self.config.access_role_ingestion.group_substring_start
+        if self.config.access_role_ingestion.group_start_index is not None:
+            start = self.config.access_role_ingestion.group_start_index
         else:
             start = 0
 
-        if self.config.access_role_ingestion.group_substring_end is not None:
-            return group_name[
-                start : self.config.access_role_ingestion.group_substring_end
-            ]
+        if self.config.access_role_ingestion.group_end_index is not None:
+            return group_name[start : self.config.access_role_ingestion.group_end_index]
         else:
             return group_name[start:]
 

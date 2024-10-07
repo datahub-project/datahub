@@ -1207,7 +1207,7 @@ def test_access_role_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
         "access_role_ingestion": {
             "enable_workbooks": True,
             "role_prefix": "AR-Tableau-",
-            "group_substring_start": 29,
+            "group_start_index": 29,
             "role_description": "IAM Role required to access this Tableau asset.",
             "displayed_capabilities": ["Read", "Write", "Delete"],
             "request_url": "https://iam.example.com/accessRequest?role=$ROLE_NAME",
