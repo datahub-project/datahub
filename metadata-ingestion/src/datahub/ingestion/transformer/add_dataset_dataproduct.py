@@ -53,9 +53,9 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
         data_products: Dict[str, DataProductPatchBuilder] = {}
         data_products_container: Dict[str, DataProductPatchBuilder] = {}
         logger.debug("Generating dataproducts")
+        is_container = self.config.is_container
         for entity_urn in self.entity_map.keys():
             data_product_urn = self.config.get_data_product_to_add(entity_urn)
-            is_container = self.config.is_container
             if data_product_urn:
                 if data_product_urn not in data_products:
                     data_products[data_product_urn] = DataProductPatchBuilder(
