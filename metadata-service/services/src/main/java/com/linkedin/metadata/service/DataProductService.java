@@ -340,12 +340,6 @@ public class DataProductService {
               .filter(urn -> !existingResourceUrns.contains(urn))
               .collect(Collectors.toList());
 
-      // unset existing data product on resources first as we only allow one data product on an
-      // entity at a time
-      for (Urn resourceUrn : resourceUrns) {
-        unsetDataProduct(opContext, resourceUrn, actorUrn);
-      }
-
       AuditStamp nowAuditStamp =
           new AuditStamp().setTime(System.currentTimeMillis()).setActor(actorUrn);
       for (Urn resourceUrn : newResourceUrns) {
@@ -390,7 +384,7 @@ public class DataProductService {
               10, // should never be more than 1 as long as we only allow one
               actorUrn.toString());
 
-      if (relationships.hasRelationships() && relationships.getRelationships().size() > 0) {
+      if (relationships.hasRelationships() && !relationships.getRelationships().isEmpty()) {
         relationships
             .getRelationships()
             .forEach(

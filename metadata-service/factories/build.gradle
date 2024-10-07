@@ -48,7 +48,7 @@ dependencies {
   implementation spec.product.pegasus.restliSpringBridge
   implementation spec.product.pegasus.restliDocgen
   implementation externalDependency.jline
-  implementation externalDependency.common
+  implementation externalDependency.commonsIo
 
   testImplementation externalDependency.springBootTest
   testImplementation externalDependency.mockito
