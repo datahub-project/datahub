@@ -5,8 +5,6 @@ import requests
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
-
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -17,25 +15,21 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
-from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
-)
-
-from datahub.utilities import config_clean\
-
-from datahub.ingestion.source.superset import SupersetSource
+from datahub.ingestion.source.superset import SupersetConfig, SupersetSource
+from datahub.utilities import config_clean
 
 logger = logging.getLogger(__name__)
-class PresetConfig(StatefulIngestionConfigBase, ConfigModel):
+
+
+class PresetConfig(SupersetConfig):
     manager_uri: str = Field(
         default="https://api.app.preset.io", description="Preset.io API URL"
     )
-    connect_uri: str = Field(default=None, description="Preset workspace URL.")
+    connect_uri: str = Field(default="", description="Preset workspace URL.")
     display_uri: Optional[str] = Field(
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",

@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest.mock import patch
 
 import pytest
@@ -11,7 +11,6 @@ from tests.test_helpers.state_helpers import (
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )
-from typing import Optional
 
 FROZEN_TIME = "2024-07-10 07:00:00"
 GMS_PORT = 8080
@@ -26,17 +25,31 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         "mock://mock-domain.preset.io/v1/auth/": {
             "method": "POST",
             "status_code": 200,
-            "json": {"payload": {
-                "access_token": "test_token",
-            }},
+            "json": {
+                "payload": {
+                    "access_token": "test_token",
+                }
+            },
         },
         "mock://mock-domain.preset.io/version": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                'ci': {'built_at': 'Tue Jul  10 00:00:00 UTC 2024', 'build_num': '1', 'triggered_by': 'Not triggered by a user'},
-                'git': {'branch': '4.0.1.6', 'sha': 'test_sha', 'sha_superset': 'test_sha_superset', 'release_name': 'test_release_name'},
-                'chart_version': '1.16.1', 'start_time': '2024-07-10 00:00:00', 'mt_deployment': True}
+                "ci": {
+                    "built_at": "Tue Jul  10 00:00:00 UTC 2024",
+                    "build_num": "1",
+                    "triggered_by": "Not triggered by a user",
+                },
+                "git": {
+                    "branch": "4.0.1.6",
+                    "sha": "test_sha",
+                    "sha_superset": "test_sha_superset",
+                    "release_name": "test_release_name",
+                },
+                "chart_version": "1.16.1",
+                "start_time": "2024-07-10 00:00:00",
+                "mt_deployment": True,
+            },
         },
         "mock://mock-domain.preset.io/api/v1/dashboard/": {
             "method": "GET",

@@ -8,7 +8,6 @@ import requests
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -20,10 +19,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn,
     make_domain_urn,
 )
-from datahub.emitter.mcp_builder import (
-    add_domain_to_entity_wu
-)
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -194,7 +190,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
         self.session = self.login()
 
-
     def login(self) -> requests.Session:
         login_response = requests.post(
             f"{self.config.connect_uri}/api/v1/security/login",
@@ -219,7 +214,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
         # Test the connection
-        test_response = requests_session.session.get(f"{self.config.connect_uri}/api/v1/dashboard/")
+        test_response = requests_session.get(
+            f"{self.config.connect_uri}/api/v1/dashboard/"
+        )
         if test_response.status_code == 200:
             pass
             # TODO(Gabe): how should we message about this error?
