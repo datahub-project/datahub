@@ -4,10 +4,14 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 import clsx from "clsx";
 
 const Tiles = ({ tilesContent }) => {
-  const { title, tileItems } = tilesContent;
+  const { title, theme, tileItems } = tilesContent;
+
+  const sectionThemeClass = theme === "dark" ? styles.darkSection : styles.lightSection;
+  const itemThemeClass = theme === "dark" ? styles.darkItem : styles.lightItem;
+  const diagramItemThemeClass = theme === "dark" ? styles.darkDiagramItem : styles.lightDiagramItem;
 
   return (
-    <div className={styles.container}>
+    <div className={clsx(sectionThemeClass)}>
       <div className={styles.ecosystem_section}>
         <div className={styles.ecosystem_section_content}>
           <div className={styles.ecosystem_section_upper_content}>
@@ -25,12 +29,17 @@ const Tiles = ({ tilesContent }) => {
                   {index % 2 !== 0 ? (
                     <>
                       <div
-                        className={clsx(styles.diagramItem, styles.evenDiagramItem, "col col--5")}
-                        style={{
-                          backgroundImage: `url(${useBaseUrl(item.imgSrc)})`,
-                        }}
-                      ></div>
-                      <div className={clsx(styles.item, styles.evenItem, "col col--5")}>
+                        className={clsx(
+                          styles.diagramItem,
+                          diagramItemThemeClass,
+                          "col col--5"
+                        )}
+                      >
+                        <img className={styles.diagramItem__img} src={useBaseUrl(item.imgSrc)} alt={item.title} />
+                      </div>
+                      <div
+                        className={clsx(styles.item, styles.evenItem, "col col--5", itemThemeClass)}
+                      >
                         <div className={styles.item_content}>
                           <div className={styles.item__title}>{item.title}</div>
                           <div className={styles.item__subtitle}>{item.subtitle}</div>
@@ -39,18 +48,23 @@ const Tiles = ({ tilesContent }) => {
                     </>
                   ) : (
                     <>
-                      <div className={clsx(styles.item, styles.oddItem, "col col--5")}>
+                      <div
+                        className={clsx(styles.item, styles.oddItem, "col col--5", itemThemeClass)}
+                      >
                         <div className={clsx(styles.item_content)}>
                           <div className={styles.item__title}>{item.title}</div>
                           <div className={styles.item__subtitle}>{item.subtitle}</div>
                         </div>
                       </div>
                       <div
-                        className={clsx(styles.diagramItem, styles.oddDiagramItem, "col col--5")}
-                        style={{
-                          backgroundImage: `url(${useBaseUrl(item.imgSrc)})`,
-                        }}
-                      ></div>
+                        className={clsx(
+                          styles.diagramItem,
+                          diagramItemThemeClass,
+                          "col col--5"
+                        )}
+                      >
+                        <img className={styles.diagramItem__img} src={useBaseUrl(item.imgSrc)} alt={item.title} />
+                      </div>
                     </>
                   )}
                 </div>
