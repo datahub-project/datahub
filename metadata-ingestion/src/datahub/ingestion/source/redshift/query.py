@@ -950,7 +950,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     distinct
                         "schema" as target_schema,
                         "table" as target_table,
-                        c.file_name
+                        c.file_name as filename
                 from
                     SYS_QUERY_DETAIL as si
                 join SYS_LOAD_DETAIL as c on
