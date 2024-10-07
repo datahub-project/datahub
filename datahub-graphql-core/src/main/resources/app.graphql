@@ -192,9 +192,19 @@ type PlatformPrivileges {
   manageDocumentationForms: Boolean!
 
   """
+  Whether the user can view the manage documentation forms page.
+  """
+  viewDocumentationFormsPage: Boolean!
+
+  """
   Whether the user can create, edit, and delete structured properties.
   """
   manageStructuredProperties: Boolean!
+
+  """
+  Whether the user can view the manage structured properties page.
+  """
+  viewStructuredPropertiesPage: Boolean!
 }
 
 """

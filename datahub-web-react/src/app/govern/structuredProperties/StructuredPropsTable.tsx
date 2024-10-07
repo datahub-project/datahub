@@ -13,6 +13,7 @@ import TableIcon from '@src/images/table-icon.svg?react';
 import { Entity, EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { Dropdown, Tooltip } from 'antd';
 import React, { useState } from 'react';
+import { useUserContext } from '@src/app/context/useUserContext';
 import { CardIcons } from '../Dashboard/Forms/styledComponents';
 import { removeFromPropertiesList } from './cacheUtils';
 import {
@@ -51,6 +52,8 @@ const StructuredPropsTable = ({
 }: Props) => {
     const entityRegistry = useEntityRegistryV2();
     const client = useApolloClient();
+    const me = useUserContext();
+    const canEditProps = me.platformPrivileges?.manageStructuredProperties;
 
     const structuredProperties = data?.searchAcrossEntities?.searchResults || [];
 
@@ -227,15 +230,27 @@ const StructuredPropsTable = ({
                     },
                     {
                         key: '1',
+                        disabled: !canEditProps,
                         label: (
-                            <MenuItem
-                                onClick={() => {
-                                    setSelectedProperty(record);
-                                    setShowConfirmDelete(true);
-                                }}
+                            <Tooltip
+                                showArrow={false}
+                                title={
+                                    !canEditProps
+                                        ? 'Must have permission to manage structured properties. Ask your DataHub administrator.'
+                                        : null
+                                }
                             >
-                                Delete
-                            </MenuItem>
+                                <MenuItem
+                                    onClick={() => {
+                                        if (canEditProps) {
+                                            setSelectedProperty(record);
+                                            setShowConfirmDelete(true);
+                                        }
+                                    }}
+                                >
+                                    Delete
+                                </MenuItem>
+                            </Tooltip>
                         ),
                     },
                 ];

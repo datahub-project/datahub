@@ -1,9 +1,11 @@
+import { useUserContext } from '@src/app/context/useUserContext';
+import { Tooltip } from 'antd';
 import React, { useState } from 'react';
+import { Button } from '@components';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { PageRoutes } from '../../../../conf/Global';
 import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
-import { StyledButton } from '../../../shared/share/v2/styledComponents';
 import { StyledSearch } from '../../structuredProperties/styledComponents';
 import FormsTable from './FormsTable';
 
@@ -40,6 +42,8 @@ const FormsContainer = styled.div`
 
 const FormsTab = () => {
     const history = useHistory();
+    const me = useUserContext();
+    const canEditForms = me.platformPrivileges?.manageDocumentationForms;
 
     const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -52,13 +56,20 @@ const FormsTab = () => {
             <FormsSection>
                 <SectionHeader>
                     <HeaderText>Your Forms</HeaderText>
-                    <StyledButton
-                        $color={REDESIGN_COLORS.TITLE_PURPLE}
-                        $type="filled"
-                        onClick={() => history.push(PageRoutes.NEW_FORM)}
+                    <Tooltip
+                        showArrow={false}
+                        title={
+                            !canEditForms
+                                ? 'Must have permission to manage forms. Ask your DataHub administrator.'
+                                : null
+                        }
                     >
-                        Create Form
-                    </StyledButton>
+                        <>
+                            <Button onClick={() => history.push(PageRoutes.NEW_FORM)} disabled={!canEditForms}>
+                                Create Form
+                            </Button>
+                        </>
+                    </Tooltip>
                 </SectionHeader>
                 <StyledSearch
                     placeholder="Search"

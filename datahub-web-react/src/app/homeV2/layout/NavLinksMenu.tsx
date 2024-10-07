@@ -145,10 +145,12 @@ export function NavLinksMenu(props: Props) {
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const showObserve = showDatasetHealth;
     const showDocumentationCenter =
-        config?.featureFlags?.documentationFormsEnabled && me?.platformPrivileges?.manageDocumentationForms;
+        config?.featureFlags?.documentationFormsEnabled &&
+        (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage);
     const showAutomations = config?.classificationConfig.enabled && me?.platformPrivileges?.manageIngestion; // TODO: Add a dedicated permission for automations.
     const showStructuredProperties =
-        config?.featureFlags?.showManageStructuredProperties && me.platformPrivileges?.manageStructuredProperties;
+        config?.featureFlags?.showManageStructuredProperties &&
+        (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
 
     // Update education steps allow list
     useUpdateEducationStepsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);

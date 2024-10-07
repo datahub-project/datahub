@@ -114,9 +114,11 @@ export function HeaderLinks(props: Props) {
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const showObserve = showDatasetHealth;
     const showDocumentationCenter =
-        config?.featureFlags?.documentationFormsEnabled && me.platformPrivileges?.manageDocumentationForms;
+        config?.featureFlags?.documentationFormsEnabled &&
+        (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage);
     const showStructuredProperties =
-        config?.featureFlags?.showManageStructuredProperties && me.platformPrivileges?.manageStructuredProperties;
+        config?.featureFlags?.showManageStructuredProperties &&
+        (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
 
     useToggleEducationStepIdsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
@@ -220,7 +222,7 @@ export function HeaderLinks(props: Props) {
         ...(showStructuredProperties
             ? [
                   {
-                      key: 4,
+                      key: 5,
                       label: (
                           <Link to={PageRoutes.STRUCTURED_PROPERTIES}>
                               <NavTitleContainer>

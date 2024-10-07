@@ -1,3 +1,5 @@
+import { useUserContext } from '@src/app/context/useUserContext';
+import { Tooltip } from 'antd';
 import { Button, Text } from '@src/alchemy-components';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType, SearchResult } from '@src/types.generated';
@@ -17,6 +19,8 @@ const StructuredProperties = () => {
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
+    const me = useUserContext();
+    const canEditProps = me.platformPrivileges?.manageStructuredProperties;
 
     const handleSearch = (value) => {
         setSearchQuery(value);
@@ -51,11 +55,20 @@ const StructuredProperties = () => {
                         Create and manage structured properties for your organization&apos;s data assets
                     </Text>
                 </HeaderContent>
-                <ButtonContainer>
-                    <Button icon="Add" onClick={() => setIsDrawerOpen(true)}>
-                        Create
-                    </Button>
-                </ButtonContainer>
+                <Tooltip
+                    showArrow={false}
+                    title={
+                        !canEditProps
+                            ? 'Must have permission to manage structured properties. Ask your DataHub administrator.'
+                            : null
+                    }
+                >
+                    <ButtonContainer>
+                        <Button disabled={!canEditProps} icon="Add" onClick={() => setIsDrawerOpen(true)}>
+                            Create
+                        </Button>
+                    </ButtonContainer>
+                </Tooltip>
             </HeaderContainer>
             <StyledSearch
                 placeholder="Search"

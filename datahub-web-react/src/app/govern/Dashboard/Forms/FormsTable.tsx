@@ -1,3 +1,4 @@
+import { useUserContext } from '@src/app/context/useUserContext';
 import { NetworkStatus } from '@apollo/client';
 import { colors, Icon, Pill, Table, Text, typography } from '@components';
 import { AlignmentOptions, ColorOptions } from '@src/alchemy-components/theme/config';
@@ -78,6 +79,8 @@ interface Props {
 const FormsTable = ({ searchQuery }: Props) => {
     const entityRegistry = useEntityRegistryV2();
     const history = useHistory();
+    const me = useUserContext();
+    const canEditForms = me.platformPrivileges?.manageDocumentationForms;
     const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
     const [showConfirmUnpublish, setShowConfirmUnpublish] = useState<boolean>(false);
 
@@ -317,15 +320,27 @@ const FormsTable = ({ searchQuery }: Props) => {
                     },
                     {
                         key: '1',
+                        disabled: !canEditForms,
                         label: (
-                            <MenuItem
-                                onClick={() => {
-                                    setCurrentForm(record);
-                                    setShowConfirmDelete(true);
-                                }}
+                            <Tooltip
+                                showArrow={false}
+                                title={
+                                    !canEditForms
+                                        ? 'Must have permission to manage forms. Ask your DataHub administrator.'
+                                        : null
+                                }
                             >
-                                <Text color="red">Delete</Text>
-                            </MenuItem>
+                                <MenuItem
+                                    onClick={() => {
+                                        if (canEditForms) {
+                                            setCurrentForm(record);
+                                            setShowConfirmDelete(true);
+                                        }
+                                    }}
+                                >
+                                    <Text color="red">Delete</Text>
+                                </MenuItem>
+                            </Tooltip>
                         ),
                     },
                 ];
@@ -333,15 +348,27 @@ const FormsTable = ({ searchQuery }: Props) => {
                 if (record.entity.formInfo.status?.state === FormState.Published) {
                     items.splice(1, 0, {
                         key: '2',
+                        disabled: !canEditForms,
                         label: (
-                            <MenuItem
-                                onClick={() => {
-                                    setCurrentForm(record);
-                                    setShowConfirmUnpublish(true);
-                                }}
+                            <Tooltip
+                                showArrow={false}
+                                title={
+                                    !canEditForms
+                                        ? 'Must have permission to manage forms. Ask your DataHub administrator.'
+                                        : null
+                                }
                             >
-                                Unpublish
-                            </MenuItem>
+                                <MenuItem
+                                    onClick={() => {
+                                        if (canEditForms) {
+                                            setCurrentForm(record);
+                                            setShowConfirmUnpublish(true);
+                                        }
+                                    }}
+                                >
+                                    Unpublish
+                                </MenuItem>
+                            </Tooltip>
                         ),
                     });
                 }

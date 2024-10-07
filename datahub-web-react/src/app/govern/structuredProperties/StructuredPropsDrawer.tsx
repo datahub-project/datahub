@@ -13,8 +13,9 @@ import {
     StructuredPropertyEntity,
     UpdateStructuredPropertyInput,
 } from '@src/types.generated';
-import { Form } from 'antd';
+import { Form, Tooltip } from 'antd';
 import React, { useState } from 'react';
+import { useUserContext } from '@src/app/context/useUserContext';
 import { updatePropertiesList } from './cacheUtils';
 import StructuredPropsForm from './StructuredPropsForm';
 import { DrawerHeader, FooterContainer, StyledDrawer, StyledIcon, StyledSpin } from './styledComponents';
@@ -40,6 +41,8 @@ const StructuredPropsDrawer = ({
     searchAcrossEntities,
 }: Props) => {
     const [form] = Form.useForm();
+    const me = useUserContext();
+    const canEditProps = me.platformPrivileges?.manageStructuredProperties;
 
     const [createStructuredProperty] = useCreateStructuredPropertyMutation();
     const [updateStructuredProperty] = useUpdateStructuredPropertyMutation();
@@ -165,11 +168,24 @@ const StructuredPropsDrawer = ({
                 </DrawerHeader>
             }
             footer={
-                <FooterContainer>
-                    <Button style={{ display: 'block', width: '100%' }} onClick={handleSubmit} isDisabled={isLoading}>
-                        {isEditMode ? 'Update' : 'Create'}
-                    </Button>
-                </FooterContainer>
+                <Tooltip
+                    showArrow={false}
+                    title={
+                        !canEditProps
+                            ? 'Must have permission to manage structured properties. Ask your DataHub administrator.'
+                            : null
+                    }
+                >
+                    <FooterContainer>
+                        <Button
+                            style={{ display: 'block', width: '100%' }}
+                            onClick={handleSubmit}
+                            isDisabled={isLoading || !canEditProps}
+                        >
+                            {isEditMode ? 'Update' : 'Create'}
+                        </Button>
+                    </FooterContainer>
+                </Tooltip>
             }
             destroyOnClose
         >

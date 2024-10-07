@@ -1,3 +1,4 @@
+import { useUserContext } from '@src/app/context/useUserContext';
 import { Button } from '@components';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
@@ -22,6 +23,8 @@ import { FooterContainer } from './styledComponents';
 const FormFooter = () => {
     const history = useHistory();
     const isThemeV2 = useIsThemeV2();
+    const me = useUserContext();
+    const canEditForms = me.platformPrivileges?.manageDocumentationForms;
     const { form, formValues, setFormValues, setIsFormLoading } = useContext(ManageFormContext);
     const [createForm] = useCreateFormMutation();
     const [updateForm] = useUpdateFormMutation();
@@ -151,17 +154,38 @@ const FormFooter = () => {
                 <Button variant="outline">Cancel</Button>
             </Link>
             <Tooltip title="Save the current state of your compliance form." showArrow={false}>
-                <Button variant="outline" onClick={() => saveForm()}>
-                    {formValues.state === FormState.Draft ? 'Save Draft' : 'Save'}
-                </Button>
+                <Tooltip
+                    showArrow={false}
+                    title={
+                        !canEditForms ? 'Must have permission to manage forms. Ask your DataHub administrator.' : null
+                    }
+                >
+                    <>
+                        <Button disabled={!canEditForms} variant="outline" onClick={() => saveForm()}>
+                            {formValues.state === FormState.Draft ? 'Save Draft' : 'Save'}
+                        </Button>
+                    </>
+                </Tooltip>
             </Tooltip>
             <Tooltip
                 title={formValues.state === FormState.Published ? UNPUBLISH_EXPLANATION : PUBLISH_EXPLANATION}
                 showArrow={false}
             >
-                <Button onClick={() => form?.validateFields().then(() => setShowConfirmationModal(true))}>
-                    {formValues.state === FormState.Published ? 'Unpublish' : 'Publish'}
-                </Button>
+                <Tooltip
+                    showArrow={false}
+                    title={
+                        !canEditForms ? 'Must have permission to manage forms. Ask your DataHub administrator.' : null
+                    }
+                >
+                    <>
+                        <Button
+                            disabled={!canEditForms}
+                            onClick={() => form?.validateFields().then(() => setShowConfirmationModal(true))}
+                        >
+                            {formValues.state === FormState.Published ? 'Unpublish' : 'Publish'}
+                        </Button>
+                    </>
+                </Tooltip>
             </Tooltip>
             <ConfirmationModal
                 isOpen={showConfirmationModal}

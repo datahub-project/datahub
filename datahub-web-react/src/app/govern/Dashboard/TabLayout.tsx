@@ -121,7 +121,8 @@ export const TabLayout = () => {
         setCurrentTab(tab);
     };
 
-    if (!platformPrivileges?.manageDocumentationForms) return <MissingPermissions />;
+    if (!platformPrivileges?.manageDocumentationForms && !platformPrivileges?.viewDocumentationFormsPage)
+        return <MissingPermissions />;
 
     // Render the dashboard
     return (
