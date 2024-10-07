@@ -125,7 +125,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.config.get_policy_tag_manager_client()
             )
 
-        self.sql_parser_schema_resolver = self._init_schema_resolver()
+        with self.report.init_schema_resolver_timer:
+            self.sql_parser_schema_resolver = self._init_schema_resolver()
+
         self.filters = BigQueryFilter(self.config, self.report)
         self.identifiers = BigQueryIdentifierBuilder(self.config, self.report)
 
