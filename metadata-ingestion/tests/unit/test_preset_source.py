@@ -1,5 +1,6 @@
 from src.datahub.ingestion.source.preset import PresetConfig
 
+
 def test_default_values():
     config = PresetConfig.parse_obj({})
 
