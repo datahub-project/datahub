@@ -41,7 +41,7 @@ public class ESUtilsTest {
   private static AspectRetriever aspectRetrieverV1;
 
   @BeforeClass
-  public void setup() throws RemoteInvocationException, URISyntaxException {
+  public static void setup() throws RemoteInvocationException, URISyntaxException {
     Urn abFghTenUrn = Urn.createFromString("urn:li:structuredProperty:ab.fgh.ten");
 
     // legacy
