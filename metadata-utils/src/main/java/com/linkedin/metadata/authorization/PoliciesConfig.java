@@ -183,7 +183,7 @@ public class PoliciesConfig {
       Privilege.of(
           "MANAGE_SYSTEM_OPERATIONS",
           "Manage System Operations",
-          "Allow access to system operations APIs and controls.");
+          "Allow access to all system operations/management APIs and controls.");
 
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
@@ -877,13 +877,13 @@ public class PoliciesConfig {
                       .put(ApiOperation.CREATE, DENY_ACCESS)
                       .put(
                           ApiOperation.READ,
-                          Disjunctive.disjoint(VIEW_ANALYTICS_PRIVILEGE, GET_ANALYTICS_PRIVILEGE))
+                          Disjunctive.disjoint(VIEW_ANALYTICS_PRIVILEGE, GET_ANALYTICS_PRIVILEGE, MANAGE_SYSTEM_OPERATIONS_PRIVILEGE))
                       .put(ApiOperation.UPDATE, DENY_ACCESS)
                       .put(ApiOperation.DELETE, DENY_ACCESS)
                       .put(
                           ApiOperation.EXISTS,
                           Disjunctive.disjoint(
-                              VIEW_ANALYTICS_PRIVILEGE, GET_ANALYTICS_PRIVILEGE, SEARCH_PRIVILEGE))
+                              VIEW_ANALYTICS_PRIVILEGE, GET_ANALYTICS_PRIVILEGE, SEARCH_PRIVILEGE, MANAGE_SYSTEM_OPERATIONS_PRIVILEGE))
                       .build())
               .put(
                   ApiGroup.TIMESERIES,
