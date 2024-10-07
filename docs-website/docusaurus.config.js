@@ -104,6 +104,10 @@ module.exports = {
           position: "right",
           items: [
             {
+              to: "https://www.acryldata.io/webinars/weekly-live-demo",
+              label: "Weekly Demo",
+            },
+            {
               to: "/learn",
               label: "Use Cases",
             },
