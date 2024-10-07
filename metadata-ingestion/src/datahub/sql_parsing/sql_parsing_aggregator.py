@@ -175,6 +175,18 @@ class KnownLineageMapping:
 
 
 @dataclasses.dataclass
+class TableRename:
+    original_urn: UrnStr
+    new_urn: UrnStr
+
+
+@dataclasses.dataclass
+class TableSwap:
+    urn1: UrnStr
+    urn2: UrnStr
+
+
+@dataclasses.dataclass
 class PreparsedQuery:
     # If not provided, we will generate one using the fast fingerprint generator.
     query_id: Optional[QueryId]
@@ -237,6 +249,7 @@ class SqlAggregatorReport(Report):
     num_preparsed_queries: int = 0
     num_known_mapping_lineage: int = 0
     num_table_renames: int = 0
+    num_table_swaps: int = 0
 
     # Temp tables.
     num_temp_sessions: Optional[int] = None
@@ -526,7 +539,12 @@ class SqlParsingAggregator(Closeable):
     def add(
         self,
         item: Union[
-            KnownQueryLineageInfo, KnownLineageMapping, PreparsedQuery, ObservedQuery
+            KnownQueryLineageInfo,
+            KnownLineageMapping,
+            PreparsedQuery,
+            ObservedQuery,
+            TableRename,
+            TableSwap,
         ],
     ) -> None:
         if isinstance(item, KnownQueryLineageInfo):
@@ -537,6 +555,10 @@ class SqlParsingAggregator(Closeable):
             self.add_preparsed_query(item)
         elif isinstance(item, ObservedQuery):
             self.add_observed_query(item)
+        elif isinstance(item, TableRename):
+            self.add_table_rename(item.original_urn, item.new_urn)
+        elif isinstance(item, TableSwap):
+            self.add_table_swap(item.urn1, item.urn2)
         else:
             raise ValueError(f"Cannot add unknown item type: {type(item)}")
 
@@ -892,11 +914,8 @@ class SqlParsingAggregator(Closeable):
     ) -> None:
         """Add a table rename to the aggregator.
 
-        This will so that all _future_ observed queries that reference the original urn
-        will instead generate usage and lineage for the new urn.
-
-        Currently, this does not affect any queries that have already been observed.
-        TODO: Add a mechanism to update the lineage for queries that have already been observed.
+        This will make all observed queries that reference the original urn
+        will instead generate lineage for the new urn.
 
         Args:
             original_urn: The original dataset URN.
@@ -905,8 +924,42 @@ class SqlParsingAggregator(Closeable):
 
         self.report.num_table_renames += 1
 
+        if original_urn in self._lineage_map:
+            self._lineage_map[new_urn] = self._lineage_map.pop(original_urn)
+
         # This will not work if the table is renamed multiple times.
         self._table_renames[original_urn] = new_urn
+
+    def add_table_swap(
+        self,
+        urn1: UrnStr,
+        urn2: UrnStr,
+    ) -> None:
+        """Add a table swap to the aggregator.
+
+        Args:
+            urn1, urn2: The dataset URNs to swap.
+        """
+
+        self.report.num_table_swaps += 1
+
+        urn1_lineage: Optional[OrderedSet[QueryId]] = None
+        urn2_lineage: Optional[OrderedSet[QueryId]] = None
+
+        if urn1 in self._lineage_map:
+            urn1_lineage = self._lineage_map.pop(urn1)
+
+        if urn2 in self._lineage_map:
+            urn2_lineage = self._lineage_map.pop(urn2)
+
+        if urn1_lineage:
+            self._lineage_map[urn2] = urn1_lineage
+
+        if urn2_lineage:
+            self._lineage_map[urn1] = urn2_lineage
+
+        self._table_renames[urn1] = urn2
+        self._table_renames[urn2] = urn1
 
     def _make_schema_resolver_for_session(
         self, session_id: str
