@@ -31,13 +31,36 @@ class ProfileConfig(GEProfilingConfig):
 
 
 class DremioSourceMapping(ConfigModel):
-    platform: str
-    platform_name: str
-    platform_instance: Optional[str] = None
-    dremio_source_type: Optional[str] = None
-    env: Optional[str] = FabricTypeClass.PROD
-    rootPath: Optional[str] = None
-    databaseName: Optional[str] = None
+    platform: Optional[str] = Field(
+        default=None,
+        description="Source connection made by Dremio (e.g. S3, Snowflake)",
+    )
+    platform_name: Optional[str] = Field(
+        default=None,
+        description="Alias of platform in Dremio connection",
+    )
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance of source connection in Datahub",
+    )
+    dremio_source_type: Optional[str] = Field(
+        default=None,
+        description="Source connection made by Dremio (e.g. S3, Snowflake)",
+    )
+    env: Optional[str] = Field(
+        default=FabricTypeClass.PROD,
+        description="ENV in Datahub of source connection made by Dremio (e.g. PROD)",
+    )
+    rootPath: Optional[str] = Field(
+        default=None,
+        description="Root path of source - Extracted from Dremio API",
+        hidden_from_docs=True,
+    )
+    databaseName: Optional[str] = Field(
+        default=None,
+        description="Database of source - Extracted from Dremio API",
+        hidden_from_docs=True,
+    )
 
 
 class DremioSourceConfig(ConfigModel, StatefulIngestionConfigBase):
@@ -89,13 +112,13 @@ class DremioSourceConfig(ConfigModel, StatefulIngestionConfigBase):
         description="Whether this is a Dremio Cloud instance",
     )
     dremio_cloud_region: Optional[str] = Field(
-        default=None,
+        default="US",
         description="Dremio Cloud region ('US' or 'EMEA')",
     )
 
     # DataHub Environment details
     env: str = Field(
-        default="PROD",
+        default=FabricTypeClass.PROD,
         description="Environment to use in namespace when constructing URNs.",
     )
     platform_instance: Optional[str] = Field(
