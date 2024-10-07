@@ -1,9 +1,13 @@
 import logging
 import re
+import time
+from base64 import b32decode
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 
+from cachetools.func import lru_cache
 from google.cloud.bigquery.table import TableListItem
+from google.cloud.datacatalog_v1 import PolicyTag
 
 from datahub.configuration.pattern_utils import is_schema_allowed, is_tag_allowed
 from datahub.emitter.mce_builder import make_tag_urn
@@ -15,6 +19,7 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationHandler,
     classification_workunit_processor,
 )
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
     BigQueryTableRef,
@@ -54,7 +59,11 @@ from datahub.ingestion.source_report.ingestion_stage import (
     METADATA_EXTRACTION,
     PROFILING,
 )
+from datahub.metadata._schema_classes import AuditStampClass, MetadataAttributionClass
+from datahub.metadata._urns.urn_defs import GlossaryNodeUrn, GlossaryTermUrn
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    GlossaryTermAssociation,
+    GlossaryTerms,
     Status,
     SubTypes,
     TimeStamp,
@@ -62,6 +71,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
     ViewProperties,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.glossary import (
+    GlossaryNodeInfo,
+    GlossaryTermInfo,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
@@ -89,7 +102,6 @@ from datahub.utilities.hive_schema_to_avro import (
     HiveColumnToAvroConverter,
     get_schema_fields_for_hive_column,
 )
-from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -153,6 +165,7 @@ class BigQuerySchemaGenerator:
         self,
         config: BigQueryV2Config,
         report: BigQueryV2Report,
+        graph: Optional[DataHubGraph],
         bigquery_data_dictionary: BigQuerySchemaApi,
         domain_registry: Optional[DomainRegistry],
         sql_parser_schema_resolver: SchemaResolver,
@@ -161,6 +174,7 @@ class BigQuerySchemaGenerator:
     ):
         self.config = config
         self.report = report
+        self.graph = graph
         self.schema_api = bigquery_data_dictionary
         self.domain_registry = domain_registry
         self.sql_parser_schema_resolver = sql_parser_schema_resolver
@@ -662,6 +676,18 @@ class BigQuerySchemaGenerator:
             dataset_name=dataset_name,
         )
 
+    def modified_base32decode(self, text_to_decode: str) -> str:
+        # When we sync from DataHub to BigQuery, we encode the tags as modified base32 strings.
+        # BiqQuery labels only support lowercase letters, international characters, numbers, or underscores.
+        # So we need to modify the base32 encoding to replace the padding character `=` with `_` and convert to lowercase.
+        if not text_to_decode.startswith("urn_li_encoded_tag_"):
+            return text_to_decode
+        text_to_decode = (
+            text_to_decode.replace("urn_li_encoded_tag_", "").upper().replace("_", "=")
+        )
+        text = b32decode(text_to_decode.encode("utf-8")).decode("utf-8")
+        return text
+
     def gen_table_dataset_workunits(
         self,
         table: BigqueryTable,
@@ -708,6 +734,8 @@ class BigQuerySchemaGenerator:
             tags_to_add.extend(
                 [
                     make_tag_urn(f"""{k}:{v}""")
+                    if not v.startswith("urn_li_encoded_tag_")
+                    else self.modified_base32decode(v)
                     for k, v in table.labels.items()
                     if is_tag_allowed(self.config.capture_table_label_as_tag, k)
                 ]
@@ -733,7 +761,9 @@ class BigQuerySchemaGenerator:
         tags_to_add = None
         if table.labels and self.config.capture_view_label_as_tag:
             tags_to_add = [
-                make_tag_urn(f"{k}:{v}")
+                make_tag_urn(f"""{k}:{v}""")
+                if not v.startswith("urn_li_encoded_tag_")
+                else self.modified_base32decode(v)
                 for k, v in table.labels.items()
                 if is_tag_allowed(self.config.capture_view_label_as_tag, k)
             ]
@@ -785,6 +815,14 @@ class BigQuerySchemaGenerator:
             custom_properties=custom_properties,
         )
 
+    def gen_glossary_terms(
+        self, columns: List[BigqueryColumn]
+    ) -> Iterable[MetadataWorkUnit]:
+        for column in columns:
+            if column.policy_tags:
+                for policy_tag in column.policy_tags:
+                    yield from self.create_and_get_glossary_term(policy_tag)
+
     def gen_dataset_workunits(
         self,
         table: Union[BigqueryTable, BigqueryView, BigqueryTableSnapshot],
@@ -807,6 +845,12 @@ class BigQuerySchemaGenerator:
         datahub_dataset_name = BigqueryTableIdentifier(
             project_id, dataset_name, table.name
         )
+
+        if (
+            self.config.extract_policy_tags_from_catalog
+            and self.config.extract_policy_tags_as_glossary_term
+        ):
+            yield from self.gen_glossary_terms(columns)
 
         yield self.gen_schema_metadata(
             dataset_urn, table, columns, datahub_dataset_name
@@ -879,6 +923,74 @@ class BigQuerySchemaGenerator:
             entityUrn=dataset_urn, aspect=tags
         ).as_workunit()
 
+    @lru_cache()
+    def glossaryNodeExists(self, urn: str) -> bool:
+        assert self.graph, "graph is not set"
+        exists = self.graph.get_aspects_for_entity(
+            entity_urn=urn,
+            aspects=["glossaryNodeInfo"],
+            aspect_types=[GlossaryNodeInfo],
+        )
+        return exists.get("glossaryNodeInfo") is True
+
+    def create_and_get_glossary_term(
+        self, policy_tag: PolicyTag
+    ) -> Iterable[MetadataWorkUnit]:
+        policy_tag_dict = self.schema_api.get_policy_terms(policy_tag)
+
+        parents = []
+
+        parent: Optional[str] = policy_tag.parent_policy_tag
+        while parent:
+            parent_policy_tag = policy_tag_dict.get(parent)
+            if parent_policy_tag is None:
+                parent = None
+                continue
+            parents.append(parent_policy_tag)
+            parent = parent_policy_tag.parent_policy_tag
+
+        parent_urn: Optional[GlossaryNodeUrn] = None
+        for p in reversed(parents):
+            p_tag = policy_tag_dict.get(p.name)
+            if p_tag is None:
+                continue
+            exists = self.glossaryNodeExists(
+                self.gen_glossary_node_urn_from_policy_tag(p_tag).urn()
+            )
+            if not exists:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=GlossaryNodeUrn(
+                        name=p_tag.display_name,
+                    ).urn(),
+                    aspect=GlossaryNodeInfo(
+                        name=p_tag.display_name,
+                        definition=p_tag.description,
+                        parentNode=parent_urn.urn() if parent_urn else None,
+                    ),
+                ).as_workunit()
+            parent_urn = self.gen_glossary_node_urn_from_policy_tag(p_tag)
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=self.gen_glossary_term_urn_from_policy_tag(policy_tag).urn(),
+            aspect=GlossaryTermInfo(
+                name=policy_tag.display_name,
+                definition=policy_tag.description,
+                sourceRef=policy_tag.name,
+                termSource="EXTERNAL",
+                parentNode=parent_urn.urn() if parent_urn else None,
+            ),
+        ).as_workunit()
+
+    def gen_glossary_term_urn_from_policy_tag(
+        self, policy_tag: PolicyTag
+    ) -> GlossaryTermUrn:
+        return GlossaryTermUrn(name=policy_tag.display_name)
+
+    def gen_glossary_node_urn_from_policy_tag(
+        self, policy_tag: PolicyTag
+    ) -> GlossaryNodeUrn:
+        return GlossaryNodeUrn(name=policy_tag.display_name)
+
     def gen_schema_fields(self, columns: List[BigqueryColumn]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
 
@@ -922,11 +1034,6 @@ class BigQuerySchemaGenerator:
                             break
             else:
                 tags = []
-                if col.is_partition_column:
-                    tags.append(
-                        TagAssociationClass(make_tag_urn(Constants.TAG_PARTITION_KEY))
-                    )
-
                 if col.cluster_column_position is not None:
                     tags.append(
                         TagAssociationClass(
@@ -936,18 +1043,54 @@ class BigQuerySchemaGenerator:
                         )
                     )
 
+                term_associations: List[GlossaryTermAssociation] = []
                 if col.policy_tags:
                     for policy_tag in col.policy_tags:
-                        tags.append(TagAssociationClass(make_tag_urn(policy_tag)))
+                        if not self.config.extract_policy_tags_as_glossary_term:
+                            tags.append(
+                                TagAssociationClass(
+                                    make_tag_urn(policy_tag.display_name)
+                                )
+                            )
+                        else:
+                            glossary_term_urn = (
+                                self.gen_glossary_term_urn_from_policy_tag(policy_tag)
+                            )
+                            term_associations.append(
+                                GlossaryTermAssociation(
+                                    urn=glossary_term_urn.urn(),
+                                    attribution=MetadataAttributionClass(
+                                        sourceDetail={
+                                            "source": "bigquery",
+                                            "sourceType": "policyTag",
+                                            "sourceId": policy_tag.name,
+                                            "policy_tag_name": policy_tag.name,
+                                        },
+                                        source="urn:li:platform:bigquery",
+                                        time=int(time.time() * 1000),
+                                        actor="urn:li:corpuser:ingestion",
+                                    ),
+                                )
+                            )
+                now = int(time.time() * 1000)
+                current_timestamp = AuditStampClass(
+                    time=now, actor="urn:li:corpuser:ingestion"
+                )
                 field = SchemaField(
                     fieldPath=col.name,
                     type=SchemaFieldDataType(
                         self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
+                    isPartitioningKey=col.is_partition_column,
                     nativeDataType=col.data_type,
                     description=col.comment,
                     nullable=col.is_nullable,
                     globalTags=GlobalTagsClass(tags=tags),
+                    glossaryTerms=GlossaryTerms(
+                        terms=term_associations, auditStamp=current_timestamp
+                    )
+                    if term_associations
+                    else None,
                 )
                 schema_fields.append(field)
             last_id = col.ordinal_position

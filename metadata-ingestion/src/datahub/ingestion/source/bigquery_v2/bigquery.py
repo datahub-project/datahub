@@ -181,6 +181,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.bq_schema_extractor = BigQuerySchemaGenerator(
             self.config,
             self.report,
+            self.ctx.graph,
             self.bigquery_data_dictionary,
             self.domain_registry,
             self.sql_parser_schema_resolver,

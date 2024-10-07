@@ -14,6 +14,7 @@ from google.cloud.bigquery.table import (
     TimePartitioning,
     TimePartitioningType,
 )
+from google.cloud.datacatalog_v1 import PolicyTag
 
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
@@ -39,7 +40,7 @@ class BigqueryColumn(BaseColumn):
     field_path: str
     is_partition_column: bool
     cluster_column_position: Optional[int]
-    policy_tags: Optional[List[str]] = None
+    policy_tags: Optional[List[PolicyTag]] = None
 
 
 RANGE_PARTITION_NAME: str = "RANGE"
@@ -442,6 +443,17 @@ class BigQuerySchemaApi:
             labels=parse_labels(view.labels) if view.get("labels") else None,
         )
 
+    @lru_cache()
+    def get_policy_tags(self, taxonomy: str) -> Dict[str, PolicyTag]:
+        assert self.datacatalog_client
+        taxonomy = self.datacatalog_client.get_taxonomy(name=taxonomy)
+        if taxonomy:
+            policy_tags = list(
+                self.datacatalog_client.list_policy_tags(parent=taxonomy.name)
+            )
+            return {tag.name: tag for tag in policy_tags}
+        return {}
+
     def get_policy_tags_for_column(
         self,
         project_id: str,
@@ -450,7 +462,7 @@ class BigQuerySchemaApi:
         column_name: str,
         report: BigQueryV2Report,
         rate_limiter: Optional[RateLimiter] = None,
-    ) -> Iterable[str]:
+    ) -> Iterable[PolicyTag]:
         assert self.datacatalog_client
 
         try:
@@ -476,7 +488,7 @@ class BigQuerySchemaApi:
                         policy_tag = self.datacatalog_client.get_policy_tag(
                             name=policy_tag_name
                         )
-                    yield policy_tag.display_name
+                    yield policy_tag
                 except Exception as e:
                     report.warning(
                         title="Failed to retrieve policy tag",
@@ -491,6 +503,24 @@ class BigQuerySchemaApi:
                 context=table_ref,
                 exc=e,
             )
+
+    def get_policy_terms(self, policy_tag: PolicyTag) -> Dict[str, PolicyTag]:
+        assert self.datacatalog_client
+        policy_tag_path = self.datacatalog_client.parse_policy_tag_path(policy_tag.name)
+        taxonomy = policy_tag_path.get("taxonomy")
+        location = policy_tag_path.get("location")
+        project = policy_tag_path.get("project")
+
+        if taxonomy and location and project:
+            taxonomy_path = self.datacatalog_client.taxonomy_path(
+                project,
+                location,
+                taxonomy,
+            )
+            policy_tag_dict = self.get_policy_tags(taxonomy_path)
+            return policy_tag_dict
+        else:
+            return {}
 
     def get_columns_for_dataset(
         self,

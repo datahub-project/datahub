@@ -455,6 +455,12 @@ class BigQueryV2Config(
         ),
     )
 
+    extract_policy_tags_as_glossary_term: bool = Field(
+        default=False,
+        hidden_from_docs=True,
+        description="This flag enables the extraction of policy tags as glossary terms. When enabled, the extractor will create a glossary term for each policy tag associated with BigQuery table columns.",
+    )
+
     scheme: str = "bigquery"
 
     log_page_size: PositiveInt = Field(
