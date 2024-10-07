@@ -1,5 +1,6 @@
 import logging
 import re
+from base64 import b32decode
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 
@@ -89,11 +90,12 @@ from datahub.utilities.hive_schema_to_avro import (
     HiveColumnToAvroConverter,
     get_schema_fields_for_hive_column,
 )
-from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
+
+ENCODED_TAG_PREFIX = "urn_li_encoded_tag_"
 
 logger: logging.Logger = logging.getLogger(__name__)
 # Handle table snapshots
@@ -708,6 +710,8 @@ class BigQuerySchemaGenerator:
             tags_to_add.extend(
                 [
                     make_tag_urn(f"""{k}:{v}""")
+                    if not v.startswith("urn_li_encoded_tag_")
+                    else self.modified_base32decode(v)
                     for k, v in table.labels.items()
                     if is_tag_allowed(self.config.capture_table_label_as_tag, k)
                 ]
@@ -733,7 +737,9 @@ class BigQuerySchemaGenerator:
         tags_to_add = None
         if table.labels and self.config.capture_view_label_as_tag:
             tags_to_add = [
-                make_tag_urn(f"{k}:{v}")
+                make_tag_urn(f"""{k}:{v}""")
+                if not v.startswith("urn_li_encoded_tag_")
+                else self.modified_base32decode(v)
                 for k, v in table.labels.items()
                 if is_tag_allowed(self.config.capture_view_label_as_tag, k)
             ]
@@ -784,6 +790,18 @@ class BigQuerySchemaGenerator:
             sub_types=[DatasetSubTypes.BIGQUERY_TABLE_SNAPSHOT],
             custom_properties=custom_properties,
         )
+
+    def modified_base32decode(self, text_to_decode: str) -> str:
+        # When we sync from DataHub to BigQuery, we encode the tags as modified base32 strings.
+        # BiqQuery labels only support lowercase letters, international characters, numbers, or underscores.
+        # So we need to modify the base32 encoding to replace the padding character `=` with `_` and convert to lowercase.
+        if not text_to_decode.startswith("%s" % ENCODED_TAG_PREFIX):
+            return text_to_decode
+        text_to_decode = (
+            text_to_decode.replace(ENCODED_TAG_PREFIX, "").upper().replace("_", "=")
+        )
+        text = b32decode(text_to_decode.encode("utf-8")).decode("utf-8")
+        return text
 
     def gen_dataset_workunits(
         self,
@@ -922,11 +940,6 @@ class BigQuerySchemaGenerator:
                             break
             else:
                 tags = []
-                if col.is_partition_column:
-                    tags.append(
-                        TagAssociationClass(make_tag_urn(Constants.TAG_PARTITION_KEY))
-                    )
-
                 if col.cluster_column_position is not None:
                     tags.append(
                         TagAssociationClass(
@@ -944,6 +957,7 @@ class BigQuerySchemaGenerator:
                     type=SchemaFieldDataType(
                         self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
+                    isPartitioningKey=col.is_partition_column,
                     nativeDataType=col.data_type,
                     description=col.comment,
                     nullable=col.is_nullable,
