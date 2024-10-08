@@ -25,6 +25,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.VisibleForTesting;
@@ -32,6 +33,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -125,6 +127,25 @@ public class SearchAcrossLineageResolver
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
+    List<SortCriterion> sortCriteria;
+    if (input.getSortInput() != null) {
+      if (input.getSortInput().getSortCriteria() != null) {
+        sortCriteria =
+            input.getSortInput().getSortCriteria().stream()
+                .map(SearchUtils::mapSortCriterion)
+                .collect(Collectors.toList());
+      } else {
+        sortCriteria =
+            input.getSortInput().getSortCriterion() != null
+                ? Collections.singletonList(
+                    mapSortCriterion(input.getSortInput().getSortCriterion()))
+                : Collections.emptyList();
+      }
+
+    } else {
+      sortCriteria = Collections.emptyList();
+    }
+
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
@@ -162,7 +183,7 @@ public class SearchAcrossLineageResolver
                     sanitizedQuery,
                     maxHops,
                     filter,
-                    null,
+                    sortCriteria,
                     start,
                     count);
 
