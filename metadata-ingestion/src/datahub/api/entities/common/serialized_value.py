@@ -6,7 +6,7 @@ from avrogen.dict_wrapper import DictWrapper
 from pydantic import BaseModel
 
 import datahub.metadata.schema_classes as models
-from datahub.metadata._schema_classes import __SCHEMA_TYPES as SCHEMA_TYPES
+from datahub.metadata.schema_classes import __SCHEMA_TYPES as SCHEMA_TYPES
 
 logger = logging.getLogger(__name__)
 
