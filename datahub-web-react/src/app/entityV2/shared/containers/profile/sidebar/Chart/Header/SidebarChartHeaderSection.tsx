@@ -1,11 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Tooltip } from 'antd';
 import { useEntityData } from '../../../../../../../entity/shared/EntityContext';
 import { SidebarHeaderSectionColumns } from '../../SidebarHeaderSectionColumns';
 import SidebarTopUsersHeaderSection from '../../shared/SidebarTopUsersHeaderSection';
 import { getChartPopularityTier, userExists } from '../../shared/utils';
 import { REDESIGN_COLORS } from '../../../../../constants';
-import { formatNumber } from '../../../../../../../shared/formatNumber';
+import { formatNumber, formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
 import { getPopularityColumn, SidebarStatsColumn } from '../../../utils';
 
 const StatContent = styled.div`
@@ -63,6 +64,42 @@ const SidebarChartHeaderSection = () => {
         columns.push({
             title: 'Users',
             content: <StatContent>{formatNumber(chart?.statsSummary?.uniqueUserCountLast30Days)} users</StatContent>,
+        });
+    }
+
+    /**
+     * Recent Views
+     */
+    if (chart?.statsSummary?.viewCountLast30Days) {
+        columns.push({
+            title: 'Recent Views',
+            content: (
+                <Tooltip
+                    showArrow={false}
+                    title={`${formatNumberWithoutAbbreviation(
+                        chart?.statsSummary?.viewCountLast30Days,
+                    )} views over the past 30 days`}
+                >
+                    <StatContent>{formatNumber(chart?.statsSummary?.viewCountLast30Days)} views</StatContent>
+                </Tooltip>
+            ),
+        });
+    }
+
+    /**
+     * Total Views
+     */
+    if (chart?.statsSummary?.viewCount) {
+        columns.push({
+            title: 'Total Views',
+            content: (
+                <Tooltip
+                    showArrow={false}
+                    title={`${formatNumberWithoutAbbreviation(chart?.statsSummary?.viewCount)} views`}
+                >
+                    <StatContent>{formatNumber(chart?.statsSummary?.viewCount)} views</StatContent>
+                </Tooltip>
+            ),
         });
     }
 

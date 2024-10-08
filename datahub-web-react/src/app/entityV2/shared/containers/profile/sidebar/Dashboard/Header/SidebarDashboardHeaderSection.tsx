@@ -1,11 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Tooltip } from 'antd';
 import { useEntityData } from '../../../../../../../entity/shared/EntityContext';
 import { SidebarHeaderSectionColumns } from '../../SidebarHeaderSectionColumns';
 import SidebarTopUsersHeaderSection from '../../shared/SidebarTopUsersHeaderSection';
 import { getDashboardPopularityTier, userExists } from '../../shared/utils';
 import { REDESIGN_COLORS } from '../../../../../constants';
-import { formatNumber } from '../../../../../../../shared/formatNumber';
+import { formatNumber, formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
 import { getPopularityColumn, SidebarStatsColumn } from '../../../utils';
 
 const StatContent = styled.div`
@@ -64,6 +65,42 @@ const SidebarDashboardHeaderSection = () => {
             title: 'Users',
             content: (
                 <StatContent>{formatNumber(dashboard?.statsSummary?.uniqueUserCountLast30Days)} users</StatContent>
+            ),
+        });
+    }
+
+    /**
+     * Recent Views
+     */
+    if (dashboard?.statsSummary?.viewCountLast30Days) {
+        columns.push({
+            title: 'Recent Views',
+            content: (
+                <Tooltip
+                    showArrow={false}
+                    title={`${formatNumberWithoutAbbreviation(
+                        dashboard?.statsSummary?.viewCountLast30Days,
+                    )} views over the past 30 days`}
+                >
+                    <StatContent>{formatNumber(dashboard?.statsSummary?.viewCountLast30Days)} views</StatContent>
+                </Tooltip>
+            ),
+        });
+    }
+
+    /**
+     * Total Views
+     */
+    if (dashboard?.statsSummary?.viewCount) {
+        columns.push({
+            title: 'Total Views',
+            content: (
+                <Tooltip
+                    showArrow={false}
+                    title={`${formatNumberWithoutAbbreviation(dashboard?.statsSummary?.viewCount)} views`}
+                >
+                    <StatContent>{formatNumber(dashboard?.statsSummary?.viewCount)} views</StatContent>
+                </Tooltip>
             ),
         });
     }
