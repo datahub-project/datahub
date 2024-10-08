@@ -37,16 +37,10 @@ const DetailsForm = () => {
                         },
                     ]}
                 >
-                    <Input
-                        placeholder="Add form name"
-                        onChange={handleInputChange}
-                        label="Name"
-                        id="formName"
-                        required
-                    />
+                    <Input placeholder="Form name" onChange={handleInputChange} label="Name" id="formName" required />
                 </Form.Item>
                 <Form.Item name="formDescription">
-                    <TextArea label="Description" placeholder="Add description here" onChange={handleInputChange} />
+                    <TextArea label="Description" placeholder="Form description" onChange={handleInputChange} />
                 </Form.Item>
                 <FieldLabel> Type</FieldLabel>
                 <Form.Item

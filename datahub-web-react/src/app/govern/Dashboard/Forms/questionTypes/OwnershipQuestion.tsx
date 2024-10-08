@@ -1,14 +1,10 @@
-import { Form, Radio, RadioChangeEvent, Space } from 'antd';
+import { Form, Tooltip } from 'antd';
+import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import React, { useState } from 'react';
-import styled from 'styled-components';
-import { FieldLabel, StyledRadioGroup } from '../styledComponents';
+import { AllowedItemsWrapper, StyledCheckbox, StyledLabel } from '../styledComponents';
 import CardinalityField from './CardinalityField';
 import OwnershipSelector from './OwnershipSelector';
 import OwnershipTypeSelector from './OwnershipTypeSelector';
-
-const AllowedTermsWrapper = styled.div`
-    margin-bottom: 24px;
-`;
 
 const OwnershipQuestion = () => {
     const form = Form.useFormInstance();
@@ -19,16 +15,16 @@ const OwnershipQuestion = () => {
         allowedOwnershipTypes ? !allowedOwnershipTypes.length : true,
     );
 
-    function handleAllowedOwnersChange(e: RadioChangeEvent) {
-        const allowAnyOwner = e.target.value;
+    function handleAllowedOwnersChange(e: CheckboxChangeEvent) {
+        const allowAnyOwner = !e.target.checked;
         setAnyOwnersSelected(allowAnyOwner);
         if (allowAnyOwner) {
             form.setFieldValue(['ownershipParams', 'allowedOwners'], undefined);
         }
     }
 
-    function handleAllowedOwnershipTypesChange(e: RadioChangeEvent) {
-        const allowAnyOwnershipType = e.target.value;
+    function handleAllowedOwnershipTypesChange(e: CheckboxChangeEvent) {
+        const allowAnyOwnershipType = !e.target.checked;
         setAnyOwnershipTypeSelected(allowAnyOwnershipType);
         if (allowAnyOwnershipType) {
             form.setFieldValue(['ownershipParams', 'allowedOwnershipTypes'], undefined);
@@ -37,27 +33,21 @@ const OwnershipQuestion = () => {
 
     return (
         <>
-            <AllowedTermsWrapper>
-                <FieldLabel>Allowed Owners</FieldLabel>
-                <StyledRadioGroup value={anyOwnersSelected} onChange={handleAllowedOwnersChange}>
-                    <Space direction="vertical">
-                        <Radio value>Any owners</Radio>
-                        <Radio value={false}>Specific users or user groups</Radio>
-                    </Space>
-                </StyledRadioGroup>
-                {!anyOwnersSelected && <OwnershipSelector />}
-            </AllowedTermsWrapper>
-            <AllowedTermsWrapper>
-                <FieldLabel>Allowed Ownership Types</FieldLabel>
-                <StyledRadioGroup value={anyOwnershipTypeSelected} onChange={handleAllowedOwnershipTypesChange}>
-                    <Space direction="vertical">
-                        <Radio value>Any ownership types</Radio>
-                        <Radio value={false}>Specific ownership types</Radio>
-                    </Space>
-                </StyledRadioGroup>
-                {!anyOwnershipTypeSelected && <OwnershipTypeSelector />}
-            </AllowedTermsWrapper>
             <CardinalityField paramsField="ownershipParams" inputType="owners" />
+            <AllowedItemsWrapper>
+                <StyledCheckbox checked={!anyOwnersSelected} onChange={handleAllowedOwnersChange} />
+                <Tooltip title="If left unchecked, then any owner will be allowed" showArrow={false}>
+                    <StyledLabel>Restrict responses to specific owners</StyledLabel>
+                </Tooltip>
+                {!anyOwnersSelected && <OwnershipSelector />}
+            </AllowedItemsWrapper>
+            <AllowedItemsWrapper>
+                <StyledCheckbox checked={!anyOwnershipTypeSelected} onChange={handleAllowedOwnershipTypesChange} />
+                <Tooltip title="If left unchecked, then any owner type will be allowed" showArrow={false}>
+                    <StyledLabel>Restrict responses to specific owner types</StyledLabel>
+                </Tooltip>
+                {!anyOwnershipTypeSelected && <OwnershipTypeSelector />}
+            </AllowedItemsWrapper>
         </>
     );
 };

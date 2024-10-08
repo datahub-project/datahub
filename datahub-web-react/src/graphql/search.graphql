@@ -952,6 +952,75 @@ fragment searchResultsWithoutSchemaField on Entity {
                     }
                 }
             }
+            prompts {
+                id
+                formUrn
+                title
+                description
+                type
+                required
+                structuredPropertyParams {
+                    structuredProperty {
+                        ...structuredPropertyFields
+                    }
+                }
+                ownershipParams {
+                    cardinality
+                    allowedOwners {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
+                    allowedOwnershipTypes {
+                        urn
+                        type
+                        info {
+                            name
+                            description
+                        }
+                    }
+                }
+                glossaryTermsParams {
+                    cardinality
+                    resolvedAllowedTerms {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
+                }
+                domainParams {
+                    allowedDomains {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
+                }
+            }
+            actors {
+                owners
+                isAssignedToMe
+                users {
+                    urn
+                    properties {
+                        displayName
+                        email
+                    }
+                    editableProperties {
+                        displayName
+                        pictureLink
+                    }
+                }
+                groups {
+                    urn
+                    properties {
+                        displayName
+                        description
+                    }
+                    editableProperties {
+                        pictureLink
+                    }
+                }
+            }
         }
     }
 

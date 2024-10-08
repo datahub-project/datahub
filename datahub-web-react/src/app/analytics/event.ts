@@ -2,6 +2,8 @@ import {
     DataHubViewType,
     EntityChangeType,
     EntityType,
+    FormPromptType,
+    FormType,
     LineageDirection,
     NotificationSinkType,
     RecommendationRenderType,
@@ -131,6 +133,13 @@ export enum EventType {
     FilterLineageColumnsEvent,
     DrillDownLineageEvent,
     InferDocsClickEvent,
+    CreateFormClickEvent,
+    SaveFormAsDraftEvent,
+    PublishFormEvent,
+    UnpublishFormEvent,
+    DeleteFormEvent,
+    CreateQuestionEvent,
+    EditQuestionEvent,
 }
 
 /**
@@ -973,6 +982,72 @@ export interface DrillDownLineageEvent extends BaseEvent {
     dataType?: string;
 }
 
+export interface CreateFormClickEvent extends BaseEvent {
+    type: EventType.CreateFormClickEvent;
+}
+
+export interface SaveFormAsDraftEvent extends BaseEvent {
+    type: EventType.SaveFormAsDraftEvent;
+    formUrn: string;
+    formType: FormType;
+    noOfQuestions: number;
+    areOwnersAssigned: boolean;
+    noOfAssetsAssigned?: number;
+}
+
+export interface PublishFormEvent extends BaseEvent {
+    type: EventType.PublishFormEvent;
+    formUrn: string;
+    formType: FormType;
+    noOfQuestions: number;
+    areOwnersAssigned: boolean;
+    noOfAssetsAssigned?: number;
+}
+
+export interface UnpublishFormEvent extends BaseEvent {
+    type: EventType.UnpublishFormEvent;
+    formUrn: string;
+    formType: FormType;
+    noOfQuestions: number;
+    areOwnersAssigned: boolean;
+    noOfAssetsAssigned?: number;
+}
+
+export interface DeleteFormEvent extends BaseEvent {
+    type: EventType.DeleteFormEvent;
+    formUrn: string;
+    formType: FormType;
+    noOfQuestions: number;
+    areOwnersAssigned: boolean;
+    noOfAssetsAssigned?: number;
+}
+
+export interface CreateQuestionEvent extends BaseEvent {
+    type: EventType.CreateQuestionEvent;
+    formUrn?: string;
+    questionId: string;
+    questionType: FormPromptType;
+    required: boolean;
+    allowMultiple?: boolean;
+    restrictedGlossaryTerms?: boolean;
+    restrictedOwners?: boolean;
+    restrictedOwnershipTypes?: boolean;
+    restrictedDomains?: boolean;
+}
+
+export interface EditQuestionEvent extends BaseEvent {
+    type: EventType.EditQuestionEvent;
+    formUrn?: string;
+    questionId: string;
+    questionType: FormPromptType;
+    required: boolean;
+    allowMultiple?: boolean;
+    restrictedGlossaryTerms?: boolean;
+    restrictedOwners?: boolean;
+    restrictedOwnershipTypes?: boolean;
+    restrictedDomains?: boolean;
+}
+
 export interface InferDocsClickEvent extends BaseEvent {
     type: EventType.InferDocsClickEvent;
     surface:
@@ -1100,4 +1175,11 @@ export type Event =
     | SearchLineageColumnsEvent
     | FilterLineageColumnsEvent
     | DrillDownLineageEvent
-    | InferDocsClickEvent;
+    | InferDocsClickEvent
+    | CreateFormClickEvent
+    | SaveFormAsDraftEvent
+    | PublishFormEvent
+    | UnpublishFormEvent
+    | DeleteFormEvent
+    | CreateQuestionEvent
+    | EditQuestionEvent;

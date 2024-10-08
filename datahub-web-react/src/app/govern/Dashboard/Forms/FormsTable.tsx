@@ -2,10 +2,11 @@ import { useUserContext } from '@src/app/context/useUserContext';
 import { NetworkStatus } from '@apollo/client';
 import { colors, Icon, Pill, Table, Text, typography } from '@components';
 import { AlignmentOptions, ColorOptions } from '@src/alchemy-components/theme/config';
+import analytics, { EventType } from '@src/app/analytics';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { CustomAvatar } from '@src/app/shared/avatar';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
-import { toRelativeTimeString } from '@src/app/shared/time/timeUtils';
+import { toLocalDateString, toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
@@ -154,6 +155,13 @@ const FormsTable = ({ searchQuery }: Props) => {
             },
         })
             .then(() => {
+                analytics.event({
+                    type: EventType.DeleteFormEvent,
+                    formUrn: formData.entity.urn,
+                    formType: formData.entity.formInfo?.type,
+                    noOfQuestions: formData.entity.formInfo?.prompts?.length,
+                    areOwnersAssigned: !!formData.entity.formInfo?.actors?.owners,
+                });
                 showToastMessage(ToastType.SUCCESS, 'Form deleted successfully!', 3);
                 refetch();
             })
@@ -249,7 +257,9 @@ const FormsTable = ({ searchQuery }: Props) => {
                     record.entity.formInfo.status?.lastModified?.time;
                 return (
                     <CellContainer>
-                        {publishedTime ? capitalizeFirstLetter(toRelativeTimeString(publishedTime)) : '-'}
+                        <Tooltip title={toLocalDateString(publishedTime)} showArrow={false}>
+                            {publishedTime ? capitalizeFirstLetter(toRelativeTimeString(publishedTime)) : '-'}
+                        </Tooltip>
                     </CellContainer>
                 );
             },
@@ -373,13 +383,16 @@ const FormsTable = ({ searchQuery }: Props) => {
                     });
                 }
 
-                // Is the integration service available/online?
-                const integrationServiceOffline = !snapshotLoading && snapshot?.formAnalytics?.errors !== null;
+                // Show Analytics button if form analytics are available
+                const areFormAnalyticsAvailable =
+                    !snapshotLoading &&
+                    snapshot?.formAnalytics?.errors !== null &&
+                    snapshot?.formAnalytics?.header !== null;
 
                 return (
                     <>
                         <CardIcons>
-                            {!integrationServiceOffline && record.entity.formInfo.status.state !== FormState.Draft && (
+                            {areFormAnalyticsAvailable && record.entity.formInfo.status.state !== FormState.Draft && (
                                 <Tooltip title="View analytics for this form" showArrow={false}>
                                     <Icon
                                         icon="TrendingUp"

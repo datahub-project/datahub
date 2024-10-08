@@ -3,7 +3,7 @@ import { Icon, Pill, Table, Text } from '@components';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { CustomAvatar } from '@src/app/shared/avatar';
-import { toRelativeTimeString } from '@src/app/shared/time/timeUtils';
+import { toLocalDateString, toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
@@ -169,7 +169,11 @@ const StructuredPropsTable = ({
             key: 'creationDate',
             render: (record) => {
                 const createdTime = record.entity.definition.created?.time;
-                return createdTime ? toRelativeTimeString(createdTime) : '-';
+                return (
+                    <Tooltip title={toLocalDateString(createdTime)} showArrow={false}>
+                        {createdTime ? toRelativeTimeString(createdTime) : '-'}
+                    </Tooltip>
+                );
             },
             sorter: (sourceA, sourceB) => {
                 const timeA = sourceA.entity.definition.created?.time || Number.MAX_SAFE_INTEGER;

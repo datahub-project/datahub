@@ -115,7 +115,14 @@ public enum DataHubUsageEventType {
   SEARCH_LINEAGE_COLUMNS_EVENT("SearchLineageColumnsEvent"),
   FILTER_LINEAGE_COLUMNS_EVENT("FilterLineageColumnsEvent"),
   DRILL_DOWN_LINEAGE_EVENT("DrillDownLineageEvent"),
-  INFER_DOCS_CLICK_EVENT("InferDocsClickEvent");
+  INFER_DOCS_CLICK_EVENT("InferDocsClickEvent"),
+  CREATE_FORM_CLICK_EVENT("CreateFormClickEvent"),
+  SAVE_FORM_AS_DRAFT_EVENT("SaveFormAsDraftEvent"),
+  PUBLISH_FORM_EVENT("PublishFormEvent"),
+  UNPUBLISH_FORM_EVENT("UnpublishFormEvent"),
+  DELETE_FORM_EVENT("DeleteFormEvent"),
+  CREATE_QUESTION_EVENT("CreateQuestionEvent"),
+  EDIT_QUESTION_EVENT("EditQuestionEvent");
 
   private final String type;
 

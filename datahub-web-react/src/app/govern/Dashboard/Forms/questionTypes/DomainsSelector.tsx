@@ -1,16 +1,12 @@
-import { Domain, EntityType } from '@src/types.generated';
-import React, { useState } from 'react';
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
-import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import styled from 'styled-components';
-import { Form } from 'antd';
-import { useListDomainsLazyQuery, useListDomainsQuery } from '@src/graphql/domain.generated';
 import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-
-const Wrapper = styled.div`
-    margin-top: 24px;
-`;
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useListDomainsLazyQuery, useListDomainsQuery } from '@src/graphql/domain.generated';
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
+import { Domain, EntityType } from '@src/types.generated';
+import { Form } from 'antd';
+import React, { useState } from 'react';
+import { SelectorWrapper } from '../styledComponents';
 
 const DomainsSelector = () => {
     const entityRegistry = useEntityRegistryV2();
@@ -97,9 +93,9 @@ const DomainsSelector = () => {
     const defaultOptions = [...options, ...childOptions].sort((a, b) => a.label.localeCompare(b.label));
 
     return (
-        <Wrapper>
+        <SelectorWrapper>
             <NestedSelect
-                label="Domains"
+                label="Allowed Domains:"
                 placeholder="Select allowed domains"
                 searchPlaceholder="Search all domains..."
                 options={useSearch ? autoCompleteOptions : defaultOptions}
@@ -111,7 +107,7 @@ const DomainsSelector = () => {
                 isMultiSelect
                 showSearch
             />
-        </Wrapper>
+        </SelectorWrapper>
     );
 };
 

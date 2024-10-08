@@ -1,5 +1,6 @@
 import { useUserContext } from '@src/app/context/useUserContext';
 import { Button } from '@components';
+import analytics, { EventType } from '@src/app/analytics';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import { useIsThemeV2 } from '@src/app/useIsThemeV2';
@@ -92,6 +93,26 @@ const FormFooter = () => {
                         },
                     })
                         .then(() => {
+                            if (returnToForms) {
+                                analytics.event({
+                                    type:
+                                        state === FormState.Published
+                                            ? EventType.PublishFormEvent
+                                            : EventType.UnpublishFormEvent,
+                                    formUrn,
+                                    formType: formValues.formType || FormType.Completion,
+                                    noOfQuestions: formValues.questions?.length,
+                                    areOwnersAssigned: !!formValues.actors?.owners,
+                                });
+                            } else if (formValues.state === FormState.Draft) {
+                                analytics.event({
+                                    type: EventType.SaveFormAsDraftEvent,
+                                    formUrn,
+                                    formType: formValues.formType || FormType.Completion,
+                                    noOfQuestions: formValues.questions?.length,
+                                    areOwnersAssigned: !!formValues.actors?.owners,
+                                });
+                            }
                             showSuccessMessage();
                             if (state) updateFormState(state);
                             if (returnToForms) history.push(`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`);
@@ -131,6 +152,14 @@ const FormFooter = () => {
                         },
                     })
                         .then((res) => {
+                            analytics.event({
+                                type: returnToForms ? EventType.PublishFormEvent : EventType.SaveFormAsDraftEvent,
+                                formUrn: res.data?.createForm.urn || '',
+                                formType: formValues.formType || FormType.Completion,
+                                noOfQuestions: formValues.questions?.length,
+                                areOwnersAssigned: !!formValues.actors?.owners,
+                            });
+
                             setFormUrn(res.data?.createForm.urn);
                             showSuccessMessage();
                             if (state) updateFormState(state);

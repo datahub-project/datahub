@@ -205,7 +205,7 @@ export const FooterButtonsContainer = styled.div`
 export const RequiredFieldContainer = styled.div`
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 4px;
 `;
 
 export const CardsList = styled.div`
@@ -369,4 +369,13 @@ export const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
     font-size: 16px;
     margin-right: 8px;
     margin-left: 4px;
+`;
+
+export const AllowedItemsWrapper = styled.div`
+    margin-bottom: 24px;
+`;
+
+export const SelectorWrapper = styled.div`
+    margin-top: 12px;
+    margin-left: 24px;
 `;

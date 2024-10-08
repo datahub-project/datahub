@@ -1,19 +1,15 @@
-import { EntityType, GlossaryTerm } from '@src/types.generated';
-import React, { useState } from 'react';
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
-import {
-    useGetSearchResultsForMultipleQuery,
-    useGetAutoCompleteMultipleResultsLazyQuery,
-} from '@src/graphql/search.generated';
+import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetGlossaryNodeLazyQuery } from '@src/graphql/glossaryNode.generated';
-import styled from 'styled-components';
+import {
+    useGetAutoCompleteMultipleResultsLazyQuery,
+    useGetSearchResultsForMultipleQuery,
+} from '@src/graphql/search.generated';
+import { EntityType, GlossaryTerm } from '@src/types.generated';
 import { Form } from 'antd';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-
-const Wrapper = styled.div`
-    margin-top: 24px;
-`;
+import React, { useState } from 'react';
+import { SelectorWrapper } from '../styledComponents';
 
 const GlossaryTermsSelector = () => {
     const entityRegistry = useEntityRegistryV2();
@@ -107,9 +103,9 @@ const GlossaryTermsSelector = () => {
     }
 
     return (
-        <Wrapper>
+        <SelectorWrapper>
             <NestedSelect
-                label="Glossary Terms"
+                label="Allowed Glossary Terms:"
                 placeholder="Select allowed glossary terms"
                 searchPlaceholder="Search all glossary terms..."
                 areParentsSelectable={false}
@@ -122,7 +118,7 @@ const GlossaryTermsSelector = () => {
                 isMultiSelect
                 showSearch
             />
-        </Wrapper>
+        </SelectorWrapper>
     );
 };
 

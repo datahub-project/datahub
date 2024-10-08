@@ -1,18 +1,14 @@
-import { Entity, EntityType } from '@src/types.generated';
-import React, { useState } from 'react';
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
-import {
-    useGetSearchResultsForMultipleQuery,
-    useGetAutoCompleteMultipleResultsLazyQuery,
-} from '@src/graphql/search.generated';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import styled from 'styled-components';
-import { Form } from 'antd';
 import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-
-const Wrapper = styled.div`
-    margin-top: 24px;
-`;
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import {
+    useGetAutoCompleteMultipleResultsLazyQuery,
+    useGetSearchResultsForMultipleQuery,
+} from '@src/graphql/search.generated';
+import { Entity, EntityType } from '@src/types.generated';
+import { Form } from 'antd';
+import React, { useState } from 'react';
+import { SelectorWrapper } from '../styledComponents';
 
 const OwnershipSelector = () => {
     const entityRegistry = useEntityRegistryV2();
@@ -73,9 +69,9 @@ const OwnershipSelector = () => {
     }
 
     return (
-        <Wrapper>
+        <SelectorWrapper>
             <NestedSelect
-                label="Owners"
+                label="Allowed Owners:"
                 placeholder="Select allowed owners"
                 searchPlaceholder="Search all owners..."
                 options={useSearch ? autoCompleteOptions : options}
@@ -86,7 +82,7 @@ const OwnershipSelector = () => {
                 isMultiSelect
                 showSearch
             />
-        </Wrapper>
+        </SelectorWrapper>
     );
 };
 

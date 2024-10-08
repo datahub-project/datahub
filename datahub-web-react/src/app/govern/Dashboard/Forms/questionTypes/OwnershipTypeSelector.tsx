@@ -1,14 +1,10 @@
-import { OwnershipTypeEntity } from '@src/types.generated';
-import React, { useMemo } from 'react';
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
-import styled from 'styled-components';
-import { Form } from 'antd';
-import { useListOwnershipTypesQuery } from '@src/graphql/ownership.generated';
 import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-
-const Wrapper = styled.div`
-    margin-top: 24px;
-`;
+import { useListOwnershipTypesQuery } from '@src/graphql/ownership.generated';
+import { OwnershipTypeEntity } from '@src/types.generated';
+import { Form } from 'antd';
+import React, { useMemo } from 'react';
+import { SelectorWrapper } from '../styledComponents';
 
 const NONE_OWNERSHIP_TYPE = 'urn:li:ownershipType:__system__none';
 
@@ -51,9 +47,9 @@ const OwnershipTypeSelector = () => {
     }
 
     return (
-        <Wrapper>
+        <SelectorWrapper>
             <NestedSelect
-                label="Ownership Types"
+                label="Allowed Ownership Types:"
                 placeholder="Select allowed ownership Types"
                 options={options}
                 initialValues={initialOptions}
@@ -61,7 +57,7 @@ const OwnershipTypeSelector = () => {
                 width="full"
                 isMultiSelect
             />
-        </Wrapper>
+        </SelectorWrapper>
     );
 };
 

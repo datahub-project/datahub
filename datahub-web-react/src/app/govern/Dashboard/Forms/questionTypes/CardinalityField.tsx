@@ -1,7 +1,7 @@
 import { PromptCardinality } from '@src/types.generated';
 import { Form } from 'antd';
 import React, { useState } from 'react';
-import { FieldLabel, StyledCheckbox, StyledLabel } from '../styledComponents';
+import { StyledCheckbox, StyledLabel } from '../styledComponents';
 
 interface Props {
     paramsField: string;
@@ -22,10 +22,9 @@ const CardinalityField = ({ paramsField, inputType }: Props) => {
 
     return (
         <>
-            <FieldLabel style={{ marginBottom: 0 }}> Allow Multiple</FieldLabel>
             <Form.Item name={[paramsField, 'cardinality']} style={{ minHeight: 'max-content' }}>
                 <StyledCheckbox checked={isChecked} onChange={handleCheck} />
-                <StyledLabel onClick={handleCheck}>Check to allow multiple {inputType} in a response</StyledLabel>
+                <StyledLabel onClick={handleCheck}>Allow multiple {inputType} </StyledLabel>
             </Form.Item>
         </>
     );

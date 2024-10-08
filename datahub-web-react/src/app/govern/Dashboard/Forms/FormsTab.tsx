@@ -1,3 +1,4 @@
+import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { Tooltip } from 'antd';
 import React, { useState } from 'react';
@@ -65,7 +66,15 @@ const FormsTab = () => {
                         }
                     >
                         <>
-                            <Button onClick={() => history.push(PageRoutes.NEW_FORM)} disabled={!canEditForms}>
+                            <Button
+                                onClick={() => {
+                                    analytics.event({
+                                        type: EventType.CreateFormClickEvent,
+                                    });
+                                    history.push(PageRoutes.NEW_FORM);
+                                }}
+                                disabled={!canEditForms}
+                            >
                                 Create Form
                             </Button>
                         </>

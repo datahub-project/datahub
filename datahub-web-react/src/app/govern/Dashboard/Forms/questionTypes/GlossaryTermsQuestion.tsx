@@ -1,13 +1,9 @@
-import { Form, Radio, RadioChangeEvent, Space } from 'antd';
+import { Form, Tooltip } from 'antd';
+import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import React, { useState } from 'react';
-import styled from 'styled-components';
-import { FieldLabel, StyledRadioGroup } from '../styledComponents';
-import GlossaryTermsSelector from './GlossaryTermsSelector';
+import { AllowedItemsWrapper, StyledCheckbox, StyledLabel } from '../styledComponents';
 import CardinalityField from './CardinalityField';
-
-const AllowedTermsWrapper = styled.div`
-    margin-bottom: 24px;
-`;
+import GlossaryTermsSelector from './GlossaryTermsSelector';
 
 export default function GlossaryTermsQuestion() {
     const form = Form.useFormInstance();
@@ -16,27 +12,25 @@ export default function GlossaryTermsQuestion() {
         form.getFieldValue(['glossaryTermsParams', 'resolvedAllowedTerms']);
     const [anyTermsSelected, setAnyTermsSelected] = useState(allowedTerms ? !allowedTerms.length : true);
 
-    function handleAllowedTermsChange(e: RadioChangeEvent) {
-        const allowAnyTerm = e.target.value;
+    function handleAllowedTermsChange(e: CheckboxChangeEvent) {
+        const allowAnyTerm = !e.target.checked;
         setAnyTermsSelected(allowAnyTerm);
         if (allowAnyTerm) {
             form.setFieldValue(['glossaryTermsParams', 'allowedTerms'], undefined);
+            form.setFieldValue(['glossaryTermsParams', 'resolvedAllowedTerms'], undefined);
         }
     }
 
     return (
         <>
-            <AllowedTermsWrapper>
-                <FieldLabel>Allowed Glossary Terms</FieldLabel>
-                <StyledRadioGroup value={anyTermsSelected} onChange={handleAllowedTermsChange}>
-                    <Space direction="vertical">
-                        <Radio value>Any Terms</Radio>
-                        <Radio value={false}>Terms in a specific set</Radio>
-                    </Space>
-                </StyledRadioGroup>
-                {!anyTermsSelected && <GlossaryTermsSelector />}
-            </AllowedTermsWrapper>
             <CardinalityField paramsField="glossaryTermsParams" inputType="glossary terms" />
+            <AllowedItemsWrapper>
+                <StyledCheckbox checked={!anyTermsSelected} onChange={handleAllowedTermsChange} />
+                <Tooltip title="If left unchecked, then any glossary term will be allowed" showArrow={false}>
+                    <StyledLabel>Restrict responses to specific glossary terms</StyledLabel>
+                </Tooltip>
+                {!anyTermsSelected && <GlossaryTermsSelector />}
+            </AllowedItemsWrapper>
         </>
     );
 }

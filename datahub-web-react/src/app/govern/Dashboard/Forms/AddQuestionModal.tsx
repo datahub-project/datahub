@@ -1,8 +1,10 @@
 import { Button, Text } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
 import { WARNING_COLOR_HEX } from '@src/app/entityV2/shared/tabs/Incident/incidentUtils';
-import { FormPrompt, FormPromptType, FormState } from '@src/types.generated';
+import { FormPrompt, FormPromptType, FormState, PromptCardinality } from '@src/types.generated';
 import { Form, Select } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
+import { useParams } from 'react-router';
 import { v4 as uuidv4 } from 'uuid';
 import { questionTypes } from './formUtils';
 import ManageFormContext from './ManageFormContext';
@@ -45,6 +47,15 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
     const required = question ? form.getFieldValue('required') : !quesType.startsWith('FIELD');
     const [isRequired, setIsRequired] = useState<boolean>(required);
 
+    const { urn } = useParams<{ urn: string }>();
+    const [formUrn, setFormUrn] = useState<string | undefined>();
+
+    useEffect(() => {
+        if (urn) {
+            setFormUrn(urn);
+        }
+    }, [urn]);
+
     useEffect(() => {
         setIsRequired(required);
     }, [required]);
@@ -67,20 +78,38 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
         const questions = formValues.questions || [];
 
         form.validateFields().then(() => {
+            let questionId: string;
             // Editing an existing question
             if (question) {
+                questionId = question.id;
                 const updatedQuestions = questions?.map((ques) =>
                     ques.id === question.id ? { id: ques.id, ...formData } : ques,
                 );
                 setFormValues({ ...formValues, questions: updatedQuestions });
             } else {
                 // Adding a new question
+                questionId = uuidv4();
                 const newQuestion = {
                     ...formData,
-                    id: uuidv4(),
+                    id: questionId,
                 };
                 setFormValues({ ...formValues, questions: [...questions, newQuestion] });
             }
+            analytics.event({
+                type: question ? EventType.EditQuestionEvent : EventType.CreateQuestionEvent,
+                formUrn,
+                questionId,
+                questionType: formData.type,
+                required: formData.required,
+                allowMultiple: !(
+                    formData.glossaryTermsParams?.cardinality === PromptCardinality.Single ||
+                    formData.ownershipParams?.cardinality === PromptCardinality.Single
+                ),
+                restrictedGlossaryTerms: !!formData.glossaryTermsParams?.allowedTerms?.length,
+                restrictedOwners: !!formData.ownershipParams?.allowedOwners?.length,
+                restrictedOwnershipTypes: !!formData.ownershipParams?.allowedOwnershipTypes?.length,
+                restrictedDomains: !!formData.domainParams?.allowedDomains?.length,
+            });
 
             setShowQuestionModal(false);
             form.resetFields();
