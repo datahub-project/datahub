@@ -24,6 +24,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #11484 - Metadata service authentication enabled by default
 - #11484 - Rest API authorization enabled by default
 - #10472 - `SANDBOX` added as a FabricType. No rollbacks allowed once metadata with this fabric type is added without manual cleanups in databases.
+- ? - The `DatahubClientConfig`'s server field no longer defaults to `http://localhost:8080`. Be sure to explicitly set this.
 
 ### Potential Downtime
 
