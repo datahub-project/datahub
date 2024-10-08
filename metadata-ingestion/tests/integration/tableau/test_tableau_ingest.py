@@ -1151,6 +1151,52 @@ def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
+def test_no_hidden_assets(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_no_hidden_assets_mces.json"
+    golden_file_name: str = "tableau_no_hidden_assets_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["ingest_hidden_assets"] = False
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_no_hidden_assets_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_hidden_asset_tags(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_hidden_asset_tags_mces.json"
+    golden_file_name: str = "tableau_hidden_asset_tags_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["tags_for_hidden_assets"] = ["hidden", "private"]
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_hidden_asset_tags_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
 def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_graph):
 
     with mock.patch(

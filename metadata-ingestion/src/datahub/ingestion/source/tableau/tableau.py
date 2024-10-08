@@ -461,12 +461,12 @@ class TableauConfig(
 
     ingest_hidden_assets: bool = Field(
         True,
-        description="When enabled, hidden views and dashboards are ingested into Datahub. Default is True.",
+        description="When enabled, hidden views and dashboards are ingested into Datahub. If a dashboard or view is hidden in Tableau the luid is blank. Default of this config field is True.",
     )
 
     tags_for_hidden_assets: Optional[List[str]] = Field(
         default=[],
-        description="Tags to be added to hidden dashboards and views."
+        description="Tags to be added to hidden dashboards and views. If a dashboard or view is hidden in Tableau the luid is blank.",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -2233,11 +2233,10 @@ class TableauSiteSource:
 
         # Tags
         if datasource_info:
-            tags = self.get_tags(datasource_info)
-            if tags:
-                dataset_snapshot.aspects.append(
-                    builder.make_global_tag_aspect_with_tag_list(tags)
-                )
+            tags = self.get_tags(datasource_info) or []
+            dataset_snapshot.aspects.append(
+                builder.make_global_tag_aspect_with_tag_list(tags)
+            )
 
         # Browse path
         if browse_path and is_embedded_ds and workbook and workbook.get(c.NAME):
@@ -2628,7 +2627,9 @@ class TableauSiteSource:
             if self.config.ingest_hidden_assets or sheet.get(c.LUID):
                 yield from self.emit_sheets_as_charts(sheet, sheet.get(c.WORKBOOK))
             else:
-                logger.debug(f"Skip view {sheet.get(c.ID)} because it's hidden (luid is blank).")
+                logger.debug(
+                    f"Skip view {sheet.get(c.ID)} because it's hidden (luid is blank)."
+                )
 
     def emit_sheets_as_charts(
         self, sheet: dict, workbook: Optional[Dict]
@@ -2719,14 +2720,15 @@ class TableauSiteSource:
             chart_snapshot.aspects.append(owner)
 
         #  Tags
-        tags = self.get_tags(sheet)
+        tags = self.get_tags(sheet) or []
         if len(self.config.tags_for_hidden_assets) > 0 and not sheet.get(c.LUID):
             # Add hidden tags if sheet is hidden (blank luid)
             tags.extend(self.config.tags_for_hidden_assets)
-        if tags:
-            chart_snapshot.aspects.append(
-                builder.make_global_tag_aspect_with_tag_list(tags)
-            )
+
+        chart_snapshot.aspects.append(
+            builder.make_global_tag_aspect_with_tag_list(tags)
+        )
+
         yield self.get_metadata_change_event(chart_snapshot)
         if sheet_external_url is not None and self.config.ingest_embed_url is True:
             yield self.new_work_unit(
@@ -2808,7 +2810,7 @@ class TableauSiteSource:
             else None
         )
 
-        tags = self.get_tags(workbook)
+        tags = self.get_tags(workbook) or []
 
         parent_key = None
         project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
@@ -2931,7 +2933,9 @@ class TableauSiteSource:
             if self.config.ingest_hidden_assets or dashboard.get(c.LUID):
                 yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
             else:
-                logger.debug(f"Skip dashboard {dashboard.get(c.ID)} because it's hidden (luid is blank).")
+                logger.debug(
+                    f"Skip dashboard {dashboard.get(c.ID)} because it's hidden (luid is blank)."
+                )
 
     def get_tags(self, obj: dict) -> Optional[List[str]]:
         tag_list = obj.get(c.TAGS, [])
@@ -2992,15 +2996,14 @@ class TableauSiteSource:
         )
         dashboard_snapshot.aspects.append(dashboard_info_class)
 
-        tags = self.get_tags(dashboard)
+        tags = self.get_tags(dashboard) or []
         if len(self.config.tags_for_hidden_assets) > 0 and not dashboard.get(c.LUID):
             # Add hidden tags if dashboard is hidden (blank luid)
             tags.extend(self.config.tags_for_hidden_assets)
 
-        if tags:
-            dashboard_snapshot.aspects.append(
-                builder.make_global_tag_aspect_with_tag_list(tags)
-            )
+        dashboard_snapshot.aspects.append(
+            builder.make_global_tag_aspect_with_tag_list(tags)
+        )
 
         if self.config.extract_usage_stats:
             # dashboard_snapshot doesn't support the stat aspect as list element and hence need to emit MetadataWorkUnit
