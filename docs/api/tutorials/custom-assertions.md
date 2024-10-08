@@ -282,6 +282,18 @@ query getAssertion {
                 }
             }
         }
+        # Fetch what entities have the assertion attached to it
+        relationships(input:{
+            types: ["Asserts"]
+            direction:OUTGOING
+        }) {
+            total
+            relationships {
+                entity {
+                    urn
+                }
+            }
+        }
     }
 }
 ```
