@@ -227,23 +227,34 @@ class DremioAspects:
             env=self.env
         )
 
-    def _create_browse_paths(self, entity) -> BrowsePathsV2Class:
+    def _create_browse_paths(self, entity) -> Optional[BrowsePathsV2Class]:
+        paths = []
+
+        if self.platform_instance:
+            paths.append(
+                BrowsePathEntryClass(
+                    id=self.platform_instance,
+                )
+            )
+
         if hasattr(entity, 'path') and entity.path:
-            return BrowsePathsV2Class(
-                path=[
+            for browse_path_level in range(len(entity.path)):
+                paths.append(
                     BrowsePathEntryClass(
                         id=entity.path[browse_path_level],
                         urn=self.get_container_urn(
                             name=entity.container_name if hasattr(entity, 'container_name') else "",
                             path=entity.path[:browse_path_level+1],
                         ),
-                    ) for browse_path_level in range(len(entity.path))
-                ]
-            )
-        return BrowsePathsV2Class(path=[])
+                    )
+                )
 
-    def _create_container_class(self, entity) -> ContainerClass:
-        if hasattr(entity, 'path') and entity.path:
+        if paths:
+            return BrowsePathsV2Class(path=paths)
+        return None
+
+    def _create_container_class(self, entity) -> Optional[ContainerClass]:
+        if hasattr(entity, "path") and entity.path:
             return ContainerClass(
                 container=self.get_container_urn(
                     path=entity.path,
@@ -269,8 +280,10 @@ class DremioAspects:
             externalUrl=self._create_external_url(dataset=dataset),
             created=TimeStampClass(
                 time=round(
-                    datetime.strptime(dataset.created, '%Y-%m-%d %H:%M:%S.%f').timestamp() * 1000
-                ),
+                    datetime.strptime(
+                        dataset.created, '%Y-%m-%d %H:%M:%S.%f'
+                    ).timestamp() * 1000
+                ) if hasattr(dataset, "created") else 0,
             ),
         )
 
@@ -289,16 +302,19 @@ class DremioAspects:
         return f"{self.base_url}/{container_type}/{dataset_url_path}\"{dataset.resource_name}\""
 
 
-    def _create_ownership(self, dataset: DremioDataset) -> OwnershipClass:
-        owner = make_user_urn(dataset.owner) if dataset.owner_type == "USER" else make_group_urn(dataset.owner)
-        return OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=owner,
-                    type=OwnershipTypeClass.TECHNICAL_OWNER,
-                )
-            ]
-        )
+    def _create_ownership(self, dataset: DremioDataset) -> Optional[OwnershipClass]:
+        if hasattr(dataset, "owner"):
+            owner = make_user_urn(dataset.owner) if dataset.owner_type == "USER" else make_group_urn(dataset.owner)
+            return OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=owner,
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    )
+                ]
+            )
+        else:
+            return None
 
     def _create_glossary_terms(
             self,

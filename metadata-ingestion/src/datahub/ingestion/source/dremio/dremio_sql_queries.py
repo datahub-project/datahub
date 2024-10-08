@@ -1,15 +1,17 @@
 class DremioSQLQueries:
     QUERY_DATASETS_CE = """
+    SELECT * FROM
+    (
     SELECT
         T.TABLE_SCHEMA,
         T.TABLE_NAME,
-        CONCAT(PATH, '.', T.TABLE_NAME) AS FULL_TABLE_PATH
+        CONCAT(T.TABLE_SCHEMA, '.', T.TABLE_NAME) AS FULL_TABLE_PATH,
         V.VIEW_DEFINITION,
         C.COLUMN_NAME,
         C.IS_NULLABLE,
         C.DATA_TYPE,
         C.COLUMN_SIZE
-      FROM
+    FROM
         INFORMATION_SCHEMA."TABLES" T
         LEFT JOIN INFORMATION_SCHEMA.VIEWS V ON
         V.TABLE_CATALOG = T.TABLE_CATALOG
@@ -20,17 +22,21 @@ class DremioSQLQueries:
         AND C.TABLE_SCHEMA = T.TABLE_SCHEMA
         AND C.TABLE_NAME = T.TABLE_NAME
     WHERE
-        T.TYPE NOT IN ('SYSTEM_TABLE')
+        T.TABLE_TYPE NOT IN ('SYSTEM_TABLE')
+    )
+    WHERE 1=1
         {schema_pattern}
         {table_pattern}
         {deny_schema_pattern}
         {deny_table_pattern}
     ORDER BY
-        T.TABLE_SCHEMA ASC,
-        T.TABLE_NAME ASC
+        TABLE_SCHEMA ASC,
+        TABLE_NAME ASC
     """
 
     QUERY_DATASETS_EE = """
+        SELECT * FROM
+        (
         SELECT 
             RESOURCE_ID,
             V.TABLE_NAME,
@@ -117,110 +123,116 @@ class DremioSQLQueries:
             CONCAT(C.TABLE_SCHEMA, '.', C.TABLE_NAME)
         WHERE
             V.TYPE NOT IN ('SYSTEM_TABLE')
+        )
+        WHERE 1=1
             {schema_pattern}
             {table_pattern}
             {deny_schema_pattern}
             {deny_table_pattern}
         ORDER BY
-            V.PATH ASC,
-            V.TABLE_NAME ASC
+            TABLE_SCHEMA ASC,
+            TABLE_NAME ASC
         """
 
     QUERY_DATASETS_CLOUD = """
-            SELECT 
-                RESOURCE_ID,
-                V.TABLE_NAME,
-                OWNER,
-                PATH AS TABLE_SCHEMA,
-                CONCAT(REPLACE(REPLACE(
-                CONCAT(REPLACE(REPLACE(
-                REPLACE(V.PATH, ', ', '.'),
-                 '[', ''), ']', ''
-                 )) AS FULL_TABLE_PATH,
-                OWNER_TYPE,
-                LOCATION_ID,
-                VIEW_DEFINITION,
-                FORMAT_TYPE,
-                COLUMN_NAME,
-                ORDINAL_POSITION,
-                IS_NULLABLE,
-                DATA_TYPE,
-                COLUMN_SIZE,
-                CREATED
+        SELECT * FROM 
+        (
+        SELECT 
+            RESOURCE_ID,
+            V.TABLE_NAME,
+            OWNER,
+            PATH AS TABLE_SCHEMA,
+            CONCAT(REPLACE(REPLACE(
+            CONCAT(REPLACE(REPLACE(
+            REPLACE(V.PATH, ', ', '.'),
+             '[', ''), ']', ''
+             )) AS FULL_TABLE_PATH,
+            OWNER_TYPE,
+            LOCATION_ID,
+            VIEW_DEFINITION,
+            FORMAT_TYPE,
+            COLUMN_NAME,
+            ORDINAL_POSITION,
+            IS_NULLABLE,
+            DATA_TYPE,
+            COLUMN_SIZE,
+            CREATED
+        FROM 
+            (SELECT 
+                VIEW_ID AS RESOURCE_ID,
+                VIEW_NAME AS TABLE_NAME,
+                PATH,
+                CASE 
+                    WHEN LENGTH(SCHEMA_ID) = 0 THEN SPACE_ID 
+                    ELSE SCHEMA_ID 
+                END AS LOCATION_ID,
+                OWNER_ID,
+                SQL_DEFINITION AS VIEW_DEFINITION,
+                '' AS FORMAT_TYPE,
+                CREATED,
+                TYPE
             FROM 
-                (SELECT 
-                    VIEW_ID AS RESOURCE_ID,
-                    VIEW_NAME AS TABLE_NAME,
-                    PATH,
-                    CASE 
-                        WHEN LENGTH(SCHEMA_ID) = 0 THEN SPACE_ID 
-                        ELSE SCHEMA_ID 
-                    END AS LOCATION_ID,
-                    OWNER_ID,
-                    SQL_DEFINITION AS VIEW_DEFINITION,
-                    '' AS FORMAT_TYPE,
-                    CREATED,
-                    TYPE
-                FROM 
-                    SYS.PROJECT.VIEWS
-                UNION ALL
-                SELECT 
-                    TABLE_ID AS RESOURCE_ID,
-                    TABLE_NAME,
-                    PATH,
-                    CASE 
-                        WHEN LENGTH(SCHEMA_ID) = 0 THEN SOURCE_ID 
-                        ELSE SCHEMA_ID 
-                    END AS LOCATION_ID,
-                    OWNER_ID,
-                    NULL AS VIEW_DEFINITION,
-                    FORMAT_TYPE,
-                    CREATED,
-                    TYPE
-                FROM 
-                    SYS.PROJECT."TABLES"
-                ) V
-            LEFT JOIN 
-                (SELECT 
-                    USER_ID AS ID,
-                    USER_NAME AS "OWNER",
-                    'USER' AS OWNER_TYPE
-                FROM 
-                    SYS.ORGANIZATION.USERS
-                UNION ALL
-                SELECT 
-                    ROLE_ID AS ID,
-                    ROLE_NAME AS "OWNER",
-                    'GROUP' AS OWNER_TYPE
-                FROM 
-                    SYS.ORGANIZATION.ROLES
-                ) U
-            ON 
-                V.OWNER_ID = U.ID
-            LEFT JOIN
-            (SELECT
-                TABLE_SCHEMA,
+                SYS.PROJECT.VIEWS
+            UNION ALL
+            SELECT 
+                TABLE_ID AS RESOURCE_ID,
                 TABLE_NAME,
-                COLUMN_NAME,
-                ORDINAL_POSITION,
-                IS_NULLABLE,
-                DATA_TYPE,
-                COLUMN_SIZE
-            FROM
-                INFORMATION_SCHEMA.COLUMNS
-            ) C
-            ON
-                CONCAT(REPLACE(REPLACE(REPLACE(V.PATH, ', ', '.'), '[', ''), ']', '')) =
-                CONCAT(C.TABLE_SCHEMA, '.', C.TABLE_NAME)
-            WHERE
-                V.TYPE NOT IN ('SYSTEM_TABLE')
-                {schema_pattern}
-                {table_pattern}
-                {deny_schema_pattern}
-                {deny_table_pattern}
-            ORDER BY
-                V.PATH ASC,
-                V.TABLE_NAME ASC
+                PATH,
+                CASE 
+                    WHEN LENGTH(SCHEMA_ID) = 0 THEN SOURCE_ID 
+                    ELSE SCHEMA_ID 
+                END AS LOCATION_ID,
+                OWNER_ID,
+                NULL AS VIEW_DEFINITION,
+                FORMAT_TYPE,
+                CREATED,
+                TYPE
+            FROM 
+                SYS.PROJECT."TABLES"
+            ) V
+        LEFT JOIN 
+            (SELECT 
+                USER_ID AS ID,
+                USER_NAME AS "OWNER",
+                'USER' AS OWNER_TYPE
+            FROM 
+                SYS.ORGANIZATION.USERS
+            UNION ALL
+            SELECT 
+                ROLE_ID AS ID,
+                ROLE_NAME AS "OWNER",
+                'GROUP' AS OWNER_TYPE
+            FROM 
+                SYS.ORGANIZATION.ROLES
+            ) U
+        ON 
+            V.OWNER_ID = U.ID
+        LEFT JOIN
+        (SELECT
+            TABLE_SCHEMA,
+            TABLE_NAME,
+            COLUMN_NAME,
+            ORDINAL_POSITION,
+            IS_NULLABLE,
+            DATA_TYPE,
+            COLUMN_SIZE
+        FROM
+            INFORMATION_SCHEMA.COLUMNS
+        ) C
+        ON
+            CONCAT(REPLACE(REPLACE(REPLACE(V.PATH, ', ', '.'), '[', ''), ']', '')) =
+            CONCAT(C.TABLE_SCHEMA, '.', C.TABLE_NAME)
+        WHERE
+            V.TYPE NOT IN ('SYSTEM_TABLE')
+        )
+        WHERE 1=1
+            {schema_pattern}
+            {table_pattern}
+            {deny_schema_pattern}
+            {deny_table_pattern}
+        ORDER BY
+            TABLE_SCHEMA ASC,
+            TABLE_NAME ASC
             """
 
     QUERY_ALL_JOBS = """

@@ -490,6 +490,8 @@ class DremioAPIOperations:
             if table.get("TABLE_SCHEMA") == schemas.get("original_path"):
                 dataset_list.append(
                     {
+                        "TABLE_SCHEMA": "[" + ", ".join(schemas.get("formatted_path") + [
+                            table.get("TABLE_NAME")]) + "]",
                         "TABLE_NAME": table.get("TABLE_NAME"),
                         "COLUMNS": column_dictionary.get(
                             table.get('FULL_TABLE_PATH')
@@ -527,12 +529,12 @@ class DremioAPIOperations:
                 return ""
 
             if isinstance(patterns, str):
-                patterns = [patterns]
+                patterns = [patterns.upper()]
 
             if ".*" in patterns and allow:
                 return ""
 
-            patterns = [p for p in patterns if p != ".*"]
+            patterns = [p.upper() for p in patterns if p != ".*"]
             if not patterns:
                 return ""
 
@@ -541,9 +543,9 @@ class DremioAPIOperations:
             return f"AND {operator}({field}, '{pattern_str}')"
 
         schema_field = (
-            "CONCAT(REPLACE(REPLACE(REPLACE(V.PATH, ', ', '.'), '[', ''), ']', ''))"
+            "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
         )
-        table_field = "V.TABLE_NAME"
+        table_field = "UPPER(TABLE_NAME)"
 
         schema_condition = get_pattern_condition(self.allow_schema_pattern, schema_field)
         table_condition = get_pattern_condition(self.allow_dataset_pattern, table_field)
@@ -907,6 +909,7 @@ class DremioDataset:
         self.resource_name = dataset_details.get("TABLE_NAME")
         self.path = dataset_details.get("TABLE_SCHEMA")[1:-1].split(", ")[:-1]
         self.location_id = dataset_details.get("LOCATION_ID")
+
         #Protect against null columns returned
         if dataset_details.get("COLUMNS")[0].name:
             self.columns = dataset_details.get("COLUMNS")
@@ -923,9 +926,9 @@ class DremioDataset:
             DremioEdition.ENTERPRISE,
             DremioEdition.CLOUD,
         ):
+            self.created = dataset_details.get("CREATED")
             self.owner = dataset_details.get("OWNER")
             self.owner_type = dataset_details.get("OWNER_TYPE")
-            self.created = dataset_details.get("CREATED")
             self.format_type = dataset_details.get("FORMAT_TYPE")
 
         self.description = api_operations.get_description_for_resource(
