@@ -8,6 +8,8 @@
                 <exclude name="com.linkedin.metadata.search.elasticsearch"/>
                 <exclude name="com.linkedin.metadata.graph.search.opensearch" />
                 <exclude name="com.linkedin.metadata.search.opensearch"/>
+                <exclude name="com.linkedin.metadata.entity.cassandra.*" />
+                <exclude name="com.linkedin.metadata.timeline.cassandra.*"/>
             </package>
         </packages>
     </test>

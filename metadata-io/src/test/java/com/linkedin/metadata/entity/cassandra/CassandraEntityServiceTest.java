@@ -1,4 +1,4 @@
-package com.linkedin.metadata.entity;
+package com.linkedin.metadata.entity.cassandra;
 
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
@@ -11,8 +11,10 @@ import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.AspectIngestionUtils;
 import com.linkedin.metadata.CassandraTestUtils;
 import com.linkedin.metadata.config.PreProcessHooks;
-import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
-import com.linkedin.metadata.entity.cassandra.CassandraRetentionService;
+import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
+import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.EntityServiceTest;
+import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
