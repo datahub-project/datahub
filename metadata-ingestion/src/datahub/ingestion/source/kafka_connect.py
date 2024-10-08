@@ -731,18 +731,20 @@ class DebeziumSourceConnector:
         try:
             parser = self.get_parser(self.connector_manifest)
             source_platform = parser.source_platform
-            server_name = parser.server_name
+            server_name = parser.server_name if parser.server_name else ""
             database_name = parser.database_name
-            topic_naming_pattern = rf"({server_name})\.(\w+\.\w+)"
+            # topic prefix pattern to match server_name followed by a period
+            topic_prefix_pattern = rf"^{re.escape(server_name)}\."
 
             if not self.connector_manifest.topic_names:
                 return lineages
 
             for topic in self.connector_manifest.topic_names:
-                found = re.search(re.compile(topic_naming_pattern), topic)
+                # Remove the topic prefix to get db_name.table_name/collection_name
+                found = re.sub(topic_prefix_pattern, "", topic)
 
                 if found:
-                    table_name = get_dataset_name(database_name, found.group(2))
+                    table_name = get_dataset_name(database_name, found)
 
                     lineage = KafkaConnectLineage(
                         source_dataset=table_name,
