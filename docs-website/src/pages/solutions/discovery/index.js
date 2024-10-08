@@ -5,15 +5,16 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 import Hero from "../_components/Hero";
 import QuickstartContent from "../../_components/QuickstartContent";
 import Tiles from "../_components/Tiles";
-import CaseStudy from "../../_components/CaseStudy";
+import CaseStudy from "../_components/CaseStudy";
 import styles from "./styles.module.scss";
 import CloseButton from "@ant-design/icons/CloseCircleFilled";
 import Link from "@docusaurus/Link";
 import clsx from "clsx";
-import quickstartData from "./discoveryQuickstartContent";
-import heroContent from "./discoveryHeroContent";
+import quickstartData from "./_content/discoveryQuickstartContent";
+import heroContent from "./_content/discoveryHeroContent";
+import caseStudyContent from "./_content/discoveryCaseStudyContent";
 import Integrations from "../_components/Integrations";
-import tilesContent from "./discoveryTilesContent";
+import tilesContent from "./_content/discoveryTilesContent";
 
 function Home() {
   const context = useDocusaurusContext();
@@ -68,7 +69,7 @@ function Home() {
           <Tiles key={index} tilesContent={content} />
         ))}
       </div>
-      <CaseStudy />
+      <CaseStudy caseStudyContent= {caseStudyContent}/>
       <div className={styles.container}>
       <div className={styles.trial}>
         <div className={styles.trial_left}>
