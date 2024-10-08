@@ -47,7 +47,6 @@ class BIContainerSubTypes(StrEnum):
     LOOKML_PROJECT = "LookML Project"
     LOOKML_MODEL = "LookML Model"
     TABLEAU_WORKBOOK = "Workbook"
-    POWERBI_WORKSPACE = "Workspace"
     POWERBI_DATASET = "Semantic Model"
     POWERBI_DATASET_TABLE = "Table"
     QLIK_SPACE = "Qlik Space"
@@ -69,8 +68,8 @@ class BIAssetSubTypes(StrEnum):
     LOOKER_LOOK = "Look"
 
     # PowerBI
-    POWERBI_TILE = "Tile"
-    POWERBI_PAGE = "Page"
+    POWERBI_TILE = "PowerBI Tile"
+    POWERBI_PAGE = "PowerBI Page"
 
     # Mode
     MODE_REPORT = "Report"

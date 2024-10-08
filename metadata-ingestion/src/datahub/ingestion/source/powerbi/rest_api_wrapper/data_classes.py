@@ -41,7 +41,7 @@ class DatasetKey(ContainerKey):
 class Workspace:
     id: str
     name: str
-    type: str
+    type: str  # This is used as a subtype of the Container entity.
     dashboards: List["Dashboard"]
     reports: List["Report"]
     datasets: Dict[str, "PowerBIDataset"]

@@ -141,7 +141,6 @@ class Mapper:
 
     def new_mcp(
         self,
-        entity_type,
         entity_urn,
         aspect,
         change_type=ChangeTypeClass.UPSERT,
@@ -150,7 +149,6 @@ class Mapper:
         Create MCP
         """
         return MetadataChangeProposalWrapper(
-            entityType=entity_type,
             changeType=change_type,
             entityUrn=entity_urn,
             aspect=aspect,
@@ -173,7 +171,6 @@ class Mapper:
     ) -> List[MetadataChangeProposalWrapper]:
         schema_metadata = self.to_datahub_schema(table)
         schema_mcp = self.new_mcp(
-            entity_type=Constant.DATASET,
             entity_urn=ds_urn,
             aspect=schema_metadata,
         )
@@ -405,7 +402,6 @@ class Mapper:
                     viewLanguage="m_query",
                 )
                 view_prop_mcp = self.new_mcp(
-                    entity_type=Constant.DATASET,
                     entity_urn=ds_urn,
                     aspect=view_properties,
                 )
@@ -420,14 +416,12 @@ class Mapper:
             )
 
             info_mcp = self.new_mcp(
-                entity_type=Constant.DATASET,
                 entity_urn=ds_urn,
                 aspect=ds_properties,
             )
 
             # Remove status mcp
             status_mcp = self.new_mcp(
-                entity_type=Constant.DATASET,
                 entity_urn=ds_urn,
                 aspect=StatusClass(removed=False),
             )
@@ -435,7 +429,6 @@ class Mapper:
                 dataset_mcps.extend(self.extract_dataset_schema(table, ds_urn))
 
             subtype_mcp = self.new_mcp(
-                entity_type=Constant.DATASET,
                 entity_urn=ds_urn,
                 aspect=SubTypesClass(
                     typeNames=[
@@ -455,7 +448,6 @@ class Mapper:
                 # Dashboard owner MCP
                 ownership = OwnershipClass(owners=[owner_class])
                 owner_mcp = self.new_mcp(
-                    entity_type=Constant.DATASET,
                     entity_urn=ds_urn,
                     aspect=ownership,
                 )
@@ -596,14 +588,12 @@ class Mapper:
         )
 
         info_mcp = self.new_mcp(
-            entity_type=Constant.CHART,
             entity_urn=chart_urn,
             aspect=chart_info_instance,
         )
 
         # removed status mcp
         status_mcp = self.new_mcp(
-            entity_type=Constant.CHART,
             entity_urn=chart_urn,
             aspect=StatusClass(removed=False),
         )
@@ -621,7 +611,6 @@ class Mapper:
         # Explicitly emitting this aspect isn't necessary, but we do it here to ensure that
         # the old, bad data gets overwritten.
         chart_key_mcp = self.new_mcp(
-            entity_type=Constant.CHART,
             entity_urn=chart_urn,
             aspect=ChartUrn.from_string(chart_urn).to_key_aspect(),
         )
@@ -629,7 +618,6 @@ class Mapper:
         # Browse path
         browse_path = BrowsePathsClass(paths=[f"/powerbi/{workspace.name}"])
         browse_path_mcp = self.new_mcp(
-            entity_type=Constant.CHART,
             entity_urn=chart_urn,
             aspect=browse_path,
         )
@@ -696,14 +684,12 @@ class Mapper:
         )
 
         info_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
             aspect=dashboard_info_cls,
         )
 
         # removed status mcp
         removed_status_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
             aspect=StatusClass(removed=False),
         )
@@ -716,7 +702,6 @@ class Mapper:
 
         # Dashboard key
         dashboard_key_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
             aspect=dashboard_key_cls,
         )
@@ -733,7 +718,6 @@ class Mapper:
             # Dashboard owner MCP
             ownership = OwnershipClass(owners=owners)
             owner_mcp = self.new_mcp(
-                entity_type=Constant.DASHBOARD,
                 entity_urn=dashboard_urn,
                 aspect=ownership,
             )
@@ -743,7 +727,6 @@ class Mapper:
             paths=[f"/{Constant.PLATFORM_NAME}/{dashboard.workspace_name}"]
         )
         browse_path_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
             aspect=browse_path,
         )
@@ -839,7 +822,6 @@ class Mapper:
     ) -> None:
         if self.__config.extract_endorsements_to_tags and tags:
             tags_mcp = self.new_mcp(
-                entity_type=entity_type,
                 entity_urn=entity_urn,
                 aspect=self.transform_tags(tags),
             )
@@ -863,7 +845,6 @@ class Mapper:
         user_key = CorpUserKeyClass(username=user.id)
 
         user_key_mcp = self.new_mcp(
-            entity_type=Constant.CORP_USER,
             entity_urn=user_urn,
             aspect=user_key,
         )
@@ -1007,14 +988,12 @@ class Mapper:
             )
 
             info_mcp = self.new_mcp(
-                entity_type=Constant.CHART,
                 entity_urn=chart_urn,
                 aspect=chart_info_instance,
             )
 
             # removed status mcp
             status_mcp = self.new_mcp(
-                entity_type=Constant.CHART,
                 entity_urn=chart_urn,
                 aspect=StatusClass(removed=False),
             )
@@ -1029,7 +1008,6 @@ class Mapper:
             # Browse path
             browse_path = BrowsePathsClass(paths=[f"/powerbi/{workspace.name}"])
             browse_path_mcp = self.new_mcp(
-                entity_type=Constant.CHART,
                 entity_urn=chart_urn,
                 aspect=browse_path,
             )
@@ -1081,14 +1059,12 @@ class Mapper:
         )
 
         info_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
             aspect=dashboard_info_cls,
         )
 
         # removed status mcp
         removed_status_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
             aspect=StatusClass(removed=False),
         )
@@ -1101,7 +1077,6 @@ class Mapper:
 
         # Dashboard key
         dashboard_key_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
             aspect=dashboard_key_cls,
         )
@@ -1117,7 +1092,6 @@ class Mapper:
             # Report owner MCP
             ownership = OwnershipClass(owners=owners)
             owner_mcp = self.new_mcp(
-                entity_type=Constant.DASHBOARD,
                 entity_urn=dashboard_urn,
                 aspect=ownership,
             )
@@ -1127,13 +1101,11 @@ class Mapper:
             paths=[f"/{Constant.PLATFORM_NAME}/{workspace.name}"]
         )
         browse_path_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
             aspect=browse_path,
         )
 
         sub_type_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
             aspect=SubTypesClass(typeNames=[report.type.value]),
         )

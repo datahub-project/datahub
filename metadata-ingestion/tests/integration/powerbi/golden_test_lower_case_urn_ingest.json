@@ -610,7 +610,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Tile"
+                "PowerBI Tile"
             ]
         }
     },
@@ -1006,7 +1006,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Tile"
+                "PowerBI Tile"
             ]
         }
     },

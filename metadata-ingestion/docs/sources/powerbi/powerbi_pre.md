@@ -21,7 +21,7 @@
 | `Page`                | `Chart`             |
 
 - If `Tile` is created from report then `Chart.externalUrl` is set to Report.webUrl.
-- The `Page` information is unavailable for PowerBI PaginatedReport.
+- The `Page` is unavailable for PowerBI PaginatedReport.
 
 ## Lineage
 
