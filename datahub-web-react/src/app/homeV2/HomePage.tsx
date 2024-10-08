@@ -50,7 +50,7 @@ export const HomePage = () => {
                 ]}
             />
             <SearchablePage>
-                <Container>
+                <Container data-testid="home-page-content-container">
                     <LeftSidebar />
                     <CenterContent />
                     <RightSidebar />

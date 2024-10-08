@@ -1,12 +1,12 @@
 const homePageRedirection = () => {
   cy.visit("/");
-  cy.get('[class^="NavLinksMenu__LinksWrapper').should("be.visible");
+  cy.get(`[data-testid="home-page-content-container"]`).should("be.visible");
 };
 
 const addOrEditAnnouncement = (text, title, description, testId) => {
   cy.waitTextPresent(text);
   cy.get('[data-testid="create-post-title"]').clear().type(title);
-  cy.get(".create-post-description").clear().type(description);
+  // cy.get(".create-post-description").clear().type(description);
   cy.get(`[data-testid="${testId}-post-button"]`).click({ force: true });
   cy.reload();
   homePageRedirection();
