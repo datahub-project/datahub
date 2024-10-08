@@ -122,7 +122,7 @@ def test_platform_resource_dictwrapper():
     ).encode("utf-8")
     assert (
         platform_resource_info_mcp.aspect.value.schemaRef
-        == user_editable_info.RECORD_SCHEMA.fullname
+        == user_editable_info.RECORD_SCHEMA.fullname.replace("pegasus2avro.", "")
     )
 
 
@@ -177,8 +177,5 @@ def test_platform_resource_base_model():
     assert platform_resource_info_mcp.aspect.value.blob == json.dumps(
         test_model.dict()
     ).encode("utf-8")
-    assert (
-        platform_resource_info_mcp.aspect.value.schemaType
-        == models.SerializedValueSchemaTypeClass.JSON
-    )
+    assert platform_resource_info_mcp.aspect.value.schemaType == "JSON"
     assert platform_resource_info_mcp.aspect.value.schemaRef == TestModel.__name__

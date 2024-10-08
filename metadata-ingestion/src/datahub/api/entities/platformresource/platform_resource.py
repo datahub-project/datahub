@@ -6,10 +6,7 @@ from pydantic import BaseModel
 
 import datahub.metadata.schema_classes as models
 from datahub.api.entities.common.data_platform_instance import DataPlatformInstance
-from datahub.api.entities.common.serialized_value import (
-    SerializedResourceValue,
-    TypedResourceValue,
-)
+from datahub.api.entities.common.serialized_value import SerializedResourceValue
 from datahub.emitter.mce_builder import (
     datahub_guid,
     make_data_platform_urn,
@@ -36,56 +33,34 @@ class PlatformResourceKey(BaseModel):
 class PlatformResourceInfo(BaseModel):
     resource_type: str
     primary_key: str
+    value: Optional[SerializedResourceValue] = None
     secondary_keys: Optional[List[str]] = None
-    value: Optional[Union[TypedResourceValue, SerializedResourceValue]] = None
 
     @classmethod
     def from_resource_info(
         cls, resource_info: models.PlatformResourceInfoClass
     ) -> "PlatformResourceInfo":
-        resolved_value: Optional[
-            Union[TypedResourceValue, SerializedResourceValue]
-        ] = None
+        serialized_value: Optional[SerializedResourceValue] = None
         if resource_info.value:
             serialized_value = SerializedResourceValue.from_resource_value(
                 resource_info.value
             )
-            resolved_value = serialized_value
-            try:
-                typed_value = TypedResourceValue.from_serialized_resource_value(
-                    serialized_value
-                )
-                resolved_value = typed_value
-            except Exception as e:
-                logger.warning(
-                    f"Failed to parse serialized value {serialized_value} into typed value: {e}"
-                )
         return cls(
             primary_key=resource_info.primaryKey,
             secondary_keys=resource_info.secondaryKeys,
             resource_type=resource_info.resourceType,
-            value=resolved_value,
+            value=serialized_value,
         )
 
     def to_resource_info(self) -> models.PlatformResourceInfoClass:
         value = None
         if self.value:
-            serialized_value: SerializedResourceValue = (
-                self.value.to_serialized_resource_value()
-                if isinstance(self.value, TypedResourceValue)
-                else (
-                    self.value
-                    if isinstance(self.value, SerializedResourceValue)
-                    else None
-                )
+            value = models.SerializedValueClass(
+                contentType=self.value.content_type,
+                blob=self.value.blob,
+                schemaType=self.value.schema_type,
+                schemaRef=self.value.schema_ref,
             )
-            if serialized_value:
-                value = models.SerializedValueClass(
-                    contentType=serialized_value.content_type,
-                    blob=serialized_value.blob,
-                    schemaType=serialized_value.schema_type,
-                    schemaRef=serialized_value.schema_ref,
-                )
         return models.PlatformResourceInfoClass(
             primaryKey=self.primary_key,
             secondaryKeys=self.secondary_keys,
@@ -94,7 +69,7 @@ class PlatformResourceInfo(BaseModel):
         )
 
 
-class OpenAPIGraphClient(DataHubGraph):
+class OpenAPIGraphClient:
 
     ENTITY_KEY_ASPECT_MAP = {
         aspect_type.ASPECT_INFO.get("keyForEntity"): name
@@ -156,13 +131,7 @@ class PlatformResource(BaseModel):
         key: PlatformResourceKey,
     ) -> "PlatformResource":
         return cls(
-            id=datahub_guid(
-                {
-                    "platform": key.platform,
-                    "resource_type": key.resource_type,
-                    "key": key.primary_key,
-                }
-            ),
+            id=key.id,
             removed=True,
         )
 
@@ -170,8 +139,8 @@ class PlatformResource(BaseModel):
     def create(
         cls,
         key: PlatformResourceKey,
+        value: Union[Dict, DictWrapper, BaseModel],
         secondary_keys: Optional[List[str]] = None,
-        value: Optional[Union[Dict, DictWrapper, BaseModel]] = None,
     ) -> "PlatformResource":
         return cls(
             id=key.id,
@@ -179,7 +148,7 @@ class PlatformResource(BaseModel):
                 resource_type=key.resource_type,
                 primary_key=key.primary_key,
                 secondary_keys=secondary_keys,
-                value=TypedResourceValue(object=value) if value else None,
+                value=SerializedResourceValue.create(value),
             ),
             removed=False,
             data_platform_instance=DataPlatformInstance(
@@ -265,7 +234,7 @@ class PlatformResource(BaseModel):
                 "value": key,
             }
         )
-        if not primary:
+        if not primary:  # we expand the search to secondary keys
             extra_or_filters.append(
                 {
                     "field": "secondaryKeys",
