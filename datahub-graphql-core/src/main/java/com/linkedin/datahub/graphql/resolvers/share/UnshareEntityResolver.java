@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ShareEntityResult;
 import com.linkedin.datahub.graphql.generated.ShareLineageDirection;
@@ -37,49 +38,60 @@ public class UnshareEntityResolver implements DataFetcher<CompletableFuture<Shar
       throws Exception {
 
     final QueryContext context = environment.getContext();
+
     final UnshareEntityInput input =
         bindArgument(environment.getArgument("input"), UnshareEntityInput.class);
     final Authentication authentication = context.getAuthentication();
     final Urn entityUrn = UrnUtils.getUrn(input.getEntityUrn());
+    if (!AuthorizationUtils.canShareEntity(entityUrn, context)) {
+      throw new AuthorizationException(
+          "Unauthorized to unshare this entity. Please contact your DataHub administrator.");
+    }
     final ShareLineageDirection lineageDirection = input.getLineageDirection();
+    LineageDirection shareLineageDirection;
+    if (lineageDirection != null) {
+      shareLineageDirection = LineageDirection.valueOf(lineageDirection.toString());
+    } else {
+      shareLineageDirection = null;
+    }
     final List<Urn> connectionUrns =
-        input.getConnectionUrns().stream()
-            .map(urn -> UrnUtils.getUrn(urn))
+        input.getConnectionUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+    List<CompletableFuture<ExecuteUnshareResult>> unshareResultsList =
+        connectionUrns.stream()
+            .map(
+                connectionUrn ->
+                    _integrationsService.unshareEntity(
+                        connectionUrn, entityUrn, shareLineageDirection))
             .collect(Collectors.toList());
 
-    return CompletableFuture.supplyAsync(
-        () -> {
-          if (!AuthorizationUtils.canShareEntity(entityUrn, context)) {
-            throw new AuthorizationException(
-                "Unauthorized to unshare this entity. Please contact your DataHub administrator.");
-          }
-          try {
-            // integrations service will update the share aspect of all entities if successful
-            boolean succeeded = true;
-            LineageDirection shareLineageDirection = null;
-            if (lineageDirection != null) {
-              shareLineageDirection = LineageDirection.valueOf(lineageDirection.toString());
-            }
+    CompletableFuture<List<ExecuteUnshareResult>> unshareResultsFuture =
+        GraphQLConcurrencyUtils.sequence(unshareResultsList);
 
-            for (Urn connectionUrn : connectionUrns) {
-              ExecuteUnshareResult result =
-                  _integrationsService.unshareEntity(
-                      connectionUrn, entityUrn, shareLineageDirection);
-              // if the result is null, we know the integrations service failed to unshare
-              if (result == null) {
-                succeeded = false;
-              }
-            }
-            Share shareAspect =
-                _shareService.getShareOrDefault(context.getOperationContext(), entityUrn);
-            ShareEntityResult shareEntityResult = new ShareEntityResult();
-            shareEntityResult.setSucceeded(succeeded);
-            shareEntityResult.setShare(ShareMapper.map(context, shareAspect));
-            return shareEntityResult;
-          } catch (Exception e) {
-            throw new RuntimeException(
-                String.format("Failed to unshare entity with input %s", input), e);
-          }
-        });
+    return unshareResultsFuture.thenCompose(
+        unshareResults ->
+            GraphQLConcurrencyUtils.supplyAsync(
+                () -> {
+                  try {
+                    // integrations service will update the share aspect of all entities if
+                    // successful
+                    boolean succeeded = true;
+                    for (ExecuteUnshareResult unshareResult : unshareResults) {
+                      if (unshareResult == null) {
+                        succeeded = false;
+                      }
+                    }
+                    Share shareAspect =
+                        _shareService.getShareOrDefault(context.getOperationContext(), entityUrn);
+                    ShareEntityResult shareEntityResult = new ShareEntityResult();
+                    shareEntityResult.setSucceeded(succeeded);
+                    shareEntityResult.setShare(ShareMapper.map(context, shareAspect));
+                    return shareEntityResult;
+                  } catch (Exception e) {
+                    throw new RuntimeException(
+                        String.format("Failed to unshare entity with input %s", input), e);
+                  }
+                },
+                this.getClass().getSimpleName(),
+                "get"));
   }
 }

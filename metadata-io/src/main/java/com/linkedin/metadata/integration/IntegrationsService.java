@@ -12,10 +12,12 @@ import com.linkedin.link.LinkPreviewType;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
+import com.linkedin.util.Pair;
 import io.datahubproject.integrations.api.ActionsApi;
 import io.datahubproject.integrations.api.AiApi;
 import io.datahubproject.integrations.api.AnalyticsApi;
 import io.datahubproject.integrations.api.ShareApi;
+import io.datahubproject.integrations.invoker.ApiCallback;
 import io.datahubproject.integrations.invoker.ApiClient;
 import io.datahubproject.integrations.invoker.ApiException;
 import io.datahubproject.integrations.invoker.ApiResponse;
@@ -24,12 +26,14 @@ import io.datahubproject.integrations.model.ExecuteShareResult;
 import io.datahubproject.integrations.model.ExecuteUnshareResult;
 import io.datahubproject.integrations.model.LineageDirection;
 import io.datahubproject.integrations.model.SuggestedDescription;
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
@@ -370,43 +374,52 @@ public class IntegrationsService {
     return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
   }
 
-  public boolean reloadAction(String actionPipelineUrn) {
-
-    ApiResponse<Object> response = null;
+  public CompletableFuture<Boolean> reloadAction(String actionPipelineUrn) {
     try {
-      response = this.actionsApi.reloadActionWithHttpInfo(actionPipelineUrn);
-
-      if (response.getStatusCode() != HttpStatus.SC_OK) {
-        log.error("Failed to reload action! Integrations service returned non-200 error code!");
-        log.error(String.valueOf(response.getData().toString()));
-        return false;
-      }
-      return true;
+      CompletableFuture<ApiResponse<Object>> responseFuture = new CompletableFuture<>();
+      ApiCallback<Object> callback = new ApiCallback<>(responseFuture);
+      actionsApi.reloadActionAsync(actionPipelineUrn, callback);
+      return responseFuture.thenApply(
+          response -> {
+            if (response.getStatusCode() != HttpStatus.SC_OK) {
+              log.error(
+                  "Failed to reload action! Integrations service returned non-200 error code!");
+              log.error(String.valueOf(response.getData().toString()));
+              return false;
+            }
+            return true;
+          });
     } catch (Exception e) {
       log.error(
           "Failed to reload action! Exceptions encountered when trying to access integrations service");
-      return false;
+      return CompletableFuture.completedFuture(false);
     }
   }
 
-  public SuggestedDescription inferDocumentation(Urn entity) {
+  public CompletableFuture<SuggestedDescription> inferDocumentation(Urn entity) {
     try {
-      var response = this.aiApi.suggestDescriptionWithHttpInfo(entity.toString());
-      if (response.getStatusCode() != HttpStatus.SC_OK) {
-        log.error(
-            "Failed to suggest description for entity! Integrations service returned non-200 error code!");
-        log.error(String.valueOf(response.getData().toString()));
-        return null;
-      }
+      CompletableFuture<ApiResponse<SuggestedDescription>> responseFuture =
+          new CompletableFuture<>();
+      ApiCallback<SuggestedDescription> callback = new ApiCallback<>(responseFuture);
+      aiApi.suggestDescriptionAsync(entity.toString(), callback);
+      return responseFuture.thenApply(
+          response -> {
+            if (response.getStatusCode() != HttpStatus.SC_OK) {
+              log.error(
+                  "Failed to suggest description for entity! Integrations service returned non-200 error code!");
+              log.error(String.valueOf(response.getData().toString()));
+              return null;
+            }
 
-      return response.getData();
+            return response.getData();
+          });
     } catch (ApiException e) {
-      log.error("Failed to suggest description for entity: " + entity.toString(), e);
-      return null;
+      log.error("Failed to suggest description for entity: " + entity, e);
+      return CompletableFuture.completedFuture(null);
     }
   }
 
-  public boolean query(
+  public CompletableFuture<Boolean> query(
       String entityUrn,
       String query_string,
       Consumer<List<String>> headerProcessor,
@@ -427,17 +440,18 @@ public class IntegrationsService {
               encodedEntityUrn,
               encodedQueryFragment);
       StreamingHttpClient streamingHttpClient = new StreamingHttpClient();
-      streamingHttpClient.queryAndProcessStream(
-          requestURI,
-          Map.of(
-              "Content-Type",
-              "application/json",
-              "Authorization",
-              this.systemAuthentication.getCredentials()),
-          headerProcessor,
-          rowProcessor,
-          errorProcessor);
-      return true;
+      CompletableFuture<Void> responseFuture =
+          streamingHttpClient.queryAndProcessStream(
+              requestURI,
+              Map.of(
+                  "Content-Type",
+                  "application/json",
+                  "Authorization",
+                  this.systemAuthentication.getCredentials()),
+              headerProcessor,
+              rowProcessor,
+              errorProcessor);
+      return responseFuture.thenApply(response -> true);
     } catch (ResourceNotFoundException e) {
       log.error("Failed to query analytics service due to resource not found", e);
       throw e;
@@ -460,140 +474,204 @@ public class IntegrationsService {
     }
   }
 
-  public ExecuteShareResult shareEntity(
+  public CompletableFuture<Pair<Urn, ExecuteShareResult>> shareEntity(
       @Nonnull final Urn connectionUrn,
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn sharerUrn,
       LineageDirection lineageDirection) {
     try {
+      CompletableFuture<ApiResponse<ExecuteShareResult>> responseFuture = new CompletableFuture<>();
+      ApiCallback<ExecuteShareResult> callback = new ApiCallback<>(responseFuture);
       // LineageDirection is always null now because we are not using it yet.
-      ApiResponse<ExecuteShareResult> response =
-          this.shareApi.executeShareWithHttpInfo(
-              connectionUrn.toString(),
-              entityUrn.toString(),
-              sharerUrn.toString(),
-              lineageDirection);
-      if (response.getStatusCode() != HttpStatus.SC_OK) {
-        log.error(
-            String.format(
-                "Failed to share entity with urn %s. Integrations service returned non-200 error code.",
-                entityUrn));
-        log.error(String.valueOf(response.getData().toString()));
-        return null;
-      }
-      return response.getData();
+      shareApi.executeShareAsync(
+          connectionUrn.toString(),
+          entityUrn.toString(),
+          sharerUrn.toString(),
+          lineageDirection,
+          callback);
+      return responseFuture.thenApply(
+          response -> {
+            if (response.getStatusCode() != HttpStatus.SC_OK) {
+              log.error(
+                  String.format(
+                      "Failed to share entity with urn %s. Integrations service returned non-200 error code.",
+                      entityUrn));
+              log.error(String.valueOf(response.getData().toString()));
+              return new Pair<>(connectionUrn, null);
+            }
+            return new Pair<>(connectionUrn, response.getData());
+          });
     } catch (ApiException e) {
       log.error("Failed to share entity with urn: " + entityUrn, e);
-      return null;
+      return CompletableFuture.completedFuture(new Pair<>(connectionUrn, null));
     }
   }
 
-  public ExecuteUnshareResult unshareEntity(
+  public CompletableFuture<ExecuteUnshareResult> unshareEntity(
       @Nonnull final Urn connectionUrn,
       @Nonnull final Urn entityUrn,
       LineageDirection lineageDirection) {
     try {
+      CompletableFuture<ApiResponse<ExecuteUnshareResult>> responseFuture =
+          new CompletableFuture<>();
+      ApiCallback<ExecuteUnshareResult> callback = new ApiCallback<>(responseFuture);
       // LineageDirection is always null now because we are not using it yet.
-      ApiResponse<ExecuteUnshareResult> response =
-          this.shareApi.executeUnshareWithHttpInfo(
-              connectionUrn.toString(), entityUrn.toString(), lineageDirection);
-      if (response.getStatusCode() != HttpStatus.SC_OK) {
-        log.error(
-            String.format(
-                "Failed to unshare entity with urn %s. Integrations service returned non-200 error code.",
-                entityUrn));
-        log.error(String.valueOf(response.getData().toString()));
-        return null;
-      }
+      shareApi.executeUnshareAsync(
+          connectionUrn.toString(), entityUrn.toString(), lineageDirection, callback);
+      return responseFuture.thenApply(
+          response -> {
+            if (response.getStatusCode() != HttpStatus.SC_OK) {
+              log.error(
+                  String.format(
+                      "Failed to unshare entity with urn %s. Integrations service returned non-200 error code.",
+                      entityUrn));
+              log.error(String.valueOf(response.getData().toString()));
+              return null;
+            }
 
-      return response.getData();
+            return response.getData();
+          });
     } catch (ApiException e) {
       log.error("Failed to unshare entity with urn: " + entityUrn, e);
-      return null;
+      return CompletableFuture.completedFuture(null);
     }
   }
 
-  public boolean rollbackAction(String actionPipelineUrn) {
-
-    ApiResponse<Object> response = null;
+  public CompletableFuture<Boolean> rollbackAction(String actionPipelineUrn) {
     try {
-      Object apiResponse = this.actionsApi.rollbackActionWithHttpInfo(actionPipelineUrn);
-      response = (ApiResponse<Object>) apiResponse;
-
-      if (response.getStatusCode() != HttpStatus.SC_OK) {
-        log.error("Failed to rollback action! Integrations service returned non-200 error code!");
-        log.error(String.valueOf(response.getData().toString()));
-        return false;
-      }
-      return true;
+      CompletableFuture<ApiResponse<String>> responseFuture = new CompletableFuture<>();
+      ApiCallback<String> callback = new ApiCallback<>(responseFuture);
+      actionsApi.rollbackActionAsync(actionPipelineUrn, callback);
+      return responseFuture.thenApply(
+          response -> {
+            if (response.getStatusCode() != HttpStatus.SC_OK) {
+              log.error(
+                  "Failed to rollback action! Integrations service returned non-200 error code!");
+              log.error(response.getData());
+              return false;
+            }
+            return true;
+          });
     } catch (Exception e) {
       log.error(
           "Failed to rollback action! Exceptions encountered when trying to access integrations service",
           e);
-      return false;
+      return CompletableFuture.completedFuture(false);
     }
   }
 
-  public boolean bootstrapAction(String actionPipelineUrn) {
-
-    ApiResponse<Object> response = null;
+  public CompletableFuture<Boolean> bootstrapAction(String actionPipelineUrn) {
     try {
-      Object apiResponse = this.actionsApi.bootstrapActionWithHttpInfo(actionPipelineUrn);
-      response = (ApiResponse<Object>) apiResponse;
-
-      if (response.getStatusCode() != HttpStatus.SC_OK) {
-        log.error("Failed to bootstrap action! Integrations service returned non-200 error code!");
-        log.error(String.valueOf(response.getData().toString()));
-        return false;
-      }
-      return true;
+      CompletableFuture<ApiResponse<String>> responseFuture = new CompletableFuture<>();
+      ApiCallback<String> callback = new ApiCallback<>(responseFuture);
+      actionsApi.bootstrapActionAsync(actionPipelineUrn, callback);
+      return responseFuture.thenApply(
+          response -> {
+            if (response.getStatusCode() != HttpStatus.SC_OK) {
+              log.error(
+                  "Failed to bootstrap action! Integrations service returned non-200 error code!");
+              log.error(response.getData());
+              return false;
+            }
+            return true;
+          });
     } catch (Exception e) {
       log.error(
           "Failed to bootstrap action! Exceptions encountered when trying to access integrations service",
           e);
-      return false;
+      return CompletableFuture.completedFuture(false);
     }
   }
 
-  public boolean stopAction(String actionPipelineUrn) {
-
+  public CompletableFuture<Boolean> stopAction(String actionPipelineUrn) {
     log.info("Stopping action pipeline = {}", actionPipelineUrn);
-    ApiResponse<Object> response = null;
     try {
-      Object apiResponse = this.actionsApi.stopActionWithHttpInfo(actionPipelineUrn);
-      response = (ApiResponse<Object>) apiResponse;
-      if (response.getStatusCode() != HttpStatus.SC_OK) {
-        log.error("Failed to stop action! Integrations service returned non-200 error code!");
-        log.error(String.valueOf(response.getData().toString()));
-        return false;
-      }
-      return true;
+      CompletableFuture<ApiResponse<String>> responseFuture = new CompletableFuture<>();
+      ApiCallback<String> callback = new ApiCallback<>(responseFuture);
+      actionsApi.stopActionAsync(actionPipelineUrn, callback);
+      return responseFuture.thenApply(
+          response -> {
+            if (response.getStatusCode() != HttpStatus.SC_OK) {
+              log.error("Failed to stop action! Integrations service returned non-200 error code!");
+              log.error(response.getData());
+              return false;
+            }
+            return true;
+          });
     } catch (Exception e) {
       log.error(
           "Failed to stop action! Exceptions encountered when trying to access integrations service",
           e);
-      return false;
+      return CompletableFuture.completedFuture(false);
     }
   }
 
-  public String actionStatus(String actionPipelineUrn) {
-    ApiResponse<Object> response = null;
+  public CompletableFuture<String> actionStatus(String actionPipelineUrn) {
     try {
-      Object apiResponse = this.actionsApi.actionStatsWithHttpInfo(actionPipelineUrn);
-      response = (ApiResponse<Object>) apiResponse;
-      if (response.getStatusCode() != HttpStatus.SC_OK) {
-        log.error("Failed to get action status! Integrations service returned non-200 error code!");
-        log.error(String.valueOf(response.getData().toString()));
-        return null;
-      }
-      Object apiResponseData = response.getData();
-
-      return this.objectMapper.writeValueAsString(response.getData());
+      CompletableFuture<ApiResponse<Object>> responseFuture = new CompletableFuture<>();
+      ApiCallback<Object> callback = new ApiCallback<>(responseFuture);
+      actionsApi.actionStatsAsync(actionPipelineUrn, callback);
+      return responseFuture.thenApply(
+          response -> {
+            if (response.getStatusCode() != HttpStatus.SC_OK) {
+              log.error(
+                  "Failed to get action status! Integrations service returned non-200 error code!");
+              log.error(String.valueOf(response.getData().toString()));
+              return null;
+            }
+            try {
+              return this.objectMapper.writeValueAsString(response.getData());
+            } catch (Exception e) {
+              throw new RuntimeException(e);
+            }
+          });
     } catch (Exception e) {
       log.error(
           "Failed to get action status! Exceptions encountered when trying to access integrations service",
           e);
-      return null;
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  private static class ApiCallback<T>
+      implements io.datahubproject.integrations.invoker.ApiCallback<T> {
+
+    private final CompletableFuture<ApiResponse<T>> future;
+
+    ApiCallback(CompletableFuture<ApiResponse<T>> future) {
+      this.future = future;
+    }
+
+    @Override
+    public void onFailure(ApiException e, int statusCode, Map responseHeaders) {
+      this.future.completeExceptionally(e);
+    }
+
+    @Override
+    public void onSuccess(T result, int statusCode, Map<String, List<String>> responseHeaders) {
+      if (statusCode != HttpStatus.SC_OK) {
+        log.error("Failed to reload action! Integrations service returned non-200 error code!");
+        future.completeExceptionally(
+            new IOException(
+                "Unexpected code: "
+                    + statusCode
+                    + " with headers: "
+                    + responseHeaders
+                    + " and value:"
+                    + result));
+      } else {
+        future.complete(new ApiResponse<>(statusCode, responseHeaders, result));
+      }
+    }
+
+    @Override
+    public void onUploadProgress(long bytesWritten, long contentLength, boolean done) {
+      throw new UnsupportedOperationException("Upload progress not supported.");
+    }
+
+    @Override
+    public void onDownloadProgress(long bytesRead, long contentLength, boolean done) {
+      throw new UnsupportedOperationException("Download progress not supported.");
     }
   }
 }

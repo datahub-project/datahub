@@ -11,6 +11,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.InferredColumnDescriptions;
 import com.linkedin.datahub.graphql.generated.InferredDocumentation;
@@ -52,22 +53,25 @@ public class InferDocumentationResolver
         Urn.createFromString(bindArgument(environment.getArgument("urn"), String.class));
     final Boolean saveResult =
         bindArgument(environment.getArgumentOrDefault("saveResult", false), Boolean.class);
+    if (!AuthorizationUtils.canView(context.getOperationContext(), targetUrn)) {
+      throw new AuthorizationException(
+          "Unauthorized to perform this action. Please contact your DataHub administrator.");
+    }
 
-    return CompletableFuture.supplyAsync(
-        () -> {
-          if (!AuthorizationUtils.canView(context.getOperationContext(), targetUrn)) {
-            throw new AuthorizationException(
-                "Unauthorized to perform this action. Please contact your DataHub administrator.");
-          }
-
-          final SuggestedDescription inferredDocumentation =
-              this._integrationsService.inferDocumentation(targetUrn);
-          if (saveResult) {
-            saveInferredDocumentation(
-                context.getOperationContext(), targetUrn, inferredDocumentation);
-          }
-          return mapInferredDocumentation(inferredDocumentation);
-        });
+    return _integrationsService
+        .inferDocumentation(targetUrn)
+        .thenCompose(
+            inferredDocumentation ->
+                GraphQLConcurrencyUtils.supplyAsync(
+                    () -> {
+                      if (saveResult) {
+                        saveInferredDocumentation(
+                            context.getOperationContext(), targetUrn, inferredDocumentation);
+                      }
+                      return mapInferredDocumentation(inferredDocumentation);
+                    },
+                    this.getClass().getSimpleName(),
+                    "get"));
   }
 
   private void saveInferredDocumentation(

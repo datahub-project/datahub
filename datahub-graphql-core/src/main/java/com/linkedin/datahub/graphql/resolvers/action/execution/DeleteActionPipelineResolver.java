@@ -27,29 +27,32 @@ public class DeleteActionPipelineResolver implements DataFetcher<CompletableFutu
     final QueryContext context = environment.getContext();
     final String actionUrn = environment.getArgument("urn");
     final Urn urn = Urn.createFromString(actionUrn);
+    if (AuthorizationUtils.canManageActionPipelines(context)) {
+      return _integrationsService
+          .stopAction(actionUrn)
+          .thenCompose(
+              bool ->
+                  GraphQLConcurrencyUtils.supplyAsync(
+                      () -> {
 
-    return GraphQLConcurrencyUtils.supplyAsync(
-        () -> {
-          if (AuthorizationUtils.canManageActionPipelines(context)) {
-            try {
-              // Stop the action in Integration Service
-              _integrationsService.stopAction(actionUrn);
+                        // Delete Action entity from GMS
+                        try {
+                          _entityClient.deleteEntity(context.getOperationContext(), urn);
+                        } catch (Exception e) {
+                          throw new RuntimeException(
+                              String.format(
+                                  "Failed to perform delete against action with urn %s", actionUrn),
+                              e);
+                        }
 
-              // Delete Action entity from GMS
-              _entityClient.deleteEntity(context.getOperationContext(), urn);
-
-              // Return true if the delete was successful
-              return true;
-            } catch (Exception e) {
-              throw new RuntimeException(
-                  String.format("Failed to perform delete against action with urn %s", actionUrn),
-                  e);
-            }
-          }
-          throw new AuthorizationException(
-              "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        },
-        this.getClass().getSimpleName(),
-        "get");
+                        // Return true if the delete was successful
+                        return true;
+                      },
+                      this.getClass().getSimpleName(),
+                      "get"));
+    } else {
+      throw new AuthorizationException(
+          "Unauthorized to perform this action. Please contact your DataHub administrator.");
+    }
   }
 }

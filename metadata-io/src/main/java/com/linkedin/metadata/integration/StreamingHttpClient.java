@@ -1,21 +1,20 @@
 package com.linkedin.metadata.integration;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import lombok.extern.slf4j.Slf4j;
 
 /** A simple HTTP client that can query a server and process the response stream. */
+@Slf4j
 public class StreamingHttpClient {
 
   private final HttpClient client =
@@ -39,7 +38,7 @@ public class StreamingHttpClient {
    * @param rowChunkProcessor a consumer that processes the row chunk
    * @param errorChunkProcessor a consumer that processes the error chunk
    */
-  public void queryAndProcessStream(
+  public CompletableFuture<Void> queryAndProcessStream(
       String requestUri,
       Map<String, String> headers,
       Consumer<List<String>> headerChunkProcessor,
@@ -56,7 +55,7 @@ public class StreamingHttpClient {
       requestBuilder.header(header.getKey(), header.getValue());
     }
 
-    client
+    return client
         .sendAsync(requestBuilder.build(), HttpResponse.BodyHandlers.ofInputStream())
         .thenApply(
             response -> {
@@ -80,29 +79,10 @@ public class StreamingHttpClient {
                 this._jsonChunkProcessor.processJsonStream(
                     inputStream, headerChunkProcessor, rowChunkProcessor, errorChunkProcessor);
               } catch (IOException e) {
-                e.printStackTrace();
+                log.error("Exception while querying server.", e);
               } catch (Exception e) {
                 throw new RuntimeException(e);
               }
-            })
-        .join();
-  }
-
-  private void processStream(
-      InputStream inputStream,
-      StreamingJsonChunkProcessor jsonChunkProcessor,
-      Consumer<String> applier)
-      throws IOException {
-    // Wrap the InputStream in an InputStreamReader and BufferedReader
-    try (InputStreamReader streamReader =
-            new InputStreamReader(inputStream, StandardCharsets.UTF_8);
-        BufferedReader reader = new BufferedReader(streamReader)) {
-
-      String line;
-      while ((line = reader.readLine()) != null) {
-        // Each line is processed here
-        applier.accept(line);
-      }
-    }
+            });
   }
 }

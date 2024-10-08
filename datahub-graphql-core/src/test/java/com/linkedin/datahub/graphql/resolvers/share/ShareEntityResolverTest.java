@@ -13,16 +13,19 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ShareEntityInput;
 import com.linkedin.datahub.graphql.generated.ShareEntityResult;
 import com.linkedin.datahub.graphql.generated.ShareLineageDirection;
 import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.service.ShareService;
+import com.linkedin.util.Pair;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.integrations.model.ExecuteShareResult;
 import io.datahubproject.integrations.model.LineageDirection;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -142,7 +145,7 @@ public class ShareEntityResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
 
-    Assert.assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Assert.assertThrows(AuthorizationException.class, () -> resolver.get(mockEnv).join());
 
     // never fetches data when no permissions
     Mockito.verify(mockService, Mockito.times(0))
@@ -247,7 +250,18 @@ public class ShareEntityResolverTest {
                   Mockito.eq(TEST_DATASET_URN),
                   Mockito.eq(TEST_SHARER_URN),
                   Mockito.eq(LineageDirection.fromValue(TEST_SHARE_LINEAGE.toString()))))
-          .thenReturn(new ExecuteShareResult());
+          .thenReturn(
+              CompletableFuture.completedFuture(
+                  new Pair<>(TEST_CONNECTION_URN, new ExecuteShareResult())));
+      Mockito.when(
+              service.shareEntity(
+                  Mockito.eq(TEST_CONNECTION_URN_2),
+                  Mockito.eq(TEST_DATASET_URN),
+                  Mockito.eq(TEST_SHARER_URN),
+                  Mockito.eq(LineageDirection.fromValue(TEST_SHARE_LINEAGE.toString()))))
+          .thenReturn(
+              CompletableFuture.completedFuture(
+                  new Pair<>(TEST_CONNECTION_URN_2, new ExecuteShareResult())));
     } else {
       Mockito.when(
               service.shareEntity(
@@ -255,7 +269,7 @@ public class ShareEntityResolverTest {
                   Mockito.eq(TEST_DATASET_URN),
                   Mockito.eq(TEST_SHARER_URN),
                   Mockito.eq(LineageDirection.fromValue(TEST_SHARE_LINEAGE.toString()))))
-          .thenReturn(null);
+          .thenReturn(CompletableFuture.completedFuture(new Pair<>(TEST_CONNECTION_URN, null)));
     }
 
     return service;
