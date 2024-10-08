@@ -8,6 +8,7 @@ import com.linkedin.metadata.test.definition.operator.Operand;
 import com.linkedin.metadata.test.definition.operator.OperatorType;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.test.query.TestQuery;
+import com.linkedin.metadata.utils.SearchUtil;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -65,7 +66,10 @@ public class ElasticTestDefinitionConvertor {
 
   private static boolean isSearchable(Set<TestQuery> queries, Map<PathSpec, String> fieldPaths) {
     return queries.stream()
-        .filter(q -> !q.getQuery().equals("_entityType") && !q.getQuery().equals("urn"))
+        .filter(
+            q ->
+                !q.getQuery().equals(SearchUtil.INDEX_VIRTUAL_FIELD)
+                    && !q.getQuery().equals(SearchUtil.URN_FIELD))
         .map(TestQuery::getQueryParts)
         .map(PathSpec::new)
         .allMatch(fieldPaths::containsKey);

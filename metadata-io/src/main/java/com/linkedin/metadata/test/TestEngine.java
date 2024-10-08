@@ -260,7 +260,7 @@ public class TestEngine {
     TestDefinition testDefinition;
     try {
       testDefinition = _testDefinitionParser.deserialize(DUMMY_TEST_URN, definitionJson);
-    } catch (TestDefinitionParsingException e) {
+    } catch (TestDefinitionParsingException | IllegalArgumentException e) {
       return new ValidationResult(false, Collections.singletonList(e.getMessage()));
     }
     return validateTestDefinition(testDefinition);
@@ -1031,7 +1031,12 @@ public class TestEngine {
       try {
         testDefinition =
             _testDefinitionParser.deserialize(testUrn, testInfo.getDefinition().getJson());
-      } catch (TestDefinitionParsingException e) {
+        ValidationResult validationResult = validateTestDefinition(testDefinition);
+        if (!validationResult.isValid()) {
+          throw new TestDefinitionParsingException(
+              "Test definition " + testUrn + " is invalid: " + validationResult.getMessages());
+        }
+      } catch (TestDefinitionParsingException | IllegalArgumentException e) {
         log.error(
             "Issue while deserializing test definition {}", testInfo.getDefinition().getJson(), e);
         return null;
@@ -1309,7 +1314,7 @@ public class TestEngine {
    */
   @VisibleForTesting
   @RequiredArgsConstructor
-  static class TestRefreshRunnable implements Runnable {
+  class TestRefreshRunnable implements Runnable {
 
     private final OperationContext systemOpContext;
     private final TestFetcher _testFetcher;
@@ -1407,6 +1412,14 @@ public class TestEngine {
         testDefinition =
             _testDefinitionParser.deserialize(
                 test.getUrn(), test.getTestInfo().getDefinition().getJson());
+        ValidationResult validationResult = validateTestDefinition(testDefinition);
+        if (!validationResult.isValid()) {
+          throw new TestDefinitionParsingException(
+              "Test definition "
+                  + test.getUrn()
+                  + " is invalid: "
+                  + validationResult.getMessages());
+        }
       } catch (TestDefinitionParsingException | IllegalArgumentException e) {
         log.error(
             "Issue while deserializing test definition {}",
