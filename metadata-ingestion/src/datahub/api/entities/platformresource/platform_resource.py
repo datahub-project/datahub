@@ -8,18 +8,18 @@ import datahub.metadata.schema_classes as models
 from datahub.api.entities.common.data_platform_instance import DataPlatformInstance
 from datahub.api.entities.common.serialized_value import SerializedResourceValue
 from datahub.emitter.mce_builder import (
-    datahub_guid,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import DatahubKey
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.utilities.urns.urn import Urn
+from datahub.metadata.urns import PlatformResourceUrn
 
 logger = logging.getLogger(__name__)
 
 
-class PlatformResourceKey(BaseModel):
+class PlatformResourceKey(DatahubKey):
     platform: str
     platform_instance: Optional[str] = None
     resource_type: str
@@ -27,7 +27,7 @@ class PlatformResourceKey(BaseModel):
 
     @property
     def id(self) -> str:
-        return datahub_guid(self.dict(exclude_none=True))
+        return self.guid()
 
 
 class PlatformResourceInfo(BaseModel):
@@ -163,13 +163,6 @@ class PlatformResource(BaseModel):
             ),
         )
 
-    @staticmethod
-    def make_platform_resource_urn(id: str) -> str:
-        if id.startswith("urn:li:platformResource:"):
-            return id
-        else:
-            return f"urn:li:platformResource:{id}"
-
     def to_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         dpi = (
             self.data_platform_instance.to_data_platform_instance()
@@ -177,7 +170,7 @@ class PlatformResource(BaseModel):
             else None
         )
         yield from MetadataChangeProposalWrapper.construct_many(
-            entityUrn=self.make_platform_resource_urn(self.id),
+            entityUrn=str(PlatformResourceUrn(self.id)),
             aspects=[
                 self.resource_info.to_resource_info() if self.resource_info else None,
                 dpi,
@@ -194,13 +187,12 @@ class PlatformResource(BaseModel):
         cls, graph_client: DataHubGraph, key: Union[PlatformResourceKey, str]
     ) -> Optional["PlatformResource"]:
         if isinstance(key, PlatformResourceKey):
-            urn = cls.make_platform_resource_urn(key.id)
+            urn = PlatformResourceUrn(id=key.id)
         else:
-            urn = cls.make_platform_resource_urn(key)
-        platform_resource = graph_client.get_entity_semityped(urn)
-        id = Urn.from_string(urn).entity_ids[-1]
+            urn = PlatformResourceUrn.from_string(key)
+        platform_resource = graph_client.get_entity_semityped(str(urn))
         return cls(
-            id=id,
+            id=urn.id,
             resource_info=(
                 PlatformResourceInfo.from_resource_info(
                     platform_resource["platformResourceInfo"]
@@ -252,4 +244,4 @@ class PlatformResource(BaseModel):
                 yield platform_resource
 
     def delete(self, graph_client: DataHubGraph, hard: bool = True) -> None:
-        graph_client.delete_entity(self.make_platform_resource_urn(self.id), hard=hard)
+        graph_client.delete_entity(str(PlatformResourceUrn(self.id)), hard=hard)

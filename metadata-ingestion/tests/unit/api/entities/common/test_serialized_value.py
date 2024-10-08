@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from datahub.api.entities.common.serialized_value import SerializedResourceValue
 
 
-class TestModel(BaseModel):
+class MyTestModel(BaseModel):
     test_string_field: str
     test_int_field: int
     test_dict_field: dict
@@ -11,7 +11,7 @@ class TestModel(BaseModel):
 
 def test_base_model():
 
-    test_base_model = TestModel(
+    test_base_model = MyTestModel(
         test_string_field="test_string_field",
         test_int_field=42,
         test_dict_field={"test_key": "test_value"},
@@ -27,7 +27,7 @@ def test_base_model():
         serialized_resource_value.blob
         == b'{"test_string_field": "test_string_field", "test_int_field": 42, "test_dict_field": {"test_key": "test_value"}}'
     )
-    assert serialized_resource_value.schema_ref == TestModel.__name__
+    assert serialized_resource_value.schema_ref == MyTestModel.__name__
 
 
 def test_dictwrapper():
