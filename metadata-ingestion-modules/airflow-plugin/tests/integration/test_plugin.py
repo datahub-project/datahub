@@ -377,7 +377,7 @@ def test_airflow_plugin(
         print("Sleeping for a few seconds to let the plugin finish...")
         time.sleep(10)
 
-    # Golden file will get generated for the `filtered DAG`
+    # Golden file will NOT get generated for the `filtered DAG`
     if dag_id != NAME_OF_DAG_TO_FILTER_FROM_INGESTION:
         _sanitize_output_file(airflow_instance.metadata_file)
 
