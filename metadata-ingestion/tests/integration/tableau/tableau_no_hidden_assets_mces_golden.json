@@ -1198,6 +1198,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -1483,6 +1488,11 @@
                             }
                         },
                         "dashboardUrl": "https://do-not-connect/#/site/acryl/views/EmailPerformancebyCampaign/EmailPerformancebyCampaign"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -1913,6 +1923,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -3873,6 +3888,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/default/Dvdrental Workbook"
@@ -4211,6 +4231,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -5126,6 +5151,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -6087,6 +6117,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -12962,6 +12997,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/default/Executive Dashboard"
@@ -17079,6 +17119,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -22436,6 +22481,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/default/Workbook published ds"
@@ -22777,6 +22827,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -23546,6 +23601,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {

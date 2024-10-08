@@ -516,6 +516,7 @@ def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
     tags = [
         TagAssociationClass(tag=builder.make_tag_urn(tag.upper()))
         for tag in params
+        if tag
     ]
     return GlobalTagsClass(tags=tags)
 
