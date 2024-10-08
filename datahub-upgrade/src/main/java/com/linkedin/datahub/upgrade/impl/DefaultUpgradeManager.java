@@ -26,8 +26,9 @@ public class DefaultUpgradeManager implements UpgradeManager {
   private final Map<String, Upgrade> _upgrades = new HashMap<>();
 
   @Override
-  public void register(@Nonnull Upgrade upgrade) {
+  public UpgradeManager register(@Nonnull Upgrade upgrade) {
     _upgrades.put(upgrade.id(), upgrade);
+    return this;
   }
 
   @Override

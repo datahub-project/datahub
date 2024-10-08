@@ -1,0 +1,7 @@
+bootstrap:
+  templates:
+    - name: ingestion-datahub-usage-reporting
+      version: v1
+      optional: true
+      mcps_location: "bootstrapmcp_usagereporting/test-datahub-usage-reporting.yaml"
+      values_env: "DATAHUB_USAGE_REPORTING_BOOTSTRAP_VALUES"

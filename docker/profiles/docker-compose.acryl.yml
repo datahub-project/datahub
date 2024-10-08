@@ -1,3 +1,9 @@
+x-search-datastore-elasticsearch-env: &search-datastore-env
+  ELASTICSEARCH_HOST: search
+  ELASTICSEARCH_PORT: 9200
+  ELASTICSEARCH_PROTOCOL: http
+  ELASTICSEARCH_USE_SSL: ${ELASTICSEARCH_USE_SSL:-false}
+
 #################################
 # Integrations Service
 #################################
@@ -36,11 +42,14 @@ x-datahub-executor: &datahub-executor
   ports:
     - ${DATAHUB_MAPPED_EXECUTOR_PORT:-9004}:9004
   env_file: datahub-executor/env/docker.env
+  environment: &datahub-executor-env
+    <<: *search-datastore-env
 
 x-datahub-executor-dev: &datahub-executor-dev
   <<: *datahub-executor
   image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-debug}
   environment:
+    <<: *datahub-executor-env
     PYTHONPATH: "/metadata-ingestion/src:/datahub-executor/src/datahub_executor:$${PYTHONPATH}"
   volumes:
     - ./datahub-executor/start.sh:/start_datahub_executor.sh

@@ -1,0 +1,8 @@
+- entityUrn: urn:li:dataType:datahub.test
+  entityType: dataType
+  aspectName: dataTypeInfo
+  changeType: UPSERT
+  aspect:
+    badField:
+      qualifiedName: datahub.test
+      description: Test Description

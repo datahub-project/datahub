@@ -8,7 +8,7 @@ import javax.annotation.Nonnull;
 public interface UpgradeManager {
 
   /** Register an {@link Upgrade} with the manaager. */
-  void register(Upgrade upgrade);
+  UpgradeManager register(Upgrade upgrade);
 
   /** Kick off an {@link Upgrade} by identifier. */
   UpgradeResult execute(
