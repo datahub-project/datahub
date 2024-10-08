@@ -97,7 +97,7 @@ public abstract class GenericEntitiesController<
    * @param aspectNames the aspect names present
    * @param withSystemMetadata whether to include system metadata in the result
    * @param scrollId the pagination token
-   * @param expandEmpty whether to expand an empty aspects list to all entities
+   * @param expandEmpty whether to expand an empty aspects list to all aspects
    * @return result containing entities/aspects
    * @throws URISyntaxException parsing error
    */
