@@ -63,7 +63,7 @@ export const AssertionListItemActions = ({
     const menu = (
         <Menu>
             {/** Currently, we do not handle adding to a contract in siblings mode, since we only load the root node's contract. */}
-            {(isSeparateSiblingsMode && (
+            {isSeparateSiblingsMode ? (
                 <Menu.Item key="1">
                     <ContractAction
                         assertion={assertion}
@@ -74,14 +74,13 @@ export const AssertionListItemActions = ({
                         isExpandedView
                     />
                 </Menu.Item>
-            )) ||
-                null}
-            {externalUrl && (
+            ) : null}
+            {externalUrl ? (
                 <Menu.Item key="2">
                     <ExternalUrlAction assertion={assertion} isExpandedView />
                 </Menu.Item>
-            )}
-            {isRunAssertionsEnabled && !monitor && !isNonNative && isReachable && (
+            ) : null}
+            {isRunAssertionsEnabled && !monitor && !isNonNative && isReachable ? (
                 <Menu.Item key="3">
                     <RunAction
                         assertion={assertion}
@@ -91,7 +90,7 @@ export const AssertionListItemActions = ({
                         isExpandedView
                     />
                 </Menu.Item>
-            )}
+            ) : null}
 
             <Menu.Item key="4">
                 <CopyLinkAction assertion={assertion} isExpandedView />
