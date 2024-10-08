@@ -2,6 +2,7 @@ package com.linkedin.metadata.structuredproperties.hooks;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_KEY_ASPECT_NAME;
+import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -23,7 +24,6 @@ import com.linkedin.metadata.aspect.batch.PatchMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -178,10 +178,9 @@ public class PropertyDefinitionDeleteSideEffectTest {
     final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
     final CriterionArray andCriterion = new CriterionArray();
 
-    final Criterion propertyExistsCriterion = new Criterion();
-    propertyExistsCriterion.setField(
-        "structuredProperties._versioned.io_acryl_privacy_retentionTime.00000000000001.string");
-    propertyExistsCriterion.setCondition(Condition.EXISTS);
+    final Criterion propertyExistsCriterion =
+        buildExistsCriterion(
+            "structuredProperties._versioned.io_acryl_privacy_retentionTime.00000000000001.string");
 
     andCriterion.add(propertyExistsCriterion);
     conjunction.setAnd(andCriterion);

@@ -1,12 +1,14 @@
 import logging
+import pathlib
 import re
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Dict, List, Optional, Set
+from typing import Any, ClassVar, Dict, List, Optional, Set, Union
 
 from deepmerge import always_merger
 from liquid import Undefined
 from liquid.exceptions import LiquidSyntaxError
 
+from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_constant import (
     DATAHUB_TRANSFORMED_SQL,
     DATAHUB_TRANSFORMED_SQL_TABLE_NAME,
@@ -390,6 +392,7 @@ def process_lookml_template_language(
     source_config: LookMLSourceConfig,
     view_lkml_file_dict: dict,
 ) -> None:
+
     if "views" not in view_lkml_file_dict:
         return
 
@@ -416,3 +419,18 @@ def process_lookml_template_language(
         )
 
     view_lkml_file_dict["views"] = transformed_views
+
+
+def load_and_preprocess_file(
+    path: Union[str, pathlib.Path],
+    source_config: LookMLSourceConfig,
+) -> dict:
+
+    parsed = load_lkml(path)
+
+    process_lookml_template_language(
+        view_lkml_file_dict=parsed,
+        source_config=source_config,
+    )
+
+    return parsed

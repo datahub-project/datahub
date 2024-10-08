@@ -105,12 +105,12 @@ module.exports = {
             {
               label: "Documentation Propagation",
               type: "doc",
-              id: "docs/automation/docs-propagation",
+              id: "docs/automations/docs-propagation",
             },
             {
               label: "Snowflake Tag Sync",
               type: "doc",
-              id: "docs/automation/snowflake-tag-propagation",
+              id: "docs/automations/snowflake-tag-propagation",
               className: "saasOnly",
             },
           ],
@@ -307,6 +307,8 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_6",
+            "docs/managed-datahub/release-notes/v_0_3_5",
             "docs/managed-datahub/release-notes/v_0_3_4",
             "docs/managed-datahub/release-notes/v_0_3_3",
             "docs/managed-datahub/release-notes/v_0_3_2",
@@ -443,6 +445,11 @@ module.exports = {
           type: "doc",
           id: "docs/lineage/openlineage",
           label: "OpenLineage",
+        },
+        {
+          type: "doc",
+          id: "docs/lineage/prefect",
+          label: "Prefect",
         },
         {
           type: "doc",
@@ -629,6 +636,7 @@ module.exports = {
         "docs/advanced/browse-paths-upgrade",
         "docs/browseV2/browse-paths-v2",
         "docs/plugins",
+        "docs/advanced/bootstrap-mcps",
       ],
     },
     {
@@ -917,6 +925,7 @@ module.exports = {
     // "metadata-integration/java/openlineage-converter/README"
     //"metadata-ingestion-modules/airflow-plugin/README"
     //"metadata-ingestion-modules/dagster-plugin/README"
+    //"metadata-ingestion-modules/prefect-plugin/README"
     //"metadata-ingestion-modules/gx-plugin/README"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"

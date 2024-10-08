@@ -113,7 +113,7 @@ class BigQueryTestConnection:
                     project_id=project_id,
                     dataset_name=result[0].name,
                     tables={},
-                    with_data_read_permission=config.have_table_data_read_permission,
+                    with_partitions=config.have_table_data_read_permission,
                     report=BigQueryV2Report(),
                 )
                 if len(list(tables)) == 0:
@@ -137,7 +137,10 @@ class BigQueryTestConnection:
         report: BigQueryV2Report,
     ) -> CapabilityReport:
         lineage_extractor = BigqueryLineageExtractor(
-            connection_conf, report, BigQueryIdentifierBuilder(connection_conf, report)
+            connection_conf,
+            report,
+            schema_resolver=SchemaResolver(platform="bigquery"),
+            identifiers=BigQueryIdentifierBuilder(connection_conf, report),
         )
         for project_id in project_ids:
             try:

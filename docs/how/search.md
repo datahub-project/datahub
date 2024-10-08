@@ -85,8 +85,8 @@ These examples are non exhaustive and using Datasets as a reference.
 If you want to:
 
 - Exact match on term or phrase
-  - ```"datahub_schema"``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%22datahub_schema%22)
-  - ```datahub_schema``` [Sample results](https://demo.datahubproject.io/search?page=1&query=datahub_schema)
+  - ```"pet profile"``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%22pet%20profile%22)
+  - ```pet profile``` [Sample results](https://demo.datahubproject.io/search?page=1&query=pet%20profile)
   - Enclosing one or more terms with double quotes will enforce exact matching on these terms, preventing further tokenization.
 
 - Exclude terms
@@ -394,6 +394,32 @@ queryConfigurations:
               materialized:
                 value: true
           weight: 0.5
+      score_mode: multiply
+      boost_mode: multiply
+```
+
+##### Example 4: Entity Ranking
+
+Alter the ranking of entities. For example, chart vs dashboard, you may want the dashboard
+to appear above charts. This can be done using the following function score and leverages a prefix match on the entity type
+of the URN. Depending on the entity the weight may have to be adjusted based on your data and the entities
+involved since often multiple field matches may shift weight towards one entity vs another.
+
+```yaml
+queryConfigurations:
+  - queryRegex: .*
+    
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+
+    functionScore:
+      functions:
+        - filter:
+            prefix:
+              urn:
+                value: 'urn:li:dashboard:'
+          weight: 1.5
       score_mode: multiply
       boost_mode: multiply
 ```

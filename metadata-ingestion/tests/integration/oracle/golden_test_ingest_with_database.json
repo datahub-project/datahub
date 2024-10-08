@@ -1,7 +1,7 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
+    "entityUrn": "urn:li:container:0e497517e191d344b0c403231bc708d0",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -9,9 +9,10 @@
             "customProperties": {
                 "platform": "oracle",
                 "env": "PROD",
-                "database": "oradoc"
+                "database": "OraDoc"
             },
-            "name": "oradoc"
+            "name": "OraDoc",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -22,7 +23,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
+    "entityUrn": "urn:li:container:0e497517e191d344b0c403231bc708d0",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -38,7 +39,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
+    "entityUrn": "urn:li:container:0e497517e191d344b0c403231bc708d0",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -54,7 +55,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
+    "entityUrn": "urn:li:container:0e497517e191d344b0c403231bc708d0",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -72,7 +73,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
+    "entityUrn": "urn:li:container:0e497517e191d344b0c403231bc708d0",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -88,7 +89,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
+    "entityUrn": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -96,10 +97,11 @@
             "customProperties": {
                 "platform": "oracle",
                 "env": "PROD",
-                "database": "oradoc",
+                "database": "OraDoc",
                 "schema": "schema1"
             },
-            "name": "schema1"
+            "name": "schema1",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -110,7 +112,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
+    "entityUrn": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -126,7 +128,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
+    "entityUrn": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -142,7 +144,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
+    "entityUrn": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -160,12 +162,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
+    "entityUrn": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+            "container": "urn:li:container:0e497517e191d344b0c403231bc708d0"
         }
     },
     "systemMetadata": {
@@ -176,15 +178,15 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
+    "entityUrn": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+                    "id": "urn:li:container:0e497517e191d344b0c403231bc708d0",
+                    "urn": "urn:li:container:0e497517e191d344b0c403231bc708d0"
                 }
             ]
         }
@@ -202,7 +204,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:c093e810646c7ebc493237bb24a3538f"
+            "container": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad"
         }
     },
     "systemMetadata": {
@@ -301,12 +303,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+                    "id": "urn:li:container:0e497517e191d344b0c403231bc708d0",
+                    "urn": "urn:li:container:0e497517e191d344b0c403231bc708d0"
                 },
                 {
-                    "id": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
-                    "urn": "urn:li:container:c093e810646c7ebc493237bb24a3538f"
+                    "id": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad",
+                    "urn": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad"
                 }
             ]
         }
@@ -324,7 +326,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:c093e810646c7ebc493237bb24a3538f"
+            "container": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad"
         }
     },
     "systemMetadata": {
@@ -423,12 +425,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+                    "id": "urn:li:container:0e497517e191d344b0c403231bc708d0",
+                    "urn": "urn:li:container:0e497517e191d344b0c403231bc708d0"
                 },
                 {
-                    "id": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
-                    "urn": "urn:li:container:c093e810646c7ebc493237bb24a3538f"
+                    "id": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad",
+                    "urn": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad"
                 }
             ]
         }
@@ -446,7 +448,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:c093e810646c7ebc493237bb24a3538f"
+            "container": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad"
         }
     },
     "systemMetadata": {
@@ -566,12 +568,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+                    "id": "urn:li:container:0e497517e191d344b0c403231bc708d0",
+                    "urn": "urn:li:container:0e497517e191d344b0c403231bc708d0"
                 },
                 {
-                    "id": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
-                    "urn": "urn:li:container:c093e810646c7ebc493237bb24a3538f"
+                    "id": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad",
+                    "urn": "urn:li:container:937a38ee28b69ecae38665c5e842d0ad"
                 }
             ]
         }
@@ -584,7 +586,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
+    "entityUrn": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -592,10 +594,11 @@
             "customProperties": {
                 "platform": "oracle",
                 "env": "PROD",
-                "database": "oradoc",
+                "database": "OraDoc",
                 "schema": "schema2"
             },
-            "name": "schema2"
+            "name": "schema2",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -606,7 +609,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
+    "entityUrn": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -622,7 +625,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
+    "entityUrn": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -638,7 +641,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
+    "entityUrn": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -656,12 +659,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
+    "entityUrn": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+            "container": "urn:li:container:0e497517e191d344b0c403231bc708d0"
         }
     },
     "systemMetadata": {
@@ -672,15 +675,15 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
+    "entityUrn": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+                    "id": "urn:li:container:0e497517e191d344b0c403231bc708d0",
+                    "urn": "urn:li:container:0e497517e191d344b0c403231bc708d0"
                 }
             ]
         }
@@ -698,7 +701,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825"
+            "container": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f"
         }
     },
     "systemMetadata": {
@@ -797,12 +800,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+                    "id": "urn:li:container:0e497517e191d344b0c403231bc708d0",
+                    "urn": "urn:li:container:0e497517e191d344b0c403231bc708d0"
                 },
                 {
-                    "id": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
-                    "urn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825"
+                    "id": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f",
+                    "urn": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f"
                 }
             ]
         }
@@ -820,7 +823,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825"
+            "container": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f"
         }
     },
     "systemMetadata": {
@@ -919,12 +922,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+                    "id": "urn:li:container:0e497517e191d344b0c403231bc708d0",
+                    "urn": "urn:li:container:0e497517e191d344b0c403231bc708d0"
                 },
                 {
-                    "id": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
-                    "urn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825"
+                    "id": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f",
+                    "urn": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f"
                 }
             ]
         }
@@ -942,7 +945,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825"
+            "container": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f"
         }
     },
     "systemMetadata": {
@@ -1062,61 +1065,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+                    "id": "urn:li:container:0e497517e191d344b0c403231bc708d0",
+                    "urn": "urn:li:container:0e497517e191d344b0c403231bc708d0"
                 },
                 {
-                    "id": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
-                    "urn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_view,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_table,PROD)",
-                    "type": "VIEW"
-                }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_table,PROD),MOCK_COLUMN1)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_view,PROD),MOCK_COLUMN1)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_table,PROD),MOCK_COLUMN2)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_view,PROD),MOCK_COLUMN2)"
-                    ],
-                    "confidenceScore": 1.0
+                    "id": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f",
+                    "urn": "urn:li:container:1965527855ae77f259a8ddea2b8eed2f"
                 }
             ]
         }
@@ -1164,6 +1118,55 @@
                     "downstreamType": "FIELD",
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.mock_view,PROD),MOCK_COLUMN2)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_table,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_table,PROD),MOCK_COLUMN1)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_view,PROD),MOCK_COLUMN1)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_table,PROD),MOCK_COLUMN2)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_view,PROD),MOCK_COLUMN2)"
                     ],
                     "confidenceScore": 1.0
                 }

@@ -85,6 +85,11 @@ type Query {
     role(urn: String!): Role
 
     """
+    Fetch a Structured Property by primary key (urn)
+    """
+    structuredProperty(urn: String!): StructuredPropertyEntity
+
+    """
     Fetch a ERModelRelationship by primary key (urn)
     """
     erModelRelationship(urn: String!): ERModelRelationship
@@ -1253,6 +1258,11 @@ input LineageInput {
     An optional ending time to filter on
     """
     endTimeMillis: Long
+
+    """
+    If enabled, include entities that do not exist or are soft deleted.
+    """
+    includeGhostEntities: Boolean = false
 }
 
 """
@@ -2716,6 +2726,11 @@ enum FabricType {
     Designates review fabrics
     """
     RVW
+
+    """
+    Designates sandbox fabrics
+    """
+    SANDBOX
 }
 
 """
@@ -9152,6 +9167,10 @@ enum PolicyMatchCondition {
   Whether the field matches the value
   """
   EQUALS
+  """
+  Whether the field value starts with the value
+  """
+  STARTS_WITH
 }
 
 """
@@ -11274,6 +11293,21 @@ input CreatePostInput {
     The content of the post
     """
     content: UpdatePostContentInput!
+
+    """
+    Optional target URN for the post
+    """
+    resourceUrn: String
+
+    """
+    An optional type of a sub resource to attach the Tag to
+    """
+    subResourceType: SubResourceType
+
+    """
+    Optional target subresource for the post
+    """
+    subResource: String
 }
 
 """

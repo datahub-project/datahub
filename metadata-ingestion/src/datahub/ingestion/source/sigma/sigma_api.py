@@ -141,12 +141,19 @@ class SigmaAPI:
         logger.debug("Fetching all accessible users metadata.")
         try:
             users: Dict[str, str] = {}
-            response = self._get_api_call(f"{self.config.api_url}/members")
-            response.raise_for_status()
-            for user_dict in response.json():
-                users[
-                    user_dict[Constant.MEMBERID]
-                ] = f"{user_dict[Constant.FIRSTNAME]}_{user_dict[Constant.LASTNAME]}"
+            members_url = url = f"{self.config.api_url}/members?limit=50"
+            while True:
+                response = self._get_api_call(url)
+                response.raise_for_status()
+                response_dict = response.json()
+                for user_dict in response_dict[Constant.ENTRIES]:
+                    users[
+                        user_dict[Constant.MEMBERID]
+                    ] = f"{user_dict[Constant.FIRSTNAME]}_{user_dict[Constant.LASTNAME]}"
+                if response_dict[Constant.NEXTPAGE]:
+                    url = f"{members_url}&page={response_dict[Constant.NEXTPAGE]}"
+                else:
+                    break
             return users
         except Exception as e:
             self._log_http_error(

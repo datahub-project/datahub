@@ -834,7 +834,7 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "SANDBOX" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
@@ -844,6 +844,7 @@
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
       "RVW" : "Designates review fabrics",
+      "SANDBOX" : "Designates sandbox fabrics",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
       "UAT" : "Designates user acceptance testing fabrics"
@@ -3566,7 +3567,7 @@
                         }, {
                           "name" : "isPartitioningKey",
                           "type" : "boolean",
-                          "doc" : "For Datasets which are partitioned, this determines the partitioning key.",
+                          "doc" : "For Datasets which are partitioned, this determines the partitioning key.\nNote that multiple columns can be part of a partitioning key, but currently we do not support\nrendering the ordered partitioning key.",
                           "optional" : true
                         }, {
                           "name" : "jsonProps",
@@ -5468,9 +5469,10 @@
                                     "type" : "enum",
                                     "name" : "PolicyMatchCondition",
                                     "doc" : "The matching condition in a filter criterion",
-                                    "symbols" : [ "EQUALS" ],
+                                    "symbols" : [ "EQUALS", "STARTS_WITH" ],
                                     "symbolDocs" : {
-                                      "EQUALS" : "Whether the field matches the value"
+                                      "EQUALS" : "Whether the field matches the value",
+                                      "STARTS_WITH" : "Whether the field value starts with the value"
                                     }
                                   },
                                   "doc" : "The condition for the criterion",

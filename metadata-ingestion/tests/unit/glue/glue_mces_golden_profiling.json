@@ -16,7 +16,8 @@
                 "CreateTime": "June 09, 2021 at 14:14:19"
             },
             "name": "flights-database-profiling",
-            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/flights-database-profiling"
+            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/flights-database-profiling",
+            "env": "PROD"
         }
     }
 },
@@ -266,8 +267,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "fieldProfiles": [
                 {

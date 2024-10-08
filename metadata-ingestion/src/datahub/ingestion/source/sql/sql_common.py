@@ -434,7 +434,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         if engine and hasattr(engine, "url") and hasattr(engine.url, "database"):
             if engine.url.database is None:
                 return ""
-            return str(engine.url.database).strip('"').lower()
+            return str(engine.url.database).strip('"')
         else:
             raise Exception("Unable to get database name from Sqlalchemy inspector")
 
@@ -1033,11 +1033,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         field = SchemaField(
             fieldPath=column["name"],
             type=get_column_type(self.report, dataset_name, column["type"]),
-            nativeDataType=full_type
-            if full_type is not None
-            else get_native_data_type_for_sqlalchemy_type(
-                column["type"],
-                inspector=inspector,
+            nativeDataType=(
+                full_type
+                if full_type is not None
+                else get_native_data_type_for_sqlalchemy_type(
+                    column["type"],
+                    inspector=inspector,
+                )
             ),
             description=column.get("comment", None),
             nullable=column["nullable"],

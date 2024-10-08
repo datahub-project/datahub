@@ -53,9 +53,9 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
         data_products: Dict[str, DataProductPatchBuilder] = {}
         data_products_container: Dict[str, DataProductPatchBuilder] = {}
         logger.debug("Generating dataproducts")
+        is_container = self.config.is_container
         for entity_urn in self.entity_map.keys():
             data_product_urn = self.config.get_data_product_to_add(entity_urn)
-            is_container = self.config.is_container
             if data_product_urn:
                 if data_product_urn not in data_products:
                     data_products[data_product_urn] = DataProductPatchBuilder(
@@ -144,11 +144,11 @@ class PatternAddDatasetDataProduct(AddDatasetDataProduct):
     def __init__(self, config: PatternDatasetDataProductConfig, ctx: PipelineContext):
         dataset_to_data_product = config.dataset_to_data_product_urns_pattern
         generic_config = AddDatasetDataProductConfig(
-            get_data_product_to_add=lambda dataset_urn: dataset_to_data_product.value(
-                dataset_urn
-            )[0]
-            if dataset_to_data_product.value(dataset_urn)
-            else None,
+            get_data_product_to_add=lambda dataset_urn: (
+                dataset_to_data_product.value(dataset_urn)[0]
+                if dataset_to_data_product.value(dataset_urn)
+                else None
+            ),
             is_container=config.is_container,
         )
         super().__init__(generic_config, ctx)

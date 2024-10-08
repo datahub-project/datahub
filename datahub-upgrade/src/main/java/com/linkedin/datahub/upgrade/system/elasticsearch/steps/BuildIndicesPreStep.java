@@ -15,6 +15,7 @@ import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import java.io.IOException;
 import java.util.List;
@@ -69,7 +70,7 @@ public class BuildIndicesPreStep implements UpgradeStep {
             log.error(
                 "Partial index settings update, some indices may still be blocking writes."
                     + " Please fix the error and re-run the BuildIndices upgrade job.");
-            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+            return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
           }
 
           // Clone indices
@@ -87,15 +88,15 @@ public class BuildIndicesPreStep implements UpgradeStep {
               log.error(
                   "Partial index settings update, cloned indices may need to be cleaned up: {}",
                   clonedName);
-              return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+              return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
             }
           }
         }
       } catch (Exception e) {
         log.error("BuildIndicesPreStep failed.", e);
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 

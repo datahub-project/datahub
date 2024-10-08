@@ -36,7 +36,7 @@ framework_common = {
     "importlib_metadata>=4.0.0; python_version < '3.10'",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.13",
+    "avro-gen3==0.7.16",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.11.3,<1.12",
     "python-dateutil>=2.8.0",
@@ -101,7 +101,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==25.8.2.dev9",
+    "acryl-sqlglot[rs]==25.20.2.dev6",
 }
 
 classification_lib = {
@@ -301,6 +301,7 @@ slack = {"slack-sdk==3.18.1"}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
+    # 0.22.0 has support for `include_browse` in metadata list apis
     "databricks-sdk>=0.30.0",
     "pyspark~=3.3.0",
     "requests",
@@ -547,7 +548,8 @@ mypy_stubs = {
 
 test_api_requirements = {
     "pytest>=6.2.2",
-    "deepdiff",
+    # Missing numpy requirement in 8.0.0
+    "deepdiff!=8.0.0",
     "PyYAML",
     "pytest-docker>=1.1.0",
 }
@@ -724,7 +726,7 @@ entry_points = {
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
-        "tableau = datahub.ingestion.source.tableau:TableauSource",
+        "tableau = datahub.ingestion.source.tableau.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",

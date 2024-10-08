@@ -109,7 +109,13 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, test_resources_dir)
                 file_list.append(rel_path)
-                bkt.upload_file(full_path, rel_path)
+                bkt.upload_file(
+                    full_path,
+                    rel_path,  # Set content type for `no_extension/small` file to text/csv
+                    ExtraArgs=(
+                        {"ContentType": "text/csv"} if "." not in rel_path else {}
+                    ),
+                )
                 s3_client.put_object_tagging(
                     Bucket=bucket_name,
                     Key=rel_path,
@@ -143,18 +149,24 @@ def touch_local_files(pytestconfig):
             os.utime(full_path, times=(current_time_sec, current_time_sec))
 
 
-SOURCE_FILES_PATH = "./tests/integration/s3/sources/s3"
-source_files = os.listdir(SOURCE_FILES_PATH)
+SHARED_SOURCE_FILES_PATH = "./tests/integration/s3/sources/shared"
+shared_source_files = [
+    (SHARED_SOURCE_FILES_PATH, p) for p in os.listdir(SHARED_SOURCE_FILES_PATH)
+]
+
+S3_SOURCE_FILES_PATH = "./tests/integration/s3/sources/s3"
+s3_source_files = [(S3_SOURCE_FILES_PATH, p) for p in os.listdir(S3_SOURCE_FILES_PATH)]
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("source_file", source_files)
+@pytest.mark.parametrize("source_file_tuple", shared_source_files + s3_source_files)
 def test_data_lake_s3_ingest(
-    pytestconfig, s3_populate, source_file, tmp_path, mock_time
+    pytestconfig, s3_populate, source_file_tuple, tmp_path, mock_time
 ):
+    source_dir, source_file = source_file_tuple
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
 
-    f = open(os.path.join(SOURCE_FILES_PATH, source_file))
+    f = open(os.path.join(source_dir, source_file))
     source = json.load(f)
 
     config_dict = {}
@@ -184,12 +196,13 @@ def test_data_lake_s3_ingest(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("source_file", source_files)
+@pytest.mark.parametrize("source_file_tuple", shared_source_files)
 def test_data_lake_local_ingest(
-    pytestconfig, touch_local_files, source_file, tmp_path, mock_time
+    pytestconfig, touch_local_files, source_file_tuple, tmp_path, mock_time
 ):
+    source_dir, source_file = source_file_tuple
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
-    f = open(os.path.join(SOURCE_FILES_PATH, source_file))
+    f = open(os.path.join(source_dir, source_file))
     source = json.load(f)
 
     config_dict = {}
@@ -229,6 +242,7 @@ def test_data_lake_local_ingest(
         golden_path=f"{test_resources_dir}/golden-files/local/golden_mces_{source_file}",
         ignore_paths=[
             r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\[\d+\]\['value'\]\['time'\]",
             r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['created'\]\['time'\]",
             # root[41]['aspect']['json']['fieldProfiles'][0]['sampleValues'][0]
             r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",

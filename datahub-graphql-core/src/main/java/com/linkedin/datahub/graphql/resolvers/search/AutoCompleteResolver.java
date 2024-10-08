@@ -51,11 +51,7 @@ public class AutoCompleteResolver implements DataFetcher<CompletableFuture<AutoC
       throw new ValidationException("'query' parameter can not be null or empty");
     }
 
-    final Filter filter =
-        ResolverUtils.buildFilter(
-            input.getFilters(),
-            input.getOrFilters(),
-            context.getOperationContext().getRetrieverContext().orElseThrow().getAspectRetriever());
+    final Filter filter = ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
     final int limit = input.getLimit() != null ? input.getLimit() : DEFAULT_LIMIT;
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

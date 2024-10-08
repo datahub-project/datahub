@@ -15,6 +15,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryIdentifierConfig,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
+    BigQueryQueriesExtractorReport,
     BigQuerySchemaApiPerfReport,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigQuerySchemaApi
@@ -25,7 +26,6 @@ from datahub.ingestion.source.bigquery_v2.common import (
 from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     BigQueryQueriesExtractor,
     BigQueryQueriesExtractorConfig,
-    BigQueryQueriesExtractorReport,
 )
 
 logger = logging.getLogger(__name__)
