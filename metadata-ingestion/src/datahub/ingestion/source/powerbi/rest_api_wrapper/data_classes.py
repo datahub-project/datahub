@@ -218,6 +218,7 @@ class Report:
     webUrl: Optional[str]
     embedUrl: str
     description: str
+    dataset_id: Optional[str]
     dataset: Optional["PowerBIDataset"]
     pages: List["Page"]
     users: List["User"]

@@ -1501,6 +1501,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
             ],
             users=[],
             tags=[],
+            dataset_id=report[Constant.DATASET_ID],
             dataset=mock_workspace.datasets.get(report[Constant.DATASET_ID]),
         )
         for report in mock_reports
