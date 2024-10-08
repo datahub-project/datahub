@@ -2,9 +2,11 @@ import React, { useContext, useMemo, useState } from 'react';
 import styled from 'styled-components/macro';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { Button, Modal } from 'antd';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
-import { QueryEntity } from '../../../../../../types.generated';
+import { EntityType, QueryEntity } from '../../../../../../types.generated';
 import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { SidebarSection } from './SidebarSection';
 import { DBT_URN } from '../../../../../ingest/source/builder/constants';
@@ -28,15 +30,18 @@ const ModalSyntaxContainer = styled.div`
 export function SidebarDatasetViewDefinitionSection() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const statement = baseEntity?.dataset?.viewProperties?.logic;
-
+    const entityRegistry = useEntityRegistry();
+    const externalUrl = entityRegistry.getEntityUrl(EntityType.Dataset, baseEntity?.dataset?.urn || '');
     if (!statement) return null;
 
-    return <SidebarLogicSection title="View Definition" statement={statement} />;
+    return <SidebarLogicSection title="View Definition" statement={statement} externalUrl={externalUrl} />;
 }
 
 export function SidebarQueryLogicSection() {
     const baseEntity = useBaseEntity<{ entity: QueryEntity }>();
     const statement = baseEntity?.entity?.properties?.statement?.value;
+    const entityRegistry = useEntityRegistry();
+    const externalUrl = entityRegistry.getEntityUrl(EntityType.Query, baseEntity?.entity?.urn || '');
     const { fineGrainedOperations } = useContext(EntitySidebarContext);
     const highlightedStrings = useMemo(
         () => fineGrainedOperations?.map((e) => e.transformOperation)?.filter((s): s is string => !!s),
@@ -45,17 +50,26 @@ export function SidebarQueryLogicSection() {
 
     if (!statement) return null;
 
-    return <SidebarLogicSection title="Logic" statement={statement} highlightedStrings={highlightedStrings} />;
+    return (
+        <SidebarLogicSection
+            title="Logic"
+            statement={statement}
+            highlightedStrings={highlightedStrings}
+            externalUrl={externalUrl}
+        />
+    );
 }
 
 interface HelperProps {
     title: string;
     statement: string;
     highlightedStrings?: string[];
+    externalUrl: string;
 }
 
-function SidebarLogicSection({ title, statement, highlightedStrings }: HelperProps) {
+function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl }: HelperProps) {
     const [showFullContentModal, setShowFullContentModal] = useState(false);
+    const isEmbeddedProfile = useIsEmbeddedProfile();
 
     const highlightedLineNumbers = new Set(highlightedStrings?.map((s) => findLineNumberToHighlight(statement, s)));
 
@@ -120,7 +134,16 @@ function SidebarLogicSection({ title, statement, highlightedStrings }: HelperPro
                     >
                         {showFormatted ? formattedLogic : statement}
                     </PreviewSyntax>
-                    <Button type="text" onClick={() => setShowFullContentModal(true)}>
+                    <Button
+                        type="text"
+                        onClick={() => {
+                            if (isEmbeddedProfile) {
+                                window.open(`${externalUrl}/View Definition`, '_blank');
+                            } else {
+                                setShowFullContentModal(true);
+                            }
+                        }}
+                    >
                         See Full
                     </Button>
                 </>

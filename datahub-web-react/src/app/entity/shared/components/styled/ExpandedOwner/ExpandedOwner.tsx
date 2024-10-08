@@ -9,7 +9,7 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { useEntityData } from '../../../EntityContext';
 import OwnerContent from './OwnerContent';
-import useEmbeddedProfileLinkProps from '../../../../../shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '../../../../../shared/useEmbeddedProfileLinkProps';
 
 const OwnerTag = styled(Tag)`
     padding: 2px;

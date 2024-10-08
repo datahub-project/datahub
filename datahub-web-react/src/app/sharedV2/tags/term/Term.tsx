@@ -6,7 +6,7 @@ import { EntityType, GlossaryTermAssociation } from '../../../../types.generated
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import TermContent from './TermContent';
-import useEmbeddedProfileLinkProps from '../../../shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '../../../shared/useEmbeddedProfileLinkProps';
 
 const TermLink = styled(Link)<{ $showOneAndCount?: boolean }>`
     display: inline-block;

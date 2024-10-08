@@ -7,7 +7,7 @@ import { IconStyleType } from '../../entity/Entity';
 import { HoverEntityTooltip } from '../../recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import useEmbeddedProfileLinkProps from '../../shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '../../shared/useEmbeddedProfileLinkProps';
 
 const DataProductLinkContainer = styled(Link)`
     display: inline-block;

@@ -6,7 +6,7 @@ import { Entity } from '@types';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useEntityRegistry } from '../useEntityRegistry';
 import ContextPathEntityIcon from './ContextPathEntityIcon';
-import useEmbeddedProfileLinkProps from '../shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';
 
 const Path = styled.div`
     white-space: nowrap;

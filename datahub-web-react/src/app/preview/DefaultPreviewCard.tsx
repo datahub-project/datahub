@@ -38,7 +38,7 @@ import { EntityHealth } from '../entity/shared/containers/profile/header/EntityH
 import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
 import { FORM_CHECK_RESPONSES_ID } from '../onboarding/config/FormOnboardingConfig';
-import useEmbeddedProfileLinkProps from '../shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';
 
 const PreviewContainer = styled.div`
     display: flex;

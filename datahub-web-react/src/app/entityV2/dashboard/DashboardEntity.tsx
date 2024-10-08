@@ -241,6 +241,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             description: "View this data asset's upstream and downstream dependencies",
             icon: PartitionOutlined,
             properties: {
+                defaultDirection: LineageDirection.Upstream,
                 actionType: SidebarTitleActionType.LineageExplore,
             },
         },

@@ -6,7 +6,7 @@ import { Container, EntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import ContainerIcon from './ContainerIcon';
 import { ANTD_GRAY } from '../../../../constants';
-import useEmbeddedProfileLinkProps from '../../../../../../shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '../../../../../../shared/useEmbeddedProfileLinkProps';
 
 const ContainerText = styled.span`
     font-size: 14px;

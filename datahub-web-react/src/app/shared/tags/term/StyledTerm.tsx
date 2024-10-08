@@ -5,7 +5,7 @@ import { EntityType, GlossaryTermAssociation } from '../../../../types.generated
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import TermContent from './TermContent';
-import useEmbeddedProfileLinkProps from '../../useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '../../useEmbeddedProfileLinkProps';
 
 const TermLink = styled(Link)`
     display: inline-block;

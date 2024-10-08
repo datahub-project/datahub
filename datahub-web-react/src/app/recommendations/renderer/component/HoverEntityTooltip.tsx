@@ -4,7 +4,7 @@ import React from 'react';
 import { Entity } from '../../../../types.generated';
 import { PreviewType } from '../../../entity/Entity';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import useEmbeddedProfileLinkProps from '../../../shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '../../../shared/useEmbeddedProfileLinkProps';
 
 type Props = {
     entity?: Entity;

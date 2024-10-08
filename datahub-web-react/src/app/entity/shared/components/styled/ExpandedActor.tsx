@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { CorpGroup, CorpUser, EntityType } from '../../../../../types.generated';
 import { CustomAvatar } from '../../../../shared/avatar';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
-import useEmbeddedProfileLinkProps from '../../../../shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '../../../../shared/useEmbeddedProfileLinkProps';
 
 type Props = {
     actor: CorpUser | CorpGroup;

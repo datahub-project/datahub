@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { message, Button, Modal, Select, Typography, Tag as CustomTag } from 'antd';
+import { message, Button, Modal, Select, Typography, Tag as CustomTag, Form } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
@@ -51,10 +51,6 @@ type EditTagsModalProps = {
     entityType?: EntityType;
 };
 
-const TagSelect = styled(Select)`
-    width: 480px;
-`;
-
 const StyleTag = styled(CustomTag)`
     margin: 2px;
     display: flex;
@@ -80,7 +76,7 @@ export const BrowserWrapper = styled.div<{
     overflow: auto;
     position: absolute;
     transition: opacity 0.2s;
-    width: ${(props) => (props.width ? props.width : '480px')};
+    width: ${(props) => (props.width ? props.width : '100%')};
     ${(props) => props.minWidth !== undefined && `min-width: ${props.minWidth}px;`}
     ${(props) => props.maxWidth !== undefined && `max-width: ${props.maxWidth}px;`}
     z-index: 1051;
@@ -584,47 +580,52 @@ export default function EditTagTermsModal({
             }
             getContainer={getModalDomContainer}
         >
-            <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
-                <TagSelect
-                    data-testid="tag-term-modal-input"
-                    autoFocus
-                    defaultOpen
-                    mode="multiple"
-                    ref={inputEl}
-                    filterOption={false}
-                    placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
-                    showSearch
-                    defaultActiveFirstOption={false}
-                    onSelect={(asset: any) => onSelectValue(asset)}
-                    onDeselect={(asset: any) => onDeselectValue(asset)}
-                    onSearch={(value: string) => {
-                        // eslint-disable-next-line react/prop-types
-                        handleSearch(value.trim());
-                        // eslint-disable-next-line react/prop-types
-                        setInputValue(value.trim());
-                    }}
-                    tagRender={tagRender}
-                    value={urns}
-                    onClear={clearInput}
-                    onFocus={() => setIsFocusedOnInput(true)}
-                    onBlur={handleBlur}
-                    onInputKeyDown={handleKeyDown}
-                    dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
-                    loading={loading}
-                >
-                    {!tagTermSearchData && loading && (
-                        <TagSelect.Option value="loading">
-                            <LoadingWrapper>
-                                <LoadingOutlined />
-                            </LoadingWrapper>
-                        </TagSelect.Option>
-                    )}
-                    {!loading && tagSearchOptions}
-                </TagSelect>
-                <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
-                    <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} />
-                </BrowserWrapper>
-            </ClickOutside>
+            <Form component={false}>
+                <Form.Item>
+                    <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
+                        <Select
+                            data-testid="tag-term-modal-input"
+                            autoFocus
+                            defaultOpen
+                            mode="multiple"
+                            ref={inputEl}
+                            filterOption={false}
+                            placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
+                            showSearch
+                            defaultActiveFirstOption={false}
+                            onSelect={(asset: any) => onSelectValue(asset)}
+                            onDeselect={(asset: any) => onDeselectValue(asset)}
+                            onSearch={(value: string) => {
+                                // eslint-disable-next-line react/prop-types
+                                handleSearch(value.trim());
+                                // eslint-disable-next-line react/prop-types
+                                setInputValue(value.trim());
+                            }}
+                            style={{ width: '100%' }}
+                            tagRender={tagRender}
+                            value={urns}
+                            onClear={clearInput}
+                            onFocus={() => setIsFocusedOnInput(true)}
+                            onBlur={handleBlur}
+                            onInputKeyDown={handleKeyDown}
+                            dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
+                            loading={loading}
+                        >
+                            {!tagTermSearchData && loading && (
+                                <Select.Option value="loading">
+                                    <LoadingWrapper>
+                                        <LoadingOutlined />
+                                    </LoadingWrapper>
+                                </Select.Option>
+                            )}
+                            {!loading && tagSearchOptions}
+                        </Select>
+                        <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
+                            <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} />
+                        </BrowserWrapper>
+                    </ClickOutside>
+                </Form.Item>
+            </Form>
         </Modal>
     );
 }

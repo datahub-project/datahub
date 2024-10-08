@@ -12,7 +12,7 @@ import SidebarLineageLoadingSection from './SidebarLineageLoadingSection';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../constants';
 import SectionActionButton from '../SectionActionButton';
-import useEmbeddedProfileLinkProps from '../../../../../../shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '../../../../../../shared/useEmbeddedProfileLinkProps';
 
 const Section = styled.div`
     display: flex;

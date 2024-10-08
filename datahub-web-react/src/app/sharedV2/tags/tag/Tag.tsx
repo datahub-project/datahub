@@ -2,7 +2,7 @@ import { message, Modal } from 'antd';
 import styled from 'styled-components';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
-
+import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { useRemoveTagMutation } from '../../../../graphql/mutations.generated';
 import { EntityType, SubResourceType, TagAssociation } from '../../../../types.generated';
 import { StyledTag } from '../../../entityV2/shared/components/styled/StyledTag';
@@ -53,6 +53,7 @@ export default function Tag({
     context,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const isEmbeddedProfile = useIsEmbeddedProfile();
     const [removeTagMutation] = useRemoveTagMutation();
     const highlightTag = useHasMatchedFieldByUrn(tag.tag.urn, 'tags');
 
@@ -115,7 +116,13 @@ export default function Tag({
                 <TagLink data-testid={`tag-${displayName}`} $showOneAndCount={showOneAndCount}>
                     <StyledTag
                         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                        onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
+                        onClick={() => {
+                            if (isEmbeddedProfile) {
+                                window.open(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn), '_blank');
+                            } else {
+                                showTagProfileDrawer(tag?.tag?.urn);
+                            }
+                        }}
                         $colorHash={tag?.tag?.urn}
                         $color={tag?.tag?.properties?.colorHex}
                         closable={canRemove && !readOnly}

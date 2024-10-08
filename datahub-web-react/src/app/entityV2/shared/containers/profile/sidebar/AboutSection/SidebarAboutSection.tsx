@@ -5,7 +5,10 @@ import { getAssetDescriptionDetails } from '@src/app/entityV2/shared/tabs/Docume
 import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
 import InferenceDetailsPill from '@src/app/sharedV2/inferred/InferenceDetailsPill';
 import InferDocsButton from '@src/app/entityV2/shared/components/inferredDocs/InferDocsButton';
-import { useEntityData, useRouteToTab } from '../../../../../../entity/shared/EntityContext';
+import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import useIsLineageMode from '@src/app/lineage/utils/useIsLineageMode';
+import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import DescriptionSection from './DescriptionSection';
 import LinksSection from './LinksSection';
 import SourceRefSection from './SourceRefSection';
@@ -13,6 +16,8 @@ import { SidebarSection } from '../SidebarSection';
 import { EMPTY_MESSAGES } from '../../../../constants';
 import SectionActionButton from '../SectionActionButton';
 import EmptySectionText from '../EmptySectionText';
+import { useEntityData, useMutationUrn, useRouteToTab } from '../../../../../../entity/shared/EntityContext';
+import { getEntityPath } from '../../utils';
 
 const LINE_LIMIT = 5;
 
@@ -27,7 +32,14 @@ interface Props {
 
 export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
     const { entityData, entityType } = useEntityData();
+    const entityRegistry = useEntityRegistry();
+    const isLineageMode = useIsLineageMode();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
+    const urn = useMutationUrn();
+
     const hideLinksButton = properties?.hideLinksButton;
+    const isEmbeddedProfile = useIsEmbeddedProfile();
+    const routeToTab = useRouteToTab();
 
     const canShowInferDocsButton = useShouldShowInferDocumentationButton(entityType);
 
@@ -40,7 +52,6 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
     const links = entityData?.institutionalMemory?.elements || [];
 
     const hasContent = !!displayedDescription || links.length > 0;
-    const routeToTab = useRouteToTab();
 
     const canEditDescription = !!entityData?.privileges?.canEditDescription;
     const canProposeDescription = !!entityData?.privileges?.canProposeDescription;
@@ -66,12 +77,28 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                                 <InferDocsButton
                                     style={{ height: 32, width: 128, marginTop: 8 }}
                                     surface="entity-sidebar"
-                                    onClick={() =>
-                                        routeToTab({
-                                            tabName: 'Documentation',
-                                            tabParams: { editing: true, inferOnMount: true },
-                                        })
-                                    }
+                                    onClick={() => {
+                                        if (!isEmbeddedProfile) {
+                                            routeToTab({
+                                                tabName: 'Documentation',
+                                                tabParams: { editing: true, inferOnMount: true },
+                                            });
+                                        } else {
+                                            const url = getEntityPath(
+                                                entityType,
+                                                urn,
+                                                entityRegistry,
+                                                isLineageMode,
+                                                isHideSiblingMode,
+                                                'Documentation',
+                                                {
+                                                    editing: true,
+                                                    inferOnMount: true,
+                                                },
+                                            );
+                                            window.open(url, '_blank');
+                                        }
+                                    }}
                                 />
                             ),
                         ]}
@@ -83,7 +110,22 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                             <SectionActionButton
                                 button={hasContent ? <EditOutlinedIcon /> : <AddRoundedIcon />}
                                 onClick={(event) => {
-                                    routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
+                                    if (!isEmbeddedProfile) {
+                                        routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
+                                    } else {
+                                        const url = getEntityPath(
+                                            entityType,
+                                            urn,
+                                            entityRegistry,
+                                            isLineageMode,
+                                            isHideSiblingMode,
+                                            'Documentation',
+                                            {
+                                                editing: true,
+                                            },
+                                        );
+                                        window.open(url, '_blank');
+                                    }
                                     event.stopPropagation();
                                 }}
                                 actionPrivilege={canEditDescription || canProposeDescription}

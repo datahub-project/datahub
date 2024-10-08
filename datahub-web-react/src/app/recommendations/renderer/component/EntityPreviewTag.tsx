@@ -3,6 +3,7 @@ import { Divider, Image, Tag, Tooltip } from 'antd';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 
 const EntityTag = styled(Tag)`
@@ -69,6 +70,15 @@ type Props = {
     dataTestId?: string;
 };
 
+const constructExternalUrl = (url) => {
+    if (!url) return null;
+
+    const [baseUrl, queryString] = url.split('?');
+    const newBaseUrl = `${baseUrl}/`;
+
+    return queryString ? `${newBaseUrl}?${queryString}` : newBaseUrl;
+};
+
 export const EntityPreviewTag = ({
     displayName,
     url,
@@ -79,8 +89,11 @@ export const EntityPreviewTag = ({
     columnName,
     dataTestId,
 }: Props) => {
+    const externalUrl = constructExternalUrl(url);
+    const linkProps = useEmbeddedProfileLinkProps();
+
     return (
-        <StyledLink to={url} onClick={onClick} data-testid={dataTestId}>
+        <StyledLink to={externalUrl} {...linkProps} onClick={onClick} data-testid={dataTestId}>
             <EntityTag>
                 <TitleContainer>
                     <IconContainer>

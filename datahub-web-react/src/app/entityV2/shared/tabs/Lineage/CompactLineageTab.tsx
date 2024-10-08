@@ -158,7 +158,6 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
         const levelFilters: string[] = [];
         if (selectedLevels.size > 0) {
             if (levels.has(LevelFilterType.DIRECT)) {
-                console.log('pushing 1');
                 levelFilters.push('1');
             }
             if (levels.has(LevelFilterType.INDIRECT)) {

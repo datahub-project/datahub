@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
 
 import { useIsDocumentationInferenceEnabled } from '@src/app/entityV2/shared/components/inferredDocs/utils';
 import { EditableSchemaMetadata, SchemaField, SubResourceType } from '../../../../../../../types.generated';
@@ -9,18 +8,9 @@ import { useUpdateDescriptionMutation } from '../../../../../../../graphql/mutat
 import { useMutationUrn, useRefetch } from '../../../../../../entity/shared/EntityContext';
 import { useSchemaRefetch } from '../SchemaContext';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../../graphql/proposals.generated';
-import { REDESIGN_COLORS } from '../../../../constants';
 import { sanitizeRichText } from '../../../Documentation/components/editor/utils';
 import { getFieldDescriptionDetails } from './getFieldDescriptionDetails';
-
-const CompactDescription = styled.div`
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-wrap: none;
-    color: ${REDESIGN_COLORS.DARK_GREY};
-    font-weight: 400;
-`;
+import CompactMarkdownViewer from '../../../Documentation/components/CompactMarkdownViewer';
 
 export default function useDescriptionRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
@@ -60,7 +50,7 @@ export default function useDescriptionRenderer(
         const handleExpandedRows = (expanded) => setExpandedRows((prev) => ({ ...prev, [index]: expanded }));
 
         if (isCompact) {
-            return <CompactDescription>{sanitizedDescription}</CompactDescription>;
+            return <CompactMarkdownViewer content={displayedDescription} />;
         }
 
         return (

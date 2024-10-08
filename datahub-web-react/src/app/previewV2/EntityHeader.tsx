@@ -8,8 +8,8 @@ import { Deprecation, Health, Maybe } from '../../types.generated';
 import { REDESIGN_COLORS, SEARCH_COLORS } from '../entityV2/shared/constants';
 import { DeprecationPill } from '../entityV2/shared/components/styled/DeprecationPill';
 import HealthIcon from './HealthIcon';
-import { PageRoutes } from '../../conf/Global';
 import { getNumberWithOrdinal } from '../entityV2/shared/utils';
+import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';
 
 const EntityTitleContainer = styled.div`
     display: flex;
@@ -84,12 +84,11 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
     degree,
     connectionName,
 }) => {
-    const isEmbeddedProfile = window.location.pathname.startsWith(PageRoutes.EMBED);
-    const linkProps = isEmbeddedProfile ? { target: '_blank', rel: 'noreferrer noopener' } : {};
+    const linkProps = useEmbeddedProfileLinkProps();
 
     return (
         <EntityTitleContainer>
-            <StyledLink to={url} {...linkProps}>
+            <StyledLink to={`${url}/`} {...linkProps}>
                 {previewType === PreviewType.HOVER_CARD ? (
                     <Tooltip title={name}>
                         <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx} data-testid="entity-title">

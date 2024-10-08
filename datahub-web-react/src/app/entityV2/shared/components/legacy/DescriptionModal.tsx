@@ -38,6 +38,7 @@ type Props = {
     isAddDesc?: boolean;
     showPropose?: boolean;
     inferOnMount?: boolean;
+    isEmbeddedProfile?: boolean;
 };
 
 export default function UpdateDescriptionModal({
@@ -53,6 +54,7 @@ export default function UpdateDescriptionModal({
     isAddDesc,
     showPropose,
     inferOnMount,
+    isEmbeddedProfile,
 }: Props) {
     const urn = useMutationUrn();
     const [updatedDesc, setDesc] = useState(description || original || '');
@@ -61,7 +63,7 @@ export default function UpdateDescriptionModal({
     return (
         <Modal
             title={title}
-            visible
+            open
             width={900}
             onCancel={onClose}
             okText={isAddDesc ? 'Submit' : 'Update'}
@@ -103,7 +105,7 @@ export default function UpdateDescriptionModal({
                     <StyledEditor key={editorKey} content={updatedDesc} onChange={setDesc} />
                 </Form.Item>
 
-                {fieldPath && (
+                {(fieldPath || isEmbeddedProfile) && (
                     <InferDocsPanel
                         urn={urn}
                         forColumnPath={fieldPath}

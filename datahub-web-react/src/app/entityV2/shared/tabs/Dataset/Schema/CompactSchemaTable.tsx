@@ -50,12 +50,14 @@ const TableContainer = styled.div<{ fullHeight?: boolean }>`
     &&& .ant-table-cell:first-of-type {
         ${(props) => !props.fullHeight && 'padding: 8px 8px 8px 0px'};
     }
-    &&& .row {
-        cursor: pointer;
-    }
+
     &&& .selected-row * {
         color: white;
         background-color: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
+    }
+
+    &&& .field-column {
+        max-width: 100px;
     }
 
     &&& .description-column {
@@ -121,9 +123,11 @@ export default function CompactSchemaTable({
 
     const fieldColumn = {
         fixed: 'left' as FixedType,
+        width: 100,
         title: 'Name',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
+        className: 'field-column',
         render: schemaTitleRenderer,
         filtered: true,
         onCell: () => ({
@@ -135,6 +139,7 @@ export default function CompactSchemaTable({
 
     const descriptionColumn = {
         ellipsis: true,
+        width: 600,
         title: 'Description',
         dataIndex: 'description',
         key: 'description',
@@ -143,7 +148,6 @@ export default function CompactSchemaTable({
         onCell: () => ({
             style: {
                 whiteSpace: 'pre' as any,
-                overflow: 'wrap',
                 textWrap: 'whitespace',
             },
         }),
@@ -196,11 +200,6 @@ export default function CompactSchemaTable({
                 pagination={false}
                 rowClassName={rowClassName}
                 onRow={(record) => ({
-                    onClick: () => {
-                        setExpandedDrawerFieldPath(
-                            expandedDrawerFieldPath === record.fieldPath ? null : record.fieldPath,
-                        );
-                    },
                     id: `column-${record.fieldPath}`,
                 })}
                 scroll={{ x: 'auto' }}

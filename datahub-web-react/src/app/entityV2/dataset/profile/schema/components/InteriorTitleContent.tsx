@@ -1,5 +1,5 @@
 import { SchemaMetadataFieldsFragment } from '@graphql/fragments.generated';
-import { Typography } from 'antd';
+import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
@@ -14,9 +14,12 @@ import NullableLabel, {
 import translateFieldPath from '../utils/translateFieldPath';
 import { ExtendedSchemaFields } from '../utils/types';
 
-const FieldTitleWrapper = styled.div`
+const MAX_COMPACT_FIELD_PATH_LENGTH = 15;
+
+const FieldTitleWrapper = styled.div<{ $isCompact: boolean }>`
     display: inline-flex;
-    align-items: center;
+    flex-direction: ${(props) => (props.$isCompact ? 'column' : 'row')};
+    align-items: ${(props) => (props.$isCompact ? 'start' : 'center')};
     justify-content: start;
     gap: 10px;
     width: 100%;
@@ -75,33 +78,46 @@ export const InteriorTitleContent = ({
     )?.schemaFieldEntity;
     const notes = schemaFieldEntity?.notes?.relationships?.map((r) => r.entity as Post) || [];
 
-    // if the field path is too long, truncate it
-    // if (pathToDisplay.length > MAX_FIELD_PATH_LENGTH) {
-    //     pathToDisplay = `..${pathToDisplay.substring(pathToDisplay.length - MAX_FIELD_PATH_LENGTH)}`;
-    // }
+    let compactPathToDisplay;
+    if (isCompact) {
+        compactPathToDisplay =
+            pathToDisplay.length > MAX_COMPACT_FIELD_PATH_LENGTH
+                ? `${pathToDisplay.substring(0, MAX_COMPACT_FIELD_PATH_LENGTH)}...`
+                : pathToDisplay;
+    }
 
     return (
-        <FieldTitleWrapper>
+        <FieldTitleWrapper $isCompact={!!isCompact}>
             <FieldPathContainer>
                 <FieldPathText $isCompact={!!isCompact}>
-                    <Highlight search={filterText}>{pathToDisplay}</Highlight>
+                    {isCompact ? (
+                        <Tooltip title={pathToDisplay} placement="right">
+                            <Highlight search={filterText}>{compactPathToDisplay}</Highlight>
+                        </Tooltip>
+                    ) : (
+                        <Highlight search={filterText}>{pathToDisplay}</Highlight>
+                    )}
                     {!!notes?.length && <StyledNotesIcon notes={notes} />}
                 </FieldPathText>
             </FieldPathContainer>
-            {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
-            {record.isPartitioningKey && <PartitioningKeyLabel />}
-            {record.nullable && <NullableLabel />}
-            {/* {record.nullable && <NullableLabel />} */}
-            {schemaMetadata?.foreignKeys
-                ?.filter(
-                    (constraint) =>
-                        (constraint?.sourceFields?.filter(
-                            (sourceField) => sourceField?.fieldPath.trim() === fieldPath.trim(),
-                        ).length || 0) > 0,
-                )
-                .map((constraint) => (
-                    <ForeignKeyLabel key={constraint?.name} />
-                ))}
+            {!isCompact && (
+                <>
+                    {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
+                    {record.isPartitioningKey && <PartitioningKeyLabel />}
+                    {record.nullable && <NullableLabel />}
+                    {/* {record.nullable && <NullableLabel />} */}
+                    {schemaMetadata?.foreignKeys
+                        ?.filter(
+                            (constraint) =>
+                                (constraint?.sourceFields?.filter(
+                                    (sourceField) => sourceField?.fieldPath.trim() === fieldPath.trim(),
+                                ).length || 0) > 0,
+                        )
+                        .map((constraint) => (
+                            <ForeignKeyLabel key={constraint?.name} />
+                        ))}
+                </>
+            )}
         </FieldTitleWrapper>
     );
 };

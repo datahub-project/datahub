@@ -2,6 +2,7 @@ import { message, Typography } from 'antd';
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
+import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { useUpdateNameMutation } from '../../../../../../graphql/mutations.generated';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '../../../../../glossary/utils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -10,7 +11,6 @@ import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
 import { REDESIGN_COLORS } from '../../../constants';
 import CompactContext from '../../../../../shared/CompactContext';
 import { EntityType } from '../../../../../../types.generated';
-import { PageRoutes } from '../../../../../../conf/Global';
 
 const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
     font-weight: 700;
@@ -57,7 +57,6 @@ function EntityName(props: Props) {
     const [isEditing, setIsEditing] = useState(false);
 
     const isCompact = React.useContext(CompactContext);
-    const isEmbeddedProfile = window.location.pathname.startsWith(PageRoutes.EMBED);
     const showEntityLink = isCompact && entityType !== EntityType.Query;
 
     useEffect(() => {
@@ -111,10 +110,10 @@ function EntityName(props: Props) {
     );
 
     // have entity link open new tab if in the chrome extension
-    const linkProps = isEmbeddedProfile ? { target: '_blank', rel: 'noreferrer noopener' } : {};
+    const linkProps = useEmbeddedProfileLinkProps();
 
     return showEntityLink ? (
-        <Link to={entityRegistry.getEntityUrl(entityType, urn)} {...linkProps}>
+        <Link to={`${entityRegistry.getEntityUrl(entityType, urn)}/`} {...linkProps}>
             {Title}
         </Link>
     ) : (

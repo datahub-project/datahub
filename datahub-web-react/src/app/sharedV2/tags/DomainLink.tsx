@@ -7,7 +7,7 @@ import { HoverEntityTooltip } from '../../recommendations/renderer/component/Hov
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { DomainColoredIcon } from '../../entityV2/shared/links/DomainColoredIcon';
-import useEmbeddedProfileLinkProps from '../../shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '../../shared/useEmbeddedProfileLinkProps';
 
 const DomainLinkContainer = styled(Link)`
     display: inline-block;

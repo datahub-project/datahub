@@ -44,8 +44,7 @@ const MarkdownViewContainer = styled.div`
     display: block;
     overflow-wrap: break-word;
     word-wrap: break-word;
-    overflow-x: hidden;
-    overflow-y: hidden;
+    overflow: auto;
 `;
 
 const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React.CSSProperties }>`
