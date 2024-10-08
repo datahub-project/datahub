@@ -16,12 +16,16 @@ export default function CopyQuery({ query, showCopyText = false, style }: Props)
         setQueryCopied(true);
     };
 
-    return (
-        <Tooltip title="Copy the query">
-            <Button onClick={copyQuery} style={style}>
-                {showCopyText && ((queryCopied && 'Copied') || 'Copy')}
-                {(queryCopied && <CheckOutlined />) || <CopyOutlined />}
-            </Button>
-        </Tooltip>
-    );
+    if (navigator.clipboard) {
+        return (
+            <Tooltip title="Copy the query">
+                <Button onClick={copyQuery} style={style}>
+                    {showCopyText && ((queryCopied && 'Copied') || 'Copy')}
+                    {(queryCopied && <CheckOutlined />) || <CopyOutlined />}
+                </Button>
+            </Tooltip>
+        );
+    }
+
+    return null;
 }
