@@ -1,9 +1,11 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
+from pydantic.fields import Field
+
 import datahub.emitter.mce_builder as builder
 from airflow.configuration import conf
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, AllowDenyPattern
 
 if TYPE_CHECKING:
     from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook
@@ -56,7 +58,10 @@ class DatahubLineageConfig(ConfigModel):
 
     datajob_url_link: DatajobUrl = DatajobUrl.TASKINSTANCE
 
-    dag_allow_deny_pattern_str: str = '{"allow": [".*"]}'
+    dag_allow_deny_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for DAGs to ingest",
+    )
 
     def make_emitter_hook(self) -> "DatahubGenericHook":
         # This is necessary to avoid issues with circular imports.
@@ -89,8 +94,8 @@ def get_lineage_config() -> DatahubLineageConfig:
     datajob_url_link = conf.get(
         "datahub", "datajob_url_link", fallback=DatajobUrl.TASKINSTANCE.value
     )
-    dag_allow_deny_pattern_str = conf.get(
-        "datahub", "dag_allow_deny_pattern_str", fallback='{"allow": [".*"]}'
+    dag_allow_deny_pattern = AllowDenyPattern.parse_raw(
+        conf.get("datahub", "dag_allow_deny_pattern", fallback='{"allow": [".*"]}')
     )
 
     return DatahubLineageConfig(
@@ -107,5 +112,5 @@ def get_lineage_config() -> DatahubLineageConfig:
         debug_emitter=debug_emitter,
         disable_openlineage_plugin=disable_openlineage_plugin,
         datajob_url_link=datajob_url_link,
-        dag_allow_deny_pattern_str=dag_allow_deny_pattern_str,
+        dag_allow_deny_pattern=dag_allow_deny_pattern,
     )
