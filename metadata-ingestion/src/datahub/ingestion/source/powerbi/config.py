@@ -463,7 +463,7 @@ class PowerBiDashboardSourceConfig(
     ] = pydantic.Field(
         default=["Workspace"],
         description="Ingest the metadata of the workspace where the workspace type corresponds to the specified workspace_type_filter."
-        " Note: This field works in conjunction with 'workspace_id_pattern' and both must be considered when filtering workspaces.",
+        " Note: This field works in conjunction with 'workspace_id_pattern'. Both must be matched for a workspace to be processed.",
     )
 
     @root_validator(skip_on_failure=True)
