@@ -23,6 +23,7 @@ import { SettingsPage as SettingsPageV2 } from './settingsV2/SettingsPage';
 import { NoPageFound } from './shared/NoPageFound';
 import { ManageTestsPage } from './tests/ManageTestsPage';
 import {
+    useAppConfig,
     useBusinessAttributesFlag,
     useIsAppConfigContextLoaded,
     useIsDocumentationFormsEnabled,
@@ -51,6 +52,7 @@ export const SearchRoutes = (): JSX.Element => {
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
     const isThemeV2 = useIsThemeV2();
+    const { config } = useAppConfig();
     const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
     const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
     const includeGovernDashboard =
@@ -59,6 +61,11 @@ export const SearchRoutes = (): JSX.Element => {
 
     const businessAttributesFlag = useBusinessAttributesFlag();
     const appConfigContextLoaded = useIsAppConfigContextLoaded();
+
+    const canManageStructuredProperties =
+        config?.featureFlags?.showManageStructuredProperties && me.platformPrivileges?.manageStructuredProperties;
+    const canManageForms =
+        config?.featureFlags?.documentationFormsEnabled && me?.platformPrivileges?.manageDocumentationForms;
 
     return (
         <FinalSearchablePage>
@@ -116,7 +123,9 @@ export const SearchRoutes = (): JSX.Element => {
                     path={`${PageRoutes.GLOSSARY}*`}
                     render={() => (isThemeV2 ? <GlossaryRoutesV2 /> : <GlossaryRoutes />)}
                 />
-                <Route path={PageRoutes.STRUCTURED_PROPERTIES} render={() => <StructuredProperties />} />
+                {canManageStructuredProperties && (
+                    <Route path={PageRoutes.STRUCTURED_PROPERTIES} render={() => <StructuredProperties />} />
+                )}
                 <Route
                     path={PageRoutes.BUSINESS_ATTRIBUTE}
                     render={() => {
@@ -138,9 +147,13 @@ export const SearchRoutes = (): JSX.Element => {
                     <>
                         <Route exact path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
 
-                        <Route path={PageRoutes.NEW_FORM} render={() => <CreateForm mode="create" />} />
+                        {canManageForms && (
+                            <>
+                                <Route path={PageRoutes.NEW_FORM} render={() => <CreateForm mode="create" />} />
 
-                        <Route path={PageRoutes.EDIT_FORM} render={() => <CreateForm mode="edit" />} />
+                                <Route path={PageRoutes.EDIT_FORM} render={() => <CreateForm mode="edit" />} />
+                            </>
+                        )}
                     </>
                 )}
                 <Route component={NoPageFound} />

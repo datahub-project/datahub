@@ -1,6 +1,7 @@
 import { useApolloClient } from '@apollo/client';
 import { Icon, Pill, Table, Text } from '@components';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+import { useUserContext } from '@src/app/context/useUserContext';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { CustomAvatar } from '@src/app/shared/avatar';
 import { toLocalDateString, toRelativeTimeString } from '@src/app/shared/time/timeUtils';
@@ -13,7 +14,6 @@ import TableIcon from '@src/images/table-icon.svg?react';
 import { Entity, EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { Dropdown, Tooltip } from 'antd';
 import React, { useState } from 'react';
-import { useUserContext } from '@src/app/context/useUserContext';
 import { CardIcons } from '../Dashboard/Forms/styledComponents';
 import { removeFromPropertiesList } from './cacheUtils';
 import {
@@ -154,6 +154,7 @@ const StructuredPropsTable = ({
                                         return name;
                                     })
                                     .join(', ')}
+                                showArrow={false}
                             >
                                 <>
                                     <Text>{`+${overflowCount}`}</Text>
@@ -252,7 +253,7 @@ const StructuredPropsTable = ({
                                         }
                                     }}
                                 >
-                                    Delete
+                                    <Text color="red">Delete </Text>
                                 </MenuItem>
                             </Tooltip>
                         ),

@@ -71,7 +71,10 @@ const StructuredPropsFormSection = ({
                     <FieldLabel>
                         <FlexContainer>
                             Allowed Asset Types
-                            <Tooltip title="Optionally choose which asset types are valid values that can be set on an asset with this structured property. For example, choosing 'Person' and 'Group' will only allow users to select users or groups as values on an asset for this property.">
+                            <Tooltip
+                                title="Optionally choose which asset types are valid values that can be set on an asset with this structured property. For example, choosing 'Person' and 'Group' will only allow users to select users or groups as values on an asset for this property."
+                                showArrow={false}
+                            >
                                 <Icon icon="Info" color="violet" size="lg" />
                             </Tooltip>
                         </FlexContainer>
@@ -100,6 +103,7 @@ const StructuredPropsFormSection = ({
                             isMultiSelect
                             values={formValues?.typeQualifier?.allowedTypes}
                             disabledValues={disabledTypeQualifierValues}
+                            width="full"
                         />
                     </Form.Item>
                 </RowContainer>
@@ -108,7 +112,13 @@ const StructuredPropsFormSection = ({
                 <FieldLabel>
                     <FlexContainer>
                         Applies to
-                        <Tooltip title="Select the asset types that this structured property can be applied to.">
+                        <Text color="red" weight="bold">
+                            *
+                        </Text>
+                        <Tooltip
+                            title="Select the asset types that this structured property can be applied to."
+                            showArrow={false}
+                        >
                             <Icon icon="Info" color="violet" size="lg" />
                         </Tooltip>
                     </FlexContainer>
@@ -146,6 +156,7 @@ const StructuredPropsFormSection = ({
                         isMultiSelect
                         values={formValues?.entityTypes ? formValues?.entityTypes : undefined}
                         disabledValues={disabledEntityTypeValues}
+                        width="full"
                     />
                 </Form.Item>
             </RowContainer>

@@ -1,10 +1,17 @@
-import { Icon, Input, SimpleSelect, TextArea } from '@src/alchemy-components';
+import { Icon, Input, Text, TextArea } from '@src/alchemy-components';
 import { AllowedValue, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
-import { Form, FormInstance, Tooltip } from 'antd';
+import { Form, FormInstance, Select, Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
 import AdvancedOptions from './AdvancedOptions';
 import StructuredPropsFormSection from './StructuredPropsFormSection';
-import { FieldLabel, FlexContainer, RowContainer } from './styledComponents';
+import {
+    CustomDropdown,
+    FieldLabel,
+    FlexContainer,
+    RowContainer,
+    SelectOptionContainer,
+    StyledSelect,
+} from './styledComponents';
 import useStructuredProp from './useStructuredProp';
 import {
     getDisplayName,
@@ -72,7 +79,7 @@ const StructuredPropsForm = ({
             };
 
             setFormValues(values);
-            if (typeValue) handleTypeUpdate([typeValue]);
+            if (typeValue) handleTypeUpdate(typeValue);
             form.setFieldsValue(values);
         } else {
             setFormValues(undefined);
@@ -110,7 +117,7 @@ const StructuredPropsForm = ({
                     },
                 ]}
             >
-                <Input label="Name" placeholder="Enter name" />
+                <Input label="Name" placeholder="Enter name" isRequired />
             </Form.Item>
             <Form.Item name="description">
                 <TextArea label="Description" placeholder="Add description here" />
@@ -119,7 +126,13 @@ const StructuredPropsForm = ({
                 <FieldLabel>
                     <FlexContainer>
                         Property Type
-                        <Tooltip title="The input data type accepted as a value for this structured property. List types accept more than one value on an asset.">
+                        <Text color="red" weight="bold">
+                            *
+                        </Text>
+                        <Tooltip
+                            title="The input data type accepted as a value for this structured property. List types accept more than one value on an asset."
+                            showArrow={false}
+                        >
                             <Icon icon="Info" color="violet" size="lg" />
                         </Tooltip>
                     </FlexContainer>
@@ -141,15 +154,29 @@ const StructuredPropsForm = ({
                             },
                         ]}
                     >
-                        <SimpleSelect
-                            options={valueTypes}
-                            onUpdate={(values) => {
-                                handleTypeUpdate(values);
+                        <StyledSelect
+                            onChange={(value: any) => {
+                                handleTypeUpdate(value);
                             }}
                             placeholder="Select Property Type"
-                            values={formValues?.valueType ? [formValues?.valueType] : undefined}
-                            isDisabled={isEditMode}
-                        />
+                            disabled={isEditMode}
+                            dropdownRender={(menu) => <CustomDropdown>{menu}</CustomDropdown>}
+                        >
+                            {valueTypes.map((valType) => {
+                                return (
+                                    <Select.Option key={valType.value} value={valType.value}>
+                                        <SelectOptionContainer>
+                                            <Text color="gray" weight="medium" size="md">
+                                                {valType.label}
+                                            </Text>
+                                            <Text color="gray" weight="normal" size="sm">
+                                                {valType.description}
+                                            </Text>
+                                        </SelectOptionContainer>
+                                    </Select.Option>
+                                );
+                            })}
+                        </StyledSelect>
                     </Form.Item>
                 </Tooltip>
             </RowContainer>

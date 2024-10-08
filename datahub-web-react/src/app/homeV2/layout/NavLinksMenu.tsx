@@ -225,7 +225,7 @@ export function NavLinksMenu(props: Props) {
                     },
                     {
                         title: 'Structured Properties',
-                        description: `Manage your organization's structured properties`,
+                        description: `Manage custom properties for your data assets`,
                         link: PageRoutes.STRUCTURED_PROPERTIES,
                         isHidden: !showStructuredProperties,
                     },

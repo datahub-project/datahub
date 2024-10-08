@@ -9,7 +9,6 @@ import {
     ItemsContainer,
     RowContainer,
     StyledIcon,
-    SubTextContainer,
     ValueListContainer,
     ValuesList,
     VerticalDivider,
@@ -42,19 +41,13 @@ const AllowedValuesField = ({
                     <FieldLabel>
                         <FlexContainer>
                             Allowed Values
-                            <Tooltip title="Define a set of valid values that can be set on an asset with this structured property. The user will be prompted to pick from this list when applying this structured property to an asset.">
+                            <Tooltip
+                                title="Define a set of valid values that can be set on an asset with this structured property. The user will be prompted to pick from this list when applying this structured property to an asset."
+                                showArrow={false}
+                            >
                                 <Icon icon="Info" color="violet" size="lg" />
                             </Tooltip>
                         </FlexContainer>
-                        {isEditMode && (
-                            <SubTextContainer>
-                                <Text size="sm" weight="medium">
-                                    <Tooltip title="Once a structured property is created, you can only add new allowed values to preserve backwards compatibility">
-                                        (Add-only)
-                                    </Tooltip>
-                                </Text>
-                            </SubTextContainer>
-                        )}
                     </FieldLabel>
 
                     {allowedValues && allowedValues.length > 0 ? (
@@ -77,7 +70,7 @@ const AllowedValuesField = ({
                         </ItemsContainer>
                     ) : (
                         <ValueListContainer>
-                            <Tooltip title="Add new allowed values">
+                            <Tooltip title="Add new allowed values" showArrow={false}>
                                 <Icon icon="Add" color="gray" onClick={() => setShowAllowedValuesModal(true)} />
                             </Tooltip>
                         </ValueListContainer>

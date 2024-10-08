@@ -75,14 +75,13 @@ export default function useStructuredProp({
     };
 
     // Handle change in the property type dropdown
-    const handleTypeUpdate = (values: string[]) => {
-        const typeOption = valueTypes.find((type) => type.value === values[0]);
-        const typeUrn = typeOption?.urn || '';
-        setSelectedValueType(typeUrn);
-        handleSelectChange('valueType', typeUrn);
+    const handleTypeUpdate = (value: string) => {
+        const typeOption = valueTypes.find((type) => type.value === value);
+        setSelectedValueType(value);
+        handleSelectChange('valueType', value);
         setFormValues((prev) => ({
             ...prev,
-            valueType: values[0],
+            valueType: value,
         }));
 
         const isList = typeOption?.cardinality === PropertyCardinality.Multiple;
