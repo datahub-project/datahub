@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useRef, useEffect } from "react";
 import styles from "./integrations.module.scss";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 
@@ -34,12 +34,11 @@ const Integrations = () => {
             <div className={styles.carouselContainer}>
               <div className={styles.slider}>
                 <div className={styles.slide_track}>
-                  {[...Array(2)].map((_, i) => (
+                  {[...Array(3)].map((_, i) => (
                     <React.Fragment key={i}>
                       {[1, 2, 3, 4, 5, 6].map((item, index) => (
-                        <div className={styles.slide} key={index} style={{ backgroundImage: `url(${useBaseUrl(`/img/slack/slack-community-user-${item}.png`)})` }}>
-                          <div className={styles.slideCrown} style={{ backgroundImage: `url(${useBaseUrl('/img/slack/Crown.png')})` }} />
-                          </div>
+                        <div className={styles.slide} key={index} style={{ backgroundImage: `url(${useBaseUrl(`/img/solutions/integrations/logo-integration-${item}.png`)})` }}>
+                        </div>
                       ))}
                     </React.Fragment>
                   ))}
