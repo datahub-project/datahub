@@ -154,7 +154,6 @@ class DatasetLineage(NamedTuple):
 
 class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
     datahub_client_config: DatahubClientConfig = pydantic.Field(
-        default=DatahubClientConfig(),
         description="Datahub client config",
     )
 
