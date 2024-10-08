@@ -269,7 +269,8 @@
                             "actor": "urn:li:corpuser:datahub"
                         }
                     },
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 },
                 {
                     "fieldPath": "email",
@@ -296,7 +297,8 @@
                             "actor": "urn:li:corpuser:datahub"
                         }
                     },
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 }
             ]
         }
@@ -463,7 +465,8 @@
                             }
                         ]
                     },
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 },
                 {
                     "fieldPath": "email",
@@ -479,7 +482,8 @@
                     "globalTags": {
                         "tags": []
                     },
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 }
             ]
         }
@@ -620,7 +624,8 @@
                             }
                         ]
                     },
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 },
                 {
                     "fieldPath": "email",
@@ -636,7 +641,8 @@
                     "globalTags": {
                         "tags": []
                     },
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 }
             ]
         }
