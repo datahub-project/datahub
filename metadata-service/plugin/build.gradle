@@ -29,7 +29,7 @@ dependencies {
 
 test {
   // Build sample plugin to unit test IsolatedClassLoader
-  dependsOn ':metadata-service:plugin:src:test:sample-test-plugins:copyJar'
+  dependsOn ':metadata-service:plugin:src:test:sample-test-plugins:build'
   // Set system properties for permission management
   systemProperty 'datahub.gms.home', file("$projectDir").absolutePath
   systemProperty 'java.security.policy', file("../war/src/main/resources/security.policy").absolutePath
