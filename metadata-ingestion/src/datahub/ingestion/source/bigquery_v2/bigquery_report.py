@@ -166,6 +166,7 @@ class BigQueryV2Report(
 
     exclude_empty_projects: Optional[bool] = None
 
+    init_schema_resolver_timer: PerfTimer = field(default_factory=PerfTimer)
     schema_api_perf: BigQuerySchemaApiPerfReport = field(
         default_factory=BigQuerySchemaApiPerfReport
     )
