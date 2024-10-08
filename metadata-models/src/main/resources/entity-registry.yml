@@ -768,12 +768,6 @@ entities:
       - formInfo
       - dynamicFormAssignment
       - ownership
-  - name: dataHubConnection
-    category: internal
-    keyAspect: dataHubConnectionKey
-    aspects:
-      - dataHubConnectionDetails
-      - dataPlatformInstance
   - name: dataHubPersona
     category: internal
     keyAspect: dataHubPersonaKey
