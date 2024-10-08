@@ -28,7 +28,7 @@ const Integrations = () => {
   return (
     <div className={styles.container}>
       <div className={styles.section_header}>
-          Integrates with your data stack
+          <span>Integrates with your data stack</span>
       </div>
       <div className={styles.community_section}>
             <div className={styles.carouselContainer}>

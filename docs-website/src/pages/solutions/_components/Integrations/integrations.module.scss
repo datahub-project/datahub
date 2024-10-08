@@ -11,6 +11,30 @@
     font-weight: 500;
     line-height: normal;
     letter-spacing: 0.24px;
+
+    margin-bottom: 2rem;
+    position: relative;
+    padding: 0 2rem;
+    display: block;
+    width: 100%;
+
+    &:before, &:after {
+      content: " ";
+      height: 2px;
+      width: calc((100vw - 640px)/2);
+      background: #D9DBE4;
+      display: block;
+      position: absolute;
+      top: 50%;
+    }
+  
+    &:before {
+      left: 8rem;
+    }
+  
+    &:after {
+      right: 8rem;
+    }
   }
 }
 
