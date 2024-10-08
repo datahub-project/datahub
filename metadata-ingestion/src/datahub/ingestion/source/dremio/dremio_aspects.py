@@ -61,7 +61,7 @@ from datahub.metadata.schema_classes import (
 from datahub.ingestion.source.dremio.dremio_api import (
     DremioDataset,
     DremioContainer,
-    DremioGlossaryTerm,
+    DremioGlossaryTerm, DremioDatasetType,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,10 +104,13 @@ class DremioAspects:
             self,
             platform: str,
             profiler: DremioProfiler,
+            hostname: str,
+            port: int,
+            tls: bool,
             domain: Optional[str] = None,
             platform_instance: Optional[str] = None,
             env: Optional[Union[FabricTypeClass, str]] = FabricTypeClass.PROD,
-            profiling_enabled: bool = False
+            profiling_enabled: bool = False,
     ):
         self.platform = platform
         self.platform_instance = platform_instance
@@ -115,6 +118,24 @@ class DremioAspects:
         self.domain = domain
         self.profiler = profiler
         self.profiling_enabled = profiling_enabled
+        self.base_url = self._set_url(
+            hostname=hostname,
+            port=port,
+            tls=tls,
+        )
+
+    def _set_url(self, hostname: str, port: int, tls: bool) -> str:
+        prefix = "http"
+        suffix = ""
+
+        if tls:
+            prefix = "https"
+
+        if (prefix == "https" and port != 443) \
+            or (prefix == "http" and port != 80):
+            suffix = f":{str(port)}"
+
+        return f"{prefix}://{hostname}{suffix}"
 
     def get_container_urn(self, name: str, path: Optional[List[str]]) -> str:
         if path:
@@ -245,12 +266,28 @@ class DremioAspects:
             name=dataset.resource_name,
             qualifiedName=f"{'.'.join(dataset.path)}.{dataset.resource_name}",
             description=dataset.description,
+            externalUrl=self._create_external_url(dataset=dataset),
             created=TimeStampClass(
                 time=round(
                     datetime.strptime(dataset.created, '%Y-%m-%d %H:%M:%S.%f').timestamp() * 1000
                 ),
             ),
         )
+
+    def _create_external_url(self, dataset: DremioDataset) -> str:
+        container_type = "source"
+        dataset_url_path = '"' + dataset.path[0] + '"/'
+
+        if len(dataset.path)>1:
+             dataset_url_path = dataset_url_path + '"' + '"."'.join(dataset.path[1:]) + '".'
+
+        if dataset.dataset_type == DremioDatasetType.VIEW:
+            container_type = "space"
+        elif dataset.path[0].startswith("@"):
+            container_type = "home"
+
+        return f"{self.base_url}/{container_type}/{dataset_url_path}\"{dataset.resource_name}\""
+
 
     def _create_ownership(self, dataset: DremioDataset) -> OwnershipClass:
         owner = make_user_urn(dataset.owner) if dataset.owner_type == "USER" else make_group_urn(dataset.owner)

@@ -8,31 +8,39 @@ class DremioToDataHubSourceTypeMapping:
     def __init__(self):
         self.mapping = {
             # Dremio source types
-            "NAS": "file",
-            "S3": "s3",
-            "ADLS": "abfs",
-            "HDFS": "hdfs",
+            "ADL": "abfs",
+            "AMAZONELASTIC": "elasticsearch",
+            "AWSGLUE": "glue",
+            "AZURE_STORAGE": "abfs",
+            "DB2": "db2",
+            "DREMIOTODREMIO": "dremio",
+            "ELASTIC": "elasticsearch",
+            "GCS": "gcs",
+            "HDFS": "s3",
+            "HIVE": "hive",
+            "HIVE3": "hive",
+            "MONGO": "mongodb",
+            "MSSQL": "mssql",
+            "MYSQL": "mysql",
+            "NAS": "s3",
+            "NESSIE": "iceberg",
             "ORACLE": "oracle",
             "POSTGRES": "postgres",
-            "MYSQL": "mysql",
-            "MSSQL": "mssql",
             "REDSHIFT": "redshift",
+            "S3": "s3",
             "SNOWFLAKE": "snowflake",
-            "MONGO": "mongodb",
-            "ELASTIC": "elasticsearch",
-            "HIVE": "hive",
-            "AZURE_STORAGE": "abfs",
-            "GOOGLE_CLOUD_STORAGE": "gcs",
-            "AWSGLUE": "glue",
+            "SYNAPSE": "mssql",
+            "TERADATA": "teradata",
+
         }
 
         self.database_types = {
-            "ORACLE", "POSTGRES", "MYSQL", "MSSQL", "REDSHIFT", "SNOWFLAKE",
-            "MONGO", "HIVE", "ELASTIC", "AWSGLUE"
+            "AMAZONELASTIC", "AWSGLUE", "AZURE_STORAGE", "DB2", "DREMIOTODREMIO", "ELASTIC", "HIVE", "HIVE3", "MONGO",
+            "MSSQL", "MYSQL", "NESSIE", "ORACLE", "POSTGRES", "REDSHIFT", "SNOWFLAKE", "SYNAPSE", "TERADATA",
         }
 
         self.file_object_storage_types = {
-            "NAS", "S3", "ADLS", "HDFS", "AZURE_STORAGE", "GOOGLE_CLOUD_STORAGE"
+            "ADL", "AZURE_STORAGE", "GCS", "HDFS", "NAS", "S3",
         }
 
     def get_datahub_source_type(self, dremio_source_type):

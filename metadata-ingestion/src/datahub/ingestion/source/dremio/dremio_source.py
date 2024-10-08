@@ -105,6 +105,9 @@ class DremioSource(StatefulIngestionSourceBase):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             profiling_enabled=self.config.profiling.enabled,
+            hostname=self.config.hostname,
+            port=self.config.port,
+            tls=self.config.tls,
         )
         self.reference_source_mapping = DremioToDataHubSourceTypeMapping()
         self.max_workers = config.max_workers
@@ -144,58 +147,66 @@ class DremioSource(StatefulIngestionSourceBase):
 
         for source in dremio_sources:
             source_name = source.container_name
-            source_type = source.dremio_source_type.lower()
-            root_path = source.root_path.lower() if source.root_path else ""
-            database_name = source.database_name.lower() if source.database_name else ""
-            source_present = False
-            source_platform_name = source_name
+            if isinstance(source.dremio_source_type, str):
+                source_type = source.dremio_source_type.lower()
+                root_path = source.root_path.lower() if source.root_path else ""
+                database_name = source.database_name.lower() if source.database_name else ""
+                source_present = False
+                source_platform_name = source_name
 
-            for mapping in self.config.source_mappings or []:
-                if re.search(mapping.platform_name, source_type, re.IGNORECASE):
-                    source_platform_name = mapping.platform_name.lower()
+                for mapping in self.config.source_mappings or []:
+                    if re.search(mapping.platform_name, source_type, re.IGNORECASE):
+                        source_platform_name = mapping.platform_name.lower()
 
-                if re.search(
-                        mapping.platform,
-                        self.reference_source_mapping.get_datahub_source_type(
-                            source_type
-                        ),
-                        re.IGNORECASE
-                ):
-                    source_map[source_platform_name] = mapping
-                    source_map[source_platform_name].dremio_source_type = (
-                        self.reference_source_mapping.get_category(
+                    if re.search(
+                            mapping.platform,
+                            self.reference_source_mapping.get_datahub_source_type(
+                                source_type
+                            ),
+                            re.IGNORECASE
+                    ):
+                        source_map[source_platform_name] = mapping
+                        source_map[source_platform_name].dremio_source_type = (
+                            self.reference_source_mapping.get_category(
+                                source_type
+                            )
+                        )
+                        source_map[source_platform_name].root_path = root_path
+                        source_map[source_platform_name].database_name = database_name
+                        source_present = True
+                        break
+
+                if not source_present:
+                    try:
+                        dremio_source_type = self.reference_source_mapping.get_category(
                             source_type
                         )
-                    )
-                    source_map[source_platform_name].rootPath = root_path
-                    source_map[source_platform_name].databaseName = database_name
-                    source_present = True
-                    break
+                    except Exception as exc:
+                        logger.info(
+                            f"Source {source_type} is not a standard Dremio source type. "
+                            f"Adding source_type {source_type} to mapping as database. Error: {exc}"
+                        )
 
-            if not source_present:
-                try:
-                    dremio_source_type = self.reference_source_mapping.get_category(
-                        source_type
-                    )
-                except Exception as exc:
-                    logger.info(
-                        f"Source {source_type} is not a standard Dremio source type. "
-                        f"Adding source_type {source_type} to mapping as database. Error: {exc}"
-                    )
+                        self.reference_source_mapping.add_mapping(
+                            source_type,
+                            source_name
+                        )
+                        dremio_source_type = self.reference_source_mapping.get_category(
+                            source_type
+                        )
 
-                    self.reference_source_mapping.add_mapping(
-                        source_type,
-                        source_name
-                    )
-                    dremio_source_type = self.reference_source_mapping.get_category(
-                        source_type
+                    source_map[source_platform_name] = DremioSourceMapping(
+                        platform=source_type,
+                        platform_name=source_name,
+                        dremio_source_type=dremio_source_type,
                     )
 
-                source_map[source_platform_name] = DremioSourceMapping(
-                    platform=source_type,
-                    platform_name=source_name,
-                    dremio_source_type=dremio_source_type,
-                )
+            else:
+                logger.error(
+                    f"Source \"{source.container_name}\" is broken. Containers will not be created for source.")
+                logger.error(
+                    f"No new cross-platform lineage will be emitted for source \"{source.container_name}\".")
+                logger.error("Fix this source in Dremio to fix this issue.")
 
         return source_map
 
@@ -582,12 +593,12 @@ class DremioSource(StatefulIngestionSourceBase):
         database_name = ""
 
         if mapping.dremio_source_type == "file_object_storage":
-            if mapping.rootPath:
-                root_path = f"{mapping.rootPath[1:]}/"
+            if mapping.root_path:
+                root_path = f"{mapping.root_path[1:]}/"
             dremio_dataset = f"{root_path}{'/'.join(dremio_path[1:])}/{dremio_dataset}"
         else:
-            if mapping.databaseName:
-                database_name = f"{mapping.databaseName}."
+            if mapping.database_name:
+                database_name = f"{mapping.database_name}."
             dremio_dataset = f"{database_name}{'.'.join(dremio_path[1:])}.{dremio_dataset}"
 
         if mapping.platform_instance:

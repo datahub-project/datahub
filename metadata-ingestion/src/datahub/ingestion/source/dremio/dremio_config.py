@@ -51,12 +51,12 @@ class DremioSourceMapping(ConfigModel):
         default=FabricTypeClass.PROD,
         description="ENV in Datahub of source connection made by Dremio (e.g. PROD)",
     )
-    rootPath: Optional[str] = Field(
+    root_path: Optional[str] = Field(
         default=None,
         description="Root path of source - Extracted from Dremio API",
         hidden_from_docs=True,
     )
-    databaseName: Optional[str] = Field(
+    database_name: Optional[str] = Field(
         default=None,
         description="Database of source - Extracted from Dremio API",
         hidden_from_docs=True,
