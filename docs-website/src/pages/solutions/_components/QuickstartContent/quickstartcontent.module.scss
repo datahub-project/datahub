@@ -1,72 +1,3 @@
-// .container {
-//     margin-bottom: 2rem;
-// }
-
-// .button {
-//     text-decoration: none;
-//     margin: 0.5rem 0 0 0;
-//     white-space: nowrap;
-//     @media (min-width: 690px) {
-//       margin: 0 0 0 0.5rem;
-//     }
-// }
-
-// .quickstartContent {
-//   text-align: center;
-//   padding: 2rem 0;
-//   height: 100%;
-//   margin: 2rem 0;
-//   background: #34394d;
-//   border-radius: var(--ifm-card-border-radius);
-// }
-
-// .quickstartTitle {
-//   color: #fafafa;
-// }
-
-// .quickstartSubtitle {
-//   font-size: 1.1rem;
-//   color: gray;
-// }
-
-// .quickstartCodeblock {
-//   text-align: left;
-//   padding: 0 20vh;
-// }
-
-// .quickLinks {
-//   display: flex;
-//   align-items: center;
-//   justify-content: space-between;
-//   padding: 1rem;
-//   font-weight: bold;
-//   margin-bottom: -2.5vh;
-//   @media (min-width: 768px) {
-//     flex-direction: row;
-//   }
-
-//   > * {
-//     padding: 0.5rem 1rem;
-//     display: inline-block;
-
-//     @media (min-width: 768px) {
-//       padding: 0 1rem;
-//     }
-//   }
-// }
-
-// .quickLinksLabel {
-//   display: flex;
-//   align-items: center;
-//   svg {
-//     width: 24px;
-//     height: 24px;
-//     color: var(--ifm-text-color) !important;
-//     margin-right: 0.5rem;
-//   }
-// }
-
-
 @media only screen and (max-width: 800px) {
   .quickstart {
     margin: 6rem auto!important;
@@ -75,7 +6,7 @@
 .quickstart {
   width: 80vw;
   min-height: 100vh;
-  margin: 5rem auto;
+  margin: 12rem auto;
   display: flex;
   flex-direction: column;
 
@@ -129,7 +60,7 @@
 
     .quickstart__content {
       display: flex;
-      margin-bottom: 3rem;
+      margin: 3rem;
       width: 100%;
 
       .quickstart__text {
@@ -163,7 +94,7 @@
           /* H4 | Semibold */
           font-family: 'Manrope';
           font-style: normal;
-          font-weight: 600;
+          font-weight: 400;
           font-size: 2rem;
           line-height: 2rem;
 
@@ -201,11 +132,11 @@
         display: flex;
         align-items: flex-start;
         justify-content: center;
-        min-width: 400px;
-        width: 40%;
+        width: 20%;
 
         img {
-          width: 100%;
+          width: 30%;
+          min-width: 110px;
         }
       }
     }

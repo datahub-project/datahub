@@ -1,20 +1,23 @@
 import React, { useState } from "react";
 import Layout from "@theme/Layout";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
-import useBaseUrl from "@docusaurus/useBaseUrl";
 import Hero from "../_components/Hero";
-import QuickstartContent from "../../_components/QuickstartContent";
+import QuickstartContent from "../_components/QuickstartContent";
 import Tiles from "../_components/Tiles";
+import Trials from "../_components/Trials";
+import Testimonials from "../_components/Testimonials";
 import CaseStudy from "../_components/CaseStudy";
-import styles from "./styles.module.scss";
 import CloseButton from "@ant-design/icons/CloseCircleFilled";
-import Link from "@docusaurus/Link";
-import clsx from "clsx";
 import quickstartData from "./_content/discoveryQuickstartContent";
 import heroContent from "./_content/discoveryHeroContent";
 import caseStudyContent from "./_content/discoveryCaseStudyContent";
 import Integrations from "../_components/Integrations";
 import tilesContent from "./_content/discoveryTilesContent";
+import testimonialsData from "./_content/discoveryTestimonialsContent";
+import trialsContent from "./_content/discoveryTrialsContent";
+import styles from "./styles.module.scss";
+import Link from "@docusaurus/Link";
+import useBaseUrl from "@docusaurus/useBaseUrl";
 
 function Home() {
   const context = useDocusaurusContext();
@@ -47,23 +50,7 @@ function Home() {
       <Hero onOpenTourModal={onOpenTourModal} heroContent={heroContent}/>
       <Integrations />
       <QuickstartContent quickstartContent={quickstartData} />
-      <div className={clsx("testimonials", styles.testimonials)}>
-        <div className="testimonials__content">
-          <div className="testimonials__card">
-            <div className="testimonials__text">
-              <div className="testimonials__quote_title">
-                Enter end-to-end <br />Data Discovery.
-              </div>
-              <span className="testimonials__quote_description">
-                Seamlessly integrated with DataHub Cloud's <br /> <span className="testimonials__quote_black">Data Observability</span> & <span className="testimonials__quote_black">Governance</span> solutions.
-              </span>
-            </div>
-            <div className="testimonials__logo">
-              <img src={useBaseUrl("/img/solutions/discovery-icons-group.png")} />
-            </div>
-          </div>
-        </div>
-      </div>
+      <Testimonials testimonialsData={testimonialsData} />
       <div>
         {tilesContent.map((content, index) => (
           <Tiles key={index} tilesContent={content} />

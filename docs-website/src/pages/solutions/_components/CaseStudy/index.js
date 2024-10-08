@@ -4,9 +4,9 @@ import clsx from "clsx";
 import Link from '@docusaurus/Link'
 
 const CaseStudy = ({ caseStudyContent }) => {
-  const { title, items } = caseStudyContent;
+  const { title, backgroundColor, items } = caseStudyContent;
   return (
-    <div className={styles.container}>
+    <div className={styles.container} styles={{background: backgroundColor}}>
       <div className={styles.case_study}>
         <div className={styles.case_study_heading}>
           {title}
