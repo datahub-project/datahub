@@ -6,8 +6,10 @@
   gap: 16px;
   background: #F9F9FA;
   background-image: url('/img/solutions/hero-background.png');
+  background-position: bottom 0rem center;
+  height: 890px;
   border-radius: 49.66px;
-  margin: 3rem;
+  margin: 3rem 3rem 12rem 3rem;
   padding: 5rem;
   
   .hero__topQuote {
@@ -19,7 +21,7 @@
     line-height: normal;
     letter-spacing: 0.429px;
     text-transform: uppercase;
-    
+    margin-top: 7rem;
   }
 
   .hero__title {
@@ -85,4 +87,9 @@
     border: 1px solid var(--semantics-border-default, #1890FF);
     background: var(--semantics-bg-bg-white, #FFF);
   }
+}
+
+.hero__img {
+  z-index: 10;
+  margin: 1rem 1rem -10rem 1rem;
 }
