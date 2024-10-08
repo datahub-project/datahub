@@ -422,11 +422,6 @@ class PowerBiAPI:
         return workspaces
 
     def _fill_independent_datasets(self, workspace: Workspace) -> None:
-        if self.__config.extract_independent_datasets is False:
-            logger.info(
-                "Skipping independent datasets retrieval as extract_independent_datasets is set to false"
-            )
-            return
 
         reachable_datasets: List[str] = []
         # Find out reachable datasets

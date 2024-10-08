@@ -145,7 +145,16 @@ class BigQueryQueriesExtractor:
         self.identifiers = identifiers
         self.schema_api = schema_api
         self.report = BigQueryQueriesExtractorReport()
-        self.discovered_tables = set(discovered_tables) if discovered_tables else None
+        self.discovered_tables = (
+            set(
+                map(
+                    self.identifiers.standardize_identifier_case,
+                    discovered_tables,
+                )
+            )
+            if discovered_tables
+            else None
+        )
 
         self.structured_report = structured_report
 
@@ -204,6 +213,7 @@ class BigQueryQueriesExtractor:
                 and self.discovered_tables
                 and str(BigQueryTableRef(table)) not in self.discovered_tables
             ):
+                logger.debug(f"inferred as temp table {name}")
                 self.report.inferred_temp_tables.add(name)
                 return True
 
@@ -218,6 +228,7 @@ class BigQueryQueriesExtractor:
                 self.discovered_tables
                 and str(BigQueryTableRef(table)) not in self.discovered_tables
             ):
+                logger.debug(f"not allowed table {name}")
                 return False
             return self.filters.is_allowed(table)
         except Exception:

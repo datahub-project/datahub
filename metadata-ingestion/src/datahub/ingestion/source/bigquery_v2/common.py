@@ -75,6 +75,13 @@ class BigQueryIdentifierBuilder:
             else None
         )
 
+    def standardize_identifier_case(self, table_ref_str: str) -> str:
+        return (
+            table_ref_str.lower()
+            if self.identifier_config.convert_urns_to_lowercase
+            else table_ref_str
+        )
+
 
 class BigQueryFilter:
     def __init__(
