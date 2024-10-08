@@ -842,57 +842,57 @@ public class ESUtilsTest {
   @Test
   public void testGetQueryBuilderForObjectFields() {
     final Criterion singleValueCriterion =
-        new Criterion()
-            .setField("testObjectField.numericField")
-            .setCondition(Condition.EQUAL)
-            .setValues(new StringArray(ImmutableList.of("10")));
+            new Criterion()
+                    .setField("testObjectField.numericField")
+                    .setCondition(Condition.EQUAL)
+                    .setValues(new StringArray(ImmutableList.of("10")));
 
     Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes = new HashMap<>();
     searchableFieldTypes.put("testObjectField", Set.of(SearchableAnnotation.FieldType.DOUBLE));
 
     QueryBuilder result =
-        ESUtils.getQueryBuilderFromCriterion(
-            singleValueCriterion,
-            false,
-            searchableFieldTypes,
-            mock(OperationContext.class),
-            QueryFilterRewriteChain.EMPTY);
+            ESUtils.getQueryBuilderFromCriterion(
+                    singleValueCriterion,
+                    false,
+                    searchableFieldTypes,
+                    mock(OperationContext.class),
+                    QueryFilterRewriteChain.EMPTY);
     String expected =
-        "{\n"
-            + "  \"terms\" : {\n"
-            + "    \"testObjectField.numericField\" : [\n"
-            + "      10.0\n"
-            + "    ],\n"
-            + "    \"boost\" : 1.0,\n"
-            + "    \"_name\" : \"testObjectField.numericField\"\n"
-            + "  }\n"
-            + "}";
+            "{\n"
+                    + "  \"terms\" : {\n"
+                    + "    \"testObjectField.numericField\" : [\n"
+                    + "      10.0\n"
+                    + "    ],\n"
+                    + "    \"boost\" : 1.0,\n"
+                    + "    \"_name\" : \"testObjectField.numericField\"\n"
+                    + "  }\n"
+                    + "}";
     Assert.assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
-        new Criterion()
-            .setField("testObjectField.numericField")
-            .setCondition(Condition.EQUAL)
-            .setValues(new StringArray(ImmutableList.of("10", "20")));
+            new Criterion()
+                    .setField("testObjectField.numericField")
+                    .setCondition(Condition.EQUAL)
+                    .setValues(new StringArray(ImmutableList.of("10", "20")));
 
     result =
-        ESUtils.getQueryBuilderFromCriterion(
-            multiValueCriterion,
-            false,
-            searchableFieldTypes,
-            mock(OperationContext.class),
-            QueryFilterRewriteChain.EMPTY);
+            ESUtils.getQueryBuilderFromCriterion(
+                    multiValueCriterion,
+                    false,
+                    searchableFieldTypes,
+                    mock(OperationContext.class),
+                    QueryFilterRewriteChain.EMPTY);
     expected =
-        "{\n"
-            + "  \"terms\" : {\n"
-            + "    \"testObjectField.numericField\" : [\n"
-            + "      10.0,\n"
-            + "      20.0\n"
-            + "    ],\n"
-            + "    \"boost\" : 1.0,\n"
-            + "    \"_name\" : \"testObjectField.numericField\"\n"
-            + "  }\n"
-            + "}";
+            "{\n"
+                    + "  \"terms\" : {\n"
+                    + "    \"testObjectField.numericField\" : [\n"
+                    + "      10.0,\n"
+                    + "      20.0\n"
+                    + "    ],\n"
+                    + "    \"boost\" : 1.0,\n"
+                    + "    \"_name\" : \"testObjectField.numericField\"\n"
+                    + "  }\n"
+                    + "}";
     Assert.assertEquals(result.toString(), expected);
   }
 }

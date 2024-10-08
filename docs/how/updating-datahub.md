@@ -31,6 +31,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #11549 - Manage Operations Privilege is extended from throttle control to all system management and operations APIs.
+
 ## 0.14.1
 
 ### Breaking Changes
