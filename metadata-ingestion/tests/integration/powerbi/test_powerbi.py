@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 from freezegun import freeze_time
 
+from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.powerbi.config import (
     Constant,
@@ -1824,3 +1825,96 @@ def test_cll_extraction_flags(
                 },
             }
         )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_powerbi_cross_workspace_reference_info_message(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    enable_logging()
+
+    register_mock_api(
+        request_mock=requests_mock,
+        override_data={
+            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "value": [
+                        {
+                            "id": "B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0",
+                            "title": "test_tile",
+                            "embedUrl": "https://localhost/tiles/embed/1",
+                            "datasetId": "7C6F6ECF-020D-4E45-B992-33FAC7F270B7",  # This dataset-id is not available in any workspace
+                        },
+                        {
+                            "id": "8BA46FC2-BD31-4D35-AF32-F99CF5C7FEEB",
+                            "title": "Cross Workspace Tile",
+                            "embedUrl": "https://localhost/tiles/embed/1",
+                            "datasetId": "05169CD2-E713-41E6-96AA-1D8066D95445", # This dataset present in workspace 64ED5CAD-7C22-4684-8180-826122881108
+                        }
+                    ]
+                },
+            }
+        },
+    )
+
+    config = default_source_config()
+
+    del config["workspace_id"]
+
+    config["workspace_id_pattern"] = {"allow": ["64ED5CAD-7C10-4684-8180-826122881108", "64ED5CAD-7C22-4684-8180-826122881108"]}
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **config,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    assert isinstance(pipeline.source, PowerBiDashboardSource)  # to silent the lint
+
+    info_entries: dict = pipeline.source.reporter._structured_logs._entries.get(
+        StructuredLogLevel.INFO, {}
+    )  # type :ignore
+
+    is_entry_present: bool = False
+    # Printing INFO entries
+    for key, entry in info_entries.items():
+        if entry.title == "Dataset Not Found":
+            is_entry_present = True
+            break
+
+    assert (
+        is_entry_present
+    ), 'Info message "Dataset Not Found" should be present in reporter'
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    golden_file = "golden_test_cross_workspace_dataset.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
