@@ -134,3 +134,11 @@ export const DEFAULT_CARDINALITY = CARDINALITY_TYPE_OPTIONS[1].key as Cardinalit
  */
 export const AUTOMATION_CATEGORY_NAME_TO_INFO = new Map<string, AutomationCategoryType>();
 AUTOMATION_CATEGORIES.forEach((category) => AUTOMATION_CATEGORY_NAME_TO_INFO.set(category.name, category));
+
+/* Shared config map */
+export const commonFieldsMapping = {
+    name: 'name',
+    description: 'description',
+    category: 'category',
+    executorId: 'executorId',
+};

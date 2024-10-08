@@ -6,7 +6,7 @@
 */
 
 import AcrylLogo from '@images/acryl-logo.svg';
-import { AutomationTypes } from '@app/automations/constants';
+import { AutomationTypes, commonFieldsMapping } from '@app/automations/constants';
 import { getField } from '@app/automations/fields';
 
 // Common unique ID for the action
@@ -24,9 +24,7 @@ export type ConfigFields = typeof defaultConfig;
 // Mapping between the UI state values and the recipe config structure
 // This is used to enable dynamic updates to the recipe based on custom UI state structures
 export const configMap: Record<string, string> = {
-    name: 'name',
-    description: 'description',
-    category: 'category',
+    ...commonFieldsMapping,
 };
 
 // Recipe that's sent in JSON format to the integration service to create or update an automation
@@ -34,6 +32,7 @@ export const configMap: Record<string, string> = {
 export const integrationRecipe = {
     name: 'Column Documentation Propagation',
     description: 'Propagate descriptions to downstream columns automatically',
+    executorId: 'default',
     action: {
         type: actionType,
         config: defaultConfig as ConfigFields,
@@ -43,7 +42,19 @@ export const integrationRecipe = {
 // Define UI fields for the create & edit forms
 // See implementation docs for field definitions in @app/automations/fields/index
 // Pro tip: `getField` allows overriding default component variables
-const fields = [getField('details')];
+const fields = [
+    getField('details', {
+        fields: [
+            {
+                state: {
+                    name: integrationRecipe.name,
+                    description: integrationRecipe.description,
+                    executorId: integrationRecipe.executorId,
+                },
+            },
+        ],
+    }),
+];
 
 // Template for rendering all the things needed in the UI for creating/editing
 // an automation based off a templated recipe system

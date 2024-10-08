@@ -7,7 +7,7 @@
 
 import SnowflakeLogo from '@images/snowflakelogo.png';
 import { EntityType } from '@src/types.generated';
-import { AutomationTypes } from '@app/automations/constants';
+import { AutomationTypes, commonFieldsMapping } from '@app/automations/constants';
 import { getField } from '@app/automations/fields';
 
 // Common unique ID for the action
@@ -43,9 +43,7 @@ export type ConfigFields = typeof defaultConfig;
 // Mapping between the UI state values and the recipe config structure
 // This is used to enable dynamic updates to the recipe based on custom UI state structures
 export const configMap: Record<string, string> = {
-    name: 'name',
-    description: 'description',
-    category: 'category',
+    ...commonFieldsMapping,
     termsEnabled: 'action.config.term_propagation.enabled',
     tagsEnabled: 'action.config.tag_propagation.enabled',
     terms: 'action.config.term_propagation.target_terms',
@@ -64,6 +62,7 @@ export const configMap: Record<string, string> = {
 export const integrationRecipe = {
     name: 'Snowflake Tag Propagation',
     description: 'Sync Tags and Glossary Terms to Snowflake Table and Column Tags',
+    executorId: 'default',
     filter: {
         event_type: 'EntityChangeEvent_v1',
     },
@@ -95,7 +94,17 @@ const fields = [
         ],
     }),
     getField('select_connection'),
-    getField('details'),
+    getField('details', {
+        fields: [
+            {
+                state: {
+                    name: integrationRecipe.name,
+                    description: integrationRecipe.description,
+                    executorId: integrationRecipe.executorId,
+                },
+            },
+        ],
+    }),
 ];
 
 // Template for rendering all the things needed in the UI for creating/editing

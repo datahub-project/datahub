@@ -58,8 +58,12 @@ source:
   config:
     consumer_id: {{ action_urn }}
     topic: PlatformEvent_v1
+    {% if lookback_days is not none %}
     lookback_days: {{ lookback_days }}
+    {% endif %}
+    {% if force_full_refresh is not none %}
     force_full_refresh: {{ force_full_refresh }}
+    {% endif %}
 
 action:
   {{ action_spec | to_yaml | indent(2) }}

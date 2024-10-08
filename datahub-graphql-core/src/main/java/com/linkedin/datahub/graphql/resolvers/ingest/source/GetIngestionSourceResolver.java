@@ -48,7 +48,10 @@ public class GetIngestionSourceResolver implements DataFetcher<CompletableFuture
                       Constants.INGESTION_SOURCE_ENTITY_NAME,
                       new HashSet<>(ImmutableSet.of(urn)),
                       ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME));
-              if (!entities.containsKey(urn)) {
+              if (!entities.containsKey(urn)
+                  || entities.get(urn) == null
+                  || !entities.get(urn).hasAspects()
+                  || entities.get(urn).getAspects().isEmpty()) {
                 // No ingestion source found
                 throw new DataHubGraphQLException(
                     String.format("Failed to find Ingestion Source with urn %s", urn),

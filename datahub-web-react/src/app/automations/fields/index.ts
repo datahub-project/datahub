@@ -264,6 +264,13 @@ const details = {
                     isHidden: false, // ability to hide the category field
                     isRequired: true,
                 },
+                executor: {
+                    label: 'Executor ID',
+                    tooltip: 'Optional Remote Executor ID',
+                    placeholder: 'default',
+                    isHidden: false,
+                    isRequired: false,
+                },
             },
 
             // State mapping to connect form data to the component's state
@@ -272,6 +279,7 @@ const details = {
                 name: '',
                 description: '',
                 category: DEFAULT_AUTOMATION_CATEGORY,
+                executorId: 'default',
             } as DetailsStateType,
         },
     ],

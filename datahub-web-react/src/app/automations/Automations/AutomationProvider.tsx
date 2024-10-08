@@ -117,6 +117,7 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
         // Remove description & category
         delete r.description;
         delete r.category;
+        delete r.executorId;
         return r;
     };
 
@@ -133,7 +134,7 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
                     config: {
                         recipe: JSON.stringify(cleanRecipe(recipe)),
                         version: undefined,
-                        executorId: 'default',
+                        executorId: formData.executorId || recipe?.executorId || 'default',
                         debugMode: false,
                     },
                 },
@@ -157,7 +158,7 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
                     config: {
                         recipe: JSON.stringify(cleanRecipe(recipe)),
                         version: undefined,
-                        executorId: 'default',
+                        executorId: formData.executorId || 'default',
                         debugMode: false,
                     },
                 },

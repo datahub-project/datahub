@@ -30,6 +30,7 @@ from datahub_integrations.actions.actions_manager import (
     LiveActionSpec,
     NoSuchPipeline,
 )
+from datahub_integrations.actions.constants import DEFAULT_EXECUTOR_ID
 from datahub_integrations.actions.reporter import ActionStatsReporter
 from datahub_integrations.actions.stats_util import Stage
 from datahub_integrations.app import DATAHUB_SERVER, graph
@@ -143,15 +144,18 @@ async def start_or_restart_action(
 
     try:
         recipe = get_config_from_details(action_urn, action_details)
+        executor_id = get_executor_id_from_details(action_details)
 
         logger.debug(f"Starting action {action_urn} with recipe: {recipe}")
-        await pipeline_manager.start_pipeline(action_urn, recipe)
+        await pipeline_manager.start_pipeline(action_urn, recipe, executor_id)
     except Exception as e:
         if throw:
             logger.error(f"Failed to register action {action_urn}: {e}")
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
         else:
-            pipeline_manager.report_dead_pipeline(action_urn, action_details, e)
+            pipeline_manager.report_dead_pipeline(
+                action_urn, action_details, executor_id, e
+            )
 
 
 def get_config_from_details(action_urn: str, action_details: dict) -> dict:
@@ -183,6 +187,10 @@ def get_config_from_details(action_urn: str, action_details: dict) -> dict:
     }
 
     return recipe
+
+
+def get_executor_id_from_details(action_details: dict) -> str:
+    return action_details.get("config", {}).get("executorId", DEFAULT_EXECUTOR_ID)
 
 
 async def _get_action_details(action_urn: str) -> dict:
@@ -256,9 +264,12 @@ async def rollback_action(action_urn: str) -> str:
                 status.HTTP_404_NOT_FOUND, f"Action {action_urn} not found."
             )
         config = get_config_from_details(action_urn, updated_details)
+        executor_id = get_executor_id_from_details(updated_details)
 
     try:
-        await pipeline_manager.rollback_pipeline(action_urn, config=config)
+        await pipeline_manager.rollback_pipeline(
+            action_urn, config=config, executor_id=executor_id
+        )
         return "OK"
     except Exception as e:
         logger.exception(f"Failed to rollback action {action_urn}: {e}")
@@ -311,9 +322,12 @@ async def bootstrap_action(action_urn: str) -> str:
     except NoSuchPipeline:
         updated_details = await _get_action_details(action_urn)
         config = get_config_from_details(action_urn, updated_details)
+        executor_id = get_executor_id_from_details(updated_details)
 
     try:
-        await pipeline_manager.bootstrap_pipeline(action_urn, config=config)
+        await pipeline_manager.bootstrap_pipeline(
+            action_urn, config=config, executor_id=executor_id
+        )
         return "OK"
     except Exception as e:
         logger.exception(f"Failed to bootstrap action {action_urn}: {e}")

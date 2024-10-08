@@ -1,18 +1,27 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Input } from 'antd';
+import { Info } from 'phosphor-react';
+import { Input, Tooltip, Collapse } from 'antd';
 
 import type { ComponentBaseProps } from '@app/automations/types';
 
 import { CategorySelector } from '../CategorySelector';
 
+const { Panel } = Collapse;
+
 const Container = styled.div`
     display: grid;
-    gap: 8px;
+    gap: 12px;
 
     & span {
         padding-left: 4px;
     }
+`;
+
+const StyledLabel = styled.label`
+    display: flex !important;
+    align-items: center;
+    gap: 4px;
 `;
 
 // State Type (ensures the state is correctly applied across templates)
@@ -20,20 +29,20 @@ export type DetailsStateType = {
     name?: string;
     description?: string;
     category?: string;
+    executorId?: string;
 };
 
 // Component
 export const Details = ({ state, props, passStateToParent }: ComponentBaseProps) => {
     // Defined in @app/automations/fields/index
-    const { name: nameProps, description: descriptionProps, category: categoryProps } = props;
+    const { name: nameProps, description: descriptionProps, category: categoryProps, executor } = props;
 
     // Defined in @app/automations/fields/index
-    const { name, description, category } = state as DetailsStateType;
+    const { name, description, category, executorId } = state as DetailsStateType;
 
     // Handle passing state to parent
     const handleChange = (key: string, value: string) => {
-        const newState = { name, description, category, [key]: value };
-        passStateToParent(newState);
+        passStateToParent({ ...state, [key]: value });
     };
 
     return (
@@ -77,6 +86,26 @@ export const Details = ({ state, props, passStateToParent }: ComponentBaseProps)
                     />
                 </div>
             )}
+            <Collapse collapsible="icon">
+                <Panel header="Advanced" key="details-advanced">
+                    <div>
+                        <StyledLabel htmlFor="executorId">
+                            {executor.label}
+                            <Tooltip title={executor.tooltip}>
+                                <Info />
+                            </Tooltip>
+                        </StyledLabel>
+                        <Input
+                            type="text"
+                            name="executorId"
+                            value={executorId}
+                            placeholder={executor.placeholder}
+                            onChange={(e) => handleChange('executorId', e.target.value)}
+                            required={false}
+                        />
+                    </div>
+                </Panel>
+            </Collapse>
         </Container>
     );
 };

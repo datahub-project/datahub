@@ -54,6 +54,7 @@ class ActionStatus(Enum):
 class ActionRun:
     urn: str
     unresolved_config: dict
+    executor_id: str
 
     logs: LogHolder
 
@@ -118,7 +119,7 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
         await self.stop_all()
         return await self.context_stack.__aexit__(exc_type, exc_value, traceback)
 
-    async def start_pipeline(self, urn: str, config: dict) -> None:
+    async def start_pipeline(self, urn: str, config: dict, executor_id: str) -> None:
         async with self.pipelines_lock[urn]:
             if urn in self.pipelines:
                 raise InvalidPipelineCommand(f"Pipeline {urn} is already running.")
@@ -126,9 +127,7 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
             # TODO: Also write the logs to a file.
             logs = LogHolder(echo_to_stdout_prefix=f"{urn}: ")
             action_run = ActionRun(
-                urn=urn,
-                unresolved_config=config,
-                logs=logs,
+                urn=urn, unresolved_config=config, logs=logs, executor_id=executor_id
             )
 
             runner = SubprocessRunner(logs)
@@ -179,6 +178,10 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
                         str(_config_file),
                         "--port",
                         str(action_spec.port),
+                        "--action_urn",
+                        action_spec.action_run.urn,
+                        "--executor_id",
+                        action_spec.action_run.executor_id,
                     ],
                     env={
                         **os.environ,
@@ -233,7 +236,9 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
     def _is_currently_executing_stage(self, urn: str, stage: Stage) -> bool:
         return urn in self.job_pipelines[stage]
 
-    async def rollback_pipeline(self, urn: str, config: Optional[dict] = None) -> None:
+    async def rollback_pipeline(
+        self, urn: str, executor_id: str, config: Optional[dict] = None
+    ) -> None:
         # Check if the pipeline is currently executing the ROLLBACK stage
         if self._is_currently_executing_stage(urn, Stage.ROLLBACK):
             raise InvalidPipelineCommand(
@@ -241,10 +246,16 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
             )
 
         await self._run_action_pipeline_task(
-            urn, Stage.ROLLBACK, config, cancel_stages=[Stage.LIVE, Stage.BOOTSTRAP]
+            urn,
+            Stage.ROLLBACK,
+            executor_id,
+            config,
+            cancel_stages=[Stage.LIVE, Stage.BOOTSTRAP],
         )
 
-    async def bootstrap_pipeline(self, urn: str, config: Optional[dict] = None) -> None:
+    async def bootstrap_pipeline(
+        self, urn: str, executor_id: str, config: Optional[dict] = None
+    ) -> None:
         # # Check if the pipeline is currently executing the BOOTSTRAP stage
         if self._is_currently_executing_stage(urn, Stage.BOOTSTRAP):
             raise InvalidPipelineCommand(
@@ -252,13 +263,14 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
             )
 
         await self._run_action_pipeline_task(
-            urn, Stage.BOOTSTRAP, config, cancel_stages=[Stage.ROLLBACK]
+            urn, Stage.BOOTSTRAP, executor_id, config, cancel_stages=[Stage.ROLLBACK]
         )
 
     async def _run_action_pipeline_task(
         self,
         urn: str,
         stage: Stage,
+        executor_id: str,
         config: Optional[dict] = None,
         cancel_stages: List[Stage] = [],
     ) -> None:
@@ -288,9 +300,7 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
         # TODO: Also write the logs to a file.
         logs = LogHolder(echo_to_stdout_prefix=f"{urn}: ")
         action_run = ActionRun(
-            urn=urn,
-            unresolved_config=config,
-            logs=logs,
+            urn=urn, unresolved_config=config, logs=logs, executor_id=executor_id
         )
 
         runner = SubprocessRunner(logs)
@@ -432,7 +442,9 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
                 except psutil.TimeoutExpired:
                     process.kill()
 
-    def report_dead_pipeline(self, urn: str, config: dict, exc: Exception) -> None:
+    def report_dead_pipeline(
+        self, urn: str, config: dict, executor_id: str, exc: Exception
+    ) -> None:
         logs = LogHolder(echo_to_stdout_prefix=f"{urn}: ")
         logs.append("".join(traceback.format_exception(exc)))
 
@@ -440,5 +452,6 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
             urn=urn,
             unresolved_config=config,
             logs=logs,
+            executor_id=executor_id,
         )
         self.dead_pipelines[urn] = action_run

@@ -89,7 +89,6 @@ type ActionPipeline implements Entity {
   Experimental: This field may change or be removed in the future without notice.
   """
   status: String
-
 }
 
 type ActionPipelineDetails {
@@ -122,7 +121,6 @@ type ActionPipelineDetails {
   The intended state of the action pipeline
   """
   state: ActionPipelineState
-
 }
 
 enum ActionPipelineState {
@@ -162,7 +160,7 @@ type ActionConfig {
   """
   Advanced: The specific executor that should handle the execution request. Defaults to 'default'.
   """
-  executorId: String!
+  executorId: String
 
   """
   Advanced: The version of the action framework to use
@@ -243,7 +241,7 @@ input UpdateActionPipelineConfigInput {
   """
   The id of the executor to use for executing the recipe
   """
-  executorId: String!
+  executorId: String
 
   """
   Whether or not to run actions in debug mode

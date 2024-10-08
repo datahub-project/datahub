@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.action;
 
+import static com.linkedin.metadata.Constants.DEFAULT_EXECUTOR_ID;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.action.DataHubActionInfo;
 import com.linkedin.common.urn.Urn;
@@ -120,7 +122,11 @@ public class ActionPipelineType
     ActionConfig config = new ActionConfig();
     config.setDebugMode(false);
     config.setRecipe(actionInfo.getConfig().getRecipe());
-    config.setExecutorId("default");
+    if (actionInfo.hasConfig() && actionInfo.getConfig().hasExecutorId()) {
+      config.setExecutorId(actionInfo.getConfig().getExecutorId());
+    } else {
+      config.setExecutorId(DEFAULT_EXECUTOR_ID);
+    }
     result.setConfig(config);
     switch (actionInfo.getState()) {
       case ACTIVE:

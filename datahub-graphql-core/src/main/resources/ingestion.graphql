@@ -553,6 +553,32 @@ input UpdateIngestionSourceInput {
   A set of type-specific ingestion source configurations
   """
   config: UpdateIngestionSourceConfigInput!
+
+  """
+  Optional information about the origin of the ingestion
+  """
+  source: UpdateIngestionSourceSourceInput
+}
+
+"""
+Information about the origin of an ingestion source. Currently only used for provisioning system ingestion sources.
+"""
+input UpdateIngestionSourceSourceInput {
+  """
+  The type of the source
+  """
+  type: IngestionSourceSourceType
+}
+
+enum IngestionSourceSourceType {
+  """
+  The source is a "system" ingestion source, hidden from the normal UI experience
+  """
+  SYSTEM
+  """
+  A DataHub User defined the source
+  """
+  MANUAL
 }
 
 """

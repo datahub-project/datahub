@@ -7,7 +7,12 @@
 
 import AcrylLogo from '@images/acryl-logo.svg';
 import { EntityType } from '@src/types.generated';
-import { AutomationTypes, DEFAULT_APPLY_TYPE, DEFAULT_CARDINALITY } from '@app/automations/constants';
+import {
+    AutomationTypes,
+    commonFieldsMapping,
+    DEFAULT_APPLY_TYPE,
+    DEFAULT_CARDINALITY,
+} from '@app/automations/constants';
 import { getField } from '@app/automations/fields';
 
 // Common unique ID for the action
@@ -33,9 +38,7 @@ export type ConfigFields = typeof defaultConfig;
 // Mapping between the UI state values and the recipe config structure
 // This is used to enable dynamic updates to the recipe based on custom UI state structures
 export const configMap: Record<string, string> = {
-    name: 'name',
-    description: 'description',
-    category: 'category',
+    ...commonFieldsMapping,
     entities: 'action.config.entity_types_enabled',
     terms: 'action.config.glossary_term_urns',
     nodes: 'action.config.glossary_node_urns',
@@ -49,6 +52,8 @@ export const configMap: Record<string, string> = {
 // This structure has to match what's expected in the action recipe
 export const integrationRecipe = {
     name: 'Glossary Term AI',
+    description: 'Add or propose Glossary Terms to assets and columns using AI',
+    executorId: 'default',
     action: {
         type: actionType,
         config: defaultConfig as ConfigFields,
@@ -120,7 +125,17 @@ const fields = [
             },
         ],
     }),
-    getField('details'),
+    getField('details', {
+        fields: [
+            {
+                state: {
+                    name: integrationRecipe.name,
+                    description: integrationRecipe.description,
+                    executorId: integrationRecipe.executorId,
+                },
+            },
+        ],
+    }),
 ];
 
 // Template for rendering all the things needed in the UI for creating/editing
@@ -129,8 +144,8 @@ export const template = {
     key: actionType,
     platform: 'acryl',
     type: AutomationTypes.ACTION,
-    name: 'AI Glossary Term Suggestions',
-    description: 'Add or propose Glossary Terms to assets and columns using AI',
+    name: integrationRecipe.name,
+    description: integrationRecipe.description,
     logo: AcrylLogo,
     baseRecipe: integrationRecipe,
     isDisabled: false,

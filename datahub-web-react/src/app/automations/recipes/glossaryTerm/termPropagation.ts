@@ -7,7 +7,7 @@
 
 import AcrylLogo from '@images/acryl-logo.svg';
 import { EntityType } from '@src/types.generated';
-import { AutomationTypes } from '@app/automations/constants';
+import { AutomationTypes, commonFieldsMapping } from '@app/automations/constants';
 import { getField } from '@app/automations/fields';
 
 // Common unique ID for the action
@@ -29,9 +29,7 @@ export type ConfigFields = typeof defaultConfig;
 // Mapping between the UI state values and the recipe config structure
 // This is used to enable dynamic updates to the recipe based on custom UI state structures
 export const configMap: Record<string, string> = {
-    name: 'name',
-    description: 'description',
-    category: 'category',
+    ...commonFieldsMapping,
     termsEnabled: 'action.config.enabled',
     terms: 'action.config.target_terms',
     nodes: 'action.config.term_groups',
@@ -42,6 +40,7 @@ export const configMap: Record<string, string> = {
 export const integrationRecipe = {
     name: 'Glossary Term Propagation',
     description: 'Propagate Glossary Terms to downstream assets and columns automatically (datasets only)',
+    executorId: 'default',
     action: {
         type: actionType,
         config: defaultConfig as ConfigFields,
@@ -68,7 +67,17 @@ const fields = [
             },
         ],
     }),
-    getField('details'),
+    getField('details', {
+        fields: [
+            {
+                state: {
+                    name: integrationRecipe.name,
+                    description: integrationRecipe.description,
+                    executorId: integrationRecipe.executorId,
+                },
+            },
+        ],
+    }),
 ];
 
 // Template for rendering all the things needed in the UI for creating/editing

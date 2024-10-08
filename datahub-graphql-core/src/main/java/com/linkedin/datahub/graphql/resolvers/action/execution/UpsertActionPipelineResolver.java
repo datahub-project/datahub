@@ -80,7 +80,9 @@ public class UpsertActionPipelineResolver implements DataFetcher<CompletableFutu
               actionInfo.setCategory(input.getCategory(), SetMode.IGNORE_NULL);
               actionInfo.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
               actionInfo.setConfig(
-                  new DataHubActionConfig().setRecipe(input.getConfig().getRecipe()));
+                  new DataHubActionConfig()
+                      .setRecipe(input.getConfig().getRecipe())
+                      .setExecutorId(input.getConfig().getExecutorId()));
               log.info("Action Info aspect = {}", actionInfo);
 
               final MetadataChangeProposal proposal =

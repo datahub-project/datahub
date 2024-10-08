@@ -38,9 +38,14 @@ record DataHubActionInfo {
   */
   config: record DataHubActionConfig {
     /**
-     * The JSON recipe to use for ingestion
+     * The JSON recipe to use for the automation
      */
      recipe: string
+
+     /**
+      * The id of the executor to use to execute the automation. Defaults to 'default' (runs locally)
+      */
+     executorId: optional string
   }
 
   /**
