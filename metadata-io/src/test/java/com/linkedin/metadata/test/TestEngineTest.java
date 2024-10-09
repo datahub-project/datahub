@@ -19,9 +19,11 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.definition.TestDefinitionParser;
+import com.linkedin.metadata.test.definition.ValidationResult;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.exception.SelectionTooLargeException;
 import com.linkedin.metadata.test.query.QueryEngine;
+import com.linkedin.metadata.test.query.TestQuery;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
@@ -286,6 +288,8 @@ public class TestEngineTest {
         .thenReturn(new TestFetcher.TestFetchResult(withTests, withTests.size()));
     when(mockTestFetcher.fetchOne(any(), any()))
         .thenReturn(new TestFetcher.TestFetchResult(withTests, withTests.size()));
+    when(mockQueryEngine.validateQuery(any(TestQuery.class), anyList()))
+        .thenReturn(ValidationResult.validResult());
 
     final EntityRegistry entityRegistry =
         new ConfigEntityRegistry(
