@@ -14,7 +14,7 @@ with DAG(
     task1 = BashOperator(
         task_id="dag_to_skip_task_1",
         dag=dag,
-        bash_command="echo 'task_dag_to_filter_from_ingestion_task_1'",
+        bash_command="echo 'dag_to_skip_task_1'",
         inlets=[
             Dataset(platform="snowflake", name="mydb.schema.tableA"),
             Urn(
@@ -28,7 +28,7 @@ with DAG(
     task2 = BashOperator(
         task_id="dag_to_skip_task_2",
         dag=dag,
-        bash_command="echo 'task_dag_to_filter_from_ingestion_task_2'",
+        bash_command="echo 'dag_to_skip_task_2'",
     )
 
     task1 >> task2

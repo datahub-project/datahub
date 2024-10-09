@@ -279,7 +279,7 @@ class DagTestCase:
 test_cases = [
     DagTestCase("simple_dag"),
     DagTestCase("basic_iolets"),
-    DagTestCase("dag_to_filter_from_ingestion", v2_only=True),
+    DagTestCase("dag_to_skip", v2_only=True),
     DagTestCase("snowflake_operator", success=False, v2_only=True),
     DagTestCase("sqlite_operator", v2_only=True),
     DagTestCase("custom_operator_dag", v2_only=True),
