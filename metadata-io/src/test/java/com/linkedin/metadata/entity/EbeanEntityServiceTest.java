@@ -617,7 +617,7 @@ public class EbeanEntityServiceTest
     writeThreads.forEach(
         thread -> {
           try {
-            thread.join(100000);
+            thread.join(0);
           } catch (InterruptedException e) {
             throw new RuntimeException(e);
           }
