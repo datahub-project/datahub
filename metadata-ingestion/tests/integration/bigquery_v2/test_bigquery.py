@@ -54,6 +54,7 @@ def recipe(mcp_output_path: str, source_config_override: dict = {}) -> dict:
                 "include_usage_statistics": False,
                 "include_table_lineage": True,
                 "include_data_platform_instance": True,
+                "capture_table_label_as_tag": True,
                 "classification": ClassificationConfig(
                     enabled=True,
                     classifiers=[
@@ -155,6 +156,10 @@ def test_bigquery_v2_ingest(
         last_altered=None,
         size_in_bytes=None,
         rows_count=None,
+        labels={
+            "priority": "high",
+            "purchase": "urn_li_encoded_tag_ovzg4otmne5hiylhhjyhk4tdnbqxgzi_",
+        },
     )
     get_tables_for_dataset.return_value = iter([bigquery_table])
     snapshot_table = BigqueryTableSnapshot(

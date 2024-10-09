@@ -267,7 +267,7 @@ class BigQuerySchemaGenerator:
         tags_joined: Optional[List[str]] = None
         if tags and self.config.capture_dataset_label_as_tag:
             tags_joined = [
-                f"{k}:{v}"
+                self.make_tag_from_label(k, v)
                 for k, v in tags.items()
                 if is_tag_allowed(self.config.capture_dataset_label_as_tag, k)
             ]
@@ -676,6 +676,11 @@ class BigQuerySchemaGenerator:
             dataset_name=dataset_name,
         )
 
+    def make_tag_from_label(self, key: str, value: str) -> str:
+        if not value.startswith(ENCODED_TAG_PREFIX):
+            return make_tag_urn(f"""{key}:{value}""")
+        return self.modified_base32decode(value)
+
     def gen_table_dataset_workunits(
         self,
         table: BigqueryTable,
@@ -721,9 +726,7 @@ class BigQuerySchemaGenerator:
             tags_to_add = []
             tags_to_add.extend(
                 [
-                    make_tag_urn(f"""{k}:{v}""")
-                    if not v.startswith(ENCODED_TAG_PREFIX)
-                    else self.modified_base32decode(v)
+                    self.make_tag_from_label(k, v)
                     for k, v in table.labels.items()
                     if is_tag_allowed(self.config.capture_table_label_as_tag, k)
                 ]
@@ -749,9 +752,7 @@ class BigQuerySchemaGenerator:
         tags_to_add = None
         if table.labels and self.config.capture_view_label_as_tag:
             tags_to_add = [
-                make_tag_urn(f"""{k}:{v}""")
-                if not v.startswith(ENCODED_TAG_PREFIX)
-                else self.modified_base32decode(v)
+                self.make_tag_from_label(k, v)
                 for k, v in table.labels.items()
                 if is_tag_allowed(self.config.capture_view_label_as_tag, k)
             ]
