@@ -4,11 +4,13 @@ import slackLogo from '../../../images/slacklogo.png';
 import acrylLogo from '../../../images/acryl-dark-mark.svg';
 // import teamsLogo from '../../../images/teamslogo.png';
 import snowflakeLogo from '../../../images/snowflakelogo.png';
+import bigqueryLogo from '../../../images/bigquerylogo.png';
 import { NotificationScenarioType, NotificationSettingValue, NotificationSinkType } from '../../../types.generated';
 import { SlackIntegration } from './slack/SlackIntegration';
 import { OidcIntegration } from './sso/OidcIntegration';
 import AcrylInstances from './acryl/AcrylInstances';
-import { SnowflakeIntegration } from './snowflake/SnowflakeIntegration';
+import { SnowflakeIntegration } from './integrations/SnowflakeIntegration';
+import { BigQueryIntegration } from './integrations/BigQueryIntegration';
 // import { TeamsIntegration } from './teams/TeamsIntegration';
 
 /**
@@ -69,11 +71,20 @@ const SNOWFLAKE_INTEGRATION = {
     content: <SnowflakeIntegration />,
 };
 
+const BIGQUERY_INTEGRATION = {
+    id: 'bigquery',
+    name: 'BigQuery',
+    img: bigqueryLogo,
+    description: 'Manage BigQuery connections for automations',
+    content: <BigQueryIntegration />,
+};
+
 export const SUPPORTED_INTEGRATIONS = [
     SLACK_INTEGRATION,
     // TEAMS_INTEGRATION, -- Uncheck when backend is complete.
     ACRYL_INSTANCE_INTEGRATION,
     SNOWFLAKE_INTEGRATION,
+    BIGQUERY_INTEGRATION,
 ];
 
 /**

@@ -1,4 +1,4 @@
-import { colors, Icon } from '@src/alchemy-components';
+import { colors, Icon, Text } from '@src/alchemy-components';
 import { MenuItem } from '@src/app/govern/structuredProperties/styledComponents';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
@@ -98,7 +98,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch 
                         setShowConfirmRemove(true);
                     }}
                 >
-                    Remove
+                    <Text color="red"> Remove </Text>
                 </MenuItem>
             ),
         },

@@ -1,5 +1,5 @@
 import { colors, Icon, typography } from '@src/alchemy-components';
-import { Collapse, Divider, Drawer, Input, Modal, Spin, Typography } from 'antd';
+import { Collapse, Divider, Drawer, Input, Modal, Select, Spin, Typography } from 'antd';
 import styled from 'styled-components';
 
 export const PageContainer = styled.div`
@@ -163,6 +163,8 @@ export const InputLabel = styled.div`
     font-size: 14px;
     font-weight: 500;
     color: ${colors.gray[600]};
+    display: flex;
+    gap: 2px;
 `;
 
 export const FlexContainer = styled.div`
@@ -316,4 +318,55 @@ export const VerticalDivider = styled(Divider)`
     color: ${colors.gray[1400]};
     height: 20px;
     width: 2px;
+`;
+
+export const StyledSelect = styled(Select)`
+    font-family: ${typography.fonts.body};
+
+    .ant-select-selector {
+        height: 50px !important;
+        border-radius: 8px !important;
+
+        &:hover,
+        &:focus-within {
+            border: 3px solid ${colors.violet[200]} !important;
+            box-shadow: none !important;
+        }
+    }
+
+    .ant-select-selection-item {
+        p {
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+    }
+
+    .ant-select-selection-placeholder {
+        display: flex;
+        align-items: center;
+        font-size: 14px;
+        color: ${colors.gray[400]};
+    }
+`;
+
+export const CustomDropdown = styled.div`
+    .ant-select-item-option-content {
+        white-space: normal;
+    }
+`;
+
+export const SelectOptionContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0;
+
+    p {
+        line-height: 20px;
+    }
+`;
+
+export const StyledDivider = styled(Divider)`
+    color: ${colors.gray[1400]};
+    margin: 16px 0;
 `;

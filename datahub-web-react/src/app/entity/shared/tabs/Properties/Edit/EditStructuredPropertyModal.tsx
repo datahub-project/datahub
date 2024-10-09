@@ -86,7 +86,7 @@ export default function EditStructuredPropertyModal({
 
     return (
         <Modal
-            title={structuredProperty?.definition.displayName}
+            title={`${isAddMode ? 'Add property' : 'Edit property'} ${structuredProperty?.definition.displayName}`}
             onCancel={closeModal}
             open={isOpen}
             width={650}

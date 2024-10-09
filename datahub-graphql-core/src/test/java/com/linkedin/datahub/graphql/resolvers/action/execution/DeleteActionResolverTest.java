@@ -8,10 +8,11 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.integration.IntegrationsService;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletableFuture;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -27,6 +28,8 @@ public class DeleteActionResolverTest {
   public void setUp() {
     mockClient = Mockito.mock(EntityClient.class);
     IntegrationsService integrationsService = Mockito.mock(IntegrationsService.class);
+    Mockito.when(integrationsService.stopAction(TEST_URN))
+        .thenReturn(CompletableFuture.completedFuture(null));
     resolver = new DeleteActionPipelineResolver(mockClient, integrationsService);
   }
 
@@ -52,7 +55,7 @@ public class DeleteActionResolverTest {
     QueryContext mockContext = getMockDenyContext();
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    assertThrows(AuthorizationException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(any(), Mockito.any());
   }
 }

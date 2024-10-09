@@ -281,13 +281,7 @@ public class AggregationQueryBuilder {
             .setFilterValues(
                 new FilterValueArray(
                     SearchUtil.convertToFilters(oneTermAggResult, Collections.emptySet())));
-    if (aggregationMetadata.getName().startsWith(STRUCTURED_PROPERTIES_PREFIX)) {
-      aggregationMetadata.setEntity(
-          UrnUtils.getUrn(
-              String.format(
-                  "urn:li:structuredProperty:%s",
-                  aggregationMetadata.getName().replaceFirst(STRUCTURED_PROPERTIES_PREFIX, ""))));
-    }
+    updateAggregationEntity(aggregationMetadata);
     aggregationMetadataList.add(aggregationMetadata);
   }
 
@@ -511,11 +505,27 @@ public class AggregationQueryBuilder {
       @Nonnull final String displayName,
       @Nonnull final LongMap aggValues,
       @Nonnull final FilterValueArray filterValues) {
-    return new AggregationMetadata()
-        .setName(facetField)
-        .setDisplayName(displayName)
-        .setAggregations(aggValues)
-        .setFilterValues(filterValues);
+    AggregationMetadata aggregationMetadata =
+        new AggregationMetadata()
+            .setName(facetField)
+            .setDisplayName(displayName)
+            .setAggregations(aggValues)
+            .setFilterValues(filterValues);
+    updateAggregationEntity(aggregationMetadata);
+    return aggregationMetadata;
+  }
+
+  private void updateAggregationEntity(@Nonnull final AggregationMetadata aggregationMetadata) {
+    if (aggregationMetadata.getName().startsWith(STRUCTURED_PROPERTIES_PREFIX)) {
+      // sometimes aggregations come back with "_" already replaced back with ".", but not always.
+      String propertyFieldName = aggregationMetadata.getName().replace("_", ".");
+      aggregationMetadata.setName(propertyFieldName);
+      aggregationMetadata.setEntity(
+          UrnUtils.getUrn(
+              String.format(
+                  "urn:li:structuredProperty:%s",
+                  propertyFieldName.replaceFirst(STRUCTURED_PROPERTIES_PREFIX, ""))));
+    }
   }
 
   private List<Pair<String, Pair<String, String>>> getFacetFieldDisplayNameFromAnnotation(

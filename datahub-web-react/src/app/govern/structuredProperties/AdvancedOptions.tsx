@@ -1,8 +1,8 @@
 import { Icon, Input, Text } from '@components';
-import { Checkbox, Collapse, Form, Tooltip } from 'antd';
 import { StructuredPropertyFilterStatus } from '@src/types.generated';
-import styled from 'styled-components';
+import { Checkbox, Collapse, Form, Tooltip } from 'antd';
 import React from 'react';
+import styled from 'styled-components';
 import { CollapseHeader, FlexContainer, InputLabel, StyledCollapse } from './styledComponents';
 import { StructuredProp } from './utils';
 
@@ -58,7 +58,10 @@ const AdvancedOptions = ({ isEditMode, formValues, handleFilterStatusChange }: P
                 <InputLabel>
                     <FlexContainer>
                         Qualified Name
-                        <Tooltip title="Optionally set a dot separated fully qualified name for this property. This name must be unique across structured properties.">
+                        <Tooltip
+                            title="Optionally set a dot separated fully qualified name for this property. This name must be unique across structured properties."
+                            showArrow={false}
+                        >
                             <Icon icon="Info" color="violet" size="lg" />
                         </Tooltip>
                     </FlexContainer>

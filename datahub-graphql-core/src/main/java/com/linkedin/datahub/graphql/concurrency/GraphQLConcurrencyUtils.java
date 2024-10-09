@@ -2,9 +2,11 @@ package com.linkedin.datahub.graphql.concurrency;
 
 import com.codahale.metrics.MetricRegistry;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 public class GraphQLConcurrencyUtils {
   private GraphQLConcurrencyUtils() {}
@@ -31,5 +33,21 @@ public class GraphQLConcurrencyUtils {
       return CompletableFuture.supplyAsync(
           supplier, GraphQLConcurrencyUtils.graphQLExecutorService);
     }
+  }
+
+  /**
+   * Takes in a list of futures and returns a composed future that is dependent on all futures in
+   * the list being done. This allows further composition on the final resulting list of all
+   * completed futures.
+   *
+   * @param futures the list of futures to be composed
+   * @return a composed CompleteableFuture that returns the list of all final results
+   * @param <T> type of results in the list
+   */
+  public static <T> CompletableFuture<List<T>> sequence(List<CompletableFuture<T>> futures) {
+    CompletableFuture<Void> allDone =
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+    return allDone.thenApply(
+        v -> futures.stream().map(future -> future.getNow(null)).collect(Collectors.toList()));
   }
 }

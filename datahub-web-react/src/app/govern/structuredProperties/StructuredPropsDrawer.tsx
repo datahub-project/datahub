@@ -19,7 +19,7 @@ import { useUserContext } from '@src/app/context/useUserContext';
 import { updatePropertiesList } from './cacheUtils';
 import StructuredPropsForm from './StructuredPropsForm';
 import { DrawerHeader, FooterContainer, StyledDrawer, StyledIcon, StyledSpin } from './styledComponents';
-import { getNewAllowedTypes, getNewAllowedValues, getNewEntityTypes, StructuredProp } from './utils';
+import { getNewAllowedTypes, getNewAllowedValues, getNewEntityTypes, StructuredProp, valueTypes } from './utils';
 
 interface Props {
     isDrawerOpen: boolean;
@@ -63,6 +63,7 @@ const StructuredPropsDrawer = ({
         setFormValues(undefined);
         setSelectedValueType('');
         setAllowedValues(undefined);
+        setCardinality(PropertyCardinality.Single);
     };
 
     const handleClose = () => {
@@ -129,6 +130,7 @@ const StructuredPropsDrawer = ({
             form.validateFields().then(() => {
                 const createInput = {
                     ...form.getFieldsValue(),
+                    valueType: valueTypes.find((type) => type.value === form.getFieldValue('valueType'))?.urn,
                     allowedValues,
                     cardinality,
                 };

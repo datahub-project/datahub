@@ -137,6 +137,7 @@ export const LabelsWrapper = styled.div({
     display: 'flex',
     flexWrap: 'wrap',
     gap: spacing.xxsm,
+    maxHeight: '150px',
 });
 
 export const OptionLabel = styled.label<{ isSelected: boolean; isMultiSelect?: boolean; isDisabled?: boolean }>(

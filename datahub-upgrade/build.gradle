@@ -20,6 +20,7 @@ dependencies {
   implementation project(':metadata-service:openapi-servlet:models')
   implementation externalDependency.charle
 
+  implementation externalDependency.mustache
   implementation externalDependency.javaxInject
   implementation(externalDependency.hadoopClient) {
     exclude group: 'net.minidev', module: 'json-smart'
@@ -91,6 +92,7 @@ dependencies {
   testImplementation externalDependency.springBootTest
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
+  testImplementation 'uk.org.webcompere:system-stubs-testng:2.1.7'
   testRuntimeOnly externalDependency.logbackClassic
   testRuntimeOnly externalDependency.janino
 

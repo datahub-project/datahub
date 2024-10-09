@@ -1,3 +1,4 @@
+import { FacetFilterInput } from '@src/types.generated';
 import { CaretDownFilled } from '@ant-design/icons';
 import React from 'react';
 import styled, { CSSProperties } from 'styled-components';
@@ -21,6 +22,7 @@ interface Props {
     filterPredicate: FilterPredicate;
     onChangeValues: (newValues: FilterValue[]) => void;
     labelStyle?: CSSProperties;
+    manuallyUpdateFilters: (newValues: FacetFilterInput[]) => void;
 }
 
 export default function SearchFilterView({
@@ -30,6 +32,7 @@ export default function SearchFilterView({
     filterPredicate,
     onChangeValues,
     labelStyle,
+    manuallyUpdateFilters,
 }: Props) {
     return (
         <ValueSelector
@@ -37,6 +40,7 @@ export default function SearchFilterView({
             values={filterPredicate?.values}
             defaultOptions={filterPredicate?.defaultValueOptions}
             onChangeValues={onChangeValues}
+            manuallyUpdateFilters={manuallyUpdateFilters}
         >
             <SearchFilterLabel
                 $isActive={!!numActiveFilters}

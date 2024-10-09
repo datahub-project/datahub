@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -69,7 +70,8 @@ public class InferDocumentationResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getArgument("urn")).thenReturn(urn.toString());
     when(environment.getArgumentOrDefault("saveResult", false)).thenReturn(false);
-    when(service.inferDocumentation(urn)).thenReturn(suggestedDescription);
+    when(service.inferDocumentation(urn))
+        .thenReturn(CompletableFuture.completedFuture(suggestedDescription));
     when(environment.getContext()).thenReturn(mockContext);
 
     // Execute
@@ -105,7 +107,8 @@ public class InferDocumentationResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getArgument("urn")).thenReturn(urn.toString());
     when(environment.getArgumentOrDefault("saveResult", false)).thenReturn(true);
-    when(service.inferDocumentation(urn)).thenReturn(suggestedDescription);
+    when(service.inferDocumentation(urn))
+        .thenReturn(CompletableFuture.completedFuture(suggestedDescription));
     when(environment.getContext()).thenReturn(mockContext);
 
     // Execute

@@ -1,29 +1,29 @@
-import styled from 'styled-components/macro';
-import * as React from 'react';
 import {
     ApiOutlined,
     BarChartOutlined,
-    InboxOutlined,
     BookOutlined,
+    DatabaseOutlined,
+    DownOutlined,
+    EyeOutlined,
+    FileDoneOutlined,
+    FormOutlined,
+    GlobalOutlined,
+    InboxOutlined,
     SettingOutlined,
     SolutionOutlined,
-    DownOutlined,
-    GlobalOutlined,
-    EyeOutlined,
-    DatabaseOutlined,
-    FormOutlined,
     UnorderedListOutlined,
-    FileDoneOutlined,
 } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
 import { Button, Dropdown, Menu, Tooltip } from 'antd';
-import { useAppConfig, useBusinessAttributesFlag, useIsDocumentationFormsEnabled } from '../../useAppConfig';
+import * as React from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components/macro';
+import { PageRoutes } from '../../../conf/Global';
+import { useUserContext } from '../../context/useUserContext';
+import DomainIcon from '../../domain/DomainIcon';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEducationStepIdsAllowList';
-import { useUserContext } from '../../context/useUserContext';
-import { PageRoutes } from '../../../conf/Global';
-import DomainIcon from '../../domain/DomainIcon';
+import { useAppConfig, useBusinessAttributesFlag, useIsDocumentationFormsEnabled } from '../../useAppConfig';
 import HelpDropdown from './HelpDropdown';
 import { TaskCenterLink } from './TaskCenterLink';
 
@@ -229,9 +229,7 @@ export function HeaderLinks(props: Props) {
                                   <UnorderedListOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
                                   <NavTitleText>Structured Properties</NavTitleText>
                               </NavTitleContainer>
-                              <NavTitleDescription>
-                                  Manage your organization&apos;s structured properties
-                              </NavTitleDescription>
+                              <NavTitleDescription>Manage custom properties for your data assets</NavTitleDescription>
                           </Link>
                       ),
                   },

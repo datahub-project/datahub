@@ -3,7 +3,7 @@ import snowflakeLogo from '../../../../../images/snowflakelogo.png';
 
 const placeholderRecipe = `\
 source:
-    type: snowflake-beta
+    type: snowflake
     config:
         account_id: abcde
         username: "\${SNOWFLAKE_DATAHUB_USER}"

@@ -1,6 +1,7 @@
 /* eslint-disable import/no-cycle */
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
+import { FacetFilterInput } from '@src/types.generated';
 import { FilterField, FilterValue, FilterValueOption } from '../types';
 import ValueMenu from './ValueMenu';
 
@@ -11,14 +12,28 @@ interface Props {
     onChangeValues: (newValues: FilterValue[]) => void;
     children?: any;
     className?: string;
+    manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
 }
 
-export default function ValueSelector({ field, values, defaultOptions, onChangeValues, children, className }: Props) {
+export default function ValueSelector({
+    field,
+    values,
+    defaultOptions,
+    onChangeValues,
+    children,
+    className,
+    manuallyUpdateFilters,
+}: Props) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const onUpdateValues = (newValues: FilterValue[]) => {
         setIsMenuOpen(false);
         onChangeValues(newValues);
+    };
+
+    const onManuallyUpdateFilters = (newValues: FacetFilterInput[]) => {
+        setIsMenuOpen(false);
+        manuallyUpdateFilters?.(newValues);
     };
 
     return (
@@ -36,6 +51,7 @@ export default function ValueSelector({ field, values, defaultOptions, onChangeV
                     visible={isMenuOpen}
                     includeCount
                     className={className}
+                    manuallyUpdateFilters={onManuallyUpdateFilters}
                 />
             )}
         >

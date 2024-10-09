@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle */
 import { CloseOutlined } from '@ant-design/icons';
 import { Button, DatePicker } from 'antd';
-import moment from 'moment/moment';
+import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { SEARCH_COLORS } from '../../entityV2/shared/constants';
@@ -10,7 +10,7 @@ import { operatorRequiresValues } from './operator/operator';
 import { FilterOperatorType, FilterPredicate, FilterValue } from './types';
 import ValueSelector from './value/ValueSelector';
 import ValueName from './value/ValueName';
-import { useFilterDisplayName } from './utils';
+import { getIsDateRangeFilter, useFilterDisplayName } from './utils';
 
 const Values = styled.div`
     border: 1.5px solid transparent;
@@ -81,9 +81,13 @@ export default function SelectedFilter({
     onRemoveFilter,
     isCompact,
 }: SelectedFilterProps) {
+    moment.tz.setDefault('GMT');
     const { field, operator, values, defaultValueOptions } = predicate;
     const showValueSelector = operatorRequiresValues(predicate.operator) || false;
     const displayName = useFilterDisplayName(predicate.field);
+    const isDateRangeFilter = getIsDateRangeFilter(predicate.field);
+
+    const useDatePicker = field.useDatePicker || isDateRangeFilter;
 
     return (
         <Container
@@ -96,17 +100,17 @@ export default function SelectedFilter({
                 {displayName || field.field}
             </FilterName>
             <OperatorSelector predicate={predicate} onChangeOperator={onChangeOperator} />
-            {showValueSelector && field.useDatePicker && (
+            {showValueSelector && useDatePicker && (
                 <DatePicker
                     defaultValue={moment(Number(values[0].value))}
-                    disabledDate={(current) => current > moment().startOf('day')}
+                    disabledDate={isDateRangeFilter ? undefined : (current) => current > moment().startOf('day')}
                     format="ll"
                     showToday={false}
                     allowClear={false}
                     onChange={(v) => onChangeValues(v ? [{ value: v.valueOf().toString(), entity: null }] : [])}
                 />
             )}
-            {showValueSelector && !field.useDatePicker && (
+            {showValueSelector && !useDatePicker && (
                 <ValueSelector
                     field={field}
                     values={values}

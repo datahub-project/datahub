@@ -69,7 +69,9 @@ public class IngestionMetadataTestResultsActionStep implements BootstrapStep {
 
       entityService.ingestProposal(opContext, aspectsBatch, false);
 
-      if (!integrationsService.reloadAction(FORWARDING_ACTION_URN)) {
+      // We force blocking here as this is a part of bootstrap and blocking does not interfere with
+      // usability
+      if (!integrationsService.reloadAction(FORWARDING_ACTION_URN).get()) {
         log.error("Failed to reload action pipeline {}", FORWARDING_ACTION_URN);
       }
     } catch (Exception e) {

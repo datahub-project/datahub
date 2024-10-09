@@ -25,51 +25,59 @@ export type StructuredProp = {
 export const valueTypes = [
     {
         urn: 'urn:li:dataType:datahub.string',
-        label: 'String',
+        label: 'Text',
         value: 'string',
         cardinality: PropertyCardinality.Single,
+        description: 'A string value',
     },
     {
         urn: 'urn:li:dataType:datahub.string',
-        label: 'String - List',
+        label: 'Text - List',
         value: 'stringList',
         cardinality: PropertyCardinality.Multiple,
+        description: 'A list of string values',
     },
     {
         urn: 'urn:li:dataType:datahub.number',
         label: 'Number',
         value: 'number',
         cardinality: PropertyCardinality.Single,
+        description: 'An integer or decimal',
     },
     {
         urn: 'urn:li:dataType:datahub.number',
         label: 'Number - List',
         value: 'numberList',
         cardinality: PropertyCardinality.Multiple,
+        description: 'A list of integers or decimals',
     },
     {
         urn: 'urn:li:dataType:datahub.urn',
-        label: 'Entity',
+        label: 'Asset',
         value: 'entity',
         cardinality: PropertyCardinality.Single,
+        description: 'A reference to a DataHub asset',
     },
     {
         urn: 'urn:li:dataType:datahub.urn',
-        label: 'Entity - List',
+        label: 'Asset - List',
         value: 'entityList',
         cardinality: PropertyCardinality.Multiple,
+        description: 'A reference to a list of DataHub assets',
     },
     {
         urn: 'urn:li:dataType:datahub.rich_text',
         label: 'Rich Text',
         value: 'richText',
         cardinality: PropertyCardinality.Single,
+        description: 'A freeform string of markdown text ',
     },
     {
         urn: 'urn:li:dataType:datahub.date',
         label: 'Date',
         value: 'date',
         cardinality: PropertyCardinality.Single,
+        description: 'A specific date',
     },
 ];
 
@@ -147,12 +155,17 @@ export const getNewAllowedValues = (entity: StructuredPropertyEntity, values: St
 };
 
 export const isEntityTypeSelected = (selectedType: string) => {
-    if (selectedType === 'urn:li:dataType:datahub.urn') return true;
+    if (selectedType === 'entity' || selectedType === 'entityList') return true;
     return false;
 };
 
 export const isStringOrNumberTypeSelected = (selectedType: string) => {
-    if (selectedType === 'urn:li:dataType:datahub.string' || selectedType === 'urn:li:dataType:datahub.number')
+    if (
+        selectedType === 'string' ||
+        selectedType === 'stringList' ||
+        selectedType === 'number' ||
+        selectedType === 'numberList'
+    )
         return true;
     return false;
 };
@@ -160,6 +173,6 @@ export const isStringOrNumberTypeSelected = (selectedType: string) => {
 export type PropValueField = 'stringValue' | 'numberValue';
 
 export const getStringOrNumberValueField = (selectedType: string) => {
-    if (selectedType === 'urn:li:dataType:datahub.number') return 'numberValue' as PropValueField;
+    if (selectedType === 'number' || selectedType === 'numberList') return 'numberValue' as PropValueField;
     return 'stringValue' as PropValueField;
 };

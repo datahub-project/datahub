@@ -10,6 +10,7 @@ import {
     FormContainer,
     InputLabel,
     ModalFooter,
+    StyledDivider,
     StyledModal,
     ValuesContainer,
 } from './styledComponents';
@@ -97,7 +98,12 @@ const AllowedValuesModal = ({
 
                                         return (
                                             <FieldGroupContainer key={field.name}>
-                                                <InputLabel>Value</InputLabel>
+                                                <InputLabel>
+                                                    Value
+                                                    <Text color="red" weight="bold">
+                                                        *
+                                                    </Text>
+                                                </InputLabel>
                                                 <Tooltip
                                                     title={
                                                         isExisting &&
@@ -133,11 +139,15 @@ const AllowedValuesModal = ({
                                                     <TextArea
                                                         label="Description"
                                                         placeholder="Enter description of the value"
+                                                        isDisabled={isExisting}
                                                     />
                                                 </Form.Item>
                                                 {!isExisting && (
                                                     <DeleteIconContainer>
-                                                        <Tooltip title="Remove from the allowed values list">
+                                                        <Tooltip
+                                                            title="Remove from the allowed values list"
+                                                            showArrow={false}
+                                                        >
                                                             <Icon
                                                                 icon="Delete"
                                                                 onClick={() => remove(field.name)}
@@ -147,6 +157,7 @@ const AllowedValuesModal = ({
                                                         </Tooltip>
                                                     </DeleteIconContainer>
                                                 )}
+                                                {index < fields.length - 1 && <StyledDivider />}
                                             </FieldGroupContainer>
                                         );
                                     })}
@@ -154,7 +165,7 @@ const AllowedValuesModal = ({
                             )}
 
                             <AddButtonContainer>
-                                <Tooltip title="Add a new value to the allowed list">
+                                <Tooltip title="Add a new value to the allowed list" showArrow={false}>
                                     <StyledButton
                                         onClick={() => {
                                             add();

@@ -8,6 +8,7 @@ import com.linkedin.action.DataHubActionState;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -38,72 +39,84 @@ public class StartActionPipelineResolver implements DataFetcher<CompletableFutur
   public CompletableFuture<String> get(DataFetchingEnvironment environment) throws Exception {
 
     final QueryContext context = environment.getContext();
+    if (AuthorizationUtils.canManageActionPipelines(context)) {
+      Optional<String> actionPipelineUrnString =
+          Optional.ofNullable(environment.getArgument("urn"));
+      Urn actionPipelineUrn;
+      if (actionPipelineUrnString.isPresent()) {
+        try {
+          actionPipelineUrn = Urn.createFromString(actionPipelineUrnString.get());
+        } catch (URISyntaxException e) {
+          throw new DataHubGraphQLException(
+              String.format("Malformed urn %s provided.", actionPipelineUrnString.get()),
+              DataHubGraphQLErrorCode.BAD_REQUEST);
+        }
+      } else {
+        throw new DataHubGraphQLException(
+            "Action pipeline urn is required for starting.", DataHubGraphQLErrorCode.BAD_REQUEST);
+      }
+      log.info("Action pipeline = {}", actionPipelineUrn);
 
-    return CompletableFuture.supplyAsync(
-        () -> {
-          if (AuthorizationUtils.canManageActionPipelines(context)) {
-            Optional<String> actionPipelineUrnString =
-                Optional.ofNullable(environment.getArgument("urn"));
-            Urn actionPipelineUrn = null;
-            if (actionPipelineUrnString.isPresent()) {
-              try {
-                actionPipelineUrn = Urn.createFromString(actionPipelineUrnString.get());
-              } catch (URISyntaxException e) {
-                throw new DataHubGraphQLException(
-                    String.format("Malformed urn %s provided.", actionPipelineUrnString.get()),
-                    DataHubGraphQLErrorCode.BAD_REQUEST);
-              }
-            } else {
-              throw new DataHubGraphQLException(
-                  "Action pipeline urn is required for starting.",
-                  DataHubGraphQLErrorCode.BAD_REQUEST);
-            }
-            log.info("Action pipeline = {}", actionPipelineUrn);
-            try {
-              Aspect rawAspect =
-                  _entityClient.getLatestAspectObject(
-                      context.getOperationContext(), actionPipelineUrn, "dataHubActionInfo");
-              if (rawAspect == null) {
-                throw new DataHubGraphQLException(
-                    String.format(
-                        "No dataHubActionInfo found for action pipeline %s", actionPipelineUrn),
-                    DataHubGraphQLErrorCode.NOT_FOUND);
-              }
+      return _integrationsService
+          .reloadAction(actionPipelineUrn.toString())
+          .thenCompose(
+              reloaded ->
+                  GraphQLConcurrencyUtils.supplyAsync(
+                      () -> {
+                        try {
+                          Aspect rawAspect =
+                              _entityClient.getLatestAspectObject(
+                                  context.getOperationContext(),
+                                  actionPipelineUrn,
+                                  "dataHubActionInfo");
+                          if (rawAspect == null) {
+                            throw new DataHubGraphQLException(
+                                String.format(
+                                    "No dataHubActionInfo found for action pipeline %s",
+                                    actionPipelineUrn),
+                                DataHubGraphQLErrorCode.NOT_FOUND);
+                          }
 
-              DataHubActionInfo dataHubActionInfo = new DataHubActionInfo(rawAspect.data());
-              dataHubActionInfo.setState(DataHubActionState.ACTIVE);
-              _entityClient.ingestProposal(
-                  context.getOperationContext(),
-                  new MetadataChangeProposal()
-                      .setEntityType("dataHubAction")
-                      .setChangeType(ChangeType.UPSERT)
-                      .setAspect(GenericRecordUtils.serializeAspect(dataHubActionInfo))
-                      .setAspectName("dataHubActionInfo")
-                      .setEntityUrn(actionPipelineUrn),
-                  false);
-            } catch (RemoteInvocationException e) {
-              throw new RuntimeException(e);
-            } catch (URISyntaxException e) {
-              throw new RuntimeException(e);
-            }
+                          DataHubActionInfo dataHubActionInfo =
+                              new DataHubActionInfo(rawAspect.data());
+                          dataHubActionInfo.setState(DataHubActionState.ACTIVE);
+                          _entityClient.ingestProposal(
+                              context.getOperationContext(),
+                              new MetadataChangeProposal()
+                                  .setEntityType("dataHubAction")
+                                  .setChangeType(ChangeType.UPSERT)
+                                  .setAspect(GenericRecordUtils.serializeAspect(dataHubActionInfo))
+                                  .setAspectName("dataHubActionInfo")
+                                  .setEntityUrn(actionPipelineUrn),
+                              false);
+                        } catch (RemoteInvocationException e) {
+                          throw new RuntimeException(e);
+                        } catch (URISyntaxException e) {
+                          throw new RuntimeException(e);
+                        }
 
-            try {
-              if (!_integrationsService.reloadAction(actionPipelineUrn.toString())) {
-                throw new DataHubGraphQLException(
-                    String.format("Failed to rollback action pipeline %s", actionPipelineUrn),
-                    DataHubGraphQLErrorCode.SERVER_ERROR);
-              }
-              return actionPipelineUrn.toString();
-            } catch (Exception e) {
-              log.error("Failed to start action pipeline", e);
-              throw new RuntimeException(
-                  String.format("Failed to start action pipeline %s", actionPipelineUrn.toString()),
-                  e);
-            }
-          }
-          throw new AuthorizationException(
-              "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+                        try {
+                          if (!reloaded) {
+                            throw new DataHubGraphQLException(
+                                String.format(
+                                    "Failed to rollback action pipeline %s", actionPipelineUrn),
+                                DataHubGraphQLErrorCode.SERVER_ERROR);
+                          }
+                          return actionPipelineUrn.toString();
+                        } catch (Exception e) {
+                          log.error("Failed to start action pipeline", e);
+                          throw new RuntimeException(
+                              String.format(
+                                  "Failed to start action pipeline %s", actionPipelineUrn),
+                              e);
+                        }
+                      },
+                      this.getClass().getSimpleName(),
+                      "get"));
+    } else {
+      throw new AuthorizationException(
+          "Unauthorized to perform this action. Please contact your DataHub administrator.");
+    }
   }
 
   private static JSONObject getActionBlock(String type, String recipe) {

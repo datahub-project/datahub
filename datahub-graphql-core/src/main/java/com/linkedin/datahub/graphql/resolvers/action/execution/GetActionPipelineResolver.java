@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.action.execution;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -51,45 +52,52 @@ public class GetActionPipelineResolver implements DataFetcher<CompletableFuture<
 
     if (AuthorizationUtils.canView(context.getOperationContext(), actionPipelineUrn)) {
       Urn finalActionPipelineUrn = actionPipelineUrn;
-      return CompletableFuture.supplyAsync(
-          () -> {
-            try {
-              // Check if a specific field is requested
-              DataFetchingFieldSelectionSet selectionSet = environment.getSelectionSet();
-              String status = null;
-              if (selectionSet.contains("status")) {
-                status = _integrationsService.actionStatus(finalActionPipelineUrn.toString());
-              }
-              // If any field other than status or urn is requested, we need to fetch the entity
-              // from GMS
-              if (selectionSet.getFields().size() == 2
-                  && selectionSet.contains("urn")
-                  && selectionSet.contains("status")) {
-                ActionPipeline actionPipeline = new ActionPipeline();
-                actionPipeline.setUrn(finalActionPipelineUrn.toString());
-                actionPipeline.setStatus(status);
-                return actionPipeline;
-              } else {
-                final EntityResponse entityResponse =
-                    _entityClient.getV2(
-                        context.getOperationContext(),
-                        Constants.ACTIONS_PIPELINE_ENTITY_NAME,
-                        finalActionPipelineUrn,
-                        ActionPipelineType.ASPECTS_TO_FETCH);
-                final ActionPipeline actionPipeline = ActionPipelineType.map(entityResponse);
-                if (status != null && actionPipeline != null) {
-                  actionPipeline.setStatus(status);
-                }
-                return actionPipeline;
-              }
-            } catch (Exception e) {
-              log.error("Failed to fetch action pipeline", e);
-              throw new RuntimeException(
-                  String.format(
-                      "Failed to fetch action pipeline %s", finalActionPipelineUrn.toString()),
-                  e);
-            }
-          });
+      // Check if a specific field is requested
+      DataFetchingFieldSelectionSet selectionSet = environment.getSelectionSet();
+      CompletableFuture<String> statusFuture = CompletableFuture.completedFuture(null);
+      if (selectionSet.contains("status")) {
+        statusFuture = _integrationsService.actionStatus(finalActionPipelineUrn.toString());
+      }
+      return statusFuture.thenCompose(
+          status ->
+              GraphQLConcurrencyUtils.supplyAsync(
+                  () -> {
+                    try {
+                      // If any field other than status or urn is requested, we need to fetch the
+                      // entity
+                      // from GMS
+                      if (selectionSet.getFields().size() == 2
+                          && selectionSet.contains("urn")
+                          && selectionSet.contains("status")) {
+                        ActionPipeline actionPipeline = new ActionPipeline();
+                        actionPipeline.setUrn(finalActionPipelineUrn.toString());
+                        actionPipeline.setStatus(status);
+                        return actionPipeline;
+                      } else {
+                        final EntityResponse entityResponse =
+                            _entityClient.getV2(
+                                context.getOperationContext(),
+                                Constants.ACTIONS_PIPELINE_ENTITY_NAME,
+                                finalActionPipelineUrn,
+                                ActionPipelineType.ASPECTS_TO_FETCH);
+                        final ActionPipeline actionPipeline =
+                            ActionPipelineType.map(entityResponse);
+                        if (status != null && actionPipeline != null) {
+                          actionPipeline.setStatus(status);
+                        }
+                        return actionPipeline;
+                      }
+                    } catch (Exception e) {
+                      log.error("Failed to fetch action pipeline", e);
+                      throw new RuntimeException(
+                          String.format(
+                              "Failed to fetch action pipeline %s",
+                              finalActionPipelineUrn.toString()),
+                          e);
+                    }
+                  },
+                  this.getClass().getSimpleName(),
+                  "get"));
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");
