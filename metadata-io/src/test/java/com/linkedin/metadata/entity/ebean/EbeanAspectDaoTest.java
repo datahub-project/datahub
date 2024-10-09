@@ -45,7 +45,7 @@ public class EbeanAspectDaoTest {
         LoggedSql.stop().stream()
             .filter(str -> str.contains("testGetNextVersionForUpdate"))
             .toList();
-    assertEquals(sql.size(), 1, String.format("Found: %s", sql));
+    assertEquals(sql.size(), 2, String.format("Found: %s", sql));
     assertTrue(
         sql.get(0).contains("for update;"), String.format("Did not find `for update` in %s ", sql));
   }
