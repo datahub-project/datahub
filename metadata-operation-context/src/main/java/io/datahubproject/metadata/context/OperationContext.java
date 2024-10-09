@@ -402,6 +402,32 @@ public class OperationContext implements AuthorizationSession {
     return objectMapperContext.getObjectMapper();
   }
 
+  @Nonnull
+  public ObjectMapper getYamlMapper() {
+    return objectMapperContext.getYamlMapper();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    OperationContext that = (OperationContext) o;
+    return operationContextConfig.equals(that.operationContextConfig)
+        && sessionActorContext.equals(that.sessionActorContext)
+        && searchContext.equals(that.searchContext)
+        && entityRegistryContext.equals(that.entityRegistryContext);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = operationContextConfig.hashCode();
+    result = 31 * result + sessionActorContext.hashCode();
+    result = 31 * result + searchContext.hashCode();
+    result = 31 * result + entityRegistryContext.hashCode();
+    return result;
+  }
+
   public static class OperationContextBuilder {
 
     @Nonnull

@@ -145,7 +145,16 @@ class BigQueryQueriesExtractor:
         self.identifiers = identifiers
         self.schema_api = schema_api
         self.report = BigQueryQueriesExtractorReport()
-        self.discovered_tables = set(discovered_tables) if discovered_tables else None
+        self.discovered_tables = (
+            set(
+                map(
+                    self.identifiers.standardize_identifier_case,
+                    discovered_tables,
+                )
+            )
+            if discovered_tables
+            else None
+        )
 
         self.structured_report = structured_report
 
@@ -173,6 +182,9 @@ class BigQueryQueriesExtractor:
             format_queries=False,
         )
         self.report.sql_aggregator = self.aggregator.report
+        self.report.num_discovered_tables = (
+            len(self.discovered_tables) if self.discovered_tables else None
+        )
 
     @functools.cached_property
     def local_temp_path(self) -> pathlib.Path:
@@ -201,6 +213,8 @@ class BigQueryQueriesExtractor:
                 and self.discovered_tables
                 and str(BigQueryTableRef(table)) not in self.discovered_tables
             ):
+                logger.debug(f"inferred as temp table {name}")
+                self.report.inferred_temp_tables.add(name)
                 return True
 
         except Exception:
@@ -214,6 +228,7 @@ class BigQueryQueriesExtractor:
                 self.discovered_tables
                 and str(BigQueryTableRef(table)) not in self.discovered_tables
             ):
+                logger.debug(f"not allowed table {name}")
                 return False
             return self.filters.is_allowed(table)
         except Exception:
@@ -264,6 +279,8 @@ class BigQueryQueriesExtractor:
                 for query in query_instances.values():
                     if i > 0 and i % 10000 == 0:
                         logger.info(f"Added {i} query log entries to SQL aggregator")
+                        if self.report.sql_aggregator:
+                            logger.info(self.report.sql_aggregator.as_string())
 
                     self.aggregator.add(query)
                     i += 1

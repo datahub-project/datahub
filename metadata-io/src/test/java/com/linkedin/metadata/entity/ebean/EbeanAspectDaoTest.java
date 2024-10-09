@@ -4,6 +4,8 @@ import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.EbeanConfiguration;
@@ -41,15 +43,15 @@ public class EbeanAspectDaoTest {
     // Get the captured SQL statements
     List<String> sql =
         LoggedSql.stop().stream()
-            .filter(str -> !str.contains("INFORMATION_SCHEMA.TABLES"))
+            .filter(str -> str.contains("(t0.urn,t0.aspect,t0.version)"))
             .toList();
-    assertEquals(sql.size(), 2, String.format("Found: %s", sql));
+    assertEquals(sql.size(), 1, String.format("Found: %s", sql));
     assertTrue(
         sql.get(0).contains("for update;"), String.format("Did not find `for update` in %s ", sql));
   }
 
   @Test
-  public void testGetLatestAspectsForUpdate() {
+  public void testGetLatestAspectsForUpdate() throws JsonProcessingException {
     LoggedSql.start();
 
     testDao.runInTransactionWithRetryUnlocked(
@@ -63,9 +65,10 @@ public class EbeanAspectDaoTest {
     // Get the captured SQL statements
     List<String> sql =
         LoggedSql.stop().stream()
-            .filter(str -> !str.contains("INFORMATION_SCHEMA.TABLES"))
+            .filter(str -> str.contains("(t0.urn,t0.aspect,t0.version)"))
             .toList();
-    assertEquals(sql.size(), 1, String.format("Found: %s", sql));
+    assertEquals(
+        sql.size(), 1, String.format("Found: %s", new ObjectMapper().writeValueAsString(sql)));
     assertTrue(
         sql.get(0).contains("for update;"), String.format("Did not find `for update` in %s ", sql));
   }

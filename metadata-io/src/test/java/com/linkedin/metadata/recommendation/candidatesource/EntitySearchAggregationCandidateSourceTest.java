@@ -1,5 +1,6 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
@@ -12,7 +13,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationParams;
@@ -142,7 +143,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testValue").setValue("value1"));
+        buildCriterion("testValue", Condition.EQUAL, "value1"));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 1L);
     assertTrue(
@@ -165,7 +166,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testValue").setValue("value3"));
+        buildCriterion("testValue", Condition.EQUAL, "value3"));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 3L);
     content = candidates.get(1);
@@ -178,7 +179,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testValue").setValue("value2"));
+        buildCriterion("testValue", Condition.EQUAL, "value2"));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 2L);
     assertTrue(
@@ -208,7 +209,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testUrn").setValue(testUrn1.toString()));
+        buildCriterion("testUrn", Condition.EQUAL, testUrn1.toString()));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 1L);
     assertTrue(
@@ -233,7 +234,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testUrn").setValue(testUrn3.toString()));
+        buildCriterion("testUrn", Condition.EQUAL, testUrn3.toString()));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 3L);
     content = candidates.get(1);
@@ -246,7 +247,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testUrn").setValue(testUrn2.toString()));
+        buildCriterion("testUrn", Condition.EQUAL, testUrn2.toString()));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 2L);
     assertTrue(

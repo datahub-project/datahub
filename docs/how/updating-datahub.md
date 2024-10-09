@@ -20,6 +20,23 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #11486 - Deprecated Criterion filters using `value`. Use `values` instead. This also deprecates the ability to use comma delimited string to represent multiple values using `value`.
+- #11484 - Metadata service authentication enabled by default
+- #11484 - Rest API authorization enabled by default
+- #10472 - `SANDBOX` added as a FabricType. No rollbacks allowed once metadata with this fabric type is added without manual cleanups in databases.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+- #11549 - Manage Operations Privilege is extended from throttle control to all system management and operations APIs.
+
+## 0.14.1
+
+### Breaking Changes
+
 - #9857 (#10773) `lower` method was removed from `get_db_name` of `SQLAlchemySource` class. This change will affect the urns of all related to `SQLAlchemySource` entities.
 
   Old `urn`, where `data_base_name` is `Some_Database`:
@@ -38,12 +55,15 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #11313 - `datahub get` will no longer return a key aspect for entities that don't exist.
 - #11369 - The default datahub-rest sink mode has been changed to `ASYNC_BATCH`. This requires a server with version 0.14.0+.
+- #11214 Container properties aspect will produce an additional field that will require a corresponding upgrade of server. Otherwise server can reject the aspects.
 
 ### Potential Downtime
 
 ### Deprecations
 
 ### Other Notable Changes
+
+- Downgrade to previous version is not automatically supported.
 
 ## 0.14.0.2
 

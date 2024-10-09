@@ -10,12 +10,10 @@ import datetime
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, cast
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, cast
 
 from looker_sdk.sdk.api40.models import Dashboard, LookWithQuery
 
-import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import Aspect, AspectAbstract
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.looker import looker_common
@@ -97,7 +95,6 @@ class StatGeneratorConfig:
     looker_user_registry: LookerUserRegistry
     strip_user_ids_from_email: bool
     interval: str
-    platform_name: str
     max_threads: int = 1
 
 
@@ -166,7 +163,7 @@ class BaseStatGenerator(ABC):
     def __init__(
         self,
         config: StatGeneratorConfig,
-        looker_models: List[ModelForUsage],
+        looker_models: Sequence[ModelForUsage],
         report: LookerDashboardSourceReport,
     ):
         self.config = config
@@ -411,14 +408,16 @@ class DashboardStatGenerator(BaseStatGenerator):
     def __init__(
         self,
         config: StatGeneratorConfig,
-        looker_dashboards: List[LookerDashboardForUsage],
+        looker_dashboards: Sequence[LookerDashboardForUsage],
         report: LookerDashboardSourceReport,
+        urn_builder: Callable[[str], str],
     ):
         super().__init__(
             config,
-            looker_models=cast(List[ModelForUsage], looker_dashboards),
+            looker_models=looker_dashboards,
             report=report,
         )
+        self.urn_builder = urn_builder
         self.report = report
         self.report.report_dashboards_scanned_for_usage(len(looker_dashboards))
 
@@ -457,10 +456,7 @@ class DashboardStatGenerator(BaseStatGenerator):
         assert isinstance(model, LookerDashboardForUsage)
         assert model.id is not None
 
-        return builder.make_dashboard_urn(
-            self.config.platform_name,
-            looker_common.get_urn_looker_dashboard_id(model.id),
-        )
+        return self.urn_builder(looker_common.get_urn_looker_dashboard_id(model.id))
 
     def to_entity_absolute_stat_aspect(
         self, looker_object: ModelForUsage
@@ -528,14 +524,16 @@ class LookStatGenerator(BaseStatGenerator):
     def __init__(
         self,
         config: StatGeneratorConfig,
-        looker_looks: List[LookerChartForUsage],
+        looker_looks: Sequence[LookerChartForUsage],
         report: LookerDashboardSourceReport,
+        urn_builder: Callable[[str], str],
     ):
         super().__init__(
             config,
-            looker_models=cast(List[ModelForUsage], looker_looks),
+            looker_models=looker_looks,
             report=report,
         )
+        self.urn_builder = urn_builder
         self.report = report
         report.report_charts_scanned_for_usage(len(looker_looks))
 
@@ -570,10 +568,7 @@ class LookStatGenerator(BaseStatGenerator):
         assert isinstance(model, LookerChartForUsage)
         assert model.id is not None
 
-        return builder.make_chart_urn(
-            self.config.platform_name,
-            looker_common.get_urn_looker_element_id(str(model.id)),
-        )
+        return self.urn_builder(looker_common.get_urn_looker_element_id(str(model.id)))
 
     def to_entity_absolute_stat_aspect(
         self, looker_object: ModelForUsage
@@ -629,45 +624,34 @@ class LookStatGenerator(BaseStatGenerator):
         )
 
 
-class SupportedStatEntity(Enum):
-    DASHBOARD = "dashboard"
-    CHART = "chart"
-
-
-# type_ is because of type is builtin identifier
-def create_stat_entity_generator(
-    type_: SupportedStatEntity, config: StatGeneratorConfig
-) -> Callable[[List[ModelForUsage], LookerDashboardSourceReport], BaseStatGenerator]:
-    # Wrapper function to defer creation of actual entities
-    # config is generally available at the startup, however entities may get created later during processing
-    def create_dashboard_stat_generator(
-        looker_dashboards: List[LookerDashboardForUsage],
-        report: LookerDashboardSourceReport,
-    ) -> BaseStatGenerator:
-        logger.debug(
-            "Number of dashboard received for stat processing = {}".format(
-                len(looker_dashboards)
-            )
+def create_dashboard_stat_generator(
+    config: StatGeneratorConfig,
+    report: LookerDashboardSourceReport,
+    urn_builder: Callable[[str], str],
+    looker_dashboards: Sequence[LookerDashboardForUsage],
+) -> DashboardStatGenerator:
+    logger.debug(
+        "Number of dashboard received for stat processing = {}".format(
+            len(looker_dashboards)
         )
-        return DashboardStatGenerator(
-            config=config, looker_dashboards=looker_dashboards, report=report
-        )
+    )
+    return DashboardStatGenerator(
+        config=config,
+        looker_dashboards=looker_dashboards,
+        report=report,
+        urn_builder=urn_builder,
+    )
 
-    def create_chart_stat_generator(
-        looker_looks: List[LookerChartForUsage], report: LookerDashboardSourceReport
-    ) -> BaseStatGenerator:
-        logger.debug(
-            "Number of looks received for stat processing = {}".format(
-                len(looker_looks)
-            )
-        )
-        return LookStatGenerator(
-            config=config, looker_looks=looker_looks, report=report
-        )
 
-    stat_entities_generator = {
-        SupportedStatEntity.DASHBOARD: create_dashboard_stat_generator,
-        SupportedStatEntity.CHART: create_chart_stat_generator,
-    }
-
-    return stat_entities_generator[type_]  # type: ignore
+def create_chart_stat_generator(
+    config: StatGeneratorConfig,
+    report: LookerDashboardSourceReport,
+    urn_builder: Callable[[str], str],
+    looker_looks: Sequence[LookerChartForUsage],
+) -> LookStatGenerator:
+    logger.debug(
+        "Number of looks received for stat processing = {}".format(len(looker_looks))
+    )
+    return LookStatGenerator(
+        config=config, looker_looks=looker_looks, report=report, urn_builder=urn_builder
+    )

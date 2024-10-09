@@ -235,4 +235,100 @@ describe('filterSchemaRows', () => {
         expect(filteredRows).toMatchObject([{ fieldPath: 'shipment' }]);
         expect(expandedRowsFromFilter).toMatchObject(new Set());
     });
+
+    it('should properly filter schema rows based on business attribute properties description', () => {
+        const rowsWithSchemaFieldEntity = [
+            {
+                fieldPath: 'customer',
+                schemaFieldEntity: {
+                    businessAttributes: {
+                        businessAttribute: {
+                            businessAttribute: { properties: { description: 'customer description' } },
+                        },
+                    },
+                },
+            },
+            {
+                fieldPath: 'testing',
+                schemaFieldEntity: {
+                    businessAttributes: {
+                        businessAttribute: {
+                            businessAttribute: { properties: { description: 'testing description' } },
+                        },
+                    },
+                },
+            },
+            {
+                fieldPath: 'shipment',
+                schemaFieldEntity: {
+                    businessAttributes: {
+                        businessAttribute: {
+                            businessAttribute: { properties: { description: 'shipment description' } },
+                        },
+                    },
+                },
+            },
+        ] as SchemaField[];
+        const filterText = 'testing description';
+        const editableSchemaMetadata = { editableSchemaFieldInfo: [] };
+        const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
+            rowsWithSchemaFieldEntity,
+            editableSchemaMetadata,
+            filterText,
+            testEntityRegistry,
+        );
+
+        expect(filteredRows).toMatchObject([{ fieldPath: 'testing' }]);
+        expect(expandedRowsFromFilter).toMatchObject(new Set());
+    });
+
+    it('should properly filter schema rows based on business attribute properties tags', () => {
+        const rowsWithSchemaFieldEntity = [
+            {
+                fieldPath: 'customer',
+                schemaFieldEntity: {
+                    businessAttributes: {
+                        businessAttribute: {
+                            businessAttribute: { properties: { tags: { tags: [{ tag: sampleTag }] } } },
+                        },
+                    },
+                },
+            },
+            {
+                fieldPath: 'testing',
+                schemaFieldEntity: {
+                    businessAttributes: {
+                        businessAttribute: {
+                            businessAttribute: {
+                                properties: { tags: { tags: [{ tag: { properties: { name: 'otherTag' } } }] } },
+                            },
+                        },
+                    },
+                },
+            },
+            {
+                fieldPath: 'shipment',
+                schemaFieldEntity: {
+                    businessAttributes: {
+                        businessAttribute: {
+                            businessAttribute: {
+                                properties: { tags: { tags: [{ tag: { properties: { name: 'anotherTag' } } }] } },
+                            },
+                        },
+                    },
+                },
+            },
+        ] as SchemaField[];
+        const filterText = sampleTag.properties.name;
+        const editableSchemaMetadata = { editableSchemaFieldInfo: [] };
+        const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
+            rowsWithSchemaFieldEntity,
+            editableSchemaMetadata,
+            filterText,
+            testEntityRegistry,
+        );
+
+        expect(filteredRows).toMatchObject([{ fieldPath: 'customer' }]);
+        expect(expandedRowsFromFilter).toMatchObject(new Set());
+    });
 });
