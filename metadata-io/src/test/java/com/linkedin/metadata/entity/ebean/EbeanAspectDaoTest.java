@@ -56,7 +56,8 @@ public class EbeanAspectDaoTest {
 
     testDao.runInTransactionWithRetryUnlocked(
         (txContext) -> {
-          testDao.getLatestAspects(Map.of("urn:li:corpuser:test", Set.of("status")), true);
+          testDao.getLatestAspects(
+              Map.of("urn:li:corpuser:testGetLatestAspectsForUpdate", Set.of("status")), true);
           return "";
         },
         mock(AspectsBatch.class),
@@ -65,7 +66,7 @@ public class EbeanAspectDaoTest {
     // Get the captured SQL statements
     List<String> sql =
         LoggedSql.stop().stream()
-            .filter(str -> str.contains("(t0.urn,t0.aspect,t0.version)"))
+            .filter(str -> str.contains("testGetLatestAspectsForUpdate"))
             .toList();
     assertEquals(
         sql.size(), 1, String.format("Found: %s", new ObjectMapper().writeValueAsString(sql)));
