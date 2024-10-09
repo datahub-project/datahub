@@ -213,7 +213,7 @@ export function NavLinksMenu(props: Props) {
                     },
                     {
                         title: 'Automations',
-                        description: 'Monitor policies & automate actions across data assets',
+                        description: 'Manage automated actions across your data assets',
                         link: PageRoutes.AUTOMATIONS,
                         isHidden: !showAutomations,
                     },
