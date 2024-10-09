@@ -377,11 +377,11 @@ def test_airflow_plugin(
         print("Sleeping for a few seconds to let the plugin finish...")
         time.sleep(10)
 
-    '''
+    """
     we need to check that the golden file is missing / empty 
     when the dag_id is DAG_TO_SKIP_INGESTION
     otherwise, this test doesn't actually do anything
-    '''
+    """
     if dag_id != DAG_TO_SKIP_INGESTION:
         _sanitize_output_file(airflow_instance.metadata_file)
 
