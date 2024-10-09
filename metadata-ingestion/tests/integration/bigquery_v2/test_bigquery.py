@@ -324,8 +324,8 @@ def test_bigquery_queries_v2_ingest(
     tmp_path,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
-    mcp_golden_path = f"{test_resources_dir}/bigquery_mcp_golden.json"
-    mcp_output_path = "{}/{}".format(tmp_path, "bigquery_mcp_output.json")
+    mcp_golden_path = f"{test_resources_dir}/bigquery_mcp_queries_golden.json"
+    mcp_output_path = "{}/{}".format(tmp_path, "bigquery_mcp_queries_output.json")
 
     dataset_name = "bigquery-dataset-1"
     get_datasets_for_project_id.return_value = [
