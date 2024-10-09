@@ -18,6 +18,7 @@
 | `Report.webUrl`       | `Chart.externalUrl` |
 | `Workspace`           | `Container`         |
 | `Report`              | `Dashboard`         |
+| `PaginatedReport`     | `Dashboard`         |
 | `Page`                | `Chart`             |
 
 - If `Tile` is created from report then `Chart.externalUrl` is set to Report.webUrl.
