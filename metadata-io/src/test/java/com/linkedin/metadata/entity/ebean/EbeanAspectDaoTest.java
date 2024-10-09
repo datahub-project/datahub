@@ -24,7 +24,7 @@ public class EbeanAspectDaoTest {
 
   @BeforeMethod
   public void setupTest() {
-    Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
+    Database server = EbeanTestUtils.createTestServer(EbeanAspectDaoTest.class.getSimpleName());
     testDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
   }
 
@@ -34,7 +34,7 @@ public class EbeanAspectDaoTest {
 
     testDao.runInTransactionWithRetryUnlocked(
         (txContext) -> {
-          testDao.getNextVersions(Map.of("urn:li:corpuser:test", Set.of("status")));
+          testDao.getNextVersions(Map.of("urn:li:corpuser:testGetNextVersionForUpdate", Set.of("status")));
           return "";
         },
         mock(AspectsBatch.class),
@@ -43,7 +43,7 @@ public class EbeanAspectDaoTest {
     // Get the captured SQL statements
     List<String> sql =
         LoggedSql.stop().stream()
-            .filter(str -> str.contains("(t0.urn,t0.aspect,t0.version)"))
+            .filter(str -> str.contains("testGetNextVersionForUpdate"))
             .toList();
     assertEquals(sql.size(), 1, String.format("Found: %s", sql));
     assertTrue(
