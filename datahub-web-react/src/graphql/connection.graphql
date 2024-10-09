@@ -3,6 +3,7 @@ mutation upsertConnection($input: UpsertDataHubConnectionInput!) {
         urn
         details {
             type
+            name
             json {
                 blob
             }
@@ -18,6 +19,7 @@ mutation updateConnection($input: UpdateDataHubConnectionInput!) {
         urn
         details {
             type
+            name
             json {
                 blob
             }
@@ -41,6 +43,7 @@ query connection($urn: String!) {
         urn
         details {
             type
+            name
             json {
                 blob
             }
