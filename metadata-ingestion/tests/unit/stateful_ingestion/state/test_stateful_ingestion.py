@@ -29,7 +29,12 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceProperties,
 )
-from datahub.metadata.schema_classes import AuditStampClass, StatusClass
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    DataPlatformInstanceClass,
+    StatusClass,
+)
+from datahub.metadata.urns import DataPlatformUrn, QueryUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
@@ -70,6 +75,9 @@ class DummySourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     dpi_id_to_ingest: Optional[str] = Field(
         default=None,
         description="Data process instance id to ingest.",
+    )
+    query_id_to_ingest: Optional[str] = Field(
+        default=None, description="Query id to ingest"
     )
 
 
@@ -136,6 +144,14 @@ class DummySource(StatefulIngestionSourceBase):
                 ),
             ).as_workunit()
 
+        if self.source_config.query_id_to_ingest:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=QueryUrn(self.source_config.query_id_to_ingest).urn(),
+                aspect=DataPlatformInstanceClass(
+                    platform=DataPlatformUrn("bigquery").urn()
+                ),
+            ).as_workunit()
+
         if self.source_config.report_failure:
             self.reporter.report_failure("Dummy error", "Error")
 
@@ -188,6 +204,7 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
                     },
                 },
                 "dpi_id_to_ingest": "job1",
+                "query_id_to_ingest": "query1",
             },
         },
         "sink": {
@@ -198,7 +215,11 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
 
     with mock.patch(
         "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj"
-    ) as mock_state:
+    ) as mock_state, mock.patch(
+        "datahub.ingestion.source.state.stale_entity_removal_handler.STATEFUL_INGESTION_IGNORED_ENTITY_TYPES",
+        {},
+        # Second mock is to imitate earlier behavior where entity type check was not present when adding entity to state
+    ):
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run1 = None
         pipeline_run1_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(  # type: ignore
@@ -237,6 +258,8 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
             "allow": ["dummy_dataset1", "dummy_dataset2"],
         }
         pipeline_run2_config["source"]["config"]["dpi_id_to_ingest"] = "job2"
+        pipeline_run2_config["source"]["config"]["query_id_to_ingest"] = "query2"
+
         pipeline_run2_config["sink"]["config"][
             "filename"
         ] = f"{tmp_path}/{output_file_name_after_deleted}"
@@ -288,6 +311,7 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
         # assert report last ingestion state non_deletable entity urns
         non_deletable_urns: List[str] = [
             "urn:li:dataProcessInstance:478810e859f870a54f72c681f41af619",
+            "urn:li:query:query1",
         ]
         assert sorted(non_deletable_urns) == sorted(
             report.last_state_non_deletable_entities

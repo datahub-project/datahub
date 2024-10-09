@@ -8,7 +8,10 @@ if [ "${RUN_QUICKSTART:-true}" == "true" ]; then
     source ./run-quickstart.sh
 fi
 
+set +x
+echo "Activating virtual environment"
 source venv/bin/activate
+set -x
 
 # set environment variables for the test
 source ./set-test-env-vars.sh

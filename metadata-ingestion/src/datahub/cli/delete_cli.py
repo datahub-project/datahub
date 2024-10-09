@@ -338,10 +338,18 @@ def by_filter(
     # TODO: add some validation on entity_type
 
     if not force and not soft and not dry_run:
-        click.confirm(
-            "This will permanently delete data from DataHub. Do you want to continue?",
-            abort=True,
-        )
+        if only_soft_deleted:
+            click.confirm(
+                "This will permanently delete data from DataHub. Do you want to continue?",
+                abort=True,
+            )
+        else:
+            click.confirm(
+                "Hard deletion will permanently delete data from DataHub and can be slow. "
+                "We generally recommend using soft deletes instead. "
+                "Do you want to continue?",
+                abort=True,
+            )
 
     graph = get_default_graph()
     logger.info(f"Using {graph}")

@@ -70,6 +70,23 @@
     }
 },
 {
+    "entityType": "query",
+    "entityUrn": "urn:li:query:query1",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "dummy-test-stateful-ingestion",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "dummy_stateful"
+    }
+},
+{
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:478810e859f870a54f72c681f41af619",
     "changeType": "UPSERT",
@@ -83,6 +100,23 @@
         "lastObserved": 1586847600000,
         "runId": "dummy-test-stateful-ingestion",
         "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:query1",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "dummy-test-stateful-ingestion",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "dummy_stateful"
     }
 }
 ]
