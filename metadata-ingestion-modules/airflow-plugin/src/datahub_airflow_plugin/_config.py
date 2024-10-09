@@ -43,20 +43,23 @@ class DatahubLineageConfig(ConfigModel):
 
     capture_executions: bool = False
 
+    datajob_url_link: DatajobUrl = DatajobUrl.TASKINSTANCE
+
+    # Note that this field is only respected by the lineage backend.
+    # The Airflow plugin v2 behaves as if it were set to True.
+    graceful_exceptions: bool = True
+
+    # The remaining config fields are only relevant for the v2 plugin.
     enable_extractors: bool = True
+
+    # If true, ti.render_templates() will be called in the listener.
+    # Makes extraction of jinja-templated fields more accurate.
+    render_templates: bool = True
 
     log_level: Optional[str] = None
     debug_emitter: bool = False
 
     disable_openlineage_plugin: bool = True
-
-    render_templates: bool = True
-
-    # Note that this field is only respected by the lineage backend.
-    # The Airflow plugin behaves as if it were set to True.
-    graceful_exceptions: bool = True
-
-    datajob_url_link: DatajobUrl = DatajobUrl.TASKINSTANCE
 
     def make_emitter_hook(self) -> "DatahubGenericHook":
         # This is necessary to avoid issues with circular imports.
@@ -105,5 +108,5 @@ def get_lineage_config() -> DatahubLineageConfig:
         debug_emitter=debug_emitter,
         disable_openlineage_plugin=disable_openlineage_plugin,
         datajob_url_link=datajob_url_link,
-        enable_render_templates=render_templates,
+        render_templates=render_templates,
     )
