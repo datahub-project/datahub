@@ -218,8 +218,10 @@ class Report:
     webUrl: Optional[str]
     embedUrl: str
     description: str
-    dataset_id: Optional[str]
-    dataset: Optional["PowerBIDataset"]
+    dataset_id: Optional[str]  # dataset_id is coming from REST API response
+    dataset: Optional[
+        "PowerBIDataset"
+    ]  # This the dataclass later initialise by powerbi_api.py
     pages: List["Page"]
     users: List["User"]
     tags: List[str]

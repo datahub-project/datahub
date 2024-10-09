@@ -1,8 +1,10 @@
 import datetime
+import json
 import logging
 import re
 import sys
-from typing import Any, Dict, List, Optional, cast
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union, cast
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -71,543 +73,42 @@ def scan_init_response(request, context):
         "64ED5CAD-7C10-4684-8180-826122881108||64ED5CAD-7C22-4684-8180-826122881108": {
             "id": "a674efd1-603c-4129-8d82-03cf2be05aff"
         },
+        "A8D655A6-F521-477E-8C22-255018583BF4": {
+            "id": "62DAF926-0B18-4FF1-982C-2A3EB6B8F0E4"
+        },
+        "C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492": {
+            "id": "81B02907-E2A3-45C3-B505-3781839C8CAA",
+        },
     }
 
     return w_id_vs_response[workspace_id]
 
 
-def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
-    override_data = override_data or {}
+def read_mock_data(path: Union[Path, str]) -> dict:
+    with open(path) as p:
+        return json.load(p)
+
+
+def register_mock_api(
+    pytestconfig: pytest.Config, request_mock: Any, override_data: Optional[dict] = None
+) -> None:
+
+    default_mock_data_path = (
+        pytestconfig.rootpath
+        / "tests/integration/powerbi/mock_data/default_mock_response.json"
+    )
+
     api_vs_response = {
-        "https://api.powerbi.com/v1.0/myorg/groups": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "@odata.count": 3,
-                "value": [
-                    {
-                        "id": "64ED5CAD-7C10-4684-8180-826122881108",
-                        "isReadOnly": True,
-                        "name": "demo-workspace",
-                        "type": "Workspace",
-                    },
-                    {
-                        "id": "64ED5CAD-7C22-4684-8180-826122881108",
-                        "isReadOnly": True,
-                        "name": "second-demo-workspace",
-                        "type": "Workspace",
-                    },
-                    {
-                        "id": "64ED5CAD-7322-4684-8180-826122881108",
-                        "isReadOnly": True,
-                        "name": "Workspace 2",
-                        "type": "Workspace",
-                    },
-                ],
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
-                        "isReadOnly": True,
-                        "displayName": "test_dashboard",
-                        "description": "Description of test dashboard",
-                        "embedUrl": "https://localhost/dashboards/embed/1",
-                        "webUrl": "https://localhost/dashboards/web/1",
-                    }
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/dashboards": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "id": "7D668CAD-8FFC-4505-9215-655BCA5BEBAE",
-                        "isReadOnly": True,
-                        "displayName": "test_dashboard2",
-                        "embedUrl": "https://localhost/dashboards/embed/1",
-                        "webUrl": "https://localhost/dashboards/web/1",
-                    }
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/reports/5b218778-e7a5-4d73-8187-f10824047715/users": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "identifier": "User1@foo.com",
-                        "displayName": "user1",
-                        "emailAddress": "User1@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
-                        "principalType": "User",
-                    },
-                    {
-                        "identifier": "User2@foo.com",
-                        "displayName": "user2",
-                        "emailAddress": "User2@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
-                        "principalType": "User",
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/users": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "identifier": "User1@foo.com",
-                        "displayName": "user1",
-                        "emailAddress": "User1@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
-                        "principalType": "User",
-                    },
-                    {
-                        "identifier": "User2@foo.com",
-                        "displayName": "user2",
-                        "emailAddress": "User2@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
-                        "principalType": "User",
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-8FFC-4505-9215-655BCA5BEBAE/users": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "identifier": "User3@foo.com",
-                        "displayName": "user3",
-                        "emailAddress": "User3@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
-                        "principalType": "User",
-                    },
-                    {
-                        "identifier": "User4@foo.com",
-                        "displayName": "user4",
-                        "emailAddress": "User4@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
-                        "principalType": "User",
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "id": "B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0",
-                        "title": "test_tile",
-                        "embedUrl": "https://localhost/tiles/embed/1",
-                        "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
-                    },
-                    {
-                        "id": "23212598-23b5-4980-87cc-5fc0ecd84385",
-                        "title": "yearly_sales",
-                        "embedUrl": "https://localhost/tiles/embed/2",
-                        "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/dashboards/7D668CAD-8FFC-4505-9215-655BCA5BEBAE/tiles": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {"value": []},
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "id": "05169CD2-E713-41E6-9600-1D8066D95445",
-                "name": "library-dataset",
-                "description": "Library dataset description",
-                "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "id": "05169CD2-E713-41E6-96AA-1D8066D95445",
-                "name": "library-dataset",
-                "description": "Library dataset description",
-                "webUrl": "http://localhost/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445",
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "id": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
-                "name": "hr_pbi_test",
-                "description": "hr pbi test description",
-                "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed",
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/datasources": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "datasourceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                        "datasourceType": "PostgreSql",
-                        "connectionDetails": {
-                            "database": "library_db",
-                            "server": "foo",
-                        },
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445/datasources": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "datasourceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                        "datasourceType": "PostgreSql",
-                        "connectionDetails": {
-                            "database": "library_db",
-                            "server": "foo",
-                        },
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/4674efd1-603c-4129-8d82-03cf2be05aff": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "status": "SUCCEEDED",
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/a674efd1-603c-4129-8d82-03cf2be05aff": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "status": "SUCCEEDED",
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/4674efd1-603c-4129-8d82-03cf2be05aff": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "workspaces": [
-                    {
-                        "id": "64ED5CAD-7C10-4684-8180-826122881108",
-                        "name": "demo-workspace",
-                        "state": "Active",
-                        "datasets": [
-                            {
-                                "id": "05169CD2-E713-41E6-9600-1D8066D95445",
-                                "endorsementDetails": {"endorsement": "Promoted"},
-                                "name": "test_sf_pbi_test",
-                                "tables": [
-                                    {
-                                        "name": "public issue_history",
-                                        "source": [
-                                            {
-                                                "expression": "dummy",
-                                            }
-                                        ],
-                                        "datasourceUsages": [
-                                            {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
-                                        ],
-                                    },
-                                    {
-                                        "name": "SNOWFLAKE_TESTTABLE",
-                                        "source": [
-                                            {
-                                                "expression": 'let\n    Source = Snowflake.Databases("hp123rt5.ap-southeast-2.fakecomputing.com","PBI_TEST_WAREHOUSE_PROD",[Role="PBI_TEST_MEMBER"]),\n    PBI_TEST_Database = Source{[Name="PBI_TEST",Kind="Database"]}[Data],\n    TEST_Schema = PBI_TEST_Database{[Name="TEST",Kind="Schema"]}[Data],\n    TESTTABLE_Table = TEST_Schema{[Name="TESTTABLE",Kind="Table"]}[Data]\nin\n    TESTTABLE_Table',
-                                            }
-                                        ],
-                                        "datasourceUsages": [
-                                            {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
-                                        ],
-                                    },
-                                    {
-                                        "name": "snowflake native-query",
-                                        "source": [
-                                            {
-                                                "expression": 'let\n    Source = Value.NativeQuery(Snowflake.Databases("bu20658.ap-southeast-2.snowflakecomputing.com","operations_analytics_warehouse_prod",[Role="OPERATIONS_ANALYTICS_MEMBER"]){[Name="OPERATIONS_ANALYTICS"]}[Data], "SELECT#(lf)concat((UPPER(REPLACE(SELLER,\'-\',\'\'))), MONTHID) as AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,\'-\',\'\'))), MONTHID) as CD_AGENT_KEY,#(lf) *#(lf)FROM#(lf)OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_APS_SME_UNITS_V4", null, [EnableFolding=true]),\n    #"Added Conditional Column" = Table.AddColumn(Source, "SME Units ENT", each if [DEAL_TYPE] = "SME Unit" then [UNIT] else 0),\n    #"Added Conditional Column1" = Table.AddColumn(#"Added Conditional Column", "Banklink Units", each if [DEAL_TYPE] = "Banklink" then [UNIT] else 0),\n    #"Removed Columns" = Table.RemoveColumns(#"Added Conditional Column1",{"Banklink Units"}),\n    #"Added Custom" = Table.AddColumn(#"Removed Columns", "Banklink Units", each if [DEAL_TYPE] = "Banklink" and [SALES_TYPE] = "3 - Upsell"\nthen [UNIT]\n\nelse if [SALES_TYPE] = "Adjusted BL Migration"\nthen [UNIT]\n\nelse 0),\n    #"Added Custom1" = Table.AddColumn(#"Added Custom", "SME Units in $ (*$361)", each if [DEAL_TYPE] = "SME Unit" \nand [SALES_TYPE] <> "4 - Renewal"\n    then [UNIT] * 361\nelse 0),\n    #"Added Custom2" = Table.AddColumn(#"Added Custom1", "Banklink in $ (*$148)", each [Banklink Units] * 148)\nin\n    #"Added Custom2"',
-                                            }
-                                        ],
-                                        "datasourceUsages": [
-                                            {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
-                                        ],
-                                    },
-                                    {
-                                        "name": "big-query-with-parameter",
-                                        "source": [
-                                            {
-                                                "expression": 'let\n Source = GoogleBigQuery.Database([BillingProject = #"Parameter - Source"]),\n#"gcp-project" = Source{[Name=#"Parameter - Source"]}[Data],\nuniversal_Schema = #"gcp-project"{[Name="universal",Kind="Schema"]}[Data],\nD_WH_DATE_Table = universal_Schema{[Name="D_WH_DATE",Kind="Table"]}[Data],\n#"Filtered Rows" = Table.SelectRows(D_WH_DATE_Table, each [D_DATE] > #datetime(2019, 9, 10, 0, 0, 0)),\n#"Filtered Rows1" = Table.SelectRows(#"Filtered Rows", each DateTime.IsInPreviousNHours([D_DATE], 87600))\n in \n#"Filtered Rows1"',
-                                            }
-                                        ],
-                                        "datasourceUsages": [
-                                            {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
-                                        ],
-                                    },
-                                    {
-                                        "name": "snowflake native-query-with-join",
-                                        "source": [
-                                            {
-                                                "expression": 'let\n    Source = Value.NativeQuery(Snowflake.Databases("xaa48144.snowflakecomputing.com","GSL_TEST_WH",[Role="ACCOUNTADMIN"]){[Name="GSL_TEST_DB"]}[Data], "select A.name from GSL_TEST_DB.PUBLIC.SALES_ANALYST as A inner join GSL_TEST_DB.PUBLIC.SALES_FORECAST as B on A.name = B.name where startswith(A.name, \'mo\')", null, [EnableFolding=true])\nin\n    Source',
-                                            }
-                                        ],
-                                        "datasourceUsages": [
-                                            {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
-                                        ],
-                                    },
-                                    {
-                                        "name": "job-history",
-                                        "source": [
-                                            {
-                                                "expression": 'let\n    Source = Oracle.Database("localhost:1521/salesdb.domain.com", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
-                                            }
-                                        ],
-                                        "datasourceUsages": [
-                                            {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
-                                        ],
-                                    },
-                                    {
-                                        "name": "postgres_test_table",
-                                        "source": [
-                                            {
-                                                "expression": 'let\n    Source = PostgreSQL.Database("localhost"  ,   "mics"      ),\n  public_order_date =    Source{[Schema="public",Item="order_date"]}[Data] \n in \n public_order_date',
-                                            }
-                                        ],
-                                        "datasourceUsages": [
-                                            {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
-                                        ],
-                                    },
-                                ],
-                            },
-                            {
-                                "id": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
-                                "name": "hr_pbi_test",
-                                "tables": [
-                                    {
-                                        "name": "dbo_book_issue",
-                                        "source": [
-                                            {
-                                                "expression": 'let\n    Source = Sql.Database("localhost", "library"),\n dbo_book_issue = Source{[Schema="dbo",Item="book_issue"]}[Data]\n in dbo_book_issue',
-                                            }
-                                        ],
-                                        "datasourceUsages": [
-                                            {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
-                                        ],
-                                    },
-                                    {
-                                        "name": "ms_sql_native_table",
-                                        "source": [
-                                            {
-                                                "expression": 'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="select *,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,\'-\',\'\'))), MONTH_WID) as CD_AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_MANAGER_CLOSING_MONTH,\'-\',\'\'))), MONTH_WID) as AGENT_KEY#(lf)#(lf)from V_PS_CD_RETENTION", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #"Changed Type" = Table.TransformColumnTypes(Source,{{"mth_date", type date}}),\n    #"Added Custom" = Table.AddColumn(#"Changed Type", "Month", each Date.Month([mth_date])),\n    #"Added Custom1" = Table.AddColumn(#"Added Custom", "TPV Opening", each if [Month] = 1 then [TPV_AMV_OPENING]\nelse if [Month] = 2 then 0\nelse if [Month] = 3 then 0\nelse if [Month] = 4 then [TPV_AMV_OPENING]\nelse if [Month] = 5 then 0\nelse if [Month] = 6 then 0\nelse if [Month] = 7 then [TPV_AMV_OPENING]\nelse if [Month] = 8 then 0\nelse if [Month] = 9 then 0\nelse if [Month] = 10 then [TPV_AMV_OPENING]\nelse if [Month] = 11 then 0\nelse if [Month] = 12 then 0\n\nelse 0)\nin\n    #"Added Custom1"',
-                                            }
-                                        ],
-                                        "datasourceUsages": [
-                                            {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
-                                        ],
-                                    },
-                                ],
-                            },
-                            {
-                                "id": "91580e0e-1680-4b1c-bbf9-4f6764d7a5ff",
-                                "tables": [
-                                    {
-                                        "name": "employee_ctc",
-                                        "source": [
-                                            {
-                                                "expression": "dummy",
-                                            }
-                                        ],
-                                    }
-                                ],
-                            },
-                        ],
-                        "dashboards": [
-                            {
-                                "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
-                                "isReadOnly": True,
-                            }
-                        ],
-                        "reports": [
-                            {
-                                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
-                                "id": "5b218778-e7a5-4d73-8187-f10824047715",
-                                "name": "SalesMarketing",
-                                "description": "Acryl sales marketing report",
-                            }
-                        ],
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/a674efd1-603c-4129-8d82-03cf2be05aff": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "workspaces": [
-                    {
-                        "id": "64ED5CAD-7C22-4684-8180-826122881108",
-                        "name": "second-demo-workspace",
-                        "state": "Active",
-                        "datasets": [
-                            {
-                                "id": "05169CD2-E713-41E6-96AA-1D8066D95445",
-                                "tables": [
-                                    {
-                                        "name": "public articles",
-                                        "source": [
-                                            {
-                                                "expression": "dummy",
-                                            }
-                                        ],
-                                    }
-                                ],
-                            }
-                        ],
-                        "dashboards": [
-                            {
-                                "id": "7D668CAD-8FFC-4505-9215-655BCA5BEBAE",
-                                "isReadOnly": True,
-                            }
-                        ],
-                        "reports": [
-                            {
-                                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
-                                "id": "5b218778-e7a5-4d73-8187-f10824047715",
-                                "name": "SalesMarketing",
-                                "description": "Acryl sales marketing report",
-                            }
-                        ],
-                    },
-                ]
-            },
-        },
         "https://api.powerbi.com/v1.0/myorg/admin/workspaces/getInfo": {
             "method": "POST",
             "status_code": 200,
             "json": scan_init_response,
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
-                        "id": "5b218778-e7a5-4d73-8187-f10824047715",
-                        "name": "SalesMarketing",
-                        "description": "Acryl sales marketing report",
-                        "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
-                        "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
-                    }
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
-                "id": "5b218778-e7a5-4d73-8187-f10824047715",
-                "name": "SalesMarketing",
-                "description": "Acryl sales marketing report",
-                "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
-                "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/pages": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "displayName": "Regional Sales Analysis",
-                        "name": "ReportSection",
-                        "order": "0",
-                    },
-                    {
-                        "displayName": "Geographic Analysis",
-                        "name": "ReportSection1",
-                        "order": "1",
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/parameters": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "name": "Parameter - Source",
-                        "type": "Text",
-                        "isRequired": True,
-                        "currentValue": "my-test-project",
-                    },
-                    {
-                        "name": "My bq project",
-                        "type": "Text",
-                        "isRequired": True,
-                        "currentValue": "gcp_billing",
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/91580e0e-1680-4b1c-bbf9-4f6764d7a5ff": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "id": "91580e0e-1680-4b1c-bbf9-4f6764d7a5ff",
-                "name": "employee-dataset",
-                "description": "Employee Management",
-                "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/91580e0e-1680-4b1c-bbf9-4f6764d7a5ff",
-            },
-        },
     }
 
-    api_vs_response.update(override_data)
+    api_vs_response.update(read_mock_data(default_mock_data_path))
+
+    api_vs_response.update(override_data or {})
 
     for url in api_vs_response.keys():
         request_mock.register_uri(
@@ -653,7 +154,7 @@ def test_powerbi_ingest(
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     pipeline = Pipeline.create(
         {
@@ -698,7 +199,7 @@ def test_powerbi_ingest_patch_disabled(
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     pipeline = Pipeline.create(
         {
@@ -765,7 +266,7 @@ def test_powerbi_platform_instance_ingest(
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     output_path: str = f"{tmp_path}/powerbi_platform_instance_mces.json"
 
@@ -811,7 +312,7 @@ def test_powerbi_ingest_urn_lower_case(
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     pipeline = Pipeline.create(
         {
@@ -858,7 +359,7 @@ def test_override_ownership(
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     pipeline = Pipeline.create(
         {
@@ -903,7 +404,7 @@ def test_scan_all_workspaces(
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     pipeline = Pipeline.create(
         {
@@ -955,7 +456,7 @@ def test_extract_reports(
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     pipeline = Pipeline.create(
         {
@@ -1001,7 +502,7 @@ def test_extract_lineage(
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     pipeline = Pipeline.create(
         {
@@ -1053,7 +554,7 @@ def test_extract_endorsements(
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     pipeline = Pipeline.create(
         {
@@ -1101,6 +602,7 @@ def test_admin_access_is_not_allowed(
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(
+        pytestconfig=pytestconfig,
         request_mock=requests_mock,
         override_data={
             "https://api.powerbi.com/v1.0/myorg/admin/workspaces/getInfo": {
@@ -1162,7 +664,7 @@ def test_workspace_container(
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     pipeline = Pipeline.create(
         {
@@ -1209,7 +711,7 @@ def test_access_token_expiry_with_long_expiry(
 ) -> None:
     enable_logging()
 
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     pipeline = Pipeline.create(
         {
@@ -1251,7 +753,7 @@ def test_access_token_expiry_with_short_expiry(
 ) -> None:
     enable_logging()
 
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     pipeline = Pipeline.create(
         {
@@ -1306,7 +808,7 @@ def test_dataset_type_mapping_should_set_to_all(
     """
     Here we don't need to run the pipeline. We need to verify dataset_type_mapping is set to default dataplatform
     """
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     new_config: dict = {**default_source_config()}
 
@@ -1343,7 +845,7 @@ def test_dataset_type_mapping_error(
     Here we don't need to run the pipeline. We need to verify if both dataset_type_mapping and server_to_platform_instance
     are set then value error should get raised
     """
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     with pytest.raises(Exception, match=r"dataset_type_mapping is deprecated"):
         Pipeline.create(
@@ -1398,7 +900,7 @@ def test_server_to_platform_map(
         "localhost:1521": {"platform_instance": "oracle-sales-instance", "env": "PROD"},
     }
 
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     output_path: str = f"{tmp_path}/powerbi_server_to_platform_instance_mces.json"
 
@@ -1530,6 +1032,7 @@ def test_reports_with_failed_page_request(
     Test that all reports are fetched even if a single page request fails
     """
     register_mock_api(
+        pytestconfig=pytestconfig,
         request_mock=requests_mock,
         override_data={
             "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports": {
@@ -1647,6 +1150,7 @@ def test_independent_datasets_extraction(
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(
+        pytestconfig=pytestconfig,
         request_mock=requests_mock,
         override_data={
             "https://api.powerbi.com/v1.0/myorg/groups": {
@@ -1743,6 +1247,7 @@ def test_cll_extraction(
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(
+        pytestconfig=pytestconfig,
         request_mock=requests_mock,
     )
 
@@ -1797,6 +1302,7 @@ def test_cll_extraction_flags(
 ) -> None:
 
     register_mock_api(
+        pytestconfig=pytestconfig,
         request_mock=requests_mock,
     )
 
@@ -1840,36 +1346,24 @@ def test_powerbi_cross_workspace_reference_info_message(
     enable_logging()
 
     register_mock_api(
+        pytestconfig=pytestconfig,
         request_mock=requests_mock,
-        override_data={
-            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
-                "method": "GET",
-                "status_code": 200,
-                "json": {
-                    "value": [
-                        {
-                            "id": "B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0",
-                            "title": "test_tile",
-                            "embedUrl": "https://localhost/tiles/embed/1",
-                            "datasetId": "7C6F6ECF-020D-4E45-B992-33FAC7F270B7",  # This dataset-id is not available in any workspace
-                        },
-                        {
-                            "id": "8BA46FC2-BD31-4D35-AF32-F99CF5C7FEEB",
-                            "title": "Cross Workspace Tile",
-                            "embedUrl": "https://localhost/tiles/embed/1",
-                            "datasetId": "05169CD2-E713-41E6-96AA-1D8066D95445", # This dataset present in workspace 64ED5CAD-7C22-4684-8180-826122881108
-                        }
-                    ]
-                },
-            }
-        },
+        override_data=read_mock_data(
+            path=pytestconfig.rootpath
+            / "tests/integration/powerbi/mock_data/cross_workspace_mock_response.json"
+        ),
     )
 
     config = default_source_config()
 
     del config["workspace_id"]
 
-    config["workspace_id_pattern"] = {"allow": ["64ED5CAD-7C10-4684-8180-826122881108", "64ED5CAD-7C22-4684-8180-826122881108"]}
+    config["workspace_id_pattern"] = {
+        "allow": [
+            "A8D655A6-F521-477E-8C22-255018583BF4",
+            "C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492",
+        ]
+    }
 
     pipeline = Pipeline.create(
         {
