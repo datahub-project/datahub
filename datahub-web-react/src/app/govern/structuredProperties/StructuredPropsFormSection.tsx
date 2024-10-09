@@ -70,9 +70,9 @@ const StructuredPropsFormSection = ({
                 <RowContainer>
                     <FieldLabel>
                         <FlexContainer>
-                            Allowed Asset Types
+                            Allowed Entity Types
                             <Tooltip
-                                title="Optionally choose which asset types are valid values that can be set on an asset with this structured property. For example, choosing 'Person' and 'Group' will only allow users to select users or groups as values on an asset for this property."
+                                title="Choose the types of entities that are allowed as values for this property"
                                 showArrow={false}
                             >
                                 <Icon icon="Info" color="violet" size="lg" />
@@ -82,7 +82,7 @@ const StructuredPropsFormSection = ({
                             <SubTextContainer>
                                 <Text size="sm" weight="medium">
                                     <Tooltip
-                                        title="Once a structured property is created, you can only add new allowed asset types to preserve backwards compatibility"
+                                        title="Once a property is created, entity types cannot be removed"
                                         showArrow={false}
                                     >
                                         (Add-only)
@@ -99,7 +99,7 @@ const StructuredPropsFormSection = ({
                                     ? handleSelectUpdateChange(['typeQualifier', 'allowedTypes'], values)
                                     : handleSelectChange(['typeQualifier', 'allowedTypes'], values)
                             }
-                            placeholder="Select Allowed Asset Types"
+                            placeholder="Select Allowed Entity Types"
                             isMultiSelect
                             values={formValues?.typeQualifier?.allowedTypes}
                             disabledValues={disabledTypeQualifierValues}
@@ -116,7 +116,7 @@ const StructuredPropsFormSection = ({
                             *
                         </Text>
                         <Tooltip
-                            title="Select the asset types that this structured property can be applied to."
+                            title="Select the types of entities that this property can be added to"
                             showArrow={false}
                         >
                             <Icon icon="Info" color="violet" size="lg" />
@@ -126,7 +126,7 @@ const StructuredPropsFormSection = ({
                         <SubTextContainer>
                             <Text size="sm" weight="medium">
                                 <Tooltip
-                                    title="Once a structured property is created, you can only add to the applies to list to preserve backwards compatibility"
+                                    title="Once a property is created entity types cannot be removed"
                                     showArrow={false}
                                 >
                                     (Add-only)
@@ -152,7 +152,7 @@ const StructuredPropsFormSection = ({
                                 ? handleSelectUpdateChange('entityTypes', values)
                                 : handleSelectChange('entityTypes', values)
                         }
-                        placeholder="Select Asset Types"
+                        placeholder="Select Entity Types"
                         isMultiSelect
                         values={formValues?.entityTypes ? formValues?.entityTypes : undefined}
                         disabledValues={disabledEntityTypeValues}

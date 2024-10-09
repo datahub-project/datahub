@@ -42,7 +42,7 @@ const AllowedValuesField = ({
                         <FlexContainer>
                             Allowed Values
                             <Tooltip
-                                title="Define a set of valid values that can be set on an asset with this structured property. The user will be prompted to pick from this list when applying this structured property to an asset."
+                                title="Define the set of valid values for this property. If none are provided, any value will be allowed"
                                 showArrow={false}
                             >
                                 <Icon icon="Info" color="violet" size="lg" />
@@ -62,15 +62,17 @@ const AllowedValuesField = ({
                                     );
                                 })}
                             </ValuesList>
-                            <StyledIcon
-                                icon="ChevronRight"
-                                color="gray"
-                                onClick={() => setShowAllowedValuesModal(true)}
-                            />
+                            <Tooltip title="Update allowed values" showArrow={false}>
+                                <StyledIcon
+                                    icon="ChevronRight"
+                                    color="gray"
+                                    onClick={() => setShowAllowedValuesModal(true)}
+                                />
+                            </Tooltip>
                         </ItemsContainer>
                     ) : (
                         <ValueListContainer>
-                            <Tooltip title="Add new allowed values" showArrow={false}>
+                            <Tooltip title="Update allowed values" showArrow={false}>
                                 <Icon icon="Add" color="gray" onClick={() => setShowAllowedValuesModal(true)} />
                             </Tooltip>
                         </ValueListContainer>

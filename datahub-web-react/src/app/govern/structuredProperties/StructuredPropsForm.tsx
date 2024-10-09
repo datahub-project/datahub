@@ -117,10 +117,10 @@ const StructuredPropsForm = ({
                     },
                 ]}
             >
-                <Input label="Name" placeholder="Enter name" isRequired />
+                <Input label="Name" placeholder="Provide a name" isRequired />
             </Form.Item>
             <Form.Item name="description">
-                <TextArea label="Description" placeholder="Add description here" />
+                <TextArea label="Description" placeholder="Provide a description" />
             </Form.Item>
             <RowContainer>
                 <FieldLabel>
@@ -129,20 +129,14 @@ const StructuredPropsForm = ({
                         <Text color="red" weight="bold">
                             *
                         </Text>
-                        <Tooltip
-                            title="The input data type accepted as a value for this structured property. List types accept more than one value on an asset."
-                            showArrow={false}
-                        >
+                        <Tooltip title="The allowed value type of the property" showArrow={false}>
                             <Icon icon="Info" color="violet" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                 </FieldLabel>
 
                 <Tooltip
-                    title={
-                        isEditMode &&
-                        'Changing type is disabled once a structured property is created to preserve backwards compatibility'
-                    }
+                    title={isEditMode && 'Once a property is created, its type cannot be changed'}
                     showArrow={false}
                 >
                     <Form.Item

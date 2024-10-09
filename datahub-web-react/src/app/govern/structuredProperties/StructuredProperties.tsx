@@ -52,7 +52,7 @@ const StructuredProperties = () => {
                         Structured Properties
                     </Text>
                     <Text color="gray" weight="medium">
-                        Create and manage structured properties for your organization&apos;s data assets
+                        Create and manage custom properties for your organization&apos;s data assets
                     </Text>
                 </HeaderContent>
                 <Tooltip

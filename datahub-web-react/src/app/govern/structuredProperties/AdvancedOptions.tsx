@@ -59,7 +59,7 @@ const AdvancedOptions = ({ isEditMode, formValues, handleFilterStatusChange }: P
                     <FlexContainer>
                         Qualified Name
                         <Tooltip
-                            title="Optionally set a dot separated fully qualified name for this property. This name must be unique across structured properties."
+                            title="Optionally provide a dot-separated fully qualified name for this property. This name serves as an ID, and must be unique across properties"
                             showArrow={false}
                         >
                             <Icon icon="Info" color="violet" size="lg" />
@@ -67,9 +67,7 @@ const AdvancedOptions = ({ isEditMode, formValues, handleFilterStatusChange }: P
                     </FlexContainer>
                 </InputLabel>
                 <Tooltip
-                    title={
-                        isEditMode && 'Changing the qualified name is disabled once a structured property is created'
-                    }
+                    title={isEditMode && 'Once a property is created, Qualified Name cannot be changed'}
                     showArrow={false}
                 >
                     <Form.Item name="qualifiedName">
@@ -85,7 +83,7 @@ const AdvancedOptions = ({ isEditMode, formValues, handleFilterStatusChange }: P
                     </StyledFormItem>
                     <Text size="md">Display in filters</Text>
                     <StyledText>
-                        <Tooltip title="If enabled, this structured property will show up in your search filters.">
+                        <Tooltip title="If enabled, this property will appear in search filters">
                             <Icon icon="Info" size="lg" />
                         </Tooltip>
                     </StyledText>
