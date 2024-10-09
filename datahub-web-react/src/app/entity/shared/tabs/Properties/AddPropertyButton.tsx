@@ -203,7 +203,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, isV1Drawer }: Props) => {
                     isOpen={isEditModalVisible}
                     closeModal={() => setIsEditModalVisible(false)}
                     structuredProperty={selectedProperty}
-                    associatedUrn={fieldUrn || entityData?.urn}
+                    associatedUrn={fieldUrn} // pass in fieldUrn to use otherwise we will use mutation urn for siblings
                     refetch={refetch}
                     isAddMode
                 />

@@ -92,7 +92,7 @@ export default function FieldProperties({ expandedField }: Props) {
                             {canEditProperties && (
                                 <EditColumn
                                     structuredProperty={structuredProp.structuredProperty}
-                                    associatedUrn={schemaFieldEntity?.urn}
+                                    associatedUrn={structuredProp.associatedUrn}
                                     values={valuesData.map((v) => v.value) || []}
                                     refetch={refetch}
                                 />

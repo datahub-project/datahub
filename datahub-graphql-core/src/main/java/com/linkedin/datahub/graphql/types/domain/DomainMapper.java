@@ -76,7 +76,9 @@ public class DomainMapper {
     if (envelopedStructuredProps != null) {
       result.setStructuredProperties(
           StructuredPropertiesMapper.map(
-              context, new StructuredProperties(envelopedStructuredProps.getValue().data())));
+              context,
+              new StructuredProperties(envelopedStructuredProps.getValue().data()),
+              entityUrn));
     }
 
     final EnvelopedAspect envelopedForms = aspects.get(FORMS_ASPECT_NAME);

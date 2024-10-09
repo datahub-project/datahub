@@ -66,12 +66,14 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
     }, [form, question]);
 
     useEffect(() => {
-        const questionObject = questionTypes.find((type) => type.value === selectedType);
-        form.setFieldsValue({
-            title: questionObject?.defaultTitle,
-            description: questionObject?.defaultDescription,
-        });
-    }, [selectedType, form]);
+        if (!question) {
+            const questionObject = questionTypes.find((type) => type.value === selectedType);
+            form.setFieldsValue({
+                title: questionObject?.defaultTitle,
+                description: questionObject?.defaultDescription,
+            });
+        }
+    }, [selectedType, form, question]);
 
     const handleCreateOrUpdateQuestion = () => {
         const formData = form.getFieldsValue(true);
