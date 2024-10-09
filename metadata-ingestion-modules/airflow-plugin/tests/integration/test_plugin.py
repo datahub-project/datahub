@@ -33,7 +33,7 @@ IS_LOCAL = os.environ.get("CI", "false") == "false"
 DAGS_FOLDER = pathlib.Path(__file__).parent / "dags"
 GOLDENS_FOLDER = pathlib.Path(__file__).parent / "goldens"
 
-NAME_OF_DAG_TO_FILTER_FROM_INGESTION = "dag_to_filter_from_ingestion"
+DAG_TO_SKIP_INGESTION = "dag_to_skip"
 
 
 @dataclasses.dataclass
@@ -142,7 +142,7 @@ def _run_airflow(
         # Configure the datahub plugin and have it write the MCPs to a file.
         "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False" if is_v1 else "True",
         "AIRFLOW__DATAHUB__CONN_ID": datahub_connection_name,
-        "AIRFLOW__DATAHUB__DAG_ALLOW_DENY_PATTERN": f'{{ "deny": ["{NAME_OF_DAG_TO_FILTER_FROM_INGESTION}"] }}',
+        "AIRFLOW__DATAHUB__DAG_FILTER_STR": f'{{ "deny": ["{DAG_TO_SKIP_INGESTION}"] }}',
         f"AIRFLOW_CONN_{datahub_connection_name.upper()}": Connection(
             conn_id="datahub_file_default",
             conn_type="datahub-file",
@@ -377,8 +377,12 @@ def test_airflow_plugin(
         print("Sleeping for a few seconds to let the plugin finish...")
         time.sleep(10)
 
-    # Golden file will NOT get generated for the `filtered DAG`
-    if dag_id != NAME_OF_DAG_TO_FILTER_FROM_INGESTION:
+    '''
+    we need to check that the golden file is missing / empty 
+    when the dag_id is DAG_TO_SKIP_INGESTION
+    otherwise, this test doesn't actually do anything
+    '''
+    if dag_id != DAG_TO_SKIP_INGESTION:
         _sanitize_output_file(airflow_instance.metadata_file)
 
         check_golden_file(

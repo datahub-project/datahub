@@ -57,7 +57,7 @@ class DatahubLineageConfig(ConfigModel):
 
     datajob_url_link: DatajobUrl = DatajobUrl.TASKINSTANCE
 
-    dag_allow_deny_pattern: AllowDenyPattern = Field(
+    dag_filter_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for DAGs to ingest",
     )
@@ -93,8 +93,8 @@ def get_lineage_config() -> DatahubLineageConfig:
     datajob_url_link = conf.get(
         "datahub", "datajob_url_link", fallback=DatajobUrl.TASKINSTANCE.value
     )
-    dag_allow_deny_pattern = AllowDenyPattern.parse_raw(
-        conf.get("datahub", "dag_allow_deny_pattern", fallback='{"allow": [".*"]}')
+    dag_filter_pattern = AllowDenyPattern.parse_raw(
+        conf.get("datahub", "dag_filter_str", fallback='{"allow": [".*"]}')
     )
 
     return DatahubLineageConfig(
@@ -111,5 +111,5 @@ def get_lineage_config() -> DatahubLineageConfig:
         debug_emitter=debug_emitter,
         disable_openlineage_plugin=disable_openlineage_plugin,
         datajob_url_link=datajob_url_link,
-        dag_allow_deny_pattern=dag_allow_deny_pattern,
+        dag_filter_pattern=dag_filter_pattern,
     )

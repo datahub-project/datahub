@@ -144,7 +144,7 @@ conn_id = datahub_rest_default  # or datahub_kafka_default
 | datajob_url_link           | taskinstance         | If taskinstance, the datajob url will be taskinstance link on airflow. It can also be grid.                                                                                            |
 |                            |
 | graceful_exceptions        | true                 | If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions. |
-| dag_allow_deny_pattern_str | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                                                                         |
+| dag_filter_str             | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                                                                         |
 
 #### Validate that the plugin is working
 

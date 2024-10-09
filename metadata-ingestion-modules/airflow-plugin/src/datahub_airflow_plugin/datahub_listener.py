@@ -386,97 +386,98 @@ class DataHubListener:
             f"DataHub listener got notification about task instance start for {task_instance.task_id} of dag {task_instance.dag_run.dag_id}"
         )
 
-        if self.config.dag_allow_deny_pattern.allowed(task_instance.dag_run.dag_id):
-            task_instance = _render_templates(task_instance)
-
-            # The type ignore is to placate mypy on Airflow 2.1.x.
-            dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
-            task = task_instance.task
-            assert task is not None
-            dag: "DAG" = task.dag  # type: ignore[assignment]
-
-            self._task_holder.set_task(task_instance)
-
-            # Handle async operators in Airflow 2.3 by skipping deferred state.
-            # Inspired by https://github.com/OpenLineage/OpenLineage/pull/1601
-            if task_instance.next_method is not None:  # type: ignore[attr-defined]
-                return
-
-            # If we don't have the DAG listener API, we just pretend that
-            # the start of the task is the start of the DAG.
-            # This generates duplicate events, but it's better than not
-            # generating anything.
-            if not HAS_AIRFLOW_DAG_LISTENER_API:
-                self.on_dag_start(dagrun)
-
-            datajob = AirflowGenerator.generate_datajob(
-                cluster=self.config.cluster,
-                task=task,
-                dag=dag,
-                capture_tags=self.config.capture_tags_info,
-                capture_owner=self.config.capture_ownership_info,
-                config=self.config,
-            )
-
-            # TODO: Make use of get_task_location to extract github urls.
-
-            # Add lineage info.
-            self._extract_lineage(datajob, dagrun, task, task_instance)
-
-            # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
-
-            for mcp in datajob.generate_mcp(
-                materialize_iolets=self.config.materialize_iolets
-            ):
-                self.emitter.emit(mcp, self._make_emit_callback())
-            logger.debug(f"Emitted DataHub Datajob start: {datajob}")
-
-            if self.config.capture_executions:
-                dpi = AirflowGenerator.run_datajob(
-                    emitter=self.emitter,
-                    config=self.config,
-                    ti=task_instance,
-                    dag=dag,
-                    dag_run=dagrun,
-                    datajob=datajob,
-                    emit_templates=False,
-                )
-                logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
-
-            self.emitter.flush()
-
-            logger.debug(
-                f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
-            )
-
-            if self.config.materialize_iolets:
-                for outlet in datajob.outlets:
-                    reported_time: int = int(time.time() * 1000)
-                    operation = OperationClass(
-                        timestampMillis=reported_time,
-                        operationType=OperationTypeClass.CREATE,
-                        lastUpdatedTimestamp=reported_time,
-                        actor=builder.make_user_urn("airflow"),
-                    )
-
-                    operation_mcp = MetadataChangeProposalWrapper(
-                        entityUrn=str(outlet), aspect=operation
-                    )
-
-                    self.emitter.emit(operation_mcp)
-                    logger.debug(f"Emitted Dataset Operation: {outlet}")
-            else:
-                if self.graph:
-                    for outlet in datajob.outlets:
-                        if not self.graph.exists(str(outlet)):
-                            logger.warning(f"Dataset {str(outlet)} not materialized")
-                    for inlet in datajob.inlets:
-                        if not self.graph.exists(str(inlet)):
-                            logger.warning(f"Dataset {str(inlet)} not materialized")
-        else:
+        if not self.config.dag_filter_pattern.allowed(task_instance.dag_run.dag_id):
             logger.debug(
                 f"DAG {task_instance.dag_run.dag_id} is not allowed by the pattern"
             )
+            return
+
+        task_instance = _render_templates(task_instance)
+
+        # The type ignore is to placate mypy on Airflow 2.1.x.
+        dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
+        task = task_instance.task
+        assert task is not None
+        dag: "DAG" = task.dag  # type: ignore[assignment]
+
+        self._task_holder.set_task(task_instance)
+
+        # Handle async operators in Airflow 2.3 by skipping deferred state.
+        # Inspired by https://github.com/OpenLineage/OpenLineage/pull/1601
+        if task_instance.next_method is not None:  # type: ignore[attr-defined]
+            return
+
+        # If we don't have the DAG listener API, we just pretend that
+        # the start of the task is the start of the DAG.
+        # This generates duplicate events, but it's better than not
+        # generating anything.
+        if not HAS_AIRFLOW_DAG_LISTENER_API:
+            self.on_dag_start(dagrun)
+
+        datajob = AirflowGenerator.generate_datajob(
+            cluster=self.config.cluster,
+            task=task,
+            dag=dag,
+            capture_tags=self.config.capture_tags_info,
+            capture_owner=self.config.capture_ownership_info,
+            config=self.config,
+        )
+
+        # TODO: Make use of get_task_location to extract github urls.
+
+        # Add lineage info.
+        self._extract_lineage(datajob, dagrun, task, task_instance)
+
+        # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
+
+        for mcp in datajob.generate_mcp(
+            materialize_iolets=self.config.materialize_iolets
+        ):
+            self.emitter.emit(mcp, self._make_emit_callback())
+        logger.debug(f"Emitted DataHub Datajob start: {datajob}")
+
+        if self.config.capture_executions:
+            dpi = AirflowGenerator.run_datajob(
+                emitter=self.emitter,
+                config=self.config,
+                ti=task_instance,
+                dag=dag,
+                dag_run=dagrun,
+                datajob=datajob,
+                emit_templates=False,
+            )
+            logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
+
+        self.emitter.flush()
+
+        logger.debug(
+            f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
+        )
+
+        if self.config.materialize_iolets:
+            for outlet in datajob.outlets:
+                reported_time: int = int(time.time() * 1000)
+                operation = OperationClass(
+                    timestampMillis=reported_time,
+                    operationType=OperationTypeClass.CREATE,
+                    lastUpdatedTimestamp=reported_time,
+                    actor=builder.make_user_urn("airflow"),
+                )
+
+                operation_mcp = MetadataChangeProposalWrapper(
+                    entityUrn=str(outlet), aspect=operation
+                )
+
+                self.emitter.emit(operation_mcp)
+                logger.debug(f"Emitted Dataset Operation: {outlet}")
+        else:
+            if self.graph:
+                for outlet in datajob.outlets:
+                    if not self.graph.exists(str(outlet)):
+                        logger.warning(f"Dataset {str(outlet)} not materialized")
+                for inlet in datajob.inlets:
+                    if not self.graph.exists(str(inlet)):
+                        logger.warning(f"Dataset {str(inlet)} not materialized")
 
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
@@ -495,45 +496,46 @@ class DataHubListener:
 
         dag: "DAG" = task.dag  # type: ignore[assignment]
 
-        if self.config.dag_allow_deny_pattern.allowed(dag.dag_id):
-            datajob = AirflowGenerator.generate_datajob(
+        if not self.config.dag_filter_pattern.allowed(dag.dag_id):
+            logger.debug(f"DAG {dag.dag_id} is not allowed by the pattern")
+            return
+
+        datajob = AirflowGenerator.generate_datajob(
+            cluster=self.config.cluster,
+            task=task,
+            dag=dag,
+            capture_tags=self.config.capture_tags_info,
+            capture_owner=self.config.capture_ownership_info,
+            config=self.config,
+        )
+
+        # Add lineage info.
+        self._extract_lineage(datajob, dagrun, task, task_instance, complete=True)
+
+        for mcp in datajob.generate_mcp(
+            materialize_iolets=self.config.materialize_iolets
+        ):
+            self.emitter.emit(mcp, self._make_emit_callback())
+        logger.debug(
+            f"Emitted DataHub Datajob finish w/ status {status}: {datajob}"
+        )
+
+        if self.config.capture_executions:
+            dpi = AirflowGenerator.complete_datajob(
+                emitter=self.emitter,
                 cluster=self.config.cluster,
-                task=task,
+                ti=task_instance,
                 dag=dag,
-                capture_tags=self.config.capture_tags_info,
-                capture_owner=self.config.capture_ownership_info,
+                dag_run=dagrun,
+                datajob=datajob,
+                result=status,
                 config=self.config,
             )
-
-            # Add lineage info.
-            self._extract_lineage(datajob, dagrun, task, task_instance, complete=True)
-
-            for mcp in datajob.generate_mcp(
-                materialize_iolets=self.config.materialize_iolets
-            ):
-                self.emitter.emit(mcp, self._make_emit_callback())
             logger.debug(
-                f"Emitted DataHub Datajob finish w/ status {status}: {datajob}"
+                f"Emitted DataHub DataProcess Instance with status {status}: {dpi}"
             )
 
-            if self.config.capture_executions:
-                dpi = AirflowGenerator.complete_datajob(
-                    emitter=self.emitter,
-                    cluster=self.config.cluster,
-                    ti=task_instance,
-                    dag=dag,
-                    dag_run=dagrun,
-                    datajob=datajob,
-                    result=status,
-                    config=self.config,
-                )
-                logger.debug(
-                    f"Emitted DataHub DataProcess Instance with status {status}: {dpi}"
-                )
-
-            self.emitter.flush()
-        else:
-            logger.debug(f"DAG {dag.dag_id} is not allowed by the pattern")
+        self.emitter.flush()
 
     @hookimpl
     @run_in_thread
@@ -698,11 +700,12 @@ class DataHubListener:
             )
 
             assert dag_run.dag_id
-            if self.config.dag_allow_deny_pattern.allowed(dag_run.dag_id):
-                self.on_dag_start(dag_run)
-                self.emitter.flush()
-            else:
+            if not self.config.dag_filter_pattern.allowed(dag_run.dag_id):
                 logger.debug(f"DAG {dag_run.dag_id} is not allowed by the pattern")
+                return
+
+            self.on_dag_start(dag_run)
+            self.emitter.flush()
 
     # TODO: Add hooks for on_dag_run_success, on_dag_run_failed -> call AirflowGenerator.complete_dataflow
 
