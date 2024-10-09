@@ -9,7 +9,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.EbeanConfiguration;
-import com.linkedin.metadata.entity.EbeanEntityServiceTest;
 import io.ebean.Database;
 import io.ebean.test.LoggedSql;
 import java.util.List;
@@ -34,7 +33,8 @@ public class EbeanAspectDaoTest {
 
     testDao.runInTransactionWithRetryUnlocked(
         (txContext) -> {
-          testDao.getNextVersions(Map.of("urn:li:corpuser:testGetNextVersionForUpdate", Set.of("status")));
+          testDao.getNextVersions(
+              Map.of("urn:li:corpuser:testGetNextVersionForUpdate", Set.of("status")));
           return "";
         },
         mock(AspectsBatch.class),
