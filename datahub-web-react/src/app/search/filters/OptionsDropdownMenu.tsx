@@ -2,6 +2,9 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React, { CSSProperties } from 'react';
 import styled from 'styled-components/macro';
+import { getIsDateRangeFilter } from '@src/app/searchV2/filters/utils';
+import DateRangeMenu from '@src/app/searchV2/filters/value/DateRangeMenu';
+import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { SearchBar } from '../SearchBar';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
@@ -54,6 +57,8 @@ interface Props {
     searchPlaceholder?: string;
     style?: CSSProperties;
     hideSearchBar?: boolean;
+    filter?: FacetMetadata;
+    manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
 }
 
 export default function OptionsDropdownMenu({
@@ -65,10 +70,20 @@ export default function OptionsDropdownMenu({
     searchPlaceholder,
     style,
     hideSearchBar,
+    filter,
+    manuallyUpdateFilters,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
     useEnterKeyListener({ querySelectorToExecuteClick: '#updateFiltersButton' });
+
+    if (filter && manuallyUpdateFilters && getIsDateRangeFilter(filter)) {
+        return (
+            <DropdownMenu data-testid="filter-dropdown" style={style}>
+                <DateRangeMenu field={filter} manuallyUpdateFilters={manuallyUpdateFilters} />
+            </DropdownMenu>
+        );
+    }
 
     return (
         <DropdownMenu data-testid="filter-dropdown" style={style}>

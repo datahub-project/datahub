@@ -2,6 +2,7 @@ import React from 'react';
 import { CheckCircleOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
 import { FilterOperator } from '../../../../types.generated';
 import { FieldType, FilterOperatorInfo, FilterOperatorType, FilterPredicate } from '../types';
+import { getIsDateRangeFilter } from '../utils';
 
 /**
  * This is a flat version of the supported search filtering operations that can be applied
@@ -149,6 +150,10 @@ export const DATE_CONDITION_TYPES = [...BASE_CONDITION_TYPES];
  * @returns
  */
 export const getOperatorOptionsForPredicate = (predicate: FilterPredicate): FilterOperatorInfo[] => {
+    const isDateRangeFilter = getIsDateRangeFilter(predicate.field);
+    if (isDateRangeFilter) {
+        return BUCKETED_TIMESTAMP_CONDITION_TYPES.map((type) => SEARCH_FILTER_CONDITION_TYPE_TO_INFO.get(type)!);
+    }
     switch (predicate.field.type) {
         /* eslint-disable @typescript-eslint/no-non-null-assertion */
         case FieldType.TEXT:

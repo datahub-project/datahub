@@ -656,10 +656,19 @@ export function useElementDimensions(ref) {
     return dimensions;
 }
 
-export function useFilterDisplayName(filter: FacetMetadata | FilterField) {
+export function useFilterDisplayName(filter: FacetMetadata | FilterField, predicateDisplayName?: string) {
     const entityRegistry = useEntityRegistryV2();
 
-    return filter.entity
-        ? entityRegistry.getDisplayName(filter.entity.type, filter.entity)
-        : capitalizeFirstLetterOnly(filter.displayName);
+    if (filter.entity) {
+        return entityRegistry.getDisplayName(filter.entity.type, filter.entity);
+    }
+
+    return predicateDisplayName || filter.displayName || filter.field;
+}
+
+export function getIsDateRangeFilter(field: FilterField | FacetMetadata) {
+    if (field.entity && field.entity.type === EntityType.StructuredProperty) {
+        return (field.entity as StructuredPropertyEntity).definition?.valueType?.urn === DATE_TYPE_URN;
+    }
+    return false;
 }

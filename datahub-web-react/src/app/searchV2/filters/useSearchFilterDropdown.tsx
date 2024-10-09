@@ -20,8 +20,17 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
         );
     }
 
+    function manuallyUpdateFilters(newFilters: FacetFilterInput[]) {
+        // remove any filters that are in newFilters to overwrite them
+        const filtersNotInNewFilters = activeFilters.filter(
+            (f) => !newFilters.find((newFilter) => newFilter.field === f.field),
+        );
+        onChangeFilters([...filtersNotInNewFilters, ...newFilters]);
+    }
+
     return {
         updateFilters,
         numActiveFilters,
+        manuallyUpdateFilters,
     };
 }

@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
 import TimeBucketMenu from '@app/searchV2/filters/value/TimeBucketMenu';
+import { FacetFilterInput } from '@src/types.generated';
 import React, { useEffect, useRef, useState } from 'react';
 import { FilterField, FilterValueOption, FilterValue, FieldType } from '../types';
 import TextValueMenu from './TextValueMenu';
@@ -7,6 +8,8 @@ import BooleanValueMenu from './BooleanValueMenu';
 import EntityValueMenu from './EntityValueMenu';
 import EntityTypeMenu from './EntityTypeMenu';
 import EnumValueMenu from './EnumValueMenu';
+import DateRangeMenu from './DateRangeMenu';
+import { getIsDateRangeFilter } from '../utils';
 
 interface Props {
     field: FilterField;
@@ -17,6 +20,7 @@ interface Props {
     visible: boolean;
     includeCount?: boolean;
     className?: string;
+    manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
 }
 
 export default function ValueMenu({
@@ -28,9 +32,11 @@ export default function ValueMenu({
     visible,
     includeCount,
     className,
+    manuallyUpdateFilters,
 }: Props) {
     const [stagedSelectedValues, setStagedSelectedValues] = useState<FilterValue[]>(values || []);
     const visibilityRef = useRef<boolean>(visible);
+    const isDateRangeFilter = getIsDateRangeFilter(field);
 
     /**
      * Synchronize stagedSelectedValues with the values prop
@@ -48,10 +54,14 @@ export default function ValueMenu({
         const previouslyVisible = visibilityRef.current;
         visibilityRef.current = visible;
 
-        if (!visible && previouslyVisible !== visible) {
+        if (!visible && previouslyVisible !== visible && !isDateRangeFilter) {
             onChangeValues(stagedSelectedValues);
         }
-    }, [visible, stagedSelectedValues, onChangeValues]);
+    }, [visible, stagedSelectedValues, onChangeValues, isDateRangeFilter]);
+
+    if (isDateRangeFilter && manuallyUpdateFilters) {
+        return <DateRangeMenu field={field} manuallyUpdateFilters={manuallyUpdateFilters} />;
+    }
 
     switch (field.type) {
         case FieldType.TEXT:

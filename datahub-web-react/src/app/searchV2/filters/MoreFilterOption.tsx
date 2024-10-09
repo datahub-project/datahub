@@ -33,7 +33,7 @@ interface Props {
 }
 
 export default function MoreFilterOption({ filter, filterPredicates, activeFilters, onChangeFilters }: Props) {
-    const { updateFilters, numActiveFilters } = useSearchFilterDropdown({
+    const { updateFilters, numActiveFilters, manuallyUpdateFilters } = useSearchFilterDropdown({
         filter,
         activeFilters,
         onChangeFilters,
@@ -59,6 +59,7 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
             values={currentFilterPredicate?.values}
             defaultOptions={currentFilterPredicate?.defaultValueOptions}
             onChangeValues={(newValues) => onChangeFilterValues(currentFilterPredicate, newValues)}
+            manuallyUpdateFilters={manuallyUpdateFilters}
             {...elementDimensions}
         >
             <MoreFilterOptionLabel

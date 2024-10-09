@@ -2,7 +2,7 @@ import React from 'react';
 import { CSSProperties } from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import useSearchFilterDropdown from './useSearchFilterDropdown';
-import { getFilterDropdownIcon } from './utils';
+import { getFilterDropdownIcon, useFilterDisplayName } from './utils';
 import SearchFilterView from './SearchFilterView';
 import { FilterPredicate } from './types';
 
@@ -15,7 +15,7 @@ interface Props {
 }
 
 export default function SearchFilter({ filter, filterPredicates, activeFilters, onChangeFilters, labelStyle }: Props) {
-    const { updateFilters, numActiveFilters } = useSearchFilterDropdown({
+    const { updateFilters, numActiveFilters, manuallyUpdateFilters } = useSearchFilterDropdown({
         filter,
         activeFilters,
         onChangeFilters,
@@ -26,14 +26,17 @@ export default function SearchFilter({ filter, filterPredicates, activeFilters, 
         obj.field.field.includes(filter.field),
     ) as FilterPredicate;
 
+    const displayName = useFilterDisplayName(filter, currentFilterPredicate?.field?.displayName);
+
     return (
         <SearchFilterView
             filterPredicate={currentFilterPredicate}
             numActiveFilters={numActiveFilters}
             filterIcon={filterIcon}
-            displayName={currentFilterPredicate?.field?.displayName || filter.displayName || filter.field}
+            displayName={displayName}
             onChangeValues={updateFilters}
             labelStyle={labelStyle}
+            manuallyUpdateFilters={manuallyUpdateFilters}
         />
     );
 }
