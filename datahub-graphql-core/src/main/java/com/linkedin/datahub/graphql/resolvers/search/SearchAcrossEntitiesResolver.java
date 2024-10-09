@@ -174,10 +174,10 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
 
   private List<String> getStructuredPropertyFacets(final QueryContext context) {
     try {
-
+      SearchFlags searchFlags = new SearchFlags().setSkipCache(true);
       SearchResult result =
           _entityClient.searchAcrossEntities(
-              context.getOperationContext(),
+              context.getOperationContext().withSearchFlags(flags -> searchFlags),
               getEntityNames(ImmutableList.of(EntityType.STRUCTURED_PROPERTY)),
               "*",
               createStructuredPropertyFilter(),
