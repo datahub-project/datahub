@@ -27,7 +27,7 @@
             "customProperties": {
                 "datasetId": "317456E5-1FC7-4BDC-9C84-1185825E293D"
             },
-            "externalUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/91580e0e-1680-4b1c-bbf9-4f6764d7a5ff/details",
+            "externalUrl": "http://localhost/groups/A8D655A6-F521-477E-8C22-255018583BF4/datasets/317456E5-1FC7-4BDC-9C84-1185825E293D/details",
             "name": "public issue_history",
             "description": "sales semantic model",
             "tags": []
@@ -49,7 +49,7 @@
             "customProperties": {
                 "createdFrom": "Dataset",
                 "datasetId": "317456E5-1FC7-4BDC-9C84-1185825E293D",
-                "datasetWebUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/91580e0e-1680-4b1c-bbf9-4f6764d7a5ff/details"
+                "datasetWebUrl": "http://localhost/groups/A8D655A6-F521-477E-8C22-255018583BF4/datasets/317456E5-1FC7-4BDC-9C84-1185825E293D/details"
             },
             "title": "Sale Order Tile",
             "description": "Sale Order Tile",
@@ -190,7 +190,7 @@
             "customProperties": {
                 "datasetId": "FE362B98-956E-4394-BA37-6367EE6435E9"
             },
-            "externalUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/91580e0e-1680-4b1c-bbf9-4f6764d7a5ff/details",
+            "externalUrl": "http://localhost/groups/C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492/datasets/FE362B98-956E-4394-BA37-6367EE6435E9/details",
             "name": "core_sales_set",
             "description": "base_records",
             "tags": []
@@ -285,7 +285,7 @@
             "customProperties": {
                 "createdFrom": "Dataset",
                 "datasetId": "FE362B98-956E-4394-BA37-6367EE6435E9",
-                "datasetWebUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/91580e0e-1680-4b1c-bbf9-4f6764d7a5ff/details"
+                "datasetWebUrl": "http://localhost/groups/C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492/datasets/FE362B98-956E-4394-BA37-6367EE6435E9/details"
             },
             "title": "Yearly Sales",
             "description": "Yearly Sales",
