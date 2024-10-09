@@ -85,7 +85,6 @@ class PresetSource(SupersetSource):
         super().__init__(ctx, config)
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
-        self.session = self.login()
 
     def login(self):
         try:
