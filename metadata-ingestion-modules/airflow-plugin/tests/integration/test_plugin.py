@@ -378,7 +378,7 @@ def test_airflow_plugin(
         time.sleep(10)
 
     """
-    we need to check that the golden file is missing / empty 
+    we need to check that the golden file is missing / empty
     when the dag_id is DAG_TO_SKIP_INGESTION
     otherwise, this test doesn't actually do anything
     """

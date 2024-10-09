@@ -516,9 +516,7 @@ class DataHubListener:
             materialize_iolets=self.config.materialize_iolets
         ):
             self.emitter.emit(mcp, self._make_emit_callback())
-        logger.debug(
-            f"Emitted DataHub Datajob finish w/ status {status}: {datajob}"
-        )
+        logger.debug(f"Emitted DataHub Datajob finish w/ status {status}: {datajob}")
 
         if self.config.capture_executions:
             dpi = AirflowGenerator.complete_datajob(
