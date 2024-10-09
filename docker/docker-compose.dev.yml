@@ -8,7 +8,6 @@
 # To make a JVM app debuggable via IntelliJ, go to its env file and add JVM debug flags, and then add the JVM debug
 # port to this file.
 ---
-version: '3.9'
 services:
   datahub-frontend-react:
     image: acryldata/datahub-frontend-react:head

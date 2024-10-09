@@ -4,7 +4,6 @@
 
 # NOTE: This file does not build! No dockerfiles are set. See the README.md in this directory.
 ---
-version: '3.9'
 services:
   datahub-frontend-react:
     hostname: datahub-frontend-react

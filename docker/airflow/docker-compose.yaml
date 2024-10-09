@@ -41,7 +41,6 @@
 #
 # Feel free to modify this file to suit your needs.
 ---
-version: '3'
 x-airflow-common:
   &airflow-common
   image: ${AIRFLOW_IMAGE_NAME:-acryldata/airflow-datahub:latest}
