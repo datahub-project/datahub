@@ -77,7 +77,7 @@ export const integrationRecipe = {
 // Pro tip: `getField` allows overriding default component variables
 const fields = [
     getField('select_tags_and_terms', {
-        title: 'Select Tags & Glossary Terms',
+        title: 'Tags & Glossary Terms',
         description: 'Choose the tags and glossary terms to propagate to Snowflake.',
         fields: [
             {

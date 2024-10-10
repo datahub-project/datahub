@@ -1,3 +1,5 @@
+import { EntityType } from '@src/types.generated';
+import React, { useEffect, useState } from 'react';
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
@@ -6,27 +8,28 @@ import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleQuery,
 } from '@src/graphql/search.generated';
-import { EntityType, GlossaryTerm } from '@src/types.generated';
-import { Form } from 'antd';
-import React, { useState } from 'react';
-import { SelectorWrapper } from '../styledComponents';
+import styled from 'styled-components';
+import { groupBy } from 'lodash';
 
-const GlossaryTermsSelector = () => {
+const Wrapper = styled.div``;
+
+type GlossaryTermSelectorProps = {
+    initialOptions: any[];
+    onUpdate: (values: SelectOption[]) => void;
+    label?: string;
+    placeholder?: string;
+    areNodeSelectable?: boolean;
+};
+
+const GlossaryTermsSelector = ({
+    initialOptions,
+    onUpdate,
+    label,
+    placeholder,
+    areNodeSelectable = false,
+}: GlossaryTermSelectorProps) => {
     const entityRegistry = useEntityRegistryV2();
     const [useSearch, setUseSearch] = useState(false);
-    const form = Form.useFormInstance();
-    const initialAllowedTerms =
-        form.getFieldValue(['glossaryTermsParams', 'allowedTerms']) ||
-        form.getFieldValue(['glossaryTermsParams', 'resolvedAllowedTerms']) ||
-        [];
-    const initialOptions = initialAllowedTerms.map((term: GlossaryTerm) => ({
-        value: term.urn,
-        label: entityRegistry.getDisplayName(term.type, term),
-        id: term.urn,
-        isParent: term.type === EntityType.GlossaryNode,
-        parentId: term.parentNodes?.[0]?.urn,
-        entity: term,
-    }));
 
     const [autoComplete, { data: autoCompleteData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const { data } = useGetSearchResultsForMultipleQuery({
@@ -40,28 +43,59 @@ const GlossaryTermsSelector = () => {
     });
 
     const [seenUrns] = useState<Set<string>>(new Set());
+    const [seenNodeUrns] = useState<Set<string>>(new Set());
     const [childOptions, setChildOptions] = useState<SelectOption[]>([]);
 
     const [getNode] = useGetGlossaryNodeLazyQuery({
         onCompleted: (nodeData) => {
             const childOptionsToAdd: SelectOption[] = [];
+            const alreadyPresentOptionUrns = childOptions.map((option) => option.value);
+            const nodeUrn = nodeData.glossaryNode?.urn || '';
+            seenNodeUrns.add(nodeUrn);
             nodeData.glossaryNode?.children?.relationships.forEach((relationship) => {
                 if (relationship.entity && !seenUrns.has(relationship.entity.urn)) {
                     const { entity } = relationship;
                     const { urn, type } = entity;
                     seenUrns.add(urn);
-                    childOptionsToAdd.push({
-                        value: urn,
-                        label: entityRegistry.getDisplayName(type, entity),
-                        isParent: type === EntityType.GlossaryNode,
-                        parentValue: nodeData.glossaryNode?.urn,
-                        entity,
-                    });
+                    if (!alreadyPresentOptionUrns.includes(urn)) {
+                        childOptionsToAdd.push({
+                            value: urn,
+                            label: entityRegistry.getDisplayName(type, entity),
+                            isParent: type === EntityType.GlossaryNode,
+                            parentValue: nodeData.glossaryNode?.urn,
+                            entity,
+                        });
+                    }
                 }
             });
             setChildOptions((existingOptions) => [...existingOptions, ...childOptionsToAdd]);
         },
     });
+
+    const assignInitialTermsToDropdown = () => {
+        if (initialOptions.length) {
+            const childOptionsToAdd: SelectOption[] = [];
+            const nodeWiseTerms = groupBy(initialOptions, 'parentId');
+
+            Object.keys(nodeWiseTerms).forEach((node) => {
+                nodeWiseTerms[node].forEach((option) => {
+                    if (!seenUrns.has(option.value)) {
+                        seenUrns.add(option.value);
+                        childOptionsToAdd.push({
+                            ...option,
+                            parentValue: node,
+                        });
+                    }
+                });
+            });
+            setChildOptions((existingOptions) => [...existingOptions, ...childOptionsToAdd]);
+        }
+    };
+
+    useEffect(() => {
+        assignInitialTermsToDropdown();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialOptions]);
 
     const options =
         data?.searchAcrossEntities?.searchResults.map((result) => ({
@@ -81,7 +115,9 @@ const GlossaryTermsSelector = () => {
             })) || [];
 
     function handleLoad(option: SelectOption) {
-        getNode({ variables: { urn: option.value } });
+        if (!seenNodeUrns.has(option.value)) {
+            getNode({ variables: { urn: option.value } });
+        }
     }
 
     function handleSearch(query: string) {
@@ -93,32 +129,24 @@ const GlossaryTermsSelector = () => {
         }
     }
 
-    function handleUpdate(values: SelectOption[]) {
-        if (values.length) {
-            const allowedTerms = values.map((v) => v.entity).filter((r) => !!r);
-            form.setFieldValue(['glossaryTermsParams', 'allowedTerms'], allowedTerms);
-        } else {
-            form.setFieldValue(['glossaryTermsParams', 'allowedTerms'], undefined);
-        }
-    }
-
     return (
-        <SelectorWrapper>
+        <Wrapper>
             <NestedSelect
-                label="Allowed Glossary Terms:"
-                placeholder="Select allowed glossary terms"
+                label={label ?? ''}
+                placeholder={placeholder || 'Select allowed glossary terms'}
                 searchPlaceholder="Search all glossary terms..."
-                areParentsSelectable={false}
+                areParentsSelectable={areNodeSelectable}
                 options={useSearch ? autoCompleteOptions : [...options, ...childOptions]}
                 initialValues={initialOptions}
                 loadData={handleLoad}
                 onSearch={handleSearch}
-                onUpdate={handleUpdate}
+                onUpdate={onUpdate}
                 width="full"
                 isMultiSelect
                 showSearch
+                alwaysReloadParentData
             />
-        </SelectorWrapper>
+        </Wrapper>
     );
 };
 

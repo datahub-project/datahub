@@ -1566,6 +1566,11 @@ fragment entityDisplayNameFields on Entity {
         properties {
             name
         }
+        parentNodes {
+            nodes {
+                urn
+            }
+        }
     }
     ... on GlossaryNode {
         properties {

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 import { CheckSquareOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import { useTheme } from 'styled-components';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { ActionRequestAssignee, ActionRequestStatus } from '../../../types.generated';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { ProposalList } from './ProposalList';
@@ -14,14 +14,13 @@ type Props = {
 };
 
 export const ProposalGroupTab = ({ assignee }: Props) => {
-    const theme = useTheme();
     /**
      * Determines which view should be visible: pending or completed requests.
      */
     const [viewType, setViewType] = useState<string>(ActionRequestStatus.Pending);
 
-    const pendingColor = viewType === ActionRequestStatus.Pending ? theme.styles['primary-color'] : undefined;
-    const completedColor = viewType === ActionRequestStatus.Completed ? theme.styles['primary-color'] : undefined;
+    const pendingColor = viewType === ActionRequestStatus.Pending ? REDESIGN_COLORS.TITLE_PURPLE : undefined;
+    const completedColor = viewType === ActionRequestStatus.Completed ? REDESIGN_COLORS.TITLE_PURPLE : undefined;
 
     return (
         <>

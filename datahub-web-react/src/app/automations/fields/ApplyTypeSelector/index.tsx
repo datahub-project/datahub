@@ -1,9 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { Text } from '@components';
 import type { ComponentBaseProps } from '@app/automations/types';
 import { AutomationApplyType, APPLICATION_TYPE_OPTIONS } from '@app/automations/constants';
+import { Checkbox } from 'antd';
 
 const RadiosContainer = styled.div`
     display: grid;
@@ -13,12 +13,12 @@ const RadiosContainer = styled.div`
 const RadioWrapper = styled.div`
     margin-bottom: 10px;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: flex-start;
     gap: 10px;
     padding-right: 14px;
 
-    & input[type='radio'] {
+    & input[type='checkbox'] {
         flex: 0;
         margin-top: 5px;
     }
@@ -28,7 +28,7 @@ const RadioWrapper = styled.div`
     }
 
     &:hover,
-    & input[type='radio']:hover,
+    & input[type='checkbox']:hover,
     & label:hover {
         cursor: pointer;
     }
@@ -42,27 +42,31 @@ export type ApplyTypeSelectorStateType = {
 export const ApplyTypeSelector = ({ state, passStateToParent }: ComponentBaseProps) => {
     // Defined in @app/automations/fields/index
     const { applyType } = state as ApplyTypeSelectorStateType;
-
+    const handleRadioChange = (event) => {
+        passStateToParent({
+            applyType: event.target.checked ? APPLICATION_TYPE_OPTIONS[0].key : APPLICATION_TYPE_OPTIONS[1].key,
+        });
+    };
+    const propose = APPLICATION_TYPE_OPTIONS[0];
+    const checked = propose.key === applyType;
     return (
         <RadiosContainer>
-            {APPLICATION_TYPE_OPTIONS.map((option) => {
-                const checked = applyType === option.key;
-                const handleRadioChange = () => passStateToParent({ applyType: option.key as AutomationApplyType });
-
-                return (
-                    <RadioWrapper key={option.key} onClick={handleRadioChange}>
-                        <input type="radio" id={option.name} name="applyType" value={option.key} checked={checked} />
-                        <div>
-                            <label htmlFor={option.name} aria-checked={checked}>
-                                {option.name}
-                            </label>
-                            <Text size="sm" color="gray">
-                                {option.description}
-                            </Text>
-                        </div>
-                    </RadioWrapper>
-                );
-            })}
+            <RadioWrapper>
+                <div>
+                    <Checkbox
+                        id={propose.name}
+                        name="applyType"
+                        value={propose.name}
+                        checked={checked}
+                        onChange={handleRadioChange}
+                    />
+                </div>
+                <div>
+                    <label htmlFor={propose.name} aria-checked={checked}>
+                        {propose.displayName}
+                    </label>
+                </div>
+            </RadioWrapper>
         </RadiosContainer>
     );
 };

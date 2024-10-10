@@ -58,7 +58,7 @@ export const PLACEHOLDER_TEST_URN = 'placeholder-test-urn';
  */
 
 export enum AutomationApplyType {
-    PROPOSE = 'Propose Terms',
+    PROPOSE = 'PROPOSE',
     APPLY = 'Apply Terms',
 }
 
@@ -66,11 +66,13 @@ export const APPLICATION_TYPE_OPTIONS = [
     {
         key: 'PROPOSE',
         name: AutomationApplyType.PROPOSE,
+        displayName: 'Add terms using proposals',
         description: 'Propose terms to be approved by asset owners before applied to assets.',
     },
     {
         key: 'APPLY',
         name: AutomationApplyType.APPLY,
+        displayName: '',
         description: 'Apply terms directly to assets without approval. Applied terms are visible to all users.',
     },
 ];
@@ -84,12 +86,11 @@ export const CARDINALITY_TYPE_OPTIONS = [
     {
         key: 'SINGLE',
         name: CardinalityType.SINGLE,
-        description: 'At most, one Glossary Term will be applied.',
     },
     {
         key: 'MULTIPLE',
         name: CardinalityType.MULTIPLE,
-        description: 'Multiple Glossary Terms may be applied.',
+        displayName: 'Allow multiple terms to be applied',
     },
 ];
 

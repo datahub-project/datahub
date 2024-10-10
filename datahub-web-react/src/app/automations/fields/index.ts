@@ -17,7 +17,7 @@ import { Details, DetailsStateType } from './Details';
 // This field allows the user to select tags, glossary terms, or glossary nodes
 const termSelector: Field = {
     title: 'Select Tags & Terms',
-    description: 'Choose the tags and glossary terms to propagate.',
+    description: 'Tags and glossary terms to propagate.',
     fields: [
         {
             // The component that's rendered for this field
@@ -48,7 +48,7 @@ const termSelector: Field = {
 // This field allows the user to select entity types
 const entityTypeSelector: Field = {
     title: 'Select Entity Type',
-    description: 'Choose the source entity types.',
+    description: 'Source entity types.',
     fields: [
         {
             // The component that's rendered for this field
@@ -98,8 +98,8 @@ const traversalSelector: Field = {
 // Apply Type Selector
 // This field allows the user to select the apply type of the automation
 const applyTypeSelector: Field = {
-    title: 'Select Apply Type',
-    description: 'Choose the apply type of the automation.',
+    title: 'Apply Type',
+    description: "When unchecked, we'll save suggestions directly on the assets without a human review.",
     fields: [
         {
             // The component that's rendered for this field
@@ -123,7 +123,7 @@ const applyTypeSelector: Field = {
 // This field allows the user to select the cardinality of the automation
 const cardinalitySelector: Field = {
     title: 'Select Cardinality',
-    description: 'Choose the cardinality of the automation.',
+    description: 'Cardinality of the automation.',
     fields: [
         {
             // The component that's rendered for this field
@@ -146,8 +146,8 @@ const cardinalitySelector: Field = {
 // Connection Selector
 // This field allows the user to select the destination connection of the automation
 const connectionSelector: Field = {
-    title: 'Select Destination Connection',
-    description: 'Choose the destination connection where the terms will be propagated.',
+    title: 'Destination Connection',
+    description: 'Destination connection where the terms will be propagated.',
     fields: [
         {
             // The component that's rendered for this field
@@ -172,8 +172,8 @@ const connectionSelector: Field = {
 // Platform Selector
 // This field allows the user to select the data platforms
 const platformSelector: Field = {
-    title: 'Select Data Platforms',
-    description: 'Choose the data platforms where the terms will be propagated.',
+    title: 'Data Platforms',
+    description: 'Data platforms where the terms will be propagated.',
     fields: [
         {
             // The component that's rendered for this field
@@ -214,7 +214,7 @@ const platformSelector: Field = {
 // This field allows the user to select the containers
 const containerSelector: Field = {
     title: 'Select Containers',
-    description: 'Choose the containers where the terms will be propagated.',
+    description: 'Containers where the terms will be propagated.',
     fields: [
         {
             // The component that's rendered for this field

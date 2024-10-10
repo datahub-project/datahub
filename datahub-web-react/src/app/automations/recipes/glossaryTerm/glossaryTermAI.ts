@@ -65,8 +65,8 @@ export const integrationRecipe = {
 // Pro tip: `getField` allows overriding default component variables
 const fields = [
     getField('select_tags_and_terms', {
-        title: 'Select Glossary Terms & Groups',
-        description: 'Choose the Glossary Terms and Term Groups.',
+        title: 'Glossary Terms & Groups',
+        description: 'Glossary Terms and Term Groups.',
         fields: [
             {
                 props: {
@@ -83,7 +83,7 @@ const fields = [
     }),
     getField('select_entity_types', {
         title: 'Asset Types',
-        description: 'Choose the types of assets to apply Glossary Terms to.',
+        description: 'Types of assets to apply Glossary Terms to.',
         fields: [
             {
                 props: {
@@ -107,7 +107,7 @@ const fields = [
     }),
     getField('select_cardinality', {
         title: 'Allowed Term Count',
-        description: 'Select the maximum number of terms to recommend.',
+        description: 'When unchecked, limit to one term suggestion per dataset/column.',
         fields: [
             {
                 state: {

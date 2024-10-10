@@ -52,8 +52,8 @@ export const integrationRecipe = {
 // Pro tip: `getField` allows overriding default component variables
 const fields = [
     getField('select_tags_and_terms', {
-        title: 'Select Glossary Terms & Groups',
-        description: 'Choose the glossary terms and term groups to propagate.',
+        title: 'Glossary Terms & Groups',
+        description: 'glossary terms and term groups to propagate.',
         fields: [
             {
                 props: {

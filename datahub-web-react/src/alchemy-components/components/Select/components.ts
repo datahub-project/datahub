@@ -20,6 +20,7 @@ export const SelectBase = styled.div<SelectStyleProps>(({ isDisabled, isReadOnly
     justifyContent: 'space-between',
     alignItems: 'center',
     overflow: 'auto',
+    backgroundColor: 'white',
 }));
 
 /**
