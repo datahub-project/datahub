@@ -200,7 +200,7 @@ class DremioAPIOperations:
 
     _max_workers: int
     _retry_count: int = 5
-    _timeout: int = 300
+    _timeout: int = 1800
 
     def __init__(self, connection_args: DremioSourceConfig):
         self.dremio_to_datahub_source_mapper = DremioToDataHubSourceTypeMapping()
@@ -330,7 +330,7 @@ class DremioAPIOperations:
                 "authorization": f"_dremio{response['token']}",
             }
 
-    def execute_query(self, query: str, timeout: int = 300) -> List[Dict]:
+    def execute_query(self, query: str) -> List[Dict]:
         """Execute SQL query with timeout and error handling"""
         try:
             response = self.execute_post_request(
@@ -343,13 +343,13 @@ class DremioAPIOperations:
 
             job_id = response["id"]
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as executor:
                 future = executor.submit(self.fetch_results, job_id)
                 try:
-                    return future.result(timeout=timeout)
+                    return future.result(timeout=self._timeout)
                 except concurrent.futures.TimeoutError:
                     self.cancel_query(job_id)
-                    raise TimeoutError(f"Query execution timed out after {timeout} seconds")
+                    raise TimeoutError(f"Query execution timed out after {str(self._timeout)} seconds")
 
         except requests.RequestException as e:
             raise RuntimeError(f"Error executing query: {str(e)}")
