@@ -3,11 +3,13 @@ import { UserOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import { useApolloClient } from '@apollo/client';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { CorpUser, DataHubRole } from '../../../types.generated';
 import AssignRoleConfirmation from './AssignRoleConfirmation';
 import { mapRoleIcon } from './UserUtils';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { clearRoleListCache } from '../../permissions/roles/cacheUtils';
+import { translateDisplayNames } from '../../../utils/translation/translation';
 
 const NO_ROLE_TEXT = 'No Role';
 const NO_ROLE_URN = 'urn:li:dataHubRole:NoRole';
@@ -30,6 +32,7 @@ const RoleIcon = styled.span`
 `;
 
 export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refetch }: Props) {
+    const { t } = useTranslation();
     const client = useApolloClient();
     const rolesMap: Map<string, DataHubRole> = new Map();
     selectRoleOptions.forEach((role) => {
@@ -40,7 +43,7 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
         return (
             <Select.Option key={role.urn} value={role.urn}>
                 <RoleIcon>{mapRoleIcon(role.name)}</RoleIcon>
-                {role.name}
+                {translateDisplayNames(t, role.name)}
             </Select.Option>
         );
     });
