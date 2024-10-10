@@ -117,5 +117,6 @@ def get_lineage_config() -> DatahubLineageConfig:
         debug_emitter=debug_emitter,
         disable_openlineage_plugin=disable_openlineage_plugin,
         datajob_url_link=datajob_url_link,
+        render_templates=render_templates,
         dag_filter_pattern=dag_filter_pattern,
     )
