@@ -200,7 +200,7 @@ class DremioAPIOperations:
 
     _max_workers: int
     _retry_count: int = 5
-    _timeout: int = 10
+    _timeout: int = 300
 
     def __init__(self, connection_args: DremioSourceConfig):
         self.dremio_to_datahub_source_mapper = DremioToDataHubSourceTypeMapping()
