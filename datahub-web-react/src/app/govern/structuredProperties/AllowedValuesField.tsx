@@ -1,8 +1,7 @@
 import { Icon, Text } from '@components';
-import { AllowedValue, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+import { AllowedValue } from '@src/types.generated';
 import { Tooltip } from 'antd';
-import React, { useState } from 'react';
-import AllowedValuesModal from './AllowedValuesModal';
+import React from 'react';
 import {
     FieldLabel,
     FlexContainer,
@@ -11,29 +10,19 @@ import {
     StyledIcon,
     ValueListContainer,
     ValuesList,
+    ValueType,
     VerticalDivider,
 } from './styledComponents';
 import { isStringOrNumberTypeSelected, PropValueField } from './utils';
 
 interface Props {
-    selectedProperty: SearchResult | undefined;
-    isEditMode: boolean;
     selectedValueType: string;
     allowedValues: AllowedValue[] | undefined;
-    setAllowedValues: React.Dispatch<React.SetStateAction<AllowedValue[] | undefined>>;
     valueField: PropValueField;
+    setShowAllowedValuesDrawer: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const AllowedValuesField = ({
-    selectedProperty,
-    isEditMode,
-    selectedValueType,
-    allowedValues,
-    setAllowedValues,
-    valueField,
-}: Props) => {
-    const [showAllowedValuesModal, setShowAllowedValuesModal] = useState<boolean>(false);
-
+const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setShowAllowedValuesDrawer }: Props) => {
     return (
         <>
             {isStringOrNumberTypeSelected(selectedValueType) && (
@@ -66,31 +55,22 @@ const AllowedValuesField = ({
                                 <StyledIcon
                                     icon="ChevronRight"
                                     color="gray"
-                                    onClick={() => setShowAllowedValuesModal(true)}
+                                    onClick={() => setShowAllowedValuesDrawer(true)}
                                 />
                             </Tooltip>
                         </ItemsContainer>
                     ) : (
                         <ValueListContainer>
+                            Any
+                            <ValueType>{valueField === 'stringValue' ? 'text' : 'number'} </ValueType>
+                            value will be allowed
                             <Tooltip title="Update allowed values" showArrow={false}>
-                                <Icon icon="Add" color="gray" onClick={() => setShowAllowedValuesModal(true)} />
+                                <Icon icon="Add" color="gray" onClick={() => setShowAllowedValuesDrawer(true)} />
                             </Tooltip>
                         </ValueListContainer>
                     )}
                 </RowContainer>
             )}
-            <AllowedValuesModal
-                isOpen={showAllowedValuesModal}
-                showAllowedValuesModal={showAllowedValuesModal}
-                setShowAllowedValuesModal={setShowAllowedValuesModal}
-                propType={valueField}
-                allowedValues={allowedValues}
-                setAllowedValues={setAllowedValues}
-                isEditMode={isEditMode}
-                noOfExistingValues={
-                    (selectedProperty?.entity as StructuredPropertyEntity)?.definition?.allowedValues?.length || 0
-                }
-            />
         </>
     );
 };

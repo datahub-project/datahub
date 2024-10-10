@@ -23,8 +23,8 @@ interface Props {
     selectedValueType: string;
     setSelectedValueType: React.Dispatch<React.SetStateAction<string>>;
     allowedValues: AllowedValue[] | undefined;
-    setAllowedValues: React.Dispatch<React.SetStateAction<AllowedValue[] | undefined>>;
     valueField: PropValueField;
+    setShowAllowedValuesDrawer: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const StructuredPropsFormSection = ({
@@ -37,8 +37,8 @@ const StructuredPropsFormSection = ({
     selectedValueType,
     setSelectedValueType,
     allowedValues,
-    setAllowedValues,
     valueField,
+    setShowAllowedValuesDrawer,
 }: Props) => {
     const {
         handleSelectChange,
@@ -58,12 +58,10 @@ const StructuredPropsFormSection = ({
         <>
             {!(isEditMode && !allowedValues) && (
                 <AllowedValuesField
-                    selectedProperty={selectedProperty}
-                    isEditMode={isEditMode}
                     selectedValueType={selectedValueType}
                     allowedValues={allowedValues}
-                    setAllowedValues={setAllowedValues}
                     valueField={valueField}
+                    setShowAllowedValuesDrawer={setShowAllowedValuesDrawer}
                 />
             )}
             {isEntityTypeSelected(selectedValueType) && (

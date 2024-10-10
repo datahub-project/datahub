@@ -1,6 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { useApolloClient } from '@apollo/client';
 import { Button, Text } from '@src/alchemy-components';
+import { useUserContext } from '@src/app/context/useUserContext';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import {
     useCreateStructuredPropertyMutation,
@@ -14,12 +15,30 @@ import {
     UpdateStructuredPropertyInput,
 } from '@src/types.generated';
 import { Form, Tooltip } from 'antd';
-import React, { useState } from 'react';
-import { useUserContext } from '@src/app/context/useUserContext';
+import React, { useEffect, useState } from 'react';
+import AllowedValuesDrawer from './AllowedValuesDrawer';
 import { updatePropertiesList } from './cacheUtils';
 import StructuredPropsForm from './StructuredPropsForm';
-import { DrawerHeader, FooterContainer, StyledDrawer, StyledIcon, StyledSpin } from './styledComponents';
-import { getNewAllowedTypes, getNewAllowedValues, getNewEntityTypes, StructuredProp, valueTypes } from './utils';
+import {
+    DrawerHeader,
+    FooterContainer,
+    StyledDrawer,
+    StyledIcon,
+    StyledSpin,
+    TitleContainer,
+} from './styledComponents';
+import useStructuredProp from './useStructuredProp';
+import {
+    getDisplayName,
+    getNewAllowedTypes,
+    getNewAllowedValues,
+    getNewEntityTypes,
+    getStringOrNumberValueField,
+    getValueType,
+    PropValueField,
+    StructuredProp,
+    valueTypes,
+} from './utils';
 
 interface Props {
     isDrawerOpen: boolean;
@@ -41,6 +60,7 @@ const StructuredPropsDrawer = ({
     searchAcrossEntities,
 }: Props) => {
     const [form] = Form.useForm();
+    const [valuesForm] = Form.useForm();
     const me = useUserContext();
     const canEditProps = me.platformPrivileges?.manageStructuredProperties;
 
@@ -53,6 +73,17 @@ const StructuredPropsDrawer = ({
     const [selectedValueType, setSelectedValueType] = useState<string>('');
     const [allowedValues, setAllowedValues] = useState<AllowedValue[] | undefined>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [valueField, setValueField] = useState<PropValueField>('stringValue');
+
+    const [showAllowedValuesDrawer, setShowAllowedValuesDrawer] = useState<boolean>(false);
+
+    const { handleTypeUpdate } = useStructuredProp({
+        selectedProperty,
+        form,
+        setFormValues,
+        setCardinality,
+        setSelectedValueType,
+    });
 
     const isEditMode = !!selectedProperty;
 
@@ -64,6 +95,8 @@ const StructuredPropsDrawer = ({
         setSelectedValueType('');
         setAllowedValues(undefined);
         setCardinality(PropertyCardinality.Single);
+        setShowAllowedValuesDrawer(false);
+        valuesForm.resetFields();
     };
 
     const handleClose = () => {
@@ -156,6 +189,60 @@ const StructuredPropsDrawer = ({
         }
     };
 
+    useEffect(() => {
+        if (selectedProperty) {
+            const entity = selectedProperty.entity as StructuredPropertyEntity;
+            const typeValue = getValueType(
+                entity.definition.valueType.urn,
+                entity.definition.cardinality || PropertyCardinality.Single,
+            );
+
+            const values: StructuredProp = {
+                displayName: getDisplayName(entity),
+                description: entity.definition.description,
+                qualifiedName: entity.definition.qualifiedName,
+                valueType: typeValue,
+                entityTypes: entity.definition.entityTypes.map((entityType) => entityType.urn),
+                typeQualifier: {
+                    allowedTypes: entity.definition.typeQualifier?.allowedTypes?.map((entityType) => entityType.urn),
+                },
+                immutable: entity.definition.immutable,
+                filterStatus: entity.definition.filterStatus,
+            };
+
+            setFormValues(values);
+            if (typeValue) handleTypeUpdate(typeValue);
+            form.setFieldsValue(values);
+        } else {
+            setFormValues(undefined);
+            form.resetFields();
+            setSelectedValueType('');
+        }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedProperty, form]);
+
+    useEffect(() => {
+        const entity = selectedProperty?.entity as StructuredPropertyEntity;
+        const field = getStringOrNumberValueField(selectedValueType);
+        setValueField(field);
+        const allowedList = entity?.definition?.allowedValues?.map((item) => {
+            return {
+                [field]: item.value[field],
+                description: item.description,
+            } as AllowedValue;
+        });
+        setAllowedValues(allowedList);
+    }, [selectedProperty, selectedValueType, setAllowedValues]);
+
+    const handleUpdateAllowedValues = () => {
+        valuesForm.validateFields().then(() => {
+            setAllowedValues(valuesForm.getFieldValue('allowedValues'));
+            form.setFieldValue('allowedValues', valuesForm.getFieldValue('allowedValues'));
+            setShowAllowedValuesDrawer(false);
+        });
+    };
+
     return (
         <StyledDrawer
             open={isDrawerOpen}
@@ -163,9 +250,23 @@ const StructuredPropsDrawer = ({
             width={480}
             title={
                 <DrawerHeader>
-                    <Text color="gray" weight="bold">
-                        {`${isEditMode ? 'Edit' : 'Create'} Structured Property`}
-                    </Text>
+                    {showAllowedValuesDrawer ? (
+                        <TitleContainer>
+                            <StyledIcon
+                                icon="ArrowBack"
+                                color="gray"
+                                size="3xl"
+                                onClick={() => setShowAllowedValuesDrawer(false)}
+                            />
+                            <Text color="gray" weight="bold" size="lg">
+                                Allowed Values
+                            </Text>
+                        </TitleContainer>
+                    ) : (
+                        <Text color="gray" weight="bold" size="lg">
+                            {`${isEditMode ? 'Edit' : 'Create'} Structured Property`}
+                        </Text>
+                    )}
                     <StyledIcon icon="Close" color="gray" onClick={handleClose} />
                 </DrawerHeader>
             }
@@ -179,31 +280,58 @@ const StructuredPropsDrawer = ({
                     }
                 >
                     <FooterContainer>
-                        <Button
-                            style={{ display: 'block', width: '100%' }}
-                            onClick={handleSubmit}
-                            isDisabled={isLoading || !canEditProps}
-                        >
-                            {isEditMode ? 'Update' : 'Create'}
-                        </Button>
+                        {showAllowedValuesDrawer ? (
+                            <Button
+                                style={{ display: 'block', width: '100%' }}
+                                onClick={handleUpdateAllowedValues}
+                                isDisabled={!canEditProps}
+                            >
+                                Update Allowed Values
+                            </Button>
+                        ) : (
+                            <Button
+                                style={{ display: 'block', width: '100%' }}
+                                onClick={handleSubmit}
+                                isDisabled={isLoading || !canEditProps}
+                            >
+                                {isEditMode ? 'Update' : 'Create'}
+                            </Button>
+                        )}
                     </FooterContainer>
                 </Tooltip>
             }
             destroyOnClose
         >
             <StyledSpin spinning={isLoading} indicator={<LoadingOutlined />}>
-                <StructuredPropsForm
-                    selectedProperty={selectedProperty}
-                    form={form}
-                    formValues={formValues}
-                    setFormValues={setFormValues}
-                    setCardinality={setCardinality}
-                    isEditMode={isEditMode}
-                    selectedValueType={selectedValueType}
-                    setSelectedValueType={setSelectedValueType}
-                    allowedValues={allowedValues}
-                    setAllowedValues={setAllowedValues}
-                />
+                {showAllowedValuesDrawer ? (
+                    <>
+                        <AllowedValuesDrawer
+                            showAllowedValuesDrawer={showAllowedValuesDrawer}
+                            propType={valueField}
+                            allowedValues={allowedValues}
+                            isEditMode={isEditMode}
+                            noOfExistingValues={
+                                (selectedProperty?.entity as StructuredPropertyEntity)?.definition?.allowedValues
+                                    ?.length || 0
+                            }
+                            form={valuesForm}
+                        />
+                    </>
+                ) : (
+                    <StructuredPropsForm
+                        selectedProperty={selectedProperty}
+                        form={form}
+                        formValues={formValues}
+                        setFormValues={setFormValues}
+                        setCardinality={setCardinality}
+                        isEditMode={isEditMode}
+                        selectedValueType={selectedValueType}
+                        setSelectedValueType={setSelectedValueType}
+                        allowedValues={allowedValues}
+                        valueField={valueField}
+                        setShowAllowedValuesDrawer={setShowAllowedValuesDrawer}
+                    />
+                )}
             </StyledSpin>
         </StyledDrawer>
     );

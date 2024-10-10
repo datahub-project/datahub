@@ -136,6 +136,12 @@ export const DrawerHeader = styled.div`
     justify-content: space-between;
 `;
 
+export const TitleContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+`;
+
 export const StyledIcon = styled(Icon)`
     &:hover {
         cursor: pointer;
@@ -175,6 +181,10 @@ export const FlexContainer = styled.div`
 
 export const StyledDrawer = styled(Drawer)`
     .ant-drawer-body {
+        padding: 16px;
+    }
+
+    .ant-drawer-header {
         padding: 16px;
     }
 `;
@@ -232,12 +242,23 @@ export const SubTextContainer = styled.div`
 
 export const ValueListContainer = styled.div`
     margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    color: ${colors.gray[500]};
 
     svg {
         :hover {
             cursor: pointer;
         }
     }
+`;
+
+export const ValueType = styled.div`
+    background-color: ${colors.gray[100]};
+    border-radius: 4px;
+    padding: 2px 4px;
 `;
 
 export const StyledModal = styled(Modal)`
@@ -275,8 +296,8 @@ export const DeleteIconContainer = styled.div`
     }
 `;
 
-export const ValuesContainer = styled.div`
-    max-height: 400px;
+export const ValuesContainer = styled.div<{ height: number }>`
+    max-height: ${(props) => `calc(${props.height}px - 200px)`};
     overflow: auto;
     padding: 20px;
 `;
@@ -304,7 +325,7 @@ export const ItemsContainer = styled.div`
 
 export const AddButtonContainer = styled.div`
     display: flex;
-    margin: 20px;
+    margin: 10px 20px 0 0;
     justify-self: end;
 `;
 
@@ -330,10 +351,12 @@ export const StyledSelect = styled(Select)`
     .ant-select-selector {
         height: 50px !important;
         border-radius: 8px !important;
+        outline: 2px solid transparent !important;
 
         &:hover,
         &:focus-within {
-            border: 3px solid ${colors.violet[200]} !important;
+            border: 1px solid ${colors.violet[200]} !important;
+            outline: 2px solid ${colors.violet[200]} !important;
             box-shadow: none !important;
         }
     }
