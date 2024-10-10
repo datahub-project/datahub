@@ -22,6 +22,10 @@ from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+# We don't want to generate a massive number of dataProcesses for a single connector.
+# This is primarily used as a safeguard to prevent performance issues.
+MAX_JOBS_PER_CONNECTOR = 1000
+
 
 class FivetranLogAPI:
     def __init__(self, fivetran_log_config: FivetranLogConfig) -> None:
@@ -158,34 +162,32 @@ class FivetranLogAPI:
 
         return table_lineage_list
 
-    def _get_all_connector_sync_logs(self, syncs_interval: int) -> Dict[str, Dict]:
-        sync_logs = {}
-        for row in self._query(
-            self.fivetran_log_query.get_sync_logs_query().format(
-                db_clause=self.fivetran_log_query.db_clause,
-                syncs_interval=syncs_interval,
-            )
-        ):
-            if row[Constant.CONNECTOR_ID] not in sync_logs:
-                sync_logs[row[Constant.CONNECTOR_ID]] = {
-                    row[Constant.SYNC_ID]: {
-                        row["message_event"]: (
-                            row[Constant.TIME_STAMP].timestamp(),
-                            row[Constant.MESSAGE_DATA],
-                        )
-                    }
-                }
-            elif row[Constant.SYNC_ID] not in sync_logs[row[Constant.CONNECTOR_ID]]:
-                sync_logs[row[Constant.CONNECTOR_ID]][row[Constant.SYNC_ID]] = {
-                    row["message_event"]: (
-                        row[Constant.TIME_STAMP].timestamp(),
-                        row[Constant.MESSAGE_DATA],
-                    )
-                }
-            else:
-                sync_logs[row[Constant.CONNECTOR_ID]][row[Constant.SYNC_ID]][
-                    row["message_event"]
-                ] = (row[Constant.TIME_STAMP].timestamp(), row[Constant.MESSAGE_DATA])
+    def _get_all_connector_sync_logs(
+        self, syncs_interval: int, connector_ids: List[str]
+    ) -> Dict[str, Dict[str, Dict[str, Tuple[float, Optional[str]]]]]:
+        sync_logs: Dict[str, Dict[str, Dict[str, Tuple[float, Optional[str]]]]] = {}
+
+        # Format connector_ids as a comma-separated string of quoted IDs
+        formatted_connector_ids = ", ".join(f"'{id}'" for id in connector_ids)
+
+        query = self.fivetran_log_query.get_sync_logs_query().format(
+            db_clause=self.fivetran_log_query.db_clause,
+            syncs_interval=syncs_interval,
+            max_jobs_per_connector=MAX_JOBS_PER_CONNECTOR,
+            connector_ids=formatted_connector_ids,
+        )
+
+        for row in self._query(query):
+            connector_id = row[Constant.CONNECTOR_ID]
+            sync_id = row[Constant.SYNC_ID]
+
+            if connector_id not in sync_logs:
+                sync_logs[connector_id] = {}
+
+            sync_logs[connector_id][sync_id] = {
+                "sync_start": (row["start_time"].timestamp(), None),
+                "sync_end": (row["end_time"].timestamp(), row["end_message_data"]),
+            }
 
         return sync_logs
 
@@ -244,7 +246,10 @@ class FivetranLogAPI:
     def _fill_connectors_jobs(
         self, connectors: List[Connector], syncs_interval: int
     ) -> None:
-        sync_logs = self._get_all_connector_sync_logs(syncs_interval)
+        connector_ids = [connector.connector_id for connector in connectors]
+        sync_logs = self._get_all_connector_sync_logs(
+            syncs_interval, connector_ids=connector_ids
+        )
         for connector in connectors:
             connector.jobs = self._get_jobs_list(sync_logs.get(connector.connector_id))
 
