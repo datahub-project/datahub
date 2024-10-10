@@ -8,7 +8,7 @@ class ResourceModel:
     namespace: str
     model_id: str
     name: str
-    description: str
+    description: Optional[str]
     system_type: Optional[str]
     connection_id: Optional[str]
     external_id: Optional[str]
@@ -22,7 +22,7 @@ class Resource:
     resource_subtype: str
     story_id: str
     name: str
-    description: str
+    description: Optional[str]
     created_time: datetime
     created_by: Optional[str]
     modified_time: datetime
@@ -36,7 +36,7 @@ class Resource:
 @dataclass(frozen=True)
 class ImportDataModelColumn:
     name: str
-    description: str
+    description: Optional[str]
     property_type: str
     data_type: str
     max_length: Optional[int]
