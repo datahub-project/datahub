@@ -6,6 +6,7 @@ import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { debounce } from 'lodash';
 import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
+import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { DataProduct, EntityType } from '../../../../../../../types.generated';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
@@ -53,7 +54,8 @@ export default function SetDataProductModal({
     const inputEl = useRef(null);
 
     const [getSearchResults, { data, loading }] = useGetAutoCompleteMultipleResultsLazyQuery();
-    const [showResults, setShowResults] = useState(false);
+    const [recommendedData] = useGetRecommendations([EntityType.DataProduct]);
+    const [showRecommendations, setShowRecommendations] = useState(true);
 
     const handleSearch = useMemo(() => {
         const fetch = (text: string) => {
@@ -68,7 +70,7 @@ export default function SetDataProductModal({
                     },
                 });
             }
-            setShowResults(!!text.trim());
+            setShowRecommendations(!text.trim());
         };
         return debounce(fetch, 100);
     }, [getSearchResults]);
@@ -141,19 +143,21 @@ export default function SetDataProductModal({
         ),
         value: 'loading',
     };
-    const options = showResults
-        ? data?.autoCompleteForMultiple?.suggestions
-              .flatMap((suggestion) => suggestion.entities)
-              .map((result) => ({
-                  label: (
-                      <OptionWrapper>
-                          {entityRegistry.getIcon(EntityType.DataProduct, 12, IconStyleType.ACCENT, 'black')}
-                          {entityRegistry.getDisplayName(EntityType.DataProduct, result)}
-                      </OptionWrapper>
-                  ),
-                  value: result.urn,
-              }))
-        : [];
+
+    const searchResults =
+        !showRecommendations && data?.autoCompleteForMultiple?.suggestions
+            ? data?.autoCompleteForMultiple?.suggestions.flatMap((suggestion) => suggestion.entities)
+            : recommendedData;
+
+    const options = searchResults.map((result) => ({
+        label: (
+            <OptionWrapper>
+                {entityRegistry.getIcon(EntityType.DataProduct, 12, IconStyleType.ACCENT, 'black')}
+                {entityRegistry.getDisplayName(EntityType.DataProduct, result)}
+            </OptionWrapper>
+        ),
+        value: result.urn,
+    }));
 
     return (
         <Modal
@@ -175,6 +179,7 @@ export default function SetDataProductModal({
             <Select
                 autoFocus
                 showSearch
+                defaultOpen
                 filterOption={false}
                 defaultActiveFirstOption={false}
                 placeholder="Search for Data Products..."
