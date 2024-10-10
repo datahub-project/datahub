@@ -32,8 +32,13 @@ logger = logging.getLogger(__name__)
 
 
 class PowerBiAPI:
-    def __init__(self, config: PowerBiDashboardSourceConfig) -> None:
+    def __init__(
+        self,
+        config: PowerBiDashboardSourceConfig,
+        reporter: PowerBiDashboardSourceReport,
+    ) -> None:
         self.__config: PowerBiDashboardSourceConfig = config
+        self.__reporter = reporter
 
         self.__regular_api_resolver = RegularAPIResolver(
             client_id=self.__config.client_id,
@@ -182,17 +187,27 @@ class PowerBiAPI:
 
         fill_ownership()
         fill_tags()
-
         return reports
 
     def get_workspaces(self) -> List[Workspace]:
+        modified_workspace_ids: List[str] = []
+
         if self.__config.modified_since:
-            workspaces = self.get_modified_workspaces()
-            return workspaces
+            modified_workspace_ids = self.get_modified_workspaces()
 
         groups: List[dict] = []
+        filter_: Dict[str, str] = {}
         try:
-            groups = self._get_resolver().get_groups()
+            if modified_workspace_ids:
+                id_filter: List[str] = []
+
+                for id_ in modified_workspace_ids:
+                    id_filter.append(f"id eq {id_}")
+
+                filter_["$filter"] = " or ".join(id_filter)
+
+            groups = self._get_resolver().get_groups(filter_=filter_)
+
         except:
             self.log_http_error(message="Unable to fetch list of workspaces")
             raise  # we want this exception to bubble up
@@ -201,6 +216,7 @@ class PowerBiAPI:
             Workspace(
                 id=workspace[Constant.ID],
                 name=workspace[Constant.NAME],
+                type=workspace[Constant.TYPE],
                 datasets={},
                 dashboards=[],
                 reports=[],
@@ -213,34 +229,20 @@ class PowerBiAPI:
         ]
         return workspaces
 
-    def get_modified_workspaces(self) -> List[Workspace]:
-        workspaces: List[Workspace] = []
+    def get_modified_workspaces(self) -> List[str]:
+        modified_workspace_ids: List[str] = []
 
         if self.__config.modified_since is None:
-            return workspaces
+            return modified_workspace_ids
 
         try:
             modified_workspace_ids = self.__admin_api_resolver.get_modified_workspaces(
                 self.__config.modified_since
             )
-            workspaces = [
-                Workspace(
-                    id=workspace_id,
-                    name="",
-                    datasets={},
-                    dashboards=[],
-                    reports=[],
-                    report_endorsements={},
-                    dashboard_endorsements={},
-                    scan_result={},
-                    independent_datasets=[],
-                )
-                for workspace_id in modified_workspace_ids
-            ]
         except:
             self.log_http_error(message="Unable to fetch list of modified workspaces.")
 
-        return workspaces
+        return modified_workspace_ids
 
     def _get_scan_result(self, workspace_ids: List[str]) -> Any:
         scan_id: Optional[str] = None
@@ -389,9 +391,28 @@ class PowerBiAPI:
 
         workspaces = []
         for workspace_metadata in scan_result["workspaces"]:
+            if (
+                workspace_metadata.get(Constant.STATE) != Constant.ACTIVE
+                or workspace_metadata.get(Constant.TYPE)
+                not in self.__config.workspace_type_filter
+            ):
+                # if the state is not "Active" then in some state like Not Found, "name" attribute is not present
+                wrk_identifier: str = (
+                    workspace_metadata[Constant.NAME]
+                    if workspace_metadata.get(Constant.NAME)
+                    else workspace_metadata.get(Constant.ID)
+                )
+                self.__reporter.info(
+                    title="Skipped Workspace",
+                    message="Workspace was skipped due to the workspace_type_filter",
+                    context=f"workspace={wrk_identifier}",
+                )
+                continue
+
             cur_workspace = Workspace(
-                id=workspace_metadata["id"],
-                name=workspace_metadata["name"],
+                id=workspace_metadata[Constant.ID],
+                name=workspace_metadata[Constant.NAME],
+                type=workspace_metadata[Constant.TYPE],
                 datasets={},
                 dashboards=[],
                 reports=[],
@@ -403,7 +424,7 @@ class PowerBiAPI:
             cur_workspace.scan_result = workspace_metadata
             cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
 
-            # Fetch endorsements tag if it is enabled from configuration
+            # Fetch endorsement tag if it is enabled from configuration
             if self.__config.extract_endorsements_to_tags:
                 cur_workspace.dashboard_endorsements = self._get_dashboard_endorsements(
                     cur_workspace.scan_result

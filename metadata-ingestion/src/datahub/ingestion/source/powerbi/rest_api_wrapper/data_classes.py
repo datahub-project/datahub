@@ -41,6 +41,7 @@ class DatasetKey(ContainerKey):
 class Workspace:
     id: str
     name: str
+    type: str  # This is used as a subtype of the Container entity.
     dashboards: List["Dashboard"]
     reports: List["Report"]
     datasets: Dict[str, "PowerBIDataset"]
@@ -211,10 +212,16 @@ class User:
         return hash(self.__members())
 
 
+class ReportType(Enum):
+    PaginatedReport = "PaginatedReport"
+    PowerBIReport = "Report"
+
+
 @dataclass
 class Report:
     id: str
     name: str
+    type: ReportType
     webUrl: Optional[str]
     embedUrl: str
     description: str
@@ -259,7 +266,7 @@ class Dashboard:
     tiles: List["Tile"]
     users: List["User"]
     tags: List[str]
-    webUrl: Optional[str] = None
+    webUrl: Optional[str]
 
     def get_urn_part(self):
         return f"dashboards.{self.id}"
