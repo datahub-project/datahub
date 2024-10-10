@@ -76,6 +76,12 @@ class DataHubRestEmitter(Closeable, Emitter):
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
+        if gms_server == "__from_env__" and token is None:
+            # HACK: similar to what we do with system auth, we transparently
+            # inject the config in here. Ideally this should be done in the
+            # config loader or by the caller, but it gets the job done for now.
+            gms_server, token = config_utils.require_config_from_env()
+
         self._gms_server = fixup_gms_url(gms_server)
         self._token = token
         self.server_config: Dict[str, Any] = {}

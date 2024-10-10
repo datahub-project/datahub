@@ -323,7 +323,13 @@ export const EntityProfile = <T, U>({
                 {showBrowseBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
                 {entityData?.status?.removed === true && (
                     <Alert
-                        message="This entity is not discoverable via search or lineage graph. Contact your DataHub admin for more information."
+                        message={
+                            <>
+                                This entity is marked as soft-deleted, likely due to stateful ingestion or a manual
+                                deletion command, and will not appear in search or lineage graphs. Contact your DataHub
+                                admin for more information.
+                            </>
+                        }
                         banner
                     />
                 )}

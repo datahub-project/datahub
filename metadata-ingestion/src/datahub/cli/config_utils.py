@@ -84,6 +84,13 @@ def _get_config_from_env() -> Tuple[Optional[str], Optional[str]]:
     return url or host, token
 
 
+def require_config_from_env() -> Tuple[str, Optional[str]]:
+    host, token = _get_config_from_env()
+    if host is None:
+        raise MissingConfigError("No GMS host was provided in env variables.")
+    return host, token
+
+
 def load_client_config() -> DatahubClientConfig:
     gms_host_env, gms_token_env = _get_config_from_env()
     if gms_host_env:
