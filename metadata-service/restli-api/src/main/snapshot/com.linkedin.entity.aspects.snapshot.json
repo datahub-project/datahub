@@ -1474,6 +1474,26 @@
         }
       }
     }, {
+      "name" : "dashboards",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Edge"
+      },
+      "doc" : "Dashboards included by this dashboard.\nSome dashboard entities (e.g. PowerBI Apps) can contain other dashboards.\n\nThe Edge's sourceUrn should never be set, as it will always be the base dashboard.",
+      "default" : [ ],
+      "Relationship" : {
+        "/*/destinationUrn" : {
+          "createdActor" : "datasetEdges/*/created/actor",
+          "createdOn" : "datasetEdges/*/created/time",
+          "entityTypes" : [ "dashboard" ],
+          "isLineage" : true,
+          "name" : "DashboardContainsDashboard",
+          "properties" : "datasetEdges/*/properties",
+          "updatedActor" : "datasetEdges/*/lastModified/actor",
+          "updatedOn" : "datasetEdges/*/lastModified/time"
+        }
+      }
+    }, {
       "name" : "lastModified",
       "type" : "com.linkedin.common.ChangeAuditStamps",
       "doc" : "Captures information about who created/last modified/deleted this dashboard and when"

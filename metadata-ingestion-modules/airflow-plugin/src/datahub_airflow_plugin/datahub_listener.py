@@ -392,7 +392,8 @@ class DataHubListener:
             )
             return
 
-        task_instance = _render_templates(task_instance)
+        if self.config.render_templates:
+            task_instance = _render_templates(task_instance)
 
         # The type ignore is to placate mypy on Airflow 2.1.x.
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
@@ -484,7 +485,8 @@ class DataHubListener:
     ) -> None:
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
 
-        task_instance = _render_templates(task_instance)
+        if self.config.render_templates:
+            task_instance = _render_templates(task_instance)
 
         # We must prefer the task attribute, in case modifications to the task's inlets/outlets
         # were made by the execute() method.
