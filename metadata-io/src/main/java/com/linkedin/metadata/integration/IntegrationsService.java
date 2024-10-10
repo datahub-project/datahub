@@ -17,7 +17,6 @@ import io.datahubproject.integrations.api.ActionsApi;
 import io.datahubproject.integrations.api.AiApi;
 import io.datahubproject.integrations.api.AnalyticsApi;
 import io.datahubproject.integrations.api.ShareApi;
-import io.datahubproject.integrations.invoker.ApiCallback;
 import io.datahubproject.integrations.invoker.ApiClient;
 import io.datahubproject.integrations.invoker.ApiException;
 import io.datahubproject.integrations.invoker.ApiResponse;
@@ -379,16 +378,27 @@ public class IntegrationsService {
       CompletableFuture<ApiResponse<Object>> responseFuture = new CompletableFuture<>();
       ApiCallback<Object> callback = new ApiCallback<>(responseFuture);
       actionsApi.reloadActionAsync(actionPipelineUrn, callback);
-      return responseFuture.thenApply(
-          response -> {
-            if (response.getStatusCode() != HttpStatus.SC_OK) {
-              log.error(
-                  "Failed to reload action! Integrations service returned non-200 error code!");
-              log.error(String.valueOf(response.getData().toString()));
-              return false;
-            }
-            return true;
-          });
+      return responseFuture
+          .thenApply(
+              response -> {
+                if (response.getStatusCode() != HttpStatus.SC_OK) {
+                  log.error(
+                      "Failed to reload action! Integrations service returned non-200 error code!");
+                  log.error(String.valueOf(response.getData().toString()));
+                  return false;
+                }
+                return true;
+              })
+          .exceptionally(
+              ex -> {
+                // Catch any exception that occurs in the async operation or the chain
+                log.error(
+                    String.format(
+                        "Failed to reload action description for action %s due to exception encountered while calling Integrations Service!",
+                        actionPipelineUrn),
+                    ex);
+                return null;
+              });
     } catch (Exception e) {
       log.error(
           "Failed to reload action! Exceptions encountered when trying to access integrations service");
@@ -402,17 +412,28 @@ public class IntegrationsService {
           new CompletableFuture<>();
       ApiCallback<SuggestedDescription> callback = new ApiCallback<>(responseFuture);
       aiApi.suggestDescriptionAsync(entity.toString(), callback);
-      return responseFuture.thenApply(
-          response -> {
-            if (response.getStatusCode() != HttpStatus.SC_OK) {
-              log.error(
-                  "Failed to suggest description for entity! Integrations service returned non-200 error code!");
-              log.error(String.valueOf(response.getData().toString()));
-              return null;
-            }
+      return responseFuture
+          .thenApply(
+              response -> {
+                if (response.getStatusCode() != HttpStatus.SC_OK) {
+                  log.error(
+                      "Failed to suggest description for entity! Integrations service returned non-200 error code!");
+                  log.error(String.valueOf(response.getData().toString()));
+                  return null;
+                }
 
-            return response.getData();
-          });
+                return response.getData();
+              })
+          .exceptionally(
+              ex -> {
+                // Catch any exception that occurs in the async operation or the chain
+                log.error(
+                    String.format(
+                        "Failed to suggest description for entity %s due to exception encountered while calling Integrations Service!",
+                        entity),
+                    ex);
+                return null;
+              });
     } catch (ApiException e) {
       log.error("Failed to suggest description for entity: " + entity, e);
       return CompletableFuture.completedFuture(null);
@@ -489,18 +510,28 @@ public class IntegrationsService {
           sharerUrn.toString(),
           lineageDirection,
           callback);
-      return responseFuture.thenApply(
-          response -> {
-            if (response.getStatusCode() != HttpStatus.SC_OK) {
-              log.error(
-                  String.format(
-                      "Failed to share entity with urn %s. Integrations service returned non-200 error code.",
-                      entityUrn));
-              log.error(String.valueOf(response.getData().toString()));
-              return new Pair<>(connectionUrn, null);
-            }
-            return new Pair<>(connectionUrn, response.getData());
-          });
+      return responseFuture
+          .thenApply(
+              response -> {
+                if (response.getStatusCode() != HttpStatus.SC_OK) {
+                  log.error(
+                      String.format(
+                          "Failed to share entity with urn %s. Integrations service returned non-200 error code.",
+                          entityUrn));
+                  log.error(String.valueOf(response.getData().toString()));
+                  return new Pair<Urn, ExecuteShareResult>(connectionUrn, null);
+                }
+                return new Pair<>(connectionUrn, response.getData());
+              })
+          .exceptionally(
+              ex -> {
+                // Catch any exception that occurs in the async operation or the chain
+                log.error(
+                    String.format(
+                        "Failed to share entity with urn %s. Integrations service returned non-200 error code.",
+                        entityUrn));
+                return new Pair<Urn, ExecuteShareResult>(connectionUrn, null);
+              });
     } catch (ApiException e) {
       log.error("Failed to share entity with urn: " + entityUrn, e);
       return CompletableFuture.completedFuture(new Pair<>(connectionUrn, null));
@@ -518,19 +549,30 @@ public class IntegrationsService {
       // LineageDirection is always null now because we are not using it yet.
       shareApi.executeUnshareAsync(
           connectionUrn.toString(), entityUrn.toString(), lineageDirection, callback);
-      return responseFuture.thenApply(
-          response -> {
-            if (response.getStatusCode() != HttpStatus.SC_OK) {
-              log.error(
-                  String.format(
-                      "Failed to unshare entity with urn %s. Integrations service returned non-200 error code.",
-                      entityUrn));
-              log.error(String.valueOf(response.getData().toString()));
-              return null;
-            }
+      return responseFuture
+          .thenApply(
+              response -> {
+                if (response.getStatusCode() != HttpStatus.SC_OK) {
+                  log.error(
+                      String.format(
+                          "Failed to unshare entity with urn %s. Integrations service returned non-200 error code.",
+                          entityUrn));
+                  log.error(String.valueOf(response.getData().toString()));
+                  return null;
+                }
 
-            return response.getData();
-          });
+                return response.getData();
+              })
+          .exceptionally(
+              ex -> {
+                // Catch any exception that occurs in the async operation or the chain
+                log.error(
+                    String.format(
+                        "Failed to unshare entity with connection urn %s, entity urn %s due to exception encountered while calling Integrations Service!",
+                        connectionUrn, entityUrn),
+                    ex);
+                return null;
+              });
     } catch (ApiException e) {
       log.error("Failed to unshare entity with urn: " + entityUrn, e);
       return CompletableFuture.completedFuture(null);
@@ -542,16 +584,27 @@ public class IntegrationsService {
       CompletableFuture<ApiResponse<String>> responseFuture = new CompletableFuture<>();
       ApiCallback<String> callback = new ApiCallback<>(responseFuture);
       actionsApi.rollbackActionAsync(actionPipelineUrn, callback);
-      return responseFuture.thenApply(
-          response -> {
-            if (response.getStatusCode() != HttpStatus.SC_OK) {
-              log.error(
-                  "Failed to rollback action! Integrations service returned non-200 error code!");
-              log.error(response.getData());
-              return false;
-            }
-            return true;
-          });
+      return responseFuture
+          .thenApply(
+              response -> {
+                if (response.getStatusCode() != HttpStatus.SC_OK) {
+                  log.error(
+                      "Failed to rollback action! Integrations service returned non-200 error code!");
+                  log.error(response.getData());
+                  return false;
+                }
+                return true;
+              })
+          .exceptionally(
+              ex -> {
+                // Catch any exception that occurs in the async operation or the chain
+                log.error(
+                    String.format(
+                        "Failed to rollback action %s due to exception encountered while calling Integrations Service!",
+                        actionPipelineUrn),
+                    ex);
+                return false; // Return false if any exception occurs
+              });
     } catch (Exception e) {
       log.error(
           "Failed to rollback action! Exceptions encountered when trying to access integrations service",
@@ -565,16 +618,27 @@ public class IntegrationsService {
       CompletableFuture<ApiResponse<String>> responseFuture = new CompletableFuture<>();
       ApiCallback<String> callback = new ApiCallback<>(responseFuture);
       actionsApi.bootstrapActionAsync(actionPipelineUrn, callback);
-      return responseFuture.thenApply(
-          response -> {
-            if (response.getStatusCode() != HttpStatus.SC_OK) {
-              log.error(
-                  "Failed to bootstrap action! Integrations service returned non-200 error code!");
-              log.error(response.getData());
-              return false;
-            }
-            return true;
-          });
+      return responseFuture
+          .thenApply(
+              response -> {
+                if (response.getStatusCode() != HttpStatus.SC_OK) {
+                  log.error(
+                      "Failed to bootstrap action! Integrations service returned non-200 error code!");
+                  log.error(response.getData());
+                  return false;
+                }
+                return true;
+              })
+          .exceptionally(
+              ex -> {
+                // Catch any exception that occurs in the async operation or the chain
+                log.error(
+                    String.format(
+                        "Failed to bootstrap action %s due to exception encountered while calling Integrations Service!",
+                        actionPipelineUrn),
+                    ex);
+                return false; // Return false if any exception occurs
+              });
     } catch (Exception e) {
       log.error(
           "Failed to bootstrap action! Exceptions encountered when trying to access integrations service",
@@ -589,15 +653,27 @@ public class IntegrationsService {
       CompletableFuture<ApiResponse<String>> responseFuture = new CompletableFuture<>();
       ApiCallback<String> callback = new ApiCallback<>(responseFuture);
       actionsApi.stopActionAsync(actionPipelineUrn, callback);
-      return responseFuture.thenApply(
-          response -> {
-            if (response.getStatusCode() != HttpStatus.SC_OK) {
-              log.error("Failed to stop action! Integrations service returned non-200 error code!");
-              log.error(response.getData());
-              return false;
-            }
-            return true;
-          });
+      return responseFuture
+          .thenApply(
+              response -> {
+                if (response.getStatusCode() != HttpStatus.SC_OK) {
+                  log.error(
+                      "Failed to stop action! Integrations service returned non-200 error code!");
+                  log.error(response.getData());
+                  return false;
+                }
+                return true;
+              })
+          .exceptionally(
+              ex -> {
+                // Catch any exception that occurs in the async operation or the chain
+                log.error(
+                    String.format(
+                        "Failed to stop action %s due to exception encountered while calling Integrations Service!",
+                        actionPipelineUrn),
+                    ex);
+                return false; // Return false if any exception occurs
+              });
     } catch (Exception e) {
       log.error(
           "Failed to stop action! Exceptions encountered when trying to access integrations service",
@@ -611,20 +687,31 @@ public class IntegrationsService {
       CompletableFuture<ApiResponse<Object>> responseFuture = new CompletableFuture<>();
       ApiCallback<Object> callback = new ApiCallback<>(responseFuture);
       actionsApi.actionStatsAsync(actionPipelineUrn, callback);
-      return responseFuture.thenApply(
-          response -> {
-            if (response.getStatusCode() != HttpStatus.SC_OK) {
-              log.error(
-                  "Failed to get action status! Integrations service returned non-200 error code!");
-              log.error(String.valueOf(response.getData().toString()));
-              return null;
-            }
-            try {
-              return this.objectMapper.writeValueAsString(response.getData());
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
-          });
+      return responseFuture
+          .thenApply(
+              response -> {
+                if (response.getStatusCode() != HttpStatus.SC_OK) {
+                  log.error(
+                      "Failed to get action status! Integrations service returned non-200 error code!");
+                  log.error(String.valueOf(response.getData().toString()));
+                  return null;
+                }
+                try {
+                  return this.objectMapper.writeValueAsString(response.getData());
+                } catch (Exception e) {
+                  throw new RuntimeException(e);
+                }
+              })
+          .exceptionally(
+              ex -> {
+                // Catch any exception that occurs in the async operation or the chain
+                log.error(
+                    String.format(
+                        "Failed to get action status for action %s due to exception encountered while calling Integrations Service!",
+                        actionPipelineUrn),
+                    ex);
+                return null;
+              });
     } catch (Exception e) {
       log.error(
           "Failed to get action status! Exceptions encountered when trying to access integrations service",
