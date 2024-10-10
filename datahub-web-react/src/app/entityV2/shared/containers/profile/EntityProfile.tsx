@@ -2,6 +2,7 @@ import LineageGraph from '@app/lineageV2/LineageGraph';
 import React, { useCallback, useContext, useState } from 'react';
 import { Alert } from 'antd';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
+import useEntityState from '@src/app/entity/shared/useEntityState';
 import styled from 'styled-components/macro';
 import { useHistory, useLocation } from 'react-router';
 import { matchPath } from 'react-router-dom';
@@ -198,6 +199,7 @@ export const EntityProfile = <T, U>({
     const location = useLocation();
     const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
     const [showAlert, setShowAlert] = useState(true);
+    const entityState = useEntityState();
 
     const { width } = React.useContext(EntitySidebarContext);
     const isCompact = React.useContext(CompactContext);
@@ -300,6 +302,7 @@ export const EntityProfile = <T, U>({
                     lineage,
                     shouldRefetchEmbeddedListSearch,
                     setShouldRefetchEmbeddedListSearch,
+                    entityState,
                 }}
             >
                 <>
@@ -337,6 +340,7 @@ export const EntityProfile = <T, U>({
                 lineage,
                 shouldRefetchEmbeddedListSearch,
                 setShouldRefetchEmbeddedListSearch,
+                entityState,
             }}
         >
             {entityData?.status?.removed && (

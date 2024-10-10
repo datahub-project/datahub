@@ -14,6 +14,7 @@ export const EntityContext = React.createContext<EntityContextType>({
     refetch: () => Promise.resolve({}),
     lineage: undefined,
     dataNotCombinedWithSiblings: null,
+    entityState: { shouldRefetchContents: false, setShouldRefetchContents: () => {} },
 });
 
 export default EntityContext;

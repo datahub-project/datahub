@@ -3,6 +3,7 @@ import { useBatchSetDataProductMutation } from '@src/graphql/dataProduct.generat
 import { useRemoveTermMutation, useUnsetDomainMutation } from '../../graphql/mutations.generated';
 import { BrowsePathV2, GlobalTags, Owner } from '../../types.generated';
 import { EntityCapabilityType } from '../entityV2/Entity';
+import { useEntityContext } from '../entity/shared/EntityContext';
 
 export function getUniqueOwners(owners?: Owner[] | null) {
     const uniqueOwnerUrns = new Set();
@@ -27,6 +28,7 @@ export const isNullOrUndefined = (value: any) => {
 };
 
 export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
+    const { entityState } = useEntityContext();
     const [unsetDomainMutation] = useUnsetDomainMutation();
 
     const handleRemoveDomain = (urnToRemoveFrom) => {
@@ -35,6 +37,7 @@ export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
             .then(() => {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
+                    entityState?.setShouldRefetchContents(true);
                     message.success({ content: 'Domain Removed!', duration: 2 });
                 }, 2000);
             })

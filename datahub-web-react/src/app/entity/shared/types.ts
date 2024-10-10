@@ -165,6 +165,11 @@ export type UpdateEntityType<U> = (
         | undefined,
 ) => Promise<FetchResult<U, Record<string, any>, Record<string, any>>>;
 
+interface EntityState {
+    shouldRefetchContents: boolean;
+    setShouldRefetchContents: (shouldRefetch: boolean) => void;
+}
+
 export type EntityContextType = {
     urn: string;
     entityType: EntityType;
@@ -178,6 +183,7 @@ export type EntityContextType = {
     lineage?: FetchedEntity | undefined;
     shouldRefetchEmbeddedListSearch?: boolean;
     setShouldRefetchEmbeddedListSearch?: React.Dispatch<React.SetStateAction<boolean>>;
+    entityState?: EntityState;
 };
 
 export type SchemaContextType = {

@@ -118,6 +118,7 @@ query getDomainEntitySummary($urn: String!) {
                     ]
                 }
             ]
+            searchFlags: { skipCache: true }
         }
     ) {
         facets {
