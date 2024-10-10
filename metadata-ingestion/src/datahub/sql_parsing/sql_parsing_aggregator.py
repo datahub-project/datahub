@@ -761,7 +761,6 @@ class SqlParsingAggregator(Closeable):
         session_has_temp_tables: bool = True,
         _is_internal: bool = False,
     ) -> None:
-
         # Adding tool specific metadata extraction here allows it
         # to work for both ObservedQuery and PreparsedQuery as
         # add_preparsed_query it used within add_observed_query.

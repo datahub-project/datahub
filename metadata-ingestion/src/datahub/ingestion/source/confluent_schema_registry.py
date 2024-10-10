@@ -371,7 +371,6 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     def _get_schema_metadata(
         self, topic: str, platform_urn: str, is_subject: bool
     ) -> Optional[SchemaMetadata]:
-
         # Process the value schema
         schema, fields = self._get_schema_and_fields(
             topic=topic,

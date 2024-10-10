@@ -436,7 +436,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def _extract_metadata(
         self, connection: redshift_connector.Connection, database: str
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-
         yield from self.gen_database_container(
             database=database,
         )

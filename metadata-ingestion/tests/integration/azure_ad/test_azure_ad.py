@@ -68,7 +68,6 @@ def run_ingest(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
     ) as mock_checkpoint:
-
         mock_checkpoint.return_value = mock_datahub_graph
 
         mocked_functions_reference(

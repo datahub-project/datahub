@@ -72,7 +72,6 @@ class SnowflakeMetricSQLGenerator:
 
     @metric_sql.register
     def _(self, assertion: RowCountTotalVolumeAssertion) -> str:
-
         # Can not use information schema here due to error -
         # Data metric function body cannot refer to the non-deterministic function 'CURRENT_DATABASE_MAIN_METASTORE_ID'.
 

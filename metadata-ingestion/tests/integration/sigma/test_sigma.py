@@ -420,7 +420,6 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
 
 @pytest.mark.integration
 def test_sigma_ingest(pytestconfig, tmp_path, requests_mock):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
 
     register_mock_api(request_mock=requests_mock)
@@ -464,7 +463,6 @@ def test_sigma_ingest(pytestconfig, tmp_path, requests_mock):
 
 @pytest.mark.integration
 def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
 
     register_mock_api(request_mock=requests_mock)
@@ -510,7 +508,6 @@ def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
 
 @pytest.mark.integration
 def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
 
     override_data = {
