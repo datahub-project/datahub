@@ -16,6 +16,9 @@ from datahub_integrations.slack.utils.time import (
 logger = logging.getLogger(__name__)
 
 
+MAX_DESCRIPTION_CHAR_COUNT = 100
+
+
 def render_entity_preview(raw_entity: dict) -> dict:
     return {
         "blocks": list(render_entity_preview_blocks(raw_entity)),
@@ -51,7 +54,11 @@ def render_entity_preview_blocks(raw_entity: dict) -> Iterable[dict]:
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"{entity.description}",
+                "text": (
+                    f"{entity.description[:MAX_DESCRIPTION_CHAR_COUNT]}"
+                    if entity.description is not None
+                    else "No description"
+                ),
             },
         }
 

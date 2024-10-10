@@ -339,43 +339,55 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
 
         value = json.loads(action["value"])
         variables = {"urn": value["urn"]}
-        data = graph.execute_graphql(SLACK_GET_ENTITY_QUERY, variables=variables)
+        data = None
+        try:
+            data = graph.execute_graphql(SLACK_GET_ENTITY_QUERY, variables=variables)
+        except Exception as e:
+            logger.error(f"Error fetching entity due to error {e}")
+            raise e
 
-        respond(
-            blocks=[
-                {
-                    "type": "rich_text",
-                    "elements": [
-                        {
-                            "type": "rich_text_section",
-                            "elements": [
-                                {
-                                    "type": "user",
-                                    "user_id": body["user"]["id"],
-                                },
-                                {
-                                    "type": "text",
-                                    "text": " shared ",
-                                },
-                                {
-                                    "type": "link",
-                                    "url": get_type_url(
-                                        value["entity_type"], value["urn"]
-                                    ),
-                                    "text": value["name"],
-                                },
-                                {"type": "text", "text": " on DataHub Cloud:"},
-                            ],
-                        }
-                    ],
-                },
-            ],
-            attachments=[
-                {**render_entity_preview(data["entity"]), "color": ACRYL_COLOR}
-            ],
-            replace_original=False,
-            response_type="in_channel",
-        )
+        try:
+            result = respond(
+                blocks=[
+                    {
+                        "type": "rich_text",
+                        "elements": [
+                            {
+                                "type": "rich_text_section",
+                                "elements": [
+                                    {
+                                        "type": "user",
+                                        "user_id": body["user"]["id"],
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": " shared ",
+                                    },
+                                    {
+                                        "type": "link",
+                                        "url": get_type_url(
+                                            value["entity_type"], value["urn"]
+                                        ),
+                                        "text": value["name"],
+                                    },
+                                    {"type": "text", "text": " on DataHub Cloud:"},
+                                ],
+                            }
+                        ],
+                    },
+                ],
+                attachments=[
+                    {**render_entity_preview(data["entity"]), "color": ACRYL_COLOR}
+                ],
+                replace_original=False,
+                response_type="in_channel",
+            )
+            if result.status_code != 200:
+                logger.error(
+                    f"Respond hook came back with {result.body} status={result.status_code}"
+                )
+        except Exception as e:
+            logger.error(f"Respond faild with {e}")
 
     @app.action("subscribe")
     def handle_subscribe(ack: Ack, respond: Respond, action: dict, body: dict) -> None:
