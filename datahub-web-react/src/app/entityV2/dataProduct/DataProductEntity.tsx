@@ -30,6 +30,7 @@ import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 
 const headerDropdownItems = new Set([EntityMenuItems.SUBSCRIBE, EntityMenuItems.SHARE, EntityMenuItems.DELETE]);
 
@@ -107,6 +108,10 @@ export class DataProductEntity implements Entity<DataProduct> {
                 },
                 {
                     name: 'Assets',
+                    getDynamicName: (entityData, _, loading) => {
+                        const assetCCount = entityData?.entities?.total;
+                        return <TabNameWithCount name="Assets" count={assetCCount} loading={loading} />;
+                    },
                     component: DataProductEntitiesTab,
                     icon: AppstoreOutlined,
                 },

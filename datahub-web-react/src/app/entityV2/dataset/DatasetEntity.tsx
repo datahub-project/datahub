@@ -62,6 +62,8 @@ import { OperationsTab } from './profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
 import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
 import GovernMenuIcon from '../../../images/governMenuIcon.svg?react';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
+import ColumnTabNameHeader from '../shared/tabs/Entity/ColumnTabNameHeader';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -147,6 +149,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Columns',
                     component: SchemaTab,
                     icon: LayoutOutlined,
+                    getDynamicName: ColumnTabNameHeader,
                 },
                 {
                     name: 'View Definition',
@@ -184,6 +187,10 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Properties',
                     component: PropertiesTab,
                     icon: UnorderedListOutlined,
+                    getDynamicName: (_, dataset, loading) => {
+                        const propertiesCount = dataset?.dataset?.properties?.customProperties.length;
+                        return <TabNameWithCount name="Properties" count={propertiesCount} loading={loading} />;
+                    },
                 },
                 {
                     name: 'Queries',
@@ -251,9 +258,9 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Incidents',
                     icon: WarningOutlined,
                     component: IncidentTab,
-                    getDynamicName: (_, dataset) => {
+                    getDynamicName: (_, dataset, loading) => {
                         const activeIncidentCount = dataset?.dataset?.activeIncidents.total;
-                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
                     },
                 },
             ]}

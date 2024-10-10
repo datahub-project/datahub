@@ -22,6 +22,7 @@ import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEnt
 import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
@@ -106,6 +107,10 @@ export class DomainEntity implements Entity<Domain> {
                 {
                     id: EntityProfileTab.DOMAIN_ENTITIES_TAB,
                     name: 'Assets',
+                    getDynamicName: (entityData, _, loading) => {
+                        const assetCCount = entityData?.entities?.total;
+                        return <TabNameWithCount name="Assets" count={assetCCount} loading={loading} />;
+                    },
                     component: DomainEntitiesTab,
                     icon: AppstoreOutlined,
                 },

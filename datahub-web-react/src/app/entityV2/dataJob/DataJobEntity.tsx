@@ -38,6 +38,7 @@ import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEnt
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
     return (
@@ -142,9 +143,9 @@ export class DataJobEntity implements Entity<DataJob> {
                     name: 'Incidents',
                     icon: WarningOutlined,
                     component: IncidentTab,
-                    getDynamicName: (_, dataJob) => {
+                    getDynamicName: (_, dataJob, loading) => {
                         const activeIncidentCount = dataJob?.dataJob?.activeIncidents.total;
-                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
                     },
                 },
             ]}

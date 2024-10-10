@@ -1,3 +1,5 @@
+import { ReactElement } from 'react';
+
 export enum TabRenderType {
     /**
      * A default, full screen tab.
@@ -61,7 +63,7 @@ export type EntityTab = {
     };
     properties?: any;
     id?: string;
-    getDynamicName?: (GenericEntityProperties, T) => string;
+    getDynamicName?: (GenericEntityProperties, T, loading: boolean) => ReactElement;
 };
 
 export type EntitySidebarTab = {
