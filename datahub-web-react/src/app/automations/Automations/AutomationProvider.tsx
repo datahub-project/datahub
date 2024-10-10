@@ -14,6 +14,8 @@ import { AutomationTypes } from '@app/automations/constants';
 import { useAutomationsContext } from './AutomationsProvider';
 import { updateFormData } from './utils/updateFormData';
 
+import { openSuccessNotification, openErrorNotification } from './Notifications';
+
 export interface AutomationContextType {
     // Data from the parent
     urn?: string;
@@ -139,10 +141,15 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
                     },
                 },
             },
-        }).then(() => {
-            refetchAutomations?.(true); // Fetch list of automations
-            refetch?.(); // Fetch this automation
-        });
+        })
+            .then(() => {
+                refetchAutomations?.(true); // Fetch list of automations
+                refetch?.(); // Fetch this automation
+                openSuccessNotification('Automation succesfully created.');
+            })
+            .catch((error) => {
+                openErrorNotification('Create Automation', error.message);
+            });
     };
 
     // Update Automation Function
@@ -163,10 +170,15 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
                     },
                 },
             },
-        }).then(() => {
-            refetchAutomations?.(false); // Fetch list of automations
-            refetch?.(); // Fetch this automation
-        });
+        })
+            .then(() => {
+                refetchAutomations?.(false); // Fetch list of automations
+                refetch?.(); // Fetch this automation
+                openSuccessNotification('Automation succesfully updated.');
+            })
+            .catch((error) => {
+                openErrorNotification('Update Automation', error.message);
+            });
     };
 
     // Delete Automation Function
@@ -176,10 +188,15 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
             variables: {
                 urn: context?.urn || '',
             },
-        }).then(() => {
-            refetchAutomations?.(true); // Fetch list of automations
-            refetch?.(); // Fetch this automation
-        });
+        })
+            .then(() => {
+                refetchAutomations?.(true); // Fetch list of automations
+                refetch?.(); // Fetch this automation
+                openSuccessNotification('Automation succesfully deleted.');
+            })
+            .catch((error) => {
+                openErrorNotification('Delete Automation', error.message);
+            });
     };
 
     return (
