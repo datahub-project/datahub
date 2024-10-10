@@ -1887,6 +1887,21 @@ type ParentContainersResult {
 }
 
 """
+Provides Parent Dataset name for schema field, utilized for showing browse paths in Business Attribute related entities.
+"""
+type ParentDataset {
+    """
+    The parent dataset name to which the schema field belongs
+    """
+    name: String!
+
+    """
+    Fully-qualified name of the Parent Dataset
+    """
+    qualifiedName: String
+}
+
+"""
 A Dataset entity, which encompasses Relational Tables, Document store collections, streaming topics, and other sets of data having an independent lifecycle
 """
 type VersionedDataset implements Entity {

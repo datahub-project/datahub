@@ -4,6 +4,7 @@ import { EntityType, SchemaFieldEntity, SearchResult } from '../../../types.gene
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { Preview } from './preview/Preview';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
 export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
     type: EntityType = EntityType.SchemaField;
@@ -34,7 +35,16 @@ export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
     renderProfile = (_: string) => <></>;
 
     renderPreview = (previewType: PreviewType, data: SchemaFieldEntity) => (
-        <Preview previewType={previewType} datasetUrn={data.parent.urn} name={data.fieldPath} />
+        <Preview 
+            previewType={previewType} 
+            datasetUrn={data.parent.urn} 
+            name={data.fieldPath} 
+            parentContainers={data?.parent?.parentContainers}
+            platformName={data?.parent?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.parent?.platform?.name)}
+            platformLogo={data?.parent?.platform?.properties?.logoUrl || ''}
+            platformInstanceId={data?.parent?.dataPlatformInstance?.instanceId}
+            parentDataset={data?.parent?.properties}
+        />
     );
 
     renderSearch = (result: SearchResult) => this.renderPreview(PreviewType.SEARCH, result.entity as SchemaFieldEntity);
