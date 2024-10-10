@@ -44,7 +44,11 @@ This is useful for improving coverage of glossary terms across your organization
     <img width="20%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/ai-term-suggestion/automation-config.png"/>
   </p>
 
+4. Once it's enabled, that's it! You'll start to see terms show up in the UI, either on assets or in the proposals page.
+
 ## How it works
+
+The automation will
 
 TODO
 
