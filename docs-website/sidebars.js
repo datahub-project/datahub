@@ -307,6 +307,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_6",
             "docs/managed-datahub/release-notes/v_0_3_5",
             "docs/managed-datahub/release-notes/v_0_3_4",
             "docs/managed-datahub/release-notes/v_0_3_3",
@@ -635,6 +636,7 @@ module.exports = {
         "docs/advanced/browse-paths-upgrade",
         "docs/browseV2/browse-paths-v2",
         "docs/plugins",
+        "docs/advanced/bootstrap-mcps",
       ],
     },
     {

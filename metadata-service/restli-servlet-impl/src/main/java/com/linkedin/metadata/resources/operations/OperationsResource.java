@@ -1,6 +1,7 @@
 package com.linkedin.metadata.resources.operations;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+import static com.datahub.authorization.AuthUtil.isAPIOperationsAuthorized;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
@@ -136,7 +137,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
                   systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                           ACTION_GET_ES_TASK_STATUS), _authorizer, auth, true);
 
-          if (!isAPIAuthorized(
+          if (!isAPIOperationsAuthorized(
                   opContext,
                   PoliciesConfig.GET_ES_TASK_STATUS_PRIVILEGE)) {
             throw new RestLiServiceException(
@@ -199,7 +200,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
                   systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                           ACTION_GET_INDEX_SIZES, List.of()), _authorizer, auth, true);
 
-          if (!isAPIAuthorized(
+          if (!isAPIOperationsAuthorized(
                   opContext,
                   PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE)) {
             throw new RestLiServiceException(

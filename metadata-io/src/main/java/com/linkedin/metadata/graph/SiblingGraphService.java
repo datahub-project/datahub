@@ -38,10 +38,29 @@ public class SiblingGraphService {
       int offset,
       int count,
       int maxHops) {
-    return ValidationUtils.validateEntityLineageResult(
+    return getLineage(opContext, entityUrn, direction, offset, count, maxHops, false, false);
+  }
+
+  @Nonnull
+  public EntityLineageResult getLineage(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull LineageDirection direction,
+      int offset,
+      int count,
+      int maxHops,
+      boolean separateSiblings,
+      boolean includeGhostEntities) {
+    return getLineage(
         opContext,
-        getLineage(opContext, entityUrn, direction, offset, count, maxHops, false, new HashSet<>()),
-        _entityService);
+        entityUrn,
+        direction,
+        offset,
+        count,
+        maxHops,
+        separateSiblings,
+        includeGhostEntities,
+        new HashSet<>());
   }
 
   /**
@@ -60,12 +79,14 @@ public class SiblingGraphService {
       int count,
       int maxHops,
       boolean separateSiblings,
+      boolean includeGhostEntities,
       @Nonnull Set<Urn> visitedUrns) {
     if (separateSiblings) {
       return ValidationUtils.validateEntityLineageResult(
           opContext,
           _graphService.getLineage(opContext, entityUrn, direction, offset, count, maxHops),
-          _entityService);
+          _entityService,
+          includeGhostEntities);
     }
 
     if (maxHops > 1) {
@@ -89,7 +110,7 @@ public class SiblingGraphService {
       // remove your siblings from your lineage
       entityLineage =
           filterLineageResultFromSiblings(
-              opContext, entityUrn, allSiblingsInGroup, entityLineage, null);
+              opContext, entityUrn, allSiblingsInGroup, entityLineage, null, includeGhostEntities);
 
       // Update offset and count to fetch the correct number of edges from the next sibling node
       offset = Math.max(0, offset - entityLineage.getTotal());
@@ -109,8 +130,17 @@ public class SiblingGraphService {
                 siblingUrn,
                 allSiblingsInGroup,
                 getLineage(
-                    opContext, siblingUrn, direction, offset, count, maxHops, false, visitedUrns),
-                entityLineage);
+                    opContext,
+                    siblingUrn,
+                    direction,
+                    offset,
+                    count,
+                    maxHops,
+                    false,
+                    includeGhostEntities,
+                    visitedUrns),
+                entityLineage,
+                includeGhostEntities);
 
         // Update offset and count to fetch the correct number of edges from the next sibling node
         offset = Math.max(0, offset - nextEntityLineage.getTotal());
@@ -122,7 +152,8 @@ public class SiblingGraphService {
       ;
     }
 
-    return ValidationUtils.validateEntityLineageResult(opContext, entityLineage, _entityService);
+    return ValidationUtils.validateEntityLineageResult(
+        opContext, entityLineage, _entityService, includeGhostEntities);
   }
 
   private int getFiltered(@Nullable EntityLineageResult entityLineageResult) {
@@ -138,7 +169,8 @@ public class SiblingGraphService {
       @Nonnull final Urn urn,
       @Nonnull final Set<Urn> allSiblingsInGroup,
       @Nonnull final EntityLineageResult entityLineageResult,
-      @Nullable final EntityLineageResult existingResult) {
+      @Nullable final EntityLineageResult existingResult,
+      boolean includeGhostEntities) {
     int numFiltered = 0;
 
     // 1) remove the source entities siblings from this entity's downstreams
@@ -231,6 +263,6 @@ public class SiblingGraphService {
     combinedLineageResult.setFiltered(
         numFiltered + getFiltered(existingResult) + getFiltered(entityLineageResult));
     return ValidationUtils.validateEntityLineageResult(
-        opContext, combinedLineageResult, _entityService);
+        opContext, combinedLineageResult, _entityService, includeGhostEntities);
   }
 }

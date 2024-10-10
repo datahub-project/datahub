@@ -23,12 +23,15 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #11486 - Deprecated Criterion filters using `value`. Use `values` instead. This also deprecates the ability to use comma delimited string to represent multiple values using `value`.
 - #11484 - Metadata service authentication enabled by default
 - #11484 - Rest API authorization enabled by default
+- #10472 - `SANDBOX` added as a FabricType. No rollbacks allowed once metadata with this fabric type is added without manual cleanups in databases.
 
 ### Potential Downtime
 
 ### Deprecations
 
 ### Other Notable Changes
+
+- #11549 - Manage Operations Privilege is extended from throttle control to all system management and operations APIs.
 
 ## 0.14.1
 
@@ -59,6 +62,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Deprecations
 
 ### Other Notable Changes
+
+- Downgrade to previous version is not automatically supported.
 
 ## 0.14.0.2
 
