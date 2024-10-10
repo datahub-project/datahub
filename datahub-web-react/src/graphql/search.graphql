@@ -980,6 +980,12 @@ fragment entityField on SchemaFieldEntity {
             platform {
                 ...platformFields
             }
+            dataPlatformInstance {
+                ...dataPlatformInstanceFields
+            }
+            parentContainers {
+                ...parentContainersFields
+            }
         }
     }
     fieldPath
