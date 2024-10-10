@@ -38,8 +38,14 @@
 
 }
 
+.bookButton {
+  display: none;
+}
 
 @media screen and (max-width: 999px) {
+  .bookButton {
+    display: block;
+  }
 
   .productTourButton {
     text-align: center!important;
