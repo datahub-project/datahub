@@ -37,6 +37,7 @@ base_requirements = {
     # f"acryl-datahub[datahub-rest]{_self_pin}",
     "acryl-datahub[datahub-rest]",
     *sqlglot_lib,
+    "sqlparse==0.4.4",
 }
 
 mypy_stubs = {
@@ -85,6 +86,7 @@ base_dev_requirements = {
     "build",
     "twine",
     "packaging",
+    "sqlparse==0.4.4",
 }
 
 dev_requirements = {
