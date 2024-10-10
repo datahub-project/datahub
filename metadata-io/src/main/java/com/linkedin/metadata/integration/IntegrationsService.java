@@ -665,13 +665,9 @@ public class IntegrationsService {
     }
 
     @Override
-    public void onUploadProgress(long bytesWritten, long contentLength, boolean done) {
-      throw new UnsupportedOperationException("Upload progress not supported.");
-    }
+    public void onUploadProgress(long bytesWritten, long contentLength, boolean done) {}
 
     @Override
-    public void onDownloadProgress(long bytesRead, long contentLength, boolean done) {
-      throw new UnsupportedOperationException("Download progress not supported.");
-    }
+    public void onDownloadProgress(long bytesRead, long contentLength, boolean done) {}
   }
 }
