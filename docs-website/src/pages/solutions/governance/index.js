@@ -72,6 +72,44 @@ function Home() {
               <Link className={styles.start_arrow} to="/docs">Get started with Core →</Link>
             </div>
           </div>
+          <div className={styles.trial_right}>
+            <div className={styles.right_content}>
+              <div className={styles.gradientTop} />
+              <div className={styles.gradientBottom} />
+              <div className={styles.right_l}>
+                <div className={styles.soc}>
+                  <img
+                    width={60}
+                    height={60}
+                    src={useBaseUrl("/img/lock-soc.svg")}
+                  />
+                  Protect your<br/>mission-critical <br/>tables, reports,<br/>services, and more.
+                </div>
+                <div className={styles.cost}>
+                  <img
+                    width={60}
+                    height={60}
+                    src={useBaseUrl("/img/dollar.svg")}
+                  />
+                  Let AI detect the <br />blindspots in your <br/>data quality checks.
+                </div>
+              </div>
+              <div className={styles.right_r}>
+                <div className={styles.enterprise}>
+                  <img
+                    width={60}
+                    height={60}
+                    src={useBaseUrl("/img/building.svg")}
+                  />
+                  Know first, not last.<br/>Get notified where <br/>you work when <br/>things go wrong.
+                </div>
+                <div className={styles.link}>
+                  <img width={60} height={75} src={useBaseUrl("/img/link.svg")} />
+                  Share documentation, <br/>compliance and health <br/>for any data asset with <br/> one link.
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </Layout>

@@ -10,7 +10,7 @@ const tilesContent = [
         },
         {
           title: "Classification that flows: Lineage-driven compliance.",
-          subtitle: "tAutomatically classify your data as it moves and transforms. Ensure consistent compliance classification across your entire data ecosystem.",
+          subtitle: "Automatically classify your data as it moves and transforms. Ensure consistent compliance classification across your entire data ecosystem.",
           imgSrc: "/img/solutions/governance-tile-2.png",
         },
         {

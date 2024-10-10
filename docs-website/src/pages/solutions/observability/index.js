@@ -2,22 +2,21 @@ import React, { useState } from "react";
 import Layout from "@theme/Layout";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import useBaseUrl from "@docusaurus/useBaseUrl";
-import Hero from "../../_components/Hero";
-import QuickstartContent from "../../_components/QuickstartContent";
-import Testimonials from "../../_components/Testimonials";
-import Ecosystem from "../../_components/Ecosystem";
-import Community from "../../_components/Community";
-import SocialMedia from "../../_components/SocialMedia";
-import CaseStudy from "../../_components/CaseStudy";
-import Trial from "../../_components/Trial";
+import Hero from "../_components/Hero";
+import Tiles from "../_components/Tiles";
+import Testimonials from "../_components/Testimonials";
+import CaseStudy from "../_components/CaseStudy";
+import QuickstartContent from "../_components/QuickstartContent";
+import styles from "./styles.module.scss";
 import CloseButton from "@ant-design/icons/CloseCircleFilled";
-
-const companyIndexes = require("../../../../adoptionStoriesIndexes.json");
-const companies = companyIndexes.companies;
-const keyCompanySlugs = ["netflix", "pinterest", "notion", "snap", "optum"]; //, "airtel"];
-const keyCompanies = keyCompanySlugs
-  .map((slug) => companies.find((co) => co.slug === slug))
-  .filter((isDefined) => isDefined);
+import Link from "@docusaurus/Link";
+import clsx from "clsx";
+import quickstartData from "./_content/observeQuickstartContent";
+import heroContent from "./_content/observeHeroContent";
+import caseStudyContent from "./_content/observeCaseStudyContent";
+import Integrations from "../_components/Integrations";
+import tilesContent from "./_content/observeTilesContent";
+import testimonialsData from "./_content/observeTestimonialsContent";
 
 function Home() {
   const context = useDocusaurusContext();
@@ -47,169 +46,88 @@ function Home() {
           <iframe src="https://www.acryldata.io/tour" />
         </div>
       ) : null}
-      <Hero onOpenTourModal={onOpenTourModal} />
-      <div className="comapny__logos">
-        <div className="text">
-          Trusted by industry leaders&nbsp;
-          <br />
-          around the world.
+      <Hero onOpenTourModal={onOpenTourModal} heroContent={heroContent}/>
+      <Integrations />
+      <QuickstartContent quickstartContent={quickstartData} />
+      <Testimonials testimonialsData={testimonialsData} />
+      <div className={clsx("testimonials", styles.testimonials)}>
+      <div className="testimonials__content">
+        <div className="testimonials__card">
+          <div className="testimonials__logo">
+            <img src={useBaseUrl("/img/solutions/logo-depop.png")} />
+          </div>
+          <div className="testimonials__company">
+            <div className="testimonials__company_title">Depop</div>
+            <div className="testimonials__author_title">Olivier Tatard <br />Engineering Manager</div>
+          </div>
+          <div className="testimonials__text">
+            "We chose Acryl because we see the value of having both a data catalog and observability capabilities in one tool. Having data owners, maintainers, and consumers in one place streamlines incident management and allows for faster time to resolution."
+          </div>
         </div>
-        <div className="company_logos_list_wrapper">
-          {keyCompanies.map((company) => (
-            <a
-              href={
-                company.slug != "snap"
-                  ? `/adoption-stories#${company.slug}`
-                  : undefined
-              }
-            >
-              <img
-                src={useBaseUrl(company.imageUrl)}
-                alt={company.name}
-                title={company.name}
-                className={"company_logo"}
-              />
-            </a>
-          ))}
-          <a href="/adoption-stories" class="more_link">
-            + More
-          </a>
-        </div>
-        {/* <div style={{ textAlign: "center", margin: "1rem" }}>
-          <Link
-            className="button button--secondary button--md"
-            to={useBaseUrl("adoption-stories")}
-          >
-            Check Out Adoption Stories →
-          </Link>
-        </div> */}
       </div>
-      <QuickstartContent />
-      <Testimonials />
-      {/* <Features /> */}
-      <Ecosystem />
-      <Community />
-      <SocialMedia />
-      <CaseStudy />
-      <Trial onOpenTourModal={onOpenTourModal} />
-      {/* <Section>
-        <div className="container">
-          <div className="row row--centered">
-            <div className="col col--6">
-              <div>
-                <iframe
-                  style={{
-                    display: "block",
-                    margin: "0 auto",
-                    borderRadius: "0.4rem",
-                  }}
-                  width="620"
-                  height="320"
-                  src="https://www.youtube.com/embed/oxNzH40m5E0"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  title="Intro Video"
+    </div>
+      <div>
+        {tilesContent.map((content, index) => (
+          <Tiles key={index} tilesContent={content} />
+        ))}
+      </div>
+      <CaseStudy caseStudyContent= {caseStudyContent}/>
+      <div className={styles.container}>
+        <div className={styles.trial}>
+        <div className={styles.trial_right}>
+          <div className={styles.right_content}>
+            <div className={styles.gradientTop} />
+            <div className={styles.gradientBottom} />
+            <div className={styles.right_l}>
+              <div className={styles.soc}>
+                <img
+                  width={60}
+                  height={60}
+                  src={useBaseUrl("/img/lock-soc.svg")}
                 />
+                Protect your<br/>mission-critical <br/>tables, reports,<br/>services, and more.
+              </div>
+              <div className={styles.cost}>
+                <img
+                  width={60}
+                  height={60}
+                  src={useBaseUrl("/img/dollar.svg")}
+                />
+                Let AI detect the <br />blindspots in your <br/>data quality checks.
               </div>
             </div>
-            <div className="col col--5 col--offset-1">
-              <h1
-                style={{
-                  width: "18rem",
-                }}
-              >
-                The Origins of DataHub
-              </h1>
-              <hr style={{ border: "2px solid black", width: "20rem" }}></hr>
-              <p style={{ fontSize: "18px" }}>
-                Explore DataHub's journey from search and data discovery tool at
-                LinkedIn to the #1 open source metadata management platform,
-                through the lens of its founder and some amazing community
-                members.
-              </p>
-            </div>
-          </div>
-        </div>
-      </Section>
-      <PlatformLogos />
-      <Section title="A Modern Approach to Metadata Management" withBackground>
-        <div className="container">
-          <div className="row row--padded row--centered">
-            <div className="col col--5">
-              <h2>Automated Metadata Ingestion</h2>
-              <p>
-                <b>Push</b>-based ingestion can use a prebuilt emitter or can
-                emit custom events using our framework.
-              </p>
-              <p>
-                <b>Pull</b>-based ingestion crawls a metadata source. We have
-                prebuilt integrations with Kafka, MySQL, MS SQL, Postgres, LDAP,
-                Snowflake, Hive, BigQuery, and more. Ingestion can be automated
-                using our Airflow integration or another scheduler of choice.
-              </p>
-              <p>
-                Learn more about metadata ingestion with DataHub in the{" "}
-                <Link to={"docs/metadata-ingestion"}>docs</Link>.
-              </p>
-            </div>
-            <div className="col col--6 col--offset-1">
-              <div>
-                <div>
-                  <CodeBlock
-                    className={"language-yml"}
-                    metastring='title="recipe.yml"'
-                  >
-                    {example_recipe}
-                  </CodeBlock>
-                </div>
-                <div>
-                  <CodeBlock className={"language-shell"}>
-                    {example_recipe_run}
-                  </CodeBlock>
-                </div>
+            <div className={styles.right_r}>
+              <div className={styles.enterprise}>
+                <img
+                  width={60}
+                  height={60}
+                  src={useBaseUrl("/img/building.svg")}
+                />
+                Know first, not last.<br/>Get notified where <br/>you work when <br/>things go wrong.
+              </div>
+              <div className={styles.link}>
+                <img width={60} height={75} src={useBaseUrl("/img/link.svg")} />
+                Share documentation, <br/>compliance and health <br/>for any data asset with <br/> one link.
               </div>
             </div>
           </div>
-
-          <div className="row row--padded row--centered">
-            <div className="col col--6">
-              <RoundedImage
-                img={require("/img/screenshots/lineage.png")}
-                alt="DataHub Lineage Screenshot"
-              />
-            </div>
-            <div className="col col--5 col--offset-1">
-              <h2>
-                <span>Discover Trusted Data</span>
-              </h2>
-              <p>
-                Browse and search over a continuously updated catalog of
-                datasets, dashboards, charts, ML models, and more.
+        </div>
+          <div className={styles.trial_left}>
+            <div className={styles.left_content}>
+              <p className={styles.trial_title}>
+                Start building trust<br/>with your stakeholders, <br/> today.
               </p>
-            </div>
-          </div>
-
-          <div className="row row--padded row--centered">
-            <div className="col col--5">
-              <h2>
-                <span>Understand Data in Context</span>
-              </h2>
-              <p>
-                DataHub is the one-stop shop for documentation, schemas,
-                ownership, data lineage, pipelines, data quality, usage
-                information, and more.
-              </p>
-            </div>
-            <div className="col col--6 col--offset-1">
-              <RoundedImage
-                img={require("/img/screenshots/metadata.png")}
-                alt="DataHub Metadata Screenshot"
-              />
+              <div className={styles.btn_div}>
+                <Link to="/cloud">Book a Demo</Link>
+                <a
+                  onClick={onOpenTourModal}
+                >Product Tour</a>
+              </div>
+              <Link className={styles.start_arrow} to="/docs">Get started with Core →</Link>
             </div>
           </div>
         </div>
-      </Section> */}
+      </div>
     </Layout>
   ) : null;
 }
