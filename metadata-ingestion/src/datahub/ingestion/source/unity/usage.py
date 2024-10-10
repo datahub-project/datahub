@@ -22,6 +22,7 @@ from datahub.ingestion.source.unity.proxy_types import (
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.usage.usage_common import UsageAggregator
 from datahub.metadata.schema_classes import OperationClass
+from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,7 @@ class UnityCatalogUsageExtractor:
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
         table_map = defaultdict(list)
+        query_hashes = set()
         for ref in table_refs:
             table_map[ref.table].append(ref)
             table_map[f"{ref.schema}.{ref.table}"].append(ref)
@@ -85,6 +87,12 @@ class UnityCatalogUsageExtractor:
             for query in self._get_queries():
                 self.report.num_queries += 1
                 with current_timer.pause():
+                    with self.report.usage_perf_report.query_fingerprinting_timer:
+                        query_hashes.add(
+                            get_query_fingerprint(
+                                query.query_text, "databricks", fast=True
+                            )
+                        )
                     table_info = self._parse_query(query, table_map)
                     if table_info is not None:
                         if self.config.include_operational_stats:
@@ -100,6 +108,7 @@ class UnityCatalogUsageExtractor:
                                     user=query.user_name,
                                     fields=[],
                                 )
+            self.report.num_unique_queries = len(query_hashes)
 
         if not self.report.num_queries:
             logger.warning("No queries found in the given time range.")
@@ -166,7 +175,8 @@ class UnityCatalogUsageExtractor:
         with self.report.usage_perf_report.sql_parsing_timer:
             table_info = self._parse_query_via_lineage_runner(query.query_text)
             if table_info is None and query.statement_type == QueryStatementType.SELECT:
-                table_info = self._parse_query_via_spark_sql_plan(query.query_text)
+                with self.report.usage_perf_report.spark_sql_parsing_timer:
+                    table_info = self._parse_query_via_spark_sql_plan(query.query_text)
 
             if table_info is None:
                 self.report.num_queries_dropped_parse_failure += 1
