@@ -1038,6 +1038,7 @@ class DremioCatalog:
 
     def set_datasets(self) -> None:
         if not self.datasets_populated:
+            self.set_containers()
             for dataset_details in self.dremio_api.get_all_tables_and_columns(
                 containers=(self.spaces + self.sources)
             ):
