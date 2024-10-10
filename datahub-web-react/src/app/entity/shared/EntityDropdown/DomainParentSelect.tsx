@@ -56,7 +56,7 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
     });
     const domainSearchResultsFiltered =
         isMoving && domainUrn
-            ? searchResults.filter((r) => filterResultsForMove(r.entity as Domain, domainUrn))
+            ? searchResults.filter((r) => filterResultsForMove(r as Domain, domainUrn))
             : searchResults;
 
     function selectDomain(domain: Domain) {
@@ -89,10 +89,10 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
                 dropdownStyle={isShowingDomainNavigator || !searchQuery ? { display: 'none' } : {}}
             >
                 {domainSearchResultsFiltered.map((result) => (
-                    <Select.Option key={result?.entity?.urn} value={result.entity.urn}>
+                    <Select.Option key={result?.urn} value={result.urn}>
                         <SearchResultContainer>
-                            <ParentEntities parentEntities={getParentDomains(result.entity, entityRegistry)} />
-                            {entityRegistry.getDisplayName(result.entity.type, result.entity)}
+                            <ParentEntities parentEntities={getParentDomains(result, entityRegistry)} />
+                            {entityRegistry.getDisplayName(result.type, result)}
                         </SearchResultContainer>
                     </Select.Option>
                 ))}
