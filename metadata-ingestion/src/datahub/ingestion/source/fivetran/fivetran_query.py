@@ -37,14 +37,32 @@ WHERE
 
     def get_sync_logs_query(self) -> str:
         return """
-        SELECT connector_id,
-        sync_id,
-        message_event,
-        message_data,
-        time_stamp
-        FROM {db_clause}log
-        WHERE message_event in ('sync_start', 'sync_end')
-        and time_stamp > CURRENT_TIMESTAMP - INTERVAL '{syncs_interval} days'"""
+        WITH ranked_syncs AS (
+            SELECT
+                connector_id,
+                sync_id,
+                MAX(CASE WHEN message_event = 'sync_start' THEN time_stamp END) as start_time,
+                MAX(CASE WHEN message_event = 'sync_end' THEN time_stamp END) as end_time,
+                MAX(CASE WHEN message_event = 'sync_end' THEN message_data END) as end_message_data,
+                ROW_NUMBER() OVER (PARTITION BY connector_id ORDER BY MAX(time_stamp) DESC) as rn
+            FROM {db_clause}log
+            WHERE message_event in ('sync_start', 'sync_end')
+            AND time_stamp > CURRENT_TIMESTAMP - INTERVAL '{syncs_interval} days'
+            AND connector_id IN ({connector_ids})
+            GROUP BY connector_id, sync_id
+        )
+        SELECT
+            connector_id,
+            sync_id,
+            start_time,
+            end_time,
+            end_message_data
+        FROM ranked_syncs
+        WHERE rn <= {max_jobs_per_connector}
+          AND start_time IS NOT NULL
+          AND end_time IS NOT NULL
+        ORDER BY connector_id, end_time DESC
+        """
 
     def get_table_lineage_query(self) -> str:
         return f"""
