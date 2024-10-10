@@ -17,6 +17,7 @@ import caseStudyContent from "./_content/observeCaseStudyContent";
 import Integrations from "../_components/Integrations";
 import tilesContent from "./_content/observeTilesContent";
 import testimonialsData from "./_content/observeTestimonialsContent";
+import resourceData from "./_content/observeResourceContent";
 
 function Home() {
   const context = useDocusaurusContext();
@@ -128,6 +129,39 @@ function Home() {
           </div>
         </div>
       </div>
+      <div className={styles.resource_container}>
+      <div className={styles.resource}>
+        <div className={styles.resource_heading}>
+          Resources
+        </div>
+
+        <div className={styles.card_row}>
+          <div className={styles.card_row_wrapper} >
+            {resourceData.map((resource) => (
+              <div className={styles.card} key={resource.link}>
+                <a className={styles.cardLink} href={resource.link} style={resource.backgroundImage ? null : {
+                  opacity: .5
+                }}>
+                  {resource.tag ? <span className={styles.card_tag}>{resource.tag}</span> : null}
+                  <div className={styles.card_image} style={{ backgroundColor: resource.backgroundImage ? null : '#eee' }}>
+                    <img src={resource.image} alt="" />
+                    <div className={styles.cardImageBackground} style={{ backgroundImage: `url(${resource.backgroundImage})` }} />
+                  </div>
+                  <div className={styles.card_heading_div}>
+                    <div className={styles.card_heading}>
+                      <span>{resource.title}</span>
+                    </div>
+                  </div>
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+        <Link className={styles.bottom_line} to="/adoption-stories">
+          See all adoption stories →
+        </Link>
+      </div>
+    </div>
     </Layout>
   ) : null;
 }
