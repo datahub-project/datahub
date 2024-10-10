@@ -32,7 +32,17 @@ logger = logging.getLogger(__name__)
 
 
 class PowerBiAPI:
-    def __init__(self, config: PowerBiDashboardSourceConfig) -> None:
+    # A report or tile in one workspace can be built using a dataset from another workspace.
+    # We need to store the dataset ID (which is a UUID) mapped to its dataset instance.
+    # This mapping will allow us to retrieve the appropriate dataset for
+    # reports and tiles across different workspaces.
+    dataset_registry: Dict[str, PowerBIDataset]
+
+    def __init__(
+        self,
+        config: PowerBiDashboardSourceConfig,
+        reporter: PowerBiDashboardSourceReport,
+    ) -> None:
         self.__config: PowerBiDashboardSourceConfig = config
 
         self.__regular_api_resolver = RegularAPIResolver(
@@ -46,6 +56,10 @@ class PowerBiAPI:
             client_secret=self.__config.client_secret,
             tenant_id=self.__config.tenant_id,
         )
+
+        self.reporter = reporter
+
+        self.dataset_registry = {}
 
     def log_http_error(self, message: str) -> Any:
         logger.warning(message)
@@ -153,6 +167,16 @@ class PowerBiAPI:
         reports: List[Report] = []
         try:
             reports = self._get_resolver().get_reports(workspace)
+            # Fill Report dataset
+            for report in reports:
+                if report.dataset_id:
+                    report.dataset = self.dataset_registry.get(report.dataset_id)
+                    if report.dataset is None:
+                        self.reporter.info(
+                            title="Dataset Not Found",
+                            message="The report is utilizing a dataset that is not available in the workspace. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
+                            context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
+                        )
         except:
             self.log_http_error(
                 message=f"Unable to fetch reports for workspace {workspace.name}"
@@ -380,7 +404,8 @@ class PowerBiAPI:
         return dataset_map
 
     def _fill_metadata_from_scan_result(
-        self, workspaces: List[Workspace]
+        self,
+        workspaces: List[Workspace],
     ) -> List[Workspace]:
         workspace_ids = [workspace.id for workspace in workspaces]
         scan_result = self._get_scan_result(workspace_ids)
@@ -402,8 +427,9 @@ class PowerBiAPI:
             )
             cur_workspace.scan_result = workspace_metadata
             cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
-
-            # Fetch endorsements tag if it is enabled from configuration
+            # collect all datasets in the registry
+            self.dataset_registry.update(cur_workspace.datasets)
+            # Fetch endorsement tag if it is enabled from configuration
             if self.__config.extract_endorsements_to_tags:
                 cur_workspace.dashboard_endorsements = self._get_dashboard_endorsements(
                     cur_workspace.scan_result
@@ -447,6 +473,16 @@ class PowerBiAPI:
                 dashboard.tiles = self._get_resolver().get_tiles(
                     workspace, dashboard=dashboard
                 )
+                # set the dataset for tiles
+                for tile in dashboard.tiles:
+                    if tile.dataset_id:
+                        tile.dataset = self.dataset_registry.get(tile.dataset_id)
+                        if tile.dataset is None:
+                            self.reporter.info(
+                                title="Dataset Not Found",
+                                message="The tile is utilizing a dataset that is not available in the workspace. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
+                                context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, dataset-id: {tile.dataset_id}",
+                            )
 
         def fill_reports() -> None:
             if self.__config.extract_reports is False:
@@ -476,6 +512,7 @@ class PowerBiAPI:
     def fill_workspaces(
         self, workspaces: List[Workspace], reporter: PowerBiDashboardSourceReport
     ) -> Iterable[Workspace]:
+
         workspaces = self._fill_metadata_from_scan_result(workspaces=workspaces)
         # First try to fill the admin detail as some regular metadata contains lineage to admin metadata
         for workspace in workspaces:

@@ -299,9 +299,10 @@ class DataResolverBase(ABC):
                 pages=self._get_pages_by_report(
                     workspace=workspace, report_id=raw_instance[Constant.ID]
                 ),
+                dataset_id=raw_instance.get(Constant.DATASET_ID),
                 users=[],  # It will be fetched using Admin Fetcher based on condition
                 tags=[],  # It will be fetched using Admin Fetcher based on condition
-                dataset=workspace.datasets.get(raw_instance.get(Constant.DATASET_ID)),
+                dataset=None,  # It will come from dataset_registry defined in powerbi_api.py
             )
             for raw_instance in fetch_reports()
         ]
@@ -332,11 +333,6 @@ class DataResolverBase(ABC):
             Find out which is the data source for tile. It is either REPORT or DATASET
             """
             report_fields = {
-                Constant.DATASET: (
-                    workspace.datasets.get(tile_instance.get(Constant.DATASET_ID))
-                    if tile_instance.get("datasetId") is not None
-                    else None
-                ),
                 Constant.REPORT: (
                     self.get_report(
                         workspace=workspace,
@@ -387,6 +383,7 @@ class DataResolverBase(ABC):
                 title=instance.get(Constant.TITLE),
                 embedUrl=instance.get(Constant.EMBED_URL),
                 dataset_id=instance.get(Constant.DATASET_ID),
+                dataset=None,
                 **new_dataset_or_report(instance),
             )
             for instance in tile_dict
