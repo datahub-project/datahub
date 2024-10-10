@@ -45,9 +45,6 @@ function Home() {
               <h1 className={styles.hero__title}>Start your free trial<br/>today.</h1>
               <div className={clsx(styles.hero__subtitle)}>Unify Discovery, Observability and Governance<br/>for data and AI.</div>
               <div>
-                <Link className={clsx(styles.button, styles.bookButton, "button button--primary button--lg")} to="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup">
-                  Book Demo
-                </Link>
                 <Link className={clsx(styles.button, styles.productTourButton, "button button--secondary button--lg")} to="https://www.acryldata.io/tour">
                   Live Product Tour →
                 </Link>
