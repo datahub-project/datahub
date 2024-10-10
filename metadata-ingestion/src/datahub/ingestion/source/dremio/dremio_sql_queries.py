@@ -118,6 +118,8 @@ class DremioSQLQueries:
             COLUMN_SIZE
         FROM
             INFORMATION_SCHEMA.COLUMNS
+        WHERE
+            LOCATE('{container_name}', LOWER(TABLE_SCHEMA)) = 1
         ) C
         ON
             CONCAT(REPLACE(REPLACE(REPLACE(V.PATH, ', ', '.'), '[', ''), ']', '')) =
@@ -220,6 +222,8 @@ class DremioSQLQueries:
             COLUMN_SIZE
         FROM
             INFORMATION_SCHEMA.COLUMNS
+        WHERE
+            LOCATE('{container_name}', LOWER(TABLE_SCHEMA)) = 1
         ) C
         ON
             CONCAT(REPLACE(REPLACE(REPLACE(V.PATH, ', ', '.'), '[', ''), ']', '')) =
