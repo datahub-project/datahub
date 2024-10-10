@@ -46,6 +46,28 @@ entities:
       - structuredProperties
       - forms
       - partitionsSummary
+      - dataAccessPolicySetting
+      - dataAccessConfiguration
+  - name: dataAccess
+    doc: DataAccess represents the access to a particular dataset by a certain principal in a platform.
+    keyAspect: dataAccessKey
+    aspects:
+      - dataAccessProperties
+      - dataAccessStatusInfo
+      - dataAccessParties
+      - dataAccessLifeCycle
+  - name: accessRequest
+    doc: An Access Request represents a unique request that bundles multiple data accesses together.
+    keyAspect: accessRequestKey
+    aspects:
+      - accessRequestAccessList
+      - accessRequestProperties
+      - accessRequestStatusInfo
+      - accessRequestParties
+  - name: dataPlatformPrincipal
+    doc: DataPlatformPrincipal represents a principal in a particular data platform.
+    keyAspect: dataPlatformPrincipalKey
+    aspects: []
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -248,6 +270,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - dataAccessConfiguration
   - name: tag
     category: core
     keyAspect: tagKey

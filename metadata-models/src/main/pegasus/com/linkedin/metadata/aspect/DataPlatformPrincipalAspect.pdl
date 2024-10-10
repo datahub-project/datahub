@@ -1,0 +1,7 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.DataPlatformPrincipalKey
+
+/**
+ */
+typeref DataPlatformPrincipalAspect = union[DataPlatformPrincipalKey]
