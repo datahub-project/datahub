@@ -343,13 +343,7 @@ class DremioAPIOperations:
 
             job_id = response["id"]
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as executor:
-                future = executor.submit(self.fetch_results, job_id)
-                try:
-                    return future.result(timeout=self._timeout)
-                except concurrent.futures.TimeoutError:
-                    self.cancel_query(job_id)
-                    raise TimeoutError(f"Query execution timed out after {str(self._timeout)} seconds")
+            return self.fetch_results(job_id)
 
         except requests.RequestException as e:
             raise RuntimeError(f"Error executing query: {str(e)}")
