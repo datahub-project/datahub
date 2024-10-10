@@ -1,6 +1,13 @@
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
+get_caller_identity_response = {
+    "UserId": "ABCDEFGHIJKLMNOPRSTUW:dummy-user",
+    "Account": "123456789000",
+    "Arn": "arn:aws:sts::123456789000:assumed-role/dummy-role/dummy-user",
+}
+
+
 list_feature_groups_response = {
     "FeatureGroupSummaries": [
         {

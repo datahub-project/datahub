@@ -1,5 +1,6 @@
+import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterable, List
+from typing import TYPE_CHECKING, Callable, Iterable, List
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -28,10 +29,12 @@ if TYPE_CHECKING:
         FeatureGroupSummaryTypeDef,
     )
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class FeatureGroupProcessor:
-    sagemaker_client: "SageMakerClient"
+    sagemaker_client: Callable[[], "SageMakerClient"]
     env: str
     report: SagemakerSourceReport
 
@@ -41,10 +44,13 @@ class FeatureGroupProcessor:
         """
 
         feature_groups = []
-
+        logger.debug("Attempting to get all feature groups")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_feature_groups
-        paginator = self.sagemaker_client.get_paginator("list_feature_groups")
+        paginator = self.sagemaker_client().get_paginator("list_feature_groups")
         for page in paginator.paginate():
+            logger.debug(
+                "Retrieved %s feature groups", len(page["FeatureGroupSummaries"])
+            )
             feature_groups += page["FeatureGroupSummaries"]
 
         return feature_groups
@@ -55,9 +61,9 @@ class FeatureGroupProcessor:
         """
         Get details of a feature group (including list of component features).
         """
-
+        logger.debug("Attempting to describe feature group: %s", feature_group_name)
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_feature_group
-        feature_group = self.sagemaker_client.describe_feature_group(
+        feature_group = self.sagemaker_client().describe_feature_group(
             FeatureGroupName=feature_group_name
         )
 
@@ -66,12 +72,19 @@ class FeatureGroupProcessor:
 
         # paginate over feature group features
         while next_token:
-            next_features = self.sagemaker_client.describe_feature_group(
+            logger.debug(
+                "Iterating over another token to retrieve full feature group description for: %s",
+                feature_group_name,
+            )
+            next_features = self.sagemaker_client().describe_feature_group(
                 FeatureGroupName=feature_group_name, NextToken=next_token
             )
             feature_group["FeatureDefinitions"] += next_features["FeatureDefinitions"]
             next_token = feature_group.get("NextToken", "")
 
+        logger.debug(
+            "Retrieved full description for feature group: %s", feature_group_name
+        )
         return feature_group
 
     def get_feature_group_wu(

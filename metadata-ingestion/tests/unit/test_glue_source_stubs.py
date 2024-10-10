@@ -4,6 +4,12 @@ from typing import Any, Dict
 
 from botocore.response import StreamingBody
 
+get_caller_identity_response = {
+    "UserId": "ABCDEFGHIJKLMNOPRSTUW:dummy-user",
+    "Account": "123456789000",
+    "Arn": "arn:aws:sts::123456789000:assumed-role/dummy-role/dummy-user",
+}
+
 resource_link_database = {
     "Name": "test-database",
     "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),

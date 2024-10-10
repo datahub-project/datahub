@@ -1,6 +1,7 @@
+import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, DefaultDict, Dict, List, Set
+from typing import TYPE_CHECKING, Any, Callable, DefaultDict, Dict, List, Set
 
 from datahub.ingestion.source.aws.sagemaker_processors.common import (
     SagemakerSourceReport,
@@ -14,6 +15,8 @@ if TYPE_CHECKING:
         AssociationSummaryTypeDef,
         ContextSummaryTypeDef,
     )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -43,7 +46,7 @@ class LineageInfo:
 
 @dataclass
 class LineageProcessor:
-    sagemaker_client: "SageMakerClient"
+    sagemaker_client: Callable[[], "SageMakerClient"]
     env: str
     report: SagemakerSourceReport
     nodes: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -55,10 +58,11 @@ class LineageProcessor:
         """
 
         actions = []
-
+        logger.debug("Attempting to get all actions")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_actions
-        paginator = self.sagemaker_client.get_paginator("list_actions")
+        paginator = self.sagemaker_client().get_paginator("list_actions")
         for page in paginator.paginate():
+            logger.debug("Retrieved %s actions", len(page["ActionSummaries"]))
             actions += page["ActionSummaries"]
 
         return actions
@@ -69,10 +73,11 @@ class LineageProcessor:
         """
 
         artifacts = []
-
+        logger.debug("Attempting to get all artifacts")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_artifacts
-        paginator = self.sagemaker_client.get_paginator("list_artifacts")
+        paginator = self.sagemaker_client().get_paginator("list_artifacts")
         for page in paginator.paginate():
+            logger.debug("Retrieved %s artifacts", len(page["ArtifactSummaries"]))
             artifacts += page["ArtifactSummaries"]
 
         return artifacts
@@ -83,10 +88,11 @@ class LineageProcessor:
         """
 
         contexts = []
-
+        logger.debug("Attempting to get all contexts")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_contexts
-        paginator = self.sagemaker_client.get_paginator("list_contexts")
+        paginator = self.sagemaker_client().get_paginator("list_contexts")
         for page in paginator.paginate():
+            logger.debug("Retrieved %s contexts", len(page["ContextSummaries"]))
             contexts += page["ContextSummaries"]
 
         return contexts
@@ -97,10 +103,11 @@ class LineageProcessor:
         """
 
         edges = []
-
+        logger.debug("Attempting to get all incoming edges")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_associations
-        paginator = self.sagemaker_client.get_paginator("list_associations")
+        paginator = self.sagemaker_client().get_paginator("list_associations")
         for page in paginator.paginate(DestinationArn=node_arn):
+            logger.debug("Retrieved %s edges", len(page["AssociationSummaries"]))
             edges += page["AssociationSummaries"]
 
         return edges
@@ -110,10 +117,11 @@ class LineageProcessor:
         Get all outgoing edges for a node in the lineage graph.
         """
         edges = []
-
+        logger.debug("Attempting to get all outgoing edges")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_associations
-        paginator = self.sagemaker_client.get_paginator("list_associations")
+        paginator = self.sagemaker_client().get_paginator("list_associations")
         for page in paginator.paginate(SourceArn=node_arn):
+            logger.debug("Retrieved %s edges", len(page["AssociationSummaries"]))
             edges += page["AssociationSummaries"]
 
         return edges

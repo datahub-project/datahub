@@ -1,8 +1,10 @@
+import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
+    Callable,
     DefaultDict,
     Dict,
     Iterable,
@@ -53,6 +55,8 @@ if TYPE_CHECKING:
         ModelSummaryTypeDef,
     )
 
+logger = logging.getLogger(__name__)
+
 ENDPOINT_STATUS_MAP: Dict[str, str] = {
     "OutOfService": DeploymentStatusClass.OUT_OF_SERVICE,
     "Creating": DeploymentStatusClass.CREATING,
@@ -68,7 +72,7 @@ ENDPOINT_STATUS_MAP: Dict[str, str] = {
 
 @dataclass
 class ModelProcessor:
-    sagemaker_client: "SageMakerClient"
+    sagemaker_client: Callable[[], "SageMakerClient"]
     env: str
     report: SagemakerSourceReport
     lineage: LineageInfo
@@ -97,10 +101,11 @@ class ModelProcessor:
         """
 
         models = []
-
+        logger.debug("Attempting to retrieve all models")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_models
-        paginator = self.sagemaker_client.get_paginator("list_models")
+        paginator = self.sagemaker_client().get_paginator("list_models")
         for page in paginator.paginate():
+            logger.debug("Retrieved %s models", len(page["Models"]))
             models += page["Models"]
 
         return models
@@ -111,17 +116,20 @@ class ModelProcessor:
         """
 
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_model
-        return self.sagemaker_client.describe_model(ModelName=model_name)
+        return self.sagemaker_client().describe_model(ModelName=model_name)
 
     def get_all_groups(self) -> List["ModelPackageGroupSummaryTypeDef"]:
         """
         List all model groups in SageMaker.
         """
         groups = []
-
+        logger.debug("Attempting to retrieve all model groups")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_model_package_groups
-        paginator = self.sagemaker_client.get_paginator("list_model_package_groups")
+        paginator = self.sagemaker_client().get_paginator("list_model_package_groups")
         for page in paginator.paginate():
+            logger.debug(
+                "Retrieved %s model groups", len(page["ModelPackageGroupSummaryList"])
+            )
             groups += page["ModelPackageGroupSummaryList"]
 
         return groups
@@ -134,17 +142,17 @@ class ModelProcessor:
         """
 
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_model_package_group
-        return self.sagemaker_client.describe_model_package_group(
+        return self.sagemaker_client().describe_model_package_group(
             ModelPackageGroupName=group_name
         )
 
     def get_all_endpoints(self) -> List["EndpointSummaryTypeDef"]:
         endpoints = []
-
+        logger.debug("Attempting to retrieve all endpoints")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_endpoints
-        paginator = self.sagemaker_client.get_paginator("list_endpoints")
-
+        paginator = self.sagemaker_client().get_paginator("list_endpoints")
         for page in paginator.paginate():
+            logger.debug("Retrieved %s endpoints", len(page["Endpoints"]))
             endpoints += page["Endpoints"]
 
         return endpoints
@@ -153,7 +161,7 @@ class ModelProcessor:
         self, endpoint_name: str
     ) -> "DescribeEndpointOutputTypeDef":
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_endpoint
-        return self.sagemaker_client.describe_endpoint(EndpointName=endpoint_name)
+        return self.sagemaker_client().describe_endpoint(EndpointName=endpoint_name)
 
     def get_endpoint_status(
         self, endpoint_name: str, endpoint_arn: str, sagemaker_status: str

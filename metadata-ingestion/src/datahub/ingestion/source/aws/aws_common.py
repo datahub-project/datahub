@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta, timezone
+import logging
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-import boto3
 from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
 from botocore.utils import fix_s3_host
@@ -20,6 +20,8 @@ if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client, S3ServiceResource
     from mypy_boto3_sagemaker import SageMakerClient
     from mypy_boto3_sts import STSClient
+
+logger = logging.getLogger(__name__)
 
 
 class AwsAssumeRoleConfig(PermissiveConfigModel):
@@ -40,13 +42,13 @@ def assume_role(
     credentials: Optional[dict] = None,
 ) -> dict:
     credentials = credentials or {}
-    sts_client: "STSClient" = boto3.client(
-        "sts",
-        region_name=aws_region,
+    session = Session(
         aws_access_key_id=credentials.get("AccessKeyId"),
         aws_secret_access_key=credentials.get("SecretAccessKey"),
         aws_session_token=credentials.get("SessionToken"),
+        region_name=aws_region,
     )
+    sts_client: STSClient = session.client("sts")
 
     assume_role_args: dict = {
         **dict(
@@ -62,6 +64,25 @@ def assume_role(
 
 
 AUTODETECT_CREDENTIALS_DOC_LINK = "Can be auto-detected, see [the AWS boto3 docs](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html) for details."
+
+
+class LazyLogEvaluator:
+    """
+    Used by debug logging to avoid costly function calls if the information is not logged (due to the logging level set
+    higher than DEBUG)
+    """
+
+    def __init__(self, callback, *args):
+        self.callback = callback
+        self.args = args
+        self.value_stored = False
+        self.value = None
+
+    def __repr__(self):
+        if not self.value_stored:
+            self.value = self.callback(*self.args)
+            self.value_stored = True
+        return self.value
 
 
 class AwsConnectionConfig(ConfigModel):
@@ -118,10 +139,12 @@ class AwsConnectionConfig(ConfigModel):
         description="Advanced AWS configuration options. These are passed directly to [botocore.config.Config](https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html).",
     )
 
-    def allowed_cred_refresh(self) -> bool:
-        if self._normalized_aws_roles():
-            return True
-        return False
+    @staticmethod
+    def get_caller_identity(session: Session) -> Optional[str]:
+        logger.info("Retrieving identity of session: %s", session.profile_name)
+        sts_client = session.client("sts")
+        response = sts_client.get_caller_identity()
+        return response.get("Arn")
 
     def _normalized_aws_roles(self) -> List[AwsAssumeRoleConfig]:
         if not self.aws_role:
@@ -136,6 +159,7 @@ class AwsConnectionConfig(ConfigModel):
             ]
 
     def get_session(self) -> Session:
+        logger.debug("Beginning session retrieval")
         if self.aws_access_key_id and self.aws_secret_access_key:
             session = Session(
                 aws_access_key_id=self.aws_access_key_id,
@@ -143,15 +167,30 @@ class AwsConnectionConfig(ConfigModel):
                 aws_session_token=self.aws_session_token,
                 region_name=self.aws_region,
             )
+            logger.debug(
+                "Authenticated using access key, I am: %s",
+                LazyLogEvaluator(self.get_caller_identity, session),
+            )
         elif self.aws_profile:
             session = Session(
                 region_name=self.aws_region, profile_name=self.aws_profile
             )
+            logger.debug(
+                "Authenticated using AWS profile, I am: %s",
+                LazyLogEvaluator(self.get_caller_identity, session),
+            )
         else:
             # Use boto3's credential autodetection.
             session = Session(region_name=self.aws_region)
+            logger.debug(
+                "Authenticated using auto-detection, I am: %s",
+                LazyLogEvaluator(self.get_caller_identity, session),
+            )
 
         if self._normalized_aws_roles():
+            logger.debug(
+                "Detected normalized aws roles list: %s", self._normalized_aws_roles()
+            )
             # Use existing session credentials to start the chain of role assumption.
             current_credentials = session.get_credentials()
             credentials = {
@@ -161,14 +200,11 @@ class AwsConnectionConfig(ConfigModel):
             }
 
             for role in self._normalized_aws_roles():
-                if self._should_refresh_credentials():
-                    credentials = assume_role(
-                        role,
-                        self.aws_region,
-                        credentials=credentials,
-                    )
-                    if isinstance(credentials["Expiration"], datetime):
-                        self._credentials_expiration = credentials["Expiration"]
+                credentials = assume_role(
+                    role,
+                    self.aws_region,
+                    credentials=credentials,
+                )
 
             session = Session(
                 aws_access_key_id=credentials["AccessKeyId"],
@@ -176,14 +212,37 @@ class AwsConnectionConfig(ConfigModel):
                 aws_session_token=credentials["SessionToken"],
                 region_name=self.aws_region,
             )
+            if isinstance(credentials["Expiration"], datetime):
+                self._credentials_expiration = credentials["Expiration"]
 
+        logger.debug(
+            "Final session: %s",
+            LazyLogEvaluator(self.get_caller_identity, session),
+        )
         return session
 
-    def _should_refresh_credentials(self) -> bool:
+    def should_refresh_credentials(self) -> bool:
+        logger.debug("Checking whether we should refresh credentials")
+        if not self._normalized_aws_roles():
+            logger.debug(
+                "Didn't recognize any aws roles to assume, deciding not to refresh"
+            )
+            return False
         if self._credentials_expiration is None:
+            logger.debug("No credentials expiration time recorded")
             return True
-        remaining_time = self._credentials_expiration - datetime.now(timezone.utc)
-        return remaining_time < timedelta(minutes=5)
+        time_now = datetime.now(self._credentials_expiration.tzinfo)
+        remaining_time = self._credentials_expiration - time_now
+        should_refresh = remaining_time < timedelta(minutes=5)
+        logger.debug(
+            "Current credentials expiration: %s | Current time: %s | Remaining time: %s | Therefor should "
+            "we refresh? %s",
+            self._credentials_expiration,
+            time_now,
+            remaining_time,
+            "YES" if should_refresh else "NO",
+        )
+        return should_refresh
 
     def get_credentials(self) -> Dict[str, Optional[str]]:
         credentials = self.get_session().get_credentials()
