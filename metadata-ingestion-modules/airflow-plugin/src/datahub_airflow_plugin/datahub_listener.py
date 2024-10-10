@@ -73,7 +73,9 @@ _RUN_IN_THREAD = os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD", "true").lower
     "true",
     "1",
 )
-_RUN_IN_THREAD_TIMEOUT = 30
+_RUN_IN_THREAD_TIMEOUT = float(
+    os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT", 15)
+)
 _DATAHUB_CLEANUP_DAG = "Datahub_Cleanup"
 
 
@@ -129,12 +131,22 @@ def run_in_thread(f: _F) -> _F:
                 )
                 thread.start()
 
-                thread.join(timeout=_RUN_IN_THREAD_TIMEOUT)
-                if thread.is_alive():
-                    logger.warning(
-                        f"Thread for {f.__name__} is still running after {_RUN_IN_THREAD_TIMEOUT} seconds. "
-                        "Continuing without waiting for it to finish."
-                    )
+                if _RUN_IN_THREAD_TIMEOUT > 0:
+                    # If _RUN_IN_THREAD_TIMEOUT is 0, we just kick off the thread and move on.
+                    # Because it's a daemon thread, it'll be automatically killed when the main
+                    # thread exists.
+
+                    start_time = time.time()
+                    thread.join(timeout=_RUN_IN_THREAD_TIMEOUT)
+                    if thread.is_alive():
+                        logger.warning(
+                            f"Thread for {f.__name__} is still running after {_RUN_IN_THREAD_TIMEOUT} seconds. "
+                            "Continuing without waiting for it to finish."
+                        )
+                    else:
+                        logger.debug(
+                            f"Thread for {f.__name__} finished after {time.time() - start_time} seconds"
+                        )
             else:
                 f(*args, **kwargs)
         except Exception as e:
@@ -374,7 +386,8 @@ class DataHubListener:
             f"DataHub listener got notification about task instance start for {task_instance.task_id}"
         )
 
-        task_instance = _render_templates(task_instance)
+        if self.config.render_templates:
+            task_instance = _render_templates(task_instance)
 
         # The type ignore is to placate mypy on Airflow 2.1.x.
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
@@ -466,7 +479,8 @@ class DataHubListener:
     ) -> None:
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
 
-        task_instance = _render_templates(task_instance)
+        if self.config.render_templates:
+            task_instance = _render_templates(task_instance)
 
         # We must prefer the task attribute, in case modifications to the task's inlets/outlets
         # were made by the execute() method.

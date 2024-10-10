@@ -101,7 +101,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==25.20.2.dev5",
+    "acryl-sqlglot[rs]==25.20.2.dev6",
 }
 
 classification_lib = {
@@ -722,6 +722,7 @@ entry_points = {
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
+        "preset = datahub.ingestion.source.preset:PresetSource",
         "tableau = datahub.ingestion.source.tableau.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",

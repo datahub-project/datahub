@@ -616,7 +616,10 @@ entities:
       - dataHubConnectionDetails
       - dataPlatformInstance
   - name: platformResource
-    doc:
+    doc: >-
+      Platform Resources are assets that are unmodeled and stored outside of
+      the core data model. They are stored in DataHub primarily to help with
+      application-specific use-cases that are not sufficiently generalized to move into the core data model.
     category: core
     keyAspect: platformResourceKey
     aspects:

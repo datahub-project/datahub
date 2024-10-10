@@ -45,8 +45,12 @@ class MockResponse:
     def json(self):
         return self.json_data
 
-    def get(self, url):
+    def mount(self, prefix, adaptor):
+        return self
+
+    def get(self, url, timeout=40):
         self.url = url
+        self.timeout = timeout
         response_json_path = f"{test_resources_dir}/setup/{JSON_RESPONSE_MAP.get(url)}"
         with open(response_json_path) as file:
             data = json.loads(file.read())
@@ -74,7 +78,7 @@ def mocked_requests_failure(*args, **kwargs):
 @freeze_time(FROZEN_TIME)
 def test_mode_ingest_success(pytestconfig, tmp_path):
     with patch(
-        "datahub.ingestion.source.mode.requests.session",
+        "datahub.ingestion.source.mode.requests.Session",
         side_effect=mocked_requests_sucess,
     ):
         pipeline = Pipeline.create(
@@ -111,7 +115,7 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
 @freeze_time(FROZEN_TIME)
 def test_mode_ingest_failure(pytestconfig, tmp_path):
     with patch(
-        "datahub.ingestion.source.mode.requests.session",
+        "datahub.ingestion.source.mode.requests.Session",
         side_effect=mocked_requests_failure,
     ):
         global test_resources_dir

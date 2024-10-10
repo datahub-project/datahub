@@ -115,8 +115,7 @@ public class AutocompleteRequestHandler {
     QueryConfiguration customQueryConfig =
         customizedQueryHandler.lookupQueryConfig(input).orElse(null);
 
-    BoolQueryBuilder baseQuery = QueryBuilders.boolQuery();
-    baseQuery.minimumShouldMatch(1);
+    BoolQueryBuilder baseQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
 
     // Initial query with input filters
     BoolQueryBuilder filterQuery =
@@ -140,10 +139,15 @@ public class AutocompleteRequestHandler {
                         opContext.getObjectMapper(),
                         cac,
                         queryWithDefaultFilters,
-                        customQueryConfig))
+                        customQueryConfig,
+                        input))
             .orElse(
                 SearchQueryBuilder.buildScoreFunctions(
-                    opContext, customQueryConfig, List.of(entitySpec), queryWithDefaultFilters));
+                    opContext,
+                    customQueryConfig,
+                    List.of(entitySpec),
+                    input,
+                    queryWithDefaultFilters));
     searchSourceBuilder.query(functionScoreQueryBuilder);
 
     ESUtils.buildSortOrder(searchSourceBuilder, null, List.of(entitySpec));
@@ -171,11 +175,14 @@ public class AutocompleteRequestHandler {
     BoolQueryBuilder finalQuery =
         Optional.ofNullable(customAutocompleteConfig)
             .flatMap(cac -> CustomizedQueryHandler.boolQueryBuilder(objectMapper, cac, query))
-            .orElse(QueryBuilders.boolQuery())
-            .minimumShouldMatch(1);
+            .orElse(QueryBuilders.boolQuery());
 
     getAutocompleteQuery(customAutocompleteConfig, autocompleteFields, query)
         .ifPresent(finalQuery::should);
+
+    if (!finalQuery.should().isEmpty()) {
+      finalQuery.minimumShouldMatch(1);
+    }
 
     return finalQuery;
   }
@@ -195,8 +202,7 @@ public class AutocompleteRequestHandler {
 
   private static BoolQueryBuilder defaultQuery(
       List<String> autocompleteFields, @Nonnull String query) {
-    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-    finalQuery.minimumShouldMatch(1);
+    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
 
     // Search for exact matches with higher boost and ngram matches
     MultiMatchQueryBuilder autocompleteQueryBuilder =

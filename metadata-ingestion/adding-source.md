@@ -240,7 +240,7 @@ in [sql_common.py](./src/datahub/ingestion/source/sql/sql_common.py) if the sour
 
 ### 9. Add logo for the platform
 
-Add the logo image in [images folder](../datahub-web-react/src/images) and add it to be ingested at [startup](../metadata-service/war/src/main/resources/boot/data_platforms.json)
+Add the logo image in [images folder](../datahub-web-react/src/images) and add it to be ingested at [startup](../metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml)
 
 ### 10. Update Frontend for UI-based ingestion
 

@@ -13,8 +13,14 @@ import com.linkedin.common.SerializedValue
 record PlatformResourceInfo {
    /**
     * The type of the resource. 
-    * This is used to differentiate between different types of resources.
-    * Possible values specified in {@link com.linkedin.platformresource.PlatformResourceType}
+    * Intended as a loose specifier of the generic type of the resource.
+    * Producer is not forced to conform to a specific set of symbols for
+    * resource types.
+    * The @PlatformResourceType enumeration offers a paved path for agreed upon
+    * common terms, but is not required to be followed.
+    * Example values could be: conversation, user, grant, etc.
+    * Resource types are indexed for ease of access. 
+    * e.g. Get me all platform resources of type user for the platform looker
    */
    @Searchable = {
      "fieldType": "KEYWORD"
@@ -23,7 +29,10 @@ record PlatformResourceInfo {
 
   /**
    * The primary key for this platform resource.
-   * I.e., for a slack member this would be the memberID.
+   * e.g. for a slack member this would be the memberID.
+   * primary keys specified here don't need to include any additional specificity for the
+     dataPlatform
+   * The @PlatformResourceKey is supposed to represent that
    */
   @Searchable = {
       "fieldType": "KEYWORD"

@@ -12,7 +12,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
-from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.lossy_collections import LossyDict, LossyList, LossySet
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
@@ -68,6 +68,9 @@ class BigQueryQueriesExtractorReport(Report):
 
     num_total_queries: int = 0
     num_unique_queries: int = 0
+
+    num_discovered_tables: Optional[int] = None
+    inferred_temp_tables: LossySet[str] = field(default_factory=LossySet)
 
 
 @dataclass
@@ -163,6 +166,7 @@ class BigQueryV2Report(
 
     exclude_empty_projects: Optional[bool] = None
 
+    init_schema_resolver_timer: PerfTimer = field(default_factory=PerfTimer)
     schema_api_perf: BigQuerySchemaApiPerfReport = field(
         default_factory=BigQuerySchemaApiPerfReport
     )
