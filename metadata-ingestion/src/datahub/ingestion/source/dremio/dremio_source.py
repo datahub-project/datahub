@@ -585,7 +585,7 @@ class DremioSource(StatefulIngestionSourceBase):
         Map a Dremio dataset to a DataHub URN.
         """
 
-        mapping = self.source_map.get(dremio_source.lower())
+        mapping = self.source_map.get(dremio_source)
         if not mapping:
             return None
 

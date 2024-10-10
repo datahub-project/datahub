@@ -817,6 +817,12 @@ class DremioAPIOperations:
                 source_config = self.execute_get_request(
                     url=f"/catalog/{source.get('id')}",
                 )
+
+                if source_config.get("config", {}).get("database"):
+                    db = source_config.get("config", {}).get("database")
+                else:
+                    db = source_config.get("config", {}).get("databaseName", "")
+
                 return {
                     "id": source.get("id"),
                     "name": source.get("path")[0],
@@ -824,7 +830,7 @@ class DremioAPIOperations:
                     "container_type": "SOURCE",
                     "source_type": source_config.get("type"),
                     "root_path": source_config.get("config", {}).get("rootPath"),
-                    "database_name": source_config.get("config", {}).get("databaseName"),
+                    "database_name": db,
                 }
             else:
                 return {
