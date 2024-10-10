@@ -84,7 +84,7 @@ sink:
 
 
 ### Sample data that is returned from Neo4j.  This is the data that is parsed and used to create Nodes, Relationships.
-Details can be found here: https://neo4j.com/labs/apoc/4.4/overview/apoc.meta/apoc.meta.schema/
+
         
       Example relationship:
         {
