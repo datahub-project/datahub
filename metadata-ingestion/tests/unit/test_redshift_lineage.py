@@ -221,7 +221,6 @@ def mock_redshift_connection() -> MagicMock:
 
 
 def mock_graph() -> DataHubGraph:
-
     graph = MagicMock()
 
     graph._make_schema_resolver.return_value = SchemaResolver(

@@ -99,7 +99,6 @@ class TestNeo4j(unittest.TestCase):
         df = pd.DataFrame(data)
         return df
 
-
     def test_get_obj_type(self):
         assert self.neo.get_obj_type(self.record_1) == "node"
         assert self.neo.get_obj_type(self.record_2) == "node"

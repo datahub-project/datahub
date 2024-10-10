@@ -235,7 +235,6 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         table_name: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-
         logger.debug(f"Processing table: {dataset_name}")
         table_info = dynamodb_client.describe_table(TableName=table_name)["Table"]
         account_id = table_info["TableArn"].split(":")[4]

@@ -70,7 +70,6 @@ class PlatformResourceInfo(BaseModel):
 
 
 class OpenAPIGraphClient:
-
     ENTITY_KEY_ASPECT_MAP = {
         aspect_type.ASPECT_INFO.get("keyForEntity"): name
         for name, aspect_type in models.ASPECT_NAME_MAP.items()

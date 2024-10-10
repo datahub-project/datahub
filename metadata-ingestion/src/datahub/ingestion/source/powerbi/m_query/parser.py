@@ -57,7 +57,6 @@ def get_upstream_tables(
     config: PowerBiDashboardSourceConfig,
     parameters: Dict[str, str] = {},
 ) -> List[resolver.Lineage]:
-
     if table.expression is None:
         logger.debug(f"There is no M-Query expression in table {table.full_name}")
         return []
