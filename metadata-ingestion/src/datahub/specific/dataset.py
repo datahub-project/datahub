@@ -1,7 +1,8 @@
+from datetime import datetime
 from typing import Dict, Generic, List, Optional, Tuple, TypeVar, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
-from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
+from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp, AuditStamp
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass as DatasetProperties,
     EditableDatasetPropertiesClass as EditableDatasetProperties,
@@ -122,6 +123,17 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         return self
 
     def add_upstream_lineage(self, upstream: Upstream) -> "DatasetPatchBuilder":
+        default_audit_stamp = AuditStamp(
+            time=0,
+            actor='urn:li:corpuser:unknown',
+            impersonator=None,
+            message=None
+        )
+        if upstream.auditStamp==default_audit_stamp:
+            upstream.auditStamp = AuditStamp(
+                time=int(datetime.now().timestamp() * 1000),
+                actor="urn:li:corpuser:datahub"
+            )
         self._add_patch(
             UpstreamLineage.ASPECT_NAME,
             "add",
@@ -142,6 +154,18 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         return self
 
     def set_upstream_lineages(self, upstreams: List[Upstream]) -> "DatasetPatchBuilder":
+        default_audit_stamp = AuditStamp(
+            time=0,
+            actor='urn:li:corpuser:unknown',
+            impersonator=None,
+            message=None
+        )
+        for upstream in upstreams:
+            if upstream.auditStamp==default_audit_stamp:
+                upstream.auditStamp = AuditStamp(
+                    time=int(datetime.now().timestamp() * 1000),
+                    actor="urn:li:corpuser:datahub"
+                )
         self._add_patch(
             UpstreamLineage.ASPECT_NAME, "add", path="/upstreams", value=upstreams
         )
