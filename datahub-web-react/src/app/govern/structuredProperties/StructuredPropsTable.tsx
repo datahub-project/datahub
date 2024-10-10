@@ -14,8 +14,10 @@ import TableIcon from '@src/images/table-icon.svg?react';
 import { Entity, EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { Dropdown, Tooltip } from 'antd';
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { CardIcons } from '../Dashboard/Forms/styledComponents';
 import { removeFromPropertiesList } from './cacheUtils';
+import EmptyStructuredProperties from './EmptyStructuredProperties';
 import {
     CreatedByContainer,
     DataContainer,
@@ -95,6 +97,10 @@ const StructuredPropsTable = ({
         setShowConfirmDelete(false);
         setSelectedProperty(undefined);
     };
+
+    if (!loading && !structuredProperties.length) {
+        return <EmptyStructuredProperties />;
+    }
 
     const columns = [
         {
@@ -196,10 +202,19 @@ const StructuredPropsTable = ({
                     <>
                         {createdByUser && (
                             <HoverEntityTooltip entity={createdByUser as Entity} showArrow={false}>
-                                <CreatedByContainer>
-                                    <CustomAvatar size={20} name={name} photoUrl={avatarUrl} />
-                                    <Text size="sm">{name}</Text>
-                                </CreatedByContainer>
+                                <Link
+                                    to={`${entityRegistry.getEntityUrl(
+                                        EntityType.CorpUser,
+                                        (createdByUser as Entity).urn,
+                                    )}`}
+                                >
+                                    <CreatedByContainer>
+                                        <CustomAvatar size={20} name={name} photoUrl={avatarUrl} hideTooltip />
+                                        <Text color="gray" size="sm">
+                                            {name}
+                                        </Text>
+                                    </CreatedByContainer>
+                                </Link>
                             </HoverEntityTooltip>
                         )}
                     </>

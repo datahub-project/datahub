@@ -214,6 +214,10 @@ export const CreatedByContainer = styled.div`
     padding: 3px 6px;
     border-radius: 20px;
     border: 1px solid ${colors.gray[1400]};
+
+    :hover {
+        cursor: pointer;
+    }
 `;
 
 export const SubTextContainer = styled.div`
@@ -369,4 +373,19 @@ export const SelectOptionContainer = styled.div`
 export const StyledDivider = styled(Divider)`
     color: ${colors.gray[1400]};
     margin: 16px 0;
+`;
+
+export const EmptyContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    gap: 16px;
+
+    svg {
+        width: 160px;
+        height: 160px;
+    }
 `;

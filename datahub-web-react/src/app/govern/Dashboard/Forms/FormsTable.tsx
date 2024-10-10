@@ -1,8 +1,8 @@
-import { useUserContext } from '@src/app/context/useUserContext';
 import { NetworkStatus } from '@apollo/client';
 import { colors, Icon, Pill, Table, Text, typography } from '@components';
 import { AlignmentOptions, ColorOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
+import { useUserContext } from '@src/app/context/useUserContext';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { CustomAvatar } from '@src/app/shared/avatar';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
@@ -71,6 +71,10 @@ export const EditedByContainer = styled.div`
     padding: 3px 6px;
     border-radius: 20px;
     border: 1px solid ${colors.gray[1400]};
+
+    :hover {
+        cursor: pointer;
+    }
 `;
 
 interface Props {
@@ -290,10 +294,19 @@ const FormsTable = ({ searchQuery }: Props) => {
                     <>
                         {lastEditedByUser && (
                             <HoverEntityTooltip entity={lastEditedByUser as Entity} showArrow={false}>
-                                <EditedByContainer>
-                                    <CustomAvatar size={20} name={name} photoUrl={avatarUrl} />
-                                    <Text size="sm">{name}</Text>
-                                </EditedByContainer>
+                                <Link
+                                    to={`${entityRegistry.getEntityUrl(
+                                        EntityType.CorpUser,
+                                        (lastEditedByUser as Entity).urn,
+                                    )}`}
+                                >
+                                    <EditedByContainer>
+                                        <CustomAvatar size={20} name={name} photoUrl={avatarUrl} hideTooltip />
+                                        <Text color="gray" size="sm">
+                                            {name}
+                                        </Text>
+                                    </EditedByContainer>
+                                </Link>
                             </HoverEntityTooltip>
                         )}
                     </>
