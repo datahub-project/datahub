@@ -299,6 +299,14 @@ powerbi_report_server = {"requests", "requests_ntlm"}
 
 slack = {"slack-sdk==3.18.1"}
 
+ssas = {
+    "xmltodict==0.13.0",
+    "requests==2.28.1",
+    "beautifulsoup4==4.11.1",
+    "lxml==4.9.1",
+    "requests-kerberos==0.14.0"
+}
+
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
     # 0.22.0 has support for `include_browse` in metadata list apis
@@ -462,6 +470,7 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib,
     "slack": slack,
+    "ssas": ssas,
     "superset": {
         "requests",
         "sqlalchemy",
@@ -613,6 +622,7 @@ base_dev_requirements = {
             "s3",
             "snowflake",
             "slack",
+            "ssas",
             "tableau",
             "teradata",
             "trino",
@@ -657,6 +667,7 @@ full_test_dev_requirements = {
             "ldap",
             "mongodb",
             "slack",
+            #"ssas",
             "mssql",
             "mysql",
             "mariadb",
@@ -718,6 +729,8 @@ entry_points = {
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
+        "ssas_multidimension = datahub.ingestion.source.ssas.ssas_multidimension.ssas_multidimension:SsasMultidimensionSource",
+        "ssas_tabular = datahub.ingestion.source.ssas.ssas_tabular.ssas_tabular:SsasTabularSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
