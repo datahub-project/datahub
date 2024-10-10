@@ -204,7 +204,7 @@ class LookerAPI:
             )
         except SDKError as e:
             if "Looker Not Found (404)" in str(e):
-                # User not found
+                # Folder ancestors not found
                 logger.info(
                     f"Could not find ancestors for folder with id {folder_id}: 404 error"
                 )
