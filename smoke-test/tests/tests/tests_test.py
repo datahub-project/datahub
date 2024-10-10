@@ -1,36 +1,18 @@
 import pytest
 import tenacity
 
-from tests.utils import (
-    delete_urns_from_file,
-    get_frontend_url,
-    get_sleep_info,
-    ingest_file_via_rest,
-    wait_for_healthcheck_util,
-)
+from tests.utils import delete_urns_from_file, get_sleep_info, ingest_file_via_rest
 
 sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ingest_cleanup_data(request):
+def ingest_cleanup_data(auth_session, graph_client, request):
     print("ingesting test data")
-    ingest_file_via_rest("tests/tests/data.json")
+    ingest_file_via_rest(auth_session, "tests/tests/data.json")
     yield
     print("removing test data")
-    delete_urns_from_file("tests/tests/data.json")
-
-
-@pytest.fixture(scope="session")
-def wait_for_healthchecks():
-    wait_for_healthcheck_util()
-    yield
-
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
+    delete_urns_from_file(graph_client, "tests/tests/data.json")
 
 
 test_id = "test id"
@@ -40,7 +22,7 @@ test_description = "test description"
 test_description = "test description"
 
 
-def create_test(frontend_session):
+def create_test(auth_session):
     # Create new Test
     create_test_json = {
         "query": """mutation createTest($input: CreateTestInput!) {\n
@@ -57,8 +39,8 @@ def create_test(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=create_test_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=create_test_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -71,7 +53,7 @@ def create_test(frontend_session):
     return res_data["data"]["createTest"]
 
 
-def delete_test(frontend_session, test_urn):
+def delete_test(auth_session, test_urn):
     delete_test_json = {
         "query": """mutation deleteTest($urn: String!) {\n
             deleteTest(urn: $urn)
@@ -79,15 +61,15 @@ def delete_test(frontend_session, test_urn):
         "variables": {"urn": test_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=delete_test_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=delete_test_json
     )
     response.raise_for_status()
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_test(frontend_session, wait_for_healthchecks):
-    test_urn = create_test(frontend_session)
+@pytest.mark.dependency()
+def test_create_test(auth_session):
+    test_urn = create_test(auth_session)
 
     # Get the test
     get_test_json = {
@@ -104,8 +86,8 @@ def test_create_test(frontend_session, wait_for_healthchecks):
         }""",
         "variables": {"urn": test_urn},
     }
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=get_test_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=get_test_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -124,11 +106,11 @@ def test_create_test(frontend_session, wait_for_healthchecks):
     assert "errors" not in res_data
 
     # Delete test
-    delete_test(frontend_session, test_urn)
+    delete_test(auth_session, test_urn)
 
     # Ensure the test no longer exists
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=get_test_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=get_test_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -137,9 +119,9 @@ def test_create_test(frontend_session, wait_for_healthchecks):
     assert "errors" not in res_data
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_create_test"])
-def test_update_test(frontend_session, wait_for_healthchecks):
-    test_urn = create_test(frontend_session)
+@pytest.mark.dependency(depends=["test_create_test"])
+def test_update_test(auth_session):
+    test_urn = create_test(auth_session)
     test_name = "new name"
     test_category = "new category"
     test_description = "new description"
@@ -161,8 +143,8 @@ def test_update_test(frontend_session, wait_for_healthchecks):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=update_test_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=update_test_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -187,8 +169,8 @@ def test_update_test(frontend_session, wait_for_healthchecks):
         }""",
         "variables": {"urn": test_urn},
     }
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=get_test_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=get_test_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -206,13 +188,13 @@ def test_update_test(frontend_session, wait_for_healthchecks):
     }
     assert "errors" not in res_data
 
-    delete_test(frontend_session, test_urn)
+    delete_test(auth_session, test_urn)
 
 
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-def test_list_tests_retries(frontend_session):
+def test_list_tests_retries(auth_session):
     list_tests_json = {
         "query": """query listTests($input: ListTestsInput!) {\n
           listTests(input: $input) {\n
@@ -227,8 +209,8 @@ def test_list_tests_retries(frontend_session):
         "variables": {"input": {"start": "0", "count": "20"}},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=list_tests_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=list_tests_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -240,13 +222,12 @@ def test_list_tests_retries(frontend_session):
     assert "errors" not in res_data
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_update_test"])
-def test_list_tests(frontend_session, wait_for_healthchecks):
-    test_list_tests_retries(frontend_session)
+@pytest.mark.dependency(depends=["test_update_test"])
+def test_list_tests(auth_session):
+    test_list_tests_retries(auth_session)
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_get_test_results(frontend_session, wait_for_healthchecks):
+def test_get_test_results(auth_session):
     urn = (
         "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tests-sample,PROD)"  # Test urn
     )
@@ -272,7 +253,9 @@ def test_get_test_results(frontend_session, wait_for_healthchecks):
         }""",
         "variables": {"urn": urn},
     }
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 

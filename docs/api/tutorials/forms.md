@@ -77,7 +77,7 @@ For example, below file represents a form `123456` You can see the full example 
 ```yaml
 - id: 123456
   # urn: "urn:li:form:123456"  # optional if id is provided
-  type: VERIFICATION # Supported Types: DOCUMENTATION, VERIFICATION
+  type: VERIFICATION # Supported Types: COMPLETION(DOCUMENTATION), VERIFICATION
   name: "Metadata Initiative 2023"
   description: "How we want to ensure the most important data assets in our organization have all of the most important and expected pieces of metadata filled out"
   prompts:

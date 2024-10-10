@@ -48,4 +48,14 @@ record SearchFlags {
    * include restricted entities in results (default is to filter)
    */
    includeRestricted:optional boolean = false
+
+  /**
+   * Include mentioned fields inside elastic highlighting query
+   */
+   customHighlightingFields:optional array[string]
+
+  /**
+   * invoke query rewrite chain for filters based on configured rewriters
+   */
+   rewriteQuery: optional boolean = true
 }

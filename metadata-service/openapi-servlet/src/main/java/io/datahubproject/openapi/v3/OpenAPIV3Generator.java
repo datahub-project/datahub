@@ -20,6 +20,7 @@ import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -137,6 +138,7 @@ public class OpenAPIV3Generator {
     final Paths paths = new Paths();
     entityRegistry.getEntitySpecs().values().stream()
         .filter(e -> definitionNames.contains(e.getName()))
+        .sorted(Comparator.comparing(EntitySpec::getName))
         .forEach(
             e -> {
               paths.addPathItem(
@@ -151,10 +153,12 @@ public class OpenAPIV3Generator {
             });
     entityRegistry.getEntitySpecs().values().stream()
         .filter(e -> definitionNames.contains(e.getName()))
+        .sorted(Comparator.comparing(EntitySpec::getName))
         .forEach(
             e -> {
               e.getAspectSpecs().stream()
                   .filter(a -> definitionNames.contains(a.getName()))
+                  .sorted(Comparator.comparing(AspectSpec::getName))
                   .forEach(
                       a ->
                           paths.addPathItem(
@@ -257,7 +261,17 @@ public class OpenAPIV3Generator {
                         .in(NAME_PATH)
                         .name("urn")
                         .description("The entity's unique URN id.")
-                        .schema(new Schema().type(TYPE_STRING))))
+                        .schema(new Schema().type(TYPE_STRING)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name("clear")
+                        .description("Delete all aspects, preserving the entity's key aspect.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
+                    new Parameter()
+                        .$ref(
+                            String.format(
+                                "#/components/parameters/%s",
+                                aspectParameterName + MODEL_VERSION))))
             .tags(List.of(entity.getName() + " Entity"))
             .responses(new ApiResponses().addApiResponse("200", successDeleteResponse));
 
@@ -507,13 +521,13 @@ public class OpenAPIV3Generator {
             .items(
                 new Schema()
                     .type(TYPE_STRING)
-                    ._enum(aspectNames)
+                    ._enum(aspectNames.stream().sorted().toList())
                     ._default(aspectNames.stream().findFirst().orElse(null)));
     return new Parameter()
         .in(NAME_QUERY)
         .name("aspects")
         .explode(true)
-        .description("Aspects to include in response.")
+        .description("Aspects to include.")
         .example(aspectNames)
         .schema(schema);
   }

@@ -10,11 +10,13 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import io.ebean.ExpressionList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -188,7 +190,12 @@ public class SendMAEStep implements UpgradeStep {
             context.report().addLine(String.format("Rows processed this loop %d", rowsProcessed));
             start += args.batchSize;
           } catch (InterruptedException | ExecutionException e) {
-            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+            if (e.getCause() instanceof NoSuchElementException) {
+              context.report().addLine("End of data.");
+              break;
+            } else {
+              return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+            }
           }
         }
       } else {
@@ -219,7 +226,7 @@ public class SendMAEStep implements UpgradeStep {
                     "Failed to send MAEs for %d rows (%.2f%% of total).",
                     rowCount - finalJobResult.rowsMigrated, percentFailed));
       }
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 

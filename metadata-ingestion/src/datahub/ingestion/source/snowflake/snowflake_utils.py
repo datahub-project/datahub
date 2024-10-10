@@ -125,6 +125,7 @@ class SnowflakeFilter:
             SnowflakeObjectDomain.EXTERNAL_TABLE,
             SnowflakeObjectDomain.VIEW,
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
+            SnowflakeObjectDomain.ICEBERG_TABLE,
         ):
             return False
         if _is_sys_table(dataset_name):

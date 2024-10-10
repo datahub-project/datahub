@@ -73,17 +73,17 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
     return RestliUtils.toTask(
         () -> {
             final Authentication auth = AuthenticationContext.getAuthentication();
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            ACTION_GET_TIMESERIES_STATS, entityName), authorizer, auth, true);
+
             if (!AuthUtil.isAPIAuthorizedEntityType(
-                    auth,
-                    authorizer,
+                    opContext,
                     TIMESERIES, READ,
                     entityName)) {
                 throw new RestLiServiceException(
                         HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + entityName);
             }
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            ACTION_GET_TIMESERIES_STATS, entityName), authorizer, auth, true);
 
             log.info("Attempting to query timeseries stats");
           GetTimeseriesAggregatedStatsResponse resp = new GetTimeseriesAggregatedStatsResponse();

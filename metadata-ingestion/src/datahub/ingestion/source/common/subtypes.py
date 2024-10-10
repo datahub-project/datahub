@@ -17,6 +17,8 @@ class DatasetSubTypes(StrEnum):
     POWERBI_DATASET_TABLE = "PowerBI Dataset Table"
     QLIK_DATASET = "Qlik Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
+    SHARDED_TABLE = "Sharded Table"
+    EXTERNAL_TABLE = "External Table"
     SIGMA_DATASET = "Sigma Dataset"
     SAC_MODEL = "Model"
     SAC_IMPORT_DATA_MODEL = "Import Data Model"
@@ -72,6 +74,7 @@ class BIAssetSubTypes(StrEnum):
 
     # Mode
     MODE_REPORT = "Report"
+    MODE_DATASET = "Dataset"
     MODE_QUERY = "Query"
     MODE_CHART = "Chart"
 

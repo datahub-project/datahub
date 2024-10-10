@@ -99,12 +99,19 @@ public class OperationsController {
   @Tag(name = "ElasticSearchOperations")
   @GetMapping(path = "/getTaskStatus", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get Task Status")
-  public ResponseEntity<String> getTaskStatus(String task) {
+  public ResponseEntity<String> getTaskStatus(HttpServletRequest request, String task) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 
-    if (!AuthUtil.isAPIAuthorized(
-        authentication, authorizerChain, PoliciesConfig.GET_ES_TASK_STATUS_PRIVILEGE)) {
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi(actorUrnStr, request, "getTaskStatus", List.of()),
+            authorizerChain,
+            authentication,
+            true);
+
+    if (!AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_ES_TASK_STATUS_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(String.format(actorUrnStr + " is not authorized to get ElasticSearch task status"));
     }
@@ -139,11 +146,6 @@ public class OperationsController {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 
-    if (!AuthUtil.isAPIAuthorized(
-        authentication, authorizerChain, PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE)) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN)
-          .body(String.format(actorUrnStr + " is not authorized to get timeseries index sizes"));
-    }
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -151,6 +153,12 @@ public class OperationsController {
             authorizerChain,
             authentication,
             true);
+
+    if (!AuthUtil.isAPIOperationsAuthorized(
+        opContext, PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE)) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN)
+          .body(String.format(actorUrnStr + " is not authorized to get timeseries index sizes"));
+    }
 
     List<TimeseriesIndexSizeResult> indexSizeResults =
         timeseriesAspectService.getIndexSizes(opContext);
@@ -230,12 +238,6 @@ public class OperationsController {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-
-    if (!AuthUtil.isAPIAuthorized(
-        authentication, authorizerChain, PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE)) {
-      log.error("{} is not authorized to get explain queries", actorUrnStr);
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
-    }
     OperationContext opContext =
         systemOperationContext
             .asSession(
@@ -253,6 +255,11 @@ public class OperationsController {
                     throw new RuntimeException(e);
                   }
                 });
+
+    if (!AuthUtil.isAPIOperationsAuthorized(opContext, PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE)) {
+      log.error("{} is not authorized to get explain queries", actorUrnStr);
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    }
 
     ExplainResponse response =
         searchService.explain(
@@ -339,11 +346,6 @@ public class OperationsController {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 
-    if (!AuthUtil.isAPIAuthorized(
-        authentication, authorizerChain, PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE)) {
-      log.error("{} is not authorized to get explain queries", actorUrnStr);
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
-    }
     OperationContext opContext =
         systemOperationContext
             .asSession(
@@ -361,6 +363,11 @@ public class OperationsController {
                     throw new RuntimeException(e);
                   }
                 });
+
+    if (!AuthUtil.isAPIOperationsAuthorized(opContext, PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE)) {
+      log.error("{} is not authorized to get explain queries", actorUrnStr);
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    }
 
     ExplainResponse responseA =
         searchService.explain(
@@ -433,10 +440,6 @@ public class OperationsController {
       @RequestParam(required = false, name = "lePitEpochMs") @Nullable Long lePitEpochMs) {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    if (!AuthUtil.isAPIAuthorized(
-        authentication, authorizerChain, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-    }
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -446,6 +449,10 @@ public class OperationsController {
             authorizerChain,
             authentication,
             true);
+
+    if (!AuthUtil.isAPIOperationsAuthorized(opContext, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
 
     RestoreIndicesArgs args =
         new RestoreIndicesArgs()
@@ -476,10 +483,6 @@ public class OperationsController {
       throws RemoteInvocationException, URISyntaxException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    if (!AuthUtil.isAPIAuthorized(
-        authentication, authorizerChain, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-    }
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -489,6 +492,10 @@ public class OperationsController {
             authorizerChain,
             authentication,
             true);
+
+    if (!AuthUtil.isAPIOperationsAuthorized(opContext, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
 
     return ResponseEntity.of(
         Optional.of(

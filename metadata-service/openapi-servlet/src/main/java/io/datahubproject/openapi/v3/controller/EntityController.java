@@ -103,8 +103,7 @@ public class EntityController
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(
-        authentication, authorizationChain, READ, requestMap.keySet())) {
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, requestMap.keySet())) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }

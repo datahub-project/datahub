@@ -83,7 +83,7 @@ jobs:
       - name: Debug info
         if: always()
         run: |
-          source metadata-ingestion/venv/bin/activate && pip freeze
+          source metadata-ingestion/venv/bin/activate && uv pip freeze
           set -x
           df -hl
           docker image ls

@@ -8,8 +8,6 @@ ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
 ARG UBUNTU_REPO_URL=http://ports.ubuntu.com/ubuntu-ports
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 
-FROM powerman/dockerize:0.19 AS dockerize-binary
-
 FROM ubuntu:22.04 AS base
 
 ARG GITHUB_REPO_URL
@@ -43,13 +41,16 @@ RUN apt-get update && apt-get upgrade -y \
     krb5-user \
     krb5-config \
     libkrb5-dev \
+    librdkafka-dev \
+    git \
     wget \
+    curl \
     zip \
     unzip \
     ldap-utils \
     unixodbc \
     libodbc2 \
-    && python -m pip install --no-cache --upgrade pip uv>=0.1.10 wheel setuptools \
+    && python -m pip install --no-cache --upgrade pip 'uv>=0.1.10' wheel setuptools \
     && apt-get clean \
     && rm -rf /var/lib/{apt,dpkg,cache,log}/
 

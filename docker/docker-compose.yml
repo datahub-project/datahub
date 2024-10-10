@@ -4,7 +4,6 @@
 
 # NOTE: This file does not build! No dockerfiles are set. See the README.md in this directory.
 ---
-version: '3.9'
 services:
   datahub-frontend-react:
     hostname: datahub-frontend-react
@@ -35,6 +34,7 @@ services:
     image: ${DATAHUB_GMS_IMAGE:-acryldata/datahub-gms}:${DATAHUB_VERSION:-head}
     environment:
       - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
+      - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
     ports:
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     build:

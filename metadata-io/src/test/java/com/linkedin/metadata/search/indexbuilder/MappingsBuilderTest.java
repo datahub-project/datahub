@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.indexbuilder;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.test.TestRefEntity;
@@ -15,7 +16,7 @@ import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.query.request.TestSearchFieldConfig;
+import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import java.io.Serializable;
@@ -28,10 +29,11 @@ public class MappingsBuilderTest {
 
   @Test
   public void testMappingsBuilder() {
-    Map<String, Object> result = MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
+    Map<String, Object> result =
+        MappingsBuilder.getMappings(mock(EntityRegistry.class), TestEntitySpecBuilder.getSpec());
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 22);
+    assertEquals(properties.size(), 27);
     assertEquals(
         properties.get("urn"),
         ImmutableMap.of(
@@ -176,7 +178,7 @@ public class MappingsBuilderTest {
   public void testGetMappingsWithStructuredProperty() throws URISyntaxException {
     // Baseline comparison: Mappings with no structured props
     Map<String, Object> resultWithoutStructuredProps =
-        MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
+        MappingsBuilder.getMappings(mock(EntityRegistry.class), TestEntitySpecBuilder.getSpec());
 
     // Test that a structured property that does not apply to the entity does not alter the mappings
     StructuredPropertyDefinition structPropNotForThisEntity =
@@ -188,6 +190,7 @@ public class MappingsBuilderTest {
             .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     Map<String, Object> resultWithOnlyUnrelatedStructuredProp =
         MappingsBuilder.getMappings(
+            mock(EntityRegistry.class),
             TestEntitySpecBuilder.getSpec(),
             List.of(
                 Pair.of(
@@ -209,6 +212,7 @@ public class MappingsBuilderTest {
             .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     Map<String, Object> resultWithOnlyRelatedStructuredProp =
         MappingsBuilder.getMappings(
+            mock(EntityRegistry.class),
             TestEntitySpecBuilder.getSpec(),
             List.of(
                 Pair.of(
@@ -243,6 +247,7 @@ public class MappingsBuilderTest {
     // Test that only structured properties that apply are included
     Map<String, Object> resultWithBothStructuredProps =
         MappingsBuilder.getMappings(
+            mock(EntityRegistry.class),
             TestEntitySpecBuilder.getSpec(),
             List.of(
                 Pair.of(
@@ -258,7 +263,7 @@ public class MappingsBuilderTest {
   public void testGetMappingsWithStructuredPropertyV1() throws URISyntaxException {
     // Baseline comparison: Mappings with no structured props
     Map<String, Object> resultWithoutStructuredProps =
-        MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
+        MappingsBuilder.getMappings(mock(EntityRegistry.class), TestEntitySpecBuilder.getSpec());
 
     // Test that a structured property that does not apply to the entity does not alter the mappings
     StructuredPropertyDefinition structPropNotForThisEntity =
@@ -270,6 +275,7 @@ public class MappingsBuilderTest {
             .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     Map<String, Object> resultWithOnlyUnrelatedStructuredProp =
         MappingsBuilder.getMappings(
+            mock(EntityRegistry.class),
             TestEntitySpecBuilder.getSpec(),
             List.of(
                 Pair.of(
@@ -291,6 +297,7 @@ public class MappingsBuilderTest {
             .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     Map<String, Object> resultWithOnlyRelatedStructuredProp =
         MappingsBuilder.getMappings(
+            mock(EntityRegistry.class),
             TestEntitySpecBuilder.getSpec(),
             List.of(
                 Pair.of(
@@ -325,6 +332,7 @@ public class MappingsBuilderTest {
     // Test that only structured properties that apply are included
     Map<String, Object> resultWithBothStructuredProps =
         MappingsBuilder.getMappings(
+            mock(EntityRegistry.class),
             TestEntitySpecBuilder.getSpec(),
             List.of(
                 Pair.of(
@@ -449,9 +457,9 @@ public class MappingsBuilderTest {
   @Test
   public void testRefMappingsBuilder() {
     EntityRegistry entityRegistry = getTestEntityRegistry();
-    MappingsBuilder.setEntityRegistry(entityRegistry);
+
     EntitySpec entitySpec = new EntitySpecBuilder().buildEntitySpec(new TestRefEntity().schema());
-    Map<String, Object> result = MappingsBuilder.getMappings(entitySpec);
+    Map<String, Object> result = MappingsBuilder.getMappings(entityRegistry, entitySpec);
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
     assertEquals(properties.size(), 7);

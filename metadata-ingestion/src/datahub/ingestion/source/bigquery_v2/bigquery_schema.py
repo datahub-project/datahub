@@ -2,7 +2,8 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, Iterator, List, Optional
+from functools import lru_cache
+from typing import Any, Dict, FrozenSet, Iterable, Iterator, List, Optional
 
 from google.api_core import retry
 from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
@@ -104,6 +105,7 @@ class BigqueryTable(BaseTable):
     long_term_billable_bytes: Optional[int] = None
     partition_info: Optional[PartitionInfo] = None
     columns_ignore_from_profiling: List[str] = field(default_factory=list)
+    external: bool = False
 
 
 @dataclass
@@ -175,6 +177,7 @@ class BigQuerySchemaApi:
         )
         return resp.result()
 
+    @lru_cache(maxsize=1)
     def get_projects(self, max_results_per_page: int = 100) -> List[BigqueryProject]:
         def _should_retry(exc: BaseException) -> bool:
             logger.debug(
@@ -222,7 +225,8 @@ class BigQuerySchemaApi:
                     return []
         return projects
 
-    def get_projects_with_labels(self, labels: List[str]) -> List[BigqueryProject]:
+    @lru_cache(maxsize=1)
+    def get_projects_with_labels(self, labels: FrozenSet[str]) -> List[BigqueryProject]:
         with self.report.list_projects_with_labels_timer:
             try:
                 projects = []
@@ -249,7 +253,16 @@ class BigQuerySchemaApi:
             self.report.num_list_datasets_api_requests += 1
             datasets = self.bq_client.list_datasets(project_id, max_results=maxResults)
             return [
-                BigqueryDataset(name=d.dataset_id, labels=d.labels) for d in datasets
+                BigqueryDataset(
+                    name=d.dataset_id,
+                    labels=d.labels,
+                    location=(
+                        d._properties.get("location")
+                        if hasattr(d, "_properties") and isinstance(d._properties, dict)
+                        else None
+                    ),
+                )
+                for d in datasets
             ]
 
     # This is not used anywhere
@@ -292,12 +305,12 @@ class BigQuerySchemaApi:
         dataset_name: str,
         tables: Dict[str, TableListItem],
         report: BigQueryV2Report,
-        with_data_read_permission: bool = False,
+        with_partitions: bool = False,
     ) -> Iterator[BigqueryTable]:
         with PerfTimer() as current_timer:
             filter_clause: str = ", ".join(f"'{table}'" for table in tables.keys())
 
-            if with_data_read_permission:
+            if with_partitions:
                 query_template = BigqueryQuery.tables_for_dataset
             else:
                 query_template = BigqueryQuery.tables_for_dataset_without_partition_data
@@ -371,6 +384,7 @@ class BigQuerySchemaApi:
             num_partitions=table.get("num_partitions"),
             active_billable_bytes=table.get("active_billable_bytes"),
             long_term_billable_bytes=table.get("long_term_billable_bytes"),
+            external=(table.table_type == BigqueryTableType.EXTERNAL),
         )
 
     def get_views_for_dataset(
@@ -675,7 +689,9 @@ def query_project_list_from_labels(
     report: SourceReport,
     filters: BigQueryFilter,
 ) -> Iterable[BigqueryProject]:
-    projects = schema_api.get_projects_with_labels(filters.filter_config.project_labels)
+    projects = schema_api.get_projects_with_labels(
+        frozenset(filters.filter_config.project_labels)
+    )
 
     if not projects:  # Report failure on exception and if empty list is returned
         report.report_failure(

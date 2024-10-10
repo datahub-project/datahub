@@ -47,6 +47,13 @@ class DataLakeSourceConfig(
         None,
         description="Whether or not to create tags in datahub from the s3 object",
     )
+    use_s3_content_type: bool = Field(
+        default=False,
+        description=(
+            "If enabled, use S3 Object metadata to determine content type over file extension, if set."
+            " Warning: this requires a separate query to S3 for each object, which can be slow for large datasets."
+        ),
+    )
 
     # Whether to update the table schema when schema in files within the partitions are updated
     _update_schema_on_partition_file_updates_deprecation = pydantic_field_deprecated(
@@ -145,13 +152,27 @@ class DataLakeSourceConfig(
         return path_specs
 
     @pydantic.validator("platform", always=True)
-    def platform_not_empty(cls, platform: str, values: dict) -> str:
+    def platform_valid(cls, platform: str, values: dict) -> str:
         inferred_platform = values.get(
             "platform", None
         )  # we may have inferred it above
         platform = platform or inferred_platform
         if not platform:
             raise ValueError("platform must not be empty")
+
+        if platform != "s3" and values.get("use_s3_bucket_tags"):
+            raise ValueError(
+                "Cannot grab s3 bucket tags when platform is not s3. Remove the flag or ingest from s3."
+            )
+        if platform != "s3" and values.get("use_s3_object_tags"):
+            raise ValueError(
+                "Cannot grab s3 object tags when platform is not s3. Remove the flag or ingest from s3."
+            )
+        if platform != "s3" and values.get("use_s3_content_type"):
+            raise ValueError(
+                "Cannot grab s3 object content type when platform is not s3. Remove the flag or ingest from s3."
+            )
+
         return platform
 
     @pydantic.root_validator(skip_on_failure=True)
