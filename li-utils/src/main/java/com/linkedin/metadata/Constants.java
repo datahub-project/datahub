@@ -352,6 +352,7 @@ public class Constants {
   public static final String EXECUTION_REQUEST_STATUS_TIMEOUT = "TIMEOUT";
   public static final String EXECUTION_REQUEST_STATUS_CANCELLED = "CANCELLED";
   public static final String EXECUTION_REQUEST_STATUS_ABORTED = "ABORTED";
+  public static final String EXECUTION_REQUEST_STATUS_DUPLICATE = "DUPLICATE";
   public static final String EXECUTION_REQUEST_SOURCE_MANUAL_INGESTION_SOURCE =
       "MANUAL_INGESTION_SOURCE";
   public static final String EXECUTION_REQUEST_SOURCE_SCHEDULED_INGESTION_SOURCE =
