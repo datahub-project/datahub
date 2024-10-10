@@ -15,7 +15,7 @@ interface Props {
 }
 
 export default function SearchFilter({ filter, filterPredicates, activeFilters, onChangeFilters, labelStyle }: Props) {
-    const { updateFilters, numActiveFilters, manuallyUpdateFilters } = useSearchFilterDropdown({
+    const { finalAggregations, updateFilters, numActiveFilters, manuallyUpdateFilters } = useSearchFilterDropdown({
         filter,
         activeFilters,
         onChangeFilters,
@@ -32,6 +32,7 @@ export default function SearchFilter({ filter, filterPredicates, activeFilters, 
         <SearchFilterView
             filterPredicate={currentFilterPredicate}
             numActiveFilters={numActiveFilters}
+            filterOptions={finalAggregations}
             filterIcon={filterIcon}
             displayName={displayName}
             onChangeValues={updateFilters}
