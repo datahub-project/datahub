@@ -2838,6 +2838,11 @@ type Container implements Entity {
     exists: Boolean
 
     """
+	The Roles and the properties to access the container
+	"""
+	access: Access
+
+    """
     Experimental API.
     For fetching extra entities that do not have custom UI code yet
     """

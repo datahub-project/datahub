@@ -57,6 +57,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | User                        | [User (a.k.a CorpUser)](../../metamodel/entities/corpuser.md) | Optionally Extracted              |
 | Workbook                    | [Container](../../metamodel/entities/container.md)            | SubType `"Workbook"`              |
 | Tag                         | [Tag](../../metamodel/entities/tag.md)                        | Optionally Extracted              |
+| Permissions (Groups)        | [Role](../../metamodel/entities/role)                         | Optionally Extracted              |
 
 #### Lineage
 
@@ -68,6 +69,41 @@ Lineage is emitted as received from Tableau's metadata API for
 - Tables upstream to Embedded or Published Data Source
 - Custom SQL datasources upstream to Embedded or Published Data Source
 - Tables upstream to Custom SQL Data Source
+
+#### Access Roles
+
+The ingestion can be configured to ingest Tableau permissions as access roles. This enables users to request access to Tableau assets from Datahub.
+The Tableau group permissions are fetched from the Tableau API, optionally transformed to your needs, and then added as roles to the Tableau asset in Datahub. Currently, this is only available for Workbooks.
+
+Assuming you have groups in Tableau with names such as `AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer` or `AB_XY00-Tableau-Access_A_123_PROJECT_XY_Analyst` and corresponding roles (e.g. in an IAM tool) like `AR-Tableau-PROJECT_XY_Consumer` or `AR-Tableau-PROJECT_XY_Analyst`.
+Using the recipe below, would filter the groups that end with "_Consumer" and transform the group names into the corresponding roles.
+With `group_start_index` and `group_end_index` you can define a substring of the group name to be used as role name and `role_prefix` can be used to add a prefix to the generated role name.
+The role names then act as a substitute of `$ROLE_NAME` in the `request_url` and result in access request URLs like `https://iam.example.com/accessRequest?role=AR-Tableau-PROJECT_XY_Consumer`, for example.
+```
+source:
+  type: tableau
+  config:
+    connect_uri: https://tableau.example.com
+
+    access_role_ingestion:
+      enable_workbooks: True
+      role_prefix: "AR-Tableau-"
+      group_start_index: 29
+      role_description: "Role required to access this Tableau asset."
+      displayed_capabilities: ["Read", "Write", "Delete"]
+      request_url: "https://iam.example.com/accessRequest?role=$ROLE_NAME"
+      group_name_pattern:
+        allow: [ "^.*_Consumer$" ]
+
+    username: "${TABLEAU_USER}"
+    password: "${TABLEAU_PASSWORD}"
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+```
+You can find more information about the specific fields of the `access_role_ingestion` section in the config details below.
 
 #### Caveats
 
