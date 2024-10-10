@@ -82,6 +82,8 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    GlobalTagsClass,
+    TagAssociationClass,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -725,12 +727,12 @@ class SupersetSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
         )
 
-
         ## Create Lineage:
         db_platform_instance = self.get_platform_from_database_id(database_id)
 
         if sql:
             #To Account for virtual datasets
+            tag_urn = f"urn:li:tag:{self.platform}:virtual"
             parsed_query_object = create_lineage_sql_parsed_result(
                 query=sql,
                 default_db=upstream_warehouse_db_name,
@@ -786,6 +788,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
         else:
             ## To account for Physical datasets
+            tag_urn = f"urn:li:tag:{self.platform}:physical"
             upstream_dataset = self.get_datasource_urn_from_id(dataset_response, db_platform_instance)
             upstream_lineage = UpstreamLineageClass(
                 upstreams=[
@@ -798,7 +801,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
-            aspects=[self.gen_schema_metadata(datasource_urn, dataset_response), dataset_info, upstream_lineage],
+            aspects=[self.gen_schema_metadata(datasource_urn, dataset_response), dataset_info, upstream_lineage, GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])],
         )
         return dataset_snapshot
 
