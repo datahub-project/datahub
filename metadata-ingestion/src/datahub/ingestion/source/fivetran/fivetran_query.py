@@ -38,7 +38,7 @@ WHERE
     def get_sync_logs_query(self) -> str:
         return """
         WITH ranked_syncs AS (
-            SELECT 
+            SELECT
                 connector_id,
                 sync_id,
                 MAX(CASE WHEN message_event = 'sync_start' THEN time_stamp END) as start_time,
@@ -51,7 +51,7 @@ WHERE
             AND connector_id IN ({connector_ids})
             GROUP BY connector_id, sync_id
         )
-        SELECT 
+        SELECT
             connector_id,
             sync_id,
             start_time,
