@@ -452,7 +452,7 @@ class Mapper:
                     ]
                 ),
             )
-            # normally the person who configure the dataset will be the most accurate person for ownership
+            # normally, the person who configures the dataset will be the most accurate person for ownership
             if (
                 self.__config.extract_ownership
                 and self.__config.ownership.dataset_configured_by_as_owner
@@ -1334,6 +1334,21 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     def extract_independent_datasets(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
+        if self.source_config.extract_independent_datasets is False:
+            if workspace.independent_datasets:
+                self.reporter.info(
+                    title="Skipped Independent Dataset",
+                    message="Some datasets are not used in any visualizations. To ingest them, enable the `extract_independent_datasets` flag",
+                    context=",".join(
+                        [
+                            dataset.name
+                            for dataset in workspace.independent_datasets
+                            if dataset.name
+                        ]
+                    ),
+                )
+            return
+
         for dataset in workspace.independent_datasets:
             yield from auto_workunit(
                 stream=self.mapper.to_datahub_dataset(
