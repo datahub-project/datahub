@@ -96,7 +96,7 @@ public class AutocompleteRequestHandlerTest {
     assertTrue(queryFields.containsKey("keyPart1.ngram._2gram"));
     assertTrue(queryFields.containsKey("keyPart1.ngram._3gram"));
     assertTrue(queryFields.containsKey("keyPart1.ngram._4gram"));
-    assertEquals(autocompleteQuery.type(), MultiMatchQueryBuilder.Type.BOOL_PREFIX);
+    assertEquals(autocompleteQuery.type(), MultiMatchQueryBuilder.Type.PHRASE);
 
     MatchPhrasePrefixQueryBuilder prefixQuery =
         (MatchPhrasePrefixQueryBuilder) query.should().get(0);
@@ -138,7 +138,7 @@ public class AutocompleteRequestHandlerTest {
     assertTrue(queryFields.containsKey("field.ngram._2gram"));
     assertTrue(queryFields.containsKey("field.ngram._3gram"));
     assertTrue(queryFields.containsKey("field.ngram._4gram"));
-    assertEquals(autocompleteQuery.type(), MultiMatchQueryBuilder.Type.BOOL_PREFIX);
+    assertEquals(autocompleteQuery.type(), MultiMatchQueryBuilder.Type.PHRASE);
 
     MatchPhrasePrefixQueryBuilder prefixQuery =
         (MatchPhrasePrefixQueryBuilder) query.should().get(0);

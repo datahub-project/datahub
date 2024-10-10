@@ -35,6 +35,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.index.query.*;
@@ -46,7 +47,7 @@ import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 @Slf4j
 public class AutocompleteRequestHandler {
 
-  private final List<String> _defaultAutocompleteFields;
+  private final List<Pair> _defaultAutocompleteFields;
   private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
 
   private static final Map<EntitySpec, AutocompleteRequestHandler>
@@ -69,8 +70,12 @@ public class AutocompleteRequestHandler {
                 fieldSpecs.stream()
                     .map(SearchableFieldSpec::getSearchableAnnotation)
                     .filter(SearchableAnnotation::isEnableAutocomplete)
-                    .map(SearchableAnnotation::getFieldName),
-                Stream.of("urn"))
+                    .map(
+                        searchableAnnotation ->
+                            Pair.of(
+                                searchableAnnotation.getFieldName(),
+                                Double.toString(searchableAnnotation.getBoostScore()))),
+                Stream.of(Pair.of("urn", PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"))))
             .collect(Collectors.toList());
     searchableFieldTypes =
         fieldSpecs.stream()
@@ -170,7 +175,7 @@ public class AutocompleteRequestHandler {
   public BoolQueryBuilder getQuery(
       @Nonnull ObjectMapper objectMapper,
       @Nullable AutocompleteConfiguration customAutocompleteConfig,
-      List<String> autocompleteFields,
+      List<Pair> autocompleteFields,
       @Nonnull String query) {
 
     BoolQueryBuilder finalQuery =
@@ -187,7 +192,7 @@ public class AutocompleteRequestHandler {
 
   private Optional<QueryBuilder> getAutocompleteQuery(
       @Nullable AutocompleteConfiguration customConfig,
-      List<String> autocompleteFields,
+      List<Pair> autocompleteFields,
       @Nonnull String query) {
     Optional<QueryBuilder> result = Optional.empty();
 
@@ -199,28 +204,28 @@ public class AutocompleteRequestHandler {
   }
 
   private static BoolQueryBuilder defaultQuery(
-      List<String> autocompleteFields, @Nonnull String query) {
+      List<Pair> autocompleteFields, @Nonnull String query) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     finalQuery.minimumShouldMatch(1);
 
     // Search for exact matches with higher boost and ngram matches
     MultiMatchQueryBuilder autocompleteQueryBuilder =
-        QueryBuilders.multiMatchQuery(query).type(MultiMatchQueryBuilder.Type.BOOL_PREFIX);
+        QueryBuilders.multiMatchQuery(query).type(MultiMatchQueryBuilder.Type.PHRASE);
 
-    final float urnBoost =
-        Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
     autocompleteFields.forEach(
-        fieldName -> {
+        pair -> {
+          final String fieldName = (String) pair.getLeft();
+          final float boostScore = Float.parseFloat((String) pair.getRight());
           if ("urn".equals(fieldName)) {
-            autocompleteQueryBuilder.field(fieldName + ".ngram", urnBoost);
-            autocompleteQueryBuilder.field(fieldName + ".ngram._2gram", urnBoost);
-            autocompleteQueryBuilder.field(fieldName + ".ngram._3gram", urnBoost);
-            autocompleteQueryBuilder.field(fieldName + ".ngram._4gram", urnBoost);
+            autocompleteQueryBuilder.field(fieldName + ".ngram", boostScore);
+            autocompleteQueryBuilder.field(fieldName + ".ngram._2gram", boostScore);
+            autocompleteQueryBuilder.field(fieldName + ".ngram._3gram", boostScore);
+            autocompleteQueryBuilder.field(fieldName + ".ngram._4gram", boostScore);
           } else {
-            autocompleteQueryBuilder.field(fieldName + ".ngram");
-            autocompleteQueryBuilder.field(fieldName + ".ngram._2gram");
-            autocompleteQueryBuilder.field(fieldName + ".ngram._3gram");
-            autocompleteQueryBuilder.field(fieldName + ".ngram._4gram");
+            autocompleteQueryBuilder.field(fieldName + ".ngram", boostScore);
+            autocompleteQueryBuilder.field(fieldName + ".ngram._2gram", boostScore);
+            autocompleteQueryBuilder.field(fieldName + ".ngram._3gram", boostScore);
+            autocompleteQueryBuilder.field(fieldName + ".ngram._4gram", boostScore);
           }
           autocompleteQueryBuilder.field(fieldName + ".delimited");
           finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(fieldName + ".delimited", query));
@@ -240,12 +245,14 @@ public class AutocompleteRequestHandler {
     // Check for each field name and any subfields
     getAutocompleteFields(field)
         .forEach(
-            fieldName ->
-                highlightBuilder
-                    .field(fieldName)
-                    .field(fieldName + ".*")
-                    .field(fieldName + ".ngram")
-                    .field(fieldName + ".delimited"));
+            pair -> {
+              final String fieldName = (String) pair.getLeft();
+              highlightBuilder
+                  .field(fieldName)
+                  .field(fieldName + ".*")
+                  .field(fieldName + ".ngram")
+                  .field(fieldName + ".delimited");
+            });
 
     // set field match req false for ngram
     highlightBuilder.fields().stream()
@@ -255,9 +262,9 @@ public class AutocompleteRequestHandler {
     return highlightBuilder;
   }
 
-  private List<String> getAutocompleteFields(@Nullable String field) {
+  private List<Pair> getAutocompleteFields(@Nullable String field) {
     if (field != null && !field.isEmpty()) {
-      return ImmutableList.of(field);
+      return ImmutableList.of(Pair.of(field, "2.0"));
     }
     return _defaultAutocompleteFields;
   }
