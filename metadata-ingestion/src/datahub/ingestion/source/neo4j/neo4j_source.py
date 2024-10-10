@@ -1,7 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass
-from typing import Iterable, Optional
+from typing import Dict, Iterable, Optional, Type, Union
 
 import pandas as pd
 from neo4j import GraphDatabase
@@ -24,6 +24,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaFieldDataType
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BooleanTypeClass,
@@ -33,7 +34,6 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     OtherSchemaClass,
     SchemaFieldClass,
-    SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StringTypeClass,
     TagAssociationClass,
@@ -42,6 +42,18 @@ from datahub.metadata.schema_classes import (
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+_type_mapping: Dict[Union[Type, str], Type] = {
+    "list": UnionTypeClass,
+    "boolean": BooleanTypeClass,
+    "integer": NumberTypeClass,
+    "local_date_time": DateTypeClass,
+    "float": NumberTypeClass,
+    "string": StringTypeClass,
+    "date": DateTypeClass,
+    "node": StringTypeClass,
+    "relationship": StringTypeClass,
+}
 
 
 class Neo4jConfig(ConfigModel):
@@ -59,17 +71,6 @@ class Neo4jConfig(ConfigModel):
         description="The tag that will be used to show that the Neo4j object is a Relationship",
     )
     platform: str = Field(default="neo4j", description="Neo4j platform")
-    type_mapping = {
-        "string": StringTypeClass(),
-        "boolean": BooleanTypeClass(),
-        "float": NumberTypeClass(),
-        "integer": NumberTypeClass(),
-        "date": DateTypeClass(),
-        "relationship": StringTypeClass(),
-        "node": StringTypeClass(),
-        "local_date_time": DateTypeClass(),
-        "list": UnionTypeClass(),
-    }
 
 
 @dataclass
@@ -78,7 +79,7 @@ class Neo4jSourceReport(SourceReport):
     obj_created: int = 0
 
 
-@platform_name("Metadata File")
+@platform_name("Neo4j",id="neo4j")
 @config_class(Neo4jConfig)
 @support_status(SupportStatus.CERTIFIED)
 class Neo4jSource(Source):
@@ -92,6 +93,10 @@ class Neo4jSource(Source):
         config = Neo4jConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
+    def get_field_type(self, attribute_type: Union[type, str]) -> SchemaFieldDataType:
+        type_class: Optional[type] = _type_mapping.get(attribute_type)
+        return SchemaFieldDataType(type=type_class())
+
     def get_schema_field_class(
         self, col_name: str, col_type: str, **kwargs
     ) -> SchemaFieldClass:
@@ -101,7 +106,7 @@ class Neo4jSource(Source):
             col_type = col_type
         return SchemaFieldClass(
             fieldPath=col_name,
-            type=SchemaFieldDataTypeClass(type=self.config.type_mapping[col_type]),
+            type=self.get_field_type(col_type),
             nativeDataType=col_type,
             description=col_type.upper()
             if col_type in ("node", "relationship")
@@ -312,6 +317,7 @@ class Neo4jSource(Source):
                 yield MetadataWorkUnit(
                     id=row["key"],
                     mcp_raw=self.generate_neo4j_object(
+                        # mcp=self.generate_neo4j_object(
                         columns=row["property_data_types"],
                         dataset=row["key"],
                         platform=self.config.platform,
