@@ -165,6 +165,7 @@ class DremioSource(StatefulIngestionSourceBase):
                             ),
                             re.IGNORECASE
                     ):
+                        source_platform_name = source_platform_name.lower()
                         source_map[source_platform_name] = mapping
                         source_map[source_platform_name].dremio_source_type = (
                             self.reference_source_mapping.get_category(
@@ -195,7 +196,7 @@ class DremioSource(StatefulIngestionSourceBase):
                             source_type
                         )
 
-                    source_map[source_platform_name] = DremioSourceMapping(
+                    source_map[source_platform_name.lower()] = DremioSourceMapping(
                         platform=source_type,
                         platform_name=source_name,
                         dremio_source_type=dremio_source_type,
@@ -585,7 +586,7 @@ class DremioSource(StatefulIngestionSourceBase):
         Map a Dremio dataset to a DataHub URN.
         """
 
-        mapping = self.source_map.get(dremio_source)
+        mapping = self.source_map.get(dremio_source.lower())
         if not mapping:
             return None
 
@@ -603,14 +604,14 @@ class DremioSource(StatefulIngestionSourceBase):
 
         if mapping.platform_instance:
             return make_dataset_urn_with_platform_instance(
-                platform=mapping.platform,
+                platform=mapping.platform.lower(),
                 name=dremio_dataset,
                 platform_instance=mapping.platform_instance,
                 env=self.config.env
             )
 
         return make_dataset_urn_with_platform_instance(
-            platform=mapping.platform,
+            platform=mapping.platform.lower(),
             name=dremio_dataset,
             platform_instance=None,
             env=self.config.env
