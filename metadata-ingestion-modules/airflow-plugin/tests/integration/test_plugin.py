@@ -377,11 +377,8 @@ def test_airflow_plugin(
         print("Sleeping for a few seconds to let the plugin finish...")
         time.sleep(10)
 
-    """
-    verify that golden file is missing / empty
-    when the dag_id is DAG_TO_SKIP_INGESTION
-    """
     if dag_id == DAG_TO_SKIP_INGESTION:
+        # Verify that no MCPs were generated.
         assert not os.path.exists(airflow_instance.metadata_file)
     else:
         _sanitize_output_file(airflow_instance.metadata_file)
