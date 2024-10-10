@@ -108,6 +108,12 @@ module.exports = {
               id: "docs/automations/docs-propagation",
             },
             {
+              label: "BigQuery Sync",
+              type: "doc",
+              id: "docs/automations/bigquery-tag-propagation",
+              className: "saasOnly",
+            },
+            {
               label: "Snowflake Tag Sync",
               type: "doc",
               id: "docs/automations/snowflake-tag-propagation",
