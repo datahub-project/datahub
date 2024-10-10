@@ -21,20 +21,7 @@ function Home() {
   }
 
   useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://cdn.servicebell.com/main.js";
-    script.id = "service-bell-script";
-    script.async = true;
-
-    script.onload = () => {
-      window.ServiceBell("init", "00892146e5bc46d98d55ecc2b2fa67e2", { hidden: false });
-    };
-
-    document.body.appendChild(script);
-
-    return () => {
-      document.body.removeChild(script);
-    };
+    ServiceBell("init", "00892146e5bc46d98d55ecc2b2fa67e2", { hidden: false });
   }, []);
 
   return !siteConfig.customFields.isSaas ? (
