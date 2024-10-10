@@ -20,7 +20,7 @@ BigQuery Propagation is an automation that allows you to sync DataHub Tags, Tabl
 
 | Action | Required Permission(s) |
 |--------|------------------------|
-| Create/update policy tags and taxonomies | `bigquery.taxonomies.create`<br>`bigquery.taxonomies.update` |
+| Create/update policy tags and taxonomies | `bigquery.taxonomies.create` <br/> `bigquery.taxonomies.update` |
 | Assign/remove policy tags from columns | `bigquery.tables.updateTag` |
 | Edit table description | `bigquery.tables.update` |
 | Edit column description | `bigquery.tables.update` |
