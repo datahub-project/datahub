@@ -53,14 +53,14 @@ export const valueTypes = [
     },
     {
         urn: 'urn:li:dataType:datahub.urn',
-        label: 'Asset',
+        label: 'Entity',
         value: 'entity',
         cardinality: PropertyCardinality.Single,
         description: 'A reference to a DataHub asset',
     },
     {
         urn: 'urn:li:dataType:datahub.urn',
-        label: 'Asset - List',
+        label: 'Entity - List',
         value: 'entityList',
         cardinality: PropertyCardinality.Multiple,
         description: 'A reference to a list of DataHub assets',

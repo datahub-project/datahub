@@ -24,10 +24,7 @@ export function mapStructuredPropertyValues(structuredPropertiesEntry: Structure
         }));
 }
 
-function mapStructuredPropertyToPropertyRow(
-    structuredPropertiesEntry: StructuredPropertiesEntry,
-    associatedUrn: string,
-) {
+function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: StructuredPropertiesEntry) {
     const { displayName, qualifiedName } = structuredPropertiesEntry.structuredProperty.definition;
     return {
         displayName: displayName || qualifiedName,
@@ -42,7 +39,7 @@ function mapStructuredPropertyToPropertyRow(
                       nativeDataType: typeNameToType[structuredPropertiesEntry.values[0].__typename].nativeDataType,
                   }
                 : undefined,
-        associatedUrn,
+        associatedUrn: structuredPropertiesEntry.associatedUrn,
     };
 }
 
@@ -50,12 +47,10 @@ function mapStructuredPropertyToPropertyRow(
 function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
     const structuredPropertyRows: PropertyRow[] = [];
 
-    const associatedUrn = entityData?.urn || '';
-
     entityData?.structuredProperties?.properties
         ?.filter((prop) => prop.structuredProperty.exists)
         .forEach((structuredPropertiesEntry) => {
-            structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry, associatedUrn));
+            structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
         });
 
     return structuredPropertyRows;
@@ -71,9 +66,7 @@ function getFieldStructuredPropertyRows(fieldPath: string, entityData?: GenericE
     schemaFieldEntity?.structuredProperties?.properties
         ?.filter((prop) => prop.structuredProperty.exists)
         .forEach((structuredPropertiesEntry) => {
-            structuredPropertyRows.push(
-                mapStructuredPropertyToPropertyRow(structuredPropertiesEntry, schemaFieldEntity.urn),
-            );
+            structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
         });
 
     return structuredPropertyRows;

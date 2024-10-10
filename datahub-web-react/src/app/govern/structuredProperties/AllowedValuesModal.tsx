@@ -106,8 +106,7 @@ const AllowedValuesModal = ({
                                                 </InputLabel>
                                                 <Tooltip
                                                     title={
-                                                        isExisting &&
-                                                        'Editing allowed values is not allowed in order to preserve backwards compatibility'
+                                                        isExisting && 'Editing existing allowed values is not permitted'
                                                     }
                                                     showArrow={false}
                                                 >
@@ -125,7 +124,7 @@ const AllowedValuesModal = ({
                                                     >
                                                         <Input
                                                             label=""
-                                                            placeholder="Enter the value"
+                                                            placeholder="Provide a value"
                                                             type={propType === 'numberValue' ? 'number' : 'text'}
                                                             isDisabled={isExisting}
                                                         />
@@ -138,7 +137,7 @@ const AllowedValuesModal = ({
                                                 >
                                                     <TextArea
                                                         label="Description"
-                                                        placeholder="Enter description of the value"
+                                                        placeholder="Provide a description"
                                                         isDisabled={isExisting}
                                                     />
                                                 </Form.Item>

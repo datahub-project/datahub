@@ -1803,6 +1803,7 @@ fragment structuredPropertiesFields on StructuredPropertiesEntry {
         type
         ...entityDisplayNameFields
     }
+    associatedUrn
 }
 
 fragment autoRenderAspectFields on RawAspect {

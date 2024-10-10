@@ -88,8 +88,8 @@ export const questionTypes = [
         label: 'Structured Property',
         value: 'STRUCTURED_PROPERTY',
         description: 'Require a specific type of structured property for all assets assigned to this form',
-        defaultTitle: undefined,
-        defaultDescription: undefined,
+        defaultTitle: '',
+        defaultDescription: '',
     },
 
     {
@@ -97,8 +97,8 @@ export const questionTypes = [
         value: 'FIELDS_STRUCTURED_PROPERTY',
         description:
             'Require a specific type of structured property for all the columns of assets assigned to this form',
-        defaultTitle: undefined,
-        defaultDescription: undefined,
+        defaultTitle: '',
+        defaultDescription: '',
     },
     {
         label: 'Domain',

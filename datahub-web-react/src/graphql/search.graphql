@@ -1069,6 +1069,7 @@ fragment facetFields on FacetMetadata {
         entity {
             urn
             type
+            ...entityDisplayNameFields
             ... on Tag {
                 name
                 properties {

@@ -228,6 +228,11 @@ type StructuredPropertiesEntry {
     The optional entities associated with the values if the values are entity urns
     """
     valueEntities: [Entity]
+
+    """
+    The urn of the entity this property came from for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """

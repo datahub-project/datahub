@@ -80,7 +80,12 @@ const mergeArrayOfObjectsByKey = (destinationArray: any[], sourceArray: any[], k
     const destination = convertObjectKeysToLowercase(keyBy(destinationArray, key));
     const source = convertObjectKeysToLowercase(keyBy(sourceArray, key));
 
-    return values(merge(destination, source));
+    return values(
+        merge(destination, source, {
+            arrayMerge: combineMerge,
+            customMerge,
+        }),
+    );
 };
 
 const mergeTags = (destinationArray, sourceArray, _options) => {
@@ -101,6 +106,10 @@ const mergeIncidents = (destinationArray, sourceArray, _options) => {
 
 const mergeProperties = (destinationArray, sourceArray, _options) => {
     return unionBy(destinationArray, sourceArray, 'key');
+};
+
+const mergeStructuredProperties = (destinationArray, sourceArray, _options) => {
+    return unionBy(sourceArray, destinationArray, 'structuredProperty.urn');
 };
 
 const mergeOwners = (destinationArray, sourceArray, _options) => {
@@ -246,7 +255,25 @@ function getArrayMergeFunction(key) {
     }
 }
 
-const customMerge = (isPrimary, key) => {
+// needs its own merge function because "properties" exists as a key elsewhere
+function structuredPropertiesMerge(isPrimary, key) {
+    if (key === 'properties') {
+        return (secondary, primary) => {
+            return merge(secondary, primary, {
+                arrayMerge: mergeStructuredProperties,
+                customMerge: customMerge.bind({}, isPrimary),
+            });
+        };
+    }
+    return (secondary, primary) => {
+        return merge(secondary, primary, {
+            arrayMerge: combineMerge,
+            customMerge: customMerge.bind({}, isPrimary),
+        });
+    };
+}
+
+function customMerge(isPrimary, key) {
     if (key === 'upstream' || key === 'downstream') {
         return (_secondary, primary) => primary;
     }
@@ -285,6 +312,14 @@ const customMerge = (isPrimary, key) => {
             };
         };
     }
+    if (key === 'structuredProperties') {
+        return (secondary, primary) => {
+            return merge(secondary, primary, {
+                arrayMerge: combineMerge,
+                customMerge: structuredPropertiesMerge.bind({}, isPrimary),
+            });
+        };
+    }
     if (
         key === 'tags' ||
         key === 'terms' ||
@@ -311,7 +346,7 @@ const customMerge = (isPrimary, key) => {
             customMerge: customMerge.bind({}, isPrimary),
         });
     };
-};
+}
 
 // should the entity's metadata win out against its siblings?
 export const shouldEntityBeTreatedAsPrimary = (extractedBaseEntity: {
@@ -333,11 +368,11 @@ export const shouldEntityBeTreatedAsPrimary = (extractedBaseEntity: {
 };
 
 const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
-    if (!entity?.siblingsSearch?.count) {
+    const siblings = entity.siblingsSearch?.searchResults?.map((r) => r.entity) || [];
+
+    if (!entity?.siblingsSearch?.count || !siblings.length) {
         return entity;
     }
-
-    const siblings = entity.siblingsSearch?.searchResults?.map((r) => r.entity) || [];
 
     const isPrimary = shouldEntityBeTreatedAsPrimary(entity);
 
@@ -349,6 +384,14 @@ const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
             }),
         entity,
     );
+
+    // if a key is null in the primary sibling, it will not merge with the secondary even if the secondary is not null
+    const secondarySibling = isPrimary ? siblings[0] : entity;
+    Object.keys(secondarySibling).forEach((key) => {
+        if (combinedBaseEntity[key] === null && secondarySibling[key] !== null) {
+            combinedBaseEntity[key] = secondarySibling[key];
+        }
+    });
 
     // Force the urn of the combined entity to the current entity urn.
     combinedBaseEntity.urn = entity.urn;
