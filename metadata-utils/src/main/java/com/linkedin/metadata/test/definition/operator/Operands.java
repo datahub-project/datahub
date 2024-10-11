@@ -6,13 +6,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import lombok.Getter;
+import lombok.Value;
 
+
+@Value
+@Getter
 /** A set of named {@link Expression}s. */
 public class Operands {
   /** The list of operands. */
-  private final List<Operand> operands;
+  List<Operand> operands;
 
-  private final Map<String, Operand> nameToOperand;
+  Map<String, Operand> nameToOperand;
 
   public Operands(final List<Operand> operands) {
     this.operands = operands;

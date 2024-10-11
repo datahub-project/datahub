@@ -648,7 +648,8 @@ public class EntityApiDelegateImpl<I, O, S> {
             sortCriteria,
             scrollId,
             null,
-            count);
+            count,
+            null);
 
     if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(

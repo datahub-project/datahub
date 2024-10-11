@@ -486,7 +486,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SCROLL_ID) @Optional @Nullable String scrollId,
       @ActionParam(PARAM_KEEP_ALIVE) String keepAlive,
       @ActionParam(PARAM_COUNT) int count,
-      @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
+      @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags,
+      @ActionParam(PARAM_PREDICATE_FILTER) @Optional String predicateJson) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
     OperationContext opContext = OperationContext.asSession(
@@ -520,7 +521,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   sortCriterionList,
                   scrollId,
                   keepAlive,
-                  count);
+                  count,
+                  predicateJson);
           if (!isAPIAuthorizedResult(
                   opContext,
                   result)) {

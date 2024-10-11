@@ -128,7 +128,8 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
             null,
             scrollId,
             null,
-            batchSize);
+            batchSize,
+            null);
 
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
       return null;

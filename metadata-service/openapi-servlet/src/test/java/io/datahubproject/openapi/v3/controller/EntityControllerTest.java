@@ -106,7 +106,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             eq(Collections.singletonList(SearchUtil.sortBy("urn", SortOrder.valueOf("ASCENDING")))),
             nullable(String.class),
             nullable(String.class),
-            anyInt()))
+            anyInt(),
+            eq(null)))
         .thenReturn(expectedResultAscending);
     ScrollResult expectedResultDescending =
         new ScrollResult()
@@ -126,7 +127,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                     SearchUtil.sortBy("urn", SortOrder.valueOf("DESCENDING")))),
             nullable(String.class),
             nullable(String.class),
-            anyInt()))
+            anyInt(),
+            eq(null)))
         .thenReturn(expectedResultDescending);
     // Mock entity aspect
     when(mockEntityService.getEnvelopedVersionedAspects(

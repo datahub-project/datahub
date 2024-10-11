@@ -721,7 +721,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int count)
+      int count,
+      @Nullable String predicateJson)
       throws RemoteInvocationException {
     final SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     final EntitiesDoScrollAcrossEntitiesRequestBuilder requestBuilder =
@@ -741,6 +742,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     }
     if (keepAlive != null) {
       requestBuilder.keepAliveParam(keepAlive);
+    }
+    if (predicateJson != null) {
+
     }
 
     return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();

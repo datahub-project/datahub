@@ -7,22 +7,25 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestInfo;
+import java.util.List;
 import org.mockito.ArgumentMatcher;
 
-public class FormTestArgumentMatcher implements ArgumentMatcher<MetadataChangeProposal> {
+public class FormTestArgumentMatcher implements ArgumentMatcher<List<MetadataChangeProposal>> {
 
-  private MetadataChangeProposal left;
+  private List<MetadataChangeProposal> leftList;
 
-  public FormTestArgumentMatcher(MetadataChangeProposal left) {
-    this.left = left;
+  public FormTestArgumentMatcher(List<MetadataChangeProposal> leftList) {
+    this.leftList = leftList;
   }
 
   @Override
-  public boolean matches(MetadataChangeProposal right) {
-    return left.getEntityType().equals(right.getEntityType())
-        && left.getAspectName().equals(right.getAspectName())
-        && left.getChangeType().equals(right.getChangeType())
-        && formTestsMatch(left.getAspect(), right.getAspect());
+  public boolean matches(List<MetadataChangeProposal> rightList) {
+    return rightList.stream().allMatch(right ->
+        leftList.stream().anyMatch(left ->
+            left.getEntityType().equals(right.getEntityType())
+                && left.getAspectName().equals(right.getAspectName())
+                && left.getChangeType().equals(right.getChangeType())
+                && formTestsMatch(left.getAspect(), right.getAspect())));
   }
 
   private boolean formTestsMatch(GenericAspect left, GenericAspect right) {

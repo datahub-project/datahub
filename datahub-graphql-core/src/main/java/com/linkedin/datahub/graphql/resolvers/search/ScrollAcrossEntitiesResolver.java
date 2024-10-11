@@ -107,7 +107,8 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         : baseFilter,
                     scrollId,
                     keepAlive,
-                    count));
+                    count,
+                    null));
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, searchAfter: {}, count: {}",

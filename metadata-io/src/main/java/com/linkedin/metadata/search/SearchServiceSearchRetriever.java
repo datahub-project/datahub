@@ -46,6 +46,7 @@ public class SearchServiceSearchRetriever implements SearchRetriever {
         List.of(urnSort),
         scrollId,
         null,
-        count);
+        count,
+        null);
   }
 }

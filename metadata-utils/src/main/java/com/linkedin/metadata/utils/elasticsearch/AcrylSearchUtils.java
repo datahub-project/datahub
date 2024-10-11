@@ -1,6 +1,4 @@
-package com.linkedin.metadata.search.utils.acryl;
-
-import static com.linkedin.metadata.search.utils.ESUtils.*;
+package com.linkedin.metadata.utils.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.query.filter.Condition;
@@ -21,6 +19,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class AcrylSearchUtils {
+
+  public static final String KEYWORD_SUFFIX = ".keyword";
 
   private AcrylSearchUtils() {}
 

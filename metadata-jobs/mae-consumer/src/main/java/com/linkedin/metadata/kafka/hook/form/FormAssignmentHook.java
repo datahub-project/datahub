@@ -12,6 +12,11 @@ import com.linkedin.form.FormPrompt;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.form.FormServiceFactory;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -161,7 +166,12 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
             event.getAspect().getContentType(),
             DynamicFormAssignment.class);
 
-    // 2. Register a automation to assign it.
+
+    // 2. If the form is on an entity that does not match the filter, remove it.
+    formService.removeFormAssignmentAutomation(systemOperationContext, event.getEntityUrn(), formFilters,
+        objectMapper);
+
+    // 3. Register a automation to assign it.
     formService.upsertFormAssignmentAutomation(
         systemOperationContext, event.getEntityUrn(), formFilters, objectMapper);
   }

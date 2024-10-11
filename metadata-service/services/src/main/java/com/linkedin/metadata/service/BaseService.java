@@ -17,6 +17,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.EditableSchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
@@ -302,19 +303,22 @@ public class BaseService {
   }
 
   protected void ingestChangeProposals(
-      @Nonnull OperationContext opContext, @Nonnull List<MetadataChangeProposal> changes)
-      throws Exception {
-    ingestChangeProposals(opContext, changes, false);
+      @Nonnull OperationContext opContext, @Nonnull List<MetadataChangeProposal> changes) {
+    try {
+      this.entityClient.batchIngestProposals(opContext, changes, false);
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   protected void ingestChangeProposals(
       @Nonnull OperationContext opContext,
       @Nonnull List<MetadataChangeProposal> changes,
-      final boolean async)
-      throws Exception {
-    // TODO: Replace this with a batch ingest proposals endpoint.
-    for (MetadataChangeProposal change : changes) {
-      this.entityClient.ingestProposal(opContext, change, async);
+      final boolean async) {
+    try {
+      this.entityClient.batchIngestProposals(opContext, changes, async);
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException(e);
     }
   }
 }

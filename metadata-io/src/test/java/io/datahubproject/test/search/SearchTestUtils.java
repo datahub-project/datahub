@@ -147,7 +147,8 @@ public class SearchTestUtils {
         null,
         scrollId,
         "3m",
-        batchSize);
+        batchSize,
+        null);
   }
 
   public static ScrollResult scroll(

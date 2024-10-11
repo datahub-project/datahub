@@ -9,10 +9,14 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.service.FormService;
+import com.linkedin.metadata.test.definition.operator.Predicate;
+import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,33 +47,29 @@ public class SearchBasedFormAssignmentManager {
 
   public static void apply(
       OperationContext opContext,
-      DynamicFormAssignment formFilters,
+      String predicateJson,
       Urn formUrn,
       int batchFormEntityCount,
       SystemEntityClient entityClient,
-      OpenApiClient openApiClient,
-      ObjectMapper objectMapper)
+      FormToEntitiesConsumer<OperationContext, List<Urn>, Urn> consumer)
       throws Exception {
 
     try {
       int totalResults = 0;
       int numResults = 0;
       String scrollId = null;
-      FormService formService =
-          new FormService(
-              entityClient, openApiClient, objectMapper, Constants.METADATA_TESTS_SOURCE, true);
-
       do {
 
         ScrollResult results =
             entityClient.scrollAcrossEntities(
-                opContext,
+                opContext.withSearchFlags(searchFlags -> searchFlags.setSkipCache(true)),
                 ENTITY_TYPES,
                 "*",
-                formFilters.getFilter(),
+                null,
                 scrollId,
                 "5m",
-                batchFormEntityCount);
+                batchFormEntityCount,
+                predicateJson);
 
         if (!results.hasEntities()
             || results.getNumEntities() == 0
@@ -85,7 +85,7 @@ public class SearchBasedFormAssignmentManager {
                   .map(SearchEntity::getEntity)
                   .collect(Collectors.toList());
 
-          formService.batchAssignFormToEntities(opContext, entityUrns, formUrn);
+          consumer.accept(opContext, entityUrns, formUrn);
 
           if (!entityUrns.isEmpty()) {
             log.info("Batch assign {} entities to form {}.", entityUrns.size(), formUrn);
