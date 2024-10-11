@@ -1,6 +1,7 @@
 import { useApolloClient } from '@apollo/client';
 import { Icon, Pill, Table, Text } from '@components';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { CustomAvatar } from '@src/app/shared/avatar';
@@ -14,8 +15,11 @@ import TableIcon from '@src/images/table-icon.svg?react';
 import { Entity, EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { Dropdown, Tooltip } from 'antd';
 import React, { useState } from 'react';
+import Highlight from 'react-highlighter';
+import { Link } from 'react-router-dom';
 import { CardIcons } from '../Dashboard/Forms/styledComponents';
 import { removeFromPropertiesList } from './cacheUtils';
+import EmptyStructuredProperties from './EmptyStructuredProperties';
 import {
     CreatedByContainer,
     DataContainer,
@@ -71,15 +75,29 @@ const StructuredPropsTable = ({
     const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
 
     const handleDeleteProperty = (property) => {
+        const deleteEntity = property.entity as StructuredPropertyEntity;
         showToastMessage(ToastType.LOADING, 'Deleting structured property', 1);
         deleteStructuredProperty({
             variables: {
                 input: {
-                    urn: property.entity.urn,
+                    urn: deleteEntity.urn,
                 },
             },
         })
             .then(() => {
+                analytics.event({
+                    type: EventType.DeleteStructuredPropertyEvent,
+                    propertyUrn: property.entity.urn,
+                    propertyType: deleteEntity.definition.valueType.urn,
+                    appliesTo: deleteEntity.definition.entityTypes.map((type) => type.urn),
+                    qualifiedName: deleteEntity.definition.qualifiedName,
+                    showInFilters: deleteEntity.definition.filterStatus,
+                    allowedAssetTypes: deleteEntity.definition.typeQualifier?.allowedTypes?.map(
+                        (allowedType) => allowedType.urn,
+                    ),
+                    allowedValues: deleteEntity.definition.allowedValues || undefined,
+                    cardinality: deleteEntity.definition.cardinality || undefined,
+                });
                 showToastMessage(ToastType.SUCCESS, 'Structured property deleted successfully!', 3);
                 removeFromPropertiesList(client, inputs, property.entity.urn, searchAcrossEntities);
             })
@@ -96,6 +114,10 @@ const StructuredPropsTable = ({
         setSelectedProperty(undefined);
     };
 
+    if (!loading && !filteredProperties.length) {
+        return <EmptyStructuredProperties isEmptySearch={!!structuredProperties.length} />;
+    }
+
     const columns = [
         {
             title: 'Name',
@@ -107,17 +129,19 @@ const StructuredPropsTable = ({
                             <TableIcon color="#705EE4" />
                         </IconContainer>
                         <DataContainer>
-                            <div>
-                                <PropName
-                                    ellipsis={{ tooltip: getDisplayName(record.entity) }}
-                                    onClick={() => {
-                                        setIsDrawerOpen(true);
-                                        setSelectedProperty(record);
-                                    }}
-                                >
-                                    {getDisplayName(record.entity)}
-                                </PropName>
-                            </div>
+                            <PropName
+                                ellipsis={{ tooltip: getDisplayName(record.entity) }}
+                                onClick={() => {
+                                    setIsDrawerOpen(true);
+                                    setSelectedProperty(record);
+                                    analytics.event({
+                                        type: EventType.ViewStructuredPropertyEvent,
+                                        propertyUrn: record.entity.urn,
+                                    });
+                                }}
+                            >
+                                <Highlight search={searchQuery}>{getDisplayName(record.entity)}</Highlight>
+                            </PropName>
                             <PropDescription ellipsis>{record.entity.definition.description}</PropDescription>
                         </DataContainer>
                     </NameColumn>
@@ -196,10 +220,19 @@ const StructuredPropsTable = ({
                     <>
                         {createdByUser && (
                             <HoverEntityTooltip entity={createdByUser as Entity} showArrow={false}>
-                                <CreatedByContainer>
-                                    <CustomAvatar size={20} name={name} photoUrl={avatarUrl} />
-                                    <Text size="sm">{name}</Text>
-                                </CreatedByContainer>
+                                <Link
+                                    to={`${entityRegistry.getEntityUrl(
+                                        EntityType.CorpUser,
+                                        (createdByUser as Entity).urn,
+                                    )}`}
+                                >
+                                    <CreatedByContainer>
+                                        <CustomAvatar size={20} name={name} photoUrl={avatarUrl} hideTooltip />
+                                        <Text color="gray" size="sm">
+                                            {name}
+                                        </Text>
+                                    </CreatedByContainer>
+                                </Link>
                             </HoverEntityTooltip>
                         )}
                     </>
@@ -227,6 +260,10 @@ const StructuredPropsTable = ({
                                 onClick={() => {
                                     setIsDrawerOpen(true);
                                     setSelectedProperty(record);
+                                    analytics.event({
+                                        type: EventType.ViewStructuredPropertyEvent,
+                                        propertyUrn: record.entity.urn,
+                                    });
                                 }}
                             >
                                 Edit

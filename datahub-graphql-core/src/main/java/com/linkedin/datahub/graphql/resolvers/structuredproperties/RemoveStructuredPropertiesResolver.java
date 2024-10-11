@@ -93,7 +93,7 @@ public class RemoveStructuredPropertiesResolver
                         .getValue()
                         .data());
 
-            return StructuredPropertiesMapper.map(context, structuredProperties);
+            return StructuredPropertiesMapper.map(context, structuredProperties, assetUrn);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);

@@ -14,7 +14,6 @@ const StyledList = styled(List)`
     &&& {
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
-        box-shadow: ${(props) => props.theme.styles['box-shadow']};
     }
 `;
 

@@ -11,8 +11,6 @@ import { truncateString } from '../../../utils';
 
 import { ListCardHeader, ListCardBody, StyledDivider, Category, Details, ResultContainer } from '../../components';
 
-import { openSuccessNotification } from '../../Notifications';
-
 import { ActionsMenu } from '../ActionsMenu';
 
 dayjs.extend(localizedFormat);
@@ -62,7 +60,6 @@ export const TestCard = ({ automation, openEditModal }: TestCardProps) => {
     const [deleteTestMutation] = useDeleteTestMutation();
     const deleteTest = () => {
         deleteTestMutation({ variables: { urn } });
-        openSuccessNotification('Deleted automation!');
     };
 
     return (

@@ -20,6 +20,7 @@ export const SelectBase = styled.div<SelectStyleProps>(({ isDisabled, isReadOnly
     justifyContent: 'space-between',
     alignItems: 'center',
     overflow: 'auto',
+    backgroundColor: 'white',
 }));
 
 /**
@@ -143,6 +144,18 @@ export const LabelsWrapper = styled.div({
 export const OptionLabel = styled.label<{ isSelected: boolean; isMultiSelect?: boolean; isDisabled?: boolean }>(
     ({ isSelected, isMultiSelect, isDisabled }) => ({
         ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled),
+    }),
+);
+
+export const SelectAllOption = styled.div<{ isSelected: boolean; isDisabled?: boolean }>(
+    ({ isSelected, isDisabled }) => ({
+        cursor: isDisabled ? 'not-allowed' : 'pointer',
+        padding: spacing.xsm,
+        color: isSelected ? colors.violet[700] : colors.gray[500],
+        fontWeight: typography.fontWeights.semiBold,
+        fontSize: typography.fontSizes.md,
+        display: 'flex',
+        alignItems: 'center',
     }),
 );
 

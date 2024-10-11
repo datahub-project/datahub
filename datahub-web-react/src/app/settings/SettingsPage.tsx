@@ -157,6 +157,8 @@ export const SettingsPage = () => {
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
     const showFeatures = me?.platformPrivileges?.manageIngestion; // TODO: Add feature flag for this
     const showCustomHelpLink = me?.platformPrivileges?.manageGlobalSettings;
+    const showAccessTokens = me && me?.platformPrivileges?.generatePersonalAccessTokens;
+
     const isThemeV2 = useIsThemeV2();
 
     const handleLogout = () => {
@@ -216,12 +218,14 @@ export const SettingsPage = () => {
                         )}
                     </Menu.ItemGroup>
 
-                    <Menu.ItemGroup title="Developer">
-                        <Menu.Item key="tokens">
-                            <SafetyCertificateOutlined />
-                            <ItemTitle>Access Tokens</ItemTitle>
-                        </Menu.Item>
-                    </Menu.ItemGroup>
+                    {showAccessTokens ? (
+                        <Menu.ItemGroup title="Developer">
+                            <Menu.Item key="tokens">
+                                <SafetyCertificateOutlined />
+                                <ItemTitle>Access Tokens</ItemTitle>
+                            </Menu.Item>
+                        </Menu.ItemGroup>
+                    ) : null}
                     {(showPolicies || showUsersGroups) && (
                         <Menu.ItemGroup title="Access">
                             {showUsersGroups && (

@@ -10,6 +10,11 @@ type Props = {
     selectedTab?: EntityTab;
 };
 
+const Header = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
 const UnborderedTabs = styled(Tabs)`
     width: 100%;
 
@@ -90,7 +95,7 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
         >
             {tabs.map((tab) => {
                 const TabIcon = tab.icon;
-                const tabName = (tab.getDynamicName && tab.getDynamicName(entityData, baseEntity)) || tab.name;
+                const tabName = (tab.getDynamicName && tab.getDynamicName(entityData, baseEntity, loading)) || tab.name;
                 if (!tab.display?.enabled(entityData, baseEntity)) {
                     return (
                         <Tab
@@ -108,10 +113,10 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
                 return (
                     <Tab
                         tab={
-                            <>
+                            <Header>
                                 {TabIcon && <TabIcon style={tabIconStyle} />}
                                 {tabName}
-                            </>
+                            </Header>
                         }
                         key={tab.name}
                     />

@@ -1,11 +1,16 @@
 package com.linkedin.metadata.test.query;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
+import static com.linkedin.metadata.utils.SearchUtil.URN_FIELD;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.any;
 import static org.testng.Assert.*;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.GlossaryTermAssociation;
@@ -35,6 +40,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.test.definition.ValidationResult;
+import com.linkedin.metadata.test.query.virtualFields.VirtualFieldsQueryEvaluator;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
@@ -49,27 +55,26 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.SneakyThrows;
 import org.mockito.Mockito;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class QueryEngineTest {
-  final EntityService<?> _entityService = mock(EntityService.class);
-  final QueryVersionedAspectEvaluator _queryVersionedAspectEvaluator =
-      new QueryVersionedAspectEvaluator(SnapshotEntityRegistry.getInstance(), _entityService);
-  final EntityUrnTypeEvaluator _urnTypeEvaluator = new EntityUrnTypeEvaluator();
-  final SystemAspectEvaluator _systemAspectEvaluator = new SystemAspectEvaluator(_entityService);
-  final StructuredPropertyEvaluator _structuredPropertyEvaluator =
-      new StructuredPropertyEvaluator(_entityService);
+  final EntityService<?> entityService = mock(EntityService.class);
+  final QueryVersionedAspectEvaluator queryVersionedAspectEvaluator =
+      new QueryVersionedAspectEvaluator(SnapshotEntityRegistry.getInstance(), entityService);
+  final EntityUrnTypeEvaluator urnTypeEvaluator = new EntityUrnTypeEvaluator();
+  final SystemAspectEvaluator systemAspectEvaluator = new SystemAspectEvaluator(entityService);
+  final StructuredPropertyEvaluator structuredPropertyEvaluator =
+      new StructuredPropertyEvaluator(entityService);
+  final VirtualFieldsQueryEvaluator virtualFieldsQueryEvaluator = new VirtualFieldsQueryEvaluator();
   final QueryEngine _queryEngine =
       new QueryEngine(
           ImmutableList.of(
-              _urnTypeEvaluator,
-              _queryVersionedAspectEvaluator,
-              _systemAspectEvaluator,
-              _structuredPropertyEvaluator));
+              urnTypeEvaluator,
+              queryVersionedAspectEvaluator,
+              systemAspectEvaluator,
+              structuredPropertyEvaluator,
+              virtualFieldsQueryEvaluator));
 
   static final DatasetUrn DATASET_URN =
       new DatasetUrn(new DataPlatformUrn("bigquery"), "test_dataset", FabricType.DEV);
@@ -92,7 +97,7 @@ public class QueryEngineTest {
   @BeforeTest
   public void reset() {
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    Mockito.reset(_entityService);
+    Mockito.reset(entityService);
   }
 
   @SneakyThrows
@@ -100,7 +105,7 @@ public class QueryEngineTest {
   public void testEngine() {
     TestQuery testQuery = new TestQuery("datasetProperties.description");
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -111,7 +116,7 @@ public class QueryEngineTest {
             opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         Collections.emptyMap());
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -125,7 +130,7 @@ public class QueryEngineTest {
             ImmutableMap.of(
                 testQuery, new TestQueryResponse(ImmutableList.of("test description")))));
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -138,7 +143,7 @@ public class QueryEngineTest {
 
     testQuery = new TestQuery("glossaryTerms.terms.urn.glossaryTermInfo.parentNode");
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -149,7 +154,7 @@ public class QueryEngineTest {
             opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         Collections.emptyMap());
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -161,7 +166,7 @@ public class QueryEngineTest {
         Collections.emptyMap());
 
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
                 eq(ImmutableSet.of(GLOSSARY_TERM_WITH_PARENT)),
@@ -171,7 +176,7 @@ public class QueryEngineTest {
                 GLOSSARY_TERM_WITH_PARENT,
                 createGlossaryTermInfo(GLOSSARY_TERM_WITH_PARENT, PARENT_NODE)));
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
                 eq(ImmutableSet.of(GLOSSARY_TERM_WITHOUT_PARENT)),
@@ -181,7 +186,7 @@ public class QueryEngineTest {
                 GLOSSARY_TERM_WITHOUT_PARENT,
                 createGlossaryTermInfo(GLOSSARY_TERM_WITHOUT_PARENT)));
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
                 eq(ImmutableSet.of(GLOSSARY_TERM_WITH_PARENT, GLOSSARY_TERM_WITHOUT_PARENT)),
@@ -193,7 +198,7 @@ public class QueryEngineTest {
                 GLOSSARY_TERM_WITHOUT_PARENT,
                 createGlossaryTermInfo(GLOSSARY_TERM_WITHOUT_PARENT)));
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -209,7 +214,7 @@ public class QueryEngineTest {
             ImmutableMap.of(
                 testQuery, new TestQueryResponse(ImmutableList.of(PARENT_NODE.toString())))));
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -222,7 +227,7 @@ public class QueryEngineTest {
             opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         Collections.emptyMap());
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -240,7 +245,7 @@ public class QueryEngineTest {
             ImmutableMap.of(
                 testQuery, new TestQueryResponse(ImmutableList.of(PARENT_NODE.toString())))));
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -282,7 +287,7 @@ public class QueryEngineTest {
                 testQuery, new TestQueryResponse(ImmutableList.of(DATASET_URN.getEntityType())))));
 
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -312,6 +317,28 @@ public class QueryEngineTest {
                 testQuery,
                 new TestQueryResponse(
                     ImmutableList.of(GLOSSARY_TERM_WITH_PARENT.getEntityType())))));
+    // Case 5: Entity Type query
+    testQuery = new TestQuery(INDEX_VIRTUAL_FIELD);
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(GLOSSARY_TERM_WITH_PARENT), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            GLOSSARY_TERM_WITH_PARENT,
+            ImmutableMap.of(
+                testQuery,
+                new TestQueryResponse(
+                    ImmutableList.of(
+                        "GLOSSARY_TERM", GLOSSARY_TERM_WITH_PARENT.getEntityType())))));
+    // Case 6: Urn query
+    testQuery = new TestQuery(URN_FIELD);
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(GLOSSARY_TERM_WITH_PARENT), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            GLOSSARY_TERM_WITH_PARENT,
+            ImmutableMap.of(
+                testQuery,
+                new TestQueryResponse(ImmutableList.of(GLOSSARY_TERM_WITH_PARENT.toString())))));
   }
 
   @SneakyThrows
@@ -319,7 +346,7 @@ public class QueryEngineTest {
   public void testSystemAspectQueries() {
 
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -368,7 +395,7 @@ public class QueryEngineTest {
                 Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, glossaryTermInfoAspect)));
 
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -411,7 +438,7 @@ public class QueryEngineTest {
     entityResponse.getAspects().put(SIBLINGS_ASPECT_NAME, siblingAspect);
 
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -420,7 +447,7 @@ public class QueryEngineTest {
 
     // But sibling is empty, i.e: We have a sibling reference to something that doesn't exist.
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(SIBLING_URN)),
@@ -502,7 +529,7 @@ public class QueryEngineTest {
                 siblingSiblingAspect)));
 
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(SIBLING_URN)),
@@ -578,7 +605,7 @@ public class QueryEngineTest {
                 siblingSiblingAspect)));
 
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(SIBLING_URN)),
@@ -644,7 +671,7 @@ public class QueryEngineTest {
             ImmutableMap.of(Constants.DATASET_PROPERTIES_ASPECT_NAME, propertiesAspect)));
 
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -671,7 +698,7 @@ public class QueryEngineTest {
   public void testStructuredPropertiesEvaluator() {
 
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -724,7 +751,7 @@ public class QueryEngineTest {
             ImmutableMap.of(STRUCTURED_PROPERTIES_ASPECT_NAME, structuredPropertiesAspect)));
 
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -773,7 +800,7 @@ public class QueryEngineTest {
   public void testMapArrayField() {
 
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),
@@ -809,7 +836,7 @@ public class QueryEngineTest {
         .setUrn(DATASET_URN);
 
     Mockito.when(
-            _entityService.getEntitiesV2(
+            entityService.getEntitiesV2(
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(ImmutableSet.of(DATASET_URN)),

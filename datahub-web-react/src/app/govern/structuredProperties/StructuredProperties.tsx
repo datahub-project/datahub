@@ -1,8 +1,10 @@
+import { SearchOutlined } from '@ant-design/icons';
+import { Button, Pill, Text } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
-import { Tooltip } from 'antd';
-import { Button, Text } from '@src/alchemy-components';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType, SearchResult } from '@src/types.generated';
+import { Tooltip } from 'antd';
 import React, { useState } from 'react';
 import StructuredPropsDrawer from './StructuredPropsDrawer';
 import StructuredPropsTable from './StructuredPropsTable';
@@ -13,6 +15,7 @@ import {
     PageContainer,
     StyledSearch,
     TableContainer,
+    TitleContainer,
 } from './styledComponents';
 
 const StructuredProperties = () => {
@@ -43,16 +46,20 @@ const StructuredProperties = () => {
     });
 
     const searchAcrossEntities = data?.searchAcrossEntities;
+    const noOfProperties = searchAcrossEntities?.searchResults?.length;
 
     return (
         <PageContainer>
             <HeaderContainer>
                 <HeaderContent>
-                    <Text size="xl" weight="bold">
-                        Structured Properties
-                    </Text>
+                    <TitleContainer>
+                        <Text size="xl" weight="bold">
+                            Structured Properties
+                        </Text>
+                        {!!noOfProperties && <Pill label={noOfProperties.toString()} size="sm" clickable={false} />}
+                    </TitleContainer>
                     <Text color="gray" weight="medium">
-                        Create and manage structured properties for your organization&apos;s data assets
+                        Create and manage custom properties for your organization&apos;s data assets
                     </Text>
                 </HeaderContent>
                 <Tooltip
@@ -64,7 +71,14 @@ const StructuredProperties = () => {
                     }
                 >
                     <ButtonContainer>
-                        <Button disabled={!canEditProps} icon="Add" onClick={() => setIsDrawerOpen(true)}>
+                        <Button
+                            disabled={!canEditProps}
+                            icon="Add"
+                            onClick={() => {
+                                setIsDrawerOpen(true);
+                                analytics.event({ type: EventType.CreateStructuredPropertyClickEvent });
+                            }}
+                        >
                             Create
                         </Button>
                     </ButtonContainer>
@@ -72,9 +86,9 @@ const StructuredProperties = () => {
             </HeaderContainer>
             <StyledSearch
                 placeholder="Search"
-                onSearch={handleSearch}
                 onChange={(e) => handleSearch(e.target.value)}
                 allowClear
+                prefix={<SearchOutlined />}
             />
 
             <TableContainer>

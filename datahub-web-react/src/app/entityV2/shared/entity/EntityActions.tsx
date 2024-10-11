@@ -94,7 +94,7 @@ function EntityActions(props: Props) {
     // eslint ignore react/no-unused-prop-types
     const entityRegistry = useEntityRegistry();
     const { urn, actionItems, refetchForEntity, refetchForTerms, refetchForNodes } = props;
-    const { setShouldRefetchEmbeddedListSearch } = useEntityContext();
+    const { setShouldRefetchEmbeddedListSearch, entityState } = useEntityContext();
     const [isBatchAddGlossaryTermModalVisible, setIsBatchAddGlossaryTermModalVisible] = useState(false);
     const [isBatchSetDomainModalVisible, setIsBatchSetDomainModalVisible] = useState(false);
     const [isBatchSetDataProductModalVisible, setIsBatchSetDataProductModalVisible] = useState(false);
@@ -164,6 +164,7 @@ function EntityActions(props: Props) {
                         });
                         refetchForEntity?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
+                        entityState?.setShouldRefetchContents(true);
                     }, 3000);
                 }
             })

@@ -83,6 +83,7 @@ interface OptionProps {
     removeOptions: (nodes: SelectOption[]) => void;
     loadData?: (node: SelectOption) => void;
     isMultiSelect?: boolean;
+    alwaysReloadParentData?: boolean;
 }
 
 export const NestedOption = ({
@@ -93,6 +94,7 @@ export const NestedOption = ({
     addOptions,
     removeOptions,
     loadData,
+    alwaysReloadParentData,
     isMultiSelect,
     areParentsSelectable,
 }: OptionProps) => {
@@ -192,7 +194,7 @@ export const NestedOption = ({
                 <OptionLabel
                     key={option.value}
                     onClick={(e) => {
-                        if (isParentMissingChildren) {
+                        if (isParentMissingChildren || alwaysReloadParentData) {
                             loadData?.(option);
                         }
                         if (option.isParent) {
@@ -213,7 +215,7 @@ export const NestedOption = ({
                                 e.stopPropagation();
                                 e.preventDefault();
                                 setIsOpen(!isOpen);
-                                if (!isOpen && isParentMissingChildren) {
+                                if (!isOpen && (isParentMissingChildren || alwaysReloadParentData)) {
                                     loadData?.(option);
                                 }
                             }}
@@ -230,7 +232,7 @@ export const NestedOption = ({
                         onClick={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
-                            if (isParentMissingChildren) {
+                            if (isParentMissingChildren || alwaysReloadParentData) {
                                 loadData?.(option);
                                 setAutoSelectChildren(true);
                             }

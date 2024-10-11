@@ -86,14 +86,17 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
         }
     }, [terms, nodes, tags, termsEnabled, tagsEnabled, selected, getRadioValue]);
 
-    const handleTermsChange = (values: any, entity: EntityType, type: string) => {
+    const handleTermsChange = (values: any, entities: EntityType[], type: string) => {
         const newTerms = {
             ...selected[type],
             selectionType: values.selectionType,
-            selected: {
-                ...selected[type].selected,
-                [entity]: values.selected[entity],
-            },
+            selected: entities.reduce(
+                (acc, entity) => ({
+                    ...acc,
+                    [entity]: values.selected[entity],
+                }),
+                { ...selected[type].selected },
+            ),
         };
 
         if (type === 'terms' && values.selectionType === 'all') {
@@ -142,7 +145,9 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
                                 allowedRadios,
                                 preselectedValue: selected.terms.selectionType,
                             }}
-                            onChange={(values, entity) => handleTermsChange(values, entity, 'terms')}
+                            onChange={(values) => {
+                                handleTermsChange(values, [EntityType.GlossaryNode, EntityType.GlossaryTerm], 'terms');
+                            }}
                         />
                     );
                 }
@@ -163,7 +168,7 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
                                 allowedRadios,
                                 preselectedValue: selected.tags.selectionType,
                             }}
-                            onChange={(values, entity) => handleTermsChange(values, entity, 'tags')}
+                            onChange={(values, entity) => handleTermsChange(values, [entity as EntityType], 'tags')}
                         />
                     );
                 }

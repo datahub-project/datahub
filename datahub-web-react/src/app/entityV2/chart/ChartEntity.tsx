@@ -46,6 +46,7 @@ import { SidebarTitleActionType, getDashboardLastUpdatedMs, getDataProduct, isOu
 import { ChartPreview } from './preview/ChartPreview';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import ChartSummaryTab from './summary/ChartSummaryTab';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
@@ -187,12 +188,12 @@ export class ChartEntity implements Entity<Chart> {
                 },
                 {
                     name: 'Incidents',
+                    getDynamicName: (_, chart, loading) => {
+                        const activeIncidentCount = chart?.chart?.activeIncidents.total;
+                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    },
                     icon: WarningOutlined,
                     component: IncidentTab,
-                    getDynamicName: (_, chart) => {
-                        const activeIncidentCount = chart?.chart?.activeIncidents.total;
-                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
-                    },
                 },
             ]}
             sidebarSections={this.getSidebarSections()}

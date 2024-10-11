@@ -1,8 +1,7 @@
 import { Icon, Text } from '@components';
-import { AllowedValue, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+import { AllowedValue } from '@src/types.generated';
 import { Tooltip } from 'antd';
-import React, { useState } from 'react';
-import AllowedValuesModal from './AllowedValuesModal';
+import React from 'react';
 import {
     FieldLabel,
     FlexContainer,
@@ -11,29 +10,19 @@ import {
     StyledIcon,
     ValueListContainer,
     ValuesList,
+    ValueType,
     VerticalDivider,
 } from './styledComponents';
 import { isStringOrNumberTypeSelected, PropValueField } from './utils';
 
 interface Props {
-    selectedProperty: SearchResult | undefined;
-    isEditMode: boolean;
     selectedValueType: string;
     allowedValues: AllowedValue[] | undefined;
-    setAllowedValues: React.Dispatch<React.SetStateAction<AllowedValue[] | undefined>>;
     valueField: PropValueField;
+    setShowAllowedValuesDrawer: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const AllowedValuesField = ({
-    selectedProperty,
-    isEditMode,
-    selectedValueType,
-    allowedValues,
-    setAllowedValues,
-    valueField,
-}: Props) => {
-    const [showAllowedValuesModal, setShowAllowedValuesModal] = useState<boolean>(false);
-
+const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setShowAllowedValuesDrawer }: Props) => {
     return (
         <>
             {isStringOrNumberTypeSelected(selectedValueType) && (
@@ -42,7 +31,7 @@ const AllowedValuesField = ({
                         <FlexContainer>
                             Allowed Values
                             <Tooltip
-                                title="Define a set of valid values that can be set on an asset with this structured property. The user will be prompted to pick from this list when applying this structured property to an asset."
+                                title="Define the set of valid values for this property. If none are provided, any value will be allowed"
                                 showArrow={false}
                             >
                                 <Icon icon="Info" color="violet" size="lg" />
@@ -62,33 +51,26 @@ const AllowedValuesField = ({
                                     );
                                 })}
                             </ValuesList>
-                            <StyledIcon
-                                icon="ChevronRight"
-                                color="gray"
-                                onClick={() => setShowAllowedValuesModal(true)}
-                            />
+                            <Tooltip title="Update allowed values" showArrow={false}>
+                                <StyledIcon
+                                    icon="ChevronRight"
+                                    color="gray"
+                                    onClick={() => setShowAllowedValuesDrawer(true)}
+                                />
+                            </Tooltip>
                         </ItemsContainer>
                     ) : (
                         <ValueListContainer>
-                            <Tooltip title="Add new allowed values" showArrow={false}>
-                                <Icon icon="Add" color="gray" onClick={() => setShowAllowedValuesModal(true)} />
+                            Any
+                            <ValueType>{valueField === 'stringValue' ? 'text' : 'number'} </ValueType>
+                            value will be allowed
+                            <Tooltip title="Update allowed values" showArrow={false}>
+                                <Icon icon="Add" color="gray" onClick={() => setShowAllowedValuesDrawer(true)} />
                             </Tooltip>
                         </ValueListContainer>
                     )}
                 </RowContainer>
             )}
-            <AllowedValuesModal
-                isOpen={showAllowedValuesModal}
-                showAllowedValuesModal={showAllowedValuesModal}
-                setShowAllowedValuesModal={setShowAllowedValuesModal}
-                propType={valueField}
-                allowedValues={allowedValues}
-                setAllowedValues={setAllowedValues}
-                isEditMode={isEditMode}
-                noOfExistingValues={
-                    (selectedProperty?.entity as StructuredPropertyEntity)?.definition?.allowedValues?.length || 0
-                }
-            />
         </>
     );
 };

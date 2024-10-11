@@ -49,24 +49,42 @@ import com.linkedin.form.GlossaryTermsParams;
 import com.linkedin.form.OwnershipParams;
 import com.linkedin.form.PromptCardinality;
 import com.linkedin.form.StructuredPropertyParams;
+import com.linkedin.metadata.config.TestsHookExecutionLimitConfiguration;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.util.FormTestBuilder;
+import com.linkedin.metadata.test.TestEngine;
+import com.linkedin.metadata.test.TestFetcher;
+import com.linkedin.metadata.test.action.ActionApplier;
+import com.linkedin.metadata.test.definition.TestDefinitionParser;
+import com.linkedin.metadata.test.definition.ValidationResult;
+import com.linkedin.metadata.test.eval.PredicateEvaluator;
+import com.linkedin.metadata.test.query.EntityUrnTypeEvaluator;
+import com.linkedin.metadata.test.query.QueryEngine;
+import com.linkedin.metadata.test.query.QueryVersionedAspectEvaluator;
+import com.linkedin.metadata.test.query.StructuredPropertyEvaluator;
+import com.linkedin.metadata.test.query.SystemAspectEvaluator;
+import com.linkedin.metadata.test.query.virtualFields.VirtualFieldsQueryEvaluator;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestSource;
 import com.linkedin.test.TestSourceType;
+import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -1323,6 +1341,47 @@ public class FormServiceTest {
         new ObjectMapper()
             .readTree(
                 new ClassPathResource(TEST_FORM_ASSIGNMENT_TEST_DEFINITION_COMPLEX_PATH).getFile());
+
+    // Validate test definition
+    final EntityService<?> entityService = mock(EntityService.class);
+    final QueryVersionedAspectEvaluator queryVersionedAspectEvaluator =
+        new QueryVersionedAspectEvaluator(new TestEntityRegistry(), entityService);
+    final EntityUrnTypeEvaluator urnTypeEvaluator = new EntityUrnTypeEvaluator();
+    final SystemAspectEvaluator systemAspectEvaluator = new SystemAspectEvaluator(entityService);
+    final StructuredPropertyEvaluator structuredPropertyEvaluator =
+        new StructuredPropertyEvaluator(entityService);
+    final VirtualFieldsQueryEvaluator virtualFieldsQueryEvaluator =
+        new VirtualFieldsQueryEvaluator();
+    QueryEngine queryEngine =
+        new QueryEngine(
+            ImmutableList.of(
+                urnTypeEvaluator,
+                queryVersionedAspectEvaluator,
+                systemAspectEvaluator,
+                structuredPropertyEvaluator,
+                virtualFieldsQueryEvaluator));
+    TestDefinitionParser testDefinitionParser =
+        new TestDefinitionParser(PredicateEvaluator.getInstance());
+    TestEngine testEngine =
+        new TestEngine(
+            opContext,
+            true,
+            Mockito.mock(EntityServiceImpl.class),
+            Mockito.mock(EntitySearchService.class),
+            Mockito.mock(TimeseriesAspectService.class),
+            Mockito.mock(TestFetcher.class),
+            testDefinitionParser,
+            queryEngine,
+            PredicateEvaluator.getInstance(),
+            Mockito.mock(ActionApplier.class),
+            100000,
+            1000000,
+            false,
+            new TestsHookExecutionLimitConfiguration());
+    ValidationResult validationResult = testEngine.validateJson(testDefinition.toString());
+    Assert.assertTrue(
+        "Expected valid test JSON: " + validationResult.getMessages(), validationResult.isValid());
+
     Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormAssignment(TEST_FORM_URN);
     TestInfo expectedTestInfo =
         new TestInfo()

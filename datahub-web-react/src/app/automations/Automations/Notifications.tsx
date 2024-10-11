@@ -22,10 +22,6 @@ const NotificationHeader = styled.div`
     font-size: 12px;
 `;
 
-const NotificationTitle = styled.div`
-    font-size: 21px;
-`;
-
 const NotificationDescriptionContainer = styled.div`
     font-family: Mulish;
     font-size: 14px;
@@ -49,12 +45,11 @@ const notificationConfig = {
     placement: 'bottomRight' as NotificationPlacement,
 };
 
-export const openErrorNotification = (automationName: string, msg: string, viewLogs = false) => {
+export const openErrorNotification = (actionType: string, msg: string, viewLogs = false) => {
     notification.error({
         message: (
             <NotificationTitleContainer>
-                <NotificationHeader>Automation</NotificationHeader>
-                <NotificationTitle>{automationName}</NotificationTitle>
+                <NotificationHeader>{actionType}</NotificationHeader>
             </NotificationTitleContainer>
         ),
         description: (

@@ -8,7 +8,7 @@ export const useGetRecommendations = (types: Array<EntityType>) => {
                 types,
                 query: '*',
                 start: 0,
-                count: 5,
+                count: 10,
             },
         },
     });

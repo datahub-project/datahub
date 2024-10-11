@@ -30,6 +30,9 @@ import GlossaryTermIcon from '../../../images/collections_bookmark.svg?react';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import GlossaryRelatedAssetsTabHeader from './GlossaryRelatedAssetsTabHeader';
+import { RelatedTermTypes } from './profile/GlossaryRelatedTermsResult';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
@@ -106,6 +109,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                     },
                     {
                         name: 'Related Assets',
+                        getDynamicName: GlossaryRelatedAssetsTabHeader,
                         component: GlossaryRelatedEntity,
                         icon: AppstoreOutlined,
                     },
@@ -125,6 +129,14 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                     },
                     {
                         name: 'Related Terms',
+                        getDynamicName: (entityData, _, loading) => {
+                            const totalRelatedTerms = Object.keys(RelatedTermTypes).reduce((acc, curr) => {
+                                return acc + (entityData?.[curr]?.total || 0);
+                            }, 0);
+                            return (
+                                <TabNameWithCount name="Related Terms" count={totalRelatedTerms} loading={loading} />
+                            );
+                        },
                         component: GlossayRelatedTerms,
                         icon: () => <BookOutlined style={{ marginRight: 6 }} />,
                     },

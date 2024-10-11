@@ -1,4 +1,5 @@
 import {
+    AllowedValue,
     DataHubViewType,
     EntityChangeType,
     EntityType,
@@ -6,8 +7,11 @@ import {
     FormType,
     LineageDirection,
     NotificationSinkType,
+    PropertyCardinality,
+    PropertyValueInput,
     RecommendationRenderType,
     ScenarioType,
+    StructuredPropertyFilterStatus,
 } from '../../types.generated';
 import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
 import { PersonaType } from '../homeV2/shared/types';
@@ -140,6 +144,14 @@ export enum EventType {
     DeleteFormEvent,
     CreateQuestionEvent,
     EditQuestionEvent,
+    CreateStructuredPropertyClickEvent,
+    CreateStructuredPropertyEvent,
+    EditStructuredPropertyEvent,
+    DeleteStructuredPropertyEvent,
+    ViewStructuredPropertyEvent,
+    ApplyStructuredPropertyEvent,
+    UpdateStructuredPropertyOnAssetEvent,
+    RemoveStructuredPropertyEvent,
 }
 
 /**
@@ -1048,6 +1060,76 @@ export interface EditQuestionEvent extends BaseEvent {
     restrictedDomains?: boolean;
 }
 
+export interface CreateStructuredPropertyClickEvent extends BaseEvent {
+    type: EventType.CreateStructuredPropertyClickEvent;
+}
+
+export interface CreateStructuredPropertyEvent extends BaseEvent {
+    type: EventType.CreateStructuredPropertyEvent;
+    propertyType: string;
+    appliesTo: string[];
+    qualifiedName?: string;
+    showInFilters: StructuredPropertyFilterStatus;
+    allowedAssetTypes?: string[];
+    allowedValues?: AllowedValue[];
+    cardinality?: PropertyCardinality;
+}
+
+export interface EditStructuredPropertyEvent extends BaseEvent {
+    type: EventType.EditStructuredPropertyEvent;
+    propertyUrn: string;
+    propertyType: string;
+    appliesTo: string[];
+    qualifiedName?: string;
+    showInFilters: StructuredPropertyFilterStatus;
+    allowedAssetTypes?: string[];
+    allowedValues?: AllowedValue[];
+    cardinality?: PropertyCardinality;
+}
+
+export interface DeleteStructuredPropertyEvent extends BaseEvent {
+    type: EventType.DeleteStructuredPropertyEvent;
+    propertyUrn: string;
+    propertyType: string;
+    appliesTo: string[];
+    qualifiedName?: string;
+    showInFilters: StructuredPropertyFilterStatus;
+    allowedAssetTypes?: string[];
+    allowedValues?: AllowedValue[];
+    cardinality?: PropertyCardinality;
+}
+
+export interface ViewStructuredPropertyEvent extends BaseEvent {
+    type: EventType.ViewStructuredPropertyEvent;
+    propertyUrn: string;
+}
+
+export interface ApplyStructuredPropertyEvent extends BaseEvent {
+    type: EventType.ApplyStructuredPropertyEvent;
+    propertyUrn: string;
+    propertyType: string;
+    assetUrn: string;
+    assetType: EntityType;
+    values: PropertyValueInput[];
+}
+
+export interface UpdateStructuredPropertyOnAssetEvent extends BaseEvent {
+    type: EventType.UpdateStructuredPropertyOnAssetEvent;
+    propertyUrn: string;
+    propertyType: string;
+    assetUrn: string;
+    assetType: EntityType;
+    values: PropertyValueInput[];
+}
+
+export interface RemoveStructuredPropertyEvent extends BaseEvent {
+    type: EventType.RemoveStructuredPropertyEvent;
+    propertyUrn: string;
+    propertyType: string;
+    assetUrn: string;
+    assetType: EntityType;
+}
+
 export interface InferDocsClickEvent extends BaseEvent {
     type: EventType.InferDocsClickEvent;
     surface:
@@ -1182,4 +1264,12 @@ export type Event =
     | UnpublishFormEvent
     | DeleteFormEvent
     | CreateQuestionEvent
-    | EditQuestionEvent;
+    | EditQuestionEvent
+    | CreateStructuredPropertyClickEvent
+    | CreateStructuredPropertyEvent
+    | EditStructuredPropertyEvent
+    | DeleteStructuredPropertyEvent
+    | ViewStructuredPropertyEvent
+    | ApplyStructuredPropertyEvent
+    | UpdateStructuredPropertyOnAssetEvent
+    | RemoveStructuredPropertyEvent;

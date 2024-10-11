@@ -30,6 +30,7 @@ import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEnt
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.EXTERNAL_URL,
@@ -110,9 +111,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     name: 'Incidents',
                     icon: WarningOutlined,
                     component: IncidentTab,
-                    getDynamicName: (_, dataFlow) => {
+                    getDynamicName: (_, dataFlow, loading) => {
                         const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents.total;
-                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
                     },
                 },
                 {

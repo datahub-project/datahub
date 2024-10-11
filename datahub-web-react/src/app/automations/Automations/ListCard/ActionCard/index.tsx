@@ -16,7 +16,7 @@ import { parseJSON, truncateString } from '@app/automations/utils';
 import { Description, ListCardHeader, ButtonsContainer, Category, Name, TitleColumn } from '../../components';
 
 import { UndoConfirmationModal } from '../../UndoConfirmationModal';
-import { openSuccessNotification } from '../../Notifications';
+import { openSuccessNotification, openErrorNotification } from '../../Notifications';
 
 import { ActionsMenu } from '../ActionsMenu';
 
@@ -55,28 +55,32 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
     // Stop an Action
     const stopAction = () => {
         setState(AutomationStatus.INACTIVE);
-        stopActionPipeline({ variables: { urn } });
-        openSuccessNotification('Stopped automation!');
+        stopActionPipeline({ variables: { urn } })
+            .then(() => openSuccessNotification('Stopped automation!'))
+            .catch((error) => openErrorNotification('Stop Automation', error.message));
     };
 
     // Start an Action
     const runAction = () => {
         setState(AutomationStatus.ACTIVE);
-        startActionPipeline({ variables: { urn } });
-        openSuccessNotification('Started automation!');
+        startActionPipeline({ variables: { urn } })
+            .then(() => openSuccessNotification('Started automation!'))
+            .catch((error) => openErrorNotification('Start Automation', error.message));
     };
 
     // Undo an Action
     const undoAction = () => {
-        rollbackActionPipeline({ variables: { urn } });
-        openSuccessNotification('Rollback started!');
+        rollbackActionPipeline({ variables: { urn } })
+            .then(() => openSuccessNotification('Rollback started!'))
+            .catch((error) => openErrorNotification('Rollback Automation', error.message));
         return setShowUndoConfirmation(false);
     };
 
     // Bootstrap an Action
     const bootstrapAction = () => {
-        bootstrapActionPipeline({ variables: { urn } });
-        openSuccessNotification('Bootstrap started!');
+        bootstrapActionPipeline({ variables: { urn } })
+            .then(() => openSuccessNotification('Initialization started!'))
+            .catch((error) => openErrorNotification('Initialize Automation', error.message));
     };
 
     // Delete Action
@@ -84,9 +88,6 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
         // Delete is handled by the context
         setState(AutomationStatus.INACTIVE);
         deleteAutomation?.();
-        setTimeout(() => {
-            openSuccessNotification('Deleted automation!');
-        }, 3000);
     };
 
     // Set status during poling of refetch

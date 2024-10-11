@@ -3,6 +3,7 @@ package io.datahubproject.openapi.metadatatests;
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -17,6 +18,8 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.test.TestEngine;
+import com.linkedin.metadata.test.definition.ValidationResult;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.test.query.TestQuery;
 import com.linkedin.metadata.test.query.TestQueryResponse;
@@ -82,6 +85,7 @@ public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTe
   @Autowired private MockMvc mockMvc;
   @Autowired private EntityService<?> mockEntityService;
   @Autowired private QueryEngine mockQueryEngine;
+  @Autowired private TestEngine mockTestEngine;
 
   @Test
   public void initTest() {
@@ -136,6 +140,8 @@ public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTe
                   TEST_ENTITIES.get(1), Map.of(testQuery, new TestQueryResponse(List.of("true"))),
                   TEST_ENTITIES.get(2), Map.of(testQuery, TestQueryResponse.empty()));
             });
+    when(mockQueryEngine.validateQuery(any(TestQuery.class), anyList()))
+        .thenReturn(ValidationResult.validResult());
   }
 
   private void setupMockTestInfo() throws URISyntaxException {

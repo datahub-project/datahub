@@ -49,7 +49,7 @@ services:
     - SENTRY_DSN=
     - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001
     - BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE=false
-    - SEARCH_SERVICE_ENABLE_CACHE=false
+    - SEARCH_SERVICE_ENABLE_CACHE=true
     - LINEAGE_SEARCH_CACHE_ENABLED=false
     - SHOW_BROWSE_V2=true
     - ER_MODEL_RELATIONSHIP_FEATURE_ENABLED=false

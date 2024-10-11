@@ -1,9 +1,18 @@
 import { Icon, SimpleSelect, Text } from '@src/alchemy-components';
-import { AllowedValue, PropertyCardinality, SearchResult } from '@src/types.generated';
+import { AllowedValue, PropertyCardinality, SearchResult, StructuredPropertyFilterStatus } from '@src/types.generated';
 import { Form, FormInstance, Tooltip } from 'antd';
 import React from 'react';
 import AllowedValuesField from './AllowedValuesField';
-import { FieldLabel, FlexContainer, RowContainer, SubTextContainer } from './styledComponents';
+import {
+    CheckboxWrapper,
+    FieldLabel,
+    FlexContainer,
+    RowContainer,
+    StyledCheckbox,
+    StyledFormItem,
+    StyledText,
+    SubTextContainer,
+} from './styledComponents';
 import useStructuredProp from './useStructuredProp';
 import {
     APPLIES_TO_ENTITIES,
@@ -23,8 +32,8 @@ interface Props {
     selectedValueType: string;
     setSelectedValueType: React.Dispatch<React.SetStateAction<string>>;
     allowedValues: AllowedValue[] | undefined;
-    setAllowedValues: React.Dispatch<React.SetStateAction<AllowedValue[] | undefined>>;
     valueField: PropValueField;
+    setShowAllowedValuesDrawer: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const StructuredPropsFormSection = ({
@@ -37,12 +46,13 @@ const StructuredPropsFormSection = ({
     selectedValueType,
     setSelectedValueType,
     allowedValues,
-    setAllowedValues,
     valueField,
+    setShowAllowedValuesDrawer,
 }: Props) => {
     const {
         handleSelectChange,
         handleSelectUpdateChange,
+        handleFilterStatusChange,
         getEntitiesListOptions,
         disabledEntityTypeValues,
         disabledTypeQualifierValues,
@@ -58,21 +68,19 @@ const StructuredPropsFormSection = ({
         <>
             {!(isEditMode && !allowedValues) && (
                 <AllowedValuesField
-                    selectedProperty={selectedProperty}
-                    isEditMode={isEditMode}
                     selectedValueType={selectedValueType}
                     allowedValues={allowedValues}
-                    setAllowedValues={setAllowedValues}
                     valueField={valueField}
+                    setShowAllowedValuesDrawer={setShowAllowedValuesDrawer}
                 />
             )}
             {isEntityTypeSelected(selectedValueType) && (
                 <RowContainer>
                     <FieldLabel>
                         <FlexContainer>
-                            Allowed Asset Types
+                            Allowed Entity Types
                             <Tooltip
-                                title="Optionally choose which asset types are valid values that can be set on an asset with this structured property. For example, choosing 'Person' and 'Group' will only allow users to select users or groups as values on an asset for this property."
+                                title="Choose the types of entities that are allowed as values for this property"
                                 showArrow={false}
                             >
                                 <Icon icon="Info" color="violet" size="lg" />
@@ -82,7 +90,7 @@ const StructuredPropsFormSection = ({
                             <SubTextContainer>
                                 <Text size="sm" weight="medium">
                                     <Tooltip
-                                        title="Once a structured property is created, you can only add new allowed asset types to preserve backwards compatibility"
+                                        title="Once a property is created, entity types cannot be removed"
                                         showArrow={false}
                                     >
                                         (Add-only)
@@ -91,21 +99,29 @@ const StructuredPropsFormSection = ({
                             </SubTextContainer>
                         )}
                     </FieldLabel>
-                    <Form.Item name={['typeQualifier', 'allowedTypes']}>
-                        <SimpleSelect
-                            options={getEntitiesListOptions(SEARCHABLE_ENTITY_TYPES)}
-                            onUpdate={(values) =>
-                                isEditMode
-                                    ? handleSelectUpdateChange(['typeQualifier', 'allowedTypes'], values)
-                                    : handleSelectChange(['typeQualifier', 'allowedTypes'], values)
-                            }
-                            placeholder="Select Allowed Asset Types"
-                            isMultiSelect
-                            values={formValues?.typeQualifier?.allowedTypes}
-                            disabledValues={disabledTypeQualifierValues}
-                            width="full"
-                        />
-                    </Form.Item>
+                    <Tooltip
+                        title={
+                            !formValues?.typeQualifier?.allowedTypes?.length &&
+                            'Any entity type will be accepted as a value'
+                        }
+                        showArrow={false}
+                    >
+                        <Form.Item name={['typeQualifier', 'allowedTypes']}>
+                            <SimpleSelect
+                                options={getEntitiesListOptions(SEARCHABLE_ENTITY_TYPES)}
+                                onUpdate={(values) =>
+                                    isEditMode
+                                        ? handleSelectUpdateChange(['typeQualifier', 'allowedTypes'], values)
+                                        : handleSelectChange(['typeQualifier', 'allowedTypes'], values)
+                                }
+                                placeholder="Any"
+                                isMultiSelect
+                                values={formValues?.typeQualifier?.allowedTypes}
+                                disabledValues={disabledTypeQualifierValues}
+                                width="full"
+                            />
+                        </Form.Item>
+                    </Tooltip>
                 </RowContainer>
             )}
             <RowContainer>
@@ -116,7 +132,7 @@ const StructuredPropsFormSection = ({
                             *
                         </Text>
                         <Tooltip
-                            title="Select the asset types that this structured property can be applied to."
+                            title="Select the types of entities that this property can be added to"
                             showArrow={false}
                         >
                             <Icon icon="Info" color="violet" size="lg" />
@@ -126,7 +142,7 @@ const StructuredPropsFormSection = ({
                         <SubTextContainer>
                             <Text size="sm" weight="medium">
                                 <Tooltip
-                                    title="Once a structured property is created, you can only add to the applies to list to preserve backwards compatibility"
+                                    title="Once a property is created entity types cannot be removed"
                                     showArrow={false}
                                 >
                                     (Add-only)
@@ -152,14 +168,30 @@ const StructuredPropsFormSection = ({
                                 ? handleSelectUpdateChange('entityTypes', values)
                                 : handleSelectChange('entityTypes', values)
                         }
-                        placeholder="Select Asset Types"
+                        placeholder="Select Entity Types"
                         isMultiSelect
                         values={formValues?.entityTypes ? formValues?.entityTypes : undefined}
                         disabledValues={disabledEntityTypeValues}
                         width="full"
+                        showSelectAll
+                        selectAllLabel="All Asset Types"
                     />
                 </Form.Item>
             </RowContainer>
+            <CheckboxWrapper>
+                <StyledFormItem name="filterStatus">
+                    <StyledCheckbox
+                        checked={formValues?.filterStatus === StructuredPropertyFilterStatus.Enabled}
+                        onChange={(e) => handleFilterStatusChange(e.target.checked)}
+                    />
+                </StyledFormItem>
+                <Text size="md">Display in filters</Text>
+                <StyledText>
+                    <Tooltip title="If enabled, this property will appear in search filters">
+                        <Icon icon="Info" size="lg" />
+                    </Tooltip>
+                </StyledText>
+            </CheckboxWrapper>
         </>
     );
 };

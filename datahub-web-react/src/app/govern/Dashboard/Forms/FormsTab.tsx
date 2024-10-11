@@ -1,8 +1,9 @@
+import { SearchOutlined } from '@ant-design/icons';
+import { Button } from '@components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { Tooltip } from 'antd';
 import React, { useState } from 'react';
-import { Button } from '@components';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { PageRoutes } from '../../../../conf/Global';
@@ -67,6 +68,7 @@ const FormsTab = () => {
                     >
                         <>
                             <Button
+                                icon="Add"
                                 onClick={() => {
                                     analytics.event({
                                         type: EventType.CreateFormClickEvent,
@@ -75,16 +77,16 @@ const FormsTab = () => {
                                 }}
                                 disabled={!canEditForms}
                             >
-                                Create Form
+                                Create
                             </Button>
                         </>
                     </Tooltip>
                 </SectionHeader>
                 <StyledSearch
                     placeholder="Search"
-                    onSearch={handleSearch}
                     onChange={(e) => handleSearch(e.target.value)}
                     allowClear
+                    prefix={<SearchOutlined />}
                 />
                 <FormsContainer>
                     <FormsTable searchQuery={searchQuery} />

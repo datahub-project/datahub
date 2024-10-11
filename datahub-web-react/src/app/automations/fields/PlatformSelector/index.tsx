@@ -1,5 +1,6 @@
 import React from 'react';
 import { Select, Alert } from 'antd';
+import styled from 'styled-components';
 
 import type { DataPlatform } from '@types';
 import type { ComponentBaseProps } from '@app/automations/types';
@@ -7,6 +8,7 @@ import type { ComponentBaseProps } from '@app/automations/types';
 import { useGetDataPlatformsQuery } from '@src/graphql/dataPlatform.generated';
 
 import { ContainerSelector } from '@app/automations/fields/ContainerSelector';
+import { PreviewImage } from '@src/app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
 import { StepHeader } from '../components';
 
 // State Type (ensures the state is correctly applied across templates)
@@ -14,6 +16,11 @@ export type PlatformSelectorStateType = {
     platforms: string[];
     containers: string[];
 };
+const StyledOption = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
 
 // Component
 export const PlatformSelector = ({ state, props, passStateToParent }: ComponentBaseProps) => {
@@ -49,7 +56,17 @@ export const PlatformSelector = ({ state, props, passStateToParent }: ComponentB
             >
                 {dataPlatforms.map((platform) => (
                     <Select.Option value={platform.urn} key={platform.urn}>
-                        {platform.name}
+                        <StyledOption>
+                            {platform.properties?.logoUrl ? (
+                                <PreviewImage
+                                    preview={false}
+                                    src={platform.properties?.logoUrl}
+                                    placeholder
+                                    alt={platform?.name}
+                                />
+                            ) : null}
+                            <span>{platform.name}</span>
+                        </StyledOption>
                     </Select.Option>
                 ))}
             </Select>

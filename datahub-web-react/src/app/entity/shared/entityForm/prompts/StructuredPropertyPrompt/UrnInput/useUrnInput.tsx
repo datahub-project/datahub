@@ -65,7 +65,7 @@ export default function useUrnInput({
         entityOptions = initialData?.searchAcrossEntities?.searchResults.map((r) => r.entity) || [];
     }
     const entityTypeNames: string[] | undefined = allowedEntityTypes?.map(
-        (entityType) => entityRegistry.getEntityName(entityType) || '',
+        (entityType) => entityRegistry.getCollectionName(entityType) || '',
     );
 
     const previousEntityUrn = usePrevious(entityData?.urn);

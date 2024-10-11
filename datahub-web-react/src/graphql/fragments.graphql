@@ -1566,6 +1566,11 @@ fragment entityDisplayNameFields on Entity {
         properties {
             name
         }
+        parentNodes {
+            nodes {
+                urn
+            }
+        }
     }
     ... on GlossaryNode {
         properties {
@@ -1803,6 +1808,7 @@ fragment structuredPropertiesFields on StructuredPropertiesEntry {
         type
         ...entityDisplayNameFields
     }
+    associatedUrn
 }
 
 fragment autoRenderAspectFields on RawAspect {

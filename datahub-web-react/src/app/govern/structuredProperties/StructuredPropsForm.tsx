@@ -1,26 +1,20 @@
 import { Icon, Input, Text, TextArea } from '@src/alchemy-components';
-import { AllowedValue, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+import { AllowedValue, PropertyCardinality, SearchResult } from '@src/types.generated';
 import { Form, FormInstance, Select, Tooltip } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import AdvancedOptions from './AdvancedOptions';
 import StructuredPropsFormSection from './StructuredPropsFormSection';
 import {
     CustomDropdown,
     FieldLabel,
     FlexContainer,
+    GridFormItem,
     RowContainer,
     SelectOptionContainer,
     StyledSelect,
 } from './styledComponents';
 import useStructuredProp from './useStructuredProp';
-import {
-    getDisplayName,
-    getStringOrNumberValueField,
-    getValueType,
-    PropValueField,
-    StructuredProp,
-    valueTypes,
-} from './utils';
+import { PropValueField, StructuredProp, valueTypes } from './utils';
 
 interface Props {
     selectedProperty: SearchResult | undefined;
@@ -32,7 +26,8 @@ interface Props {
     selectedValueType: string;
     setSelectedValueType: React.Dispatch<React.SetStateAction<string>>;
     allowedValues: AllowedValue[] | undefined;
-    setAllowedValues: React.Dispatch<React.SetStateAction<AllowedValue[] | undefined>>;
+    valueField: PropValueField;
+    setShowAllowedValuesDrawer: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const StructuredPropsForm = ({
@@ -45,66 +40,16 @@ const StructuredPropsForm = ({
     selectedValueType,
     setSelectedValueType,
     allowedValues,
-    setAllowedValues,
+    valueField,
+    setShowAllowedValuesDrawer,
 }: Props) => {
-    const { handleTypeUpdate, handleFilterStatusChange } = useStructuredProp({
+    const { handleTypeUpdate } = useStructuredProp({
         selectedProperty,
         form,
         setFormValues,
         setCardinality,
         setSelectedValueType,
     });
-
-    const [valueField, setValueField] = useState<PropValueField>('stringValue');
-
-    useEffect(() => {
-        if (selectedProperty) {
-            const entity = selectedProperty.entity as StructuredPropertyEntity;
-            const typeValue = getValueType(
-                entity.definition.valueType.urn,
-                entity.definition.cardinality || PropertyCardinality.Single,
-            );
-
-            const values: StructuredProp = {
-                displayName: getDisplayName(entity),
-                description: entity.definition.description,
-                qualifiedName: entity.definition.qualifiedName,
-                valueType: typeValue,
-                entityTypes: entity.definition.entityTypes.map((entityType) => entityType.urn),
-                typeQualifier: {
-                    allowedTypes: entity.definition.typeQualifier?.allowedTypes?.map((entityType) => entityType.urn),
-                },
-                immutable: entity.definition.immutable,
-                filterStatus: entity.definition.filterStatus,
-            };
-
-            setFormValues(values);
-            if (typeValue) handleTypeUpdate(typeValue);
-            form.setFieldsValue(values);
-        } else {
-            setFormValues(undefined);
-            form.resetFields();
-        }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedProperty, form]);
-
-    useEffect(() => {
-        const entity = selectedProperty?.entity as StructuredPropertyEntity;
-        const field = getStringOrNumberValueField(selectedValueType);
-        setValueField(field);
-        const allowedList = entity?.definition?.allowedValues?.map((item) => {
-            return {
-                [field]: item.value[field],
-                description: item.description,
-            } as AllowedValue;
-        });
-        setAllowedValues(allowedList);
-    }, [selectedProperty, selectedValueType, setAllowedValues]);
-
-    useEffect(() => {
-        form.setFieldValue('allowedValues', allowedValues);
-    }, [allowedValues, form]);
 
     return (
         <Form form={form}>
@@ -117,10 +62,10 @@ const StructuredPropsForm = ({
                     },
                 ]}
             >
-                <Input label="Name" placeholder="Enter name" isRequired />
+                <Input label="Name" placeholder="Provide a name" isRequired />
             </Form.Item>
             <Form.Item name="description">
-                <TextArea label="Description" placeholder="Add description here" />
+                <TextArea label="Description" placeholder="Provide a description" />
             </Form.Item>
             <RowContainer>
                 <FieldLabel>
@@ -129,23 +74,17 @@ const StructuredPropsForm = ({
                         <Text color="red" weight="bold">
                             *
                         </Text>
-                        <Tooltip
-                            title="The input data type accepted as a value for this structured property. List types accept more than one value on an asset."
-                            showArrow={false}
-                        >
+                        <Tooltip title="The allowed value type of the property" showArrow={false}>
                             <Icon icon="Info" color="violet" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                 </FieldLabel>
 
                 <Tooltip
-                    title={
-                        isEditMode &&
-                        'Changing type is disabled once a structured property is created to preserve backwards compatibility'
-                    }
+                    title={isEditMode && 'Once a property is created, its type cannot be changed'}
                     showArrow={false}
                 >
-                    <Form.Item
+                    <GridFormItem
                         name="valueType"
                         rules={[
                             {
@@ -177,7 +116,7 @@ const StructuredPropsForm = ({
                                 );
                             })}
                         </StyledSelect>
-                    </Form.Item>
+                    </GridFormItem>
                 </Tooltip>
             </RowContainer>
 
@@ -191,14 +130,10 @@ const StructuredPropsForm = ({
                 selectedValueType={selectedValueType}
                 setSelectedValueType={setSelectedValueType}
                 allowedValues={allowedValues}
-                setAllowedValues={setAllowedValues}
                 valueField={valueField}
+                setShowAllowedValuesDrawer={setShowAllowedValuesDrawer}
             />
-            <AdvancedOptions
-                isEditMode={isEditMode}
-                handleFilterStatusChange={handleFilterStatusChange}
-                formValues={formValues}
-            />
+            <AdvancedOptions isEditMode={isEditMode} />
         </Form>
     );
 };

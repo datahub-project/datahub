@@ -1,4 +1,4 @@
-import { FacetFilterInput } from '@src/types.generated';
+import { FacetFilterInput, AggregationMetadata } from '@src/types.generated';
 import { CaretDownFilled } from '@ant-design/icons';
 import React from 'react';
 import styled, { CSSProperties } from 'styled-components';
@@ -22,6 +22,7 @@ interface Props {
     filterPredicate: FilterPredicate;
     onChangeValues: (newValues: FilterValue[]) => void;
     labelStyle?: CSSProperties;
+    filterOptions: AggregationMetadata[];
     manuallyUpdateFilters: (newValues: FacetFilterInput[]) => void;
 }
 
@@ -32,13 +33,14 @@ export default function SearchFilterView({
     filterPredicate,
     onChangeValues,
     labelStyle,
+    filterOptions,
     manuallyUpdateFilters,
 }: Props) {
     return (
         <ValueSelector
             field={filterPredicate?.field}
             values={filterPredicate?.values}
-            defaultOptions={filterPredicate?.defaultValueOptions}
+            defaultOptions={filterOptions}
             onChangeValues={onChangeValues}
             manuallyUpdateFilters={manuallyUpdateFilters}
         >

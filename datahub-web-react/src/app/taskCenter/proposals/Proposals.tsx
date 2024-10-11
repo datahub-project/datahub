@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 
 import { Tabs } from 'antd';
 import styled from 'styled-components';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { ActionRequestAssignee, AssigneeType, CorpGroup } from '../../../types.generated';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { ProposalGroupTab } from './ProposalGroupTab';
@@ -10,6 +11,21 @@ const StyledTabs = styled(Tabs)`
     &&& .ant-tabs-nav {
         margin-bottom: 0;
         padding-left: 28px;
+    }
+    &&& .ant-tabs-nav-list .ant-tabs-ink-bar {
+        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
+    &&& .ant-tabs-tab-active .ant-tabs-tab-btn {
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
+
+    &&& .ant-tabs-tab-active .ant-tabs-tab-btn,
+    &&& .ant-tabs-tab .ant-tabs-tab-btn {
+        padding: 0 20px;
+    }
+
+    &&& .ant-tabs-tab + .ant-tabs-tab {
+        margin: 0px;
     }
 `;
 

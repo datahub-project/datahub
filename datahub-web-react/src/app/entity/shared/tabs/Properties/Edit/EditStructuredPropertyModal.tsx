@@ -1,12 +1,13 @@
+import analytics, { EventType } from '@src/app/analytics';
 import { Button, Modal, message } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import { useUpsertStructuredPropertiesMutation } from '../../../../../../graphql/structuredProperties.generated';
-import { PropertyValueInput, StructuredPropertyEntity } from '../../../../../../types.generated';
+import { EntityType, PropertyValueInput, StructuredPropertyEntity } from '../../../../../../types.generated';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
 import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
 import { useEditStructuredProperty } from '../../../components/styled/StructuredProperty/useEditStructuredProperty';
-import { useEntityContext, useMutationUrn } from '../../../EntityContext';
+import { useEntityContext, useEntityData, useMutationUrn } from '../../../EntityContext';
 
 const Description = styled.div`
     font-size: 14px;
@@ -35,6 +36,7 @@ export default function EditStructuredPropertyModal({
 }: Props) {
     const { refetch: entityRefetch } = useEntityContext();
     const mutationUrn = useMutationUrn();
+    const { entityType } = useEntityData();
     const urn = associatedUrn || mutationUrn;
     const initialValues = useMemo(() => values || [], [values]);
     const { selectedValues, selectSingleValue, toggleSelectedValue, updateSelectedValues, setSelectedValues } =
@@ -47,6 +49,12 @@ export default function EditStructuredPropertyModal({
 
     function upsertProperties() {
         message.loading(isAddMode ? 'Adding...' : 'Updating...');
+        const propValues = selectedValues.map((value) => {
+            if (typeof value === 'string') {
+                return { stringValue: value as string };
+            }
+            return { numberValue: value as number };
+        }) as PropertyValueInput[];
         upsertStructuredProperties({
             variables: {
                 input: {
@@ -54,18 +62,23 @@ export default function EditStructuredPropertyModal({
                     structuredPropertyInputParams: [
                         {
                             structuredPropertyUrn: structuredProperty.urn,
-                            values: selectedValues.map((value) => {
-                                if (typeof value === 'string') {
-                                    return { stringValue: value as string };
-                                }
-                                return { numberValue: value as number };
-                            }) as PropertyValueInput[],
+                            values: propValues,
                         },
                     ],
                 },
             },
         })
             .then(() => {
+                analytics.event({
+                    type: isAddMode
+                        ? EventType.ApplyStructuredPropertyEvent
+                        : EventType.UpdateStructuredPropertyOnAssetEvent,
+                    propertyUrn: structuredProperty.urn,
+                    propertyType: structuredProperty.definition.valueType.urn,
+                    assetUrn: urn,
+                    assetType: associatedUrn?.includes('urn:li:schemaField') ? EntityType.SchemaField : entityType,
+                    values: propValues,
+                });
                 if (refetch) {
                     refetch();
                 } else {

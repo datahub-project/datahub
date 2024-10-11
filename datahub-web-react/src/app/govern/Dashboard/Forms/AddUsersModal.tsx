@@ -7,7 +7,7 @@ import { CorpGroup, CorpUser, Entity, EntityType } from '@src/types.generated';
 import { Form, Select } from 'antd';
 import React, { useContext, useState } from 'react';
 import ManageFormContext from './ManageFormContext';
-import { FieldLabel, FormFieldsContainer, ModalFooter, StyledModal } from './styledComponents';
+import { FieldLabel, FooterButtonsContainer, FormFieldsContainer, StyledModal } from './styledComponents';
 import UserOrGroupSelect from './UserOrGroupSelect';
 
 interface Props {
@@ -183,12 +183,12 @@ const AddUsersModal = ({ showUsersModal, setShowUsersModal }: Props) => {
             open={showUsersModal}
             onCancel={handleModalClose}
             footer={
-                <ModalFooter>
+                <FooterButtonsContainer>
                     <Button variant="text" onClick={handleModalClose}>
                         Cancel
                     </Button>
                     <Button onClick={handleAddUserOrGroup}>Add</Button>
-                </ModalFooter>
+                </FooterButtonsContainer>
             }
         >
             <Form form={form}>

@@ -9,6 +9,7 @@ import { Requests } from './requests/Requests';
 import { Proposals } from './proposals/Proposals';
 
 import { useIsThemeV2 } from '../useIsThemeV2';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 const PageContainer = styled.div<{ isV2: boolean }>`
     padding-top: 20px;
@@ -34,6 +35,21 @@ const StyledTabs = styled(Tabs)`
     &&& .ant-tabs-nav {
         margin-bottom: 0;
         padding-left: 28px;
+    }
+    &&& .ant-tabs-nav-list .ant-tabs-ink-bar {
+        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
+    &&& .ant-tabs-tab-active .ant-tabs-tab-btn {
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
+
+    &&& .ant-tabs-tab-active .ant-tabs-tab-btn,
+    &&& .ant-tabs-tab .ant-tabs-tab-btn {
+        padding: 0 20px;
+    }
+
+    &&& .ant-tabs-tab + .ant-tabs-tab {
+        margin: 0px;
     }
 `;
 

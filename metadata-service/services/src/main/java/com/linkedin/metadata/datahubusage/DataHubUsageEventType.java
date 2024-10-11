@@ -122,7 +122,15 @@ public enum DataHubUsageEventType {
   UNPUBLISH_FORM_EVENT("UnpublishFormEvent"),
   DELETE_FORM_EVENT("DeleteFormEvent"),
   CREATE_QUESTION_EVENT("CreateQuestionEvent"),
-  EDIT_QUESTION_EVENT("EditQuestionEvent");
+  EDIT_QUESTION_EVENT("EditQuestionEvent"),
+  CREATE_STRUCTURED_PROPERTY_CLICK_EVENT("CreateStructuredPropertyClickEvent"),
+  CREATE_STRUCTURED_PROPERTY_EVENT("CreateStructuredPropertyEvent"),
+  EDIT_STRUCTURED_PROPERTY_EVENT("EditStructuredPropertyEvent"),
+  DELETE_STRUCTURED_PROPERTY_EVENT("DeleteStructuredPropertyEvent"),
+  VIEW_STRUCTURED_PROPERTY_EVENT("ViewStructuredPropertyEvent"),
+  APPLY_STRUCTURED_PROPERTY_EVENT("ApplyStructuredPropertyEvent"),
+  UPDATE_STRUCTURED_PROPERTY_ON_ASSET_EVENT("UpdateStructuredPropertyOnAssetEvent"),
+  REMOVE_STRUCTURED_PROPERTY_EVENT("RemoveStructuredPropertyEvent");
 
   private final String type;
 

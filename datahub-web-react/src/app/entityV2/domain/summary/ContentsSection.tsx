@@ -40,7 +40,6 @@ export const ContentsSection = () => {
         variables: {
             urn,
         },
-        fetchPolicy: 'cache-first',
     });
 
     const contentsSummary = data?.aggregateAcrossEntities && getContentsSummary(data.aggregateAcrossEntities as any);

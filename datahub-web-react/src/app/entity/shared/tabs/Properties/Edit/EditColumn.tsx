@@ -1,13 +1,14 @@
 import { colors, Icon, Text } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
 import { MenuItem } from '@src/app/govern/structuredProperties/styledComponents';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import { useRemoveStructuredPropertiesMutation } from '@src/graphql/structuredProperties.generated';
-import { StructuredPropertyEntity } from '@src/types.generated';
+import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useEntityContext, useMutationUrn } from '../../../EntityContext';
+import { useEntityContext, useEntityData, useMutationUrn } from '../../../EntityContext';
 import EditStructuredPropertyModal from './EditStructuredPropertyModal';
 
 export const MoreOptionsContainer = styled.div`
@@ -38,6 +39,7 @@ interface Props {
 export function EditColumn({ structuredProperty, associatedUrn, values, refetch }: Props) {
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const { refetch: entityRefetch } = useEntityContext();
+    const { entityType } = useEntityData();
 
     const [removeStructuredProperty] = useRemoveStructuredPropertiesMutation();
 
@@ -59,6 +61,13 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch 
             },
         })
             .then(() => {
+                analytics.event({
+                    type: EventType.RemoveStructuredPropertyEvent,
+                    propertyUrn: structuredProperty.urn,
+                    propertyType: structuredProperty.definition.valueType.urn,
+                    assetUrn: associatedUrn || mutationUrn,
+                    assetType: associatedUrn?.includes('urn:li:schemaField') ? EntityType.SchemaField : entityType,
+                });
                 showToastMessage(ToastType.SUCCESS, 'Structured property removed successfully!', 3);
                 if (refetch) {
                     refetch();

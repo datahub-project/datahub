@@ -48,6 +48,7 @@ import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '../../../../onboarding/config/En
 import { useUpdateDomainEntityDataOnChange } from '../../../../domain/utils';
 import ProfileSidebar from './sidebar/ProfileSidebar';
 import SidebarFormInfoWrapper from './sidebar/FormInfo/SidebarFormInfoWrapper';
+import useEntityState from '../../useEntityState';
 
 type Props<T, U> = {
     urn: string;
@@ -166,6 +167,7 @@ export const EntityProfile = <T, U>({
     const entityRegistry = useEntityRegistry();
     const subscriptionsEnabled = useSubscriptionsEnabled();
     const documentationFormsEnabled = useIsDocumentationFormsEnabled();
+    const entityState = useEntityState();
     const history = useHistory();
     const appConfig = useAppConfig();
     const isCompact = React.useContext(CompactContext);
@@ -283,6 +285,7 @@ export const EntityProfile = <T, U>({
                     lineage,
                     shouldRefetchEmbeddedListSearch,
                     setShouldRefetchEmbeddedListSearch,
+                    entityState,
                 }}
             >
                 <>
@@ -326,6 +329,7 @@ export const EntityProfile = <T, U>({
                 lineage,
                 shouldRefetchEmbeddedListSearch,
                 setShouldRefetchEmbeddedListSearch,
+                entityState,
             }}
         >
             <>

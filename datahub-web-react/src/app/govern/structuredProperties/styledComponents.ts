@@ -1,5 +1,5 @@
 import { colors, Icon, typography } from '@src/alchemy-components';
-import { Collapse, Divider, Drawer, Input, Modal, Select, Spin, Typography } from 'antd';
+import { Checkbox, Collapse, Divider, Drawer, Form, Input, Modal, Select, Spin, Typography } from 'antd';
 import styled from 'styled-components';
 
 export const PageContainer = styled.div`
@@ -96,44 +96,45 @@ export const MenuItem = styled.div`
     font-family: ${typography.fonts.body};
 `;
 
-export const StyledSearch = styled(Input.Search)`
+export const StyledSearch = styled(Input)`
     height: 40px;
     width: 272px;
+    display: flex;
+    align-items: center;
+    border-radius: 8px;
 
-    .ant-input-wrapper {
-        .ant-input-affix-wrapper {
-            height: 40px;
-            border-color: ${colors.gray[1400]};
-            box-shadow: none;
-            border-right: none;
+    input {
+        color: ${colors.gray[600]};
+        font-size: 14px !important;
+    }
 
-            &:hover,
-            &:focus {
-                border-color: ${colors.gray[1400]};
-            }
+    .ant-input-prefix {
+        width: 20px;
+        color: ${colors.gray[1700]};
 
-            input {
-                color: ${colors.gray[600]};
-            }
+        svg {
+            height: 16px;
+            width: 16px;
         }
+    }
 
-        button {
-            height: 40px;
-            width: 40px;
-            border-color: ${colors.gray[1400]};
-            border-left: none;
-            box-shadow: none;
-
-            &:hover {
-                border-color: ${colors.gray[1400]};
-            }
-        }
+    &:hover,
+    &:focus,
+    &:focus-within {
+        border-color: ${colors.violet[300]} !important;
+        box-shadow: none !important;
     }
 `;
 
 export const DrawerHeader = styled.div`
     display: flex;
     justify-content: space-between;
+`;
+
+export const TitleContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
 `;
 
 export const StyledIcon = styled(Icon)`
@@ -150,6 +151,38 @@ export const RowContainer = styled.div`
     display: grid;
     grid-template-columns: 180px 1fr;
     align-items: center;
+`;
+
+export const CheckboxWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+    color: #374066;
+    p {
+        color: #374066;
+        font-weight: 500;
+    }
+`;
+
+export const StyledCheckbox = styled(Checkbox)`
+    .ant-checkbox-checked .ant-checkbox-inner {
+        background-color: ${colors.violet[500]};
+        border-color: ${colors.violet[500]} !important;
+    },
+`;
+
+export const StyledText = styled.div`
+    display: inline-flex;
+    margin-left: -4px;
+`;
+
+export const StyledFormItem = styled(Form.Item)`
+    margin: 0;
+`;
+
+export const GridFormItem = styled(Form.Item)`
+    display: grid;
 `;
 
 export const FieldLabel = styled.div`
@@ -175,6 +208,10 @@ export const FlexContainer = styled.div`
 
 export const StyledDrawer = styled(Drawer)`
     .ant-drawer-body {
+        padding: 16px;
+    }
+
+    .ant-drawer-header {
         padding: 16px;
     }
 `;
@@ -214,6 +251,10 @@ export const CreatedByContainer = styled.div`
     padding: 3px 6px;
     border-radius: 20px;
     border: 1px solid ${colors.gray[1400]};
+
+    :hover {
+        cursor: pointer;
+    }
 `;
 
 export const SubTextContainer = styled.div`
@@ -228,12 +269,23 @@ export const SubTextContainer = styled.div`
 
 export const ValueListContainer = styled.div`
     margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    color: ${colors.gray[500]};
 
     svg {
         :hover {
             cursor: pointer;
         }
     }
+`;
+
+export const ValueType = styled.div`
+    background-color: ${colors.gray[100]};
+    border-radius: 4px;
+    padding: 2px 4px;
 `;
 
 export const StyledModal = styled(Modal)`
@@ -271,8 +323,8 @@ export const DeleteIconContainer = styled.div`
     }
 `;
 
-export const ValuesContainer = styled.div`
-    max-height: 400px;
+export const ValuesContainer = styled.div<{ height: number }>`
+    max-height: ${(props) => `calc(${props.height}px - 200px)`};
     overflow: auto;
     padding: 20px;
 `;
@@ -300,7 +352,7 @@ export const ItemsContainer = styled.div`
 
 export const AddButtonContainer = styled.div`
     display: flex;
-    margin: 20px;
+    margin: 10px 20px 0 0;
     justify-self: end;
 `;
 
@@ -326,10 +378,12 @@ export const StyledSelect = styled(Select)`
     .ant-select-selector {
         height: 50px !important;
         border-radius: 8px !important;
+        outline: 2px solid transparent !important;
 
         &:hover,
         &:focus-within {
-            border: 3px solid ${colors.violet[200]} !important;
+            border: 1px solid ${colors.violet[200]} !important;
+            outline: 2px solid ${colors.violet[200]} !important;
             box-shadow: none !important;
         }
     }
@@ -369,4 +423,19 @@ export const SelectOptionContainer = styled.div`
 export const StyledDivider = styled(Divider)`
     color: ${colors.gray[1400]};
     margin: 16px 0;
+`;
+
+export const EmptyContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    gap: 16px;
+
+    svg {
+        width: 160px;
+        height: 160px;
+    }
 `;

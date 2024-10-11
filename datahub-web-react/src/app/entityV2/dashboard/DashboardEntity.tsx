@@ -51,6 +51,7 @@ import { DashboardPreview } from './preview/DashboardPreview';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
 import DashboardSummaryTab from './summary/DashboardSummaryTab';
 import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
@@ -187,9 +188,9 @@ export class DashboardEntity implements Entity<Dashboard> {
                     name: 'Incidents',
                     icon: WarningOutlined,
                     component: IncidentTab,
-                    getDynamicName: (_, dashboard) => {
+                    getDynamicName: (_, dashboard, loading) => {
                         const activeIncidentCount = dashboard?.dashboard?.activeIncidents.total;
-                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
                     },
                 },
             ]}

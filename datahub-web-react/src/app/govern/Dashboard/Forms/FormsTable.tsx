@@ -1,8 +1,8 @@
-import { useUserContext } from '@src/app/context/useUserContext';
 import { NetworkStatus } from '@apollo/client';
 import { colors, Icon, Pill, Table, Text, typography } from '@components';
 import { AlignmentOptions, ColorOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
+import { useUserContext } from '@src/app/context/useUserContext';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { CustomAvatar } from '@src/app/shared/avatar';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
@@ -17,6 +17,7 @@ import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generat
 import { Entity, EntityType, FormState } from '@src/types.generated';
 import { Dropdown, Tooltip, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
+import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -71,6 +72,10 @@ export const EditedByContainer = styled.div`
     padding: 3px 6px;
     border-radius: 20px;
     border: 1px solid ${colors.gray[1400]};
+
+    :hover {
+        cursor: pointer;
+    }
 `;
 
 interface Props {
@@ -141,8 +146,8 @@ const FormsTable = ({ searchQuery }: Props) => {
         refetch();
     }, [refetch]);
 
-    if (!isLoading && !formsData.length) {
-        return <EmptyForms />;
+    if (!isLoading && !filteredForms.length) {
+        return <EmptyForms isEmptySearch={!!formsData.length} />;
     }
 
     const handleDeleteForm = (formData) => {
@@ -215,7 +220,9 @@ const FormsTable = ({ searchQuery }: Props) => {
                 return (
                     <CellContainer>
                         <Link to={`/govern/dashboard/edit-form/${record.entity.urn}`}>
-                            <FormName>{record.entity.formInfo.name}</FormName>
+                            <FormName>
+                                <Highlight search={searchQuery}>{record.entity.formInfo.name}</Highlight>
+                            </FormName>
                         </Link>
                         <FormDescription> {record.entity.formInfo.description}</FormDescription>
                     </CellContainer>
@@ -290,10 +297,19 @@ const FormsTable = ({ searchQuery }: Props) => {
                     <>
                         {lastEditedByUser && (
                             <HoverEntityTooltip entity={lastEditedByUser as Entity} showArrow={false}>
-                                <EditedByContainer>
-                                    <CustomAvatar size={20} name={name} photoUrl={avatarUrl} />
-                                    <Text size="sm">{name}</Text>
-                                </EditedByContainer>
+                                <Link
+                                    to={`${entityRegistry.getEntityUrl(
+                                        EntityType.CorpUser,
+                                        (lastEditedByUser as Entity).urn,
+                                    )}`}
+                                >
+                                    <EditedByContainer>
+                                        <CustomAvatar size={20} name={name} photoUrl={avatarUrl} hideTooltip />
+                                        <Text color="gray" size="sm">
+                                            {name}
+                                        </Text>
+                                    </EditedByContainer>
+                                </Link>
                             </HoverEntityTooltip>
                         )}
                     </>
