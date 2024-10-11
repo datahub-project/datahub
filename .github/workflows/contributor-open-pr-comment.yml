@@ -1,4 +1,4 @@
-name: PR Merge Comment
+name: PR Comment
 
 on:
   pull_request:
