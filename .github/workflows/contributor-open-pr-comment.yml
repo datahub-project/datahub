@@ -3,6 +3,7 @@ name: PR Comment
 on:
   pull_request:
     types: [opened]
+  push:
 
 jobs:
   post-pr-opened-comment:
