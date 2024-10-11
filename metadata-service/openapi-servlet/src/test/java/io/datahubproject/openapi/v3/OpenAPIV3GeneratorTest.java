@@ -61,12 +61,12 @@ public class OpenAPIV3GeneratorTest {
     assertFalse(requiredNames.contains("name"));
     assertTrue(name.getNullable());
 
-    // Assert non-required $ref properties are replaced by nullable { allOf: [ $ref ] } objects
+    // Assert non-required $ref properties are replaced by nullable { anyOf: [ $ref ] } objects
     Schema created = properties.get("created");
     assertFalse(requiredNames.contains("created"));
     assertEquals("object", created.getType());
     assertNull(created.get$ref());
-    assertEquals(List.of(new Schema().$ref("#/components/schemas/TimeStamp")), created.getAllOf());
+    assertEquals(List.of(new Schema().$ref("#/components/schemas/TimeStamp")), created.getAnyOf());
     assertTrue(created.getNullable());
 
     // Assert systemMetadata property on response schema is optional.
@@ -81,12 +81,25 @@ public class OpenAPIV3GeneratorTest {
     assertNull(systemMetadata.get$ref());
     assertEquals(
         List.of(new Schema().$ref("#/components/schemas/SystemMetadata")),
-        systemMetadata.getAllOf());
+        systemMetadata.getAnyOf());
     assertTrue(systemMetadata.getNullable());
 
     // Assert enum property is string.
     Schema fabricType = openAPI.getComponents().getSchemas().get("FabricType");
     assertEquals("string", fabricType.getType());
     assertFalse(fabricType.getEnum().isEmpty());
+
+    Map<String, Schema> batchProperties =
+        openAPI
+            .getComponents()
+            .getSchemas()
+            .get("BatchGetContainerEntityRequest_v3")
+            .getProperties();
+    batchProperties.entrySet().stream()
+        .filter(entry -> !entry.getKey().equals("urn"))
+        .forEach(
+            entry ->
+                assertEquals(
+                    "#/components/schemas/BatchGetRequestBody", entry.getValue().get$ref()));
   }
 }

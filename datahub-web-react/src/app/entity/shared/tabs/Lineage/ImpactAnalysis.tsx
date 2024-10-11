@@ -27,7 +27,7 @@ export const ImpactAnalysis = ({
     setSkipCache,
     resetShouldRefetch,
     onLineageClick,
-    isLineageTab
+    isLineageTab,
 }: Props) => {
     const finalStartTimeMillis = startTimeMillis || undefined;
     const finalEndTimeMillis = endTimeMillis || undefined;

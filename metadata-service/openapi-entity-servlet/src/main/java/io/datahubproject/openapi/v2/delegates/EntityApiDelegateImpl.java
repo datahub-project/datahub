@@ -59,7 +59,9 @@ import io.datahubproject.openapi.generated.StatusAspectRequestV2;
 import io.datahubproject.openapi.generated.StatusAspectResponseV2;
 import io.datahubproject.openapi.util.OpenApiEntitiesUtil;
 import io.datahubproject.openapi.v1.entities.EntitiesController;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -69,12 +71,16 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 @Slf4j
+@Accessors(chain = true)
 public class EntityApiDelegateImpl<I, O, S> {
   private final OperationContext systemOperationContext;
   private final EntityRegistry _entityRegistry;
@@ -85,6 +91,7 @@ public class EntityApiDelegateImpl<I, O, S> {
   private final Class<I> _reqClazz;
   private final Class<O> _respClazz;
   private final Class<S> _scrollRespClazz;
+  @Setter @Getter private HttpServletRequest request;
 
   private static final String BUSINESS_ATTRIBUTE_ERROR_MESSAGE =
       "business attribute is disabled, enable it using featureflag : BUSINESS_ATTRIBUTE_ENTITY_ENABLED";
@@ -92,6 +99,7 @@ public class EntityApiDelegateImpl<I, O, S> {
 
   public EntityApiDelegateImpl(
       OperationContext systemOperationContext,
+      HttpServletRequest request,
       EntityService<?> entityService,
       SearchService searchService,
       EntitiesController entitiesController,
@@ -100,6 +108,7 @@ public class EntityApiDelegateImpl<I, O, S> {
       Class<O> respClazz,
       Class<S> scrollRespClazz) {
     this.systemOperationContext = systemOperationContext;
+    this.request = request;
     this._entityService = entityService;
     this._searchService = searchService;
     this._entityRegistry = systemOperationContext.getEntityRegistry();
@@ -119,7 +128,7 @@ public class EntityApiDelegateImpl<I, O, S> {
             .map(asp -> asp.stream().distinct().toArray(String[]::new))
             .orElse(null);
     ResponseEntity<UrnResponseMap> result =
-        _v1Controller.getEntities(new String[] {urn}, requestedAspects);
+        _v1Controller.getEntities(request, new String[] {urn}, requestedAspects);
     return ResponseEntity.of(
         OpenApiEntitiesUtil.convertEntity(
             Optional.ofNullable(result).map(HttpEntity::getBody).orElse(null),
@@ -146,7 +155,7 @@ public class EntityApiDelegateImpl<I, O, S> {
         throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
       }
     }
-    _v1Controller.postEntities(aspects, false, createIfNotExists, createEntityIfNotExists);
+    _v1Controller.postEntities(request, aspects, false, createIfNotExists, createEntityIfNotExists);
     List<O> responses =
         body.stream()
             .map(req -> OpenApiEntitiesUtil.convertToResponse(req, _respClazz, _entityRegistry))
@@ -158,7 +167,7 @@ public class EntityApiDelegateImpl<I, O, S> {
     if (checkBusinessAttributeFlagFromUrn(urn)) {
       throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
     }
-    _v1Controller.deleteEntities(new String[] {urn}, false, false);
+    _v1Controller.deleteEntities(request, new String[] {urn}, false, false);
     return new ResponseEntity<>(HttpStatus.OK);
   }
 
@@ -169,18 +178,20 @@ public class EntityApiDelegateImpl<I, O, S> {
     try {
       Urn entityUrn = Urn.createFromString(urn);
       final Authentication auth = AuthenticationContext.getAuthentication();
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(
-          auth, _authorizationChain, EXISTS, List.of(entityUrn))) {
-        throw new UnauthorizedException(
-            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
-      }
       OperationContext opContext =
           OperationContext.asSession(
               systemOperationContext,
-              RequestContext.builder().buildOpenapi("head", entityUrn.getEntityType()),
+              RequestContext.builder()
+                  .buildOpenapi(
+                      auth.getActor().toUrnStr(), request, "head", entityUrn.getEntityType()),
               _authorizationChain,
               auth,
               true);
+
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(entityUrn))) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
+      }
 
       if (_entityService.exists(opContext, entityUrn, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
@@ -200,7 +211,7 @@ public class EntityApiDelegateImpl<I, O, S> {
       Class<A> aspectRespClazz) {
     String[] requestedAspects = new String[] {aspect};
     ResponseEntity<UrnResponseMap> result =
-        _v1Controller.getEntities(new String[] {urn}, requestedAspects);
+        _v1Controller.getEntities(request, new String[] {urn}, requestedAspects);
     return ResponseEntity.of(
         OpenApiEntitiesUtil.convertAspect(
             result.getBody(), aspect, entityRespClass, aspectRespClazz, systemMetadata));
@@ -217,6 +228,7 @@ public class EntityApiDelegateImpl<I, O, S> {
     UpsertAspectRequest aspectUpsert =
         OpenApiEntitiesUtil.convertAspectToUpsert(urn, body, reqClazz);
     _v1Controller.postEntities(
+        request,
         Stream.of(aspectUpsert).filter(Objects::nonNull).collect(Collectors.toList()),
         false,
         createIfNotExists,
@@ -230,18 +242,20 @@ public class EntityApiDelegateImpl<I, O, S> {
       Urn entityUrn = Urn.createFromString(urn);
 
       final Authentication auth = AuthenticationContext.getAuthentication();
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(
-          auth, _authorizationChain, EXISTS, List.of(entityUrn))) {
-        throw new UnauthorizedException(
-            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
-      }
       OperationContext opContext =
           OperationContext.asSession(
               systemOperationContext,
-              RequestContext.builder().buildOpenapi("headAspect", entityUrn.getEntityType()),
+              RequestContext.builder()
+                  .buildOpenapi(
+                      auth.getActor().toUrnStr(), request, "headAspect", entityUrn.getEntityType()),
               _authorizationChain,
               auth,
               true);
+
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(entityUrn))) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
+      }
 
       if (_entityService.exists(opContext, entityUrn, aspect, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
@@ -259,12 +273,14 @@ public class EntityApiDelegateImpl<I, O, S> {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("deleteAspect", entityUrn.getEntityType()),
+            RequestContext.builder()
+                .buildOpenapi(
+                    auth.getActor().toUrnStr(), request, "deleteAspect", entityUrn.getEntityType()),
             _authorizationChain,
             auth,
             true);
     _entityService.deleteAspect(opContext, urn, aspect, Map.of(), false);
-    _v1Controller.deleteEntities(new String[] {urn}, false, false);
+    _v1Controller.deleteEntities(request, new String[] {urn}, false, false);
     return new ResponseEntity<>(HttpStatus.OK);
   }
 
@@ -596,27 +612,33 @@ public class EntityApiDelegateImpl<I, O, S> {
         OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-
-    if (!AuthUtil.isAPIAuthorizedEntityType(
-        authentication, _authorizationChain, READ, entitySpec.getName())) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to search entities.");
-    }
-
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("scroll", entitySpec.getName()),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "scroll", entitySpec.getName()),
             _authorizationChain,
             authentication,
             true);
 
-    // TODO multi-field sort
-    SortCriterion sortCriterion = new SortCriterion();
-    sortCriterion.setField(Optional.ofNullable(sort).map(s -> s.get(0)).orElse("urn"));
-    sortCriterion.setOrder(
-        com.linkedin.metadata.query.filter.SortOrder.valueOf(
-            Optional.ofNullable(sortOrder).map(Enum::name).orElse("ASCENDING")));
+    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, READ, entitySpec.getName())) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to search entities.");
+    }
+
+    List<SortCriterion> sortCriteria =
+        Optional.ofNullable(sort).orElse(Collections.singletonList("urn")).stream()
+            .map(
+                sortField -> {
+                  SortCriterion sortCriterion = new SortCriterion();
+                  sortCriterion.setField(sortField);
+                  sortCriterion.setOrder(
+                      com.linkedin.metadata.query.filter.SortOrder.valueOf(
+                          Optional.ofNullable(sortOrder).map(Enum::name).orElse("ASCENDING")));
+                  return sortCriterion;
+                })
+            .collect(Collectors.toList());
 
     ScrollResult result =
         _searchService.scrollAcrossEntities(
@@ -624,12 +646,12 @@ public class EntityApiDelegateImpl<I, O, S> {
             List.of(entitySpec.getName()),
             query,
             null,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             null,
             count);
 
-    if (!AuthUtil.isAPIAuthorizedResult(authentication, _authorizationChain, result)) {
+    if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
@@ -644,7 +666,7 @@ public class EntityApiDelegateImpl<I, O, S> {
             .map(asp -> asp.stream().distinct().toArray(String[]::new))
             .orElse(null);
     List<O> entities =
-        Optional.ofNullable(_v1Controller.getEntities(urns, requestedAspects).getBody())
+        Optional.ofNullable(_v1Controller.getEntities(request, urns, requestedAspects).getBody())
             .map(body -> body.getResponses().entrySet())
             .map(
                 entries -> OpenApiEntitiesUtil.convertEntities(entries, _respClazz, systemMetadata))

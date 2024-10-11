@@ -3,7 +3,6 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -78,7 +77,7 @@ public class RollbackService {
     }
 
     List<AspectRowSummary> aspectRowsToDelete = rollbackTargetAspects(runId, hardDelete);
-    if (!isAuthorized(authorizer, aspectRowsToDelete, opContext.getSessionAuthentication())) {
+    if (!isAuthorized(opContext, aspectRowsToDelete)) {
       throw new AuthenticationException("User is NOT unauthorized to delete entities.");
     }
 
@@ -173,7 +172,7 @@ public class RollbackService {
     // Rollback timeseries aspects
     DeleteAspectValuesResult timeseriesRollbackResult =
         timeseriesAspectService.rollbackTimeseriesAspects(opContext, runId);
-    rowsDeletedFromEntityDeletion += timeseriesRollbackResult.getNumDocsDeleted();
+    rowsDeletedFromEntityDeletion += timeseriesRollbackResult.getNumDocsDeleted().intValue();
 
     log.info("finished deleting {} rows", deletedRows.size());
     int aspectsReverted = deletedRows.size() + rowsDeletedFromEntityDeletion;
@@ -287,13 +286,10 @@ public class RollbackService {
   }
 
   private boolean isAuthorized(
-      final Authorizer authorizer,
-      @Nonnull List<AspectRowSummary> rowSummaries,
-      @Nonnull Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull List<AspectRowSummary> rowSummaries) {
 
     return AuthUtil.isAPIAuthorizedEntityUrns(
-        authentication,
-        authorizer,
+        opContext,
         DELETE,
         rowSummaries.stream()
             .map(AspectRowSummary::getUrn)

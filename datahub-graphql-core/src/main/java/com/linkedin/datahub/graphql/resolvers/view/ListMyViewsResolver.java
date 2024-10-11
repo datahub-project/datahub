@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.ListMyViewsInput;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -74,8 +75,11 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
                     context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     Constants.DATAHUB_VIEW_ENTITY_NAME,
                     query,
-                    buildFilters(viewType, context.getActorUrn()),
-                    DEFAULT_SORT_CRITERION,
+                    buildFilters(
+                        viewType,
+                        context.getActorUrn(),
+                        context.getOperationContext().getAspectRetriever()),
+                    Collections.singletonList(DEFAULT_SORT_CRITERION),
                     start,
                     count);
 
@@ -110,7 +114,10 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
     return results;
   }
 
-  private Filter buildFilters(@Nullable final String viewType, final String creatorUrn) {
+  private Filter buildFilters(
+      @Nullable final String viewType,
+      final String creatorUrn,
+      @Nullable AspectRetriever aspectRetriever) {
     // And GLOBAL views for the authenticated actor.
     final AndFilterInput filterCriteria = new AndFilterInput();
     final List<FacetFilterInput> andConditions = new ArrayList<>();

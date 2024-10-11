@@ -12,10 +12,13 @@ import {
     PolicyUpdateInput,
     ResourceFilterInput,
 } from '../../../types.generated';
-import { useCreatePolicyMutation, useDeletePolicyMutation, useUpdatePolicyMutation } from '../../../graphql/policy.generated';
+import {
+    useCreatePolicyMutation,
+    useDeletePolicyMutation,
+    useUpdatePolicyMutation,
+} from '../../../graphql/policy.generated';
 import analytics, { EventType } from '../../analytics';
 import { DEFAULT_PAGE_SIZE, removeFromListPoliciesCache, updateListPoliciesCache } from './policyUtils';
-
 
 type PrivilegeOptionType = {
     type?: string;
@@ -23,14 +26,13 @@ type PrivilegeOptionType = {
 };
 
 export function usePolicy(
-    policiesConfig, 
-    focusPolicyUrn, 
-    policiesRefetch, 
-    setShowViewPolicyModal, 
-    onCancelViewPolicy, 
-    onClosePolicyBuilder
-){
-
+    policiesConfig,
+    focusPolicyUrn,
+    policiesRefetch,
+    setShowViewPolicyModal,
+    onCancelViewPolicy,
+    onClosePolicyBuilder,
+) {
     const client = useApolloClient();
 
     // Construct privileges
@@ -44,22 +46,24 @@ export function usePolicy(
 
     const [deletePolicy, { error: deletePolicyError }] = useDeletePolicyMutation();
 
-    const toFilterInput = (filter: PolicyMatchFilter,state?:string | undefined): PolicyMatchFilterInput => {
-        console.log({state})
+    const toFilterInput = (filter: PolicyMatchFilter, state?: string | undefined): PolicyMatchFilterInput => {
+        console.log({ state });
         return {
             criteria: filter.criteria?.map((criterion): PolicyMatchCriterionInput => {
                 return {
                     field: criterion.field,
                     values: criterion.values.map((criterionValue) =>
-                    criterion.field === 'TAG' && state !=='TOGGLE' ? (criterionValue as any) : criterionValue.value,
-                ),
+                        criterion.field === 'TAG' && state !== 'TOGGLE'
+                            ? (criterionValue as any)
+                            : criterionValue.value,
+                    ),
                     condition: criterion.condition,
                 };
             }),
         };
     };
 
-    const toPolicyInput = (policy: Omit<Policy, 'urn'>,state?:string | undefined): PolicyUpdateInput => {
+    const toPolicyInput = (policy: Omit<Policy, 'urn'>, state?: string | undefined): PolicyUpdateInput => {
         let policyInput: PolicyUpdateInput = {
             type: policy.type,
             name: policy.name,
@@ -82,7 +86,7 @@ export function usePolicy(
                 allResources: policy.resources.allResources,
             };
             if (policy.resources.filter) {
-                resourceFilter = { ...resourceFilter, filter: toFilterInput(policy.resources.filter,state) };
+                resourceFilter = { ...resourceFilter, filter: toFilterInput(policy.resources.filter, state) };
             }
             // Add the resource filters.
             policyInput = {
@@ -97,22 +101,22 @@ export function usePolicy(
         let privileges: PrivilegeOptionType[] = [];
         if (policy?.type === PolicyType.Platform) {
             privileges = platformPrivileges
-            .filter((platformPrivilege) => policy.privileges.includes(platformPrivilege.type))
-            .map((platformPrivilege) => {
-                return { type: platformPrivilege.type, name: platformPrivilege.displayName };
+                .filter((platformPrivilege) => policy.privileges.includes(platformPrivilege.type))
+                .map((platformPrivilege) => {
+                    return { type: platformPrivilege.type, name: platformPrivilege.displayName };
                 });
         } else {
             const allResourcePriviliges = resourcePrivileges.find(
                 (resourcePrivilege) => resourcePrivilege.resourceType === 'all',
-                );
-                privileges =
+            );
+            privileges =
                 allResourcePriviliges?.privileges
-                .filter((resourcePrivilege) => policy.privileges.includes(resourcePrivilege.type))
-                .map((b) => {
-                    return { type: b.type, name: b.displayName };
-                }) || [];
-            }
-            return privileges;
+                    .filter((resourcePrivilege) => policy.privileges.includes(resourcePrivilege.type))
+                    .map((b) => {
+                        return { type: b.type, name: b.displayName };
+                    }) || [];
+        }
+        return privileges;
     };
 
     // On Delete Policy handler
@@ -121,8 +125,7 @@ export function usePolicy(
             title: `Delete ${policy?.name}`,
             content: `Are you sure you want to remove policy?`,
             onOk() {
-                deletePolicy({ variables: { urn: policy?.urn as string } })
-                .then(()=>{
+                deletePolicy({ variables: { urn: policy?.urn as string } }).then(() => {
                     // There must be a focus policy urn.
                     analytics.event({
                         type: EventType.DeleteEntityEvent,
@@ -130,12 +133,12 @@ export function usePolicy(
                         entityType: EntityType.DatahubPolicy,
                     });
                     message.success('Successfully removed policy.');
-                    removeFromListPoliciesCache(client,policy?.urn, DEFAULT_PAGE_SIZE);
+                    removeFromListPoliciesCache(client, policy?.urn, DEFAULT_PAGE_SIZE);
                     setTimeout(() => {
                         policiesRefetch();
                     }, 3000);
                     onCancelViewPolicy();
-                })
+                });
             },
             onCancel() {},
             okText: 'Yes',
@@ -154,20 +157,20 @@ export function usePolicy(
         updatePolicy({
             variables: {
                 urn: policy?.urn as string, // There must be a focus policy urn.
-                input: toPolicyInput(newPolicy,'TOGGLE'),
+                input: toPolicyInput(newPolicy, 'TOGGLE'),
             },
-        }).then(()=>{
-            const updatePolicies= {
+        }).then(() => {
+            const updatePolicies = {
                 ...newPolicy,
                 __typename: 'ListPoliciesResult',
-            }
-            updateListPoliciesCache(client,updatePolicies,DEFAULT_PAGE_SIZE);
+            };
+            updateListPoliciesCache(client, updatePolicies, DEFAULT_PAGE_SIZE);
             message.success(`Successfully ${newState === PolicyState.Active ? 'activated' : 'deactivated'} policy.`);
             setTimeout(() => {
                 policiesRefetch();
             }, 3000);
-        })
-        
+        });
+
         setShowViewPolicyModal(false);
     };
 
@@ -175,8 +178,7 @@ export function usePolicy(
     const onSavePolicy = (savePolicy: Omit<Policy, 'urn'>) => {
         if (focusPolicyUrn) {
             // If there's an URN associated with the focused policy, then we are editing an existing policy.
-            updatePolicy({ variables: { urn: focusPolicyUrn, input: toPolicyInput(savePolicy) } })
-            .then(()=>{
+            updatePolicy({ variables: { urn: focusPolicyUrn, input: toPolicyInput(savePolicy) } }).then(() => {
                 const newPolicy = {
                     __typename: 'ListPoliciesResult',
                     urn: focusPolicyUrn,
@@ -188,16 +190,15 @@ export function usePolicy(
                     policyUrn: focusPolicyUrn,
                 });
                 message.success('Successfully saved policy.');
-                updateListPoliciesCache(client,newPolicy,DEFAULT_PAGE_SIZE);
+                updateListPoliciesCache(client, newPolicy, DEFAULT_PAGE_SIZE);
                 setTimeout(() => {
                     policiesRefetch();
                 }, 1000);
                 onClosePolicyBuilder();
-            })
+            });
         } else {
             // If there's no URN associated with the focused policy, then we are creating.
-            createPolicy({ variables: { input: toPolicyInput(savePolicy) } })
-            .then((result)=>{
+            createPolicy({ variables: { input: toPolicyInput(savePolicy) } }).then((result) => {
                 const newPolicy = {
                     __typename: 'ListPoliciesResult',
                     urn: result?.data?.createPolicy,
@@ -213,13 +214,13 @@ export function usePolicy(
                 setTimeout(() => {
                     policiesRefetch();
                 }, 1000);
-                updateListPoliciesCache(client,newPolicy,DEFAULT_PAGE_SIZE);
+                updateListPoliciesCache(client, newPolicy, DEFAULT_PAGE_SIZE);
                 onClosePolicyBuilder();
-            })
+            });
         }
     };
 
-    return{
+    return {
         createPolicyError,
         updatePolicyError,
         deletePolicyError,
@@ -227,5 +228,5 @@ export function usePolicy(
         onToggleActiveDuplicate,
         onRemovePolicy,
         getPrivilegeNames,
-    }
+    };
 }

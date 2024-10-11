@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.container;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
@@ -43,10 +44,7 @@ public class ContainerEntitiesResolverTest {
     final String containerUrn = "urn:li:container:test-container";
 
     final Criterion filterCriterion =
-        new Criterion()
-            .setField("container.keyword")
-            .setCondition(Condition.EQUAL)
-            .setValue(containerUrn);
+        buildCriterion("container.keyword", Condition.EQUAL, containerUrn);
 
     Mockito.when(
             mockClient.searchAcrossEntities(
@@ -62,7 +60,7 @@ public class ContainerEntitiesResolverTest {
                                         new CriterionArray(ImmutableList.of(filterCriterion)))))),
                 Mockito.eq(0),
                 Mockito.eq(20),
-                Mockito.eq(null),
+                Mockito.eq(Collections.emptyList()),
                 Mockito.eq(null)))
         .thenReturn(
             new SearchResult()

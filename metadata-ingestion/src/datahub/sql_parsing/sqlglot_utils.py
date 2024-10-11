@@ -66,7 +66,7 @@ def _parse_statement(
     sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
 ) -> sqlglot.Expression:
     statement: sqlglot.Expression = sqlglot.maybe_parse(
-        sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
+        sql, dialect=dialect, error_level=sqlglot.ErrorLevel.IMMEDIATE
     )
     return statement
 
@@ -346,6 +346,9 @@ def detach_ctes(
 
     dialect = get_dialect(platform)
     statement = parse_statement(sql, dialect=dialect)
+
+    if not cte_mapping:
+        return statement
 
     def replace_cte_refs(node: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
         if (

@@ -1,5 +1,7 @@
 query getDataProduct($urn: String!) {
     dataProduct(urn: $urn) {
+        urn
+        type
         ...dataProductFields
         privileges {
             ...entityPrivileges

@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "database": "postgres"
             },
-            "name": "postgres"
+            "name": "postgres",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -99,7 +100,8 @@
                 "database": "postgres",
                 "schema": "public"
             },
-            "name": "public"
+            "name": "public",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -207,7 +209,8 @@
                 "env": "PROD",
                 "database": "postgrestest"
             },
-            "name": "postgrestest"
+            "name": "postgrestest",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -295,7 +298,8 @@
                 "database": "postgrestest",
                 "schema": "public"
             },
-            "name": "public"
+            "name": "public",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -452,7 +456,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=500)",
+                                "nativeDataType": "VARCHAR(500)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -464,7 +468,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=200)",
+                                "nativeDataType": "VARCHAR(200)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -476,7 +480,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "BIGINT()",
+                                "nativeDataType": "BIGINT",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -488,7 +492,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "TEXT()",
+                                "nativeDataType": "TEXT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -500,7 +504,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "TEXT()",
+                                "nativeDataType": "TEXT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -512,7 +516,7 @@
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
-                                "nativeDataType": "TIMESTAMP()",
+                                "nativeDataType": "TIMESTAMP WITHOUT TIME ZONE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -524,7 +528,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=255)",
+                                "nativeDataType": "VARCHAR(255)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -536,7 +540,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=255)",
+                                "nativeDataType": "VARCHAR(255)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -548,7 +552,7 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "JSON(astext_type=Text())",
+                                "nativeDataType": "JSON",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -671,7 +675,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=500)",
+                                "nativeDataType": "VARCHAR(500)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -683,7 +687,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=200)",
+                                "nativeDataType": "VARCHAR(200)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -769,8 +773,8 @@
         "json": {
             "timestampMillis": 1646575200000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 2,
             "columnCount": 9,
@@ -832,7 +836,8 @@
                 {
                     "fieldPath": "metadata_json"
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {

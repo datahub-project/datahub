@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -68,17 +70,14 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
 
             final CriterionArray criteria = new CriterionArray();
             final Criterion filterCriterion =
-                new Criterion()
-                    .setField(DOMAINS_FIELD_NAME + ".keyword")
-                    .setCondition(Condition.EQUAL)
-                    .setValue(urn);
+                buildCriterion(DOMAINS_FIELD_NAME + ".keyword", Condition.EQUAL, urn);
             criteria.add(filterCriterion);
             if (input.getFilters() != null) {
               input
                   .getFilters()
                   .forEach(
                       filter -> {
-                        criteria.add(criterionFromFilter(filter, true));
+                        criteria.add(criterionFromFilter(filter));
                       });
             }
 
@@ -96,7 +95,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                                 new ConjunctiveCriterion().setAnd(criteria))),
                     start,
                     count,
-                    null,
+                    Collections.emptyList(),
                     null));
 
           } catch (Exception e) {

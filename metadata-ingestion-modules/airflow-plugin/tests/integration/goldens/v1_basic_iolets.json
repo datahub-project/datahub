@@ -18,7 +18,19 @@
                 "timezone": "Timezone('UTC')"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=basic_iolets",
-            "name": "basic_iolets"
+            "name": "basic_iolets",
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,basic_iolets,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -81,7 +93,19 @@
             "name": "run_data_task",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -219,34 +243,6 @@
     "aspect": {
         "json": {
             "tags": []
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "depends_on_past": "False",
-                "email": "None",
-                "label": "'run_data_task'",
-                "execution_timeout": "None",
-                "sla": "None",
-                "task_id": "'run_data_task'",
-                "trigger_rule": "'all_success'",
-                "wait_for_downstream": "False",
-                "downstream_task_ids": "[]",
-                "inlets": "[]",
-                "outlets": "[]"
-            },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=basic_iolets&_flt_3_task_id=run_data_task",
-            "name": "run_data_task",
-            "type": {
-                "string": "COMMAND"
-            }
         }
     }
 },
@@ -550,8 +546,8 @@
         "json": {
             "timestampMillis": 1717180290951,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 2
@@ -567,8 +563,8 @@
         "json": {
             "timestampMillis": 1717180291140,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {

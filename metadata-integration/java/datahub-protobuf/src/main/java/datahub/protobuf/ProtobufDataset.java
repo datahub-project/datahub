@@ -59,6 +59,7 @@ public class ProtobufDataset {
     private String githubOrganization;
     private String slackTeamId;
     private String subType;
+    private boolean enableProtocCustomProperty;
 
     public Builder setGithubOrganization(@Nullable String githubOrganization) {
       this.githubOrganization = githubOrganization;
@@ -119,6 +120,11 @@ public class ProtobufDataset {
       return this;
     }
 
+    public Builder setEnableProtocCustomProperty(boolean enableProtocCustomProperty) {
+      this.enableProtocCustomProperty = enableProtocCustomProperty;
+      return this;
+    }
+
     public ProtobufDataset build() throws IOException {
       FileDescriptorSet fileSet = FileDescriptorSet.parseFrom(protocBytes);
 
@@ -135,6 +141,7 @@ public class ProtobufDataset {
           .setDatasetVisitor(
               DatasetVisitor.builder()
                   .protocBase64(Base64.getEncoder().encodeToString(protocBytes))
+                  .enableProtocCustomProperty(enableProtocCustomProperty)
                   .datasetPropertyVisitors(
                       List.of(new KafkaTopicPropertyVisitor(), new PropertyVisitor()))
                   .institutionalMemoryMetadataVisitors(

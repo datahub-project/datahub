@@ -6,7 +6,7 @@ import { CodeTwoTone, HeartTwoTone, SoundTwoTone } from "@ant-design/icons";
 const ChampionQualityCardsSection = () => {
   return (
     <div>
-    <h2>Our Champions...</h2>
+    <div class={clsx(styles.subtitle)}>Our Champions...</div>
     <div class={clsx("row section", styles.section)}>
       <div class={clsx("card col col-4", styles.card)}>
         <div class="card-body">

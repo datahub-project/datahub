@@ -210,7 +210,7 @@ services:
       - neo4jdata:/data
   kafka-broker:
     hostname: broker
-    image: confluentinc/cp-kafka:7.4.0
+    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
     command:
       - /bin/bash
       - -c
@@ -234,7 +234,7 @@ services:
     env_file: kafka-broker/env/docker.env
     environment:
       KAFKA_NODE_ID: 1
-      KAFKA_ADVERTISED_LISTENERS: BROKER://broker:29092,EXTERNAL://broker:9092
+      KAFKA_ADVERTISED_LISTENERS: BROKER://broker:29092,EXTERNAL://localhost:9092
       KAFKA_LISTENERS: BROKER://broker:29092,EXTERNAL://broker:9092,CONTROLLER://broker:39092
       KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER

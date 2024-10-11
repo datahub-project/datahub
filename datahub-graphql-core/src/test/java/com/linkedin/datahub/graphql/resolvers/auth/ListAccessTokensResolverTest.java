@@ -12,11 +12,11 @@ import com.linkedin.datahub.graphql.generated.ListAccessTokenInput;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
+import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -47,7 +47,7 @@ public class ListAccessTokensResolverTest {
                 Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.eq(buildFilter(filters, Collections.emptyList())),
-                Mockito.any(SortCriterion.class),
+                Mockito.any(List.class),
                 Mockito.eq(input.getStart()),
                 Mockito.eq(input.getCount())))
         .thenReturn(

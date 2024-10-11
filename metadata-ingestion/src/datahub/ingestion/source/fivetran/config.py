@@ -13,6 +13,9 @@ from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryConnectionConfig,
 )
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnectionConfig,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -20,7 +23,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-from datahub.ingestion.source_config.sql.snowflake import BaseSnowflakeConfig
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -66,7 +68,7 @@ KNOWN_DATA_PLATFORM_MAPPING = {
 }
 
 
-class SnowflakeDestinationConfig(BaseSnowflakeConfig):
+class SnowflakeDestinationConfig(SnowflakeConnectionConfig):
     database: str = Field(description="The fivetran connector log database.")
     log_schema: str = Field(description="The fivetran connector log schema.")
 
@@ -158,6 +160,10 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     connector_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for connectors to filter in ingestion.",
+    )
+    destination_patterns: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for destinations to filter in ingestion.",
     )
     include_column_lineage: bool = Field(
         default=True,

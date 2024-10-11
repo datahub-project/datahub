@@ -12,11 +12,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source_config.csv_enricher import CSVEnricherConfig
 from datahub.metadata.schema_classes import (
@@ -96,6 +97,10 @@ class CSVEnricherReport(SourceReport):
 @platform_name("CSV Enricher")
 @config_class(CSVEnricherConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.DOMAINS, "Supported by default")
+@capability(SourceCapability.TAGS, "Supported by default")
+@capability(SourceCapability.DESCRIPTIONS, "Supported by default")
+@capability(SourceCapability.OWNERSHIP, "Supported by default")
 class CSVEnricherSource(Source):
     """
     :::tip Looking to ingest a CSV data file into DataHub, as an asset?
@@ -123,6 +128,10 @@ class CSVEnricherSource(Source):
     be applied at the resource level.
 
     If ownership_type_urn is set then ownership_type must be set to CUSTOM.
+
+    Note that you have the option in your recipe config to write as a PATCH or as an OVERRIDE. This choice will apply to
+    all metadata for the entity, not just a single aspect. So OVERRIDE will override all metadata, including performing
+    deletes if a metadata field is empty. The default is PATCH.
 
     :::note
     This source will not work on very large csv files that do not fit in memory.

@@ -4,6 +4,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import java.util.Collection;
@@ -31,6 +33,12 @@ public class CustomDataQualityRulesMCPSideEffect extends MCPSideEffect {
                   .systemMetadata(changeMCP.getSystemMetadata())
                   .build(retrieverContext.getAspectRetriever());
             });
+  }
+
+  @Override
+  protected Stream<MCPItem> postMCPSideEffect(
+      Collection<MCLItem> collection, @Nonnull RetrieverContext retrieverContext) {
+    return Stream.empty();
   }
 
   @Nonnull

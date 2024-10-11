@@ -24,20 +24,20 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @NoArgsConstructor(force = true, access = AccessLevel.PRIVATE)
 @AllArgsConstructor
-public class GenericEntityV2 implements GenericEntity {
+public class GenericEntityV2 implements GenericEntity<GenericAspectV2> {
   @JsonProperty("urn")
   @Schema(description = "Urn of the entity")
   private String urn;
 
   @JsonProperty("aspects")
   @Schema(description = "Map of aspect name to aspect")
-  private Map<String, Object> aspects;
+  private Map<String, GenericAspectV2> aspects;
 
   public static class GenericEntityV2Builder {
 
     public GenericEntityV2 build(
         ObjectMapper objectMapper, Map<String, Pair<RecordTemplate, SystemMetadata>> aspects) {
-      Map<String, Object> jsonObjectMap =
+      Map<String, GenericAspectV2> jsonObjectMap =
           aspects.entrySet().stream()
               .map(
                   e -> {
@@ -52,11 +52,14 @@ public class GenericEntityV2 implements GenericEntity {
                       if (e.getValue().getSecond() != null) {
                         return Map.entry(
                             e.getKey(),
-                            Map.of(
-                                "systemMetadata", e.getValue().getSecond(),
-                                "value", valueMap.get("value")));
+                            new GenericAspectV2(
+                                Map.of(
+                                    "systemMetadata", e.getValue().getSecond(),
+                                    "value", valueMap.get("value"))));
                       } else {
-                        return Map.entry(e.getKey(), Map.of("value", valueMap.get("value")));
+                        return Map.entry(
+                            e.getKey(),
+                            new GenericAspectV2(Map.of("value", valueMap.get("value"))));
                       }
                     } catch (IOException ex) {
                       throw new RuntimeException(ex);

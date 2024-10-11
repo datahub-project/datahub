@@ -72,7 +72,7 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
                     Constants.DATAHUB_VIEW_ENTITY_NAME,
                     query,
                     buildFilters(),
-                    DEFAULT_SORT_CRITERION,
+                    Collections.singletonList(DEFAULT_SORT_CRITERION),
                     start,
                     count);
 

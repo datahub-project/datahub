@@ -3,11 +3,11 @@ import TabItem from '@theme/TabItem';
 
 # DataHub Quickstart Guide
 
-:::tip Managed DataHub
+:::tip DataHub Cloud
 
 This guide provides instructions on deploying the open source DataHub locally.
-If you're interested in a managed version, [Acryl Data](https://www.acryldata.io/product) provides a fully managed, premium version of DataHub. <br />
-**[Get Started with Managed DataHub](./managed-datahub/welcome-acryl.md)**
+If you're interested in a managed version, [Acryl Data](https://www.acryldata.io) provides a fully managed, premium version of DataHub. <br />
+**[Get Started with DataHub Cloud](./managed-datahub/welcome-acryl.md)**
 
 :::
 

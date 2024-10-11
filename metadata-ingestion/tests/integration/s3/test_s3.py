@@ -15,6 +15,48 @@ from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
+FILE_LIST_FOR_VALIDATION = [
+    "folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv",
+    "folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
+    "folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv",
+    "folder_a/folder_aa/folder_aaa/countries_json.json",
+    "folder_a/folder_aa/folder_aaa/food_parquet.parquet",
+    "folder_a/folder_aa/folder_aaa/small.csv",
+    "folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2019/month=feb/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2019/month=feb/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2019/month=jan/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2019/month=jan/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2020/month=feb/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2020/month=feb/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2020/month=march/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2020/month=march/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=april/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=april/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=march/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=march/part2.json",
+    "folder_a/folder_aa/folder_aaa/food_csv/part1.csv",
+    "folder_a/folder_aa/folder_aaa/food_csv/part2.csv",
+    "folder_a/folder_aa/folder_aaa/food_csv/part3.csv",
+    "folder_a/folder_aa/folder_aaa/food_parquet/part1.parquet",
+    "folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet",
+    "folder_a/folder_aa/folder_aaa/no_extension/small",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2019/month=feb/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2019/month=feb/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2019/month=jan/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2019/month=jan/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2020/month=feb/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2020/month=feb/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2020/month=march/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2020/month=march/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=april/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=april/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=march/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=march/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/_temporary/dummy.json",
+]
+
 
 @pytest.fixture(scope="module", autouse=True)
 def bucket_names():
@@ -60,11 +102,20 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
         current_time_sec = datetime.strptime(
             FROZEN_TIME, "%Y-%m-%d %H:%M:%S"
         ).timestamp()
+        file_list = []
         for root, _dirs, files in os.walk(test_resources_dir):
+            _dirs.sort()
             for file in sorted(files):
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, test_resources_dir)
-                bkt.upload_file(full_path, rel_path)
+                file_list.append(rel_path)
+                bkt.upload_file(
+                    full_path,
+                    rel_path,  # Set content type for `no_extension/small` file to text/csv
+                    ExtraArgs=(
+                        {"ContentType": "text/csv"} if "." not in rel_path else {}
+                    ),
+                )
                 s3_client.put_object_tagging(
                     Bucket=bucket_name,
                     Key=rel_path,
@@ -77,6 +128,9 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
                 )
                 current_time_sec += 10
                 key.last_modified = datetime.fromtimestamp(current_time_sec)
+
+        # This is used to make sure the list of files are the same in the test as locally
+        assert file_list == FILE_LIST_FOR_VALIDATION
     yield
 
 
@@ -95,18 +149,24 @@ def touch_local_files(pytestconfig):
             os.utime(full_path, times=(current_time_sec, current_time_sec))
 
 
-SOURCE_FILES_PATH = "./tests/integration/s3/sources/s3"
-source_files = os.listdir(SOURCE_FILES_PATH)
+SHARED_SOURCE_FILES_PATH = "./tests/integration/s3/sources/shared"
+shared_source_files = [
+    (SHARED_SOURCE_FILES_PATH, p) for p in os.listdir(SHARED_SOURCE_FILES_PATH)
+]
+
+S3_SOURCE_FILES_PATH = "./tests/integration/s3/sources/s3"
+s3_source_files = [(S3_SOURCE_FILES_PATH, p) for p in os.listdir(S3_SOURCE_FILES_PATH)]
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("source_file", source_files)
+@pytest.mark.parametrize("source_file_tuple", shared_source_files + s3_source_files)
 def test_data_lake_s3_ingest(
-    pytestconfig, s3_populate, source_file, tmp_path, mock_time
+    pytestconfig, s3_populate, source_file_tuple, tmp_path, mock_time
 ):
+    source_dir, source_file = source_file_tuple
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
 
-    f = open(os.path.join(SOURCE_FILES_PATH, source_file))
+    f = open(os.path.join(source_dir, source_file))
     source = json.load(f)
 
     config_dict = {}
@@ -136,12 +196,13 @@ def test_data_lake_s3_ingest(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("source_file", source_files)
+@pytest.mark.parametrize("source_file_tuple", shared_source_files)
 def test_data_lake_local_ingest(
-    pytestconfig, touch_local_files, source_file, tmp_path, mock_time
+    pytestconfig, touch_local_files, source_file_tuple, tmp_path, mock_time
 ):
+    source_dir, source_file = source_file_tuple
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
-    f = open(os.path.join(SOURCE_FILES_PATH, source_file))
+    f = open(os.path.join(source_dir, source_file))
     source = json.load(f)
 
     config_dict = {}
@@ -181,6 +242,7 @@ def test_data_lake_local_ingest(
         golden_path=f"{test_resources_dir}/golden-files/local/golden_mces_{source_file}",
         ignore_paths=[
             r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\[\d+\]\['value'\]\['time'\]",
             r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['created'\]\['time'\]",
             # root[41]['aspect']['json']['fieldProfiles'][0]['sampleValues'][0]
             r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",

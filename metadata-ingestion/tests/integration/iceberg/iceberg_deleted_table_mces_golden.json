@@ -11,15 +11,16 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "name": "another_taxis",
                         "customProperties": {
                             "owner": "root",
-                            "created-at": "2024-05-22T14:09:15.234903700Z",
+                            "created-at": "2024-06-27T17:29:32.492204247Z",
                             "write.format.default": "parquet",
                             "location": "s3a://warehouse/wh/nyc/another_taxis",
                             "format-version": "1",
                             "partition-spec": "[{\"name\": \"trip_date\", \"transform\": \"identity\", \"source\": \"trip_date\", \"source-id\": 2, \"source-type\": \"timestamptz\", \"field-id\": 1000}]",
-                            "snapshot-id": "1706020810864905360",
-                            "manifest-list": "s3a://warehouse/wh/nyc/another_taxis/metadata/snap-1706020810864905360-1-90ad8346-ac1b-4e73-bb30-dfd9b0b0e0dc.avro"
+                            "snapshot-id": "1131595459662979239",
+                            "manifest-list": "s3a://warehouse/wh/nyc/another_taxis/metadata/snap-1131595459662979239-1-0e80739b-774c-4eda-9d96-3a4c70873c32.avro"
                         },
                         "tags": []
                     }
@@ -150,7 +151,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "iceberg-2020_04_14-07_00_00",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -167,7 +169,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "iceberg-2020_04_14-07_00_00",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -183,7 +186,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "iceberg-2020_04_14-07_00_00",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 }
 ]

@@ -48,15 +48,26 @@ class RedshiftProfiler(GenericProfiler):
                 if not self.config.schema_pattern.allowed(schema):
                     continue
                 for table in tables[db].get(schema, {}):
-                    if (
-                        not self.config.profiling.profile_external_tables
-                        and table.type == "EXTERNAL_TABLE"
-                    ):
-                        self.report.profiling_skipped_other[schema] += 1
-                        logger.info(
-                            f"Skipping profiling of external table {db}.{schema}.{table.name}"
-                        )
-                        continue
+                    if table.type == "EXTERNAL_TABLE":
+                        if not self.config.profiling.profile_external_tables:
+                            # Case 1: If user did not tell us to profile external tables, simply log this.
+                            self.report.profiling_skipped_other[schema] += 1
+                            logger.info(
+                                f"Skipping profiling of external table {db}.{schema}.{table.name}"
+                            )
+                            # Continue, since we should not profile this table.
+                            continue
+                        elif self.config.profiling.profile_table_level_only:
+                            # Case 2: User DID tell us to profile external tables, but only at the table level.
+                            # Currently, we do not support this combination. The user needs to also set
+                            # profile_table_level_only to False in order to profile.
+                            self.report.report_warning(
+                                title="Skipped profiling for external tables",
+                                message="External tables are not supported for profiling when 'profile_table_level_only' config is set to 'True'. Please set 'profile_table_level_only' to 'False' in order to profile external Redshift tables.",
+                                context=f"External Table: {db}.{schema}.{table.name}",
+                            )
+                            # Continue, since we were unable to retrieve cheap profiling stats from svv_table_info.
+                            continue
                     # Emit the profile work unit
                     profile_request = self.get_profile_request(table, schema, db)
                     if profile_request is not None:

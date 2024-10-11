@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AutoCompleteMultipleInput;
 import com.linkedin.datahub.graphql.generated.AutoCompleteMultipleResults;
@@ -33,6 +34,7 @@ public class AutocompleteUtils {
       DataFetchingEnvironment environment,
       @Nullable DataHubViewInfo view) {
     final int limit = input.getLimit() != null ? input.getLimit() : DEFAULT_LIMIT;
+    final QueryContext context = environment.getContext();
 
     final List<CompletableFuture<AutoCompleteResultForEntity>> autoCompletesFuture =
         entities.stream()

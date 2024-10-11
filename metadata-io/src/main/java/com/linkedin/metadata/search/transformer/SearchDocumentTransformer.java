@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search.transformer;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.models.StructuredPropertyUtils.sanitizeStructuredPropertyFQN;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.SYSTEM_CREATED_FIELD;
 
@@ -14,12 +14,12 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
-import com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -27,6 +27,7 @@ import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -38,12 +39,15 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -107,6 +111,37 @@ public class SearchDocumentTransformer {
       searchDocument.put(SYSTEM_CREATED_FIELD, auditStamp.getTime());
     }
     return searchDocument;
+  }
+
+  /**
+   * Handle object type UPSERTS where the new value to upsert removes a previous key. Only enabling
+   * for structured properties to start with i.e.
+   *
+   * <p>New => { "structuredProperties.foobar": "value1" } Old => { "structuredProperties.foobar":
+   * "value1" "structuredProperties.foobar2": "value2" } Expected => {
+   * "structuredProperties.foobar": "value1" "structuredProperties.foobar2": null }
+   *
+   * @param searchDocument new document
+   * @param previousSearchDocument previous document (if not present, no-op)
+   * @return searchDocument to upsert
+   */
+  public static ObjectNode handleRemoveFields(
+      @Nonnull ObjectNode searchDocument, @Nullable ObjectNode previousSearchDocument) {
+    if (previousSearchDocument != null) {
+      Set<String> documentFields = objectFieldsFilter(searchDocument.fieldNames());
+      objectFieldsFilter(previousSearchDocument.fieldNames()).stream()
+          .filter(prevFieldName -> !documentFields.contains(prevFieldName))
+          .forEach(removeFieldName -> searchDocument.set(removeFieldName, null));
+    }
+    // no-op
+    return searchDocument;
+  }
+
+  private static Set<String> objectFieldsFilter(Iterator<String> fieldNames) {
+    Iterable<String> iterable = () -> fieldNames;
+    return StreamSupport.stream(iterable.spliterator(), false)
+        .filter(fieldName -> fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX))
+        .collect(Collectors.toSet());
   }
 
   public Optional<ObjectNode> transformAspect(
@@ -175,8 +210,13 @@ public class SearchDocumentTransformer {
                     fieldName,
                     JsonNodeFactory.instance.booleanNode((Boolean) firstValue.orElse(false)));
               } else {
-                searchDocument.set(
-                    fieldName, JsonNodeFactory.instance.booleanNode(!fieldValues.isEmpty()));
+                final boolean hasValue;
+                if (DataSchema.Type.STRING.equals(valueType)) {
+                  hasValue = firstValue.isPresent() && !String.valueOf(firstValue.get()).isEmpty();
+                } else {
+                  hasValue = !fieldValues.isEmpty();
+                }
+                searchDocument.set(fieldName, JsonNodeFactory.instance.booleanNode(hasValue));
               }
             });
 
@@ -253,9 +293,42 @@ public class SearchDocumentTransformer {
           .forEach(
               fieldValue -> {
                 String[] keyValues = fieldValue.toString().split("=");
-                String key = keyValues[0];
-                String value = keyValues[1];
-                dictDoc.put(key, value);
+                String key = keyValues[0], value = "";
+                if (keyValues.length > 1) {
+                  value = keyValues[1];
+                  if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.BOOLEAN)) {
+                    dictDoc.set(
+                        key, JsonNodeFactory.instance.booleanNode(Boolean.parseBoolean(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.INT)) {
+                    dictDoc.set(key, JsonNodeFactory.instance.numberNode(Integer.parseInt(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.DOUBLE)) {
+                    dictDoc.set(
+                        key, JsonNodeFactory.instance.numberNode(Double.parseDouble(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.LONG)) {
+                    dictDoc.set(key, JsonNodeFactory.instance.numberNode(Long.parseLong(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.FLOAT)) {
+                    dictDoc.set(key, JsonNodeFactory.instance.numberNode(Float.parseFloat(value)));
+                  } else {
+                    dictDoc.put(key, value);
+                  }
+                } else {
+                  dictDoc.put(key, value);
+                }
               });
       searchDocument.set(fieldName, dictDoc);
     } else if (!fieldValues.isEmpty()) {
@@ -321,13 +394,9 @@ public class SearchDocumentTransformer {
         // By default run toString
       default:
         String value = fieldValue.toString();
-        // If index type is BROWSE_PATH, make sure the value starts with a slash
-        if (fieldType == FieldType.BROWSE_PATH && !value.startsWith("/")) {
-          value = "/" + value;
-        }
         return value.isEmpty()
-            ? Optional.empty()
-            : Optional.of(JsonNodeFactory.instance.textNode(fieldValue.toString()));
+            ? Optional.of(JsonNodeFactory.instance.nullNode())
+            : Optional.of(JsonNodeFactory.instance.textNode(value));
     }
   }
 
@@ -388,25 +457,28 @@ public class SearchDocumentTransformer {
         .entrySet()
         .forEach(
             propertyEntry -> {
-              StructuredPropertyDefinition definition =
-                  new StructuredPropertyDefinition(
-                      definitions
-                          .get(propertyEntry.getKey())
-                          .get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
-                          .data());
+              Optional<StructuredPropertyDefinition> definition =
+                  Optional.ofNullable(
+                          definitions
+                              .get(propertyEntry.getKey())
+                              .get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+                      .map(def -> new StructuredPropertyDefinition(def.data()));
+
+              LogicalValueType logicalValueType =
+                  definition
+                      .map(StructuredPropertyUtils::getLogicalValueType)
+                      .orElse(LogicalValueType.UNKNOWN);
               String fieldName =
                   String.join(
                       ".",
                       List.of(
                           STRUCTURED_PROPERTY_MAPPING_FIELD,
-                          sanitizeStructuredPropertyFQN(definition.getQualifiedName())));
+                          toElasticsearchFieldName(
+                              propertyEntry.getKey(), definition.orElse(null))));
 
               if (forDelete) {
                 searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
               } else {
-                LogicalValueType logicalValueType =
-                    StructuredPropertiesValidator.getLogicalValueType(definition.getValueType());
-
                 ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
 
                 propertyEntry
@@ -487,7 +559,7 @@ public class SearchDocumentTransformer {
       final Object fieldValue,
       final FieldType fieldType) {
     EntityRegistry entityRegistry = opContext.getEntityRegistry();
-    AspectRetriever aspectRetriever = opContext.getRetrieverContext().get().getAspectRetriever();
+    AspectRetriever aspectRetriever = opContext.getAspectRetriever();
 
     if (depth == 0) {
       if (fieldValue.toString().isEmpty()) {

@@ -5,7 +5,7 @@ import TabItem from '@theme/TabItem';
 
 <FeatureAvailability saasOnly />
 
-This guide specifically covers how to use the Assertion APIs for **Acryl Cloud** native assertions, including:
+This guide specifically covers how to use the Assertion APIs for **DataHub Cloud** native assertions, including:
 
 - [Freshness Assertions](/docs/managed-datahub/observe/freshness-assertions.md)
 - [Volume Assertions](/docs/managed-datahub/observe/volume-assertions.md)
@@ -15,7 +15,7 @@ This guide specifically covers how to use the Assertion APIs for **Acryl Cloud**
 
 ## Why Would You Use Assertions APIs?
 
-The Assertions APIs allow you to create, schedule, run, and delete Assertions with Acryl Cloud.
+The Assertions APIs allow you to create, schedule, run, and delete Assertions with DataHub Cloud.
 
 ### Goal Of This Guide
 
@@ -620,6 +620,7 @@ query dataset {
             count
             total
             assertions {
+                urn
                 # Fetch the last run of each associated assertion. 
                 runEvents(status: COMPLETE, limit: 1) {
                     total
@@ -855,6 +856,7 @@ You can use the following GraphQL query to fetch the details for an assertion al
 ```graphql
 query getAssertion {
     assertion(urn: "urn:li:assertion:assertion-id") {
+        urn
         # Fetch the last 10 runs for the assertion. 
         runEvents(status: COMPLETE, limit: 10) {
             total

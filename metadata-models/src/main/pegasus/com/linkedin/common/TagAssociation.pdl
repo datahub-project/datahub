@@ -14,4 +14,26 @@ record TagAssociation {
    * Additional context about the association
    */
   context: optional string
+
+  /**
+   * Information about who, why, and how this metadata was applied
+   */
+  @Searchable = {
+    "/time": {
+        "fieldName": "tagAttributionDates",
+        "fieldType": "DATETIME",
+        "queryByDefault": false,
+      },
+    "/actor": {
+        "fieldName": "tagAttributionActors",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
+    "/source": {
+        "fieldName": "tagAttributionSources",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
+  }
+  attribution: optional MetadataAttribution
 }

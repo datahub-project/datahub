@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import Field, validator
 from pyiceberg.catalog import Catalog, load_catalog
@@ -59,7 +59,7 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         default=None, description="Iceberg Stateful Ingestion Config."
     )
     # The catalog configuration is using a dictionary to be open and flexible.  All the keys and values are handled by pyiceberg.  This will future-proof any configuration change done by pyiceberg.
-    catalog: Dict[str, Dict[str, str]] = Field(
+    catalog: Dict[str, Dict[str, Any]] = Field(
         description="Catalog configuration where to find Iceberg tables.  Only one catalog specification is supported.  The format is the same as [pyiceberg's catalog configuration](https://py.iceberg.apache.org/configuration/), where the catalog name is specified as the object name and attributes are set as key-value pairs.",
     )
     table_pattern: AllowDenyPattern = Field(

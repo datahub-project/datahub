@@ -13,8 +13,11 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -30,18 +33,23 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
+import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
-import io.datahubproject.openapi.v2.models.BatchGetUrnRequest;
-import io.datahubproject.openapi.v2.models.BatchGetUrnResponse;
+import io.datahubproject.openapi.v2.models.BatchGetUrnRequestV2;
+import io.datahubproject.openapi.v2.models.BatchGetUrnResponseV2;
+import io.datahubproject.openapi.v2.models.GenericAspectV2;
 import io.datahubproject.openapi.v2.models.GenericEntityScrollResultV2;
 import io.datahubproject.openapi.v2.models.GenericEntityV2;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -66,61 +74,72 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class EntityController
     extends GenericEntitiesController<
-        GenericEntityV2, GenericEntityScrollResultV2<GenericEntityV2>> {
-
-  @Override
-  public GenericEntityScrollResultV2<GenericEntityV2> buildScrollResult(
-      @Nonnull OperationContext opContext,
-      SearchEntityArray searchEntities,
-      Set<String> aspectNames,
-      boolean withSystemMetadata,
-      @Nullable String scrollId)
-      throws URISyntaxException {
-    return GenericEntityScrollResultV2.<GenericEntityV2>builder()
-        .results(toRecordTemplates(opContext, searchEntities, aspectNames, withSystemMetadata))
-        .scrollId(scrollId)
-        .build();
-  }
+        GenericAspectV2, GenericEntityV2, GenericEntityScrollResultV2> {
 
   @Tag(name = "Generic Entities")
   @PostMapping(value = "/batch/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get a batch of entities")
-  public ResponseEntity<BatchGetUrnResponse> getEntityBatch(
-      @PathVariable("entityName") String entityName, @RequestBody BatchGetUrnRequest request)
+  public ResponseEntity<BatchGetUrnResponseV2<GenericAspectV2, GenericEntityV2>> getEntityBatch(
+      HttpServletRequest httpServletRequest,
+      @PathVariable("entityName") String entityName,
+      @RequestBody BatchGetUrnRequestV2 request)
       throws URISyntaxException {
 
     List<Urn> urns = request.getUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(authentication, authorizationChain, READ, urns)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
-    }
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getEntityBatch", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(),
+                    httpServletRequest,
+                    "getEntityBatch",
+                    entityName),
             authorizationChain,
             authentication,
             true);
 
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, urns)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
+    }
+
     return ResponseEntity.of(
         Optional.of(
-            BatchGetUrnResponse.builder()
+            BatchGetUrnResponseV2.<GenericAspectV2, GenericEntityV2>builder()
                 .entities(
                     new ArrayList<>(
                         buildEntityList(
                             opContext,
                             urns,
                             new HashSet<>(request.getAspectNames()),
-                            request.isWithSystemMetadata())))
+                            request.isWithSystemMetadata(),
+                            true)))
                 .build()));
+  }
+
+  @Override
+  public GenericEntityScrollResultV2 buildScrollResult(
+      @Nonnull OperationContext opContext,
+      SearchEntityArray searchEntities,
+      Set<String> aspectNames,
+      boolean withSystemMetadata,
+      @Nullable String scrollId,
+      boolean expandEmpty)
+      throws URISyntaxException {
+    return GenericEntityScrollResultV2.builder()
+        .results(
+            toRecordTemplates(opContext, searchEntities, aspectNames, withSystemMetadata, true))
+        .scrollId(scrollId)
+        .build();
   }
 
   @Override
   protected AspectsBatch toMCPBatch(
       @Nonnull OperationContext opContext, String entityArrayList, Actor actor)
-      throws JsonProcessingException {
+      throws JsonProcessingException, InvalidUrnException {
     JsonNode entities = objectMapper.readTree(entityArrayList);
 
     List<BatchItem> items = new LinkedList<>();
@@ -131,7 +150,7 @@ public class EntityController
         if (!entity.has("urn")) {
           throw new IllegalArgumentException("Missing `urn` field");
         }
-        Urn entityUrn = UrnUtils.getUrn(entity.get("urn").asText());
+        Urn entityUrn = validatedUrn(entity.get("urn").asText());
 
         if (!entity.has("aspects")) {
           throw new IllegalArgumentException("Missing `aspects` field");
@@ -140,7 +159,7 @@ public class EntityController
         while (aspectItr.hasNext()) {
           Map.Entry<String, JsonNode> aspect = aspectItr.next();
 
-          AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey());
+          AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).get();
 
           if (aspectSpec != null) {
             ChangeItemImpl.ChangeItemImplBuilder builder =
@@ -175,35 +194,26 @@ public class EntityController
   }
 
   @Override
-  protected List<GenericEntityV2> buildEntityList(
+  protected List<GenericEntityV2> buildEntityVersionedAspectList(
       @Nonnull OperationContext opContext,
-      List<Urn> urns,
-      Set<String> aspectNames,
-      boolean withSystemMetadata)
+      Collection<Urn> requestedUrns,
+      LinkedHashMap<Urn, Map<String, Long>> urnAspectVersions,
+      boolean withSystemMetadata,
+      boolean expandEmpty)
       throws URISyntaxException {
-    if (urns.isEmpty()) {
-      return List.of();
-    } else {
-      Set<Urn> urnsSet = new HashSet<>(urns);
+    Map<Urn, List<EnvelopedAspect>> aspects =
+        entityService.getEnvelopedVersionedAspects(
+            opContext, resolveAspectNames(urnAspectVersions, 0L, true), true);
 
-      Map<Urn, List<EnvelopedAspect>> aspects =
-          entityService.getLatestEnvelopedAspects(
-              opContext,
-              urnsSet,
-              resolveAspectNames(urnsSet, aspectNames).stream()
-                  .map(AspectSpec::getName)
-                  .collect(Collectors.toSet()));
-
-      return urns.stream()
-          .map(
-              u ->
-                  GenericEntityV2.builder()
-                      .urn(u.toString())
-                      .build(
-                          objectMapper,
-                          toAspectMap(u, aspects.getOrDefault(u, List.of()), withSystemMetadata)))
-          .collect(Collectors.toList());
-    }
+    return urnAspectVersions.keySet().stream()
+        .map(
+            u ->
+                GenericEntityV2.builder()
+                    .urn(u.toString())
+                    .build(
+                        objectMapper,
+                        toAspectMap(u, aspects.getOrDefault(u, List.of()), withSystemMetadata)))
+        .collect(Collectors.toList());
   }
 
   @Override
@@ -226,13 +236,15 @@ public class EntityController
       @Nonnull OperationContext opContext,
       SearchEntityArray searchEntities,
       Set<String> aspectNames,
-      boolean withSystemMetadata)
+      boolean withSystemMetadata,
+      boolean expandEmpty)
       throws URISyntaxException {
     return buildEntityList(
         opContext,
         searchEntities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
         aspectNames,
-        withSystemMetadata);
+        withSystemMetadata,
+        true);
   }
 
   @Override
@@ -259,5 +271,27 @@ public class EntityController
               .build(objectMapper, aspectsMap));
     }
     return responseList;
+  }
+
+  @Override
+  protected ChangeMCP toUpsertItem(
+      @Nonnull AspectRetriever aspectRetriever,
+      Urn entityUrn,
+      AspectSpec aspectSpec,
+      Boolean createIfNotExists,
+      String jsonAspect,
+      Actor actor)
+      throws URISyntaxException {
+    return ChangeItemImpl.builder()
+        .urn(entityUrn)
+        .aspectName(aspectSpec.getName())
+        .changeType(Boolean.TRUE.equals(createIfNotExists) ? ChangeType.CREATE : ChangeType.UPSERT)
+        .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
+        .recordTemplate(
+            GenericRecordUtils.deserializeAspect(
+                ByteString.copyString(jsonAspect, StandardCharsets.UTF_8),
+                GenericRecordUtils.JSON,
+                aspectSpec))
+        .build(aspectRetriever);
   }
 }

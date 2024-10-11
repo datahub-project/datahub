@@ -17,6 +17,7 @@ import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.generated.MetadataChangeProposal;
 import io.datahubproject.openapi.util.MappingUtil;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -58,6 +59,7 @@ public class PlatformEntitiesController {
 
   @PostMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<String>> postEntities(
+      HttpServletRequest request,
       @RequestBody @Nonnull List<MetadataChangeProposal> metadataChangeProposals,
       @RequestParam(required = false, name = "async") Boolean async) {
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposals);
@@ -69,6 +71,8 @@ public class PlatformEntitiesController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
+                    actorUrnStr,
+                    request,
                     "postEntities",
                     metadataChangeProposals.stream()
                         .map(MetadataChangeProposal::getEntityType)
@@ -87,9 +91,7 @@ public class PlatformEntitiesController {
       Ingest Authorization Checks
     */
     List<Pair<com.linkedin.mxe.MetadataChangeProposal, Integer>> exceptions =
-        isAPIAuthorized(
-                authentication, _authorizerChain, ENTITY, opContext.getEntityRegistry(), proposals)
-            .stream()
+        isAPIAuthorized(opContext, ENTITY, opContext.getEntityRegistry(), proposals).stream()
             .filter(p -> p.getSecond() != com.linkedin.restli.common.HttpStatus.S_200_OK.getCode())
             .collect(Collectors.toList());
     if (!exceptions.isEmpty()) {

@@ -2,14 +2,12 @@ package com.linkedin.datahub.graphql.resolvers;
 
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
@@ -21,8 +19,6 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
@@ -40,8 +36,6 @@ import org.slf4j.LoggerFactory;
 
 public class ResolverUtils {
 
-  private static final Set<String> KEYWORD_EXCLUDED_FILTERS =
-      ImmutableSet.of("runId", "_entityType");
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   static {
@@ -71,7 +65,7 @@ public class ResolverUtils {
   @Nonnull
   public static String escapeForwardSlash(@Nonnull String input) {
     if (input.contains("/")) {
-      input = input.replace("/", "\\\\/");
+      input = input.replace("/", "\\/");
     }
     return input;
   }
@@ -158,79 +152,24 @@ public class ResolverUtils {
                 new ConjunctiveCriterion().setAnd(new CriterionArray(andCriterions))));
   }
 
-  public static Criterion criterionFromFilter(final FacetFilterInput filter) {
-    return criterionFromFilter(filter, false);
-  }
-
   // Translates a FacetFilterInput (graphql input class) into Criterion (our internal model)
-  public static Criterion criterionFromFilter(
-      final FacetFilterInput filter, final Boolean skipKeywordSuffix) {
-    Criterion result = new Criterion();
+  public static Criterion criterionFromFilter(final FacetFilterInput filter) {
 
-    if (skipKeywordSuffix) {
-      result.setField(filter.getField());
-    } else {
-      result.setField(getFilterField(filter.getField(), skipKeywordSuffix));
-    }
-
-    // `value` is deprecated in place of `values`- this is to support old query patterns. If values
-    // is provided,
-    // this statement will be skipped
-    if (filter.getValues() == null && filter.getValue() != null) {
-      result.setValues(new StringArray(filter.getValue()));
-      result.setValue(filter.getValue());
-    } else if (filter.getValues() != null) {
-      result.setValues(new StringArray(filter.getValues()));
-      if (!filter.getValues().isEmpty()) {
-        result.setValue(filter.getValues().get(0));
-      } else {
-        result.setValue("");
-      }
-    } else {
-      result.setValues(new StringArray());
-      result.setValue("");
-    }
-
+    final Condition condition;
     if (filter.getCondition() != null) {
-      result.setCondition(Condition.valueOf(filter.getCondition().toString()));
+      condition = Condition.valueOf(filter.getCondition().toString());
     } else {
-      result.setCondition(Condition.EQUAL);
+      condition = Condition.EQUAL;
     }
 
-    if (filter.getNegated() != null) {
-      result.setNegated(filter.getNegated());
+    final List<String> values;
+    if (filter.getValues() == null && filter.getValue() != null) {
+      values = Collections.singletonList(filter.getValue());
+    } else {
+      values = filter.getValues();
     }
 
-    return result;
-  }
-
-  private static String getFilterField(
-      final String originalField, final boolean skipKeywordSuffix) {
-    if (KEYWORD_EXCLUDED_FILTERS.contains(originalField)) {
-      return originalField;
-    }
-    return ESUtils.toKeywordField(originalField, skipKeywordSuffix);
-  }
-
-  public static Filter buildFilterWithUrns(@Nonnull Set<Urn> urns, @Nullable Filter inputFilters) {
-    Criterion urnMatchCriterion =
-        new Criterion()
-            .setField("urn")
-            .setValue("")
-            .setValues(
-                new StringArray(urns.stream().map(Object::toString).collect(Collectors.toList())));
-    if (inputFilters == null) {
-      return QueryUtils.newFilter(urnMatchCriterion);
-    }
-
-    // Add urn match criterion to each or clause
-    if (inputFilters.getOr() != null && !inputFilters.getOr().isEmpty()) {
-      for (ConjunctiveCriterion conjunctiveCriterion : inputFilters.getOr()) {
-        conjunctiveCriterion.getAnd().add(urnMatchCriterion);
-      }
-      return inputFilters;
-    }
-    return QueryUtils.newFilter(urnMatchCriterion);
+    return buildCriterion(filter.getField(), condition, filter.getNegated(), values);
   }
 
   public static Filter viewFilter(
@@ -244,5 +183,20 @@ public class ResolverUtils {
     }
     Filter result = SearchUtils.combineFilters(null, viewInfo.getDefinition().getFilter());
     return result;
+  }
+
+  /**
+   * Simply resolves the end time filter for the search across lineage query. If the start time is
+   * provided, but end time is not provided, we will default to the current time.
+   */
+  public static Long getLineageEndTimeMillis(
+      @Nullable Long startTimeMillis, @Nullable Long endTimeMillis) {
+    if (endTimeMillis != null) {
+      return endTimeMillis;
+    }
+    if (startTimeMillis != null) {
+      return System.currentTimeMillis();
+    }
+    return null;
   }
 }

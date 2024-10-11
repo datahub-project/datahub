@@ -16,6 +16,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     DataFlowKeyClass,
     DataJobKeyClass,
     FineGrainedLineageClass,
@@ -71,7 +73,9 @@ _RUN_IN_THREAD = os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD", "true").lower
     "true",
     "1",
 )
-_RUN_IN_THREAD_TIMEOUT = 30
+_RUN_IN_THREAD_TIMEOUT = float(
+    os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT", 15)
+)
 _DATAHUB_CLEANUP_DAG = "Datahub_Cleanup"
 
 
@@ -127,18 +131,42 @@ def run_in_thread(f: _F) -> _F:
                 )
                 thread.start()
 
-                thread.join(timeout=_RUN_IN_THREAD_TIMEOUT)
-                if thread.is_alive():
-                    logger.warning(
-                        f"Thread for {f.__name__} is still running after {_RUN_IN_THREAD_TIMEOUT} seconds. "
-                        "Continuing without waiting for it to finish."
-                    )
+                if _RUN_IN_THREAD_TIMEOUT > 0:
+                    # If _RUN_IN_THREAD_TIMEOUT is 0, we just kick off the thread and move on.
+                    # Because it's a daemon thread, it'll be automatically killed when the main
+                    # thread exists.
+
+                    start_time = time.time()
+                    thread.join(timeout=_RUN_IN_THREAD_TIMEOUT)
+                    if thread.is_alive():
+                        logger.warning(
+                            f"Thread for {f.__name__} is still running after {_RUN_IN_THREAD_TIMEOUT} seconds. "
+                            "Continuing without waiting for it to finish."
+                        )
+                    else:
+                        logger.debug(
+                            f"Thread for {f.__name__} finished after {time.time() - start_time} seconds"
+                        )
             else:
                 f(*args, **kwargs)
         except Exception as e:
             logger.warning(e, exc_info=True)
 
     return cast(_F, wrapper)
+
+
+def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
+    # Render templates in a copy of the task instance.
+    # This is necessary to get the correct operator args in the extractors.
+    try:
+        task_instance_copy = copy.deepcopy(task_instance)
+        task_instance_copy.render_templates()
+        return task_instance_copy
+    except Exception as e:
+        logger.info(
+            f"Error rendering templates in DataHub listener. Jinja-templated variables will not be extracted correctly: {e}"
+        )
+        return task_instance
 
 
 class DataHubListener:
@@ -355,13 +383,17 @@ class DataHubListener:
             return
 
         logger.debug(
-            f"DataHub listener got notification about task instance start for {task_instance.task_id}"
+            f"DataHub listener got notification about task instance start for {task_instance.task_id} of dag {task_instance.dag_run.dag_id}"
         )
 
-        # Render templates in a copy of the task instance.
-        # This is necessary to get the correct operator args in the extractors.
-        task_instance = copy.deepcopy(task_instance)
-        task_instance.render_templates()
+        if not self.config.dag_filter_pattern.allowed(task_instance.dag_run.dag_id):
+            logger.debug(
+                f"DAG {task_instance.dag_run.dag_id} is not allowed by the pattern"
+            )
+            return
+
+        if self.config.render_templates:
+            task_instance = _render_templates(task_instance)
 
         # The type ignore is to placate mypy on Airflow 2.1.x.
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
@@ -452,9 +484,23 @@ class DataHubListener:
         self, task_instance: "TaskInstance", status: InstanceRunResult
     ) -> None:
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
-        task = self._task_holder.get_task(task_instance) or task_instance.task
+
+        if self.config.render_templates:
+            task_instance = _render_templates(task_instance)
+
+        # We must prefer the task attribute, in case modifications to the task's inlets/outlets
+        # were made by the execute() method.
+        if getattr(task_instance, "task", None):
+            task = task_instance.task
+        else:
+            task = self._task_holder.get_task(task_instance)
         assert task is not None
+
         dag: "DAG" = task.dag  # type: ignore[assignment]
+
+        if not self.config.dag_filter_pattern.allowed(dag.dag_id):
+            logger.debug(f"DAG {dag.dag_id} is not allowed by the pattern")
+            return
 
         datajob = AirflowGenerator.generate_datajob(
             cluster=self.config.cluster,
@@ -534,15 +580,38 @@ class DataHubListener:
         )
         dataflow.emit(self.emitter, callback=self._make_emit_callback())
 
+        event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+            entityUrn=str(dataflow.urn), aspect=StatusClass(removed=False)
+        )
+        self.emitter.emit(event)
+
+        for task in dag.tasks:
+            task_urn = builder.make_data_job_urn_with_flow(
+                str(dataflow.urn), task.task_id
+            )
+            event = MetadataChangeProposalWrapper(
+                entityUrn=task_urn, aspect=StatusClass(removed=False)
+            )
+            self.emitter.emit(event)
+
         # emit tags
         for tag in dataflow.tags:
             tag_urn = builder.make_tag_urn(tag)
 
-            event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+            event = MetadataChangeProposalWrapper(
                 entityUrn=tag_urn, aspect=StatusClass(removed=False)
             )
-
             self.emitter.emit(event)
+
+        browse_path_v2_event: MetadataChangeProposalWrapper = (
+            MetadataChangeProposalWrapper(
+                entityUrn=str(dataflow.urn),
+                aspect=BrowsePathsV2Class(
+                    path=[BrowsePathEntryClass(str(dag.dag_id))],
+                ),
+            )
+        )
+        self.emitter.emit(browse_path_v2_event)
 
         if dag.dag_id == _DATAHUB_CLEANUP_DAG:
             assert self.graph
@@ -630,8 +699,12 @@ class DataHubListener:
                 f"DataHub listener got notification about dag run start for {dag_run.dag_id}"
             )
 
-            self.on_dag_start(dag_run)
+            assert dag_run.dag_id
+            if not self.config.dag_filter_pattern.allowed(dag_run.dag_id):
+                logger.debug(f"DAG {dag_run.dag_id} is not allowed by the pattern")
+                return
 
+            self.on_dag_start(dag_run)
             self.emitter.flush()
 
     # TODO: Add hooks for on_dag_run_success, on_dag_run_failed -> call AirflowGenerator.complete_dataflow

@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.search;
 
 import static com.datahub.util.RecordUtils.*;
 import static com.linkedin.metadata.search.client.CachingEntitySearchService.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
@@ -10,7 +11,6 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.spring.cache.HazelcastCacheManager;
 import com.linkedin.common.urn.CorpuserUrn;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
@@ -123,19 +123,9 @@ public class CacheTest extends JetTestSupport {
             .setPageSize(1)
             .setMetadata(new SearchResultMetadata());
 
-    final Criterion filterCriterion =
-        new Criterion()
-            .setField("platform")
-            .setCondition(Condition.EQUAL)
-            .setValue("hive")
-            .setValues(new StringArray(ImmutableList.of("hive")));
+    final Criterion filterCriterion = buildCriterion("platform", Condition.EQUAL, "hive");
 
-    final Criterion subtypeCriterion =
-        new Criterion()
-            .setField("subtypes")
-            .setCondition(Condition.EQUAL)
-            .setValue("")
-            .setValues(new StringArray(ImmutableList.of("view")));
+    final Criterion subtypeCriterion = buildCriterion("subtypes", Condition.EQUAL, "view");
 
     final Filter filterWithCondition =
         new Filter()

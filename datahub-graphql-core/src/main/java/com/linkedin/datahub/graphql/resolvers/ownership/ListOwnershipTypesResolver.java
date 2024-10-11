@@ -64,7 +64,7 @@ public class ListOwnershipTypesResolver
                     Constants.OWNERSHIP_TYPE_ENTITY_NAME,
                     query,
                     buildFilter(filters, Collections.emptyList()),
-                    DEFAULT_SORT_CRITERION,
+                    Collections.singletonList(DEFAULT_SORT_CRITERION),
                     start,
                     count);
 

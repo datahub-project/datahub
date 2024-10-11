@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.nifi import (
+    BidirectionalComponentGraph,
     NifiComponent,
     NifiFlow,
     NifiProcessGroup,
@@ -55,7 +56,7 @@ def test_nifi_s3_provenance_event():
                 )
             },
             remotely_accessible_ports={},
-            connections=[],
+            connections=BidirectionalComponentGraph(),
             processGroups={
                 "803ebb92-017d-1000-2961-4bdaa27a3ba0": NifiProcessGroup(
                     id="803ebb92-017d-1000-2961-4bdaa27a3ba0",
@@ -126,7 +127,7 @@ def test_nifi_s3_provenance_event():
                 )
             },
             remotely_accessible_ports={},
-            connections=[],
+            connections=BidirectionalComponentGraph(),
             processGroups={
                 "803ebb92-017d-1000-2961-4bdaa27a3ba0": NifiProcessGroup(
                     id="803ebb92-017d-1000-2961-4bdaa27a3ba0",
@@ -333,9 +334,10 @@ def test_single_user_auth_failed_to_get_token():
     list(source.get_workunits())
 
     assert source.get_report().failures
-    assert "Failed to authenticate" in list(
-        source.get_report().failures[config.site_url]
-    )
+
+    assert "Failed to authenticate" in [
+        failure.message for failure in source.get_report().failures
+    ]
 
 
 def test_kerberos_auth_failed_to_get_token():
@@ -352,9 +354,9 @@ def test_kerberos_auth_failed_to_get_token():
     list(source.get_workunits())
 
     assert source.get_report().failures
-    assert "Failed to authenticate" in list(
-        source.get_report().failures[config.site_url]
-    )
+    assert "Failed to authenticate" in [
+        failure.message for failure in source.get_report().failures
+    ]
 
 
 def test_client_cert_auth_failed():
@@ -372,9 +374,9 @@ def test_client_cert_auth_failed():
     list(source.get_workunits())
 
     assert source.get_report().failures
-    assert "Failed to authenticate" in list(
-        source.get_report().failures[config.site_url]
-    )
+    assert "Failed to authenticate" in [
+        failure.message for failure in source.get_report().failures
+    ]
 
 
 def test_failure_to_create_nifi_flow():
@@ -392,9 +394,9 @@ def test_failure_to_create_nifi_flow():
         list(source.get_workunits())
 
         assert source.get_report().failures
-        assert "Failed to get root process group flow" in list(
-            source.get_report().failures[config.site_url]
-        )
+        assert "Failed to get root process group flow" in [
+            failure.message for failure in source.get_report().failures
+        ]
 
 
 def test_site_url_no_context():

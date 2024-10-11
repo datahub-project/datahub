@@ -173,6 +173,13 @@ WHERE
                         f"^{normalized_table_name}.{column}$"
                     )
 
+                if table.external and not self.config.profiling.profile_external_tables:
+                    self.report.profiling_skipped_other[f"{project_id}.{dataset}"] += 1
+                    logger.info(
+                        f"Skipping profiling of external table {project_id}.{dataset}.{table.name}"
+                    )
+                    continue
+
                 # Emit the profile work unit
                 logger.debug(
                     f"Creating profile request for table {normalized_table_name}"
@@ -227,8 +234,9 @@ WHERE
 
         if partition is None and bq_table.partition_info:
             self.report.report_warning(
-                "profile skipped as partitioned table is empty or partition id or type was invalid",
-                profile_request.pretty_name,
+                title="Profile skipped for partitioned table",
+                message="profile skipped as partitioned table is empty or partition id or type was invalid",
+                context=profile_request.pretty_name,
             )
             return None
         if (

@@ -109,7 +109,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.hive_metastore_proxy = hive_metastore_proxy
 
     def check_basic_connectivity(self) -> bool:
-        return bool(self._workspace_client.catalogs.list())
+        return bool(self._workspace_client.catalogs.list(include_browse=True))
 
     def assigned_metastore(self) -> Optional[Metastore]:
         response = self._workspace_client.metastores.summary()
@@ -119,10 +119,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         if self.hive_metastore_proxy:
             yield self.hive_metastore_proxy.hive_metastore_catalog(metastore)
 
-        response = self._workspace_client.catalogs.list()
+        response = self._workspace_client.catalogs.list(include_browse=True)
         if not response:
             logger.info("Catalogs not found")
-            return []
+            return
         for catalog in response:
             optional_catalog = self._create_catalog(metastore, catalog)
             if optional_catalog:
@@ -131,7 +131,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     def catalog(
         self, catalog_name: str, metastore: Optional[Metastore]
     ) -> Optional[Catalog]:
-        response = self._workspace_client.catalogs.get(catalog_name)
+        response = self._workspace_client.catalogs.get(
+            catalog_name, include_browse=True
+        )
         if not response:
             logger.info(f"Catalog {catalog_name} not found")
             return None
@@ -148,10 +150,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         ):
             yield from self.hive_metastore_proxy.hive_metastore_schemas(catalog)
             return
-        response = self._workspace_client.schemas.list(catalog_name=catalog.name)
+        response = self._workspace_client.schemas.list(
+            catalog_name=catalog.name, include_browse=True
+        )
         if not response:
             logger.info(f"Schemas not found for catalog {catalog.id}")
-            return []
+            return
         for schema in response:
             optional_schema = self._create_schema(catalog, schema)
             if optional_schema:
@@ -166,11 +170,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             return
         with patch("databricks.sdk.service.catalog.TableInfo", TableInfoWithGeneration):
             response = self._workspace_client.tables.list(
-                catalog_name=schema.catalog.name, schema_name=schema.name
+                catalog_name=schema.catalog.name,
+                schema_name=schema.name,
+                include_browse=True,
             )
             if not response:
                 logger.info(f"Tables not found for schema {schema.id}")
-                return []
+                return
             for table in response:
                 try:
                     optional_table = self._create_table(

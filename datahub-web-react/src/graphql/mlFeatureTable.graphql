@@ -1,5 +1,7 @@
 query getMLFeatureTable($urn: String!) {
     mlFeatureTable(urn: $urn) {
+        urn
+        type
         ...nonRecursiveMLFeatureTable
         privileges {
             ...entityPrivileges

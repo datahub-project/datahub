@@ -251,6 +251,7 @@ fragment nonRecursiveDatasetFields on Dataset {
         }
     }
     editableProperties {
+        name
         description
     }
     ownership {
@@ -736,6 +737,27 @@ fragment schemaFieldFields on SchemaField {
                 ...businessAttribute
             }
         }
+        documentation {
+            documentations {
+                documentation
+                attribution {
+                    time
+                    actor {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
+                    source {
+                        urn
+                        type
+                    }
+                    sourceDetail {
+                        key
+                        value
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -990,9 +1012,7 @@ fragment domainEntitiesFields on Domain {
     entities(input: { start: 0, count: 0 }) {
         total
     }
-    dataProducts: entities(
-        input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }
-    ) {
+    dataProducts: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", values: "DATA_PRODUCT" }] }) {
         total
     }
     children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
@@ -1284,6 +1304,7 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
 
 fragment structuredPropertiesFields on StructuredPropertiesEntry {
     structuredProperty {
+        exists
         ...structuredPropertyFields
     }
     values {
@@ -1382,7 +1403,6 @@ fragment entityHealth on Health {
     causes
 }
 
-
 fragment formsFields on Forms {
     completedForms {
         ...formAssociationFields
@@ -1418,9 +1438,9 @@ fragment businessAttribute on BusinessAttributeAssociation {
     businessAttribute {
         urn
         type
-            ownership {
-                ...ownershipFields
-            }
+        ownership {
+            ...ownershipFields
+        }
         properties {
             name
             description

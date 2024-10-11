@@ -1,0 +1,40 @@
+source:
+    type: sac
+    config:
+        stateful_ingestion:
+            enabled: true
+
+        tenant_url: # Your SAP Analytics Cloud tenant URL, e.g. https://company.eu10.sapanalytics.cloud or https://company.eu10.hcs.cloud.sap
+        token_url: # The Token URL of your SAP Analytics Cloud tenant, e.g. https://company.eu10.hana.ondemand.com/oauth/token.
+
+        # Add secret in Secrets Tab with relevant names for each variable
+        client_id: "${SAC_CLIENT_ID}" # Your SAP Analytics Cloud client id
+        client_secret: "${SAC_CLIENT_SECRET}" # Your SAP Analytics Cloud client secret
+
+        # ingest stories
+        ingest_stories: true
+
+        # ingest applications
+        ingest_applications: true
+
+        resource_id_pattern:
+            allow:
+                - .*
+
+        resource_name_pattern:
+            allow:
+                - .*
+
+        folder_pattern:
+            allow:
+                - .*
+
+        connection_mapping:
+            MY_BW_CONNECTION:
+                platform: bw
+                platform_instance: PROD_BW
+                env: PROD
+            MY_HANA_CONNECTION:
+                platform: hana
+                platform_instance: PROD_HANA
+                env: PROD

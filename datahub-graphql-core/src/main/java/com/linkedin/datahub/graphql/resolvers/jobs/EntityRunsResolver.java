@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.jobs;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -15,7 +17,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -27,6 +28,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -67,13 +69,13 @@ public class EntityRunsResolver
             // Index!
             // We use the search index so that we can easily sort by the last updated time.
             final Filter filter = buildTaskRunsEntityFilter(entityUrn, direction);
-            final SortCriterion sortCriterion = buildTaskRunsSortCriterion();
+            final List<SortCriterion> sortCriteria = buildTaskRunsSortCriteria();
             final SearchResult gmsResult =
                 _entityClient.filter(
                     context.getOperationContext(),
                     Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
                     filter,
-                    sortCriterion,
+                    sortCriteria,
                     start,
                     count);
             final List<Urn> dataProcessInstanceUrns =
@@ -120,23 +122,22 @@ public class EntityRunsResolver
     CriterionArray array =
         new CriterionArray(
             ImmutableList.of(
-                new Criterion()
-                    .setField(
-                        direction.equals(RelationshipDirection.INCOMING)
-                            ? INPUT_FIELD_NAME
-                            : OUTPUT_FIELD_NAME)
-                    .setCondition(Condition.EQUAL)
-                    .setValue(entityUrn)));
+                buildCriterion(
+                    direction.equals(RelationshipDirection.INCOMING)
+                        ? INPUT_FIELD_NAME
+                        : OUTPUT_FIELD_NAME,
+                    Condition.EQUAL,
+                    entityUrn)));
     final Filter filter = new Filter();
     filter.setOr(
         new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(array))));
     return filter;
   }
 
-  private SortCriterion buildTaskRunsSortCriterion() {
+  private List<SortCriterion> buildTaskRunsSortCriteria() {
     final SortCriterion sortCriterion = new SortCriterion();
     sortCriterion.setField(CREATED_TIME_SEARCH_INDEX_FIELD_NAME);
     sortCriterion.setOrder(SortOrder.DESCENDING);
-    return sortCriterion;
+    return Collections.singletonList(sortCriterion);
   }
 }

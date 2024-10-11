@@ -8,7 +8,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-> The **Column Assertions** feature is available as part of the **Acryl Observe** module of Acryl Cloud.
+> The **Column Assertions** feature is available as part of the **Acryl Observe** module of DataHub Cloud.
 > If you are interested in learning more about **Acryl Observe** or trying it out, please [visit our website](https://www.acryldata.io/observe).
 
 ## Introduction
@@ -17,9 +17,9 @@ Can you remember a time when an important warehouse table column changed dramati
 
 There are many reasons why important columns in your Snowflake, Redshift, BigQuery, or Databricks tables may change - application code bugs, new feature rollouts, etc. Oftentimes, these changes break important assumptions made about the data used in building key downstream data products like reporting dashboards or data-driven product features.
 
-What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data issues before anyone else? With Acryl DataHub Column  Assertions, you can.
+What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data issues before anyone else? With DataHub Cloud Column  Assertions, you can.
 
-With Acryl DataHub, you can define **Column Value** assertions to ensure each value in a column matches specific constraints, and **Column Metric** assertions to ensure that computed metrics from columns align with your expectations. As soon as things go wrong, your team will be the first to know, before the data issue becomes a larger data incident. 
+With DataHub Cloud, you can define **Column Value** assertions to ensure each value in a column matches specific constraints, and **Column Metric** assertions to ensure that computed metrics from columns align with your expectations. As soon as things go wrong, your team will be the first to know, before the data issue becomes a larger data incident. 
 
 In this guide, we'll cover the basics of Column Assertions - what they are, how to configure them, and more - so that you and your team can start building trust in your most important data assets.
 
@@ -36,7 +36,7 @@ Column Assertions are currently supported for:
 5. DataHub Dataset Profile Metrics (collected via ingestion)
 
 Note that an Ingestion Source _must_ be configured with the data platform of your choice in
-Acryl DataHub's **Ingestion** tab.
+DataHub Cloud's **Ingestion** tab.
 
 > Note that Column Assertions are not yet supported if you are connecting to your warehouse
 > using the DataHub CLI.
@@ -248,7 +248,7 @@ To resume the assertion, simply click **Start**.
 
 ## Creating Column Assertions via API
 
-Under the hood, Acryl DataHub implements Column Assertion Monitoring using two concepts:
+Under the hood, DataHub Cloud implements Column Assertion Monitoring using two concepts:
 
 - **Assertion**: The specific expectation for the column metric. e.g. "The value of an integer column is greater than 10 for all rows in the table." This is the "what".
 - **Monitor**: The process responsible for evaluating the Assertion on a given evaluation schedule and using specific

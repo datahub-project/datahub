@@ -24,9 +24,7 @@ dependencies {
 
     implementation externalDependency.json
 
-    testImplementation externalDependency.junit
-    // Use JUnit Jupiter for testing.
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2'
+    testImplementation externalDependency.testng
 }
 
 jacocoTestReport {
@@ -42,6 +40,15 @@ test {
 test {
     useJUnit()
     finalizedBy jacocoTestReport
+}
+shadowJar {
+    zip64 = true
+    archiveClassifier = ''
+    exclude('log4j2.*', 'log4j.*')
+}
+
+jar {
+    archiveClassifier = 'lib'
 }
 
 //task sourcesJar(type: Jar) {

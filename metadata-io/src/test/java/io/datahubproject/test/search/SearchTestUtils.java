@@ -13,6 +13,8 @@ import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -22,6 +24,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -39,9 +42,9 @@ import org.opensearch.client.RestClientBuilder;
 public class SearchTestUtils {
   private SearchTestUtils() {}
 
-  public static void syncAfterWrite(ESBulkProcessor bulkProcessor) throws InterruptedException {
-    bulkProcessor.flush();
-    Thread.sleep(1000);
+  public static void syncAfterWrite(ESBulkProcessor bulkProcessor)
+      throws InterruptedException, IOException {
+    BulkProcessorTestUtils.syncAfterWrite(bulkProcessor);
   }
 
   public static final List<String> SEARCHABLE_ENTITIES;
@@ -219,6 +222,11 @@ public class SearchTestUtils {
           public OperationContext getOperationContext() {
             return opContext;
           }
+
+          @Override
+          public DataHubAppConfiguration getDataHubAppConfig() {
+            return new DataHubAppConfiguration();
+          }
         });
   }
 
@@ -250,5 +258,17 @@ public class SearchTestUtils {
                 return httpClientBuilder;
               }
             });
+  }
+
+  public static GraphQueryConfiguration getGraphQueryConfiguration() {
+    return new GraphQueryConfiguration() {
+      {
+        setBatchSize(1000);
+        setTimeoutSeconds(10);
+        setMaxResult(10000);
+        setEnableMultiPathSearch(true);
+        setBoostViaNodes(true);
+      }
+    };
   }
 }

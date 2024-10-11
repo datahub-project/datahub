@@ -63,8 +63,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -138,8 +137,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -213,8 +211,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -288,8 +285,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -363,8 +359,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -382,7 +377,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "let\n    Source = Oracle.Database(\"localhost:1521/salesdb.GSLAB.COM\", [HierarchicalNavigation=true]), HR = Source{[Schema=\"HR\"]}[Data], EMPLOYEES1 = HR{[Name=\"EMPLOYEES\"]}[Data] \n in EMPLOYEES1",
+            "viewLogic": "let\n    Source = Oracle.Database(\"localhost:1521/salesdb.domain.com\", [HierarchicalNavigation=true]), HR = Source{[Schema=\"HR\"]}[Data], EMPLOYEES1 = HR{[Name=\"EMPLOYEES\"]}[Data] \n in EMPLOYEES1",
             "viewLanguage": "m_query"
         }
     },
@@ -438,8 +433,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -513,8 +507,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -588,8 +581,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -663,8 +655,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
@@ -986,6 +977,45 @@
                 "op": "add",
                 "path": "/customProperties/workspaceId",
                 "value": "64ED5CAD-7C10-4684-8180-826122881108"
+            },
+            {
+                "op": "add",
+                "path": "/title",
+                "value": "test_dashboard"
+            },
+            {
+                "op": "add",
+                "path": "/description",
+                "value": "Description of test dashboard"
+            },
+            {
+                "op": "add",
+                "path": "/charts/urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+                "value": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)"
+            },
+            {
+                "op": "add",
+                "path": "/charts/urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
+                "value": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)"
+            },
+            {
+                "op": "add",
+                "path": "/dashboardUrl",
+                "value": "https://localhost/dashboards/web/1"
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
             }
         ]
     },
@@ -1087,6 +1117,30 @@
                 "op": "add",
                 "path": "/customProperties/workspaceId",
                 "value": "64ED5CAD-7C22-4684-8180-826122881108"
+            },
+            {
+                "op": "add",
+                "path": "/title",
+                "value": "test_dashboard2"
+            },
+            {
+                "op": "add",
+                "path": "/dashboardUrl",
+                "value": "https://localhost/dashboards/web/1"
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
             }
         ]
     },

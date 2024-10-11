@@ -40,7 +40,7 @@ public interface SystemMetadataService {
   List<IngestionRunSummary> listRuns(
       Integer pageOffset, Integer pageSize, boolean includeSoftDeleted);
 
-  void configure();
+  default void configure() {}
 
   void clear();
 }

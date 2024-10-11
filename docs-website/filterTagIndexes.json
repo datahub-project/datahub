@@ -85,7 +85,7 @@
       "tags": {
         "Platform Type": "Orchestrator",
         "Connection Type": "Pull",
-        "Features": "Stateful Ingestion, UI Ingestion, Status Aspect"
+        "Features": "Status Aspect"
       }
     },
     {
@@ -103,7 +103,7 @@
       "Path": "docs/generated/ingestion/sources/datahub",
       "imgPath": "img/acryl-logo-light-mark.png",
       "Title": "DataHub",
-      "Description": "Integrate your open source DataHub instance with Acryl Cloud or other on-prem DataHub instances",
+      "Description": "Integrate your open source DataHub instance with DataHub Cloud or other on-prem DataHub instances",
       "tags": {
         "Platform Type": "Metadata",
         "Connection Type": "Pull",
@@ -430,6 +430,17 @@
       }
     },
     {
+      "Path": "docs/lineage/prefect",
+      "imgPath": "img/logos/platforms/prefect.svg",
+      "Title": "Prefect",
+      "Description": "Prefect is a modern workflow orchestration for data and ML engineers.",
+      "tags": {
+        "Platform Type": "Orchestrator",
+        "Connection Type": "Pull",
+        "Features": "Status Aspect"
+      }
+    },
+    {
       "Path": "docs/generated/ingestion/sources/presto",
       "imgPath": "img/logos/platforms/presto.svg",
       "Title": "Presto",
@@ -562,7 +573,7 @@
       }
     },
     {
-      "Path": "docs/metadata-integration/java/spark-lineage-beta",
+      "Path": "docs/metadata-integration/java/acryl-spark-lineage",
       "imgPath": "img/logos/platforms/spark.svg",
       "Title": "Spark",
       "Description": "Spark is a data processing tool that enables fast and efficient processing of large-scale data sets using distributed computing.",

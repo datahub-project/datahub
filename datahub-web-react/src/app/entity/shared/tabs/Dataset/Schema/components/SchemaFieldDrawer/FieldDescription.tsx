@@ -6,6 +6,8 @@ import styled from 'styled-components';
 import { SectionHeader, StyledDivider } from './components';
 import UpdateDescriptionModal from '../../../../../components/legacy/DescriptionModal';
 import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '../../../../../../../../types.generated';
+import { getFieldDescriptionDetails } from '../../utils/getFieldDescriptionDetails';
+import PropagationDetails from '../../../../../propagation/PropagationDetails';
 import DescriptionSection from '../../../../../containers/profile/sidebar/AboutSection/DescriptionSection';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../../EntityContext';
 import { useSchemaRefetch } from '../../SchemaContext';
@@ -13,16 +15,18 @@ import { useUpdateDescriptionMutation } from '../../../../../../../../graphql/mu
 import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
 import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
 
-const DescriptionWrapper = styled.div`
-    display: flex;
-    justify-content: space-between;
-`;
-
 const EditIcon = styled(Button)`
     border: none;
     box-shadow: none;
     height: 20px;
     width: 20px;
+`;
+
+const DescriptionWrapper = styled.div`
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    justify-content: space-between;
 `;
 
 interface Props {
@@ -76,8 +80,16 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
         },
     });
 
-    const displayedDescription = editableFieldInfo?.description || expandedField.description;
-    const baDescription = expandedField?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.description;
+    const { schemaFieldEntity, description } = expandedField;
+    const { displayedDescription, isPropagated, sourceDetail, propagatedDescription } = getFieldDescriptionDetails({
+        schemaFieldEntity,
+        editableFieldInfo,
+        defaultDescription: description,
+    });
+
+    const baDescription =
+        expandedField?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties
+            ?.description;
     const baUrn = expandedField?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.urn;
 
     return (
@@ -85,7 +97,17 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
             <DescriptionWrapper>
                 <div>
                     <SectionHeader>Description</SectionHeader>
-                    <DescriptionSection description={displayedDescription || ''} baDescription={baDescription || ''} baUrn={baUrn || ''} isExpandable />
+                    <DescriptionWrapper>
+                        {isPropagated && <PropagationDetails sourceDetail={sourceDetail} />}
+                        {!!displayedDescription && (
+                            <DescriptionSection
+                                description={displayedDescription || ''}
+                                baDescription={baDescription || ''}
+                                baUrn={baUrn || ''}
+                                isExpandable
+                            />
+                        )}
+                    </DescriptionWrapper>
                 </div>
                 {isSchemaEditable && (
                     <EditIcon
@@ -107,6 +129,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                                 .catch(onFailMutation);
                             setIsModalVisible(false);
                         }}
+                        propagatedDescription={propagatedDescription || ''}
                         isAddDesc={!displayedDescription}
                     />
                 )}

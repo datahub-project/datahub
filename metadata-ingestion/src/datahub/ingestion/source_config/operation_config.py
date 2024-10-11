@@ -69,10 +69,10 @@ def is_profiling_enabled(operation_config: OperationConfig) -> bool:
     today = datetime.date.today()
     if (
         operation_config.profile_day_of_week is not None
-        and operation_config.profile_date_of_month != today.weekday()
+        and operation_config.profile_day_of_week != today.weekday()
     ):
         logger.info(
-            "Profiling won't be done because weekday does not match config profile_date_of_month.",
+            "Profiling won't be done because weekday does not match config profile_day_of_week.",
         )
         return False
     if (

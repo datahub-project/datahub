@@ -1,12 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -19,7 +19,6 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -33,6 +32,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -181,7 +181,7 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
             Constants.POLICY_ENTITY_NAME,
             "",
             buildFilterToGetPolicies(user, groups, roles),
-            sortCriterion,
+            Collections.singletonList(sortCriterion),
             0,
             10000)
         .getEntities()
@@ -198,41 +198,28 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
     ConjunctiveCriterionArray conjunctiveCriteria = new ConjunctiveCriterionArray();
 
     final CriterionArray allUsersAndArray = new CriterionArray();
-    allUsersAndArray.add(
-        new Criterion().setField("allUsers").setValue("true").setCondition(Condition.EQUAL));
+    allUsersAndArray.add(buildCriterion("allUsers", Condition.EQUAL, "true"));
     conjunctiveCriteria.add(new ConjunctiveCriterion().setAnd(allUsersAndArray));
 
     final CriterionArray allGroupsAndArray = new CriterionArray();
-    allGroupsAndArray.add(
-        new Criterion().setField("allGroups").setValue("true").setCondition(Condition.EQUAL));
+    allGroupsAndArray.add(buildCriterion("allGroups", Condition.EQUAL, "true"));
     conjunctiveCriteria.add(new ConjunctiveCriterion().setAnd(allGroupsAndArray));
 
     if (user != null && !user.isEmpty()) {
       final CriterionArray userAndArray = new CriterionArray();
-      userAndArray.add(
-          new Criterion().setField("users").setValue(user).setCondition(Condition.EQUAL));
+      userAndArray.add(buildCriterion("users", Condition.EQUAL, user));
       conjunctiveCriteria.add(new ConjunctiveCriterion().setAnd(userAndArray));
     }
 
     if (groups != null && !groups.isEmpty()) {
       final CriterionArray groupsAndArray = new CriterionArray();
-      groupsAndArray.add(
-          new Criterion()
-              .setField("groups")
-              .setValue("")
-              .setValues(new StringArray(groups))
-              .setCondition(Condition.EQUAL));
+      groupsAndArray.add(buildCriterion("groups", Condition.EQUAL, groups));
       conjunctiveCriteria.add(new ConjunctiveCriterion().setAnd(groupsAndArray));
     }
 
     if (roles != null && !roles.isEmpty()) {
       final CriterionArray rolesAndArray = new CriterionArray();
-      rolesAndArray.add(
-          new Criterion()
-              .setField("roles")
-              .setValue("")
-              .setValues(new StringArray(roles))
-              .setCondition(Condition.EQUAL));
+      rolesAndArray.add(buildCriterion("roles", Condition.EQUAL, roles));
       conjunctiveCriteria.add(new ConjunctiveCriterion().setAnd(rolesAndArray));
     }
     return new Filter().setOr(conjunctiveCriteria);

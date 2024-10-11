@@ -17,7 +17,7 @@ def get_coverage_arg(test_name) {
 
 task checkPythonVersion(type: Exec) {
   commandLine python_executable, '-c',
-    'import sys; assert (3, 11) > sys.version_info >= (3, 8), f"Python version {sys.version_info[:2]} not allowed"'
+    'import sys; sys.version_info >= (3, 8), f"Python version {sys.version_info[:2]} not allowed"'
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {

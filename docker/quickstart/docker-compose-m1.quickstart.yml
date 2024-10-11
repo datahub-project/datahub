@@ -24,7 +24,7 @@ services:
       test: nc -z broker $${DATAHUB_KAFKA_BROKER_PORT:-9092}
       timeout: 5s
     hostname: broker
-    image: confluentinc/cp-kafka:7.4.0
+    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
     ports:
     - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
     volumes:
@@ -97,7 +97,7 @@ services:
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
-    - METADATA_SERVICE_AUTH_ENABLED=false
+    - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
     - NEO4J_HOST=http://neo4j:7474
     - NEO4J_PASSWORD=datahub
     - NEO4J_URI=bolt://neo4j
@@ -271,7 +271,7 @@ services:
       test: nc -z schema-registry ${DATAHUB_SCHEMA_REGISTRY_PORT:-8081}
       timeout: 5s
     hostname: schema-registry
-    image: confluentinc/cp-schema-registry:7.4.0
+    image: ${DATAHUB_CONFLUENT_SCHEMA_REGISTRY_IMAGE:-confluentinc/cp-schema-registry}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
     ports:
     - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
   zookeeper:
@@ -285,13 +285,12 @@ services:
       test: echo srvr | nc zookeeper $${DATAHUB_ZK_PORT:-2181}
       timeout: 5s
     hostname: zookeeper
-    image: confluentinc/cp-zookeeper:7.4.0
+    image: ${DATAHUB_CONFLUENT_ZOOKEEPER_IMAGE:-confluentinc/cp-zookeeper}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
     ports:
     - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
     - zkdata:/var/lib/zookeeper/data
     - zklogs:/var/lib/zookeeper/log
-version: '3.9'
 volumes:
   broker: null
   esdata: null
