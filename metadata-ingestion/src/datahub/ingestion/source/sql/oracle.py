@@ -5,7 +5,8 @@ from typing import Any, Dict, Iterable, List, NoReturn, Optional, Tuple, Union, 
 from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
-import cx_Oracle
+import sys
+import oracledb
 import pydantic
 import sqlalchemy.engine
 from pydantic.fields import Field
@@ -31,6 +32,9 @@ from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 
 logger = logging.getLogger(__name__)
 
+oracledb.version = "8.3.0"
+sys.modules["cx_Oracle"] = oracledb
+
 extra_oracle_types = {
     make_sqlalchemy_type("SDO_GEOMETRY"),
     make_sqlalchemy_type("SDO_POINT_TYPE"),
@@ -47,10 +51,10 @@ def _raise_err(exc: Exception) -> NoReturn:
 def output_type_handler(cursor, name, defaultType, size, precision, scale):
     """Add CLOB and BLOB support to Oracle connection."""
 
-    if defaultType == cx_Oracle.CLOB:
-        return cursor.var(cx_Oracle.LONG_STRING, arraysize=cursor.arraysize)
-    elif defaultType == cx_Oracle.BLOB:
-        return cursor.var(cx_Oracle.LONG_BINARY, arraysize=cursor.arraysize)
+    if defaultType == oracledb.CLOB:
+        return cursor.var(oracledb.DB_TYPE_LONG, arraysize=cursor.arraysize)
+    elif defaultType == oracledb.BLOB:
+        return cursor.var(oracledb.DB_TYPE_LONG_RAW, arraysize=cursor.arraysize)
 
 
 def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
@@ -60,7 +64,7 @@ def before_cursor_execute(conn, cursor, statement, parameters, context, executem
 class OracleConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme: str = Field(
-        default="oracle+cx_oracle",
+        default="oracle+oracledb",
         description="Will be set automatically to default value.",
     )
     service_name: Optional[str] = Field(
