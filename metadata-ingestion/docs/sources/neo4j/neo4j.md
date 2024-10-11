@@ -35,10 +35,6 @@ Run the following commands to install the relevant plugin(s):
 
 Use the following recipe(s) to get started with ingestion. 
 
-_For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes)._
-
-
-
 <details>
   <summary>View All Recipe Configuartion Options</summary>
   
@@ -61,7 +57,6 @@ _For general pointers on writing and running a recipe, see our [main recipe guid
 
 </details>
 
-#### `'acryl-datahub[neo4j]'`
 
 ```yml
 source:
