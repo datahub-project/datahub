@@ -244,7 +244,9 @@ public class FormService extends BaseService {
       }
       ingestChangeProposals(opContext, changes, _isAsync);
       Predicate predicate = AcrylSearchUtils.convertFilterToPredicate(formFilters.getFilter());
+
       String predicateJson = opContext.getObjectMapper().writeValueAsString(predicate);
+
       return SearchBasedFormAssignmentRunner.assign(
           opContext,
           predicateJson,
@@ -275,25 +277,27 @@ public class FormService extends BaseService {
 
       StringListLiteral formUrnLiteral =
           new StringListLiteral(Collections.singletonList(formUrn.toString()));
-      Query incompleteFormsQuery = new Query("forms.incompleteForms");
+      Query incompleteFormsQuery = new Query("incompleteForms");
       Predicate incompleteForms =
           Predicate.of(
               OperatorType.ANY_EQUALS, ImmutableList.of(incompleteFormsQuery, formUrnLiteral));
 
-      Query completedFormsQuery = new Query("forms.completedForms");
+      Query completedFormsQuery = new Query("completedForms");
       Predicate completedForms =
           Predicate.of(
               OperatorType.ANY_EQUALS, ImmutableList.of(completedFormsQuery, formUrnLiteral));
 
-      Query verifiedFormsQuery = new Query("forms.verifiedForms");
+      Query verifiedFormsQuery = new Query("verifiedForms");
       Predicate verifiedForms =
           Predicate.of(
               OperatorType.ANY_EQUALS, ImmutableList.of(verifiedFormsQuery, formUrnLiteral));
 
-      Predicate finalPredicate =
+      Predicate formsPredicate =
           Predicate.of(
-              OperatorType.AND,
-              ImmutableList.of(notFilters, incompleteForms, completedForms, verifiedForms));
+              OperatorType.OR, ImmutableList.of(incompleteForms, completedForms, verifiedForms));
+
+      Predicate finalPredicate =
+          Predicate.of(OperatorType.AND, ImmutableList.of(notFilters, formsPredicate));
 
       String predicateJson = opContext.getObjectMapper().writeValueAsString(finalPredicate);
       return SearchBasedFormAssignmentRunner.unassign(

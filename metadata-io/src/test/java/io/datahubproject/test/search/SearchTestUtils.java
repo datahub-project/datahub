@@ -302,5 +302,25 @@ public class SearchTestUtils {
         null,
         predicateJson);
   }
+
+  public static ScrollResult scrollAcrossEntitiesPredicate(
+      OperationContext opContext,
+      SearchService searchService,
+      List<String> entityNames,
+      String query,
+      Filter filter,
+      String predicateJson) {
+    return searchService.scrollAcrossEntities(
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipCache(true).setSkipHighlighting(false)),
+        entityNames,
+        query,
+        filter,
+        null,
+        null,
+        "5m",
+        10,
+        predicateJson);
+  }
   /* END SAAS ONLY */
 }

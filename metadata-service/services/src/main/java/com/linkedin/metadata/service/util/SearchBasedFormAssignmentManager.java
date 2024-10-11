@@ -80,7 +80,7 @@ public class SearchBasedFormAssignmentManager {
           consumer.accept(opContext, entityUrns, formUrn);
 
           if (!entityUrns.isEmpty()) {
-            log.info("Batch assign {} entities to form {}.", entityUrns.size(), formUrn);
+            log.info("Batch assign/unassign {} entities to form {}.", entityUrns.size(), formUrn);
           }
 
           numResults = results.getEntities().size();
@@ -88,7 +88,7 @@ public class SearchBasedFormAssignmentManager {
           scrollId = results.getScrollId();
 
           log.info(
-              "Starting batch assign forms, count: {} running total: {}, size: {}",
+              "Starting batch assign/unassign forms, count: {} running total: {}, size: {}",
               batchFormEntityCount,
               totalResults,
               results.getEntities().size());
@@ -98,10 +98,10 @@ public class SearchBasedFormAssignmentManager {
         }
       } while (scrollId != null);
 
-      log.info("Successfully assigned {} entities to form {}.", totalResults, formUrn);
+      log.info("Successfully assigned/unassigned {} entities to form {}.", totalResults, formUrn);
 
     } catch (RemoteInvocationException e) {
-      log.error("Error while assigning form to entities.", e);
+      log.error("Error while assigning/unassigning form to entities.", e);
       throw new RuntimeException(e);
     }
   }

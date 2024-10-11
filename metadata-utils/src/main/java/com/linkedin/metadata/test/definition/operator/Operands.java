@@ -1,21 +1,34 @@
 package com.linkedin.metadata.test.definition.operator;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import com.linkedin.metadata.test.definition.expression.ExpressionType;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Value;
 
 @Value
 @Getter
+@JsonDeserialize(builder = Operands.OperandsBuilder.class)
 /** A set of named {@link Expression}s. */
 public class Operands {
   /** The list of operands. */
+  @JsonProperty("operands")
   List<Operand> operands;
 
+  @JsonProperty("nameToOperand")
   Map<String, Operand> nameToOperand;
+
+  @Builder
+  public Operands(List<Operand> operands, Map<String, Operand> nameToOperand) {
+    this.operands = operands;
+    this.nameToOperand = nameToOperand;
+  }
 
   public Operands(final List<Operand> operands) {
     this.operands = operands;
@@ -79,4 +92,7 @@ public class Operands {
   public String toString() {
     return this.operands.toString();
   }
+
+  @JsonPOJOBuilder(withPrefix = "")
+  public static class OperandsBuilder {}
 }

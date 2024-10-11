@@ -5,7 +5,6 @@ import static com.datahub.util.RecordUtils.toRecordTemplate;
 
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -16,7 +15,6 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
-import com.linkedin.metadata.test.definition.TestDefinitionParser;
 import com.linkedin.metadata.test.definition.operator.OperatorType;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
@@ -501,8 +499,8 @@ public class CachingEntitySearchService {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRawSearchResults").time()) {
       Predicate finalFilterPredicate =
           filters != null ? AcrylSearchUtils.convertFilterToPredicate(filters) : null;
-      JsonNode predicateJsonNode = opContext.getObjectMapper().readTree(predicateJson);
-      Predicate inputPredicate = TestDefinitionParser.deserializeRule(predicateJsonNode);
+      Predicate inputPredicate =
+          opContext.getObjectMapper().readValue(predicateJson, Predicate.class);
       final Predicate finalPredicate =
           finalFilterPredicate != null
               ? Predicate.of(
@@ -567,8 +565,8 @@ public class CachingEntitySearchService {
       ScrollResult result;
       Predicate finalFilterPredicate =
           filters != null ? AcrylSearchUtils.convertFilterToPredicate(filters) : null;
-      JsonNode predicateJsonNode = opContext.getObjectMapper().readTree(predicateJson);
-      Predicate inputPredicate = TestDefinitionParser.deserializeRule(predicateJsonNode);
+      Predicate inputPredicate =
+          opContext.getObjectMapper().readValue(predicateJson, Predicate.class);
       final Predicate finalPredicate =
           finalFilterPredicate != null
               ? Predicate.of(

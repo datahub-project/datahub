@@ -6,6 +6,7 @@ import static com.linkedin.metadata.utils.SearchUtil.*;
 import static io.datahubproject.test.search.SearchTestUtils.*;
 import static org.testng.Assert.*;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -36,6 +37,8 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.test.definition.TestDefinitionParser;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -2068,7 +2071,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   /* SAAS ONLY */
   @Test
-  public void testFilterOnNumValuesFieldPredicate() {
+  public void testFilterOnNumValuesFieldPredicate() throws JsonProcessingException {
     AssertJUnit.assertNotNull(getSearchService());
     Filter filter =
         new Filter()
@@ -2082,8 +2085,12 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                                         .setField("numInputDatasets")
                                         .setValue("")
                                         .setValues(new StringArray(ImmutableList.of("1"))))))));
-    String predicateJson =
+    String testDefinitionJson =
         "{\"and\": [{\"property\": \"numInputDatasets\",\"operator\": \"equals\",\"values\": [\"1\"]}]}";
+    Predicate predicate =
+        TestDefinitionParser.deserializeRule(
+            getOperationContext().getObjectMapper().readTree(testDefinitionJson));
+    String predicateJson = getOperationContext().getObjectMapper().writeValueAsString(predicate);
     // Test just predicate
     SearchResult searchResult =
         searchAcrossEntitiesPredicate(
@@ -2098,6 +2105,50 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     // Test combined with filter
     searchResult =
         searchAcrossEntitiesPredicate(
+            getOperationContext(),
+            getSearchService(),
+            Collections.singletonList(DATA_JOB_ENTITY_NAME),
+            "*",
+            filter,
+            predicateJson);
+    assertEquals(searchResult.getEntities().size(), 4);
+  }
+
+  @Test
+  public void testFilterOnNumValuesFieldPredicateScroll() throws JsonProcessingException {
+    AssertJUnit.assertNotNull(getSearchService());
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    new Criterion()
+                                        .setField("numInputDatasets")
+                                        .setValue("")
+                                        .setValues(new StringArray(ImmutableList.of("1"))))))));
+    String testDefinitionJson =
+        "{\"and\": [{\"property\": \"numInputDatasets\",\"operator\": \"equals\",\"values\": [\"1\"]}]}";
+    Predicate predicate =
+        TestDefinitionParser.deserializeRule(
+            getOperationContext().getObjectMapper().readTree(testDefinitionJson));
+    String predicateJson = getOperationContext().getObjectMapper().writeValueAsString(predicate);
+    // Test just predicate
+    ScrollResult searchResult =
+        scrollAcrossEntitiesPredicate(
+            getOperationContext(),
+            getSearchService(),
+            Collections.singletonList(DATA_JOB_ENTITY_NAME),
+            "*",
+            null,
+            predicateJson);
+    assertEquals(searchResult.getEntities().size(), 4);
+
+    // Test combined with filter
+    searchResult =
+        scrollAcrossEntitiesPredicate(
             getOperationContext(),
             getSearchService(),
             Collections.singletonList(DATA_JOB_ENTITY_NAME),

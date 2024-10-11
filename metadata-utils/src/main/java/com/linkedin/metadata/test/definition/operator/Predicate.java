@@ -1,5 +1,8 @@
 package com.linkedin.metadata.test.definition.operator;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.test.definition.expression.Expression;
 import com.linkedin.metadata.test.definition.expression.ExpressionType;
@@ -15,15 +18,20 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Builder;
 import lombok.ToString;
 import lombok.Value;
 
 /** This represents an {@link Operator} which returns a boolean (true / false) value. */
 @Value
 @ToString
+@JsonDeserialize(builder = Predicate.PredicateBuilder.class)
 public class Predicate implements Operator {
 
+  @JsonProperty("operatorType")
   OperatorType operatorType;
+
+  @JsonProperty("operands")
   Operands operands;
 
   public static Predicate of(OperatorType operatorType, List<Expression> expressions) {
@@ -53,6 +61,7 @@ public class Predicate implements Operator {
     this(operatorType, new Operands(operands), negated);
   }
 
+  @Builder
   public Predicate(OperatorType operatorType, Operands operands, boolean negated) {
     // TODO: Clean this hack up.
     if (negated) {
@@ -133,4 +142,7 @@ public class Predicate implements Operator {
     // Otherwise, there are no required queries to be resolved
     return Collections.emptySet();
   }
+
+  @JsonPOJOBuilder(withPrefix = "")
+  public static class PredicateBuilder {}
 }
