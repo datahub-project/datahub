@@ -949,14 +949,14 @@ public class SearchRequestHandler {
     searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
 
     return buildSearchRequestPageAgnostic(
-        opContext,
-        searchRequest,
-        searchSourceBuilder,
-        input,
-        searchFlags,
-        filterQuery,
-        facets,
-        sortCriteria)
+            opContext,
+            searchRequest,
+            searchSourceBuilder,
+            input,
+            searchFlags,
+            filterQuery,
+            facets,
+            sortCriteria)
         .indicesOptions(null);
   }
 

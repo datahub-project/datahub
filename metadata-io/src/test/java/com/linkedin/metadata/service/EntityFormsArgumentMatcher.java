@@ -20,12 +20,16 @@ public class EntityFormsArgumentMatcher implements ArgumentMatcher<List<Metadata
 
   @Override
   public boolean matches(List<MetadataChangeProposal> rightList) {
-    return rightList.stream().allMatch(right ->
-        leftList.stream().anyMatch(left ->
-            left.getEntityType().equals(right.getEntityType())
-                && left.getAspectName().equals(right.getAspectName())
-                && left.getChangeType().equals(right.getChangeType())
-                && formsMatches(left.getAspect(), right.getAspect())));
+    return rightList.stream()
+        .allMatch(
+            right ->
+                leftList.stream()
+                    .anyMatch(
+                        left ->
+                            left.getEntityType().equals(right.getEntityType())
+                                && left.getAspectName().equals(right.getAspectName())
+                                && left.getChangeType().equals(right.getChangeType())
+                                && formsMatches(left.getAspect(), right.getAspect())));
   }
 
   private boolean formsMatches(GenericAspect left, GenericAspect right) {

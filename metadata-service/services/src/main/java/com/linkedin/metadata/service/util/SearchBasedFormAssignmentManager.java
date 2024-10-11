@@ -1,22 +1,14 @@
 package com.linkedin.metadata.service.util;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.service.FormService;
-import com.linkedin.metadata.test.definition.operator.Predicate;
-import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.List;
-import java.util.Objects;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 

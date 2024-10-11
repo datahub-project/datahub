@@ -414,7 +414,14 @@ public class SearchUtils {
           try {
             final ScrollResult scrollResult =
                 _entityClient.scrollAcrossEntities(
-                    context, finalEntityNames, query, finalFilters, scrollId, keepAlive, count, null);
+                    context,
+                    finalEntityNames,
+                    query,
+                    finalFilters,
+                    scrollId,
+                    keepAlive,
+                    count,
+                    null);
             return UrnScrollResultsMapper.map(inputContext, scrollResult);
           } catch (Exception e) {
             log.warn(

@@ -744,7 +744,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.keepAliveParam(keepAlive);
     }
     if (predicateJson != null) {
-
+      requestBuilder.predicateFilterParam(predicateJson);
     }
 
     return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();

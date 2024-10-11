@@ -4,11 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.service.FormService;
-import com.linkedin.metadata.test.definition.operator.Predicate;
-import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.concurrent.atomic.AtomicLong;
@@ -25,7 +22,7 @@ public class SearchBasedFormAssignmentRunner {
     return THREAD_INIT_NUMBER.getAndIncrement();
   }
 
-  public static void assign(
+  public static Thread assign(
       OperationContext opContext,
       String predicateJson,
       Urn formUrn,
@@ -33,29 +30,35 @@ public class SearchBasedFormAssignmentRunner {
       SystemEntityClient entityClient,
       OpenApiClient openApiClient,
       ObjectMapper objectMapper) {
-    // TODO: Refactor form service methods to take appSource as a param to avoid having to repeatedly new up instances
+    // TODO: Refactor form service methods to take appSource as a param to avoid having to
+    // repeatedly new up instances
     FormService formService =
         new FormService(
             entityClient, openApiClient, objectMapper, Constants.METADATA_TESTS_SOURCE, true);
-    Runnable runnable = () -> {
-      try {
-        SearchBasedFormAssignmentManager.apply(
-            opContext,
-            predicateJson,
-            formUrn,
-            batchFormEntityCount,
-            entityClient,
-            formService::batchAssignFormToEntities
-            );
-      } catch (Exception e) {
-        handleException(e, predicateJson, formUrn, batchFormEntityCount, entityClient);
-        throw new RuntimeException("Form assignment runner error.", e);
-      }
-    };
-    new Thread(runnable, SearchBasedFormAssignmentRunner.class.getSimpleName() + "-assign-" + nextThreadNum()).start();
+    Runnable runnable =
+        () -> {
+          try {
+            SearchBasedFormAssignmentManager.apply(
+                opContext,
+                predicateJson,
+                formUrn,
+                batchFormEntityCount,
+                entityClient,
+                formService::batchAssignFormToEntities);
+          } catch (Exception e) {
+            handleException(e, predicateJson, formUrn, batchFormEntityCount, entityClient);
+            throw new RuntimeException("Form assignment runner error.", e);
+          }
+        };
+    Thread assignThread =
+        new Thread(
+            runnable,
+            SearchBasedFormAssignmentRunner.class.getSimpleName() + "-assign-" + nextThreadNum());
+    assignThread.start();
+    return assignThread;
   }
 
-  public static void unassign(
+  public static Thread unassign(
       OperationContext opContext,
       String predicateJson,
       Urn formUrn,
@@ -63,28 +66,39 @@ public class SearchBasedFormAssignmentRunner {
       SystemEntityClient entityClient,
       OpenApiClient openApiClient,
       ObjectMapper objectMapper) {
-    // TODO: Refactor form service methods to take appSource as a param to avoid having to repeatedly new up instances
+    // TODO: Refactor form service methods to take appSource as a param to avoid having to
+    // repeatedly new up instances
     FormService formService =
         new FormService(
             entityClient, openApiClient, objectMapper, Constants.METADATA_TESTS_SOURCE, true);
-    Runnable runnable = () -> {
-      try {
-        SearchBasedFormAssignmentManager.apply(
-            opContext,
-            predicateJson,
-            formUrn,
-            batchFormEntityCount,
-            entityClient,
-            formService::batchUnassignFormForEntities
-        );
-      } catch (Exception e) {
-        handleException(e, predicateJson, formUrn, batchFormEntityCount, entityClient);
-      }
-    };
-    new Thread(runnable, SearchBasedFormAssignmentRunner.class.getSimpleName() + "-unassign-" + nextThreadNum()).start();
+    Runnable runnable =
+        () -> {
+          try {
+            SearchBasedFormAssignmentManager.apply(
+                opContext,
+                predicateJson,
+                formUrn,
+                batchFormEntityCount,
+                entityClient,
+                formService::batchUnassignFormForEntities);
+          } catch (Exception e) {
+            handleException(e, predicateJson, formUrn, batchFormEntityCount, entityClient);
+          }
+        };
+    Thread unassignThread =
+        new Thread(
+            runnable,
+            SearchBasedFormAssignmentRunner.class.getSimpleName() + "-unassign-" + nextThreadNum());
+    unassignThread.start();
+    return unassignThread;
   }
 
-  private static void handleException(Exception e, String predicateJson, Urn formUrn, int batchFormEntityCount, EntityClient entityClient) {
+  private static void handleException(
+      Exception e,
+      String predicateJson,
+      Urn formUrn,
+      int batchFormEntityCount,
+      EntityClient entityClient) {
     log.error(
         "SearchBasedFormAssignmentRunner failed to run. "
             + "Options: formFilters: {}, "

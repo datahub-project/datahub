@@ -20,12 +20,16 @@ public class FormTestArgumentMatcher implements ArgumentMatcher<List<MetadataCha
 
   @Override
   public boolean matches(List<MetadataChangeProposal> rightList) {
-    return rightList.stream().allMatch(right ->
-        leftList.stream().anyMatch(left ->
-            left.getEntityType().equals(right.getEntityType())
-                && left.getAspectName().equals(right.getAspectName())
-                && left.getChangeType().equals(right.getChangeType())
-                && formTestsMatch(left.getAspect(), right.getAspect())));
+    return rightList.stream()
+        .allMatch(
+            right ->
+                leftList.stream()
+                    .anyMatch(
+                        left ->
+                            left.getEntityType().equals(right.getEntityType())
+                                && left.getAspectName().equals(right.getAspectName())
+                                && left.getChangeType().equals(right.getChangeType())
+                                && formTestsMatch(left.getAspect(), right.getAspect())));
   }
 
   private boolean formTestsMatch(GenericAspect left, GenericAspect right) {

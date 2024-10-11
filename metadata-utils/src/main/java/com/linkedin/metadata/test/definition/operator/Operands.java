@@ -1,6 +1,5 @@
 package com.linkedin.metadata.test.definition.operator;
 
-import com.linkedin.metadata.test.definition.expression.Expression;
 import com.linkedin.metadata.test.definition.expression.ExpressionType;
 import java.util.List;
 import java.util.Map;
@@ -8,7 +7,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.Value;
-
 
 @Value
 @Getter

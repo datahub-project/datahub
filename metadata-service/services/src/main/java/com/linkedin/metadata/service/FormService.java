@@ -226,7 +226,7 @@ public class FormService extends BaseService {
   }
 
   /** Creates a form assignment automation, which assigns the form to an entity for completion. */
-  public void upsertFormAssignmentAutomation(
+  public Thread upsertFormAssignmentAutomation(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn formUrn,
       @Nonnull final DynamicFormAssignment formFilters,
@@ -242,13 +242,10 @@ public class FormService extends BaseService {
       if (_appSource != null) {
         applyAppSource(changes, _appSource);
       }
-      ingestChangeProposals(
-          opContext,
-          changes,
-          _isAsync);
+      ingestChangeProposals(opContext, changes, _isAsync);
       Predicate predicate = AcrylSearchUtils.convertFilterToPredicate(formFilters.getFilter());
       String predicateJson = opContext.getObjectMapper().writeValueAsString(predicate);
-      SearchBasedFormAssignmentRunner.assign(
+      return SearchBasedFormAssignmentRunner.assign(
           opContext,
           predicateJson,
           formUrn,
@@ -262,31 +259,44 @@ public class FormService extends BaseService {
     }
   }
 
-  public void removeFormAssignmentAutomation(
+  public Thread removeFormAssignmentAutomation(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn formUrn,
       @Nonnull final DynamicFormAssignment formFilters,
       @Nonnull ObjectMapper objectMapper) {
     try {
-      // Remove assignments from entities that do not match the form filter, but do have the form assigned
-      Predicate notFilters = Predicate.of(OperatorType.NOT,
-          Collections.singletonList(AcrylSearchUtils.convertFilterToPredicate(formFilters.getFilter())));
+      // Remove assignments from entities that do not match the form filter, but do have the form
+      // assigned
+      Predicate notFilters =
+          Predicate.of(
+              OperatorType.NOT,
+              Collections.singletonList(
+                  AcrylSearchUtils.convertFilterToPredicate(formFilters.getFilter())));
 
-      StringListLiteral formUrnLiteral = new StringListLiteral(Collections.singletonList(formUrn.toString()));
+      StringListLiteral formUrnLiteral =
+          new StringListLiteral(Collections.singletonList(formUrn.toString()));
       Query incompleteFormsQuery = new Query("forms.incompleteForms");
-      Predicate incompleteForms = Predicate.of(OperatorType.ANY_EQUALS, ImmutableList.of(incompleteFormsQuery, formUrnLiteral));
+      Predicate incompleteForms =
+          Predicate.of(
+              OperatorType.ANY_EQUALS, ImmutableList.of(incompleteFormsQuery, formUrnLiteral));
 
       Query completedFormsQuery = new Query("forms.completedForms");
-      Predicate completedForms = Predicate.of(OperatorType.ANY_EQUALS, ImmutableList.of(completedFormsQuery, formUrnLiteral));
+      Predicate completedForms =
+          Predicate.of(
+              OperatorType.ANY_EQUALS, ImmutableList.of(completedFormsQuery, formUrnLiteral));
 
       Query verifiedFormsQuery = new Query("forms.verifiedForms");
-      Predicate verifiedForms = Predicate.of(OperatorType.ANY_EQUALS, ImmutableList.of(verifiedFormsQuery, formUrnLiteral));
+      Predicate verifiedForms =
+          Predicate.of(
+              OperatorType.ANY_EQUALS, ImmutableList.of(verifiedFormsQuery, formUrnLiteral));
 
-      Predicate finalPredicate = Predicate.of(OperatorType.AND, ImmutableList.of(notFilters, incompleteForms,
-          completedForms, verifiedForms));
+      Predicate finalPredicate =
+          Predicate.of(
+              OperatorType.AND,
+              ImmutableList.of(notFilters, incompleteForms, completedForms, verifiedForms));
 
       String predicateJson = opContext.getObjectMapper().writeValueAsString(finalPredicate);
-      SearchBasedFormAssignmentRunner.unassign(
+      return SearchBasedFormAssignmentRunner.unassign(
           opContext,
           predicateJson,
           formUrn,
@@ -1777,7 +1787,8 @@ public class FormService extends BaseService {
         });
   }
 
-  private void verifyEntityExists(@Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
+  private void verifyEntityExists(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     try {
       if (!entityClient.exists(opContext, entityUrn)) {
         throw new RuntimeException(

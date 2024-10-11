@@ -282,20 +282,19 @@ public class SearchService {
       return getEmptyScrollResult(size);
     }
     if (predicateJson != null) {
-      return
-          _cachingEntitySearchService.predicateScroll(
-              opContext,
-              entities,
-              input,
-              postFilters,
-              sortCriteria,
-              scrollId,
-              keepAlive,
-              size,
-              predicateJson);
+      return _cachingEntitySearchService.predicateScroll(
+          opContext,
+          entities,
+          input,
+          postFilters,
+          sortCriteria,
+          scrollId,
+          keepAlive,
+          size,
+          predicateJson);
     } else {
-      return _cachingEntitySearchService.scroll(opContext, entitiesToSearch, input, postFilters, sortCriteria, scrollId,
-          keepAlive, size);
+      return _cachingEntitySearchService.scroll(
+          opContext, entitiesToSearch, input, postFilters, sortCriteria, scrollId, keepAlive, size);
     }
   }
 

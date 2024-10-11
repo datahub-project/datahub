@@ -493,6 +493,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
             "Scrolling Predicate Search documents entityName: %s, input: %s, predicate: %s, sortCriterion: %s, scrollId: %s, size: %s",
             entities, input, predicate, sortCriteria, scrollId, size));
 
-    return esSearchDAO.predicateScroll(opContext, entities, input, predicate, sortCriteria, scrollId, keepAlive, size);
+    return esSearchDAO.predicateScroll(
+        opContext, entities, input, predicate, sortCriteria, scrollId, keepAlive, size);
   }
 }

@@ -16,10 +16,10 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
-import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
 import com.linkedin.metadata.test.definition.TestDefinitionParser;
 import com.linkedin.metadata.test.definition.operator.OperatorType;
 import com.linkedin.metadata.test.definition.operator.Predicate;
+import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -540,7 +540,15 @@ public class CachingEntitySearchService {
       int size,
       String predicateJson) {
     return getCachedPredicateScrollResults(
-        opContext, entities, query, filters, sortCriteria, scrollId, keepAlive, size, predicateJson);
+        opContext,
+        entities,
+        query,
+        filters,
+        sortCriteria,
+        scrollId,
+        keepAlive,
+        size,
+        predicateJson);
   }
 
   public ScrollResult getCachedPredicateScrollResults(
@@ -564,7 +572,7 @@ public class CachingEntitySearchService {
       final Predicate finalPredicate =
           finalFilterPredicate != null
               ? Predicate.of(
-              OperatorType.AND, ImmutableList.of(finalFilterPredicate, inputPredicate))
+                  OperatorType.AND, ImmutableList.of(finalFilterPredicate, inputPredicate))
               : inputPredicate;
       if (enableCache(opContext.getSearchContext().getSearchFlags())) {
         Timer.Context cacheAccess =
@@ -625,6 +633,7 @@ public class CachingEntitySearchService {
       @Nullable final String scrollId,
       @Nullable final String keepAlive,
       final int count) {
-    return entitySearchService.predicateScroll(opContext, entities, input, predicate, sortCriteria, scrollId, keepAlive, count);
+    return entitySearchService.predicateScroll(
+        opContext, entities, input, predicate, sortCriteria, scrollId, keepAlive, count);
   }
 }
