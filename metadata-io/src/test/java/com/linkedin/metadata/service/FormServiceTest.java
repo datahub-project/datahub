@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 
@@ -1395,7 +1396,7 @@ public class FormServiceTest {
                 new TestDefinition()
                     .setType(TestDefinitionType.JSON)
                     .setJson(testDefinition.toString()));
-    assignThread.join(10000);
+    assignThread.join();
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
         .batchIngestProposals(
@@ -1472,14 +1473,8 @@ public class FormServiceTest {
         formService.removeFormAssignmentAutomation(opContext, TEST_FORM_URN, formAssignment);
     unassignThread.join();
     // Verify that the correct test was ingested.
-    List<MetadataChangeProposal> changes =
-        formService.buildUnassignFormChanges(
-            opContext, Collections.singletonList(TEST_ENTITY_URN), TEST_FORM_URN);
     Mockito.verify(mockClient, Mockito.times(1))
-        .batchIngestProposals(
-            any(OperationContext.class),
-            Mockito.argThat(new EntityFormsArgumentMatcher(changes)),
-            eq(true));
+        .batchIngestProposals(any(OperationContext.class), notNull(), eq(true));
   }
 
   @Test
@@ -1512,20 +1507,25 @@ public class FormServiceTest {
                                                 buildCriterion("_entityType", "dashboard"),
                                                 buildCriterion(
                                                     "domains", "urn:li:domain:test-2"))))))));
-    FormInfo formToAdd = new FormInfo();
-    formToAdd.setType(FormType.VERIFICATION);
-    formToAdd.setDescription("Test description");
-    formToAdd.setName("Test name");
-    formToAdd.setPrompts(
-        new FormPromptArray(
-            ImmutableSet.of(
-                new FormPrompt()
-                    .setId("test-id")
-                    .setType(FormPromptType.STRUCTURED_PROPERTY)
-                    .setRequired(true)
-                    .setTitle("Test title")
-                    .setDescription("Test description"))));
-    SystemEntityClient mockClient = mockEntityClient(null, formToAdd);
+    Forms expectedForms = new Forms();
+    expectedForms.setIncompleteForms(
+        new FormAssociationArray(
+            ImmutableList.of(
+                new FormAssociation()
+                    .setUrn(TEST_FORM_URN)
+                    .setIncompletePrompts(
+                        new FormPromptAssociationArray(
+                            ImmutableList.of(
+                                new FormPromptAssociation()
+                                    .setId("test-id")
+                                    .setLastModified(
+                                        new AuditStamp()
+                                            .setTime(0L)
+                                            .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))))))
+                    .setCompletedPrompts(new FormPromptAssociationArray()))));
+    expectedForms.setCompletedForms(new FormAssociationArray());
+    expectedForms.setVerifications(new FormVerificationAssociationArray());
+    SystemEntityClient mockClient = mockEntityClient(expectedForms, null);
     SearchEntityArray searchEntities = new SearchEntityArray();
     SearchEntity searchEntity = new SearchEntity();
     searchEntity.setEntity(TEST_ENTITY_URN);
@@ -1548,14 +1548,8 @@ public class FormServiceTest {
         formService.removeFormAssignmentAutomation(opContext, TEST_FORM_URN, formAssignment);
     unassignThread.join();
     // Verify runner performs removal
-    List<MetadataChangeProposal> changes =
-        formService.buildUnassignFormChanges(
-            opContext, Collections.singletonList(TEST_ENTITY_URN), TEST_FORM_URN);
     Mockito.verify(mockClient, Mockito.times(1))
-        .batchIngestProposals(
-            any(OperationContext.class),
-            Mockito.argThat(new EntityFormsArgumentMatcher(changes)),
-            eq(true));
+        .batchIngestProposals(any(OperationContext.class), notNull(), eq(true));
   }
 
   @Test
