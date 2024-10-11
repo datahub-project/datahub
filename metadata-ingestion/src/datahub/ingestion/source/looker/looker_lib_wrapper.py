@@ -196,11 +196,25 @@ class LookerAPI:
         fields: Union[str, List[str]] = ["id", "name", "parent_id"],
     ) -> Sequence[Folder]:
         self.client_stats.folder_calls += 1
-        return self.client.folder_ancestors(
-            folder_id,
-            self.__fields_mapper(fields),
-            transport_options=self.transport_options,
-        )
+        try:
+            return self.client.folder_ancestors(
+                folder_id,
+                self.__fields_mapper(fields),
+                transport_options=self.transport_options,
+            )
+        except SDKError as e:
+            if "Looker Not Found (404)" in str(e):
+                # Folder ancestors not found
+                logger.info(
+                    f"Could not find ancestors for folder with id {folder_id}: 404 error"
+                )
+            else:
+                logger.warning(
+                    f"Could not find ancestors for folder with id {folder_id}"
+                )
+                logger.warning(f"Failure was {e}")
+        # Folder ancestors not found
+        return []
 
     def all_connections(self):
         self.client_stats.all_connections_calls += 1

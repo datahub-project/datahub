@@ -97,6 +97,7 @@ public abstract class GenericEntitiesController<
    * @param aspectNames the aspect names present
    * @param withSystemMetadata whether to include system metadata in the result
    * @param scrollId the pagination token
+   * @param expandEmpty whether to expand an empty aspects list to all aspects
    * @return result containing entities/aspects
    * @throws URISyntaxException parsing error
    */
@@ -105,14 +106,16 @@ public abstract class GenericEntitiesController<
       SearchEntityArray searchEntities,
       Set<String> aspectNames,
       boolean withSystemMetadata,
-      @Nullable String scrollId)
+      @Nullable String scrollId,
+      boolean expandEmpty)
       throws URISyntaxException;
 
   protected List<E> buildEntityList(
       @Nonnull OperationContext opContext,
       List<Urn> urns,
-      Set<String> aspectNames,
-      boolean withSystemMetadata)
+      @Nullable Set<String> aspectNames,
+      boolean withSystemMetadata,
+      boolean expandEmpty)
       throws URISyntaxException {
 
     LinkedHashMap<Urn, Map<String, Long>> versionMap =
@@ -122,7 +125,7 @@ public abstract class GenericEntitiesController<
                     urn ->
                         Map.entry(
                             urn,
-                            aspectNames.stream()
+                            Optional.ofNullable(aspectNames).orElse(Set.of()).stream()
                                 .map(aspectName -> Map.entry(aspectName, 0L))
                                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
                 .collect(
@@ -133,14 +136,30 @@ public abstract class GenericEntitiesController<
                           throw new IllegalStateException("Duplicate key");
                         },
                         LinkedHashMap::new)),
-            0L);
-    return buildEntityVersionedAspectList(opContext, versionMap, withSystemMetadata);
+            0L,
+            expandEmpty);
+
+    return buildEntityVersionedAspectList(
+        opContext, urns, versionMap, withSystemMetadata, expandEmpty);
   }
 
+  /**
+   * Build a list of entities for an API response
+   *
+   * @param opContext the operation context
+   * @param requestedUrns list of urns requested
+   * @param fetchUrnAspectVersions the map of urn to aspect name and version to fetch
+   * @param withSystemMetadata whether to include system metadata in the response entity
+   * @param expandEmpty whether to expand an empty aspects list to all aspects
+   * @return entity responses
+   * @throws URISyntaxException urn parsing error
+   */
   protected abstract List<E> buildEntityVersionedAspectList(
       @Nonnull OperationContext opContext,
-      LinkedHashMap<Urn, Map<String, Long>> urnAspectVersions,
-      boolean withSystemMetadata)
+      Collection<Urn> requestedUrns,
+      LinkedHashMap<Urn, Map<String, Long>> fetchUrnAspectVersions,
+      boolean withSystemMetadata,
+      boolean expandEmpty)
       throws URISyntaxException;
 
   protected abstract List<E> buildEntityList(
@@ -225,13 +244,17 @@ public abstract class GenericEntitiesController<
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
 
+    Set<String> mergedAspects =
+        ImmutableSet.<String>builder().addAll(aspects1).addAll(aspects2).build();
+
     return ResponseEntity.ok(
         buildScrollResult(
             opContext,
             result.getEntities(),
-            ImmutableSet.<String>builder().addAll(aspects1).addAll(aspects2).build(),
+            mergedAspects,
             withSystemMetadata,
-            result.getScrollId()));
+            result.getScrollId(),
+            true));
   }
 
   @Tag(name = "Generic Entities")
@@ -269,7 +292,8 @@ public abstract class GenericEntitiesController<
             opContext,
             List.of(urn),
             ImmutableSet.<String>builder().addAll(aspects1).addAll(aspects2).build(),
-            withSystemMetadata)
+            withSystemMetadata,
+            true)
         .stream()
         .findFirst()
         .map(ResponseEntity::ok)
@@ -344,13 +368,16 @@ public abstract class GenericEntitiesController<
 
     final List<E> resultList;
     if (version == 0) {
-      resultList = buildEntityList(opContext, List.of(urn), Set.of(aspectName), withSystemMetadata);
+      resultList =
+          buildEntityList(opContext, List.of(urn), Set.of(aspectName), withSystemMetadata, true);
     } else {
       resultList =
           buildEntityVersionedAspectList(
               opContext,
+              List.of(urn),
               new LinkedHashMap<>(Map.of(urn, Map.of(aspectName, version))),
-              withSystemMetadata);
+              withSystemMetadata,
+              true);
     }
 
     return resultList.stream()
@@ -395,9 +422,10 @@ public abstract class GenericEntitiesController<
           authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
     }
 
-    return exists(opContext, urn, lookupAspectSpec(urn, aspectName).getName(), includeSoftDelete)
-        ? ResponseEntity.noContent().build()
-        : ResponseEntity.notFound().build();
+    return lookupAspectSpec(urn, aspectName)
+        .filter(aspectSpec -> exists(opContext, urn, aspectSpec.getName(), includeSoftDelete))
+        .map(aspectSpec -> ResponseEntity.noContent().build())
+        .orElse(ResponseEntity.notFound().build());
   }
 
   @Tag(name = "Generic Entities")
@@ -443,7 +471,7 @@ public abstract class GenericEntitiesController<
       entityService.deleteUrn(opContext, urn);
     } else {
       aspects.stream()
-          .map(aspectName -> lookupAspectSpec(urn, aspectName).getName())
+          .map(aspectName -> lookupAspectSpec(urn, aspectName).get().getName())
           .forEach(
               aspectName ->
                   entityService.deleteAspect(opContext, entityUrn, aspectName, Map.of(), true));
@@ -515,8 +543,11 @@ public abstract class GenericEntitiesController<
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
 
-    entityService.deleteAspect(
-        opContext, entityUrn, lookupAspectSpec(urn, aspectName).getName(), Map.of(), true);
+    lookupAspectSpec(urn, aspectName)
+        .ifPresent(
+            aspectSpec ->
+                entityService.deleteAspect(
+                    opContext, entityUrn, aspectSpec.getName(), Map.of(), true));
   }
 
   @Tag(name = "Generic Aspects")
@@ -554,7 +585,7 @@ public abstract class GenericEntitiesController<
           authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
     }
 
-    AspectSpec aspectSpec = lookupAspectSpec(entitySpec, aspectName);
+    AspectSpec aspectSpec = lookupAspectSpec(entitySpec, aspectName).get();
     ChangeMCP upsert =
         toUpsertItem(
             opContext.getRetrieverContext().get().getAspectRetriever(),
@@ -618,7 +649,7 @@ public abstract class GenericEntitiesController<
           authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
     }
 
-    AspectSpec aspectSpec = lookupAspectSpec(entitySpec, aspectName);
+    AspectSpec aspectSpec = lookupAspectSpec(entitySpec, aspectName).get();
     RecordTemplate currentValue = entityService.getAspect(opContext, urn, aspectSpec.getName(), 0);
 
     GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate =
@@ -672,15 +703,18 @@ public abstract class GenericEntitiesController<
    *
    * @param requestedAspectNames requested aspects
    * @param <T> map values
+   * @param expandEmpty whether to expand empty aspect names to all aspect names
    * @return updated map
    */
   protected <T> LinkedHashMap<Urn, Map<String, T>> resolveAspectNames(
-      LinkedHashMap<Urn, Map<String, T>> requestedAspectNames, @Nonnull T defaultValue) {
+      LinkedHashMap<Urn, Map<String, T>> requestedAspectNames,
+      @Nonnull T defaultValue,
+      boolean expandEmpty) {
     return requestedAspectNames.entrySet().stream()
         .map(
             entry -> {
               final Urn urn = entry.getKey();
-              if (entry.getValue().isEmpty() || entry.getValue().containsKey("")) {
+              if (expandEmpty && (entry.getValue().isEmpty() || entry.getValue().containsKey(""))) {
                 // All aspects specified
                 Set<String> allNames =
                     entityRegistry.getEntitySpec(urn.getEntityType()).getAspectSpecs().stream()
@@ -694,15 +728,16 @@ public abstract class GenericEntitiesController<
                                 Map.entry(
                                     aspectName, entry.getValue().getOrDefault("", defaultValue)))
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
-              } else {
+              } else if (!entry.getValue().keySet().isEmpty()) {
                 final Map<String, String> normalizedNames =
                     entry.getValue().keySet().stream()
                         .map(
                             requestAspectName ->
                                 Map.entry(
-                                    requestAspectName,
-                                    lookupAspectSpec(urn, requestAspectName).getName()))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                                    requestAspectName, lookupAspectSpec(urn, requestAspectName)))
+                        .filter(aspectSpecEntry -> aspectSpecEntry.getValue().isPresent())
+                        .collect(
+                            Collectors.toMap(Map.Entry::getKey, e -> e.getValue().get().getName()));
                 return Map.entry(
                     urn,
                     entry.getValue().entrySet().stream()
@@ -712,8 +747,11 @@ public abstract class GenericEntitiesController<
                                 Map.entry(
                                     normalizedNames.get(reqEntry.getKey()), reqEntry.getValue()))
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+              } else {
+                return (Map.Entry<Urn, Map<String, T>>) null;
               }
             })
+        .filter(Objects::nonNull)
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
@@ -732,12 +770,12 @@ public abstract class GenericEntitiesController<
                 Map.entry(
                     a.getName(),
                     Pair.of(
-                        toRecordTemplate(lookupAspectSpec(urn, a.getName()), a),
+                        toRecordTemplate(lookupAspectSpec(urn, a.getName()).get(), a),
                         withSystemMetadata ? a.getSystemMetadata() : null)))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
-  protected AspectSpec lookupAspectSpec(Urn urn, String aspectName) {
+  protected Optional<AspectSpec> lookupAspectSpec(Urn urn, String aspectName) {
     return lookupAspectSpec(entityRegistry.getEntitySpec(urn.getEntityType()), aspectName);
   }
 
@@ -777,13 +815,16 @@ public abstract class GenericEntitiesController<
    *
    * @return
    */
-  protected static AspectSpec lookupAspectSpec(EntitySpec entitySpec, String aspectName) {
+  protected static Optional<AspectSpec> lookupAspectSpec(EntitySpec entitySpec, String aspectName) {
+    if (entitySpec == null) {
+      return Optional.empty();
+    }
+
     return entitySpec.getAspectSpec(aspectName) != null
-        ? entitySpec.getAspectSpec(aspectName)
+        ? Optional.of(entitySpec.getAspectSpec(aspectName))
         : entitySpec.getAspectSpecs().stream()
             .filter(aspec -> aspec.getName().toLowerCase().equals(aspectName))
-            .findFirst()
-            .get();
+            .findFirst();
   }
 
   protected static Urn validatedUrn(String urn) throws InvalidUrnException {
