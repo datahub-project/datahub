@@ -1,6 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { useApolloClient } from '@apollo/client';
 import { Button, Text } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import {
@@ -12,6 +13,7 @@ import {
     PropertyCardinality,
     SearchResult,
     StructuredPropertyEntity,
+    StructuredPropertyFilterStatus,
     UpdateStructuredPropertyInput,
 } from '@src/types.generated';
 import { Form, Tooltip } from 'antd';
@@ -148,6 +150,19 @@ const StructuredPropsDrawer = ({
                     },
                 })
                     .then(() => {
+                        analytics.event({
+                            type: EventType.EditStructuredPropertyEvent,
+                            propertyUrn: selectedProperty.entity.urn,
+                            propertyType:
+                                valueTypes.find((valType) => valType.value === form.getFieldValue('valueType'))?.urn ||
+                                '',
+                            appliesTo: form.getFieldValue('entityTypes'),
+                            qualifiedName: form.getFieldValue('qualifiedName'),
+                            showInFilters: form.getFieldValue('filterStatus'),
+                            allowedAssetTypes: form.getFieldValue(['typeQualifier', 'allowedTypes']),
+                            allowedValues: form.getFieldValue('allowedValues'),
+                            cardinality,
+                        });
                         refetch();
                         showSuccessMessage();
                     })
@@ -175,6 +190,20 @@ const StructuredPropsDrawer = ({
                     },
                 })
                     .then((res) => {
+                        analytics.event({
+                            type: EventType.CreateStructuredPropertyEvent,
+                            propertyType:
+                                valueTypes.find((valType) => valType.value === form.getFieldValue('valueType'))?.urn ||
+                                '',
+                            appliesTo: form.getFieldValue('entityTypes'),
+                            qualifiedName: form.getFieldValue('qualifiedName'),
+                            showInFilters:
+                                form.getFieldValue('filterStatus') || StructuredPropertyFilterStatus.Disabled,
+                            allowedAssetTypes: form.getFieldValue(['typeQualifier', 'allowedTypes']),
+                            allowedValues: form.getFieldValue('allowedValues'),
+                            cardinality,
+                        });
+
                         showSuccessMessage();
                         updatePropertiesList(client, inputs, res.data?.createStructuredProperty, searchAcrossEntities);
                     })

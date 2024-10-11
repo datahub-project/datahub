@@ -1,6 +1,7 @@
 import { useApolloClient } from '@apollo/client';
 import { Icon, Pill, Table, Text } from '@components';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { CustomAvatar } from '@src/app/shared/avatar';
@@ -73,15 +74,29 @@ const StructuredPropsTable = ({
     const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
 
     const handleDeleteProperty = (property) => {
+        const deleteEntity = property.entity as StructuredPropertyEntity;
         showToastMessage(ToastType.LOADING, 'Deleting structured property', 1);
         deleteStructuredProperty({
             variables: {
                 input: {
-                    urn: property.entity.urn,
+                    urn: deleteEntity.urn,
                 },
             },
         })
             .then(() => {
+                analytics.event({
+                    type: EventType.DeleteStructuredPropertyEvent,
+                    propertyUrn: property.entity.urn,
+                    propertyType: deleteEntity.definition.valueType.urn,
+                    appliesTo: deleteEntity.definition.entityTypes.map((type) => type.urn),
+                    qualifiedName: deleteEntity.definition.qualifiedName,
+                    showInFilters: deleteEntity.definition.filterStatus,
+                    allowedAssetTypes: deleteEntity.definition.typeQualifier?.allowedTypes?.map(
+                        (allowedType) => allowedType.urn,
+                    ),
+                    allowedValues: deleteEntity.definition.allowedValues || undefined,
+                    cardinality: deleteEntity.definition.cardinality || undefined,
+                });
                 showToastMessage(ToastType.SUCCESS, 'Structured property deleted successfully!', 3);
                 removeFromPropertiesList(client, inputs, property.entity.urn, searchAcrossEntities);
             })
@@ -119,6 +134,10 @@ const StructuredPropsTable = ({
                                     onClick={() => {
                                         setIsDrawerOpen(true);
                                         setSelectedProperty(record);
+                                        analytics.event({
+                                            type: EventType.ViewStructuredPropertyEvent,
+                                            propertyUrn: record.entity.urn,
+                                        });
                                     }}
                                 >
                                     {getDisplayName(record.entity)}
@@ -242,6 +261,10 @@ const StructuredPropsTable = ({
                                 onClick={() => {
                                     setIsDrawerOpen(true);
                                     setSelectedProperty(record);
+                                    analytics.event({
+                                        type: EventType.ViewStructuredPropertyEvent,
+                                        propertyUrn: record.entity.urn,
+                                    });
                                 }}
                             >
                                 Edit
