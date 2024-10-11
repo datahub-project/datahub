@@ -66,11 +66,6 @@ const EmptyTabWrapper = styled.div`
     height: 100%;
 `;
 
-// width:max-width would let rich text take up unnecessary space
-const TabContainer = styled.div`
-    width: 1400px;
-`;
-
 interface Props {
     hideLinksButton?: boolean;
 }
@@ -109,7 +104,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     ) : (
         <>
             {displayedDescription || links.length ? (
-                <TabContainer>
+                <>
                     <StyledTabToolbar>
                         <div>
                             <Button
@@ -151,7 +146,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             {!hideLinksButton && <LinkList refetch={refetch} />}
                         </DocumentationContainer>
                     </div>
-                </TabContainer>
+                </>
             ) : (
                 <EmptyTabWrapper>
                     <EmptyTab tab="documentation" hideImage={false}>
