@@ -29,6 +29,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 STATEFUL_INGESTION_IGNORED_ENTITY_TYPES = {
     "dataProcessInstance",
+    "query",
 }
 
 
@@ -75,7 +76,10 @@ def auto_stale_entity_removal(
 
         if wu.is_primary_source:
             entity_type = guess_entity_type(urn)
-            if entity_type is not None:
+            if (
+                entity_type is not None
+                and entity_type not in STATEFUL_INGESTION_IGNORED_ENTITY_TYPES
+            ):
                 stale_entity_removal_handler.add_entity_to_state(entity_type, urn)
         else:
             stale_entity_removal_handler.add_urn_to_skip(urn)
