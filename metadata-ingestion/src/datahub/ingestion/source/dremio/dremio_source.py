@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
+import datahub.sql_parsing.sqlglot_utils
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -606,3 +607,10 @@ class DremioSource(StatefulIngestionSourceBase):
         Close any resources held by the source.
         """
         pass
+
+
+def _sql_dialect(platform: str) -> str:
+    return "trino"
+
+
+datahub.sql_parsing.sqlglot_utils._get_dialect_str = _sql_dialect
