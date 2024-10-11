@@ -187,8 +187,11 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Properties',
                     component: PropertiesTab,
                     icon: UnorderedListOutlined,
-                    getDynamicName: (_, dataset, loading) => {
-                        const propertiesCount = dataset?.dataset?.properties?.customProperties.length;
+                    getDynamicName: (_, dataset: GetDatasetQuery, loading) => {
+                        const customPropertiesCount = dataset?.dataset?.properties?.customProperties?.length || 0;
+                        const structuredPropertiesCount =
+                            dataset?.dataset?.structuredProperties?.properties?.length || 0;
+                        const propertiesCount = customPropertiesCount + structuredPropertiesCount;
                         return <TabNameWithCount name="Properties" count={propertiesCount} loading={loading} />;
                     },
                 },

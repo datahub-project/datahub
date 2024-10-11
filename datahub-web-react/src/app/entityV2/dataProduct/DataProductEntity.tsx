@@ -109,8 +109,8 @@ export class DataProductEntity implements Entity<DataProduct> {
                 {
                     name: 'Assets',
                     getDynamicName: (entityData, _, loading) => {
-                        const assetCCount = entityData?.entities?.total;
-                        return <TabNameWithCount name="Assets" count={assetCCount} loading={loading} />;
+                        const assetCount = entityData?.entities?.total;
+                        return <TabNameWithCount name="Assets" count={assetCount} loading={loading} />;
                     },
                     component: DataProductEntitiesTab,
                     icon: AppstoreOutlined,

@@ -108,8 +108,8 @@ export class DomainEntity implements Entity<Domain> {
                     id: EntityProfileTab.DOMAIN_ENTITIES_TAB,
                     name: 'Assets',
                     getDynamicName: (entityData, _, loading) => {
-                        const assetCCount = entityData?.entities?.total;
-                        return <TabNameWithCount name="Assets" count={assetCCount} loading={loading} />;
+                        const assetCount = entityData?.entities?.total;
+                        return <TabNameWithCount name="Assets" count={assetCount} loading={loading} />;
                     },
                     component: DomainEntitiesTab,
                     icon: AppstoreOutlined,

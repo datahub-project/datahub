@@ -22,7 +22,7 @@ const TabNameWithCount = ({ name, count = 0, loading }: Props) => {
     return (
         <Container>
             <TabName>{name}</TabName>
-            {!loading && <Pill label={formatNumber(count)} />}
+            {!loading && <Pill label={formatNumber(count)} size="sm" />}
         </Container>
     );
 };
