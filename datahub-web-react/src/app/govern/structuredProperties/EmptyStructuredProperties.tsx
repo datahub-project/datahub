@@ -3,13 +3,25 @@ import EmptyFormsImage from '@src/images/empty-forms.svg?react';
 import React from 'react';
 import { EmptyContainer } from './styledComponents';
 
-const EmptyStructuredProperties = () => {
+interface Props {
+    isEmptySearch?: boolean;
+}
+
+const EmptyStructuredProperties = ({ isEmptySearch }: Props) => {
     return (
         <EmptyContainer>
-            <EmptyFormsImage />
-            <Text size="md" color="gray" weight="bold">
-                No structured properties yet!
-            </Text>
+            {isEmptySearch ? (
+                <Text size="lg" color="gray" weight="bold">
+                    No search results!
+                </Text>
+            ) : (
+                <>
+                    <EmptyFormsImage />
+                    <Text size="md" color="gray" weight="bold">
+                        No structured properties yet!
+                    </Text>
+                </>
+            )}
         </EmptyContainer>
     );
 };

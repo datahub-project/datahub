@@ -8,6 +8,7 @@ import {
     CustomDropdown,
     FieldLabel,
     FlexContainer,
+    GridFormItem,
     RowContainer,
     SelectOptionContainer,
     StyledSelect,
@@ -42,7 +43,7 @@ const StructuredPropsForm = ({
     valueField,
     setShowAllowedValuesDrawer,
 }: Props) => {
-    const { handleTypeUpdate, handleFilterStatusChange } = useStructuredProp({
+    const { handleTypeUpdate } = useStructuredProp({
         selectedProperty,
         form,
         setFormValues,
@@ -83,7 +84,7 @@ const StructuredPropsForm = ({
                     title={isEditMode && 'Once a property is created, its type cannot be changed'}
                     showArrow={false}
                 >
-                    <Form.Item
+                    <GridFormItem
                         name="valueType"
                         rules={[
                             {
@@ -115,7 +116,7 @@ const StructuredPropsForm = ({
                                 );
                             })}
                         </StyledSelect>
-                    </Form.Item>
+                    </GridFormItem>
                 </Tooltip>
             </RowContainer>
 
@@ -132,11 +133,7 @@ const StructuredPropsForm = ({
                 valueField={valueField}
                 setShowAllowedValuesDrawer={setShowAllowedValuesDrawer}
             />
-            <AdvancedOptions
-                isEditMode={isEditMode}
-                handleFilterStatusChange={handleFilterStatusChange}
-                formValues={formValues}
-            />
+            <AdvancedOptions isEditMode={isEditMode} />
         </Form>
     );
 };

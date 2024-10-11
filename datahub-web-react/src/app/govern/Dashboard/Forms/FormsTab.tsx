@@ -1,3 +1,4 @@
+import { SearchOutlined } from '@ant-design/icons';
 import { Button } from '@components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
@@ -83,9 +84,9 @@ const FormsTab = () => {
                 </SectionHeader>
                 <StyledSearch
                     placeholder="Search"
-                    onSearch={handleSearch}
                     onChange={(e) => handleSearch(e.target.value)}
                     allowClear
+                    prefix={<SearchOutlined />}
                 />
                 <FormsContainer>
                     <FormsTable searchQuery={searchQuery} />

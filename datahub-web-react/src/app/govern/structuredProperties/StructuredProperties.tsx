@@ -1,4 +1,5 @@
-import { Button, Text } from '@src/alchemy-components';
+import { SearchOutlined } from '@ant-design/icons';
+import { Button, Pill, Text } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
@@ -14,6 +15,7 @@ import {
     PageContainer,
     StyledSearch,
     TableContainer,
+    TitleContainer,
 } from './styledComponents';
 
 const StructuredProperties = () => {
@@ -44,14 +46,18 @@ const StructuredProperties = () => {
     });
 
     const searchAcrossEntities = data?.searchAcrossEntities;
+    const noOfProperties = searchAcrossEntities?.searchResults?.length;
 
     return (
         <PageContainer>
             <HeaderContainer>
                 <HeaderContent>
-                    <Text size="xl" weight="bold">
-                        Structured Properties
-                    </Text>
+                    <TitleContainer>
+                        <Text size="xl" weight="bold">
+                            Structured Properties
+                        </Text>
+                        {!!noOfProperties && <Pill label={noOfProperties.toString()} size="sm" clickable={false} />}
+                    </TitleContainer>
                     <Text color="gray" weight="medium">
                         Create and manage custom properties for your organization&apos;s data assets
                     </Text>
@@ -80,9 +86,9 @@ const StructuredProperties = () => {
             </HeaderContainer>
             <StyledSearch
                 placeholder="Search"
-                onSearch={handleSearch}
                 onChange={(e) => handleSearch(e.target.value)}
                 allowClear
+                prefix={<SearchOutlined />}
             />
 
             <TableContainer>

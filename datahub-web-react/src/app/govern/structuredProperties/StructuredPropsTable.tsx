@@ -15,6 +15,7 @@ import TableIcon from '@src/images/table-icon.svg?react';
 import { Entity, EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { Dropdown, Tooltip } from 'antd';
 import React, { useState } from 'react';
+import Highlight from 'react-highlighter';
 import { Link } from 'react-router-dom';
 import { CardIcons } from '../Dashboard/Forms/styledComponents';
 import { removeFromPropertiesList } from './cacheUtils';
@@ -113,8 +114,8 @@ const StructuredPropsTable = ({
         setSelectedProperty(undefined);
     };
 
-    if (!loading && !structuredProperties.length) {
-        return <EmptyStructuredProperties />;
+    if (!loading && !filteredProperties.length) {
+        return <EmptyStructuredProperties isEmptySearch={!!structuredProperties.length} />;
     }
 
     const columns = [
@@ -128,21 +129,19 @@ const StructuredPropsTable = ({
                             <TableIcon color="#705EE4" />
                         </IconContainer>
                         <DataContainer>
-                            <div>
-                                <PropName
-                                    ellipsis={{ tooltip: getDisplayName(record.entity) }}
-                                    onClick={() => {
-                                        setIsDrawerOpen(true);
-                                        setSelectedProperty(record);
-                                        analytics.event({
-                                            type: EventType.ViewStructuredPropertyEvent,
-                                            propertyUrn: record.entity.urn,
-                                        });
-                                    }}
-                                >
-                                    {getDisplayName(record.entity)}
-                                </PropName>
-                            </div>
+                            <PropName
+                                ellipsis={{ tooltip: getDisplayName(record.entity) }}
+                                onClick={() => {
+                                    setIsDrawerOpen(true);
+                                    setSelectedProperty(record);
+                                    analytics.event({
+                                        type: EventType.ViewStructuredPropertyEvent,
+                                        propertyUrn: record.entity.urn,
+                                    });
+                                }}
+                            >
+                                <Highlight search={searchQuery}>{getDisplayName(record.entity)}</Highlight>
+                            </PropName>
                             <PropDescription ellipsis>{record.entity.definition.description}</PropDescription>
                         </DataContainer>
                     </NameColumn>

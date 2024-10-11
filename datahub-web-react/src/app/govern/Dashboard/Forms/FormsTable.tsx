@@ -17,6 +17,7 @@ import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generat
 import { Entity, EntityType, FormState } from '@src/types.generated';
 import { Dropdown, Tooltip, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
+import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -145,8 +146,8 @@ const FormsTable = ({ searchQuery }: Props) => {
         refetch();
     }, [refetch]);
 
-    if (!isLoading && !formsData.length) {
-        return <EmptyForms />;
+    if (!isLoading && !filteredForms.length) {
+        return <EmptyForms isEmptySearch={!!formsData.length} />;
     }
 
     const handleDeleteForm = (formData) => {
@@ -219,7 +220,9 @@ const FormsTable = ({ searchQuery }: Props) => {
                 return (
                     <CellContainer>
                         <Link to={`/govern/dashboard/edit-form/${record.entity.urn}`}>
-                            <FormName>{record.entity.formInfo.name}</FormName>
+                            <FormName>
+                                <Highlight search={searchQuery}>{record.entity.formInfo.name}</Highlight>
+                            </FormName>
                         </Link>
                         <FormDescription> {record.entity.formInfo.description}</FormDescription>
                     </CellContainer>

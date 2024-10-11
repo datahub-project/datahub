@@ -1,9 +1,18 @@
 import { Icon, SimpleSelect, Text } from '@src/alchemy-components';
-import { AllowedValue, PropertyCardinality, SearchResult } from '@src/types.generated';
+import { AllowedValue, PropertyCardinality, SearchResult, StructuredPropertyFilterStatus } from '@src/types.generated';
 import { Form, FormInstance, Tooltip } from 'antd';
 import React from 'react';
 import AllowedValuesField from './AllowedValuesField';
-import { FieldLabel, FlexContainer, RowContainer, SubTextContainer } from './styledComponents';
+import {
+    CheckboxWrapper,
+    FieldLabel,
+    FlexContainer,
+    RowContainer,
+    StyledCheckbox,
+    StyledFormItem,
+    StyledText,
+    SubTextContainer,
+} from './styledComponents';
 import useStructuredProp from './useStructuredProp';
 import {
     APPLIES_TO_ENTITIES,
@@ -43,6 +52,7 @@ const StructuredPropsFormSection = ({
     const {
         handleSelectChange,
         handleSelectUpdateChange,
+        handleFilterStatusChange,
         getEntitiesListOptions,
         disabledEntityTypeValues,
         disabledTypeQualifierValues,
@@ -168,6 +178,20 @@ const StructuredPropsFormSection = ({
                     />
                 </Form.Item>
             </RowContainer>
+            <CheckboxWrapper>
+                <StyledFormItem name="filterStatus">
+                    <StyledCheckbox
+                        checked={formValues?.filterStatus === StructuredPropertyFilterStatus.Enabled}
+                        onChange={(e) => handleFilterStatusChange(e.target.checked)}
+                    />
+                </StyledFormItem>
+                <Text size="md">Display in filters</Text>
+                <StyledText>
+                    <Tooltip title="If enabled, this property will appear in search filters">
+                        <Icon icon="Info" size="lg" />
+                    </Tooltip>
+                </StyledText>
+            </CheckboxWrapper>
         </>
     );
 };

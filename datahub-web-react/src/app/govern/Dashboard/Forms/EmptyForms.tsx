@@ -3,13 +3,25 @@ import EmptyFormsImage from '@src/images/empty-forms.svg?react';
 import React from 'react';
 import { EmptyContainer } from './styledComponents';
 
-const EmptyForms = () => {
+interface Props {
+    isEmptySearch?: boolean;
+}
+
+const EmptyForms = ({ isEmptySearch }: Props) => {
     return (
         <EmptyContainer>
-            <EmptyFormsImage />
-            <Text size="md" color="gray" weight="bold">
-                No forms yet!
-            </Text>
+            {isEmptySearch ? (
+                <Text size="lg" color="gray" weight="bold">
+                    No search results!
+                </Text>
+            ) : (
+                <>
+                    <EmptyFormsImage />
+                    <Text size="md" color="gray" weight="bold">
+                        No forms yet!
+                    </Text>
+                </>
+            )}
         </EmptyContainer>
     );
 };

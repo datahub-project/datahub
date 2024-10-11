@@ -113,6 +113,15 @@ export const StyledSpin = styled(Spin)`
 export const StyledSelect = styled(Select)`
     .ant-select-selector {
         height: 50px !important;
+        border-radius: 8px !important;
+        outline: 2px solid transparent !important;
+
+        &:hover,
+        &:focus-within {
+            border: 1px solid ${colors.violet[200]} !important;
+            outline: 2px solid ${colors.violet[200]} !important;
+            box-shadow: none !important;
+        }
     }
 
     .ant-select-selection-item {
@@ -126,6 +135,7 @@ export const StyledSelect = styled(Select)`
     .ant-select-selection-placeholder {
         display: flex;
         align-items: center;
+        font-size: 14px;
     }
 `;
 

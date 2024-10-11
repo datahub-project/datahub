@@ -1,5 +1,5 @@
 import { colors, Icon, typography } from '@src/alchemy-components';
-import { Collapse, Divider, Drawer, Input, Modal, Select, Spin, Typography } from 'antd';
+import { Checkbox, Collapse, Divider, Drawer, Form, Input, Modal, Select, Spin, Typography } from 'antd';
 import styled from 'styled-components';
 
 export const PageContainer = styled.div`
@@ -96,38 +96,33 @@ export const MenuItem = styled.div`
     font-family: ${typography.fonts.body};
 `;
 
-export const StyledSearch = styled(Input.Search)`
+export const StyledSearch = styled(Input)`
     height: 40px;
     width: 272px;
+    display: flex;
+    align-items: center;
+    border-radius: 8px;
 
-    .ant-input-wrapper {
-        .ant-input-affix-wrapper {
-            height: 40px;
-            border-color: ${colors.gray[1400]};
-            box-shadow: none;
-            border-right: none;
+    input {
+        color: ${colors.gray[600]};
+        font-size: 14px !important;
+    }
 
-            &:hover,
-            &:focus {
-                border-color: ${colors.gray[1400]};
-            }
+    .ant-input-prefix {
+        width: 20px;
+        color: ${colors.gray[1700]};
 
-            input {
-                color: ${colors.gray[600]};
-            }
+        svg {
+            height: 16px;
+            width: 16px;
         }
+    }
 
-        button {
-            height: 40px;
-            width: 40px;
-            border-color: ${colors.gray[1400]};
-            border-left: none;
-            box-shadow: none;
-
-            &:hover {
-                border-color: ${colors.gray[1400]};
-            }
-        }
+    &:hover,
+    &:focus,
+    &:focus-within {
+        border-color: ${colors.violet[300]} !important;
+        box-shadow: none !important;
     }
 `;
 
@@ -156,6 +151,38 @@ export const RowContainer = styled.div`
     display: grid;
     grid-template-columns: 180px 1fr;
     align-items: center;
+`;
+
+export const CheckboxWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+    color: #374066;
+    p {
+        color: #374066;
+        font-weight: 500;
+    }
+`;
+
+export const StyledCheckbox = styled(Checkbox)`
+    .ant-checkbox-checked .ant-checkbox-inner {
+        background-color: ${colors.violet[500]};
+        border-color: ${colors.violet[500]} !important;
+    },
+`;
+
+export const StyledText = styled.div`
+    display: inline-flex;
+    margin-left: -4px;
+`;
+
+export const StyledFormItem = styled(Form.Item)`
+    margin: 0;
+`;
+
+export const GridFormItem = styled(Form.Item)`
+    display: grid;
 `;
 
 export const FieldLabel = styled.div`
