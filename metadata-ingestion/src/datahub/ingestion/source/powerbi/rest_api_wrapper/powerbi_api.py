@@ -37,6 +37,7 @@ class PowerBiAPI:
     # This mapping will allow us to retrieve the appropriate dataset for
     # reports and tiles across different workspaces.
     dataset_registry: Dict[str, PowerBIDataset]
+    reporter: PowerBiDashboardSourceReport
 
     def __init__(
         self,
@@ -173,8 +174,8 @@ class PowerBiAPI:
                     report.dataset = self.dataset_registry.get(report.dataset_id)
                     if report.dataset is None:
                         self.reporter.info(
-                            title="Dataset Not Found",
-                            message="The report is utilizing a dataset that is not available in the workspace. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
+                            title="Missing Lineage For Report",
+                            message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
                             context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
                         )
         except:
@@ -479,8 +480,8 @@ class PowerBiAPI:
                         tile.dataset = self.dataset_registry.get(tile.dataset_id)
                         if tile.dataset is None:
                             self.reporter.info(
-                                title="Dataset Not Found",
-                                message="The tile is utilizing a dataset that is not available in the workspace. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
+                                title="Missing Lineage For Report",
+                                message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
                                 context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, dataset-id: {tile.dataset_id}",
                             )
 

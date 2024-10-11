@@ -1395,7 +1395,7 @@ def test_powerbi_cross_workspace_reference_info_message(
     is_entry_present: bool = False
     # Printing INFO entries
     for key, entry in info_entries.items():
-        if entry.title == "Dataset Not Found":
+        if entry.title == "Missing Lineage For Report":
             is_entry_present = True
             break
 
