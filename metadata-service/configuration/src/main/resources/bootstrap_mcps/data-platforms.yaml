@@ -707,3 +707,13 @@
     displayName: SAP Analytics Cloud
     type: OTHERS
     logoUrl: "/assets/platforms/saclogo.svg"
+- entityUrn: urn:li:dataPlatform:acryl
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: acryl
+    displayName: Acryl
+    type: OTHERS
+    logoUrl: "/assets/platforms/acryl-dark-mark.svg"
