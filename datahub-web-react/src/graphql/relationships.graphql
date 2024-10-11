@@ -49,3 +49,13 @@ fragment relationshipFields on EntityWithRelationships {
         ...leafLineageResults
     }
 }
+
+query getEntitiesNotes($urns: [String!]!) {
+    entities(urns: $urns) {
+        ... on EntityWithRelationships {
+            urn
+            type
+            ...notes
+        }
+    }
+}

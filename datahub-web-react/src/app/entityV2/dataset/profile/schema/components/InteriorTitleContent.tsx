@@ -1,10 +1,8 @@
-import { SchemaMetadataFieldsFragment } from '@graphql/fragments.generated';
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import { Post, SchemaMetadata } from '../../../../../../types.generated';
-import NotesIcon from '../../../../../previewV2/NotesIcon';
+import { SchemaMetadata } from '../../../../../../types.generated';
 import { REDESIGN_COLORS } from '../../../../shared/constants';
 import NullableLabel, {
     ForeignKeyLabel,
@@ -44,10 +42,6 @@ const FieldPathText = styled(Typography.Text)<{ $isCompact: boolean }>`
     gap: 6px;
 `;
 
-const StyledNotesIcon = styled(NotesIcon)`
-    font-size: 16px;
-`;
-
 type InteriorTitleProps = {
     schemaMetadata: SchemaMetadata | undefined | null;
     filterText: string;
@@ -73,11 +67,6 @@ export const InteriorTitleContent = ({
         pathToDisplay = fieldPathWithoutAnnotations.slice(parentPathWithoutAnnotations.length + 1);
     }
 
-    const schemaFieldEntity = (schemaMetadata as SchemaMetadataFieldsFragment)?.fields.find(
-        (field) => field.fieldPath === fieldPath,
-    )?.schemaFieldEntity;
-    const notes = schemaFieldEntity?.notes?.relationships?.map((r) => r.entity as Post) || [];
-
     let compactPathToDisplay;
     if (isCompact) {
         compactPathToDisplay =
@@ -97,7 +86,6 @@ export const InteriorTitleContent = ({
                     ) : (
                         <Highlight search={filterText}>{pathToDisplay}</Highlight>
                     )}
-                    {!!notes?.length && <StyledNotesIcon notes={notes} />}
                 </FieldPathText>
             </FieldPathContainer>
             {!isCompact && (

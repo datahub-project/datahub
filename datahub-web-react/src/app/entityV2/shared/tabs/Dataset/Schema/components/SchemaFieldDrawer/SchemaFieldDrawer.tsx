@@ -1,4 +1,6 @@
 import { CodeOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
+import { useGetEntitiesNotesQuery } from '@graphql/relationships.generated';
 import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import { Drawer, Typography } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -6,6 +8,7 @@ import styled from 'styled-components';
 import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '../../../../../../../../graphql/dataset.generated';
 import {
     EditableSchemaMetadata,
+    Post,
     SchemaField,
     TimeWindow,
     UsageQueryResult,
@@ -118,6 +121,23 @@ export default function SchemaFieldDrawer({
     );
 
     const urn = (baseEntity && baseEntity.dataset && baseEntity.dataset?.urn) || '';
+    const siblingUrn =
+        (baseEntity && baseEntity.dataset && baseEntity.dataset?.siblingsSearch?.searchResults?.[0]?.entity?.urn) || '';
+    const schemaFieldUrn = generateSchemaFieldUrn(expandedDrawerFieldPath, urn);
+    const schemaFieldSiblingUrn = generateSchemaFieldUrn(expandedDrawerFieldPath, siblingUrn);
+    const notesUrns = [schemaFieldUrn, schemaFieldSiblingUrn].filter((v): v is string => !!v);
+    const { data: notesData, refetch: refetchNotes } = useGetEntitiesNotesQuery({
+        skip: !notesUrns.length,
+        variables: { urns: notesUrns },
+        fetchPolicy: 'cache-first',
+    });
+    const notes: Post[] =
+        notesData?.entities?.flatMap(
+            (entity) =>
+                (entity?.__typename === 'SchemaFieldEntity' &&
+                    entity?.notes?.relationships?.map((r) => r.entity as Post)) ||
+                [],
+        ) || [];
 
     const [getDataProfiles, { data: profilesData, loading: profilesDataLoading }] = useGetDataProfilesLazyQuery();
 
@@ -169,9 +189,11 @@ export default function SchemaFieldDrawer({
                 usageStats,
                 fieldProfile,
                 profiles,
+                notes,
                 isShowMoreEnabled,
                 setSelectedTabName,
                 refetch,
+                refetchNotes,
             },
         },
         {

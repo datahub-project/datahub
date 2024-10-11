@@ -919,33 +919,6 @@ fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
     documentation {
         ...documentationFields
     }
-    notes: relationships(input: { types: ["PostTarget"], direction: INCOMING, start: 0, count: 100 }) {
-        total
-        relationships {
-            type
-            entity {
-                ... on Post {
-                    urn
-                    type
-                    postType
-                    lastModified {
-                        time
-                        actor
-                    }
-                    content {
-                        contentType
-                        title
-                        description
-                        link
-                        media {
-                            type
-                            location
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 fragment entitySchemaFieldFields on SchemaField {
@@ -2226,5 +2199,35 @@ fragment datasetProfileFields on DatasetProfile {
         median
         stdev
         sampleValues
+    }
+}
+
+fragment notes on EntityWithRelationships {
+    notes: relationships(input: { types: ["PostTarget"], direction: INCOMING, start: 0, count: 100 }) {
+        total
+        relationships {
+            type
+            entity {
+                ... on Post {
+                    urn
+                    type
+                    postType
+                    lastModified {
+                        time
+                        actor
+                    }
+                    content {
+                        contentType
+                        title
+                        description
+                        link
+                        media {
+                            type
+                            location
+                        }
+                    }
+                }
+            }
+        }
     }
 }

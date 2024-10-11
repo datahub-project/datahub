@@ -88,8 +88,8 @@ export default function CreateEntityAnnouncementModal({
     const [createPostMutation] = useCreatePostMutation();
     const [updatePostMutation] = useUpdatePostMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
-    const noteTitle = 'Title';
-    const noteContent = 'Content';
+    const noteTitle = 'title';
+    const noteContent = 'content';
     const [form] = Form.useForm();
 
     useEffect(() => {
@@ -233,7 +233,7 @@ export default function CreateEntityAnnouncementModal({
         >
             <Form
                 form={form}
-                initialValues={{}}
+                initialValues={editData}
                 layout="vertical"
                 onFieldsChange={() => {
                     setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0));

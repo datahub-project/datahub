@@ -1,4 +1,3 @@
-import { EntitySchemaFieldFieldsFragment } from '@graphql/fragments.generated';
 import moment from 'moment';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
@@ -33,15 +32,17 @@ interface AboutFieldTabProps {
         usageStats?: UsageQueryResult | null;
         fieldProfile: DatasetFieldProfile | undefined;
         profiles: any[];
+        notes: Post[];
         setSelectedTabName: any;
         isShowMoreEnabled?: boolean;
         refetch?: () => void;
+        refetchNotes?: () => void;
     };
 }
 
 export function AboutFieldTab({ properties }: AboutFieldTabProps) {
     const datasetUrn = useMutationUrn();
-    const { refetch } = properties;
+    const { refetch, refetchNotes } = properties;
 
     const expandedFieldIndex = useMemo(
         () => properties.schemaFields.findIndex((row) => row.fieldPath === properties.expandedDrawerFieldPath),
@@ -56,13 +57,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
             pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, expandedField?.fieldPath),
     );
 
-    const schemaFieldEntity = (properties.schemaFields as EntitySchemaFieldFieldsFragment[]).find(
-        (field) => field.fieldPath === properties.expandedDrawerFieldPath,
-    )?.schemaFieldEntity;
-    const notes =
-        schemaFieldEntity?.notes?.relationships
-            ?.map((r) => r.entity as Post)
-            ?.sort((a, b) => moment(b.lastModified.time).diff(moment(a.lastModified.time))) || [];
+    const notes = properties.notes?.sort((a, b) => moment(b.lastModified.time).diff(moment(a.lastModified.time))) || [];
 
     return (
         <>
@@ -78,7 +73,9 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             urn={datasetUrn}
                             subResource={properties.expandedDrawerFieldPath ?? undefined}
                             notes={notes}
-                            refetch={() => setTimeout(() => refetch?.(), 2000)}
+                            refetch={() =>
+                                setTimeout(() => refetchNotes?.(), 2000) && setTimeout(() => refetchNotes?.(), 5000)
+                            }
                         />
                         {!!notes?.length && <StyledDivider dashed />}
                         <FieldDescription

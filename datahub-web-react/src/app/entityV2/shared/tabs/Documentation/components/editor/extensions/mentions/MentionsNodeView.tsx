@@ -38,6 +38,7 @@ export const MentionsNodeView = ({ node }: NodeViewComponentProps) => {
     const registry = useEntityRegistry();
     const { data, loading } = useGetEntityMentionNodeQuery({
         variables: { urn },
+        fetchPolicy: 'cache-first',
     });
 
     if (loading) {
