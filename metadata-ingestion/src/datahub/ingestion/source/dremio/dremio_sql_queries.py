@@ -23,6 +23,7 @@ class DremioSQLQueries:
         AND C.TABLE_NAME = T.TABLE_NAME
     WHERE
         T.TABLE_TYPE NOT IN ('SYSTEM_TABLE')
+        AND LOCATE('{container_name}', LOWER(T.TABLE_SCHEMA)) = 1
     )
     WHERE 1=1
         {schema_pattern}
@@ -123,6 +124,7 @@ class DremioSQLQueries:
             CONCAT(C.TABLE_SCHEMA, '.', C.TABLE_NAME)
         WHERE
             V.TYPE NOT IN ('SYSTEM_TABLE')
+            AND LOCATE('{container_name}', LOWER(PATH)) = 2
         )
         WHERE 1=1
             {schema_pattern}
@@ -224,6 +226,7 @@ class DremioSQLQueries:
             CONCAT(C.TABLE_SCHEMA, '.', C.TABLE_NAME)
         WHERE
             V.TYPE NOT IN ('SYSTEM_TABLE')
+            AND LOCATE('{container_name}', LOWER(PATH)) = 2
         )
         WHERE 1=1
             {schema_pattern}
@@ -281,54 +284,4 @@ class DremioSQLQueries:
         {dremio_dataset}
     LIMIT {sample_limit}
     )
-    """
-
-    DISTINCT_COUNT_VALUE = """
-    COUNT(DISTINCT {column}) AS {column}_max_value
-    """
-
-    # DISTINCT_COUNT_FREQUENCIES = """
-    # (SELECTSTRING_AGG(CAST(COUNT(*) AS VARCHAR) || ':' || CAST({column} AS VARCHAR), ',')
-    #  FROM(SELECT{column} FROM{dremio_dataset} GROUP BY {column})
-    #  GROUP BY {column}
-    #  ORDER BY COUNT(*) DESC
-    # ) as {column}_value_frequencies
-    # """
-
-    HISTOGRAM_VALUES = """
-        (SELECTSTRING_AGG(CAST(COUNT(*) AS VARCHAR) || ':' || CAST({column} AS VARCHAR), ',')
-         FROM(SELECT{column} FROM{dremio_dataset} GROUP BY {column})
-         GROUP BY {column}
-         ORDER BY COUNT(*) DESC
-        ) as {column}_value_frequencies
-        """
-
-    MAX_VALUE = """
-    MAX({column}) AS {column}_max_value
-    """
-
-    MIN_VALUE = """
-        MIN({column}) AS {column}_min_value
-    """
-
-    MEAN_VALUE = """
-        AVG({column}) AS {column}_mean_value
-    """
-
-    MEDIAN_VALUE = """
-        MEDIAN({column}) AS {column}_median_value
-    """
-
-    NULL_COUNT_VALUE = """
-        SUM(CASEWHEN {column} IS NULL THEN 1 ELSE 0 END) as {column}_null_count
-    """
-
-    QUANTILES_VALUE = """
-        PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY {column}) as {column}_25th_percentile,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {column}) as {column}_50th_percentile,
-        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY {column}) as {column}_75th_percentile
-    """
-
-    STDDEV_VALUE = """
-        STDDEV({column}) as {column}_stddev_value
     """

@@ -335,7 +335,13 @@ class DremioCatalog:
 
     def set_datasets(self) -> None:
         if not self.datasets_populated:
-            for dataset_details in self.dremio_api.get_all_tables_and_columns():
+            containers: Deque[DremioContainer] = deque()
+            containers.extend(self.spaces)  # Add DremioSpace elements
+            containers.extend(self.sources)  # Add DremioSource elements
+
+            for dataset_details in self.dremio_api.get_all_tables_and_columns(
+                containers=containers
+            ):
                 dremio_dataset = DremioDataset(
                     dataset_details=dataset_details,
                     api_operations=self.dremio_api,
