@@ -335,6 +335,8 @@ class DremioCatalog:
 
     def set_datasets(self) -> None:
         if not self.datasets_populated:
+            self.set_containers()
+
             containers: Deque[DremioContainer] = deque()
             containers.extend(self.spaces)  # Add DremioSpace elements
             containers.extend(self.sources)  # Add DremioSource elements
