@@ -14,6 +14,7 @@ import {
     SearchIcon,
     SearchInput,
     SearchInputContainer,
+    SelectAllOption,
     SelectBase,
     SelectLabel,
     SelectValue,
@@ -88,6 +89,8 @@ export const selectDefaults: SelectProps = {
     isRequired: false,
     isMultiSelect: false,
     placeholder: 'Select an option',
+    showSelectAll: false,
+    selectAllLabel: 'Select All',
 };
 
 export const BasicSelect = ({
@@ -104,6 +107,8 @@ export const BasicSelect = ({
     isMultiSelect = selectDefaults.isMultiSelect,
     placeholder = selectDefaults.placeholder,
     disabledValues = [],
+    showSelectAll = selectDefaults.showSelectAll,
+    selectAllLabel = selectDefaults.selectAllLabel,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -111,12 +116,17 @@ export const BasicSelect = ({
     const [selectedValues, setSelectedValues] = useState<string[]>(values);
     const [tempValues, setTempValues] = useState<string[]>(values);
     const selectRef = useRef<HTMLDivElement>(null);
+    const [areAllSelected, setAreAllSelected] = useState(false);
 
     useEffect(() => {
         if (values?.length > 0 && !isEqual(selectedValues, values)) {
             setSelectedValues(values);
         }
     }, [values, selectedValues]);
+
+    useEffect(() => {
+        setAreAllSelected(tempValues.length === options.length);
+    }, [options, tempValues]);
 
     const filteredOptions = useMemo(
         () => options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase())),
@@ -180,12 +190,25 @@ export const BasicSelect = ({
 
     const handleClearSelection = useCallback(() => {
         setSelectedValues([]);
+        setAreAllSelected(false);
         setTempValues([]);
         setIsOpen(false);
         if (onUpdate) {
             onUpdate([]);
         }
     }, [onUpdate]);
+
+    const handleSelectAll = () => {
+        if (areAllSelected) {
+            setTempValues([]);
+            onUpdate?.([]);
+        } else {
+            const allValues = options.map((option) => option.value);
+            setTempValues(allValues);
+            onUpdate?.(allValues);
+        }
+        setAreAllSelected(!areAllSelected);
+    };
 
     return (
         <Container ref={selectRef} size={size || 'md'} width={props.width}>
@@ -231,6 +254,21 @@ export const BasicSelect = ({
                         </SearchInputContainer>
                     )}
                     <OptionList>
+                        {showSelectAll && isMultiSelect && (
+                            <SelectAllOption
+                                isSelected={areAllSelected}
+                                onClick={() => !(disabledValues.length === options.length) && handleSelectAll()}
+                                isDisabled={disabledValues.length === options.length}
+                            >
+                                <LabelContainer>
+                                    <span>{selectAllLabel}</span>
+                                    <StyledCheckbox
+                                        checked={areAllSelected}
+                                        disabled={disabledValues.length === options.length}
+                                    />
+                                </LabelContainer>
+                            </SelectAllOption>
+                        )}
                         {filteredOptions.map((option) => (
                             <OptionLabel
                                 key={option.value}

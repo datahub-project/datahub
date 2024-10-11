@@ -20,6 +20,8 @@ export interface SelectProps {
     isMultiSelect?: boolean;
     placeholder?: string;
     disabledValues?: string[];
+    showSelectAll?: boolean;
+    selectAllLabel?: string;
 }
 
 export interface SelectStyleProps {

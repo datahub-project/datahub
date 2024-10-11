@@ -147,6 +147,18 @@ export const OptionLabel = styled.label<{ isSelected: boolean; isMultiSelect?: b
     }),
 );
 
+export const SelectAllOption = styled.div<{ isSelected: boolean; isDisabled?: boolean }>(
+    ({ isSelected, isDisabled }) => ({
+        cursor: isDisabled ? 'not-allowed' : 'pointer',
+        padding: spacing.xsm,
+        color: isSelected ? colors.violet[700] : colors.gray[500],
+        fontWeight: typography.fontWeights.semiBold,
+        fontSize: typography.fontSizes.md,
+        display: 'flex',
+        alignItems: 'center',
+    }),
+);
+
 export const SelectLabel = styled.label({
     ...formLabelTextStyles,
     marginBottom: spacing.xxsm,

@@ -89,21 +89,29 @@ const StructuredPropsFormSection = ({
                             </SubTextContainer>
                         )}
                     </FieldLabel>
-                    <Form.Item name={['typeQualifier', 'allowedTypes']}>
-                        <SimpleSelect
-                            options={getEntitiesListOptions(SEARCHABLE_ENTITY_TYPES)}
-                            onUpdate={(values) =>
-                                isEditMode
-                                    ? handleSelectUpdateChange(['typeQualifier', 'allowedTypes'], values)
-                                    : handleSelectChange(['typeQualifier', 'allowedTypes'], values)
-                            }
-                            placeholder="Select Allowed Entity Types"
-                            isMultiSelect
-                            values={formValues?.typeQualifier?.allowedTypes}
-                            disabledValues={disabledTypeQualifierValues}
-                            width="full"
-                        />
-                    </Form.Item>
+                    <Tooltip
+                        title={
+                            !formValues?.typeQualifier?.allowedTypes?.length &&
+                            'Any entity type will be accepted as a value'
+                        }
+                        showArrow={false}
+                    >
+                        <Form.Item name={['typeQualifier', 'allowedTypes']}>
+                            <SimpleSelect
+                                options={getEntitiesListOptions(SEARCHABLE_ENTITY_TYPES)}
+                                onUpdate={(values) =>
+                                    isEditMode
+                                        ? handleSelectUpdateChange(['typeQualifier', 'allowedTypes'], values)
+                                        : handleSelectChange(['typeQualifier', 'allowedTypes'], values)
+                                }
+                                placeholder="Any"
+                                isMultiSelect
+                                values={formValues?.typeQualifier?.allowedTypes}
+                                disabledValues={disabledTypeQualifierValues}
+                                width="full"
+                            />
+                        </Form.Item>
+                    </Tooltip>
                 </RowContainer>
             )}
             <RowContainer>
@@ -155,6 +163,8 @@ const StructuredPropsFormSection = ({
                         values={formValues?.entityTypes ? formValues?.entityTypes : undefined}
                         disabledValues={disabledEntityTypeValues}
                         width="full"
+                        showSelectAll
+                        selectAllLabel="All Asset Types"
                     />
                 </Form.Item>
             </RowContainer>
