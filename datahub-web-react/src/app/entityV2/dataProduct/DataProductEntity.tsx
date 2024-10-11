@@ -163,7 +163,14 @@ export class DataProductEntity implements Entity<DataProduct> {
         },
     ];
 
-    getSidebarTabs = () => [];
+    getSidebarTabs = () => [
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
+        },
+    ];
 
     renderPreview = (previewType: PreviewType, data: DataProduct, actions) => {
         return (

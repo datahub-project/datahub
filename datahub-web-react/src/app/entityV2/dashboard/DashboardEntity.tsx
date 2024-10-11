@@ -246,6 +246,12 @@ export class DashboardEntity implements Entity<Dashboard> {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
         },
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
+        },
     ];
 
     getOverridePropertiesFromEntity = (dashboard?: Dashboard | null): GenericEntityProperties => {

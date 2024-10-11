@@ -158,7 +158,14 @@ export class DomainEntity implements Entity<Domain> {
         },
     ];
 
-    getSidebarTabs = () => [];
+    getSidebarTabs = () => [
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
+        },
+    ];
 
     renderPreview = (previewType: PreviewType, data: Domain) => {
         return (

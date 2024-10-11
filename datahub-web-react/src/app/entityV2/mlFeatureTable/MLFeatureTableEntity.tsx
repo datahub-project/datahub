@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { DotChartOutlined } from '@ant-design/icons';
+import { DotChartOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { MlFeatureTable, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
@@ -138,7 +138,14 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         },
     ];
 
-    getSidebarTabs = () => [];
+    getSidebarTabs = () => [
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
+        },
+    ];
 
     renderPreview = (previewType: PreviewType, data: MlFeatureTable) => {
         const genericProperties = this.getGenericEntityProperties(data);

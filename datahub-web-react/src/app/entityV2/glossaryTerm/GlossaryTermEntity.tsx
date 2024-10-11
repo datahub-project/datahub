@@ -177,7 +177,14 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         },
     ];
 
-    getSidebarTabs = () => [];
+    getSidebarTabs = () => [
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
+        },
+    ];
 
     getOverridePropertiesFromEntity = (glossaryTerm?: GlossaryTerm | null): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it

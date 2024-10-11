@@ -321,6 +321,12 @@ export class DatasetEntity implements Entity<Dataset> {
                 fullHeight: true,
             },
         },
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
+        },
     ];
 
     #shouldMergeInLineage(dataset?: Dataset | null, flags?: FeatureFlagsConfig): boolean {

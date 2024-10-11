@@ -133,7 +133,14 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         },
     ];
 
-    getSidebarTabs = () => [];
+    getSidebarTabs = () => [
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
+        },
+    ];
 
     displayName = (data: GlossaryNode) => {
         return data?.properties?.name || data?.urn;

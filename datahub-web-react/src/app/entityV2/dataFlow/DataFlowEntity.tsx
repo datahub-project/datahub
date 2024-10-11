@@ -157,7 +157,14 @@ export class DataFlowEntity implements Entity<DataFlow> {
         },
     ];
 
-    getSidebarTabs = () => [];
+    getSidebarTabs = () => [
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
+        },
+    ];
 
     getOverridePropertiesFromEntity = (dataFlow?: DataFlow | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.

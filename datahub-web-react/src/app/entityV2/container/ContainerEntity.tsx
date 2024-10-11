@@ -156,7 +156,14 @@ export class ContainerEntity implements Entity<Container> {
         // },
     ];
 
-    getSidebarTabs = () => [];
+    getSidebarTabs = () => [
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
+        },
+    ];
 
     renderPreview = (_: PreviewType, data: Container) => {
         const genericProperties = this.getGenericEntityProperties(data);
