@@ -46,10 +46,11 @@ const DeleteButton = styled(Button)<{ $displayBulkStyles?: boolean }>`
 
 interface Props {
     selectedValues: any[];
+    inputType?: string;
     updateSelectedValues: (values: any[]) => void;
 }
 
-export default function MultipleStringInput({ selectedValues, updateSelectedValues }: Props) {
+export default function MultipleOpenEndedInput({ selectedValues, updateSelectedValues, inputType = 'text' }: Props) {
     const {
         prompt: { displayBulkPromptStyles },
     } = useEntityFormContext();
@@ -81,7 +82,7 @@ export default function MultipleStringInput({ selectedValues, updateSelectedValu
                     return (
                         <InputWrapper key={key}>
                             <StyledInput
-                                type="text"
+                                type={inputType}
                                 value={selectedValue}
                                 onChange={(e) => updateInput(e.target.value, index)}
                             />
@@ -96,7 +97,7 @@ export default function MultipleStringInput({ selectedValues, updateSelectedValu
                 })}
             {selectedValues.length <= 1 && (
                 <StyledInput
-                    type="text"
+                    type={inputType}
                     value={selectedValues[0] || ''}
                     onChange={(e) => updateInput(e.target.value, 0)}
                 />
