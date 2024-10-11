@@ -158,7 +158,7 @@ def test_bigquery_v2_ingest(
         rows_count=None,
         labels={
             "priority": "high",
-            "purchase": "urn_li_encoded_tag_ovzg4otmne5hiylhhjyhk4tdnbqxgzi_",
+            "purchase": "",
         },
     )
     get_tables_for_dataset.return_value = iter([bigquery_table])
