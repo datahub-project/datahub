@@ -56,7 +56,7 @@ class DatahubLineageConfig(ConfigModel):
     # If true, ti.render_templates() will be called in the listener.
     # Makes extraction of jinja-templated fields more accurate.
     render_templates: bool = True
-      
+
     dag_filter_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for DAGs to ingest",
