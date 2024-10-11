@@ -229,8 +229,7 @@ public class FormService extends BaseService {
   public Thread upsertFormAssignmentAutomation(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn formUrn,
-      @Nonnull final DynamicFormAssignment formFilters,
-      @Nonnull ObjectMapper objectMapper) {
+      @Nonnull final DynamicFormAssignment formFilters) {
     final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormAssignment(formUrn);
     final TestInfo testDefinition =
         FormTestBuilder.buildFormAssignmentTest(opContext, formUrn, formFilters);
@@ -248,13 +247,7 @@ public class FormService extends BaseService {
       String predicateJson = opContext.getObjectMapper().writeValueAsString(predicate);
 
       return SearchBasedFormAssignmentRunner.assign(
-          opContext,
-          predicateJson,
-          formUrn,
-          BATCH_FORM_ENTITY_COUNT,
-          entityClient,
-          openApiClient,
-          objectMapper);
+          opContext, predicateJson, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient, openApiClient);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to dynamically assign form with urn: %s", formUrn), e);
@@ -264,8 +257,7 @@ public class FormService extends BaseService {
   public Thread removeFormAssignmentAutomation(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn formUrn,
-      @Nonnull final DynamicFormAssignment formFilters,
-      @Nonnull ObjectMapper objectMapper) {
+      @Nonnull final DynamicFormAssignment formFilters) {
     try {
       // Remove assignments from entities that do not match the form filter, but do have the form
       // assigned
@@ -301,13 +293,7 @@ public class FormService extends BaseService {
 
       String predicateJson = opContext.getObjectMapper().writeValueAsString(finalPredicate);
       return SearchBasedFormAssignmentRunner.unassign(
-          opContext,
-          predicateJson,
-          formUrn,
-          BATCH_FORM_ENTITY_COUNT,
-          entityClient,
-          openApiClient,
-          objectMapper);
+          opContext, predicateJson, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient, openApiClient);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to dynamically assign form with urn: %s", formUrn), e);

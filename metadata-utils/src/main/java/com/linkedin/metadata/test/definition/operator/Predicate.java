@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import lombok.Value;
 
@@ -26,6 +27,7 @@ import lombok.Value;
 @Value
 @ToString
 @JsonDeserialize(builder = Predicate.PredicateBuilder.class)
+@EqualsAndHashCode
 public class Predicate implements Operator {
 
   @JsonProperty("operatorType")

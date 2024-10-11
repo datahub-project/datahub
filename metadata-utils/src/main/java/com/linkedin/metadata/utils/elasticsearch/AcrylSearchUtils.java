@@ -52,6 +52,7 @@ public class AcrylSearchUtils {
     for (ConjunctiveCriterion conjunctiveCriterion : filterV2.getOr()) {
       List<Expression> andList = new ArrayList<>();
       for (Criterion criterion : conjunctiveCriterion.getAnd()) {
+        List<Expression> expressions = new ArrayList<>();
         Condition condition = criterion.getCondition();
         List<OperatorType> operatorTypes = new ArrayList<>();
         boolean negated = false;
@@ -123,11 +124,13 @@ public class AcrylSearchUtils {
             List<Expression> ops = ImmutableList.of(query, literal);
             leaf = Predicate.of(op, ops, negated);
           }
-          andList.add(leaf);
+          expressions.add(leaf);
         }
-        Predicate and = Predicate.of(OperatorType.AND, andList);
-        orList.add(and);
+        Predicate criterionAnd = Predicate.of(OperatorType.AND, expressions);
+        andList.add(criterionAnd);
       }
+      Predicate conjunctionAnd = Predicate.of(OperatorType.AND, andList);
+      orList.add(conjunctionAnd);
     }
     return Predicate.of(OperatorType.OR, orList);
   }

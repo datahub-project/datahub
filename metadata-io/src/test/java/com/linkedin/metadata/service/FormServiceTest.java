@@ -1256,8 +1256,7 @@ public class FormServiceTest {
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
     Thread assignThread =
-        formService.upsertFormAssignmentAutomation(
-            opContext, TEST_FORM_URN, formAssignment, new ObjectMapper());
+        formService.upsertFormAssignmentAutomation(opContext, TEST_FORM_URN, formAssignment);
     JsonNode testDefinition =
         new ObjectMapper()
             .readTree(
@@ -1335,8 +1334,7 @@ public class FormServiceTest {
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
     Thread assignThread =
-        formService.upsertFormAssignmentAutomation(
-            opContext, TEST_FORM_URN, formAssignment, new ObjectMapper());
+        formService.upsertFormAssignmentAutomation(opContext, TEST_FORM_URN, formAssignment);
     JsonNode testDefinition =
         new ObjectMapper()
             .readTree(
@@ -1471,9 +1469,8 @@ public class FormServiceTest {
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
     Thread unassignThread =
-        formService.removeFormAssignmentAutomation(
-            opContext, TEST_FORM_URN, formAssignment, new ObjectMapper());
-    unassignThread.join(10000);
+        formService.removeFormAssignmentAutomation(opContext, TEST_FORM_URN, formAssignment);
+    unassignThread.join();
     // Verify that the correct test was ingested.
     List<MetadataChangeProposal> changes =
         formService.buildUnassignFormChanges(
@@ -1548,9 +1545,8 @@ public class FormServiceTest {
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
     Thread unassignThread =
-        formService.removeFormAssignmentAutomation(
-            opContext, TEST_FORM_URN, formAssignment, new ObjectMapper());
-    unassignThread.join(10000);
+        formService.removeFormAssignmentAutomation(opContext, TEST_FORM_URN, formAssignment);
+    unassignThread.join();
     // Verify runner performs removal
     List<MetadataChangeProposal> changes =
         formService.buildUnassignFormChanges(

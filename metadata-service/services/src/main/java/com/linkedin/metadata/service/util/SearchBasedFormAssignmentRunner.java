@@ -1,6 +1,5 @@
 package com.linkedin.metadata.service.util;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -28,13 +27,16 @@ public class SearchBasedFormAssignmentRunner {
       Urn formUrn,
       int batchFormEntityCount,
       SystemEntityClient entityClient,
-      OpenApiClient openApiClient,
-      ObjectMapper objectMapper) {
+      OpenApiClient openApiClient) {
     // TODO: Refactor form service methods to take appSource as a param to avoid having to
     // repeatedly new up instances
     FormService formService =
         new FormService(
-            entityClient, openApiClient, objectMapper, Constants.METADATA_TESTS_SOURCE, true);
+            entityClient,
+            openApiClient,
+            opContext.getObjectMapper(),
+            Constants.METADATA_TESTS_SOURCE,
+            true);
     Runnable runnable =
         () -> {
           try {
@@ -64,13 +66,16 @@ public class SearchBasedFormAssignmentRunner {
       Urn formUrn,
       int batchFormEntityCount,
       SystemEntityClient entityClient,
-      OpenApiClient openApiClient,
-      ObjectMapper objectMapper) {
+      OpenApiClient openApiClient) {
     // TODO: Refactor form service methods to take appSource as a param to avoid having to
     // repeatedly new up instances
     FormService formService =
         new FormService(
-            entityClient, openApiClient, objectMapper, Constants.METADATA_TESTS_SOURCE, true);
+            entityClient,
+            openApiClient,
+            opContext.getObjectMapper(),
+            Constants.METADATA_TESTS_SOURCE,
+            true);
     Runnable runnable =
         () -> {
           try {

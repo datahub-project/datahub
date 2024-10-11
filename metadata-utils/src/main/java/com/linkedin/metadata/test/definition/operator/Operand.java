@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import com.linkedin.metadata.test.definition.expression.Expression;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 
@@ -12,6 +13,7 @@ import lombok.ToString;
 @Getter
 @ToString
 @JsonDeserialize(builder = Operand.OperandBuilder.class)
+@EqualsAndHashCode
 public class Operand {
   /**
    * The index of the operand -- TODO: Determine whether this is really necessary beyond

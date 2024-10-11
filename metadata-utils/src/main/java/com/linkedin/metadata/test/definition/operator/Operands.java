@@ -9,12 +9,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Value;
 
 @Value
 @Getter
 @JsonDeserialize(builder = Operands.OperandsBuilder.class)
+@EqualsAndHashCode
 /** A set of named {@link Expression}s. */
 public class Operands {
   /** The list of operands. */
