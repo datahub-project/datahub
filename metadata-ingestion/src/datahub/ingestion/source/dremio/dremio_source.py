@@ -631,6 +631,6 @@ class DremioSource(StatefulIngestionSourceBase):
         pass
 
 def _sql_dialect(platform: str) -> str:
-        return "trino"
+        return "drill"
 
 datahub.sql_parsing.sqlglot_utils._get_dialect_str = _sql_dialect
