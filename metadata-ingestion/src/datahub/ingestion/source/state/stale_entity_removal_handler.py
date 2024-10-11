@@ -11,7 +11,10 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import (
+    STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
+    GenericCheckpointState,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
@@ -26,11 +29,6 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.urn import guess_entity_type
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-STATEFUL_INGESTION_IGNORED_ENTITY_TYPES = {
-    "dataProcessInstance",
-    "query",
-}
 
 
 class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
