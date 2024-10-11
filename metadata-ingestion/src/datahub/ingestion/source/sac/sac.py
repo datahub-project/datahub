@@ -561,6 +561,13 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         retries = 3
         backoff_factor = 10
+
+        # The Resources and Data Import Service APIs of SAP Analytics Cloud can be somewhat unstable, occasionally
+        # returning HTTP errors for some requests, even though the APIs are generally operational. Therefore, we must
+        # retry these requests to increase the likelihood that the ingestion is successful. For the same reason we
+        # should also retry requests that receive a 401 HTTP status; however, this status also legitimately indicates
+        # that the provided OAuth credentials are invalid or that the OAuth client does not have the correct
+        # permissions assigned, therefore requests that receive a 401 HTTP status must not be retried.
         status_forcelist = (400, 500, 503)
 
         retry = Retry(
@@ -727,8 +734,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     name=column["columnName"].strip(),
                     description=(
                         column["descriptionName"].strip()
-                        if "descriptionName" in column
-                        and column["descriptionName"] is not None
+                        if column.get("descriptionName") is not None
                         else None
                     ),
                     property_type=column["propertyType"],
