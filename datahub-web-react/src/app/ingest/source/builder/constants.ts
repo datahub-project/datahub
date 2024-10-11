@@ -19,6 +19,7 @@ import clickhouseLogo from '../../../../images/clickhouselogo.png';
 import cockroachdbLogo from '../../../../images/cockroachdblogo.png';
 import trinoLogo from '../../../../images/trinologo.png';
 import dbtLogo from '../../../../images/dbtlogo.png';
+import dremioLogo from '../../../../images/dremiologo.png';
 import druidLogo from '../../../../images/druidlogo.png';
 import elasticsearchLogo from '../../../../images/elasticsearchlogo.png';
 import feastLogo from '../../../../images/feastlogo.png';
@@ -51,6 +52,8 @@ export const COCKROACHDB = 'cockroachdb';
 export const COCKROACHDB_URN = `urn:li:dataPlatform:${COCKROACHDB}`;
 export const DBT = 'dbt';
 export const DBT_URN = `urn:li:dataPlatform:${DBT}`;
+export const DREMIO = 'dremio';
+export const DREMIO_URN = `urn:li:dataPlatform:${DREMIO}`;
 export const DRUID = 'druid';
 export const DRUID_URN = `urn:li:dataPlatform:${DRUID}`;
 export const DYNAMODB = 'dynamodb';
@@ -133,6 +136,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [CLICKHOUSE_URN]: clickhouseLogo,
     [COCKROACHDB_URN]: cockroachdbLogo,
     [DBT_URN]: dbtLogo,
+    [DREMIO_URN]: dremioLogo,
     [DRUID_URN]: druidLogo,
     [DYNAMODB_URN]: dynamodbLogo,
     [ELASTICSEARCH_URN]: elasticsearchLogo,
