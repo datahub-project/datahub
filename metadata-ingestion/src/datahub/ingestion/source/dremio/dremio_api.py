@@ -6,7 +6,7 @@ from collections import defaultdict
 from enum import Enum
 from itertools import product
 from time import sleep, time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Deque, Dict, List, Optional, Union
 from urllib.parse import quote
 
 import requests
@@ -33,7 +33,7 @@ class DremioEdition(Enum):
 
 class DremioAPIOperations:
     _retry_count: int = 5
-    _timeout: int = 10
+    _timeout: int = 1800
 
     def __init__(self, connection_args: "DremioSourceConfig") -> None:
         self.dremio_to_datahub_source_mapper = DremioToDataHubSourceTypeMapping()
@@ -221,7 +221,7 @@ class DremioAPIOperations:
             elif status["jobState"] == "CANCELED":
                 raise RuntimeError("Query was canceled")
 
-            if time() - start_time > 300:  # 5 minutes timeout
+            if time() - start_time > self._timeout:
                 self.cancel_query(job_id)
                 raise TimeoutError("Query execution timed out while fetching results")
 
@@ -367,7 +367,7 @@ class DremioAPIOperations:
 
         return dataset_list
 
-    def get_all_tables_and_columns(self) -> List[Dict]:
+    def get_all_tables_and_columns(self, containers: Deque) -> List[Dict]:
         if self.edition == DremioEdition.ENTERPRISE:
             query_template = DremioSQLQueries.QUERY_DATASETS_EE
         elif self.edition == DremioEdition.CLOUD:
@@ -409,14 +409,29 @@ class DremioAPIOperations:
             self.deny_dataset_pattern, table_field, allow=False
         )
 
-        formatted_query = query_template.format(
-            schema_pattern=schema_condition,
-            table_pattern=table_condition,
-            deny_schema_pattern=deny_schema_condition,
-            deny_table_pattern=deny_table_condition,
-        )
+        all_tables_and_columns = []
 
-        all_tables_and_columns = self.execute_query(formatted_query)
+        for schema in containers:
+            try:
+                formatted_query = query_template.format(
+                    schema_pattern=schema_condition,
+                    table_pattern=table_condition,
+                    deny_schema_pattern=deny_schema_condition,
+                    deny_table_pattern=deny_table_condition,
+                    container_name=schema.container_name.lower(),
+                )
+
+                all_tables_and_columns.extend(
+                    self.execute_query(
+                        query=formatted_query,
+                    )
+                )
+            except Exception as exc:
+                logger.warning(
+                    f"{schema.subclass} {schema.container_name} had no tables or views"
+                )
+                logger.debug(exc)
+
         tables = []
 
         if self.edition == DremioEdition.COMMUNITY:
