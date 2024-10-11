@@ -120,6 +120,10 @@ const mergeFields = (destinationArray, sourceArray, _options) => {
     return mergeArrayOfObjectsByKey(destinationArray, sourceArray, 'fieldPath');
 };
 
+const mergeForms = (destinationArray, sourceArray, _options) => {
+    return unionBy(sourceArray, destinationArray, 'form.urn');
+};
+
 const mergeLastOperations = (
     destinationArray: Pick<Operation, 'lastUpdatedTimestamp'>[],
     sourceArray: Pick<Operation, 'lastUpdatedTimestamp'>[],
@@ -250,6 +254,10 @@ function getArrayMergeFunction(key) {
             return mergeSubtypes;
         case 'lastOperation':
             return mergeLastOperations;
+        case 'completedForms':
+        case 'incompleteForms':
+        case 'verifications':
+            return mergeForms;
         default:
             return undefined;
     }
@@ -286,9 +294,6 @@ function customMerge(isPrimary, key) {
     }
     if (key === 'activeIncidents') {
         return (secondary, primary) => ({ ...primary, total: primary.total + secondary.total });
-    }
-    if (key === 'forms') {
-        return (_secondary, primary) => primary;
     }
     if (key === 'lastModified') {
         return (secondary, primary) => (secondary?.time || primary?.time < 0 || 0 ? secondary : primary);
@@ -331,7 +336,9 @@ function customMerge(isPrimary, key) {
         key === 'editableSchemaFieldInfo' ||
         key === 'health' ||
         key === 'typeNames' ||
-        key === 'lastOperation'
+        key === 'completedForms' ||
+        key === 'incompleteForms' ||
+        key === 'verifications'
     ) {
         return (secondary, primary) => {
             return merge(secondary, primary, {
