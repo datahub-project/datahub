@@ -1,7 +1,8 @@
-import dataclasses
-from dataclasses import dataclass
+from collections import defaultdict
+from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, DefaultDict, Dict, List, Optional, Union
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.metadata.schema_classes import (
@@ -115,7 +116,7 @@ class Measure:
     dataType: str = "measure"
     datahubDataType: Union[
         BooleanTypeClass, DateTypeClass, NullTypeClass, NumberTypeClass, StringTypeClass
-    ] = dataclasses.field(default_factory=NullTypeClass)
+    ] = field(default_factory=NullTypeClass)
     description: Optional[str] = None
     measure_profile: Optional[MeasureProfile] = None
 
@@ -171,11 +172,36 @@ class PowerBIDataset:
 
 
 @dataclass
+class UserUsageStat:
+    viewsCount: int
+
+
+@dataclass
+class UsageStat:
+    # From below two usage stats only one needs to populated
+    # If both are set, only UserGUID usage stats will get populate
+    userGuidUsageStats: Dict[str, UserUsageStat] = field(default_factory=dict)
+    userIdUsageStats: Dict[str, UserUsageStat] = field(default_factory=dict)
+
+
+DateWiseUsage = DefaultDict[datetime, UsageStat]
+
+
+@dataclass
+class PowerBiEntityUsage:
+    overall_usage: DateWiseUsage = field(default_factory=lambda: defaultdict(UsageStat))
+    sub_entity_usage: DefaultDict[str, DateWiseUsage] = field(
+        default_factory=lambda: defaultdict(lambda: defaultdict(UsageStat))
+    )  # Key as sub_entity_id
+
+
+@dataclass
 class Page:
     id: str
     displayName: str
     name: str
     order: int
+    usageStats: Optional[DateWiseUsage]
 
     def get_urn_part(self):
         return f"pages.{self.id}"
@@ -219,6 +245,7 @@ class Report:
     embedUrl: str
     description: str
     dataset: Optional["PowerBIDataset"]
+    usageStats: Optional[DateWiseUsage]
     pages: List["Page"]
     users: List["User"]
     tags: List[str]
@@ -256,6 +283,7 @@ class Dashboard:
     isReadOnly: Any
     workspace_id: str
     workspace_name: str
+    usageStats: Optional[DateWiseUsage]
     tiles: List["Tile"]
     users: List["User"]
     tags: List[str]

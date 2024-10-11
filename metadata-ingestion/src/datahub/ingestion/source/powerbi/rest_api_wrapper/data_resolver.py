@@ -1,9 +1,10 @@
 import logging
 import math
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
+from collections import defaultdict
+from datetime import datetime, time, timedelta, timezone
 from time import sleep
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, DefaultDict, Dict, List, Optional, Union
 
 import msal
 import requests
@@ -12,7 +13,10 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.ingestion.source.powerbi.config import Constant
+from datahub.ingestion.source.powerbi.config import (
+    POWERBI_USAGE_DATETIME_FORMAT,
+    Constant,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
     Dashboard,
@@ -20,13 +24,16 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     MeasureProfile,
     Page,
     PowerBIDataset,
+    PowerBiEntityUsage,
     Report,
     Table,
     Tile,
     User,
+    UserUsageStat,
     Workspace,
     new_powerbi_dataset,
 )
+from datahub.ingestion.source.powerbi.rest_api_wrapper.dax_query import PowerBiDaxQuery
 from datahub.ingestion.source.powerbi.rest_api_wrapper.profiling_utils import (
     process_column_result,
     process_sample_result,
@@ -217,6 +224,7 @@ class DataResolverBase(ABC):
                 webUrl=instance.get(Constant.WEB_URL),
                 workspace_id=workspace.id,
                 workspace_name=workspace.name,
+                usageStats=None,
                 tiles=[],
                 users=[],
                 tags=[],
@@ -295,6 +303,7 @@ class DataResolverBase(ABC):
                 name=raw_instance.get(Constant.NAME),
                 webUrl=raw_instance.get(Constant.WEB_URL),
                 embedUrl=raw_instance.get(Constant.EMBED_URL),
+                usageStats=None,
                 description=raw_instance.get(Constant.DESCRIPTION, ""),
                 pages=self._get_pages_by_report(
                     workspace=workspace, report_id=raw_instance[Constant.ID]
@@ -317,6 +326,275 @@ class DataResolverBase(ABC):
             return None
 
         return reports[0]
+
+    def get_entities_usage_stats_from_result(
+        self, results: List[Dict], user_stats_key_as_guid: bool
+    ) -> DefaultDict[str, PowerBiEntityUsage]:
+        """
+        Return entity level usage stats from result
+        """
+        entities_usage_stats: DefaultDict[str, PowerBiEntityUsage] = defaultdict(
+            PowerBiEntityUsage
+        )
+        for row in results:
+            # As result contain uppercase IDs and other API response contains lowercase IDs
+            # Hence lowercasing all IDs to have proper mapping
+            entity_id = row[Constant.ENTITY_ID].lower()
+            date = datetime.strptime(
+                row[Constant.DATE], POWERBI_USAGE_DATETIME_FORMAT
+            ).replace(tzinfo=timezone.utc)
+            user_id = row[Constant.USER_ID].lower()
+            views_count = row[Constant.VIEWS_COUNT]
+
+            if user_stats_key_as_guid:
+                entities_usage_stats[entity_id].overall_usage[date].userGuidUsageStats[
+                    user_id
+                ] = UserUsageStat(views_count)
+            else:
+                entities_usage_stats[entity_id].overall_usage[date].userIdUsageStats[
+                    user_id
+                ] = UserUsageStat(views_count)
+
+        return entities_usage_stats
+
+    def fill_sub_entities_usage_stats_from_result(
+        self,
+        results: List[Dict],
+        user_stats_key_as_guid: bool,
+        entities_usage_stats: DefaultDict[str, PowerBiEntityUsage],
+    ) -> DefaultDict[str, PowerBiEntityUsage]:
+        """
+        fill sub entity level usage stats from result.
+        """
+        for row in results:
+            # As result contain uppercase IDs and other API response contains lowercase IDs
+            # Hence lowercasing all IDs to have proper mapping
+            entity_id = row[Constant.ENTITY_ID].lower()
+            sub_entity_id = row[Constant.SUB_ENTITY_ID].lower()
+            date = datetime.strptime(
+                row[Constant.DATE], POWERBI_USAGE_DATETIME_FORMAT
+            ).replace(tzinfo=timezone.utc)
+            user_id = row[Constant.USER_ID].lower()
+            views_count = row[Constant.VIEWS_COUNT]
+
+            if user_stats_key_as_guid:
+                entities_usage_stats[entity_id].sub_entity_usage[sub_entity_id][
+                    date
+                ].userGuidUsageStats[user_id] = UserUsageStat(views_count)
+            else:
+                entities_usage_stats[entity_id].sub_entity_usage[sub_entity_id][
+                    date
+                ].userIdUsageStats[user_id] = UserUsageStat(views_count)
+
+        return entities_usage_stats
+
+    def get_dataset_id_from_workspace(
+        self, workspace: Workspace, dataset_name: str
+    ) -> Optional[str]:
+        for dataset_id, dataset in workspace.datasets.items():
+            if dataset.name == dataset_name:
+                return dataset_id
+        return None
+
+    def get_dataset_query_result(
+        self, execute_query_endpoint: str, query: str
+    ) -> List[Dict]:
+        response = self._request_session.post(
+            execute_query_endpoint,
+            headers=self.get_authorization_header(),
+            json={"queries": [{"query": query}]},
+        )
+        response.raise_for_status()
+        return response.json()[Constant.RESULTS][0][Constant.TABLES][0][Constant.ROWS]
+
+    def get_report_new_usage_stats(
+        self, workspace: Workspace, usage_stats_interval: int
+    ) -> DefaultDict[str, PowerBiEntityUsage]:
+        """
+        Fetch the reports and reports pages usage stats from semantic model/dataset
+        used by new usage metrics report.
+        Returns DefaultDict[<report_id>, PowerBiEntityUsage]
+        """
+        usage_metrics_dataset_id: Optional[str] = self.get_dataset_id_from_workspace(
+            workspace=workspace,
+            dataset_name=Constant.NEW_USAGE_METRICS_MODEL,
+        )
+        if usage_metrics_dataset_id is None:
+            logger.debug("New report usage metrics report is not yet created")
+            return defaultdict(PowerBiEntityUsage)
+
+        dataset_execute_query_endpoint = f"{self.BASE_URL}/{workspace.id}/datasets/{usage_metrics_dataset_id}/executeQueries"
+        # get report pages view count for per date and per user
+        reports_pages_views_result = self.get_dataset_query_result(
+            execute_query_endpoint=dataset_execute_query_endpoint,
+            query=PowerBiDaxQuery.GET_NEW_USAGE_METRICS_REPORT_PAGE_VIEWS.format(
+                usage_stats_interval=usage_stats_interval
+            ),
+        )
+        # get open report count for per date and per user
+        reports_views_result = self.get_dataset_query_result(
+            execute_query_endpoint=dataset_execute_query_endpoint,
+            query=PowerBiDaxQuery.GET_NEW_USAGE_METRICS_REPORT_VIEWS.format(
+                usage_stats_interval=usage_stats_interval
+            ),
+        )
+
+        reports_usage_stats = self.get_entities_usage_stats_from_result(
+            results=reports_views_result,
+            user_stats_key_as_guid=False,  # New Usage metrics report contains UserID as User identifier
+        )
+
+        reports_usage_stats = self.fill_sub_entities_usage_stats_from_result(
+            results=reports_pages_views_result,
+            user_stats_key_as_guid=False,
+            entities_usage_stats=reports_usage_stats,
+        )
+
+        return reports_usage_stats
+
+    def get_report_old_usage_stats(
+        self, workspace: Workspace, usage_stats_interval: int
+    ) -> DefaultDict[str, PowerBiEntityUsage]:
+        """
+        Fetch the reports and reports pages usage stats from semantic model/dataset
+        used by old report usage metrics report.
+        Returns DefaultDict[<report_id>, PowerBiEntityUsage]
+        """
+        usage_metrics_dataset_id: Optional[str] = self.get_dataset_id_from_workspace(
+            workspace=workspace,
+            dataset_name=Constant.REPORT_USAGE_METRICS_MODEL,
+        )
+        if usage_metrics_dataset_id is None:
+            logger.debug("Report usage metrics report is not yet created")
+            return defaultdict(PowerBiEntityUsage)
+
+        dataset_execute_query_endpoint = f"{self.BASE_URL}/{workspace.id}/datasets/{usage_metrics_dataset_id}/executeQueries"
+        # get report view count for per date and per user
+        entities_views_result = self.get_dataset_query_result(
+            execute_query_endpoint=dataset_execute_query_endpoint,
+            query=PowerBiDaxQuery.GET_OLD_USAGE_METRICS_REPORT_VIEWS.format(
+                usage_stats_interval=usage_stats_interval,
+            ),
+        )
+
+        reports_usage_stats = self.get_entities_usage_stats_from_result(
+            results=entities_views_result,
+            user_stats_key_as_guid=True,  # Old Report usage metrics report contains UserGuid as User identifier
+        )
+
+        reports_usage_stats = self.fill_sub_entities_usage_stats_from_result(
+            results=entities_views_result,
+            user_stats_key_as_guid=True,
+            entities_usage_stats=reports_usage_stats,
+        )
+
+        return reports_usage_stats
+
+    def get_dashboard_usage_stats(
+        self, workspace: Workspace, usage_stats_interval: int
+    ) -> DefaultDict[str, PowerBiEntityUsage]:
+        """
+        Fetch the dashboard usage stats from semantic model/dataset
+        used by old dashboard usage metrics report.
+        Returns DefaultDict[<dashboard_id>, PowerBiEntityUsage]
+        """
+        usage_metrics_dataset_id: Optional[str] = self.get_dataset_id_from_workspace(
+            workspace=workspace,
+            dataset_name=Constant.DASHBOARD_USAGE_METRICS_MODEL,
+        )
+        if usage_metrics_dataset_id is None:
+            logger.debug("Dashboard usage metrics report is not yet created")
+            return defaultdict(PowerBiEntityUsage)
+
+        dataset_execute_query_endpoint = f"{self.BASE_URL}/{workspace.id}/datasets/{usage_metrics_dataset_id}/executeQueries"
+        # get dashboard view count for per date and per user
+        entities_views_result = self.get_dataset_query_result(
+            execute_query_endpoint=dataset_execute_query_endpoint,
+            query=PowerBiDaxQuery.GET_OLD_USAGE_METRICS_DASHBOARD_VIEWS.format(
+                usage_stats_interval=usage_stats_interval,
+            ),
+        )
+
+        dashboards_usage_stats = self.get_entities_usage_stats_from_result(
+            results=entities_views_result,
+            user_stats_key_as_guid=True,  # Old dashboard usage metrics report contains UserGuid as User identifier
+        )
+
+        return dashboards_usage_stats
+
+    def get_report_usage_stats_from_activity_events(
+        self, usage_stats_interval: int
+    ) -> DefaultDict[str, PowerBiEntityUsage]:
+        """
+        Fetch the report usage stats from ActivityEvents REST API.
+        Returns DefaultDict[<report_id>, PowerBiEntityUsage]
+        """
+        current_date = datetime.combine(datetime.now(timezone.utc), time(0, 0, 0))
+        start_date = current_date - timedelta(days=usage_stats_interval)
+        end_date = start_date + timedelta(hours=23, minutes=59, seconds=59)
+        view_report_activity_events: List[Dict] = list()
+
+        while end_date < current_date:
+            param = {
+                "startDateTime": f"'{start_date.strftime(f'{POWERBI_USAGE_DATETIME_FORMAT}Z')}'",
+                "endDateTime": f"'{end_date.strftime(f'{POWERBI_USAGE_DATETIME_FORMAT}Z')}'",
+                "$filter": "Activity eq 'ViewReport'",
+            }
+            while True:
+                response = self._request_session.get(
+                    f"{DataResolverBase.ADMIN_BASE_URL}/activityevents",
+                    headers=self.get_authorization_header(),
+                    params=param,
+                )
+                response.raise_for_status()
+                response_dict = response.json()
+                view_report_activity_events.extend(
+                    response_dict[Constant.ACTIVITY_EVENT_ENTITIES]
+                )
+                if response_dict[Constant.CONTINUATION_TOKEN]:
+                    param = {
+                        "continuationToken": f"'{response.json()[Constant.CONTINUATION_TOKEN]}'",
+                    }
+                else:
+                    break
+            start_date = start_date + timedelta(days=1)
+            end_date = end_date + timedelta(days=1)
+
+        reports_usage_stats: DefaultDict[str, PowerBiEntityUsage] = defaultdict(
+            PowerBiEntityUsage
+        )
+        for activity_event in view_report_activity_events:
+            report_id = activity_event[Constant.ACTIVITY_REPORT_ID]
+            date = datetime.combine(
+                datetime.strptime(
+                    activity_event[Constant.CREATION_TIME],
+                    POWERBI_USAGE_DATETIME_FORMAT,
+                ),
+                time(0, 0, 0),
+            ).replace(tzinfo=timezone.utc)
+            user_id = activity_event[Constant.ACTIVITY_USER_ID]
+
+            if (
+                user_id
+                not in reports_usage_stats[report_id]
+                .overall_usage[date]
+                .userIdUsageStats
+            ):
+                reports_usage_stats[report_id].overall_usage[date].userIdUsageStats[
+                    user_id
+                ] = UserUsageStat(1)
+            else:
+                reports_usage_stats[report_id].overall_usage[date].userIdUsageStats[
+                    user_id
+                ].viewsCount = (
+                    reports_usage_stats[report_id]
+                    .overall_usage[date]
+                    .userIdUsageStats[user_id]
+                    .viewsCount
+                    + 1
+                )
+
+        return reports_usage_stats
 
     def get_tiles(self, workspace: Workspace, dashboard: Dashboard) -> List[Tile]:
         """
@@ -528,6 +806,7 @@ class RegularAPIResolver(DataResolverBase):
                 name=raw_instance[Constant.NAME],
                 displayName=raw_instance.get(Constant.DISPLAY_NAME),
                 order=raw_instance.get(Constant.ORDER),
+                usageStats=None,
             )
             for raw_instance in response_dict.get(Constant.VALUE, [])
         ]
