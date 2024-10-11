@@ -31,6 +31,8 @@ ext {
     ]
     // Postgres
     pg_quickstart_modules = quickstart_modules - [':docker:mysql-setup'] + [':docker:postgres-setup']
+
+    revision = 1 // increment to trigger rebuild
 }
 
 tasks.register('minDockerCompose2.20', Exec) {
