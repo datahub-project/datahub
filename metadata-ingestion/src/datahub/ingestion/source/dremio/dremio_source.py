@@ -14,6 +14,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
     capability,
 )
+import datahub.sql_parsing.sqlglot_utils
 from datahub.ingestion.api.source import SourceReport, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dremio.dremio_profiling import ProfileConfig, DremioProfiler
@@ -628,3 +629,8 @@ class DremioSource(StatefulIngestionSourceBase):
         Close any resources held by the source.
         """
         pass
+
+def _sql_dialect(platform: str) -> str:
+        return "trino"
+
+datahub.sql_parsing.sqlglot_utils._get_dialect_str = _sql_dialect
