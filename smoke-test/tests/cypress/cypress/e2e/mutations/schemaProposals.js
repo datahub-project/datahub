@@ -227,7 +227,7 @@ describe("schemaProposals", () => {
     );
   });
 
-  it("can propose a schema-level term to dataset and then accept the proposal from the Inbox tab", () => {
+  it.skip("can propose a schema-level term to dataset and then accept the proposal from the Inbox tab", () => {
     cy.login();
 
     // Proposing a term

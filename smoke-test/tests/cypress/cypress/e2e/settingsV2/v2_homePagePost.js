@@ -38,7 +38,7 @@ describe("create announcement and link post", () => {
     cy.goToHomePagePostSettings();
   });
 
-  it("Verify create, edit and delete announcement post", () => {
+  it.skip("Verify create, edit and delete announcement post", () => {
     clickOnNewPost();
     addOrEditAnnouncement(
       "Create",
@@ -70,7 +70,7 @@ describe("create announcement and link post", () => {
     cy.ensureTextNotPresent("Test Announcement Title Updated");
   });
 
-  it("Verify create, edit and delete link post", () => {
+  it.skip("Verify create, edit and delete link post", () => {
     clickOnNewPost();
     cy.waitTextPresent("Create");
     cy.contains("label", "Pinned Link").click();

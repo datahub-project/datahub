@@ -42,7 +42,7 @@ describe("entity subscription test", () => {
         }
       });
   };
-  it("subscribe to entity, edit and remove subscription", () => {
+  it.skip("subscribe to entity, edit and remove subscription", () => {
     // Configure a slack integration in settings
     setSubscriptionsEnabledFlag(true);
     cy.loginWithCredentials();

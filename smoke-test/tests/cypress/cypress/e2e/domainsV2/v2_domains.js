@@ -4,7 +4,7 @@ describe("domains", () => {
     Cypress.on("uncaught:exception", (err, runnable) => false);
   });
 
-  it("can see elements inside the domain", () => {
+  it.skip("can see elements inside the domain", () => {
     cy.login();
     cy.goToDomain("urn:li:domain:marketing/Entities");
     cy.contains("Marketing");

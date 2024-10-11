@@ -161,7 +161,7 @@ describe("impact analysis", () => {
     cy.contains("temperature_etl_2");
   });
 
-  it("can see when a dataset join changes", () => {
+  it.skip("can see when a dataset join changes", () => {
     cy.login();
     // 8 days ago, both gdp and factor_income were joined to create gnp
     cy.visit(

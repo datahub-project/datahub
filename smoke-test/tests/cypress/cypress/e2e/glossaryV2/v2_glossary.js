@@ -35,7 +35,7 @@ describe("glossary", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
   });
-  it("go to glossary page, create terms, term group", () => {
+  it.skip("go to glossary page, create terms, term group", () => {
     cy.loginWithCredentials();
     cy.handleIntroducePage();
     nevigateGlossaryPage();

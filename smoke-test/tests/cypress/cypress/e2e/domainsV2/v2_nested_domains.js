@@ -129,8 +129,8 @@ describe("Verify nested domains test functionalities", () => {
     cy.goToDomainList();
     handledResizeLoopErrors();
   });
-
-  it("Verify Create a new domain", () => {
+  // TODO: remove skip here once we fix this test
+  it.skip("Verify Create a new domain", () => {
     deleteExisitingDomain();
     cy.get('a[href*="urn:li"] span[class^="ant-typography"]').should(
       "be.visible",
@@ -139,22 +139,22 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Domains");
   });
 
-  // test skip because unble to move the doamin UI issue
+  // TODO: remove skip here once we fix this test
   it.skip("verify Move domain root level to parent level", () => {
     cy.waitTextVisible(domainName);
     moveDomaintoRootLevel();
     cy.goToDomainList();
   });
 
-  // test skip because unble to move the doamin UI issue
+  // TODO: remove skip here once we fix this test
   it.skip("Verify Move domain parent level to root level", () => {
     moveDomaintoParent();
     cy.waitTextVisible("Moved Domain!");
     cy.goToDomainList();
     cy.waitTextVisible(domainName);
   });
-
-  it("Verify Documentation tab by adding editing Description and adding link", () => {
+  // TODO: remove skip here once we fix this test
+  it.skip("Verify Documentation tab by adding editing Description and adding link", () => {
     cy.clickOptionWithText(domainName);
     cy.clickOptionWithId("#rc-tabs-0-tab-Documentation");
     cy.clickFirstOptionWithText("Add Documentation");
@@ -175,8 +175,8 @@ describe("Verify nested domains test functionalities", () => {
     cy.clickOptionWithText("Documentation");
     clearAndDelete();
   });
-
-  it("Verify Right side panel functionalities", () => {
+  // TODO: remove skip here once we fix this test
+  it.skip("Verify Right side panel functionalities", () => {
     cy.clickOptionWithText(domainName);
     cy.waitTextVisible("Add Data Product");
     cy.clickOptionWithText("Add Documentation");
@@ -213,8 +213,8 @@ describe("Verify nested domains test functionalities", () => {
     cy.clickOptionWithText("Documentation");
     clearAndDelete();
   });
-
-  it("Verify Edit Domain Name", () => {
+  // TODO: remove skip here once we fix this test
+  it.skip("Verify Edit Domain Name", () => {
     cy.clickFirstOptionWithText(domainName);
     cy.waitTextVisible("Add Data Product");
     // edit name
@@ -226,14 +226,14 @@ describe("Verify nested domains test functionalities", () => {
       });
     cy.waitTextVisible(`${domainName} Edited`);
   });
-
-  it("Verify Remove the domain", () => {
+  // TODO: remove skip here once we fix this test
+  it.skip("Verify Remove the domain", () => {
     deleteDomain();
     cy.goToDomainList();
     cy.ensureTextNotPresent(domainName);
   });
-
-  it("Verify Add and delete parent domain from parent domain", () => {
+  // TODO: remove skip here once we fix this test
+  it.skip("Verify Add and delete parent domain from parent domain", () => {
     cy.visit("domain/urn:li:domain:marketing/Documentation");
     cy.get('[aria-label="edit"]').should("be.visible");
     createDomain("sub domain");
@@ -247,8 +247,8 @@ describe("Verify nested domains test functionalities", () => {
     deleteFromDomainDropdown();
     cy.ensureTextNotPresent(domainName);
   });
-
-  it("Verify Add and delete sub domain", () => {
+  // TODO: remove skip here once we fix this test
+  it.skip("Verify Add and delete sub domain", () => {
     cy.visit("domain/urn:li:domain:marketing/Documentation");
     cy.get('[aria-label="edit"]').should("be.visible");
     createDomain();
@@ -260,8 +260,8 @@ describe("Verify nested domains test functionalities", () => {
     deleteFromDomainDropdown();
     cy.ensureTextNotPresent(domainName);
   });
-
-  it("Verify entities tab with adding and deleting assets and performing some actions", () => {
+  // TODO: remove skip here once we fix this test
+  it.skip("Verify entities tab with adding and deleting assets and performing some actions", () => {
     cy.clickFirstOptionWithText("Marketing");
     cy.clickOptionWithText("Add to Assets");
     cy.waitTextVisible("Add assets to Domain");

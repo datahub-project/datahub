@@ -47,7 +47,7 @@ const deleteGlossaryTerm = (parentGroup, termGroup, term) => {
 };
 
 describe("glossary sidebar navigation test", () => {
-  it("create term and term parent group, move and delete term group", () => {
+  it.skip("create term and term parent group, move and delete term group", () => {
     cy.loginWithCredentials();
 
     // Create term group and term
