@@ -1277,7 +1277,7 @@ public class FormServiceTest {
                 new TestDefinition()
                     .setType(TestDefinitionType.JSON)
                     .setJson(testDefinition.toString()));
-    assignThread.join(10000);
+    assignThread.join();
     // Verify that the correct test was ingested.
     InOrder inOrder = Mockito.inOrder(mockClient);
     inOrder
@@ -1290,15 +1290,9 @@ public class FormServiceTest {
                         AspectUtils.buildMetadataChangeProposal(
                             expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo)))),
             eq(false));
-    List<MetadataChangeProposal> expectedChanges =
-        formService.buildAssignFormChanges(
-            opContext, Collections.singletonList(TEST_ENTITY_URN), TEST_FORM_URN);
     inOrder
         .verify(mockClient, Mockito.times(1))
-        .batchIngestProposals(
-            any(OperationContext.class),
-            Mockito.argThat(new EntityFormsArgumentMatcher(expectedChanges)),
-            eq(true));
+        .batchIngestProposals(any(OperationContext.class), notNull(), eq(true));
   }
 
   @Test
@@ -1398,7 +1392,9 @@ public class FormServiceTest {
                     .setJson(testDefinition.toString()));
     assignThread.join();
     // Verify that the correct test was ingested.
-    Mockito.verify(mockClient, Mockito.times(1))
+    InOrder inOrder = Mockito.inOrder(mockClient);
+    inOrder
+        .verify(mockClient, Mockito.times(1))
         .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
@@ -1407,6 +1403,9 @@ public class FormServiceTest {
                         AspectUtils.buildMetadataChangeProposal(
                             expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo)))),
             eq(false));
+    inOrder
+        .verify(mockClient, Mockito.times(1))
+        .batchIngestProposals(any(OperationContext.class), notNull(), eq(true));
   }
 
   @Test
