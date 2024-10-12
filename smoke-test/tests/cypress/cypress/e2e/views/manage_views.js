@@ -1,6 +1,5 @@
 describe("manage views", () => {
-  // TODO: remove skip here once we fix this test
-  it.skip("go to views settings page, create, edit, make default, delete a view", () => {
+  it("go to views settings page, create, edit, make default, delete a view", () => {
     const viewName = "Test View";
 
     cy.login();

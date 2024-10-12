@@ -134,7 +134,7 @@ describe("Verify nested domains test functionalities", () => {
     clearAndDelete();
   });
 
-  it.skip("Verify Right side panel functionalities", () => {
+  it("Verify Right side panel functionalities", () => {
     cy.clickOptionWithText(domainName);
     cy.waitTextVisible("Filters");
     cy.get('[data-node-key="Documentation"]').click();
@@ -235,7 +235,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.ensureTextNotPresent(domainName);
   });
 
-  it.skip("Verify entities tab with adding and deleting assets and performing some actions", () => {
+  it("Verify entities tab with adding and deleting assets and performing some actions", () => {
     cy.clickFirstOptionWithText("Marketing");
     cy.clickOptionWithText("Add assets");
     cy.waitTextVisible("Add assets to Domain");

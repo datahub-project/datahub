@@ -25,7 +25,7 @@ describe("features", () => {
     cy.contains("SampleCypressKafkaDataset");
 
     // navigate to properties
-    cy.get('[data-node-key="Properties"]').click();
+    cy.get('[data-node-key="Properties"]').first().click();
     cy.contains("Properties").click();
 
     // custom properties are visible

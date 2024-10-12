@@ -237,9 +237,9 @@ export const HomePageHeader = () => {
             <Row justify="space-between" style={styles.navBar}>
                 <WelcomeText>
                     {!!user && (
-                        <>
+                        <div data-testid="home-page-welcome">
                             Welcome back, <b>{entityRegistry.getDisplayName(EntityType.CorpUser, user)}</b>.
-                        </>
+                        </div>
                     )}
                 </WelcomeText>
                 <NavGroup>

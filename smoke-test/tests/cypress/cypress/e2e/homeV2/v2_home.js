@@ -2,7 +2,7 @@ describe("home", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
   });
-  it.skip("home page shows ", () => {
+  it("home page shows ", () => {
     cy.login();
     cy.visit("/");
     cy.handleIntroducePage();
