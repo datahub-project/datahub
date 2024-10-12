@@ -269,7 +269,8 @@
                             "actor": "urn:li:corpuser:datahub"
                         }
                     },
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 },
                 {
                     "fieldPath": "email",
@@ -296,7 +297,8 @@
                             "actor": "urn:li:corpuser:datahub"
                         }
                     },
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 }
             ]
         }
@@ -320,6 +322,29 @@
             "qualifiedName": "project-id-1.bigquery-dataset-1.table-1",
             "description": "",
             "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:priority:high"
+                },
+                {
+                    "tag": "urn:li:tag:purchase"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -463,7 +488,8 @@
                             }
                         ]
                     },
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 },
                 {
                     "fieldPath": "email",
@@ -479,7 +505,8 @@
                     "globalTags": {
                         "tags": []
                     },
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 }
             ]
         }
@@ -620,7 +647,8 @@
                             }
                         ]
                     },
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 },
                 {
                     "fieldPath": "email",
@@ -636,7 +664,8 @@
                     "globalTags": {
                         "tags": []
                     },
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 }
             ]
         }
@@ -1014,6 +1043,38 @@
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Abigquery%2Cproject-id-1.bigquery-dataset-1.view-1%2CPROD%29"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:priority:high",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "priority:high"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:purchase",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "purchase"
         }
     },
     "systemMetadata": {

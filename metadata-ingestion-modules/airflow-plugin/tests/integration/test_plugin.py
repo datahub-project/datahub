@@ -33,6 +33,8 @@ IS_LOCAL = os.environ.get("CI", "false") == "false"
 DAGS_FOLDER = pathlib.Path(__file__).parent / "dags"
 GOLDENS_FOLDER = pathlib.Path(__file__).parent / "goldens"
 
+DAG_TO_SKIP_INGESTION = "dag_to_skip"
+
 
 @dataclasses.dataclass
 class AirflowInstance:
@@ -140,6 +142,7 @@ def _run_airflow(
         # Configure the datahub plugin and have it write the MCPs to a file.
         "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False" if is_v1 else "True",
         "AIRFLOW__DATAHUB__CONN_ID": datahub_connection_name,
+        "AIRFLOW__DATAHUB__DAG_FILTER_STR": f'{{ "deny": ["{DAG_TO_SKIP_INGESTION}"] }}',
         f"AIRFLOW_CONN_{datahub_connection_name.upper()}": Connection(
             conn_id="datahub_file_default",
             conn_type="datahub-file",
@@ -276,6 +279,7 @@ class DagTestCase:
 test_cases = [
     DagTestCase("simple_dag"),
     DagTestCase("basic_iolets"),
+    DagTestCase("dag_to_skip", v2_only=True),
     DagTestCase("snowflake_operator", success=False, v2_only=True),
     DagTestCase("sqlite_operator", v2_only=True),
     DagTestCase("custom_operator_dag", v2_only=True),
@@ -373,20 +377,24 @@ def test_airflow_plugin(
         print("Sleeping for a few seconds to let the plugin finish...")
         time.sleep(10)
 
-    _sanitize_output_file(airflow_instance.metadata_file)
+    if dag_id == DAG_TO_SKIP_INGESTION:
+        # Verify that no MCPs were generated.
+        assert not os.path.exists(airflow_instance.metadata_file)
+    else:
+        _sanitize_output_file(airflow_instance.metadata_file)
 
-    check_golden_file(
-        pytestconfig=pytestconfig,
-        output_path=airflow_instance.metadata_file,
-        golden_path=golden_path,
-        ignore_paths=[
-            # TODO: If we switched to Git urls, maybe we could get this to work consistently.
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['datahub_sql_parser_error'\]",
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['openlineage_.*'\]",
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['log_url'\]",
-            r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
-        ],
-    )
+        check_golden_file(
+            pytestconfig=pytestconfig,
+            output_path=airflow_instance.metadata_file,
+            golden_path=golden_path,
+            ignore_paths=[
+                # TODO: If we switched to Git urls, maybe we could get this to work consistently.
+                r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['datahub_sql_parser_error'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['openlineage_.*'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['log_url'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
+            ],
+        )
 
 
 def _sanitize_output_file(output_path: pathlib.Path) -> None:
