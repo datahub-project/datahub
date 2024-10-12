@@ -10,6 +10,7 @@ import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_RUNNING;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_SUCCESS;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_TIMEOUT;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -18,11 +19,12 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
-import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
-import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
@@ -66,7 +68,7 @@ public class ExecutionRequestResultValidatorTest {
             EXECUTION_REQUEST_STATUS_SUCCESS,
             EXECUTION_REQUEST_STATUS_DUPLICATE));
 
-    List<MCLItemImpl> testItems =
+    List<ChangeMCP> testItems =
         new ArrayList<>(
             // Tests with previous state
             allowedUpdateStates.stream()
@@ -74,44 +76,38 @@ public class ExecutionRequestResultValidatorTest {
                     prevState ->
                         destinationStates.stream()
                             .map(
-                                destState ->
-                                    MCLItemImpl.builder()
-                                        .metadataChangeLog(
-                                            new MetadataChangeLog()
-                                                .setChangeType(ChangeType.UPSERT)
-                                                .setEntityUrn(TEST_URN)
-                                                .setEntityType(TEST_URN.getEntityType())
-                                                .setAspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
-                                                .setPreviousAspectValue(
-                                                    GenericRecordUtils.serializeAspect(
-                                                        new ExecutionRequestResult()
-                                                            .setStatus(prevState)))
-                                                .setAspect(
-                                                    GenericRecordUtils.serializeAspect(
-                                                        new ExecutionRequestResult()
-                                                            .setStatus(destState))))
-                                        .build(TEST_CONTEXT.getAspectRetriever())))
+                                destState -> {
+                                  SystemAspect prevData = mock(SystemAspect.class);
+                                  when(prevData.getRecordTemplate())
+                                      .thenReturn(
+                                          new ExecutionRequestResult().setStatus(prevState));
+                                  return ChangeItemImpl.builder()
+                                      .changeType(ChangeType.UPSERT)
+                                      .urn(TEST_URN)
+                                      .aspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
+                                      .recordTemplate(
+                                          new ExecutionRequestResult().setStatus(destState))
+                                      .previousSystemAspect(prevData)
+                                      .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                                      .build(TEST_CONTEXT.getAspectRetriever());
+                                }))
                 .toList());
     // Tests with no previous
     testItems.addAll(
         destinationStates.stream()
             .map(
                 destState ->
-                    MCLItemImpl.builder()
-                        .metadataChangeLog(
-                            new MetadataChangeLog()
-                                .setChangeType(ChangeType.UPSERT)
-                                .setEntityUrn(TEST_URN)
-                                .setEntityType(TEST_URN.getEntityType())
-                                .setAspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
-                                .setAspect(
-                                    GenericRecordUtils.serializeAspect(
-                                        new ExecutionRequestResult().setStatus(destState))))
+                    ChangeItemImpl.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_URN)
+                        .aspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
+                        .recordTemplate(new ExecutionRequestResult().setStatus(destState))
+                        .auditStamp(AuditStampUtils.createDefaultAuditStamp())
                         .build(TEST_CONTEXT.getAspectRetriever()))
             .toList());
 
     List<AspectValidationException> result =
-        test.validateProposedAspects(testItems, mock(RetrieverContext.class)).toList();
+        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class)).toList();
 
     assertTrue(result.isEmpty(), "Did not expect any validation errors.");
   }
@@ -134,7 +130,7 @@ public class ExecutionRequestResultValidatorTest {
             EXECUTION_REQUEST_STATUS_FAILURE,
             EXECUTION_REQUEST_STATUS_TIMEOUT));
 
-    List<MCLItemImpl> testItems =
+    List<ChangeMCP> testItems =
         new ArrayList<>(
             // Tests with previous state
             deniedUpdateStates.stream()
@@ -142,31 +138,29 @@ public class ExecutionRequestResultValidatorTest {
                     prevState ->
                         destinationStates.stream()
                             .map(
-                                destState ->
-                                    MCLItemImpl.builder()
-                                        .metadataChangeLog(
-                                            new MetadataChangeLog()
-                                                .setChangeType(ChangeType.UPSERT)
-                                                .setEntityUrn(TEST_URN)
-                                                .setEntityType(TEST_URN.getEntityType())
-                                                .setAspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
-                                                .setPreviousAspectValue(
-                                                    GenericRecordUtils.serializeAspect(
-                                                        new ExecutionRequestResult()
-                                                            .setStatus(prevState)))
-                                                .setAspect(
-                                                    GenericRecordUtils.serializeAspect(
-                                                        new ExecutionRequestResult()
-                                                            .setStatus(destState))))
-                                        .build(TEST_CONTEXT.getAspectRetriever())))
+                                destState -> {
+                                  SystemAspect prevData = mock(SystemAspect.class);
+                                  when(prevData.getRecordTemplate())
+                                      .thenReturn(
+                                          new ExecutionRequestResult().setStatus(prevState));
+                                  return ChangeItemImpl.builder()
+                                      .changeType(ChangeType.UPSERT)
+                                      .urn(TEST_URN)
+                                      .aspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
+                                      .recordTemplate(
+                                          new ExecutionRequestResult().setStatus(destState))
+                                      .previousSystemAspect(prevData)
+                                      .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                                      .build(TEST_CONTEXT.getAspectRetriever());
+                                }))
                 .toList());
 
     List<AspectValidationException> result =
-        test.validateProposedAspects(testItems, mock(RetrieverContext.class)).toList();
+        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class)).toList();
 
     assertEquals(
         result.size(),
-        (deniedUpdateStates.size() * destinationStates.size()) - deniedUpdateStates.size(),
+        deniedUpdateStates.size() * destinationStates.size(),
         "Expected ALL items to be denied.");
   }
 }

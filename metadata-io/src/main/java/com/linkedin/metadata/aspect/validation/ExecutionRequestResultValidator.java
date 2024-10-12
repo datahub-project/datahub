@@ -9,7 +9,6 @@ import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
@@ -42,20 +41,21 @@ public class ExecutionRequestResultValidator extends AspectPayloadValidator {
   protected Stream<AspectValidationException> validateProposedAspects(
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
+    return Stream.of();
+  }
 
-    return mcpItems.stream()
-        .filter(item -> item instanceof MCLItem)
-        .map(item -> (MCLItem) item)
+  @Override
+  protected Stream<AspectValidationException> validatePreCommitAspects(
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+    return changeMCPs.stream()
         .filter(item -> item.getPreviousRecordTemplate() != null)
         .map(
             item -> {
               ExecutionRequestResult existingResult =
                   item.getPreviousAspect(ExecutionRequestResult.class);
-              ExecutionRequestResult currentResult = item.getAspect(ExecutionRequestResult.class);
-              String currentStatus = currentResult == null ? null : currentResult.getStatus();
 
-              if (IMMUTABLE_STATUS.contains(existingResult.getStatus())
-                  && !Objects.equals(existingResult.getStatus(), currentStatus)) {
+              if (IMMUTABLE_STATUS.contains(existingResult.getStatus())) {
+                ExecutionRequestResult currentResult = item.getAspect(ExecutionRequestResult.class);
                 return AspectValidationException.forItem(
                     item,
                     String.format(
@@ -66,11 +66,5 @@ public class ExecutionRequestResultValidator extends AspectPayloadValidator {
               return null;
             })
         .filter(Objects::nonNull);
-  }
-
-  @Override
-  protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
-    return Stream.of();
   }
 }
