@@ -820,14 +820,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   @Test
   public void testChartAutoComplete() throws InterruptedException, IOException {
     // Two charts exist Baz Chart 1 & Baz Chart 2
-    List.of("Baz",
-            "Baz ",
-            "Baz C",
-            "Baz Ch",
-            "Baz Cha",
-            "Baz Char",
-            "Baz Chart",
-            "Baz Chart ")
+    List.of("Baz", "Baz ", "Baz C", "Baz Ch", "Baz Cha", "Baz Char", "Baz Chart", "Baz Chart ")
         .forEach(
             query -> {
               try {
