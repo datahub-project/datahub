@@ -1,29 +1,40 @@
 {
-    "https://api.powerbi.com/v1.0/myorg/groups": {
+    "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
         "method": "GET",
         "status_code": 200,
         "json": {
-            "@odata.count": 3,
             "value": [
                 {
                     "id": "64ED5CAD-7C10-4684-8180-826122881108",
                     "isReadOnly": true,
                     "name": "demo-workspace",
-                    "type": "Workspace"
+                    "type": "Workspace",
+                    "state": "Active"
+
                 },
                 {
                     "id": "64ED5CAD-7C22-4684-8180-826122881108",
                     "isReadOnly": true,
                     "name": "second-demo-workspace",
-                    "type": "Workspace"
+                    "type": "Workspace",
+                    "state": "Active"
+
                 },
                 {
                     "id": "64ED5CAD-7322-4684-8180-826122881108",
                     "isReadOnly": true,
                     "name": "Workspace 2",
-                    "type": "Workspace"
+                    "type": "Workspace",
+                    "state": "Active"
                 }
             ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": []
         }
     },
     "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
@@ -240,6 +251,7 @@
                 {
                     "id": "64ED5CAD-7C10-4684-8180-826122881108",
                     "name": "demo-workspace",
+                    "type": "Workspace",
                     "state": "Active",
                     "datasets": [
                         {
@@ -397,6 +409,7 @@
                     "reports": [
                         {
                             "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                            "reportType": "PaginatedReport",
                             "id": "5b218778-e7a5-4d73-8187-f10824047715",
                             "name": "SalesMarketing",
                             "description": "Acryl sales marketing report"
@@ -414,6 +427,7 @@
                 {
                     "id": "64ED5CAD-7C22-4684-8180-826122881108",
                     "name": "second-demo-workspace",
+                    "type": "Workspace",
                     "state": "Active",
                     "datasets": [
                         {
@@ -440,6 +454,7 @@
                         {
                             "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                             "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                            "reportType": "PaginatedReport",
                             "name": "SalesMarketing",
                             "description": "Acryl sales marketing report"
                         }
@@ -456,10 +471,20 @@
                 {
                     "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                     "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                    "reportType": "PowerBIReport",
                     "name": "SalesMarketing",
                     "description": "Acryl sales marketing report",
                     "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
                     "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48"
+                },
+                {
+                    "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                    "id": "584cf13a-1485-41c2-a514-b1bb66fff163",
+                    "reportType": "PaginatedReport",
+                    "name": "Printable SalesMarketing",
+                    "description": "Acryl sales marketing report",
+                    "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/584cf13a-1485-41c2-a514-b1bb66fff163",
+                    "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=584cf13a-1485-41c2-a514-b1bb66fff163&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48"
                 }
             ]
         }
@@ -470,6 +495,7 @@
         "json": {
             "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
             "id": "5b218778-e7a5-4d73-8187-f10824047715",
+            "reportType": "PaginatedReport",
             "name": "SalesMarketing",
             "description": "Acryl sales marketing report",
             "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
@@ -523,5 +549,10 @@
             "description": "Employee Management",
             "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/91580e0e-1680-4b1c-bbf9-4f6764d7a5ff"
         }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/584cf13a-1485-41c2-a514-b1bb66fff163/pages": {
+        "method": "GET",
+        "status_code": 400,
+        "text": "{\"error\":{\"code\":\"InvalidRequest\",\"message\":\"Request is currently not supported for RDL reports\"}}"
     }
 }

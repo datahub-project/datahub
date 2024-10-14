@@ -22,6 +22,7 @@ from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Page,
     Report,
+    ReportType,
     Workspace,
 )
 from tests.test_helpers import mce_helpers, test_connection_helpers
@@ -114,7 +115,8 @@ def register_mock_api(
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
-            json=api_vs_response[url]["json"],
+            json=api_vs_response[url].get("json"),
+            text=api_vs_response[url].get("text"),
             status_code=api_vs_response[url]["status_code"],
         )
 
@@ -177,6 +179,64 @@ def test_powerbi_ingest(
     pipeline.run()
     pipeline.raise_from_status()
     golden_file = "golden_test_ingest.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_powerbi_workspace_type_filter(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    enable_logging()
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        request_mock=requests_mock,
+        pytestconfig=pytestconfig,
+        override_data=read_mock_data(pytestconfig.rootpath / "tests/integration/powerbi/mock_data/workspace_type_filter.json"),
+    )
+
+    default_config: dict = default_source_config()
+
+    del default_config["workspace_id"]
+    del default_config["workspace_id_pattern"]
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_config,
+                    "extract_workspaces_to_containers": True,
+                    "workspace_type_filter": [
+                        "PersonalGroup",
+                    ],
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_personal_ingest.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -942,6 +1002,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
     mock_workspace: Workspace = Workspace(
         id="64ED5CAD-7C10-4684-8180-826122881108",
         name="demo-workspace",
+        type="Workspace",
         datasets={},
         dashboards=[],
         reports=[],
@@ -988,6 +1049,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
         Report(
             id=report[Constant.ID],
             name=report[Constant.NAME],
+            type=ReportType.PowerBIReport,
             webUrl="",
             embedUrl="",
             description=report[Constant.DESCRIPTION],
@@ -1043,6 +1105,7 @@ def test_reports_with_failed_page_request(
                         {
                             "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                             "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                            "reportType": "PowerBIReport",
                             "name": "SalesMarketing",
                             "description": "Acryl sales marketing report",
                             "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715",
@@ -1051,6 +1114,7 @@ def test_reports_with_failed_page_request(
                         {
                             "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                             "id": "e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
+                            "reportType": "PaginatedReport",
                             "name": "Product",
                             "description": "Acryl product report",
                             "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
@@ -1066,6 +1130,7 @@ def test_reports_with_failed_page_request(
                     "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                     "id": "5b218778-e7a5-4d73-8187-f10824047715",
                     "name": "SalesMarketing",
+                    "reportType": "PowerBIReport",
                     "description": "Acryl sales marketing report",
                     "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715",
                     "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=64ED5CAD-7C10-4684-8180-826122881108",
@@ -1077,6 +1142,7 @@ def test_reports_with_failed_page_request(
                 "json": {
                     "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                     "id": "e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
+                    "reportType": "PowerBIReport",
                     "name": "Product",
                     "description": "Acryl product report",
                     "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
@@ -1153,11 +1219,10 @@ def test_independent_datasets_extraction(
         pytestconfig=pytestconfig,
         request_mock=requests_mock,
         override_data={
-            "https://api.powerbi.com/v1.0/myorg/groups": {
+            "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
                 "method": "GET",
                 "status_code": 200,
                 "json": {
-                    "@odata.count": 3,
                     "value": [
                         {
                             "id": "64ED5CAD-7C10-4684-8180-826122881108",
@@ -1168,6 +1233,13 @@ def test_independent_datasets_extraction(
                     ],
                 },
             },
+            "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "value": [],
+                },
+            },
             "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/4674efd1-603c-4129-8d82-03cf2be05aff": {
                 "method": "GET",
                 "status_code": 200,
@@ -1176,6 +1248,7 @@ def test_independent_datasets_extraction(
                         {
                             "id": "64ED5CAD-7C10-4684-8180-826122881108",
                             "name": "demo-workspace",
+                            "type": "Workspace",
                             "state": "Active",
                             "datasets": [
                                 {
@@ -1395,13 +1468,13 @@ def test_powerbi_cross_workspace_reference_info_message(
     is_entry_present: bool = False
     # Printing INFO entries
     for key, entry in info_entries.items():
-        if entry.title == "Missing Lineage For Report":
+        if entry.title == "Missing Lineage For Tile":
             is_entry_present = True
             break
 
     assert (
         is_entry_present
-    ), 'Info message "Dataset Not Found" should be present in reporter'
+    ), 'Info message "Missing Lineage For Tile" should be present in reporter'
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
