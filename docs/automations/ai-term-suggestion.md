@@ -30,26 +30,26 @@ This automation can:
 1. **Navigate to Automations**: Click on 'Govern' > 'Automations' in the navigation bar.
 
   <p align="center">
-    <img width="20%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automations-nav-link.png"/>
+    <img width="30%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automations-nav-link.png"/>
   </p>
 
 2. **Create the Automation**: Click on 'Create' and select 'AI Glossary Term Suggestions'.
 
   <p align="center">
-    <img width="20%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/ai-term-suggestion/automation-type.png"/>
+    <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/ai-term-suggestion/automation-type.png"/>
   </p>
 
 3. **Configure the Automation**: Fill in the required fields to configure the automation.
    The main fields to configure are (1) what terms to use for suggestions and (2) what entities to generate suggestions for.
 
   <p align="center">
-    <img width="20%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/ai-term-suggestion/automation-config.png"/>
+    <img width="50%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/ai-term-suggestion/automation-config.png"/>
   </p>
 
 4. Once it's enabled, that's it! You'll start to see terms show up in the UI, either on assets or in the proposals page.
 
   <p align="center">
-    <img width="50%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/ai-term-suggestion/term-proposals.png"/>
+    <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/ai-term-suggestion/term-proposals.png"/>
   </p>
 
 ## How it works
