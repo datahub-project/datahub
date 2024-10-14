@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 import pydantic
 from pydantic import validator
@@ -47,6 +47,7 @@ class Constant:
     WORKSPACE_ID = "workspaceId"
     DASHBOARD_ID = "powerbi.linkedin.com/dashboards/{}"
     DATASET_EXECUTE_QUERIES = "DATASET_EXECUTE_QUERIES_POST"
+    GET_WORKSPACE_APP = "GET_WORKSPACE_APP"
     DATASET_ID = "datasetId"
     REPORT_ID = "reportId"
     SCAN_ID = "ScanId"
@@ -118,6 +119,15 @@ class Constant:
     CHART_COUNT = "chartCount"
     WORKSPACE_NAME = "workspaceName"
     DATASET_WEB_URL = "datasetWebUrl"
+    TYPE = "type"
+    REPORT_TYPE = "reportType"
+    LAST_UPDATE = "lastUpdate"
+    APP_ID = "appId"
+    REPORTS = "reports"
+    ORIGINAL_REPORT_OBJECT_ID = "originalReportObjectId"
+    APP_SUB_TYPE = "App"
+    STATE = "state"
+    ACTIVE = "Active"
 
 
 @dataclass
@@ -273,7 +283,8 @@ class PowerBiDashboardSourceConfig(
     # PowerBi workspace identifier
     workspace_id_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter PowerBI workspaces in ingestion",
+        description="Regex patterns to filter PowerBI workspaces in ingestion."
+        " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
     )
 
     # Dataset type mapping PowerBI support many type of data-sources. Here user need to define what type of PowerBI
@@ -340,7 +351,7 @@ class PowerBiDashboardSourceConfig(
     )
     modified_since: Optional[str] = pydantic.Field(
         default=None,
-        description="Get only recently modified workspaces based on modified_since datetime '2023-02-10T00:00:00.0000000Z', excludePersonalWorkspaces and excludeInActiveWorkspaces limit to last 30 days",
+        description="Get only recently modified workspaces based on modified_since datetime '2023-02-10T00:00:00.0000000Z', excludeInActiveWorkspaces limit to last 30 days",
     )
     extract_dashboards: bool = pydantic.Field(
         default=True,
@@ -443,6 +454,16 @@ class PowerBiDashboardSourceConfig(
     patch_metadata: bool = pydantic.Field(
         default=True,
         description="Patch dashboard metadata",
+    )
+
+    workspace_type_filter: List[
+        Literal[
+            "Workspace", "PersonalGroup", "Personal", "AdminWorkspace", "AdminInsights"
+        ]
+    ] = pydantic.Field(
+        default=["Workspace"],
+        description="Ingest the metadata of the workspace where the workspace type corresponds to the specified workspace_type_filter."
+        " Note: This field works in conjunction with 'workspace_id_pattern'. Both must be matched for a workspace to be processed.",
     )
 
     @root_validator(skip_on_failure=True)
