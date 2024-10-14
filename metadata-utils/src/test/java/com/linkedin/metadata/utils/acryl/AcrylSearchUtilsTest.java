@@ -288,7 +288,8 @@ public class AcrylSearchUtilsTest {
     // Create the outer AND predicate combining platform and entityType
     Predicate outerAndPredicate =
         new Predicate(
-            OperatorType.AND, Collections.singletonList(new Operand(0, null, timestampORPredicate)));
+            OperatorType.AND,
+            Collections.singletonList(new Operand(0, null, timestampORPredicate)));
 
     // Create the top-level OR predicate
     return new Predicate(
