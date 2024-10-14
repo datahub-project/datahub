@@ -270,7 +270,8 @@ public class SearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size) {
+      int size,
+      @Nullable String predicateJson) {
     log.debug(
         String.format(
             "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, from: %s, size: %s",
@@ -280,8 +281,21 @@ public class SearchService {
       // No indices with non-zero entries: skip querying and return empty result
       return getEmptyScrollResult(size);
     }
-    return _cachingEntitySearchService.scroll(
-        opContext, entitiesToSearch, input, postFilters, sortCriteria, scrollId, keepAlive, size);
+    if (predicateJson != null) {
+      return _cachingEntitySearchService.predicateScroll(
+          opContext,
+          entities,
+          input,
+          postFilters,
+          sortCriteria,
+          scrollId,
+          keepAlive,
+          size,
+          predicateJson);
+    } else {
+      return _cachingEntitySearchService.scroll(
+          opContext, entitiesToSearch, input, postFilters, sortCriteria, scrollId, keepAlive, size);
+    }
   }
 
   private static SearchResult getEmptySearchResult(int from, int size) {

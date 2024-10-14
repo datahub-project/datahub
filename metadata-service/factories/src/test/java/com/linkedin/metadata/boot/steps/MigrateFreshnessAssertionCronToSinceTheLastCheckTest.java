@@ -103,7 +103,8 @@ public class MigrateFreshnessAssertionCronToSinceTheLastCheckTest {
                 Mockito.eq(null),
                 Mockito.eq(null),
                 Mockito.eq("5m"),
-                Mockito.eq(5000)))
+                Mockito.eq(5000),
+                Mockito.eq(null)))
         .thenReturn(scrollResult);
 
     ScrollResult newScrollResult =
@@ -120,7 +121,8 @@ public class MigrateFreshnessAssertionCronToSinceTheLastCheckTest {
                 Mockito.eq(null),
                 Mockito.eq(SCROLL_ID),
                 Mockito.eq("5m"),
-                Mockito.eq(5000)))
+                Mockito.eq(5000),
+                Mockito.eq(null)))
         .thenReturn(newScrollResult);
   }
 

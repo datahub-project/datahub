@@ -3,6 +3,7 @@ package io.datahubproject.openapi.config;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -59,7 +60,15 @@ public class OpenAPIEntityTestConfiguration {
   public SearchService searchService() {
     SearchService searchService = mock(SearchService.class);
     when(searchService.scrollAcrossEntities(
-            any(OperationContext.class), anyList(), any(), any(), any(), any(), any(), anyInt()))
+            any(OperationContext.class),
+            anyList(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            anyInt(),
+            eq(null)))
         .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()));
 
     return searchService;

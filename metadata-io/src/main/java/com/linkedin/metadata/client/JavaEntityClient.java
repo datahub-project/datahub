@@ -513,7 +513,8 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int count)
+      int count,
+      @Nullable String predicateJson)
       throws RemoteInvocationException {
 
     return ValidationUtils.validateScrollResult(
@@ -526,7 +527,8 @@ public class JavaEntityClient implements EntityClient {
             Collections.emptyList(),
             scrollId,
             keepAlive,
-            count),
+            count,
+            predicateJson),
         entityService);
   }
 

@@ -10,20 +10,26 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.List;
 import org.mockito.ArgumentMatcher;
 
-public class EntityFormsArgumentMatcher implements ArgumentMatcher<MetadataChangeProposal> {
+public class EntityFormsArgumentMatcher implements ArgumentMatcher<List<MetadataChangeProposal>> {
 
-  private MetadataChangeProposal left;
+  private List<MetadataChangeProposal> leftList;
 
-  public EntityFormsArgumentMatcher(MetadataChangeProposal left) {
-    this.left = left;
+  public EntityFormsArgumentMatcher(List<MetadataChangeProposal> leftList) {
+    this.leftList = leftList;
   }
 
   @Override
-  public boolean matches(MetadataChangeProposal right) {
-    return left.getEntityType().equals(right.getEntityType())
-        && left.getAspectName().equals(right.getAspectName())
-        && left.getChangeType().equals(right.getChangeType())
-        && formsMatches(left.getAspect(), right.getAspect());
+  public boolean matches(List<MetadataChangeProposal> rightList) {
+    return rightList.stream()
+        .allMatch(
+            right ->
+                leftList.stream()
+                    .anyMatch(
+                        left ->
+                            left.getEntityType().equals(right.getEntityType())
+                                && left.getAspectName().equals(right.getAspectName())
+                                && left.getChangeType().equals(right.getChangeType())
+                                && formsMatches(left.getAspect(), right.getAspect())));
   }
 
   private boolean formsMatches(GenericAspect left, GenericAspect right) {

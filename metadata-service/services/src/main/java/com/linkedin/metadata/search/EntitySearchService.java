@@ -392,4 +392,15 @@ public interface EntitySearchService {
       int from,
       int size,
       @Nullable List<String> facets);
+
+  @Nonnull
+  ScrollResult predicateScroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nonnull String input,
+      @Nullable Predicate predicate,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size);
 }

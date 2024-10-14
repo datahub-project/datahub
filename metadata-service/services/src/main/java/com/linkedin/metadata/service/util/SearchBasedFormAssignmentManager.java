@@ -1,17 +1,13 @@
 package com.linkedin.metadata.service.util;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.service.FormService;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -43,33 +39,29 @@ public class SearchBasedFormAssignmentManager {
 
   public static void apply(
       OperationContext opContext,
-      DynamicFormAssignment formFilters,
+      String predicateJson,
       Urn formUrn,
       int batchFormEntityCount,
       SystemEntityClient entityClient,
-      OpenApiClient openApiClient,
-      ObjectMapper objectMapper)
+      FormToEntitiesConsumer<OperationContext, List<Urn>, Urn> consumer)
       throws Exception {
 
     try {
       int totalResults = 0;
       int numResults = 0;
       String scrollId = null;
-      FormService formService =
-          new FormService(
-              entityClient, openApiClient, objectMapper, Constants.METADATA_TESTS_SOURCE, true);
-
       do {
 
         ScrollResult results =
             entityClient.scrollAcrossEntities(
-                opContext,
+                opContext.withSearchFlags(searchFlags -> searchFlags.setSkipCache(true)),
                 ENTITY_TYPES,
                 "*",
-                formFilters.getFilter(),
+                null,
                 scrollId,
                 "5m",
-                batchFormEntityCount);
+                batchFormEntityCount,
+                predicateJson);
 
         if (!results.hasEntities()
             || results.getNumEntities() == 0
@@ -85,10 +77,10 @@ public class SearchBasedFormAssignmentManager {
                   .map(SearchEntity::getEntity)
                   .collect(Collectors.toList());
 
-          formService.batchAssignFormToEntities(opContext, entityUrns, formUrn);
+          consumer.accept(opContext, entityUrns, formUrn);
 
           if (!entityUrns.isEmpty()) {
-            log.info("Batch assign {} entities to form {}.", entityUrns.size(), formUrn);
+            log.info("Batch assign/unassign {} entities to form {}.", entityUrns.size(), formUrn);
           }
 
           numResults = results.getEntities().size();
@@ -96,7 +88,7 @@ public class SearchBasedFormAssignmentManager {
           scrollId = results.getScrollId();
 
           log.info(
-              "Starting batch assign forms, count: {} running total: {}, size: {}",
+              "Starting batch assign/unassign forms, count: {} running total: {}, size: {}",
               batchFormEntityCount,
               totalResults,
               results.getEntities().size());
@@ -106,10 +98,10 @@ public class SearchBasedFormAssignmentManager {
         }
       } while (scrollId != null);
 
-      log.info("Successfully assigned {} entities to form {}.", totalResults, formUrn);
+      log.info("Successfully assigned/unassigned {} entities to form {}.", totalResults, formUrn);
 
     } catch (RemoteInvocationException e) {
-      log.error("Error while assigning form to entities.", e);
+      log.error("Error while assigning/unassigning form to entities.", e);
       throw new RuntimeException(e);
     }
   }

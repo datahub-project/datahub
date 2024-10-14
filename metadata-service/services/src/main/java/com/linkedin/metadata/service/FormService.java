@@ -8,6 +8,7 @@ import static com.linkedin.metadata.entity.AspectUtils.buildMetadataChangePropos
 import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.applyAppSource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -39,9 +40,14 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.util.FormTestBuilder;
 import com.linkedin.metadata.service.util.SearchBasedFormAssignmentRunner;
+import com.linkedin.metadata.test.definition.expression.Query;
+import com.linkedin.metadata.test.definition.literal.StringListLiteral;
+import com.linkedin.metadata.test.definition.operator.OperatorType;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.FormUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
+import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.SchemaField;
@@ -124,8 +130,7 @@ public class FormService extends BaseService {
   public void batchAssignFormToEntities(
       @Nonnull OperationContext opContext,
       @Nonnull final List<Urn> entityUrns,
-      @Nonnull final Urn formUrn)
-      throws Exception {
+      @Nonnull final Urn formUrn) {
     verifyEntityExists(opContext, formUrn);
     verifyEntitiesExist(opContext, entityUrns, false);
     final List<MetadataChangeProposal> changes =
@@ -140,11 +145,8 @@ public class FormService extends BaseService {
   public void batchUnassignFormForEntities(
       @Nonnull OperationContext opContext,
       @Nonnull final List<Urn> entityUrns,
-      @Nonnull final Urn formUrn)
-      throws Exception {
-    if (!entityClient.exists(opContext, formUrn)) {
-      log.warn(String.format("Trying to remove a form with urn %s that does not exist.", formUrn));
-    }
+      @Nonnull final Urn formUrn) {
+    verifyEntityExists(opContext, formUrn);
     verifyEntitiesExist(opContext, entityUrns, false);
     final List<MetadataChangeProposal> changes =
         buildUnassignFormChanges(opContext, entityUrns, formUrn);
@@ -224,11 +226,10 @@ public class FormService extends BaseService {
   }
 
   /** Creates a form assignment automation, which assigns the form to an entity for completion. */
-  public void upsertFormAssignmentAutomation(
+  public Thread upsertFormAssignmentAutomation(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn formUrn,
-      @Nonnull final DynamicFormAssignment formFilters,
-      @Nonnull ObjectMapper objectMapper) {
+      @Nonnull final DynamicFormAssignment formFilters) {
     final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormAssignment(formUrn);
     final TestInfo testDefinition =
         FormTestBuilder.buildFormAssignmentTest(opContext, formUrn, formFilters);
@@ -240,20 +241,59 @@ public class FormService extends BaseService {
       if (_appSource != null) {
         applyAppSource(changes, _appSource);
       }
-      ingestChangeProposals(
-          opContext,
-          ImmutableList.of(
-              AspectUtils.buildMetadataChangeProposal(
-                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition)),
-          _isAsync);
-      SearchBasedFormAssignmentRunner.assign(
-          opContext,
-          formFilters,
-          formUrn,
-          BATCH_FORM_ENTITY_COUNT,
-          entityClient,
-          openApiClient,
-          objectMapper);
+      ingestChangeProposals(opContext, changes, _isAsync);
+      Predicate predicate = AcrylSearchUtils.convertFilterToPredicate(formFilters.getFilter());
+
+      String predicateJson = opContext.getObjectMapper().writeValueAsString(predicate);
+
+      return SearchBasedFormAssignmentRunner.assign(
+          opContext, predicateJson, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient, openApiClient);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to dynamically assign form with urn: %s", formUrn), e);
+    }
+  }
+
+  public Thread removeFormAssignmentAutomation(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn formUrn,
+      @Nonnull final DynamicFormAssignment formFilters) {
+    try {
+      // Remove assignments from entities that do not match the form filter, but do have the form
+      // assigned
+      Predicate notFilters =
+          Predicate.of(
+              OperatorType.NOT,
+              Collections.singletonList(
+                  AcrylSearchUtils.convertFilterToPredicate(formFilters.getFilter())));
+
+      StringListLiteral formUrnLiteral =
+          new StringListLiteral(Collections.singletonList(formUrn.toString()));
+      Query incompleteFormsQuery = new Query("incompleteForms");
+      Predicate incompleteForms =
+          Predicate.of(
+              OperatorType.ANY_EQUALS, ImmutableList.of(incompleteFormsQuery, formUrnLiteral));
+
+      Query completedFormsQuery = new Query("completedForms");
+      Predicate completedForms =
+          Predicate.of(
+              OperatorType.ANY_EQUALS, ImmutableList.of(completedFormsQuery, formUrnLiteral));
+
+      Query verifiedFormsQuery = new Query("verifiedForms");
+      Predicate verifiedForms =
+          Predicate.of(
+              OperatorType.ANY_EQUALS, ImmutableList.of(verifiedFormsQuery, formUrnLiteral));
+
+      Predicate formsPredicate =
+          Predicate.of(
+              OperatorType.OR, ImmutableList.of(incompleteForms, completedForms, verifiedForms));
+
+      Predicate finalPredicate =
+          Predicate.of(OperatorType.AND, ImmutableList.of(notFilters, formsPredicate));
+
+      String predicateJson = opContext.getObjectMapper().writeValueAsString(finalPredicate);
+      return SearchBasedFormAssignmentRunner.unassign(
+          opContext, predicateJson, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient, openApiClient);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to dynamically assign form with urn: %s", formUrn), e);
@@ -1105,7 +1145,8 @@ public class FormService extends BaseService {
     form.setLastModified(opContext.getAuditStamp());
   }
 
-  private List<MetadataChangeProposal> buildAssignFormChanges(
+  @VisibleForTesting
+  List<MetadataChangeProposal> buildAssignFormChanges(
       @Nonnull OperationContext opContext,
       @Nonnull final List<Urn> entityUrns,
       @Nonnull final Urn formUrn) {
@@ -1184,7 +1225,8 @@ public class FormService extends BaseService {
     return buildMetadataChangeProposal(entityUrn, FORMS_ASPECT_NAME, formsAspect);
   }
 
-  private List<MetadataChangeProposal> buildUnassignFormChanges(
+  @VisibleForTesting
+  List<MetadataChangeProposal> buildUnassignFormChanges(
       @Nonnull OperationContext opContext,
       @Nonnull final List<Urn> entityUrns,
       @Nonnull final Urn formUrn) {
@@ -1735,11 +1777,15 @@ public class FormService extends BaseService {
         });
   }
 
-  private void verifyEntityExists(@Nonnull OperationContext opContext, @Nonnull final Urn entityUrn)
-      throws RemoteInvocationException {
-    if (!entityClient.exists(opContext, entityUrn)) {
-      throw new RuntimeException(
-          String.format("Entity %s does not exist. Skipping batch form assignment", entityUrn));
+  private void verifyEntityExists(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
+    try {
+      if (!entityClient.exists(opContext, entityUrn)) {
+        throw new RuntimeException(
+            String.format("Entity %s does not exist. Skipping batch form assignment", entityUrn));
+      }
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException(e);
     }
   }
 

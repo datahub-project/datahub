@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 
@@ -89,6 +90,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -96,6 +98,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Assert;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.springframework.core.io.ClassPathResource;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
@@ -207,12 +210,13 @@ public class FormServiceTest {
 
     // Ensure that the forms aspect was ingested for the entity.
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)))),
             anyBoolean());
   }
 
@@ -262,12 +266,13 @@ public class FormServiceTest {
 
     // Ensure that the forms aspect was ingested for the entity.
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)))),
             anyBoolean());
   }
 
@@ -424,12 +429,13 @@ public class FormServiceTest {
 
     // Ensure that the forms aspect was ingested for the entity.
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)))),
             anyBoolean());
   }
 
@@ -484,12 +490,13 @@ public class FormServiceTest {
 
     // Ensure that the forms aspect was ingested for the entity.
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)))),
             anyBoolean());
   }
 
@@ -608,12 +615,13 @@ public class FormServiceTest {
         opContext, ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, existingForms))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, existingForms)))),
             Mockito.eq(false));
   }
 
@@ -683,12 +691,13 @@ public class FormServiceTest {
     expectedForms.setVerifications(new FormVerificationAssociationArray());
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)))),
             anyBoolean());
   }
 
@@ -797,12 +806,13 @@ public class FormServiceTest {
     expectedForms.setVerifications(new FormVerificationAssociationArray());
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)))),
             anyBoolean());
   }
 
@@ -879,12 +889,13 @@ public class FormServiceTest {
             ImmutableList.of(new FormVerificationAssociation().setForm(TEST_FORM_URN))));
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)))),
             anyBoolean());
   }
 
@@ -914,12 +925,13 @@ public class FormServiceTest {
         createExpectedTestInfo(testDefinition, promptId, TestSourceType.FORM_PROMPT);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new FormTestArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo)))),
             eq(false));
   }
 
@@ -949,12 +961,13 @@ public class FormServiceTest {
         createExpectedTestInfo(testDefinition, promptId, TestSourceType.FORM_PROMPT);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new FormTestArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo)))),
             eq(false));
   }
 
@@ -998,12 +1011,13 @@ public class FormServiceTest {
         createExpectedTestInfo(testDefinition, promptId, TestSourceType.FORM_PROMPT);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new FormTestArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo)))),
             eq(false));
   }
 
@@ -1035,12 +1049,13 @@ public class FormServiceTest {
         createExpectedTestInfo(testDefinition, promptId, TestSourceType.FORM_PROMPT);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new FormTestArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo)))),
             eq(false));
   }
 
@@ -1080,12 +1095,13 @@ public class FormServiceTest {
         createExpectedTestInfo(testDefinition, promptId, TestSourceType.FORM_PROMPT);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new FormTestArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo)))),
             eq(false));
   }
 
@@ -1115,12 +1131,13 @@ public class FormServiceTest {
         createExpectedTestInfo(testDefinition, promptId, TestSourceType.FORM_PROMPT);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new FormTestArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo)))),
             eq(false));
   }
 
@@ -1158,12 +1175,13 @@ public class FormServiceTest {
         createExpectedTestInfo(testDefinition, promptId, TestSourceType.FORM_PROMPT);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new FormTestArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo)))),
             eq(false));
   }
 
@@ -1206,11 +1224,40 @@ public class FormServiceTest {
                                                             ImmutableList.of(
                                                                 "urn:li:dataPlatform:hive")))
                                                     .setNegated(false))))))));
-    SystemEntityClient mockClient = mockEntityClient(null, null);
+    FormInfo formToAdd = new FormInfo();
+    formToAdd.setType(FormType.VERIFICATION);
+    formToAdd.setDescription("Test description");
+    formToAdd.setName("Test name");
+    formToAdd.setPrompts(
+        new FormPromptArray(
+            ImmutableSet.of(
+                new FormPrompt()
+                    .setId("test-id")
+                    .setType(FormPromptType.STRUCTURED_PROPERTY)
+                    .setRequired(true)
+                    .setTitle("Test title")
+                    .setDescription("Test description"))));
+    SystemEntityClient mockClient = mockEntityClient(null, formToAdd);
+    SearchEntityArray searchEntities = new SearchEntityArray();
+    SearchEntity searchEntity = new SearchEntity();
+    searchEntity.setEntity(TEST_ENTITY_URN);
+    searchEntities.add(searchEntity);
+    Mockito.when(
+            mockClient.scrollAcrossEntities(
+                any(OperationContext.class),
+                anyList(),
+                anyString(),
+                nullable(Filter.class),
+                nullable(String.class),
+                nullable(String.class),
+                anyInt(),
+                eq(
+                    "{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
+        .thenReturn(new ScrollResult().setNumEntities(1).setEntities(searchEntities));
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
-    formService.upsertFormAssignmentAutomation(
-        opContext, TEST_FORM_URN, formAssignment, new ObjectMapper());
+    Thread assignThread =
+        formService.upsertFormAssignmentAutomation(opContext, TEST_FORM_URN, formAssignment);
     JsonNode testDefinition =
         new ObjectMapper()
             .readTree(
@@ -1230,15 +1277,22 @@ public class FormServiceTest {
                 new TestDefinition()
                     .setType(TestDefinitionType.JSON)
                     .setJson(testDefinition.toString()));
+    assignThread.join();
     // Verify that the correct test was ingested.
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+    InOrder inOrder = Mockito.inOrder(mockClient);
+    inOrder
+        .verify(mockClient, Mockito.times(1))
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new FormTestArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo)))),
             eq(false));
+    inOrder
+        .verify(mockClient, Mockito.times(1))
+        .batchIngestProposals(any(OperationContext.class), notNull(), eq(true));
   }
 
   @Test
@@ -1271,11 +1325,40 @@ public class FormServiceTest {
                                                 buildCriterion("_entityType", "dashboard"),
                                                 buildCriterion(
                                                     "domains", "urn:li:domain:test-2"))))))));
-    SystemEntityClient mockClient = mockEntityClient(null, null);
+    FormInfo formToAdd = new FormInfo();
+    formToAdd.setType(FormType.VERIFICATION);
+    formToAdd.setDescription("Test description");
+    formToAdd.setName("Test name");
+    formToAdd.setPrompts(
+        new FormPromptArray(
+            ImmutableSet.of(
+                new FormPrompt()
+                    .setId("test-id")
+                    .setType(FormPromptType.STRUCTURED_PROPERTY)
+                    .setRequired(true)
+                    .setTitle("Test title")
+                    .setDescription("Test description"))));
+    SystemEntityClient mockClient = mockEntityClient(null, formToAdd);
+    SearchEntityArray searchEntities = new SearchEntityArray();
+    SearchEntity searchEntity = new SearchEntity();
+    searchEntity.setEntity(TEST_ENTITY_URN);
+    searchEntities.add(searchEntity);
+    Mockito.when(
+            mockClient.scrollAcrossEntities(
+                any(OperationContext.class),
+                anyList(),
+                anyString(),
+                nullable(Filter.class),
+                nullable(String.class),
+                nullable(String.class),
+                anyInt(),
+                eq(
+                    "{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"container\",\"queryParts\":[\"container\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:container:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"_entityType\",\"queryParts\":[\"_entityType\"]}}},{\"index\":1,\"expression\":{\"values\":[\"dataset\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":3,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"domains\",\"queryParts\":[\"domains\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:domain:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:snowflake\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"container\",\"queryParts\":[\"container\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:container:test-2\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"_entityType\",\"queryParts\":[\"_entityType\"]}}},{\"index\":1,\"expression\":{\"values\":[\"dashboard\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":3,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"domains\",\"queryParts\":[\"domains\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:domain:test-2\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
+        .thenReturn(new ScrollResult().setNumEntities(1).setEntities(searchEntities));
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
-    formService.upsertFormAssignmentAutomation(
-        opContext, TEST_FORM_URN, formAssignment, new ObjectMapper());
+    Thread assignThread =
+        formService.upsertFormAssignmentAutomation(opContext, TEST_FORM_URN, formAssignment);
     JsonNode testDefinition =
         new ObjectMapper()
             .readTree(
@@ -1336,15 +1419,165 @@ public class FormServiceTest {
                 new TestDefinition()
                     .setType(TestDefinitionType.JSON)
                     .setJson(testDefinition.toString()));
+    assignThread.join();
     // Verify that the correct test was ingested.
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+    InOrder inOrder = Mockito.inOrder(mockClient);
+    inOrder
+        .verify(mockClient, Mockito.times(1))
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new FormTestArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo)))),
             eq(false));
+    inOrder
+        .verify(mockClient, Mockito.times(1))
+        .batchIngestProposals(any(OperationContext.class), notNull(), eq(true));
+  }
+
+  @Test
+  private void testRemoveFormAssignmentAutomationSimple() throws Exception {
+    // Verify that a test of the expected format is created.
+    DynamicFormAssignment formAssignment =
+        new DynamicFormAssignment()
+            .setFilter(
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            ImmutableList.of(
+                                new ConjunctiveCriterion()
+                                    .setAnd(
+                                        new CriterionArray(
+                                            ImmutableList.of(
+                                                new Criterion()
+                                                    .setField("platform")
+                                                    .setCondition(Condition.EQUAL)
+                                                    .setValue("urn:li:dataPlatform:hive")
+                                                    .setValues(
+                                                        new StringArray(
+                                                            ImmutableList.of(
+                                                                "urn:li:dataPlatform:hive")))
+                                                    .setNegated(false))))))));
+    Forms expectedForms = new Forms();
+    expectedForms.setIncompleteForms(
+        new FormAssociationArray(
+            ImmutableList.of(
+                new FormAssociation()
+                    .setUrn(TEST_FORM_URN)
+                    .setIncompletePrompts(
+                        new FormPromptAssociationArray(
+                            ImmutableList.of(
+                                new FormPromptAssociation()
+                                    .setId("test-id")
+                                    .setLastModified(
+                                        new AuditStamp()
+                                            .setTime(0L)
+                                            .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))))))
+                    .setCompletedPrompts(new FormPromptAssociationArray()))));
+    expectedForms.setCompletedForms(new FormAssociationArray());
+    expectedForms.setVerifications(new FormVerificationAssociationArray());
+    SystemEntityClient mockClient = mockEntityClient(expectedForms, null);
+    SearchEntityArray searchEntities = new SearchEntityArray();
+    SearchEntity searchEntity = new SearchEntity();
+    searchEntity.setEntity(TEST_ENTITY_URN);
+    searchEntities.add(searchEntity);
+    Mockito.when(
+            mockClient.scrollAcrossEntities(
+                any(OperationContext.class),
+                anyList(),
+                anyString(),
+                nullable(Filter.class),
+                nullable(String.class),
+                nullable(String.class),
+                anyInt(),
+                eq(
+                    "{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"NOT\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"incompleteForms\",\"queryParts\":[\"incompleteForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"completedForms\",\"queryParts\":[\"completedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"verifiedForms\",\"queryParts\":[\"verifiedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
+        .thenReturn(new ScrollResult().setNumEntities(1).setEntities(searchEntities));
+    FormService formService =
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
+    Thread unassignThread =
+        formService.removeFormAssignmentAutomation(opContext, TEST_FORM_URN, formAssignment);
+    unassignThread.join();
+    // Verify that the correct test was ingested.
+    Mockito.verify(mockClient, Mockito.times(1))
+        .batchIngestProposals(any(OperationContext.class), notNull(), eq(true));
+  }
+
+  @Test
+  private void testRemoveFormAssignmentAutomationComplex() throws Exception {
+    DynamicFormAssignment formAssignment =
+        new DynamicFormAssignment()
+            .setFilter(
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            ImmutableList.of(
+                                new ConjunctiveCriterion()
+                                    .setAnd(
+                                        new CriterionArray(
+                                            ImmutableList.of(
+                                                buildCriterion(
+                                                    "platform", "urn:li:dataPlatform:hive"),
+                                                buildCriterion(
+                                                    "container", "urn:li:container:test"),
+                                                buildCriterion("_entityType", "dataset"),
+                                                buildCriterion("domains", "urn:li:domain:test")))),
+                                new ConjunctiveCriterion()
+                                    .setAnd(
+                                        new CriterionArray(
+                                            ImmutableList.of(
+                                                buildCriterion(
+                                                    "platform", "urn:li:dataPlatform:snowflake"),
+                                                buildCriterion(
+                                                    "container", "urn:li:container:test-2"),
+                                                buildCriterion("_entityType", "dashboard"),
+                                                buildCriterion(
+                                                    "domains", "urn:li:domain:test-2"))))))));
+    Forms expectedForms = new Forms();
+    expectedForms.setIncompleteForms(
+        new FormAssociationArray(
+            ImmutableList.of(
+                new FormAssociation()
+                    .setUrn(TEST_FORM_URN)
+                    .setIncompletePrompts(
+                        new FormPromptAssociationArray(
+                            ImmutableList.of(
+                                new FormPromptAssociation()
+                                    .setId("test-id")
+                                    .setLastModified(
+                                        new AuditStamp()
+                                            .setTime(0L)
+                                            .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))))))
+                    .setCompletedPrompts(new FormPromptAssociationArray()))));
+    expectedForms.setCompletedForms(new FormAssociationArray());
+    expectedForms.setVerifications(new FormVerificationAssociationArray());
+    SystemEntityClient mockClient = mockEntityClient(expectedForms, null);
+    SearchEntityArray searchEntities = new SearchEntityArray();
+    SearchEntity searchEntity = new SearchEntity();
+    searchEntity.setEntity(TEST_ENTITY_URN);
+    searchEntities.add(searchEntity);
+    Mockito.when(
+            mockClient.scrollAcrossEntities(
+                any(OperationContext.class),
+                anyList(),
+                anyString(),
+                nullable(Filter.class),
+                nullable(String.class),
+                nullable(String.class),
+                anyInt(),
+                eq(
+                    "{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"NOT\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"container\",\"queryParts\":[\"container\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:container:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"_entityType\",\"queryParts\":[\"_entityType\"]}}},{\"index\":1,\"expression\":{\"values\":[\"dataset\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":3,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"domains\",\"queryParts\":[\"domains\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:domain:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:snowflake\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"container\",\"queryParts\":[\"container\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:container:test-2\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"_entityType\",\"queryParts\":[\"_entityType\"]}}},{\"index\":1,\"expression\":{\"values\":[\"dashboard\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":3,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"domains\",\"queryParts\":[\"domains\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:domain:test-2\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"incompleteForms\",\"queryParts\":[\"incompleteForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"completedForms\",\"queryParts\":[\"completedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"verifiedForms\",\"queryParts\":[\"verifiedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
+        .thenReturn(new ScrollResult().setNumEntities(1).setEntities(searchEntities));
+    FormService formService =
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
+    Thread unassignThread =
+        formService.removeFormAssignmentAutomation(opContext, TEST_FORM_URN, formAssignment);
+    unassignThread.join();
+    // Verify runner performs removal
+    Mockito.verify(mockClient, Mockito.times(1))
+        .batchIngestProposals(any(OperationContext.class), notNull(), eq(true));
   }
 
   @Test
@@ -1627,14 +1860,15 @@ public class FormServiceTest {
         formService.verifyFormForEntity(opContext, TEST_FORM_URN, TEST_ENTITY_URN, null));
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN,
-                        FORMS_ASPECT_NAME,
-                        formsAspectMap.get(FORMS_ASPECT_NAME)))),
+                    Collections.singletonList(
+                        AspectUtils.buildMetadataChangeProposal(
+                            TEST_ENTITY_URN,
+                            FORMS_ASPECT_NAME,
+                            formsAspectMap.get(FORMS_ASPECT_NAME))))),
             eq(false));
   }
 
@@ -1719,9 +1953,10 @@ public class FormServiceTest {
                 anyList(),
                 anyString(),
                 nullable(Filter.class),
-                anyString(),
-                anyString(),
-                anyInt()))
+                nullable(String.class),
+                nullable(String.class),
+                anyInt(),
+                nullable(String.class)))
         .thenReturn(new ScrollResult().setNumEntities(0));
 
     EntityResponse entityResponse = null;

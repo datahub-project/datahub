@@ -5,7 +5,6 @@ import static com.datahub.util.RecordUtils.toRecordTemplate;
 
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -16,10 +15,9 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
-import com.linkedin.metadata.search.utils.acryl.AcrylSearchUtils;
-import com.linkedin.metadata.test.definition.TestDefinitionParser;
 import com.linkedin.metadata.test.definition.operator.OperatorType;
 import com.linkedin.metadata.test.definition.operator.Predicate;
+import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -501,8 +499,8 @@ public class CachingEntitySearchService {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRawSearchResults").time()) {
       Predicate finalFilterPredicate =
           filters != null ? AcrylSearchUtils.convertFilterToPredicate(filters) : null;
-      JsonNode predicateJsonNode = opContext.getObjectMapper().readTree(predicateJson);
-      Predicate inputPredicate = TestDefinitionParser.deserializeRule(predicateJsonNode);
+      Predicate inputPredicate =
+          opContext.getObjectMapper().readValue(predicateJson, Predicate.class);
       final Predicate finalPredicate =
           finalFilterPredicate != null
               ? Predicate.of(
@@ -513,5 +511,127 @@ public class CachingEntitySearchService {
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /**
+   * Retrieves cached scroll results. If the query has been cached, this will return quickly. If
+   * not, a full scroll request will be made.
+   *
+   * @param opContext the operation's context
+   * @param entities the names of the entities to search
+   * @param query the search query
+   * @param filters the filters to include
+   * @param sortCriteria the sort criteria
+   * @param scrollId opaque scroll identifier for a scroll request
+   * @param keepAlive the string representation of how long to keep point in time alive
+   * @param size the count
+   * @return a {@link ScrollResult} containing the requested batch of scroll results
+   */
+  public ScrollResult predicateScroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nonnull String query,
+      @Nullable Filter filters,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size,
+      String predicateJson) {
+    return getCachedPredicateScrollResults(
+        opContext,
+        entities,
+        query,
+        filters,
+        sortCriteria,
+        scrollId,
+        keepAlive,
+        size,
+        predicateJson);
+  }
+
+  public ScrollResult getCachedPredicateScrollResults(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nonnull String query,
+      @Nullable Filter filters,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size,
+      String predicateJson) {
+    try (Timer.Context ignored =
+        MetricUtils.timer(this.getClass(), "getCachedPredicateScrollResults").time()) {
+      Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME);
+      ScrollResult result;
+      Predicate finalFilterPredicate =
+          filters != null ? AcrylSearchUtils.convertFilterToPredicate(filters) : null;
+      Predicate inputPredicate =
+          opContext.getObjectMapper().readValue(predicateJson, Predicate.class);
+      final Predicate finalPredicate =
+          finalFilterPredicate != null
+              ? Predicate.of(
+                  OperatorType.AND, ImmutableList.of(finalFilterPredicate, inputPredicate))
+              : inputPredicate;
+      if (enableCache(opContext.getSearchContext().getSearchFlags())) {
+        Timer.Context cacheAccess =
+            MetricUtils.timer(this.getClass(), "scroll_cache_access").time();
+        Object cacheKey =
+            Octet.with(
+                opContext.getSearchContextId(),
+                entities,
+                query,
+                filters != null ? toJsonString(filters) : null,
+                CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
+                scrollId,
+                predicateJson,
+                size);
+        String json = cache.get(cacheKey, String.class);
+        result = json != null ? toRecordTemplate(ScrollResult.class, json) : null;
+        cacheAccess.stop();
+        if (result == null) {
+          Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "scroll_cache_miss").time();
+          result =
+              getRawPredicateScrollResults(
+                  opContext,
+                  entities,
+                  query,
+                  finalPredicate,
+                  sortCriteria,
+                  scrollId,
+                  keepAlive,
+                  size);
+          cache.put(cacheKey, toJsonString(result));
+          cacheMiss.stop();
+          MetricUtils.counter(this.getClass(), "scroll_cache_miss_count").inc();
+        }
+      } else {
+        result =
+            getRawPredicateScrollResults(
+                opContext,
+                entities,
+                query,
+                finalPredicate,
+                sortCriteria,
+                scrollId,
+                keepAlive,
+                size);
+      }
+      return result;
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private ScrollResult getRawPredicateScrollResults(
+      @Nonnull OperationContext opContext,
+      final List<String> entities,
+      final String input,
+      final Predicate predicate,
+      final List<SortCriterion> sortCriteria,
+      @Nullable final String scrollId,
+      @Nullable final String keepAlive,
+      final int count) {
+    return entitySearchService.predicateScroll(
+        opContext, entities, input, predicate, sortCriteria, scrollId, keepAlive, count);
   }
 }

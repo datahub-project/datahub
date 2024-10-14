@@ -201,7 +201,8 @@ public class MetadataTestHook implements MetadataChangeLogHook {
         && event.getEntityType().equals(TEST_ENTITY_NAME)
         && event.getAspectName().equals(TEST_INFO_ASPECT_NAME)
         && !isOnDemandTest(event) // don't process on demand tests
-        && !isFormPromptTest(event)) { // don't process form prompt tests on change
+        && !isFormPromptTest(event)
+        && !isFormsTest(event)) { // don't process form prompt tests on change
       log.info(
           "Upsert event for Metadata Test entity {} received, evaluating test",
           event.getEntityUrn());
@@ -296,6 +297,24 @@ public class MetadataTestHook implements MetadataChangeLogHook {
 
     return testInfo.getSource() != null
         && testInfo.getSource().getType().equals(TestSourceType.FORM_PROMPT);
+  }
+
+  /*
+   * If the test source type is FORMS we should not be running them on test changes.
+   * It creates unnecessary load, as we should rely on entity changes and nightly runs.
+   */
+  private boolean isFormsTest(@Nonnull MetadataChangeLog event) {
+    if (!event.getEntityType().equals(TEST_ENTITY_NAME)
+        || !event.getAspectName().equals(TEST_INFO_ASPECT_NAME)) {
+      return false;
+    }
+
+    TestInfo testInfo =
+        GenericRecordUtils.deserializeAspect(
+            event.getAspect().getValue(), event.getAspect().getContentType(), TestInfo.class);
+
+    return testInfo.getSource() != null
+        && testInfo.getSource().getType().equals(TestSourceType.FORMS);
   }
 
   @VisibleForTesting

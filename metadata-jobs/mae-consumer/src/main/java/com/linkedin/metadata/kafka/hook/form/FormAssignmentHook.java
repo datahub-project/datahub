@@ -2,7 +2,6 @@ package com.linkedin.metadata.kafka.hook.form;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.events.metadata.ChangeType;
@@ -62,7 +61,6 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
           ChangeType.UPSERT, ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.RESTATE);
 
   private final FormService formService;
-  private final ObjectMapper objectMapper;
   private final boolean isEnabled;
 
   private OperationContext systemOperationContext;
@@ -72,20 +70,15 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
   public FormAssignmentHook(
       @Nonnull final FormService formService,
       @Nonnull @Value("${forms.hook.enabled:true}") Boolean isEnabled,
-      final ObjectMapper objectMapper,
       @Nonnull @Value("${forms.hook.consumerGroupSuffix}") String consumerGroupSuffix) {
     this.formService = Objects.requireNonNull(formService, "formService is required");
     this.isEnabled = isEnabled;
-    this.objectMapper = objectMapper;
     this.consumerGroupSuffix = consumerGroupSuffix;
   }
 
   @VisibleForTesting
-  public FormAssignmentHook(
-      @Nonnull final FormService formService,
-      @Nonnull Boolean isEnabled,
-      final ObjectMapper objectMapper) {
-    this(formService, isEnabled, objectMapper, "");
+  public FormAssignmentHook(@Nonnull final FormService formService, @Nonnull Boolean isEnabled) {
+    this(formService, isEnabled, "");
   }
 
   @Override
@@ -161,9 +154,13 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
             event.getAspect().getContentType(),
             DynamicFormAssignment.class);
 
-    // 2. Register a automation to assign it.
+    // 2. If the form is on an entity that does not match the filter, remove it.
+    formService.removeFormAssignmentAutomation(
+        systemOperationContext, event.getEntityUrn(), formFilters);
+
+    // 3. Register a automation to assign it.
     formService.upsertFormAssignmentAutomation(
-        systemOperationContext, event.getEntityUrn(), formFilters, objectMapper);
+        systemOperationContext, event.getEntityUrn(), formFilters);
   }
 
   /** Handles an form deletion by removing the all automations associated with it. */

@@ -44,7 +44,7 @@ public class FormAssignmentHookTest {
   @Test
   public void testInvokeNotEnabled() throws Exception {
     FormService service = mockFormService();
-    FormAssignmentHook hook = new FormAssignmentHook(service, false, objectMapper);
+    FormAssignmentHook hook = new FormAssignmentHook(service, false);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_FORM_URN,
@@ -65,7 +65,7 @@ public class FormAssignmentHookTest {
   @Test
   public void testInvokeNotEligibleChange() throws Exception {
     FormService service = mockFormService();
-    FormAssignmentHook hook = new FormAssignmentHook(service, true, objectMapper);
+    FormAssignmentHook hook = new FormAssignmentHook(service, true);
 
     // Case 1: Bad aspect
     final MetadataChangeLog event1 =
@@ -95,7 +95,7 @@ public class FormAssignmentHookTest {
   @Test
   public void testInvokeFormInfoNoPrevious() throws Exception {
     FormService service = mockFormService();
-    FormAssignmentHook hook = new FormAssignmentHook(service, true, objectMapper);
+    FormAssignmentHook hook = new FormAssignmentHook(service, true);
     FormPrompt testPrompt1 =
         new FormPrompt()
             .setId(TEST_FORM_PROMPT_ID_1)
@@ -132,7 +132,7 @@ public class FormAssignmentHookTest {
   @Test
   public void testInvokeFormInfoHasPrevious() throws Exception {
     FormService service = mockFormService();
-    FormAssignmentHook hook = new FormAssignmentHook(service, true, objectMapper);
+    FormAssignmentHook hook = new FormAssignmentHook(service, true);
 
     FormPrompt prevPrompt1 =
         new FormPrompt()
@@ -180,7 +180,7 @@ public class FormAssignmentHookTest {
   @Test
   public void testInvokeDynamicFilters() throws Exception {
     FormService service = mockFormService();
-    FormAssignmentHook hook = new FormAssignmentHook(service, true, objectMapper);
+    FormAssignmentHook hook = new FormAssignmentHook(service, true);
     final Filter newFilter =
         buildFilter(
             ImmutableList.of(
@@ -199,8 +199,7 @@ public class FormAssignmentHookTest {
         .upsertFormAssignmentAutomation(
             nullable(OperationContext.class),
             Mockito.eq(TEST_FORM_URN),
-            Mockito.eq(newFormFilters),
-            any(ObjectMapper.class));
+            Mockito.eq(newFormFilters));
   }
 
   private FormInfo mockFormInfo(final List<FormPrompt> prompts) {

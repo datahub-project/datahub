@@ -477,4 +477,23 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         size,
         facets);
   }
+
+  @Nonnull
+  public ScrollResult predicateScroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nonnull String input,
+      @Nullable Predicate predicate,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size) {
+    log.debug(
+        String.format(
+            "Scrolling Predicate Search documents entityName: %s, input: %s, predicate: %s, sortCriterion: %s, scrollId: %s, size: %s",
+            entities, input, predicate, sortCriteria, scrollId, size));
+
+    return esSearchDAO.predicateScroll(
+        opContext, entities, input, predicate, sortCriteria, scrollId, keepAlive, size);
+  }
 }

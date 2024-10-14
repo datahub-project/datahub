@@ -912,5 +912,94 @@ public class SearchRequestHandler {
     return searchResultMetadata;
   }
 
+  @Nonnull
+  @WithSpan
+  public SearchRequest getPredicateSearchRequest(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nullable Predicate predicate,
+      List<SortCriterion> sortCriteria,
+      @Nullable Object[] sort,
+      @Nullable String pitId,
+      @Nullable String keepAlive,
+      int size,
+      @Nullable List<String> facets,
+      @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, predicate);
+    SearchRequest searchRequest = new PITAwareSearchRequest();
+
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
+    ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
+
+    searchSourceBuilder.size(size);
+
+    if (fieldFetchConfig == null) {
+      fieldFetchConfig = new SearchDocFieldFetchConfig();
+    }
+    if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
+      searchSourceBuilder.highlighter(highlights);
+    }
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
+    searchRequest.source(searchSourceBuilder);
+    log.debug("Search request is: " + searchRequest);
+    searchRequest.indicesOptions(null);
+
+    searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
+
+    return buildSearchRequestPageAgnostic(
+            opContext,
+            searchRequest,
+            searchSourceBuilder,
+            input,
+            searchFlags,
+            filterQuery,
+            facets,
+            sortCriteria)
+        .indicesOptions(null);
+  }
+
+  @WithSpan
+  public ScrollResult extractPredicateScrollResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      Predicate predicate,
+      @Nullable String keepAlive,
+      int size,
+      boolean supportsPointInTime) {
+    int totalCount = (int) searchResponse.getHits().getTotalHits().value;
+    Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
+    SearchResultMetadata searchResultMetadata =
+        extractPredicateSearchResultMetadata(opContext, searchResponse, predicate);
+    SearchHit[] searchHits = searchResponse.getHits().getHits();
+    // Only return next scroll ID if there are more results, indicated by full size results
+    String nextScrollId = null;
+    if (searchHits.length == size) {
+      Object[] sort = searchHits[searchHits.length - 1].getSortValues();
+      long expirationTimeMs = 0L;
+      if (keepAlive != null && supportsPointInTime) {
+        expirationTimeMs =
+            TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis()
+                + System.currentTimeMillis();
+      }
+      nextScrollId =
+          new SearchAfterWrapper(sort, searchResponse.pointInTimeId(), expirationTimeMs)
+              .toScrollId();
+    }
+
+    ScrollResult scrollResult =
+        new ScrollResult()
+            .setEntities(new SearchEntityArray(resultList))
+            .setMetadata(searchResultMetadata)
+            .setPageSize(Math.min(size, totalCount))
+            .setNumEntities(totalCount);
+
+    if (nextScrollId != null) {
+      scrollResult.setScrollId(nextScrollId);
+    }
+    return scrollResult;
+  }
+
   // END SAAS ONLY -- Add methods prior to this section
 }

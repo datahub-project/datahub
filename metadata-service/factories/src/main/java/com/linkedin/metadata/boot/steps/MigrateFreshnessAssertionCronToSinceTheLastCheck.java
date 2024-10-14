@@ -82,7 +82,8 @@ public class MigrateFreshnessAssertionCronToSinceTheLastCheck extends UpgradeSte
             null,
             scrollId,
             "5m",
-            BATCH_SIZE);
+            BATCH_SIZE,
+            null);
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().isEmpty()) {
       return null;
     }

@@ -319,7 +319,8 @@ public interface EntityClient {
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int count)
+      int count,
+      @Nullable String predicateJson)
       throws RemoteInvocationException;
 
   /**
