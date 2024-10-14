@@ -941,11 +941,19 @@ class BigqueryLineageExtractor:
         # Expect URIs in `uris=[""]` format
         uris_match = self.gcs_uris_regex.search(ddl)
         if not uris_match:
+            self.report.num_skipped_external_table_lineage += 1
             logger.warning(f"Unable to parse GCS URI from the provided DDL {ddl}.")
             return
 
         uris_str = uris_match.group(1)
-        source_uris = json.loads(f"[{uris_str}]")
+        try:
+            source_uris = json.loads(f"[{uris_str}]")
+        except json.JSONDecodeError as e:
+            self.report.num_skipped_external_table_lineage += 1
+            logger.warning(
+                f"Json load failed on loading source uri with error: {e}. The field value was: {uris_str}"
+            )
+            return
 
         lineage_info = self.get_lineage_for_external_table(
             dataset_urn=dataset_urn,
