@@ -661,19 +661,6 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: '*'
-    - className: 'com.linkedin.metadata.aspect.validation.FieldPathValidator'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - CREATE_ENTITY
-        - UPSERT
-        - UPDATE
-        - RESTATE
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: 'schemaMetadata'
-        - entityName: '*'
-          aspectName: 'editableSchemaMetadata'
     - className: 'com.linkedin.metadata.aspect.validation.ConditionalWriteValidator'
       enabled: true
       supportedOperations:
@@ -686,6 +673,12 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: '*'
+    - className: 'com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator'
+      enabled: true
+      spring:
+        enabled: true
+      packageScan:
+        - com.linkedin.gms.factory.plugins
   mcpSideEffects:
     - className: 'com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect'
       packageScan:
