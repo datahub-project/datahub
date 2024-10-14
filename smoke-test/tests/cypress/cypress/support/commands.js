@@ -342,7 +342,7 @@ Cypress.Commands.add("clearView", (viewName) => {
   cy.clickOptionWithTestId("view-select");
   cy.clickOptionWithTestId("view-select-clear");
   cy.get("input[data-testid='search-input']").click();
-  cy.contains(viewName).should("not.be.visible");
+  cy.get("[data-testid='view-select']").should("not.include.text", viewName);
 });
 
 Cypress.Commands.add("addTermToDataset", (urn, dataset_name, term) => {
