@@ -6,7 +6,7 @@ import Link from '@docusaurus/Link'
 const CaseStudy = ({ caseStudyContent }) => {
   const { title, backgroundColor, items } = caseStudyContent;
   return (
-    <div className={styles.container} styles={{background: backgroundColor}}>
+    <div className={styles.container} style={{ backgroundColor: backgroundColor }}>
       <div className={styles.case_study}>
         <div className={styles.case_study_heading}>
           {title}

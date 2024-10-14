@@ -7,14 +7,14 @@ import QuickstartContent from "../_components/QuickstartContent";
 import Tiles from "../_components/Tiles";
 import Testimonials from "../_components/Testimonials";
 import CaseStudy from "../_components/CaseStudy";
+import Persona from "../_components/Persona";
 import styles from "./styles.module.scss";
 import CloseButton from "@ant-design/icons/CloseCircleFilled";
 import Link from "@docusaurus/Link";
-import clsx from "clsx";
 import quickstartData from "./_content/governanceQuickstartContent";
 import heroContent from "./_content/governanceHeroContent";
 import caseStudyContent from "./_content/governanceCaseStudyContent";
-import Integrations from "../_components/Integrations";
+import personaContent from "./_content/governancePersonaContent";
 import tilesContent from "./_content/governanceTilesContent";
 import testimonialsData from "./_content/governanceTestimonialsContent";
 
@@ -47,7 +47,7 @@ function Home() {
         </div>
       ) : null}
       <Hero onOpenTourModal={onOpenTourModal} heroContent={heroContent}/>
-      <Integrations />
+      <Persona personaContent={personaContent} />
       <QuickstartContent quickstartContent={quickstartData} />
       <Testimonials testimonialsData={testimonialsData} />
       <div>
