@@ -32,13 +32,6 @@ logger = logging.getLogger(__name__)
 
 
 class PowerBiAPI:
-    # A report or tile in one workspace can be built using a dataset from another workspace.
-    # We need to store the dataset ID (which is a UUID) mapped to its dataset instance.
-    # This mapping will allow us to retrieve the appropriate dataset for
-    # reports and tiles across different workspaces.
-    dataset_registry: Dict[str, PowerBIDataset]
-    reporter: PowerBiDashboardSourceReport
-
     def __init__(
         self,
         config: PowerBiDashboardSourceConfig,
@@ -58,9 +51,13 @@ class PowerBiAPI:
             tenant_id=self.__config.tenant_id,
         )
 
-        self.reporter = reporter
+        self.reporter: PowerBiDashboardSourceReport = reporter
 
-        self.dataset_registry = {}
+        # A report or tile in one workspace can be built using a dataset from another workspace.
+        # We need to store the dataset ID (which is a UUID) mapped to its dataset instance.
+        # This mapping will allow us to retrieve the appropriate dataset for
+        # reports and tiles across different workspaces.
+        self.dataset_registry: Dict[str, PowerBIDataset] = {}
 
     def log_http_error(self, message: str) -> Any:
         logger.warning(message)
