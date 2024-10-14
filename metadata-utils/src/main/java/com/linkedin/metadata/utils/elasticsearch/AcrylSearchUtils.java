@@ -55,7 +55,7 @@ public class AcrylSearchUtils {
         List<Expression> expressions = new ArrayList<>();
         Condition condition = criterion.getCondition();
         List<OperatorType> operatorTypes = new ArrayList<>();
-        boolean negated = false;
+        boolean negated = criterion.hasNegated() ? criterion.isNegated() : false;
         switch (condition) {
           case EQUAL:
           case CONTAIN:
