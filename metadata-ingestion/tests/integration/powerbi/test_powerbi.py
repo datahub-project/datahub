@@ -204,7 +204,10 @@ def test_powerbi_workspace_type_filter(
     register_mock_api(
         request_mock=requests_mock,
         pytestconfig=pytestconfig,
-        override_data=read_mock_data(pytestconfig.rootpath / "tests/integration/powerbi/mock_data/workspace_type_filter.json"),
+        override_data=read_mock_data(
+            pytestconfig.rootpath
+            / "tests/integration/powerbi/mock_data/workspace_type_filter.json"
+        ),
     )
 
     default_config: dict = default_source_config()
