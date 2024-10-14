@@ -613,7 +613,9 @@ class SqlParsingAggregator(Closeable):
             upstream_urn: The upstream dataset URN.
             downstream_urn: The downstream dataset URN.
         """
-
+        logger.debug(
+            f"Adding lineage to the map, downstream: {downstream_urn}, upstream: {upstream_urn}"
+        )
         self.report.num_known_mapping_lineage += 1
 
         # We generate a fake "query" object to hold the lineage.
