@@ -330,14 +330,14 @@ class PowerBiAPI:
 
         for dataset_dict in datasets:
             dataset_instance: PowerBIDataset = self._get_resolver().get_dataset(
-                workspace_id=scan_result[Constant.ID],
+                workspace=workspace,
                 dataset_id=dataset_dict[Constant.ID],
             )
 
             # fetch + set dataset parameters
             try:
                 dataset_parameters = self._get_resolver().get_dataset_parameters(
-                    workspace_id=scan_result[Constant.ID],
+                    workspace_id=workspace.id,
                     dataset_id=dataset_dict[Constant.ID],
                 )
                 dataset_instance.parameters = dataset_parameters
@@ -368,7 +368,8 @@ class PowerBiAPI:
                 )
                 table = Table(
                     name=table[Constant.NAME],
-                    full_name="{}.{}".format(
+                    full_name="{}.{}.{}".format(
+                        workspace.name.replace(" ", "_"),
                         dataset_name.replace(" ", "_"),
                         table[Constant.NAME].replace(" ", "_"),
                     ),

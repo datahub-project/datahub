@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.public_issue_history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -19,7 +19,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.public_issue_history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -41,7 +41,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.public_issue_history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -57,7 +57,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.public_issue_history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -75,7 +75,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -93,7 +93,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -115,7 +115,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -131,7 +131,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -149,7 +149,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -174,7 +174,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -192,7 +192,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -214,7 +214,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -230,7 +230,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -248,7 +248,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query,DEV)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -273,7 +273,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query-with-join,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -291,7 +291,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query-with-join,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -313,7 +313,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query-with-join,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -329,7 +329,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query-with-join,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -347,7 +347,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query-with-join,DEV)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -380,7 +380,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.job-history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -398,7 +398,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.job-history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -420,7 +420,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.job-history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -436,7 +436,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.job-history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -454,7 +454,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.job-history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -479,7 +479,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.postgres_test_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -497,7 +497,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.postgres_test_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -519,7 +519,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.postgres_test_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -535,7 +535,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.postgres_test_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -553,7 +553,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.postgres_test_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -578,7 +578,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.dbo_book_issue,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.dbo_book_issue,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -596,7 +596,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.dbo_book_issue,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.dbo_book_issue,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -618,7 +618,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.dbo_book_issue,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.dbo_book_issue,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -634,7 +634,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.dbo_book_issue,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.dbo_book_issue,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -652,7 +652,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.dbo_book_issue,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.dbo_book_issue,DEV)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -677,7 +677,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.ms_sql_native_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.ms_sql_native_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -695,7 +695,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.ms_sql_native_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.ms_sql_native_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -717,7 +717,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.ms_sql_native_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.ms_sql_native_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -733,7 +733,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.ms_sql_native_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.ms_sql_native_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -751,7 +751,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.ms_sql_native_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.ms_sql_native_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -776,7 +776,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.revenue,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.revenue,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -794,7 +794,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.revenue,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.revenue,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -816,7 +816,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.revenue,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.revenue,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -832,7 +832,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.revenue,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.revenue,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -850,7 +850,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.revenue,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.revenue,DEV)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -931,22 +931,22 @@
             },
             "inputs": [
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.public_issue_history,DEV)"
                 },
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.SNOWFLAKE_TESTTABLE,DEV)"
                 },
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query,DEV)"
                 },
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query-with-join,DEV)"
                 },
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.job-history,DEV)"
                 },
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.postgres_test_table,DEV)"
                 }
             ]
         }
@@ -1072,13 +1072,13 @@
             },
             "inputs": [
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.dbo_book_issue,DEV)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.dbo_book_issue,DEV)"
                 },
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.ms_sql_native_table,DEV)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.ms_sql_native_table,DEV)"
                 },
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.revenue,DEV)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.hr_pbi_test.revenue,DEV)"
                 }
             ]
         }
@@ -1345,7 +1345,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.public_issue_history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -1363,7 +1363,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.public_issue_history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1385,7 +1385,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.public_issue_history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1401,7 +1401,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.public_issue_history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1419,7 +1419,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -1437,7 +1437,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1459,7 +1459,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1475,7 +1475,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1493,7 +1493,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -1518,7 +1518,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -1536,7 +1536,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1558,7 +1558,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1574,7 +1574,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1592,7 +1592,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query,DEV)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -1617,7 +1617,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query-with-join,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -1635,7 +1635,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query-with-join,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1657,7 +1657,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query-with-join,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1673,7 +1673,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query-with-join,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1691,7 +1691,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.snowflake_native-query-with-join,DEV)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -1724,7 +1724,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.job-history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -1742,7 +1742,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.job-history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1764,7 +1764,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.job-history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1780,7 +1780,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.job-history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1798,7 +1798,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.job-history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -1823,7 +1823,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.postgres_test_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -1841,7 +1841,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.postgres_test_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1863,7 +1863,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.postgres_test_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1879,7 +1879,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.postgres_test_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1897,7 +1897,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,demo-workspace.library-dataset.postgres_test_table,DEV)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {

@@ -142,6 +142,7 @@ class PowerBIDataset:
     description: str
     webUrl: Optional[str]
     workspace_id: str
+    workspace_name: str
     parameters: Dict[str, str]
 
     # Table in datasets
@@ -286,7 +287,7 @@ class Dashboard:
         return hash(self.__members())
 
 
-def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset:
+def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIDataset:
     return PowerBIDataset(
         id=raw_instance["id"],
         name=raw_instance.get("name"),
@@ -296,7 +297,8 @@ def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset
             if raw_instance.get("webUrl") is not None
             else None
         ),
-        workspace_id=workspace_id,
+        workspace_id=workspace.id,
+        workspace_name=workspace.name,
         parameters={},
         tables=[],
         tags=[],
