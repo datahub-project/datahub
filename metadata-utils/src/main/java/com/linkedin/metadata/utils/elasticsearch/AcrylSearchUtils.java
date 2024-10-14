@@ -126,7 +126,7 @@ public class AcrylSearchUtils {
           }
           expressions.add(leaf);
         }
-        Predicate criterionAnd = Predicate.of(OperatorType.AND, expressions);
+        Predicate criterionAnd = Predicate.of(OperatorType.OR, expressions);
         andList.add(criterionAnd);
       }
       Predicate conjunctionAnd = Predicate.of(OperatorType.AND, andList);

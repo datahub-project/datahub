@@ -3,6 +3,7 @@ package com.linkedin.metadata.utils.acryl;
 import static org.testng.AssertJUnit.assertEquals;
 
 import com.datahub.util.RecordUtils;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.test.definition.expression.Query;
 import com.linkedin.metadata.test.definition.literal.StringListLiteral;
@@ -85,6 +86,16 @@ public class AcrylSearchUtilsTest {
     assertEquals(createInvertedPredicate(), actual);
   }
 
+  @Test
+  public void testGreaterThanOrEqualToPredicate() {
+    Filter filter =
+        RecordUtils.toRecordTemplate(
+            Filter.class,
+            "{\"or\":[{\"and\":[{\"condition\":\"GREATER_THAN_OR_EQUAL_TO\", \"field\":\"timestamp\", \"value\":\"0\", \"values\":[\"0\"]}]}]}");
+    Predicate actual = AcrylSearchUtils.convertFilterToPredicate(filter);
+    assertEquals(createGreaterThanOrEqualToPredicate(), actual);
+  }
+
   private Predicate createPredicate() {
     // Create the innermost ANY_EQUALS predicate for platform
     Predicate platformPredicate =
@@ -98,10 +109,10 @@ public class AcrylSearchUtilsTest {
                     new StringListLiteral(
                         Collections.singletonList("urn:li:dataPlatform:looker")))));
 
-    // Wrap the platform predicate in an AND
-    Predicate platformAndPredicate =
+    // Wrap the platform predicate in an OR
+    Predicate platformORPredicate =
         new Predicate(
-            OperatorType.AND, Collections.singletonList(new Operand(0, null, platformPredicate)));
+            OperatorType.OR, Collections.singletonList(new Operand(0, null, platformPredicate)));
 
     // Create the ANY_EQUALS predicate for _entityType
     Predicate entityTypePredicate =
@@ -111,18 +122,18 @@ public class AcrylSearchUtilsTest {
                 new Operand(0, null, new Query("_entityType")),
                 new Operand(1, null, new StringListLiteral(Collections.singletonList("chart")))));
 
-    // Wrap the entityType predicate in an AND
-    Predicate entityTypeAndPredicate =
+    // Wrap the entityType predicate in an OR
+    Predicate entityTypeORPredicate =
         new Predicate(
-            OperatorType.AND, Collections.singletonList(new Operand(0, null, entityTypePredicate)));
+            OperatorType.OR, Collections.singletonList(new Operand(0, null, entityTypePredicate)));
 
     // Create the outer AND predicate combining platform and entityType
     Predicate outerAndPredicate =
         new Predicate(
             OperatorType.AND,
             Arrays.asList(
-                new Operand(0, null, platformAndPredicate),
-                new Operand(1, null, entityTypeAndPredicate)));
+                new Operand(0, null, platformORPredicate),
+                new Operand(1, null, entityTypeORPredicate)));
 
     // Create the top-level OR predicate
     return new Predicate(
@@ -214,24 +225,24 @@ public class AcrylSearchUtilsTest {
             OperatorType.NOT,
             Collections.singletonList(new Operand(0, null, platformFeastPredicate)));
 
-    // Create the AND predicates for each condition
-    Predicate andPlatformHive =
+    // Create the OR predicates for each condition
+    Predicate orPlatformHive =
         new Predicate(
-            OperatorType.AND,
+            OperatorType.OR,
             Collections.singletonList(new Operand(0, null, notPlatformHivePredicate)));
-    Predicate andEntityType =
+    Predicate orEntityType =
         new Predicate(
-            OperatorType.AND,
+            OperatorType.OR,
             Collections.singletonList(new Operand(0, null, notEntityTypePredicate)));
-    Predicate andOwners =
+    Predicate orOwners =
         new Predicate(
-            OperatorType.AND, Collections.singletonList(new Operand(0, null, notOwnersPredicate)));
-    Predicate andTags =
+            OperatorType.OR, Collections.singletonList(new Operand(0, null, notOwnersPredicate)));
+    Predicate orTags =
         new Predicate(
-            OperatorType.AND, Collections.singletonList(new Operand(0, null, notTagsPredicate)));
-    Predicate andPlatformFeast =
+            OperatorType.OR, Collections.singletonList(new Operand(0, null, notTagsPredicate)));
+    Predicate orPlatformFeast =
         new Predicate(
-            OperatorType.AND,
+            OperatorType.OR,
             Collections.singletonList(new Operand(0, null, notPlatformFeastPredicate)));
 
     // Create the outer AND predicate combining all conditions
@@ -239,11 +250,45 @@ public class AcrylSearchUtilsTest {
         new Predicate(
             OperatorType.AND,
             Arrays.asList(
-                new Operand(0, null, andPlatformHive),
-                new Operand(1, null, andEntityType),
-                new Operand(2, null, andOwners),
-                new Operand(3, null, andTags),
-                new Operand(4, null, andPlatformFeast)));
+                new Operand(0, null, orPlatformHive),
+                new Operand(1, null, orEntityType),
+                new Operand(2, null, orOwners),
+                new Operand(3, null, orTags),
+                new Operand(4, null, orPlatformFeast)));
+
+    // Create the top-level OR predicate
+    return new Predicate(
+        OperatorType.OR, Collections.singletonList(new Operand(0, null, outerAndPredicate)));
+  }
+
+  private Predicate createGreaterThanOrEqualToPredicate() {
+    // Create the innermost ANY_EQUALS predicate for timestamp
+    Predicate equalsPredicate =
+        new Predicate(
+            OperatorType.ANY_EQUALS,
+            Arrays.asList(
+                new Operand(0, null, new Query("timestamp")),
+                new Operand(1, null, new StringListLiteral(Collections.singletonList("0")))));
+
+    // Create the innermost GREATER_THAN predicate for timestamp
+    Predicate greaterPredicate =
+        new Predicate(
+            OperatorType.GREATER_THAN,
+            Arrays.asList(
+                new Operand(0, null, new Query("timestamp")),
+                new Operand(1, null, new StringListLiteral(Collections.singletonList("0")))));
+
+    // Wrap the timestamp predicate in an OR
+    Predicate platformORPredicate =
+        new Predicate(
+            OperatorType.OR,
+            ImmutableList.of(
+                new Operand(0, null, equalsPredicate), new Operand(1, null, greaterPredicate)));
+
+    // Create the outer AND predicate combining platform and entityType
+    Predicate outerAndPredicate =
+        new Predicate(
+            OperatorType.AND, Collections.singletonList(new Operand(0, null, platformORPredicate)));
 
     // Create the top-level OR predicate
     return new Predicate(
