@@ -187,6 +187,7 @@ class BigQueryV2Report(
     usage_start_time: Optional[datetime] = None
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
+    num_skipped_external_table_lineage: int = 0
 
     queries_extractor: Optional[BigQueryQueriesExtractorReport] = None
 
