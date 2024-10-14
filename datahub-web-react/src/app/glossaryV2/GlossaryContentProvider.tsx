@@ -107,7 +107,7 @@ const GlossaryContentProvider = (props: Props) => {
         <MainContentWrapper data-testid="glossary-entities-list">
             <HeaderWrapper>
                 <TitleContainer>
-                    <Title>Business Glossary</Title>
+                    <Title data-testid="glossaryPageV2">Business Glossary</Title>
                     <Subtitle>View and modify your glossaries</Subtitle>
                 </TitleContainer>
                 <ButtonContainer>

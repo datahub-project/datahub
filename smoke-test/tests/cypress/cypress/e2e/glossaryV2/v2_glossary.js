@@ -1,5 +1,5 @@
 const urn =
-  "dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers_source,PROD)";
+  "dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers_source,PROD)/";
 const datasetName = "customers_source";
 const glossaryTerm = "CypressGlossaryTerm";
 const glossaryTermGroup = "CypressGlossaryGroup";
@@ -7,7 +7,7 @@ let myUrl;
 
 const nevigateGlossaryPage = () => {
   cy.visit("/glossary");
-  cy.waitTextVisible("Business Glossary");
+  cy.get('[data-testid="glossaryPageV2"]').should("be.visible");
 };
 
 const addGlossaryTermToDataset = () => {
