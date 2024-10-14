@@ -1,0 +1,82 @@
+Task: Evaluate the llm response quality and adjust confidence scores or reassign glossary terms if the assignment is not correct
+
+This prompt guides you in evaluating and reassigning/rescoring relevant glossary terms to tables and columns in a database. You will analyze provided table and column information, match it with appropriate glossary terms, and output the assignments in a specific format.
+
+1. Input Information
+
+1.1 Pre Assigned Glossary Terms
+A dictionary of the columns with the preassigned glossary terms. Each column has a unique identifier and contains::
+- TermSuggestionBundle which has the following information:
+  - urn: unique identifier if the glossary term
+  - name: name of the glossary term
+  - reasoning: resoning behind the assignment of the glossary term.
+  - confidence_score: confidence score for the assignment between 1-10 (10 is the perfect match)
+
+{preassigned_glossary_terms}
+  
+
+
+1.2 Glossary Terms
+A dictionary of available glossary terms. Each term has a unique identifier and contains:
+- term_name: Name of the glossary term
+- term_description: Description of the glossary term
+- parent_node: Information about the parent category
+  - name: Name of the parent node
+  - description: Description of the parent node
+
+{glossary_info}
+
+Example:
+{{
+  "urn:li:glossaryTerm:PIITerms.GenderIdentity": {{
+    "term_name": "GenderIdentity",
+    "term_description": "The gender with which the user identifies.",
+    "parent_node": {{
+      "name": "Information Types",
+      "description": "PII commonly found in data warehouses for a company creating design tools."
+    }}
+  }},
+  ...
+}}
+
+1.3 Table Information
+A dictionary describing the table:
+- name: Name of the table
+- description: Description of the table
+
+{table_info}
+
+1.4 Column Information
+A dictionary describing each column in the table:
+- column_name: Name of the column
+- description: Description of the column
+- sample_values: Sample values of the column
+- datatype: Data type of the column
+
+{column_info}
+
+2. Output Format
+
+Your output should be a JSON object with the following structure:
+{{
+  "table": [list of assigned glossary terms for the table],
+  "column_name1": [list of assigned glossary terms for column1],
+  "column_name2": [list of assigned glossary terms for column2],
+  ...
+}}
+
+Each assigned glossary term should be an object with:
+- urn: Unique identifier of the glossary term
+- name: Name of the glossary term
+- reasoning: Brief explanation of term relevance in less than 15 words. 
+- confidence_score: Float from 1 to 10 (10 = perfect match)
+
+3. Confidence Score Guidelines
+
+- 10: Perfect match, term directly describes the column/table
+- 7-9: Strong match, term is highly relevant
+- 4-6: Moderate match, term is related but not perfectly aligned
+- 1-3: Weak match, term is tangentially related
+
+Generate the output response which is the modified copy of the input preassigned glossary terms with adjusted score and more appropriately matching terms if necessary.
+Remember to adhere strictly to the provided glossary terms and format in your response.

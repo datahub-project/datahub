@@ -26,8 +26,10 @@ TERM_SUGGESTION_GENERATION_MODEL: BedrockModel = parse_obj_as(
 
 # Suggestions with a confidence score strictly below this should be filtered out.
 TERM_SUGGESTION_CONFIDENCE_THRESHOLD: float = 8.0
-COLUMN_SPLIT_LENGTH = 40
+COLUMN_SPLIT_LENGTH = 30
 
+_USE_REFLECTION = False
+_REFLECTION_PROMPT_PATH = pathlib.Path(__file__).parent / "reflection_prompt.txt"
 _PROMPT_PATH = pathlib.Path(__file__).parent / "term_suggestion_prompt.txt"
 _TABLE_INFO_FOR_PROMPT = ["name", "description"]
 _COLUMN_INFO_FOR_PROMPT = [
@@ -81,6 +83,30 @@ def parse_llm_output(
     else:
         logger.info("No dictionary found in the text.")
         return None, None
+
+
+def parse_llm_reflection_output(
+    text: str,
+) -> Dict[str, List[TermSuggestionBundle]] | None:
+    match = re.search(r"\{[\s\S]*\}", text, re.DOTALL)
+    if match:
+        dict_str = match.group(0)
+        dict_str_cleaned = dict_str.strip()
+        dict_str_cleaned = re.sub("(?<=[a-z])'(?=[a-z])", "\\'", dict_str_cleaned)
+        try:
+            extracted_dict: dict = ast.literal_eval(dict_str_cleaned)
+            parsed_extracted_dict: Dict[str, List[TermSuggestionBundle]] = {
+                key: parse_terms_list_obj(value)
+                for key, value in extracted_dict.items()
+            }
+            # table_terms = parsed_extracted_dict.pop("table", None)
+            return parsed_extracted_dict
+        except (SyntaxError, ValueError) as e:
+            logger.info(f"Error evaluating dictionary: {e}")  # . Text: {text}")
+            return None
+    else:
+        logger.info("No dictionary found in the text.")
+        return None
 
 
 def label_fake_column_terms(
@@ -156,6 +182,22 @@ def filter_table_information(table_info: dict, column_info: dict) -> tuple[dict,
     return table_info_filtered, column_info_filtered
 
 
+def generate_reflection_prompt(
+    preassigned_glossary_terms: Dict[str, List[TermSuggestionBundle]],
+    column_info: dict,
+    table_info: dict,
+    glossary_info: GlossaryInfo,
+) -> str:
+    prompt_template = _REFLECTION_PROMPT_PATH.read_text()
+    prompt = prompt_template.format(
+        preassigned_glossary_terms=preassigned_glossary_terms,
+        table_info=table_info,
+        column_info=column_info,
+        glossary_info=glossary_info.glossary,
+    )
+    return prompt
+
+
 def get_term_recommendations_for_column_splits(
     column_splits: List[List[str]],
     table_info: dict,
@@ -185,6 +227,25 @@ def get_term_recommendations_for_column_splits(
         table_terms, column_split_terms = parse_llm_output(
             raw_llm_response_for_column_split
         )
+
+        if column_split_terms and _USE_REFLECTION:
+            reflection_prompt = generate_reflection_prompt(
+                table_info=table_info,
+                column_info=column_info,
+                glossary_info=glossary_info,
+                preassigned_glossary_terms=column_split_terms,
+            )
+            logger.debug("Running Reflection...")
+            reassessed_column_split_terms_raw = call_bedrock_llm(
+                prompt=reflection_prompt,
+                model=TERM_SUGGESTION_GENERATION_MODEL,
+                max_tokens=5000,
+            )
+            reassessed_column_split_terms = parse_llm_reflection_output(
+                reassessed_column_split_terms_raw
+            )
+            column_split_terms = reassessed_column_split_terms
+
         if isinstance(column_split_terms, dict):
             if isinstance(column_terms, dict):
                 column_terms.update(column_split_terms)

@@ -1,20 +1,23 @@
 import pathlib
 import sys
-import pandas as pd
-import numpy as np
 from typing import Dict, List
-from datetime import datetime
 
-current_dir = pathlib.Path().parent.resolve()
-sys.path.append(str(current_dir.parent))
+import numpy as np
+import pandas as pd
+
 from datahub_integrations.gen_ai.description_v2 import (
     extract_metadata_for_urn,
     transform_table_info_for_llm,
 )
+
+current_dir = pathlib.Path().parent.resolve()
+sys.path.append(str(current_dir.parent))
 from docs_generation.graph_helper import create_datahub_graph
 
-    
-def get_table_and_column_infos_dict(urns_dict: Dict[str, List[str]]) -> tuple[dict, dict]:
+
+def get_table_and_column_infos_dict(
+    urns_dict: Dict[str, List[str]]
+) -> tuple[dict, dict]:
     table_infos_dict = {}
     column_infos_dict = {}
     for instance, urns in urns_dict.items():
@@ -59,7 +62,9 @@ def read_labeled_column_data(csv_path, urns_dict) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
     df.loc[:, "unique_keys"] = df.table_urn + "_" + df.col_name
     df = df.replace([np.nan], [None])
-    df = df[df["table_urn"].isin([urn for value in urns_dict.values() for urn in value])]
+    df = df[
+        df["table_urn"].isin([urn for value in urns_dict.values() for urn in value])
+    ]
     df = df.reset_index(drop=True)
     return df
 
@@ -75,7 +80,7 @@ def get_prediction_df(parsed_llm_responses, confidence_threshold=8):
                 unique_key = table_urn + "_" + column_name
                 if terms is not None:
                     terms_list = [
-                        (term.name, term.confidence_score)
+                        (term.name, term.confidence_score, term.reasoning)
                         for term in terms
                         if not term.is_fake
                     ]
@@ -208,7 +213,9 @@ def get_classification_report_df(
                 )
                 column_stats_dict["fake_columns_count"] = fake_columns_count
 
-                fake_terms_count = get_table_fake_terms_data(column_terms, filtered_actual_column_names)
+                fake_terms_count = get_table_fake_terms_data(
+                    column_terms, filtered_actual_column_names
+                )
                 column_stats_dict["fake_terms_count"] = fake_terms_count
 
                 column_stats_dict["actual_column_count"] = len(
@@ -235,4 +242,3 @@ def get_classification_report_df(
     classification_report_df.index.names = ["table_urn"]
     classification_report_df = classification_report_df.reset_index()
     return classification_report_df
-    

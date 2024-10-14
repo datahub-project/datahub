@@ -11,7 +11,7 @@ _GLOSSARY_NODE_GQL = (
 ).read_text()
 
 
-_MAX_DESCRIPTION_LENGTH = 1000000
+_MAX_DESCRIPTION_LENGTH = 8000
 
 
 class GlossaryUniverseConfig(ConfigModel):

@@ -31,7 +31,9 @@ class SerializedResponse(BaseModel):
     ]
 
 
-def write_llm_output_to_csv(llm_response: list, csv_path: str = "") -> None:
+def write_llm_output_to_csv(
+    llm_response: list, csv_path: str | pathlib.Path = ""
+) -> None:
     serialized_responses = SerializedResponse(response_dict=llm_response).dict()[
         "response_dict"
     ]
