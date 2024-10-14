@@ -275,6 +275,8 @@ class SqlAggregatorReport(Report):
     tool_meta_report: Optional[ToolMetaExtractorReport] = None
 
     def compute_stats(self) -> None:
+        if self._aggregator._closed:
+            return
         self.schema_resolver_count = self._aggregator._schema_resolver.schema_count()
         self.num_unique_query_fingerprints = len(self._aggregator._query_map)
 
@@ -345,6 +347,7 @@ class SqlParsingAggregator(Closeable):
 
         # The exit stack helps ensure that we close all the resources we open.
         self._exit_stack = contextlib.ExitStack()
+        self._closed: bool = False
 
         # Set up the schema resolver.
         self._schema_resolver: SchemaResolver
@@ -456,12 +459,16 @@ class SqlParsingAggregator(Closeable):
                 shared_connection=self._shared_connection,
                 tablename="query_usage_counts",
             )
+            self._exit_stack.push(self._query_usage_counts)
 
         # Tool Extractor
         self._tool_meta_extractor = ToolMetaExtractor()
         self.report.tool_meta_report = self._tool_meta_extractor.report
 
     def close(self) -> None:
+        # Compute stats once before closing connections
+        self.report.compute_stats()
+        self._closed = True
         self._exit_stack.close()
 
     @property
