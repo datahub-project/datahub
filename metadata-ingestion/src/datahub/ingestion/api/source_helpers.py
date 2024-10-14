@@ -426,7 +426,7 @@ def auto_fix_empty_field_paths(
 
         yield wu
 
-    if schemas_with_duplicates:
+    if schemas_with_empty_fields > 0:
         properties = {
             "platform": platform,
             "total_schema_aspects": total_schema_aspects,
