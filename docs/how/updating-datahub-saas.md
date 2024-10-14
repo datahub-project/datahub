@@ -24,9 +24,44 @@ This is over and above updating-datahub.md file
 
 ### Breaking Changes
 
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+### Environment Variables
+
+## v0.3.6
+
+### Breaking Changes
 
 ### Potential Downtime
 
+### Deprecations
+
+### Other Notable Changes
+
+### Environment Variables
+- `SCHEMA_FIELD_CLL_ENABLED` (default: false) - Turns on the schema-field level lineage feature, by adding
+links to the schema field drawer header and to lineage visualization columns. These links bring the user to
+the schema field entity page Lineage tab, which shows a column-level lineage graph. From there, users can
+explore lineage like normal, with links to other columns and links back to dataset-level lineage. Without
+the flag enabled, schema-field lineage is still available but there are no direct links to it, so it's
+hidden from users.
+- `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS` (default: false) - Should be enabled if `SCHEMA_FIELD_CLL_ENABLED`
+is enabled without the schema field side effect being enabled (via `MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED`).
+This will tell the schema-field level lineage visualization to ignore the status of the schema field
+when determining if it should be included in the lineage graph, because most schema fields will not
+exist in the schema field index / database without the side effect. The side effect has yet to be load
+tested on a production environment, so this enables turning on schema-field level lineage now,
+while that testing is being completed.
+
+## v0.3.5
+
+### Breaking Changes
+
+### Potential Downtime
 
 ### Deprecations
 
@@ -41,6 +76,12 @@ This is over and above updating-datahub.md file
   4. Handles primary key changes under a single change event
 
 ### Environment Variables
+- `HIDE_DBT_SOURCE_IN_LINEAGE` (default: false) - Only should be enabled if the user is running dbt
+ingestion with `skip_sources_in_lineage: true` (requires either `entities_enabled.sources: NO` or 
+`prefer_sql_parser_lineage: true`). This will hide the dbt source entities from the lineage graph,
+even though the graph index stores an edge between a dbt source and its sibling, and represent the
+warehouse sibling as a "combined" entity. If the user is on the dbt entity page's lineage tab, the
+visualization will show the warehouse sibling as the home node.
 
 ## v0.3.4
 

@@ -116,10 +116,10 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                         <StyleLink
                             to={
                                 expandedField.schemaFieldEntity &&
-                                entityRegistry.getEntityUrl(
+                                `${entityRegistry.getEntityUrl(
                                     expandedField.schemaFieldEntity?.type,
                                     (expandedField.schemaFieldEntity?.urn as string) || '',
-                                )
+                                )}/Lineage`
                             }
                         >
                             {displayName.split('.').pop()}
