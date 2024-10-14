@@ -109,6 +109,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                         {!readOnly && (
                             <SectionActionButton
                                 button={hasContent ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                                dataTestId="editDocumentation"
                                 onClick={(event) => {
                                     if (!isEmbeddedProfile) {
                                         routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });

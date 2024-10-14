@@ -31,6 +31,8 @@ export default function DeleteEntityMenuItem({ options, onDelete }: Props) {
         options?.skipDeleteWait,
     );
 
+    if (!entityData) return null;
+
     /**
      * A default path to redirect to if the entity is deleted.
      */

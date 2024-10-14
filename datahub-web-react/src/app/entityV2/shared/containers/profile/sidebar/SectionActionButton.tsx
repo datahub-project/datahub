@@ -35,13 +35,14 @@ type Props = {
     button: React.ReactNode;
     onClick: any;
     actionPrivilege?: boolean;
+    dataTestId?: string;
 };
 
-const SectionActionButton = ({ tip, button, onClick, actionPrivilege = true }: Props) => {
+const SectionActionButton = ({ tip, button, onClick, actionPrivilege = true, dataTestId }: Props) => {
     return (
         <Tooltip placement="top" title={!actionPrivilege ? 'No access' : tip} showArrow={false}>
             <>
-                <ActionButton onClick={onClick} privilege={actionPrivilege}>
+                <ActionButton onClick={onClick} privilege={actionPrivilege} data-testid={dataTestId}>
                     {button}
                 </ActionButton>
             </>

@@ -46,7 +46,7 @@ function useDeleteEntity(
                     });
                 }
 
-                if (entityData.type === EntityType.Domain) {
+                if (type === EntityType.Domain) {
                     handleDeleteDomain();
                 }
 

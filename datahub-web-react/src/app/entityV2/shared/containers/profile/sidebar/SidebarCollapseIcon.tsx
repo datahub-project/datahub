@@ -46,7 +46,11 @@ export default function SidebarCollapseIcon() {
     return (
         <Container>
             <Tooltip placement="left" showArrow={false} title={!isClosed ? 'Close sidebar' : 'Open sidebar'}>
-                <CloseButton $isClosed={isClosed} onClick={() => setSidebarClosed(!isClosed)}>
+                <CloseButton
+                    $isClosed={isClosed}
+                    onClick={() => setSidebarClosed(!isClosed)}
+                    data-testid="toggleSidebar"
+                >
                     <StyledKeyboardTabOutlinedIcon direction={isClosed ? 'left' : 'right'} />
                 </CloseButton>
             </Tooltip>

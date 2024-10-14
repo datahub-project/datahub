@@ -13,22 +13,6 @@ const handledResizeLoopErrors = () => {
     }
   });
 };
-// Delete Unecessary Existing Domains
-const deleteExisitingDomain = () => {
-  cy.get('a[href*="urn:li"] span[class^="ant-typography"]')
-    .should("be.visible")
-    .its("length")
-    .then((length) => {
-      for (let i = 0; i < length - 1; i++) {
-        cy.get('a[href*="urn:li"] span[class^="ant-typography"]')
-          .should("be.visible")
-          .first()
-          .click({ force: true });
-        deleteFromDomainDropdown();
-      }
-    });
-  cy.waitTextVisible("Marketing");
-};
 
 const createDomain = (domain) => {
   cy.get('[id="browse-v2"]').find('[type="button"]').first().click();
@@ -80,7 +64,6 @@ const getDomainList = (domainName) => {
 };
 
 const deleteFromDomainDropdown = () => {
-  cy.waitTextVisible("Add Data Product");
   cy.clickOptionWithTestId("entity-menu-delete-button");
   cy.waitTextVisible("Are you sure you want to remove this Domain?");
   cy.clickOptionWithText("Yes");
@@ -130,31 +113,28 @@ describe("Verify nested domains test functionalities", () => {
     handledResizeLoopErrors();
   });
   // TODO: remove skip here once we fix this test
-  it.skip("Verify Create a new domain", () => {
-    deleteExisitingDomain();
-    cy.get('a[href*="urn:li"] span[class^="ant-typography"]').should(
-      "be.visible",
-    );
+  it("Verify Create a new domain", () => {
+    cy.waitTextVisible("Marketing");
     createDomain();
     cy.waitTextVisible("Domains");
   });
 
   // TODO: remove skip here once we fix this test
-  it.skip("verify Move domain root level to parent level", () => {
+  it("verify Move domain root level to parent level", () => {
     cy.waitTextVisible(domainName);
     moveDomaintoRootLevel();
     cy.goToDomainList();
   });
 
   // TODO: remove skip here once we fix this test
-  it.skip("Verify Move domain parent level to root level", () => {
+  it("Verify Move domain parent level to root level", () => {
     moveDomaintoParent();
     cy.waitTextVisible("Moved Domain!");
     cy.goToDomainList();
     cy.waitTextVisible(domainName);
   });
   // TODO: remove skip here once we fix this test
-  it.skip("Verify Documentation tab by adding editing Description and adding link", () => {
+  it("Verify Documentation tab by adding editing Description and adding link", () => {
     cy.clickOptionWithText(domainName);
     cy.clickOptionWithId("#rc-tabs-0-tab-Documentation");
     cy.clickFirstOptionWithText("Add Documentation");
@@ -164,7 +144,6 @@ describe("Verify nested domains test functionalities", () => {
     cy.get("Description Updated").should("not.exist");
     cy.waitTextVisible("Test added");
     cy.clickFirstOptionWithTestId("add-link-button");
-    cy.waitTextVisible("Add Link");
     cy.enterTextInTestId("add-link-modal-url", "www.test.com");
     cy.enterTextInTestId("add-link-modal-label", "Test Label");
     cy.clickOptionWithTestId("add-link-modal-add-button");
@@ -176,10 +155,9 @@ describe("Verify nested domains test functionalities", () => {
     clearAndDelete();
   });
   // TODO: remove skip here once we fix this test
-  it.skip("Verify Right side panel functionalities", () => {
+  it("Verify Right side panel functionalities", () => {
     cy.clickOptionWithText(domainName);
-    cy.waitTextVisible("Add Data Product");
-    cy.clickOptionWithText("Add Documentation");
+    cy.clickOptionWithTestId("editDocumentation");
     clearAndType("Test documentation");
     cy.clickOptionWithTestId("description-editor-save-button");
     cy.ensureTextNotPresent("Add Documentation");
@@ -195,8 +173,8 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Link Added");
     cy.contains("Link Added").should("not.exist");
     cy.waitTextVisible("Test Label");
-    cy.clickOptionWithTestId("KeyboardTabOutlinedIcon");
-    cy.clickOptionWithTestId("AddRoundedIcon");
+    cy.clickOptionWithTestId("toggleSidebar");
+    cy.clickOptionWithTestId("addOwner");
     cy.waitTextVisible("Find a user or group");
     cy.clickTextOptionWithClass(
       ".rc-virtual-list-holder-inner",
@@ -214,9 +192,8 @@ describe("Verify nested domains test functionalities", () => {
     clearAndDelete();
   });
   // TODO: remove skip here once we fix this test
-  it.skip("Verify Edit Domain Name", () => {
+  it("Verify Edit Domain Name", () => {
     cy.clickFirstOptionWithText(domainName);
-    cy.waitTextVisible("Add Data Product");
     // edit name
     cy.get(".anticon-edit")
       .eq(0)
@@ -227,13 +204,13 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible(`${domainName} Edited`);
   });
   // TODO: remove skip here once we fix this test
-  it.skip("Verify Remove the domain", () => {
+  it("Verify Remove the domain", () => {
     deleteDomain();
     cy.goToDomainList();
     cy.ensureTextNotPresent(domainName);
   });
   // TODO: remove skip here once we fix this test
-  it.skip("Verify Add and delete parent domain from parent domain", () => {
+  it("Verify Add and delete parent domain from parent domain", () => {
     cy.visit("domain/urn:li:domain:marketing/Documentation");
     cy.get('[aria-label="edit"]').should("be.visible");
     createDomain("sub domain");
@@ -248,7 +225,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.ensureTextNotPresent(domainName);
   });
   // TODO: remove skip here once we fix this test
-  it.skip("Verify Add and delete sub domain", () => {
+  it("Verify Add and delete sub domain", () => {
     cy.visit("domain/urn:li:domain:marketing/Documentation");
     cy.get('[aria-label="edit"]').should("be.visible");
     createDomain();
@@ -261,7 +238,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.ensureTextNotPresent(domainName);
   });
   // TODO: remove skip here once we fix this test
-  it.skip("Verify entities tab with adding and deleting assets and performing some actions", () => {
+  it("Verify entities tab with adding and deleting assets and performing some actions", () => {
     cy.clickFirstOptionWithText("Marketing");
     cy.clickOptionWithText("Add to Assets");
     cy.waitTextVisible("Add assets to Domain");
