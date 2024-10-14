@@ -62,7 +62,6 @@ from datahub.ingestion.source_report.ingestion_stage import (
     METADATA_EXTRACTION,
     PROFILING,
 )
-from datahub.metadata._urns.urn_defs import TagUrn
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
     SubTypes,
@@ -92,6 +91,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     TagAssociationClass,
 )
+from datahub.metadata.urns import TagUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import (
@@ -278,13 +278,18 @@ class BigQuerySchemaGenerator:
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_dataset_key(project_id, dataset)
 
-        tags_joined: Optional[List[str]] = None
+        tags_joined: List[str] = []
         if tags and self.config.capture_dataset_label_as_tag:
-            tags_joined = [
-                self.make_tag_urn_from_label(k, v)
-                for k, v in tags.items()
-                if is_tag_allowed(self.config.capture_dataset_label_as_tag, k)
-            ]
+            for k, v in tags.items():
+                if is_tag_allowed(self.config.capture_dataset_label_as_tag, k):
+                    tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
+                    label = BigQueryLabel(key=k, value=v)
+                    if self.graph:
+                        for mcpw in self.generate_label_platform_resource(
+                            label, tag_urn
+                        ):
+                            yield mcpw.as_workunit()
+                    tags_joined.append(tag_urn.urn())
 
         database_container_key = self.gen_project_id_key(database=project_id)
 
@@ -703,12 +708,8 @@ class BigQuerySchemaGenerator:
         if self.platform_resource_cache.get(primary_key):
             return self.platform_resource_cache.get(primary_key)
 
-        platform_resources: List[PlatformResource] = list(
-            PlatformResource.search_by_key(self.graph, primary_key, primary=True)
-        )
-        # platform_resource:PlatformResource = PlatformResource.from_datahub(key=platform_resource_key, graph_client=graph)
-        platform_resource: Optional[PlatformResource] = (
-            platform_resources[0] if platform_resources else None
+        platform_resource = PlatformResource.from_datahub(
+            key=primary_key, graph_client=self.graph
         )
         if platform_resource:
             return platform_resource
@@ -717,8 +718,17 @@ class BigQuerySchemaGenerator:
     def generate_label_platform_resource(
         self, bigquery_label: BigQueryLabel, tag_urn: TagUrn
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        bq_project = (
+            self.config.project_on_behalf
+            if self.config.project_on_behalf
+            else self.config.credential.project_id
+            if self.config.credential
+            else None
+        )
+
         platform_resource_key = PlatformResourceKey(
             platform="bigquery",
+            platform_instance=bq_project,
             resource_type="BigQueryLabelnfo",
             primary_key=bigquery_label.primary_key(),
         )
@@ -735,10 +745,8 @@ class BigQuerySchemaGenerator:
                 platform_resource.resource_info
                 and platform_resource.resource_info.value
             ):
-                existing_info: BigQueryLabelInfo = (
-                    platform_resource.resource_info.value.as_pydantic_object(
-                        BigQueryLabelInfo
-                    )
+                existing_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                    BigQueryLabelInfo
                 )
 
                 if existing_info:
@@ -752,9 +760,11 @@ class BigQuerySchemaGenerator:
                     if new_bq_label_info == existing_info:
                         return
 
-                    logger.debug(
-                        f"Updating platform resource {platform_resource} with new value {bigquery_label}"
-                    )
+                    if new_bq_label_info.datahub_urn == existing_info.datahub_urn:
+                        logger.warning(
+                            f"Duplicate BigQueryLabelInfo found for {bigquery_label}. Skipping..."
+                        )
+                        return
 
         if not new_bq_label_info:
             new_bq_label_info = BigQueryLabelInfo(
@@ -820,13 +830,6 @@ class BigQuerySchemaGenerator:
         tags_to_add = None
         if table.labels and self.config.capture_table_label_as_tag:
             tags_to_add = []
-            tags_to_add.extend(
-                [
-                    self.make_tag_urn_from_label(k, v)
-                    for k, v in table.labels.items()
-                    if is_tag_allowed(self.config.capture_table_label_as_tag, k)
-                ]
-            )
             for k, v in table.labels.items():
                 if is_tag_allowed(self.config.capture_table_label_as_tag, k):
                     tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
@@ -855,13 +858,18 @@ class BigQuerySchemaGenerator:
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-        tags_to_add = None
+        tags_to_add = []
         if table.labels and self.config.capture_view_label_as_tag:
-            tags_to_add = [
-                self.make_tag_urn_from_label(k, v)
-                for k, v in table.labels.items()
-                if is_tag_allowed(self.config.capture_view_label_as_tag, k)
-            ]
+            for k, v in table.labels.items():
+                if is_tag_allowed(self.config.capture_view_label_as_tag, k):
+                    tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
+                    label = BigQueryLabel(key=k, value=v)
+                    if self.graph:
+                        for mcpw in self.generate_label_platform_resource(
+                            label, tag_urn
+                        ):
+                            yield mcpw.as_workunit()
+                    tags_to_add.append(tag_urn.urn())
         yield from self.gen_dataset_workunits(
             table=table,
             columns=columns,

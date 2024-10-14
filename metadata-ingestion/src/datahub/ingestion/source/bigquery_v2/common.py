@@ -117,7 +117,7 @@ class BigQueryLabelInfo(BaseModel):
     datahub_urn: str
     managed_by_datahub: bool
     key: str
-    value: str
+    value: Optional[str]
 
 
 @dataclass
@@ -126,4 +126,4 @@ class BigQueryLabel:
     value: Optional[str]
 
     def primary_key(self):
-        return f"/key/{self.key}/value/{self.value}"
+        return f"{self.key}/{self.value}" if self.value else f"{self.key}"
