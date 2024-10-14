@@ -170,10 +170,6 @@ def make_container_urn(guid: Union[str, "DatahubKey"]) -> str:
     return f"urn:li:container:{guid}"
 
 
-def make_role_urn(role_name: str) -> str:
-    return f"urn:li:role:{role_name}"
-
-
 def container_urn_to_key(guid: str) -> Optional[ContainerKeyClass]:
     pattern = r"urn:li:container:(.*)"
     results = re.search(pattern, guid)

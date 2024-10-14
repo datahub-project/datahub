@@ -17,7 +17,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -34,7 +34,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -51,7 +51,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -70,7 +70,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -87,7 +87,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -108,7 +108,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -125,7 +125,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -142,7 +142,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -161,7 +161,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -178,7 +178,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -199,7 +199,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -216,7 +216,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -233,7 +233,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -252,7 +252,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -269,7 +269,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -281,7 +281,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9"
+                "workbook_id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9",
+                "groups": "AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer (Read)"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15995",
             "name": "Email Performance by Campaign",
@@ -292,7 +293,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -309,7 +310,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -326,7 +327,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -345,7 +346,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -372,7 +373,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -389,7 +390,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -411,48 +412,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
-    }
-},
-{
-    "entityType": "role",
-    "entityUrn": "urn:li:role:AR-Tableau-PROJECT_XY_Consumer",
-    "changeType": "UPSERT",
-    "aspectName": "roleProperties",
-    "aspect": {
-        "json": {
-            "name": "AR-Tableau-PROJECT_XY_Consumer",
-            "description": "IAM Role required to access this Tableau asset.",
-            "type": "Read",
-            "requestUrl": "https://iam.example.com/accessRequest?role=AR-Tableau-PROJECT_XY_Consumer"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
-    "changeType": "UPSERT",
-    "aspectName": "access",
-    "aspect": {
-        "json": {
-            "roles": [
-                {
-                    "urn": "urn:li:role:AR-Tableau-PROJECT_XY_Consumer"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -464,7 +424,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "661fabd0-bed6-8610-e066-0694a81a6cea"
+                "workbook_id": "661fabd0-bed6-8610-e066-0694a81a6cea",
+                "groups": "AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer (Read)"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15619",
             "name": "Dvdrental Workbook",
@@ -475,7 +436,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -492,7 +453,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -509,7 +470,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -528,7 +489,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -555,7 +516,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -576,7 +537,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -593,28 +554,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
-    "changeType": "UPSERT",
-    "aspectName": "access",
-    "aspect": {
-        "json": {
-            "roles": [
-                {
-                    "urn": "urn:li:role:AR-Tableau-PROJECT_XY_Consumer"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -636,7 +576,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -648,7 +588,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf"
+                "workbook_id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
+                "groups": "AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer (Read)"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15605",
             "name": "Executive Dashboard",
@@ -659,7 +600,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -676,7 +617,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -693,7 +634,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -712,7 +653,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -739,7 +680,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -756,28 +697,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
-    "changeType": "UPSERT",
-    "aspectName": "access",
-    "aspect": {
-        "json": {
-            "roles": [
-                {
-                    "urn": "urn:li:role:AR-Tableau-PROJECT_XY_Consumer"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -799,7 +719,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -811,7 +731,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c"
+                "workbook_id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c",
+                "groups": "AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer (Read)"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/17904",
             "name": "Workbook published ds",
@@ -822,7 +743,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -839,7 +760,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -856,7 +777,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -875,7 +796,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -902,7 +823,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -919,28 +840,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
-    "changeType": "UPSERT",
-    "aspectName": "access",
-    "aspect": {
-        "json": {
-            "roles": [
-                {
-                    "urn": "urn:li:role:AR-Tableau-PROJECT_XY_Consumer"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -962,7 +862,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -984,7 +884,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -1051,7 +951,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -1068,7 +968,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -1242,7 +1142,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -1268,7 +1168,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -1333,7 +1233,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -1350,7 +1250,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -1810,7 +1710,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -1836,7 +1736,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -1901,7 +1801,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -1918,7 +1818,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -2430,7 +2330,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -2456,7 +2356,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -2521,7 +2421,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -2538,7 +2438,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -2946,7 +2846,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -2972,7 +2872,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -3037,7 +2937,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -3054,7 +2954,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -3098,7 +2998,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -3124,7 +3024,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -3189,7 +3089,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -3206,7 +3106,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -3418,7 +3318,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -3444,7 +3344,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -3518,7 +3418,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -3535,7 +3435,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -3622,7 +3522,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -3648,7 +3548,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -3716,7 +3616,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -3733,7 +3633,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -4130,7 +4030,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -4156,7 +4056,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -4224,7 +4124,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -4241,7 +4141,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -4606,7 +4506,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -4632,7 +4532,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -4700,7 +4600,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -4717,7 +4617,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -5114,7 +5014,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -5140,7 +5040,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -5205,7 +5105,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -5222,7 +5122,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -5503,7 +5403,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -5529,7 +5429,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -5597,7 +5497,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -5614,7 +5514,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -5872,7 +5772,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -5898,7 +5798,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -5963,7 +5863,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -5980,7 +5880,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -6264,7 +6164,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -6290,7 +6190,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -6358,7 +6258,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -6375,7 +6275,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -6711,7 +6611,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -6737,7 +6637,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -6805,7 +6705,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -6822,7 +6722,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -7132,7 +7032,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -7158,7 +7058,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -7223,7 +7123,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -7240,7 +7140,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -7469,7 +7369,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -7495,7 +7395,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -7563,7 +7463,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -7580,7 +7480,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -7838,7 +7738,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -7864,7 +7764,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -7929,7 +7829,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -7946,7 +7846,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -8097,7 +7997,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -8123,7 +8023,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -8191,7 +8091,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -8208,7 +8108,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -8544,7 +8444,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -8570,7 +8470,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -8638,7 +8538,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -8655,7 +8555,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -8887,7 +8787,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -8913,7 +8813,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -8981,7 +8881,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -8998,7 +8898,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -9256,7 +9156,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -9282,7 +9182,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -9350,7 +9250,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -9367,7 +9267,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -9651,7 +9551,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -9677,7 +9577,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -9742,7 +9642,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -9759,7 +9659,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10098,7 +9998,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10124,7 +10024,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10189,7 +10089,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10206,7 +10106,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10293,7 +10193,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10319,7 +10219,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10341,7 +10241,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10410,7 +10310,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10427,7 +10327,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10453,7 +10353,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10517,7 +10417,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10534,7 +10434,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10560,7 +10460,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10622,7 +10522,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10639,7 +10539,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10665,7 +10565,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10741,7 +10641,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10758,7 +10658,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -10784,7 +10684,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -11129,7 +11029,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -12922,7 +12822,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -12941,7 +12841,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -12958,7 +12858,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -12984,7 +12884,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -13086,7 +12986,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -13331,7 +13231,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -13350,7 +13250,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -13367,7 +13267,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -13393,7 +13293,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -13427,7 +13327,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -13844,7 +13744,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -13863,7 +13763,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -13880,7 +13780,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -13906,7 +13806,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -14342,7 +14242,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -15094,7 +14994,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -15113,7 +15013,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -15130,7 +15030,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -15156,7 +15056,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -15303,7 +15203,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -21923,7 +21823,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -21942,7 +21842,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -21959,7 +21859,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -21985,7 +21885,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -22175,7 +22075,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -26081,7 +25981,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -26100,7 +26000,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -26117,7 +26017,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -26143,7 +26043,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -26295,7 +26195,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -31463,7 +31363,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -31482,7 +31382,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -31499,7 +31399,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -31525,7 +31425,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -31649,7 +31549,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -31881,7 +31781,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -31900,7 +31800,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -31917,7 +31817,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -31943,7 +31843,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -31993,7 +31893,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -32115,7 +32015,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -32134,7 +32034,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -32151,7 +32051,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -32177,7 +32077,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -32282,7 +32182,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -32569,7 +32469,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -32588,7 +32488,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -32605,7 +32505,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -32627,7 +32527,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -32762,7 +32662,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -33644,7 +33544,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -33663,7 +33563,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -33680,7 +33580,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -33702,7 +33602,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -33719,7 +33619,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -33753,7 +33653,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -33889,7 +33789,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -33909,7 +33809,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -33935,7 +33835,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -33952,7 +33852,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -33994,7 +33894,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -34142,7 +34042,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -34162,7 +34062,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -34184,7 +34084,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -34272,7 +34172,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -34292,7 +34192,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -34316,7 +34216,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -34481,7 +34381,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -34508,7 +34408,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -34745,7 +34645,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -34772,7 +34672,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -34985,7 +34885,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -35012,7 +34912,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -35177,7 +35077,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -35204,7 +35104,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -35357,7 +35257,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -35384,7 +35284,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -35525,7 +35425,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -35552,7 +35452,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -35645,7 +35545,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -35672,7 +35572,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -35741,7 +35641,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -35765,7 +35665,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -35834,7 +35734,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -35858,7 +35758,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -36155,7 +36055,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -36179,7 +36079,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -36970,7 +36870,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -36997,7 +36897,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -37882,7 +37782,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -37909,7 +37809,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -38866,7 +38766,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -38893,7 +38793,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -39718,7 +39618,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -39745,7 +39645,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -40054,7 +39954,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -40081,7 +39981,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -40930,7 +40830,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -40957,7 +40857,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -41950,7 +41850,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -41977,7 +41877,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -42838,7 +42738,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -42865,7 +42765,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -42888,7 +42788,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -42912,7 +42812,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -42935,7 +42835,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -42959,7 +42859,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -42981,7 +42881,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43005,7 +42905,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43022,7 +42922,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43039,7 +42939,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43056,7 +42956,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43073,7 +42973,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43090,7 +42990,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43107,7 +43007,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43124,7 +43024,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43141,7 +43041,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43158,7 +43058,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43175,7 +43075,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43192,7 +43092,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43209,7 +43109,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43226,7 +43126,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43243,7 +43143,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43260,7 +43160,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43277,7 +43177,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43294,7 +43194,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43311,7 +43211,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43328,7 +43228,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43345,7 +43245,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43362,7 +43262,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43379,7 +43279,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43396,7 +43296,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43413,7 +43313,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43430,7 +43330,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43447,7 +43347,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43464,7 +43364,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43481,7 +43381,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43498,7 +43398,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43515,7 +43415,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43532,7 +43432,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43549,7 +43449,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43566,7 +43466,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43583,7 +43483,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43600,7 +43500,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43617,7 +43517,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43634,7 +43534,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43651,7 +43551,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43668,7 +43568,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43685,7 +43585,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43702,7 +43602,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43719,7 +43619,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43736,7 +43636,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43753,7 +43653,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43770,7 +43670,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43787,7 +43687,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43804,7 +43704,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43821,7 +43721,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43838,7 +43738,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43855,7 +43755,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43872,7 +43772,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43889,7 +43789,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43906,7 +43806,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43923,7 +43823,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43940,7 +43840,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43957,7 +43857,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43974,7 +43874,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -43991,7 +43891,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44008,7 +43908,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44025,7 +43925,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44042,7 +43942,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44059,7 +43959,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44076,7 +43976,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44093,7 +43993,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44110,7 +44010,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44127,7 +44027,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44144,7 +44044,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44161,7 +44061,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44178,7 +44078,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44195,7 +44095,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44212,7 +44112,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44229,7 +44129,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44246,7 +44146,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44263,7 +44163,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44280,7 +44180,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44297,7 +44197,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44314,7 +44214,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 },
 {
@@ -44331,7 +44231,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_access_role_ingest"
+        "pipelineName": "test_tableau_group_ingest"
     }
 }
 ]

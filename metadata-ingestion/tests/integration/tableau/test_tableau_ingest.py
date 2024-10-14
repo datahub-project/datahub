@@ -1197,20 +1197,16 @@ def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_access_role_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
+def test_group_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
     enable_logging()
-    output_file_name: str = "tableau_access_role_ingestion_mces.json"
-    golden_file_name: str = "tableau_access_role_ingestion_mces_golden.json"
+    output_file_name: str = "tableau_group_ingestion_mces.json"
+    golden_file_name: str = "tableau_group_ingestion_mces_golden.json"
 
     new_pipeline_config: Dict[Any, Any] = {
         **config_source_default,
-        "access_role_ingestion": {
+        "group_ingestion": {
             "enable_workbooks": True,
-            "role_prefix": "AR-Tableau-",
-            "group_start_index": 29,
-            "role_description": "IAM Role required to access this Tableau asset.",
             "displayed_capabilities": ["Read", "Write", "Delete"],
-            "request_url": "https://iam.example.com/accessRequest?role=$ROLE_NAME",
             "group_name_pattern": {"allow": ["^.*_Consumer$"]},
         },
     }
@@ -1222,7 +1218,7 @@ def test_access_role_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
         output_file_name,
         mock_datahub_graph,
         pipeline_config=new_pipeline_config,
-        pipeline_name="test_tableau_access_role_ingest",
+        pipeline_name="test_tableau_group_ingest",
     )
 
 
