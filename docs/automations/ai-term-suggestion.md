@@ -10,7 +10,7 @@ This feature is currently in closed beta. Reach out to your Acryl representative
 
 :::
 
-The AI Glossary Term Suggestions automation uses LLMs to suggest Glossary Terms for tables and columns in your data.
+The AI Glossary Term Suggestion automation uses LLMs to suggest [Glossary Terms](../glossary/business-glossary.md) for tables and columns in your data.
 
 This is useful for improving coverage of glossary terms across your organization, which is important for compliance and governance efforts.
 
@@ -25,7 +25,7 @@ This automation can:
 
 - A business glossary with terms defined. Additional metadata, like documentation and existing term assignments, will improve the accuracy of our suggestions.
 
-## Enabling AI Glossary Term Suggestions
+## Configuring
 
 1. **Navigate to Automations**: Click on 'Govern' > 'Automations' in the navigation bar.
 
@@ -63,6 +63,8 @@ We take into account the following metadata when generating suggestions:
 - Column name, type, description, and sample values
 - Glossary term name, documentation, and hierarchy
 - Feedback loop: existing assignments and accepted/rejected proposals (coming soon)
+
+Data privacy: Your metadata is not sent to any third-party LLMs. We use AWS Bedrock internally, which means all metadata remains within the Acryl AWS account. We do not fine-tune on customer data.
 
 ## Limitations
 
