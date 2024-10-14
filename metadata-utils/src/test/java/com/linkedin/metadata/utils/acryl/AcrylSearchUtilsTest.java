@@ -279,16 +279,16 @@ public class AcrylSearchUtilsTest {
                 new Operand(1, null, new StringListLiteral(Collections.singletonList("0")))));
 
     // Wrap the timestamp predicate in an OR
-    Predicate platformORPredicate =
+    Predicate timestampORPredicate =
         new Predicate(
             OperatorType.OR,
             ImmutableList.of(
-                new Operand(0, null, equalsPredicate), new Operand(1, null, greaterPredicate)));
+                new Operand(0, null, greaterPredicate), new Operand(1, null, equalsPredicate)));
 
     // Create the outer AND predicate combining platform and entityType
     Predicate outerAndPredicate =
         new Predicate(
-            OperatorType.AND, Collections.singletonList(new Operand(0, null, platformORPredicate)));
+            OperatorType.AND, Collections.singletonList(new Operand(0, null, timestampORPredicate)));
 
     // Create the top-level OR predicate
     return new Predicate(
