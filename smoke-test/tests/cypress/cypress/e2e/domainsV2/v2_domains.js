@@ -4,12 +4,12 @@ describe("domains", () => {
     Cypress.on("uncaught:exception", (err, runnable) => false);
   });
 
-  it.skip("can see elements inside the domain", () => {
+  it("can see elements inside the domain", () => {
     cy.login();
-    cy.goToDomain("urn:li:domain:marketing/Entities");
-    cy.contains("Marketing");
+    cy.goToDomain("urn:li:domain:testing/Entities");
+    cy.contains("Testing");
     cy.get('[data-node-key="Assets"]').click();
-    cy.contains("Baz Chart 1");
+    cy.contains("Baz Dashboard");
     cy.contains("1 - 1 of 1");
   });
 });

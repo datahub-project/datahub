@@ -1,22 +1,5 @@
 const domainName = "CypressNestedDomain";
 
-// Delete Unecessary Existing Domains
-const deleteExisitingDomain = () => {
-  cy.get('a[href*="urn:li"] span[class^="ant-typography"]')
-    .should("be.visible")
-    .its("length")
-    .then((length) => {
-      for (let i = 0; i < length - 1; i++) {
-        cy.get('a[href*="urn:li"] span[class^="ant-typography"]')
-          .should("be.visible")
-          .first()
-          .click({ force: true });
-        deleteFromDomainDropdown();
-      }
-    });
-  cy.waitTextVisible("Marketing");
-};
-
 const createDomain = () => {
   cy.get(".anticon-plus").first().click();
   cy.waitTextVisible("Create New Domain");
@@ -100,15 +83,12 @@ const clearAndDelete = () => {
 
 describe("Verify nested domains test functionalities", () => {
   beforeEach(() => {
+    cy.setIsThemeV2Enabled(false);
     cy.loginWithCredentials();
     cy.goToDomainList();
   });
 
   it("Verify Create a new domain", () => {
-    deleteExisitingDomain();
-    cy.get('a[href*="urn:li"] span[class^="ant-typography"]').should(
-      "be.visible",
-    );
     createDomain();
     cy.waitTextVisible("Domains");
   });
