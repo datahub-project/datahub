@@ -112,7 +112,7 @@ const GlossaryContentProvider = (props: Props) => {
                 </TitleContainer>
                 <ButtonContainer>
                     <PrimaryButton
-                        data-testid="add-term-group-button"
+                        data-testid="add-term-group-button-v2"
                         id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
                         type="primary"
                         size="large"

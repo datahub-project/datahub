@@ -25,7 +25,7 @@ const addOrEditLink = (text, title, url, imagesURL, testId) => {
 };
 
 const clickOnNewPost = () => {
-  cy.get('[id="posts-create-post"]').click({ force: true });
+  cy.get('[data-testid="posts-create-post"]').click({ force: true });
 };
 
 const clickOnMoreOption = () => {
@@ -34,9 +34,10 @@ const clickOnMoreOption = () => {
 
 describe("create announcement and link post", () => {
   beforeEach(() => {
+    cy.setIsThemeV2Enabled(false);
     cy.loginWithCredentials();
-    cy.goToHomePagePostSettings();
-    cy.waitTextPresent("Platform");
+    cy.goToHomePagePostSettingsV1();
+    cy.waitTestIdVisible("posts-create-post");
   });
 
   it("create announcement post and verify", () => {

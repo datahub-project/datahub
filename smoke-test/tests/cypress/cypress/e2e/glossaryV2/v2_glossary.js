@@ -39,7 +39,7 @@ describe("glossary", () => {
     cy.loginWithCredentials();
     cy.handleIntroducePage();
     nevigateGlossaryPage();
-    cy.clickOptionWithTestId("add-term-group-button");
+    cy.clickOptionWithTestId("add-term-group-button-v2");
     cy.addViaModal(
       glossaryTermGroup,
       "Create Glossary",

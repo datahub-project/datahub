@@ -111,9 +111,14 @@ Cypress.Commands.add("goToSubscriptionsSettings", () => {
   cy.waitTextVisible("My Subscriptions");
 });
 
-Cypress.Commands.add("goToHomePagePostSettings", () => {
+Cypress.Commands.add("goToHomePagePostSettingsV1", () => {
   cy.visit("/settings/posts");
-  cy.waitTextVisible("Home Page");
+  cy.waitTestIdVisible("managePostsV1");
+});
+
+Cypress.Commands.add("goToHomePagePostSettingsV2", () => {
+  cy.visit("/settings/posts");
+  cy.waitTestIdVisible("managePostsV2");
 });
 
 Cypress.Commands.add("goToAccessTokenSettings", () => {
@@ -279,6 +284,10 @@ Cypress.Commands.add("waitTextVisible", (text) => {
   cy.contains(text).should("be.visible");
   cy.contains(text).should("have.length.above", 0);
   return cy.contains(text);
+});
+
+Cypress.Commands.add("waitTestIdVisible", (testId) => {
+  cy.get(`[data-testid="${testId}"]`).should("exist");
 });
 
 Cypress.Commands.add("openMultiSelect", (data_id) => {

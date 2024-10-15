@@ -23,7 +23,7 @@ const addOrEditLink = (text, title, url, imagesURL, testId) => {
 };
 
 const clickOnNewPost = () => {
-  cy.get('[id="posts-create-post"]').click({ force: true });
+  cy.get('[data-testid="posts-create-post-v2"]').click({ force: true });
 };
 
 const clickOnMoreOption = () => {
@@ -35,7 +35,8 @@ describe("create announcement and link post", () => {
     cy.setIsThemeV2Enabled(true);
     cy.loginWithCredentials();
     cy.handleIntroducePage();
-    cy.goToHomePagePostSettings();
+    cy.goToHomePagePostSettingsV2();
+    cy.waitTestIdVisible("posts-create-post-v2");
   });
 
   it("Verify create, edit and delete announcement post", () => {
@@ -48,7 +49,7 @@ describe("create announcement and link post", () => {
     );
     cy.clickOptionWithId("#v2-home-page-announcements");
     cy.waitTextPresent("Test Announcement Title");
-    cy.goToHomePagePostSettings();
+    cy.goToHomePagePostSettingsV2();
     clickOnMoreOption();
     cy.clickOptionWithText("Edit");
     cy.contains("label", "Announcement").click();
@@ -60,7 +61,7 @@ describe("create announcement and link post", () => {
     );
     cy.clickOptionWithId("#v2-home-page-announcements");
     cy.waitTextPresent("Test Announcement Title Updated");
-    cy.goToHomePagePostSettings();
+    cy.goToHomePagePostSettingsV2();
     clickOnMoreOption();
     cy.clickOptionWithText("Delete");
     cy.clickOptionWithText("Yes");
@@ -82,7 +83,7 @@ describe("create announcement and link post", () => {
       "create",
     );
     cy.waitTextPresent("Test Link Title");
-    cy.goToHomePagePostSettings();
+    cy.goToHomePagePostSettingsV2();
     clickOnMoreOption();
     cy.clickOptionWithText("Edit");
     cy.contains("label", "Pinned Link").click();
@@ -94,7 +95,7 @@ describe("create announcement and link post", () => {
       "update",
     );
     cy.waitTextPresent("Test Link Updated Title");
-    cy.goToHomePagePostSettings();
+    cy.goToHomePagePostSettingsV2();
     clickOnMoreOption();
     cy.clickOptionWithText("Delete");
     cy.clickOptionWithText("Yes");
