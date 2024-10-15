@@ -144,6 +144,10 @@ class BigQueryPlatformResourceHelper:
                         new_platform_resource.platform_resource_info().datahub_urn
                         != existing_info.datahub_urn
                     ):
+                        # Bigquery store tags in lowercased format therefore when we create TagUrn during ingestion it creates lowercase urns while
+                        # from other source it is possible the tag is tied to a mixed case DataHub Tag urn.
+                        # Therefore we need to handle case insensitive match for DataHub URN
+                        # If the URN is different but the datahub URN is same, we skip the resource and return the existing one
                         if (
                             new_platform_resource.platform_resource_info().datahub_urn.lower()
                             == existing_info.datahub_urn.lower()

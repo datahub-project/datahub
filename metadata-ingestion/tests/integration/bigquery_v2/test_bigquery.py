@@ -121,10 +121,6 @@ def test_bigquery_v2_ingest(
 
     def side_effect(*args: Any) -> Optional[PlatformResource]:
         if args[0].primary_key == "mixedcasetag":
-            helper = BigQueryPlatformResourceHelper(
-                bq_project="project-id-1",
-                graph=None,
-            )
             return PlatformResource.create(
                 key=PlatformResourceKey(
                     primary_key="mixedcasetag",
