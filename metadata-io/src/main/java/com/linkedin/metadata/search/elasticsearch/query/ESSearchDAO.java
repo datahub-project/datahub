@@ -370,7 +370,7 @@ public class ESSearchDAO {
       IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
       AutocompleteRequestHandler builder =
           AutocompleteRequestHandler.getBuilder(
-              entitySpec, customSearchConfiguration, queryFilterRewriteChain);
+              entitySpec, customSearchConfiguration, queryFilterRewriteChain, searchConfiguration);
       SearchRequest req =
           builder.getSearchRequest(
               opContext,

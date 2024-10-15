@@ -283,7 +283,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         Map.of(
             "dataset", 13,
             "chart", 0,
-            "container", 1,
+            "container", 2,
             "dashboard", 0,
             "tag", 0,
             "mlmodel", 0);
@@ -897,6 +897,26 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                     String.format(
                         "Expected >= 1 results for `%s` found %s",
                         query, result.getEntities().size()));
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              }
+            });
+  }
+
+  @Test
+  public void testContainerAutoComplete_with_exactMatch_onTop() {
+    List.of("container")
+        .forEach(
+            query -> {
+              try {
+                AutoCompleteResults result =
+                    autocomplete(
+                        getOperationContext(), new ContainerType(getEntityClient()), query);
+                assertTrue(
+                    result.getSuggestions().get(0).equals("container"),
+                    String.format(
+                        "Expected query:`%s` on top of suggestions, found %s",
+                        query, result.getSuggestions().get(0)));
               } catch (Exception e) {
                 throw new RuntimeException(e);
               }

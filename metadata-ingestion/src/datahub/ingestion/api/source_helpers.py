@@ -394,6 +394,50 @@ def auto_fix_duplicate_schema_field_paths(
         )
 
 
+def auto_fix_empty_field_paths(
+    stream: Iterable[MetadataWorkUnit],
+    *,
+    platform: Optional[str] = None,
+) -> Iterable[MetadataWorkUnit]:
+    """Count schema metadata aspects with empty field paths and emit telemetry."""
+
+    total_schema_aspects = 0
+    schemas_with_empty_fields = 0
+    empty_field_paths = 0
+
+    for wu in stream:
+        schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
+        if schema_metadata:
+            total_schema_aspects += 1
+
+            updated_fields: List[SchemaFieldClass] = []
+            for field in schema_metadata.fields:
+                if field.fieldPath:
+                    updated_fields.append(field)
+                else:
+                    empty_field_paths += 1
+
+            if empty_field_paths > 0:
+                logger.info(
+                    f"Fixing empty field paths in schema aspect for {wu.get_urn()} by dropping empty fields"
+                )
+                schema_metadata.fields = updated_fields
+                schemas_with_empty_fields += 1
+
+        yield wu
+
+    if schemas_with_empty_fields > 0:
+        properties = {
+            "platform": platform,
+            "total_schema_aspects": total_schema_aspects,
+            "schemas_with_empty_fields": schemas_with_empty_fields,
+            "empty_field_paths": empty_field_paths,
+        }
+        telemetry.telemetry_instance.ping(
+            "ingestion_empty_schema_field_paths", properties
+        )
+
+
 def auto_empty_dataset_usage_statistics(
     stream: Iterable[MetadataWorkUnit],
     *,

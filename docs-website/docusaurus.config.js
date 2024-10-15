@@ -65,6 +65,14 @@ module.exports = {
     //     isCloseable: false,
     //   },
     // }),
+    announcementBar: {
+          id: "announcement-2",
+          content:
+            '<div style="display: flex; justify-content: center; align-items: center;width: 100%;"><!--img src="/img/acryl-logo-white-mark.svg" / --><div style="font-size: .8rem; font-weight: 600; background-color: white; color: #111; padding: 0px 8px; border-radius: 4px; margin-right:12px;">NEW</div><p><span>Join us at Metadata & AI Summit, Oct. 29 & 30!</span></p><a href="http://www.acryldata.io/conference?utm_source=datahub_web&utm_medium=metadata_ai_2024&utm_campaign=home_banner" target="_blank" class="button">Register →</a></div>',
+          backgroundColor: "#111",
+          textColor: "#ffffff",
+          isCloseable: false,
+        },
     colorMode: {
       // Only support light mode.
       defaultMode: 'light',

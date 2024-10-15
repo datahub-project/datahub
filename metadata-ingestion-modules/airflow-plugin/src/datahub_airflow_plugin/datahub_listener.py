@@ -383,13 +383,11 @@ class DataHubListener:
             return
 
         logger.debug(
-            f"DataHub listener got notification about task instance start for {task_instance.task_id} of dag {task_instance.dag_run.dag_id}"
+            f"DataHub listener got notification about task instance start for {task_instance.task_id} of dag {task_instance.dag_id}"
         )
 
-        if not self.config.dag_filter_pattern.allowed(task_instance.dag_run.dag_id):
-            logger.debug(
-                f"DAG {task_instance.dag_run.dag_id} is not allowed by the pattern"
-            )
+        if not self.config.dag_filter_pattern.allowed(task_instance.dag_id):
+            logger.debug(f"DAG {task_instance.dag_id} is not allowed by the pattern")
             return
 
         if self.config.render_templates:

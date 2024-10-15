@@ -31,7 +31,7 @@
   --ifm-navbar-item-padding-horizontal: 1rem;
 
   /* Announcement Bar */
-  --docusaurus-announcement-bar-height: 60px !important;
+  --docusaurus-announcement-bar-height: 48px !important;
 
   /* Rule */
   --ifm-hr-border-width: 1px 0 0 0;
@@ -141,8 +141,9 @@ div[class^="announcementBar"] {
     }
 
     a {
-      color: var(--ifm-button-color);
+      color: #EFB300;
       text-decoration: none;
+      font-size: 1rem
     }
   }
 }
