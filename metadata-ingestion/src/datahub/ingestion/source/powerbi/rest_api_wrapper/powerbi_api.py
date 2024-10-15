@@ -44,7 +44,9 @@ def form_full_table_name(
 
     if config.include_workspace_name_in_dataset_urn:
         workspace_identifier: str = (
-            workspace.id if config.workspace_id_as_urn_part else workspace.name
+            workspace.id
+            if config.workspace_id_as_urn_part
+            else workspace.name.replace(" ", "_").lower()
         )
         full_table_name = f"{workspace_identifier}.{full_table_name}"
 

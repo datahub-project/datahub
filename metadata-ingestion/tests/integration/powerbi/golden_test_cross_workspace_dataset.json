@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,sales_semantic_model.public_issue_history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,sales.sales_semantic_model.public_issue_history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -43,7 +43,7 @@
             },
             "inputs": [
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,sales_semantic_model.public_issue_history,DEV)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,sales.sales_semantic_model.public_issue_history,DEV)"
                 }
             ]
         }
@@ -56,7 +56,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,sales_semantic_model.public_issue_history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,sales.sales_semantic_model.public_issue_history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -72,7 +72,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,sales_semantic_model.public_issue_history,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,sales.sales_semantic_model.public_issue_history,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -94,14 +94,14 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,base_records.core_sales_set,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,sales.sales_semantic_model.public_issue_history,DEV)",
     "changeType": "UPSERT",
-    "aspectName": "viewProperties",
+    "aspectName": "subTypes",
     "aspect": {
         "json": {
-            "materialized": false,
-            "viewLogic": "dummy",
-            "viewLanguage": "m_query"
+            "typeNames": [
+                "Table"
+            ]
         }
     },
     "systemMetadata": {
@@ -119,80 +119,6 @@
         "json": {
             "typeNames": [
                 "PowerBI Tile"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,base_records.core_sales_set,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,base_records.core_sales_set,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "datasetId": "FE362B98-956E-4394-BA37-6367EE6435E9"
-            },
-            "externalUrl": "http://localhost/groups/C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492/datasets/FE362B98-956E-4394-BA37-6367EE6435E9/details",
-            "name": "core_sales_set",
-            "description": "base_records",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,sales_semantic_model.public_issue_history,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Table"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,base_records.core_sales_set,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Table"
             ]
         }
     },
@@ -236,6 +162,24 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,global_workspace.base_records.core_sales_set,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "dummy",
+            "viewLanguage": "m_query"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.885D1762-1655-46BA-AFE3-74C6EC403A9E)",
     "changeType": "UPSERT",
@@ -244,6 +188,62 @@
         "json": {
             "paths": [
                 "/powerbi/Sales"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,global_workspace.base_records.core_sales_set,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,global_workspace.base_records.core_sales_set,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "datasetId": "FE362B98-956E-4394-BA37-6367EE6435E9"
+            },
+            "externalUrl": "http://localhost/groups/C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492/datasets/FE362B98-956E-4394-BA37-6367EE6435E9/details",
+            "name": "core_sales_set",
+            "description": "base_records",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,global_workspace.base_records.core_sales_set,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
             ]
         }
     },
@@ -299,7 +299,7 @@
             },
             "inputs": [
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,base_records.core_sales_set,DEV)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,global_workspace.base_records.core_sales_set,DEV)"
                 }
             ]
         }

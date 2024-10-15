@@ -1441,6 +1441,8 @@ def test_powerbi_cross_workspace_reference_info_message(
         ]
     }
 
+    config["include_workspace_name_in_dataset_urn"] = True
+
     pipeline = Pipeline.create(
         {
             "run_id": "powerbi-test",
