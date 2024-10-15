@@ -115,9 +115,9 @@ openApiGenerate {
     configOptions.set([
         dateLibrary: "java8",
         'java11'             : "true",
-        'delegatePattern'    : "true"
+        'delegatePattern'    : "true",
+        'jakarta'            : "true"
     ])
-
 }
 
 task codegen(type: Exec, dependsOn: [codegenPython, install]) {
