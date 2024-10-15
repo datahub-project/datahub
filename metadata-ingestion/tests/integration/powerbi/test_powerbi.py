@@ -1628,6 +1628,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
         dashboard_endorsements={},
         scan_result={},
         independent_datasets=[],
+        app=None,
     )
     # Fetch actual reports
     reports: List[Report] = cast(
@@ -1685,6 +1686,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
             users=[],
             tags=[],
             dataset=mock_workspace.datasets.get(report[Constant.DATASET_ID]),
+            app_reference=None,
         )
         for report in mock_reports
     ]

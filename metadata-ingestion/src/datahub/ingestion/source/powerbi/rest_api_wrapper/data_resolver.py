@@ -1,6 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
+from functools import lru_cache
 from time import sleep
 from typing import Any, Dict, Iterator, List, Optional, Union
 
@@ -13,6 +14,7 @@ from urllib3 import Retry
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.source.powerbi.config import Constant
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    App,
     Column,
     Dashboard,
     Measure,
@@ -97,6 +99,8 @@ class DataResolverBase(ABC):
             ),
         )
 
+        self.get_app = lru_cache(maxsize=128)(self.__get_app)
+
     @abstractmethod
     def get_groups_endpoint(self) -> str:
         pass
@@ -141,6 +145,13 @@ class DataResolverBase(ABC):
 
     @abstractmethod
     def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
+        pass
+
+    @abstractmethod
+    def _get_app(
+        self,
+        app_id: str,
+    ) -> Optional[Dict]:
         pass
 
     def _get_authority_url(self):
@@ -221,6 +232,7 @@ class DataResolverBase(ABC):
                 tiles=[],
                 users=[],
                 tags=[],
+                app_reference=None,  # It is getting set later from scan_result
             )
             for instance in dashboards_dict
             if (
@@ -282,6 +294,7 @@ class DataResolverBase(ABC):
                 users=[],  # It will be fetched using Admin Fetcher based on condition
                 tags=[],  # It will be fetched using Admin Fetcher based on condition
                 dataset=workspace.datasets.get(raw_instance.get(Constant.DATASET_ID)),
+                app_reference=None,  # It is getting set later from scan-result
             )
             for raw_instance in fetch_reports()
             if Constant.APP_ID
@@ -413,6 +426,37 @@ class DataResolverBase(ABC):
             yield response.json()[Constant.VALUE]
 
             page_number += 1
+
+    def __get_app(
+        self,
+        app_id: str,
+    ) -> Optional[App]:
+
+        raw_app: Optional[Dict] = self._get_app(
+            app_id=app_id,
+        )
+
+        if raw_app is None:
+            return None
+
+        assert (
+            Constant.ID in raw_app
+        ), f"{Constant.ID} is required field not present in server response"
+
+        assert (
+            Constant.NAME in raw_app
+        ), f"{Constant.NAME} is required field not present in server response"
+
+        return App(
+            id=raw_app[Constant.ID],
+            name=raw_app[Constant.NAME],
+            description=raw_app.get(Constant.DESCRIPTION),
+            last_update=raw_app.get(Constant.LAST_UPDATE),
+            dashboards=[],  # dashboards and reports of App are available in scan-result response
+            reports=[],  # There is an App section in documentation https://learn.microsoft.com/en-us/rest/api/power-bi/dashboards/get-dashboards-in-group#code-try-0
+            # However the report API mentioned in that section is not returning the reports
+            # We will collect these details from the scan-result.
+        )
 
 
 class RegularAPIResolver(DataResolverBase):
@@ -682,6 +726,27 @@ class RegularAPIResolver(DataResolverBase):
             column_count += 1
 
         table.column_count = column_count
+
+    def _get_app(
+        self,
+        app_id: str,
+    ) -> Optional[Dict]:
+
+        app_endpoint = self.API_ENDPOINTS[Constant.GET_WORKSPACE_APP].format(
+            MY_ORG_URL=DataResolverBase.MY_ORG_URL,
+            APP_ID=app_id,
+        )
+        # Hit PowerBi
+        logger.debug(f"Request to app URL={app_endpoint}")
+
+        response = self._request_session.get(
+            url=app_endpoint,
+            headers=self.get_authorization_header(),
+        )
+
+        response.raise_for_status()
+
+        return response.json()
 
 
 class AdminAPIResolver(DataResolverBase):
@@ -995,4 +1060,23 @@ class AdminAPIResolver(DataResolverBase):
         profile_pattern: Optional[AllowDenyPattern],
     ) -> None:
         logger.debug("Profile dataset is unsupported in Admin API")
+        return None
+
+    def _get_app(
+        self,
+        app_id: str,
+    ) -> Optional[Dict]:
+
+        app_endpoint = self.API_ENDPOINTS[Constant.GET_WORKSPACE_APP].format(
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            APP_ID=app_id,
+        )
+        # Hit PowerBi
+        logger.debug(f"Request to app URL={app_endpoint}")
+
+        for page in self.itr_pages(endpoint=app_endpoint):
+            for app in page:
+                if Constant.ID in app and app_id == app[Constant.ID]:
+                    return app
+
         return None

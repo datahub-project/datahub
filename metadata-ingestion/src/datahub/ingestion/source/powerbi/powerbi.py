@@ -52,6 +52,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata._schema_classes import EdgeClass
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
@@ -1306,6 +1307,73 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
 
+    def emit_app(
+        self, workspace: powerbi_data_classes.Workspace
+    ) -> Iterable[MetadataWorkUnit]:
+        if workspace.app is None:
+            return
+
+        edges: List[EdgeClass] = [
+            EdgeClass(
+                destinationUrn=builder.make_dashboard_urn(
+                    platform=self.source_config.platform_name,
+                    platform_instance=self.source_config.platform_instance,
+                    name=powerbi_data_classes.Dashboard.get_urn_part_by_id(
+                        app_dashboard.original_dashboard_id
+                    ),
+                )
+            )
+            for app_dashboard in workspace.app.dashboards
+        ]
+
+        edges.extend(
+            [
+                EdgeClass(
+                    destinationUrn=builder.make_dashboard_urn(
+                        platform=self.source_config.platform_name,
+                        platform_instance=self.source_config.platform_instance,
+                        name=powerbi_data_classes.Report.get_urn_part_by_id(
+                            app_report.original_report_id
+                        ),
+                    )
+                )
+                for app_report in workspace.app.reports
+            ]
+        )
+
+        if edges:
+            dashboard_info: DashboardInfoClass = DashboardInfoClass(
+                title=workspace.app.name,
+                description=workspace.app.description
+                if workspace.app.description
+                else workspace.app.name,
+                # lastModified=workspace.app.last_update,
+                lastModified=ChangeAuditStamps(),
+                dashboards=edges,
+            )
+
+            dashboard_urn: str = builder.make_dashboard_urn(
+                platform=self.source_config.platform_name,
+                platform_instance=self.source_config.platform_instance,
+                name=powerbi_data_classes.Dashboard.get_urn_part_by_id(
+                    workspace.app.id
+                ),
+            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
+                aspect=dashboard_info,
+            ).as_workunit()
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn, aspect=StatusClass(removed=False)
+            ).as_workunit()
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
+                aspect=SubTypesClass(typeNames=[BIAssetSubTypes.POWERBI_APP]),
+            ).as_workunit()
+
     def get_workspace_workunit(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
@@ -1317,6 +1385,8 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             for workunit in workspace_workunits:
                 # Return workunit to a Datahub Ingestion framework
                 yield workunit
+
+        yield from self.emit_app(workspace=workspace)
 
         for dashboard in workspace.dashboards:
             try:
