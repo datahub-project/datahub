@@ -20,6 +20,7 @@ import {
     Owner,
     SearchInsight,
     BrowsePathV2,
+    Dataset,
 } from '../../types.generated';
 import { EntityMenuActions, PreviewType } from '../entityV2/Entity';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
@@ -108,6 +109,7 @@ interface Props {
     logoComponent?: JSX.Element;
     url: string;
     entityType: EntityType;
+    searchEntity?: Dataset | null;
     type?: string | null;
     typeIcon?: JSX.Element;
     platform?: string;
@@ -188,6 +190,7 @@ export default function DefaultPreviewCard({
     logoComponent,
     url,
     entityType,
+    searchEntity,
     type,
     typeIcon,
     platform,
@@ -307,12 +310,7 @@ export default function DefaultPreviewCard({
                                         actions={actions}
                                     />
                                 )}
-                                <ViewInPlatform
-                                    urn={urn}
-                                    entityType={entityType}
-                                    platform={platform}
-                                    externalUrl={externalUrl}
-                                />
+                                <ViewInPlatform urn={urn} searchEntity={searchEntity} />
                             </ActionsSection>
                         </ActionsAndStatusSection>
                     </RowContainer>
@@ -359,6 +357,7 @@ export default function DefaultPreviewCard({
                     previewType={previewType}
                     urn={urn}
                     entityType={entityType}
+                    searchEntity={searchEntity}
                     platformInstanceId={platformInstanceId}
                     typeIcon={typeIcon}
                     finalType={finalType}

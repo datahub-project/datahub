@@ -86,6 +86,7 @@ export type GenericEntityProperties = {
         sourceUrl?: Maybe<string>;
         sourceRef?: Maybe<string>;
         businessAttributeDataType?: Maybe<string>;
+        externalUrl?: Maybe<string>;
     }>;
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;

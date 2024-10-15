@@ -2,14 +2,13 @@ import { EntityActionType, EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import LaunchIcon from '@mui/icons-material/Launch';
-import { EntityType } from '@types';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { Dataset, EntityType } from '@types';
 import React from 'react';
 import styled from 'styled-components';
-
-const GITHUB_LINK = 'github.com';
-const GITHUB_NAME = 'GitHub';
-const GITLAB_LINK = 'gitlab.com';
-const GITLAB_NAME = 'GitLab';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { getSiblings } from '../tabs/Dataset/Validations/acrylUtils';
+import { getExternalUrlDisplayName } from '../utils';
 
 const Link = styled.a`
     display: flex;
@@ -30,16 +29,28 @@ const IconWrapper = styled.span`
     font-size: ${4 / 3}em;
 `;
 
+const Links = styled.div`
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+`;
+
+const MAX_VISIBILE_ACTIONS = 2;
+
 interface Props {
-    urn: string;
-    entityType?: EntityType | null;
-    platform?: string;
-    externalUrl?: string | null;
     className?: string;
+    searchEntity?: Dataset | null;
+    hideSiblingActions?: boolean;
+    urn: string;
 }
 
-export default function ViewInPlatform({ urn, entityType, platform, externalUrl, className }: Props) {
-    if (!externalUrl) return null;
+export default function ViewInPlatform({ urn, className, searchEntity, hideSiblingActions = false }: Props) {
+    const { entityData, entityType } = useEntityData();
+    const entity = searchEntity || entityData;
+    const externalUrl = entity?.properties?.externalUrl;
+
+    if (!entity) return null;
 
     function sendAnalytics() {
         analytics.event({
@@ -50,19 +61,44 @@ export default function ViewInPlatform({ urn, entityType, platform, externalUrl,
         });
     }
 
-    let displayedName = platform;
-    if (externalUrl?.toLocaleLowerCase().includes(GITHUB_LINK)) {
-        displayedName = GITHUB_NAME;
-    } else if (externalUrl?.toLocaleLowerCase().includes(GITLAB_LINK)) {
-        displayedName = GITLAB_NAME;
+    const parentPlatformName = getExternalUrlDisplayName(entity as GenericEntityProperties);
+
+    const defaultAction = externalUrl ? [{ displayName: parentPlatformName || 'source', url: externalUrl }] : [];
+
+    let visibleActions: any = [...defaultAction];
+    if (entityType === EntityType.Dataset && !hideSiblingActions) {
+        const siblings = getSiblings(entity as GenericEntityProperties);
+        if (siblings && siblings.length) {
+            const siblingActions: any = siblings
+                .map((sibling) => {
+                    if (sibling?.platform?.name && sibling?.properties?.externalUrl) {
+                        return {
+                            displayName: getExternalUrlDisplayName(sibling),
+                            url: sibling.properties.externalUrl,
+                        };
+                    }
+                    return null;
+                })
+                .filter((action) => action !== null);
+
+            visibleActions = [...defaultAction, ...siblingActions].slice(0, MAX_VISIBILE_ACTIONS);
+        }
     }
 
+    if (!visibleActions.length) return null;
+
     return (
-        <Link href={externalUrl} target="_blank" onClick={sendAnalytics} className={className}>
-            <IconWrapper>
-                <LaunchIcon fontSize="inherit" />
-            </IconWrapper>
-            View in {displayedName || 'source'}
-        </Link>
+        <Links>
+            {visibleActions.map((action) => (
+                <div>
+                    <Link href={action.url} target="_blank" onClick={sendAnalytics} className={className}>
+                        <IconWrapper>
+                            <LaunchIcon fontSize="inherit" />
+                        </IconWrapper>
+                        View in {action.displayName}
+                    </Link>
+                </div>
+            ))}
+        </Links>
     );
 }

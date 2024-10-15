@@ -427,6 +427,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 name={data.properties?.name || data.name}
                 origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
+                searchEntity={data}
                 platformName={
                     platformNames?.[0] ||
                     data?.platform?.properties?.displayName ||

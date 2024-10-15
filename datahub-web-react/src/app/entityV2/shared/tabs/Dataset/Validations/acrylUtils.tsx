@@ -445,3 +445,11 @@ export const getSiblingWithUrn = (entityData: GenericEntityProperties, urn: stri
         ?.map((result) => result.entity)
         .find((entity) => entity?.urn === urn);
 };
+
+/**
+ * Extract the siblings for an entity
+ */
+export const getSiblings = (entityData: GenericEntityProperties | null): GenericEntityProperties[] => {
+    if (!entityData) return [];
+    return entityData?.siblingsSearch?.searchResults?.map((result) => result.entity) || [];
+};

@@ -97,6 +97,26 @@ export function getPlatformName(entityData: GenericEntityProperties | null) {
     );
 }
 
+export function getExternalUrlDisplayName(entity: GenericEntityProperties | null) {
+    // Scoping these constants
+    const GITHUB_LINK = 'github.com';
+    const GITHUB_NAME = 'GitHub';
+    const GITLAB_LINK = 'gitlab.com';
+    const GITLAB_NAME = 'GitLab';
+
+    const externalUrl = entity?.properties?.externalUrl;
+    if (externalUrl) {
+        if (externalUrl.toLocaleLowerCase().includes(GITHUB_LINK)) {
+            return GITHUB_NAME;
+        }
+        if (externalUrl.toLocaleLowerCase().includes(GITLAB_LINK)) {
+            return GITLAB_NAME;
+        }
+    }
+
+    return entity?.platform?.properties?.displayName || capitalizeFirstLetterOnly(entity?.platform?.name);
+}
+
 export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';
 
 export const FORBIDDEN_URN_CHARS_REGEX = /.*[(),\\].*/;

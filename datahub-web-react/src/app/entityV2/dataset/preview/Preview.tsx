@@ -16,6 +16,7 @@ import {
     ParentContainersResult,
     SearchInsight,
     BrowsePathV2,
+    Dataset,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -31,6 +32,7 @@ export const Preview = ({
     name,
     origin,
     description,
+    searchEntity,
     platformName,
     platformLogo,
     platformNames,
@@ -65,6 +67,7 @@ export const Preview = ({
     name: string;
     origin: FabricType;
     description?: string | null;
+    searchEntity?: Dataset | null;
     platformName?: string;
     platformLogo?: string | null;
     platformNames?: (Maybe<string> | undefined)[];
@@ -104,6 +107,7 @@ export const Preview = ({
             name={name || ''}
             urn={urn}
             description={description || ''}
+            searchEntity={searchEntity}
             entityType={EntityType.Dataset}
             type={subtype}
             logoUrl={platformLogo || ''}

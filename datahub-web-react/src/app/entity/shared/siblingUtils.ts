@@ -403,6 +403,11 @@ const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
     // Force the urn of the combined entity to the current entity urn.
     combinedBaseEntity.urn = entity.urn;
 
+    combinedBaseEntity.properties = {
+        ...combinedBaseEntity.properties,
+        externalUrl: entity?.properties?.externalUrl,
+    };
+
     return combinedBaseEntity;
 };
 

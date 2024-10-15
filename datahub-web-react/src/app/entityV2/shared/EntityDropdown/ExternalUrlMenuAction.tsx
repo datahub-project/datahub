@@ -1,17 +1,9 @@
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import React from 'react';
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { getPlatformName } from '../utils';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
 
 export default function ExternalUrlMenuAction() {
-    const { urn: entityUrn, entityData, entityType } = useEntityData();
+    const { urn: entityUrn } = useEntityData();
 
-    return (
-        <ViewInPlatform
-            urn={entityUrn}
-            entityType={entityType}
-            platform={getPlatformName(entityData)}
-            externalUrl={entityData?.externalUrl}
-        />
-    );
+    return <ViewInPlatform urn={entityUrn} />;
 }

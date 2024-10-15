@@ -6,7 +6,7 @@ import ColoredBackgroundPlatformIconGroup, { PlatformContentWrapper } from './Co
 import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import EntityHeader, { StyledLink } from './EntityHeader';
 import { PreviewType } from '../entity/Entity';
-import { BrowsePathV2, Deprecation, Entity, EntityType, Health } from '../../types.generated';
+import { BrowsePathV2, Dataset, Deprecation, Entity, EntityType, Health } from '../../types.generated';
 import { EntityMenuActions } from '../entityV2/Entity';
 import { EntityMenuItems } from '../entityV2/shared/EntityDropdown/EntityMenuActions';
 import { GenericEntityProperties } from '../entity/shared/types';
@@ -75,6 +75,7 @@ interface Props {
     isIconPresent: boolean;
     url: string;
     entityType: EntityType;
+    searchEntity: Dataset | undefined | null;
     platform?: string;
     platforms?: Maybe<string | undefined>[];
     deprecation?: Deprecation | null;
@@ -123,11 +124,11 @@ export const CompactView = ({
     logoUrls,
     isOutputPort,
     entityIcon,
-    externalUrl,
     headerDropdownItems,
     previewType,
     urn,
     entityType,
+    searchEntity,
     platformInstanceId,
     typeIcon,
     finalType,
@@ -195,12 +196,7 @@ export const CompactView = ({
                                 actions={actions}
                             />
                         )}
-                        <ViewInPlatform
-                            urn={urn}
-                            entityType={entityType}
-                            platform={platform}
-                            externalUrl={externalUrl}
-                        />
+                        <ViewInPlatform searchEntity={searchEntity} urn={urn} />
                     </ActionsSection>
                 </ActionsAndStatusSection>
             </RowContainer>

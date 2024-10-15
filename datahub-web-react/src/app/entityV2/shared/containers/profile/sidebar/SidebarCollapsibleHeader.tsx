@@ -1,5 +1,4 @@
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
-import { getPlatformName } from '@app/entityV2/shared/utils';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
@@ -69,7 +68,6 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
     const icon = currentTab?.icon;
 
     const { urn, entityType, entityData } = useEntityData();
-    const platform = getPlatformName(entityData);
     const refetch = useRefetch();
 
     return (
@@ -80,14 +78,7 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                         <TabTitle>{currentTabName}</TabTitle>
                         <RightActions>
                             {actionType && <TitleAction actionType={actionType} icon={icon} />}
-                            {forLineage && (
-                                <ViewInPlatform
-                                    urn={urn}
-                                    entityType={entityType}
-                                    platform={platform}
-                                    externalUrl={entityData?.externalUrl}
-                                />
-                            )}
+                            {forLineage && <ViewInPlatform hideSiblingActions urn={urn} />}
                             {forLineage && headerDropdownItems && (
                                 <MoreOptionsMenuAction
                                     menuItems={headerDropdownItems}
