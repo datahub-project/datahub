@@ -2325,6 +2325,30 @@
   },
   {
     "auditHeader": null,
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:testing",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "value": "{\"name\": \"Testing\", \"description\": \"My testing domain\" }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,cypress_baz)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "value": "{\"domains\": [\"urn:li:domain:testing\"] }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0154",
     "entityKeyAspect": null,
