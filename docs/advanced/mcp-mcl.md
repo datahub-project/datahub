@@ -17,13 +17,13 @@ Ultimately, we intend to realize a state in which the Entities and Aspect schema
 ### Synchronous Ingestion Architecture
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/advanced/mcp-mcl/sync-ingestion.svg"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced/mcp-mcl/sync-ingestion.svg"/>
 </p>
 
 ### Asynchronous Ingestion Architecture
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/advanced/mcp-mcl/async-ingestion.svg"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced/mcp-mcl/async-ingestion.svg"/>
 </p>
 
 ## Modeling
