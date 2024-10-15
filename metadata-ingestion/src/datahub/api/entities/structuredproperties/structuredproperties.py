@@ -150,7 +150,6 @@ class StructuredProperties(ConfigModel):
 
     @classmethod
     def from_datahub(cls, graph: DataHubGraph, urn: str) -> "StructuredProperties":
-
         structured_property: Optional[
             StructuredPropertyDefinitionClass
         ] = graph.get_aspect(urn, StructuredPropertyDefinitionClass)
