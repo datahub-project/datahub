@@ -1,7 +1,4 @@
-from dataclasses import dataclass
 from typing import Optional
-
-from pydantic import BaseModel
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pattern_utils import is_schema_allowed
@@ -111,19 +108,3 @@ class BigQueryFilter:
         if self.filter_config.project_ids:
             return project_id in self.filter_config.project_ids
         return self.filter_config.project_id_pattern.allowed(project_id)
-
-
-class BigQueryLabelInfo(BaseModel):
-    datahub_urn: str
-    managed_by_datahub: bool
-    key: str
-    value: Optional[str]
-
-
-@dataclass
-class BigQueryLabel:
-    key: str
-    value: Optional[str]
-
-    def primary_key(self):
-        return f"{self.key}/{self.value}" if self.value else f"{self.key}"

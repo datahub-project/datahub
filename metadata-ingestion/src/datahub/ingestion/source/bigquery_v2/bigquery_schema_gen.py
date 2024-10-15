@@ -6,10 +6,7 @@ from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 
 from google.cloud.bigquery.table import TableListItem
 
-from datahub.api.entities.platformresource.platform_resource import (
-    PlatformResource,
-    PlatformResourceKey,
-)
+from datahub.api.entities.platformresource.platform_resource import PlatformResource
 from datahub.configuration.pattern_utils import is_schema_allowed, is_tag_allowed
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -30,6 +27,12 @@ from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDa
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
     unquote_and_decode_unicode_escape_seq,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper import (
+    BigQueryLabel,
+    BigQueryLabelInfo,
+    BigQueryPlatformResourceHelper,
+    UrnConflictResolutionStrategy,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
@@ -44,8 +47,6 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_EXTERNAL_DATASET_URL_TEMPLATE,
     BQ_EXTERNAL_TABLE_URL_TEMPLATE,
     BigQueryIdentifierBuilder,
-    BigQueryLabel,
-    BigQueryLabelInfo,
 )
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.common.subtypes import (
@@ -198,9 +199,22 @@ class BigQuerySchemaGenerator:
         # Maps snapshot ref -> Snapshot
         self.snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot] = FileBackedDict()
 
-        self.platform_resource_cache: FileBackedDict[
-            PlatformResource
-        ] = FileBackedDict()
+        bq_project = (
+            self.config.project_on_behalf
+            if self.config.project_on_behalf
+            else self.config.credential.project_id
+            if self.config.credential
+            else None
+        )
+
+        self.platform_resource_helper: BigQueryPlatformResourceHelper = BigQueryPlatformResourceHelper(
+            bq_project,
+            self.graph,
+            UrnConflictResolutionStrategy(
+                urn_mismatch_strategy=UrnConflictResolutionStrategy.StrategyEnum.FAIL,
+                case_insensitive_match_strategy=UrnConflictResolutionStrategy.StrategyEnum.SKIP,
+            ),
+        )
 
     @property
     def store_table_refs(self):
@@ -284,11 +298,19 @@ class BigQuerySchemaGenerator:
                 if is_tag_allowed(self.config.capture_dataset_label_as_tag, k):
                     tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
                     label = BigQueryLabel(key=k, value=v)
-                    if self.graph:
-                        for mcpw in self.generate_label_platform_resource(
-                            label, tag_urn
-                        ):
-                            yield mcpw.as_workunit()
+                    platform_resource: PlatformResource = (
+                        self.platform_resource_helper.generate_label_platform_resource(
+                            label, tag_urn, managed_by_datahub=False
+                        )
+                    )
+                    label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                        BigQueryLabelInfo
+                    )
+                    tag_urn = TagUrn.from_string(label_info.datahub_urn)
+
+                    for mcpw in platform_resource.to_mcps():
+                        yield mcpw.as_workunit()
+
                     tags_joined.append(tag_urn.urn())
 
         database_container_key = self.gen_project_id_key(database=project_id)
@@ -701,92 +723,6 @@ class BigQuerySchemaGenerator:
         else:
             return make_tag_urn(key)
 
-    def get_platform_resource(self, primary_key: str) -> Optional[PlatformResource]:
-        # if graph is not available we always create a new PlatformResource
-        if not self.graph:
-            return None
-        if self.platform_resource_cache.get(primary_key):
-            return self.platform_resource_cache.get(primary_key)
-
-        platform_resource = PlatformResource.from_datahub(
-            key=primary_key, graph_client=self.graph
-        )
-        if platform_resource:
-            return platform_resource
-        return None
-
-    def generate_label_platform_resource(
-        self, bigquery_label: BigQueryLabel, tag_urn: TagUrn
-    ) -> Iterable[MetadataChangeProposalWrapper]:
-        bq_project = (
-            self.config.project_on_behalf
-            if self.config.project_on_behalf
-            else self.config.credential.project_id
-            if self.config.credential
-            else None
-        )
-
-        platform_resource_key = PlatformResourceKey(
-            platform="bigquery",
-            platform_instance=bq_project,
-            resource_type="BigQueryLabelnfo",
-            primary_key=bigquery_label.primary_key(),
-        )
-
-        # We only query the platform resource to copy over some fields
-        # at the moment it is only the managed_by_datahub field which controls if it was created from BigQuery or from DataHub
-        platform_resource = self.get_platform_resource(
-            platform_resource_key.primary_key
-        )
-        new_bq_label_info: Optional[BigQueryLabelInfo] = None
-
-        if platform_resource:
-            if (
-                platform_resource.resource_info
-                and platform_resource.resource_info.value
-            ):
-                existing_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
-                    BigQueryLabelInfo
-                )
-
-                if existing_info:
-                    new_bq_label_info = BigQueryLabelInfo(
-                        datahub_urn=tag_urn.urn(),
-                        managed_by_datahub=existing_info.managed_by_datahub,
-                        key=bigquery_label.key,
-                        value=bigquery_label.value,
-                    )
-
-                    if new_bq_label_info == existing_info:
-                        return
-
-                    if new_bq_label_info.datahub_urn == existing_info.datahub_urn:
-                        logger.warning(
-                            f"Duplicate BigQueryLabelInfo found for {bigquery_label}. Skipping..."
-                        )
-                        return
-
-        if not new_bq_label_info:
-            new_bq_label_info = BigQueryLabelInfo(
-                datahub_urn=tag_urn.urn(),
-                managed_by_datahub=True,
-                key=bigquery_label.key,
-                value=bigquery_label.value,
-            )
-
-        platform_resource = PlatformResource.create(
-            key=platform_resource_key,
-            secondary_keys=[tag_urn.urn()],
-            value=new_bq_label_info,
-        )
-
-        yield from platform_resource.to_mcps()
-        logger.debug(f"Created platform resource: {platform_resource}")
-
-        self.platform_resource_cache.update(
-            {platform_resource_key.primary_key: platform_resource}
-        )
-
     def gen_table_dataset_workunits(
         self,
         table: BigqueryTable,
@@ -834,11 +770,19 @@ class BigQuerySchemaGenerator:
                 if is_tag_allowed(self.config.capture_table_label_as_tag, k):
                     tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
                     label = BigQueryLabel(key=k, value=v)
-                    if self.graph:
-                        for mcpw in self.generate_label_platform_resource(
-                            label, tag_urn
-                        ):
-                            yield mcpw.as_workunit()
+                    platform_resource: PlatformResource = (
+                        self.platform_resource_helper.generate_label_platform_resource(
+                            label, tag_urn, managed_by_datahub=False
+                        )
+                    )
+                    label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                        BigQueryLabelInfo
+                    )
+                    tag_urn = TagUrn.from_string(label_info.datahub_urn)
+
+                    for mcpw in platform_resource.to_mcps():
+                        yield mcpw.as_workunit()
+
                     tags_to_add.append(tag_urn.urn())
 
         yield from self.gen_dataset_workunits(
@@ -864,11 +808,18 @@ class BigQuerySchemaGenerator:
                 if is_tag_allowed(self.config.capture_view_label_as_tag, k):
                     tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
                     label = BigQueryLabel(key=k, value=v)
-                    if self.graph:
-                        for mcpw in self.generate_label_platform_resource(
-                            label, tag_urn
-                        ):
-                            yield mcpw.as_workunit()
+                    platform_resource: PlatformResource = (
+                        self.platform_resource_helper.generate_label_platform_resource(
+                            label, tag_urn, managed_by_datahub=False
+                        )
+                    )
+                    label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                        BigQueryLabelInfo
+                    )
+                    tag_urn = TagUrn.from_string(label_info.datahub_urn)
+
+                    for mcpw in platform_resource.to_mcps():
+                        yield mcpw.as_workunit()
                     tags_to_add.append(tag_urn.urn())
         yield from self.gen_dataset_workunits(
             table=table,
