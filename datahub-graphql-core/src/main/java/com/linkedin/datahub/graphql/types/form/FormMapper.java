@@ -42,7 +42,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class FormMapper implements ModelMapper<EntityResponse, Form> {
 
   public static final FormMapper INSTANCE = new FormMapper();
@@ -263,6 +265,13 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     DynamicFormAssignment formAssignment = new DynamicFormAssignment();
     if (gmsFormAssignment.getJson() != null) {
       formAssignment.setJson(gmsFormAssignment.getJson());
+    } else if (gmsFormAssignment.getFilter() != null) {
+      try {
+        String json = FilterConverter.convertFilterToJsonPredicate(gmsFormAssignment.getFilter());
+        formAssignment.setJson(json);
+      } catch (Exception e) {
+        log.error("Error when converting dynamic form assignment filter to json predicate: ", e);
+      }
     }
     form.setDynamicFormAssignment(formAssignment);
   }
