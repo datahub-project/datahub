@@ -35,7 +35,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
     BigQueryV2Config,
 )
-from datahub.metadata.urns import TagUrn
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import run_and_get_pipeline
 
