@@ -1,6 +1,6 @@
 import { Button as ButtonComponent, Icon } from '@src/alchemy-components';
 import { LogicalOperatorType } from '@src/app/tests/builder/steps/definition/builder/types';
-import { Button } from 'antd';
+import { Button, Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { ActionsContainer, CardIcons, OperationButton, ToolbarContainer } from './styledComponents';
 
@@ -21,7 +21,9 @@ const GroupHeader = ({
     index,
     operator,
 }: Props) => {
-    const [selectedOperation, setSelectedOperation] = useState<LogicalOperatorType>(operator ?? LogicalOperatorType.OR);
+    const [selectedOperation, setSelectedOperation] = useState<LogicalOperatorType>(
+        operator ?? LogicalOperatorType.AND,
+    );
 
     useEffect(() => {
         onChangeOperator(selectedOperation);
@@ -31,27 +33,33 @@ const GroupHeader = ({
     return (
         <ToolbarContainer>
             <Button.Group>
-                <OperationButton
-                    variant="text"
-                    onClick={() => setSelectedOperation(LogicalOperatorType.OR)}
-                    isSelected={selectedOperation === LogicalOperatorType.OR}
-                >
-                    Any
-                </OperationButton>
-                <OperationButton
-                    variant="text"
-                    onClick={() => setSelectedOperation(LogicalOperatorType.AND)}
-                    isSelected={selectedOperation === LogicalOperatorType.AND}
-                >
-                    All
-                </OperationButton>
-                <OperationButton
-                    variant="text"
-                    onClick={() => setSelectedOperation(LogicalOperatorType.NOT)}
-                    isSelected={selectedOperation === LogicalOperatorType.NOT}
-                >
-                    None
-                </OperationButton>
+                <Tooltip showArrow={false} title="Match assets that satisfy all of the following conditions (AND)">
+                    <OperationButton
+                        variant="text"
+                        onClick={() => setSelectedOperation(LogicalOperatorType.AND)}
+                        isSelected={selectedOperation === LogicalOperatorType.AND}
+                    >
+                        All
+                    </OperationButton>
+                </Tooltip>
+                <Tooltip showArrow={false} title="Match assets that satisfy all of the following conditions (OR)">
+                    <OperationButton
+                        variant="text"
+                        onClick={() => setSelectedOperation(LogicalOperatorType.OR)}
+                        isSelected={selectedOperation === LogicalOperatorType.OR}
+                    >
+                        Any
+                    </OperationButton>
+                </Tooltip>
+                <Tooltip showArrow={false} title="Match assets that do not match any of the following conditions (NOT)">
+                    <OperationButton
+                        variant="text"
+                        onClick={() => setSelectedOperation(LogicalOperatorType.NOT)}
+                        isSelected={selectedOperation === LogicalOperatorType.NOT}
+                    >
+                        None
+                    </OperationButton>
+                </Tooltip>
             </Button.Group>
             <ActionsContainer>
                 <ButtonComponent variant="text" onClick={onAddPropertyPredicate}>
