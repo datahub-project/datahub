@@ -64,28 +64,14 @@ class BigQueryLabelPlatformResource:
         )
 
 
-class UrnConflictResolutionStrategy(BaseModel):
-    class StrategyEnum(str, Enum):
-        SKIP = "skip"  # Keep existing value
-        FAIL = "fail"  # Raise an error
-        REPLACE = "replace"  # Replace with new value
-
-    # Strategy to use when there is conflict but urns match in a case-insensitive match
-    case_insensitive_match_strategy: StrategyEnum = StrategyEnum.SKIP
-    # Strategy to use when there is conflict but urns do not match
-    urn_mismatch_strategy: StrategyEnum = StrategyEnum.FAIL
-
-
 class BigQueryPlatformResourceHelper:
     def __init__(
         self,
         bq_project: Optional[str],
         graph: Optional[DataHubGraph],
-        urn_conflict_resolution_strategy: UrnConflictResolutionStrategy = UrnConflictResolutionStrategy(),
     ):
         self.bq_project = bq_project
         self.graph = graph
-        self.urn_conflict_resolution_strategy = urn_conflict_resolution_strategy
 
     platform_resource_cache: cachetools.LRUCache = cachetools.LRUCache(maxsize=500)
 
@@ -138,49 +124,14 @@ class BigQueryPlatformResourceHelper:
                     existing_info = None
 
                 if existing_info:
-                    if new_platform_resource.platform_resource_info() == existing_info:
-                        return new_platform_resource.platform_resource()
-                    elif (
-                        new_platform_resource.platform_resource_info().datahub_urn
-                        != existing_info.datahub_urn
+                    if (
+                        new_platform_resource.platform_resource_info() == existing_info
+                        or existing_info.managed_by_datahub
                     ):
-                        # Bigquery store tags in lowercased format therefore when we create TagUrn during ingestion it creates lowercase urns while
-                        # from other source it is possible the tag is tied to a mixed case DataHub Tag urn.
-                        # Therefore we need to handle case insensitive match for DataHub URN
-                        # If the URN is different but the datahub URN is same, we skip the resource and return the existing one
-                        if (
-                            new_platform_resource.platform_resource_info().datahub_urn.lower()
-                            == existing_info.datahub_urn.lower()
-                            and self.urn_conflict_resolution_strategy.case_insensitive_match_strategy
-                            != UrnConflictResolutionStrategy.StrategyEnum.FAIL
-                        ):
-                            if (
-                                self.urn_conflict_resolution_strategy.case_insensitive_match_strategy
-                                == UrnConflictResolutionStrategy.StrategyEnum.SKIP
-                            ):
-                                logger.info(
-                                    f"Skipping platform resource {platform_resource} with new value {new_platform_resource.platform_resource_info()}"
-                                )
-                                return platform_resource
-                        else:
-                            if (
-                                self.urn_conflict_resolution_strategy.urn_mismatch_strategy
-                                == UrnConflictResolutionStrategy.StrategyEnum.FAIL
-                            ):
-                                raise ValueError(
-                                    f"Datahub URN mismatch for platform resources. Old (existing) platform resource: {platform_resource} and new platform resource: {new_platform_resource}"
-                                )
-                            elif (
-                                self.urn_conflict_resolution_strategy.urn_mismatch_strategy
-                                == UrnConflictResolutionStrategy.StrategyEnum.SKIP
-                            ):
-                                logger.info(
-                                    f"Skipping platform resource {platform_resource} with new value {new_platform_resource.platform_resource_info()}"
-                                )
-                                return platform_resource
+                        return platform_resource
                     else:
-                        logger.info(
-                            f"Updating platform resource {platform_resource} with new value {new_platform_resource.platform_resource_info()}"
+                        raise ValueError(
+                            f"Datahub URN mismatch for platform resources. Old (existing) platform resource: {platform_resource} and new platform resource: {new_platform_resource}"
                         )
 
         logger.info(f"Created platform resource {new_platform_resource}")

@@ -31,7 +31,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper impo
     BigQueryLabel,
     BigQueryLabelInfo,
     BigQueryPlatformResourceHelper,
-    UrnConflictResolutionStrategy,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -207,13 +206,11 @@ class BigQuerySchemaGenerator:
             else None
         )
 
-        self.platform_resource_helper: BigQueryPlatformResourceHelper = BigQueryPlatformResourceHelper(
-            bq_project,
-            self.graph,
-            UrnConflictResolutionStrategy(
-                urn_mismatch_strategy=UrnConflictResolutionStrategy.StrategyEnum.FAIL,
-                case_insensitive_match_strategy=UrnConflictResolutionStrategy.StrategyEnum.SKIP,
-            ),
+        self.platform_resource_helper: BigQueryPlatformResourceHelper = (
+            BigQueryPlatformResourceHelper(
+                bq_project,
+                self.graph,
+            )
         )
 
     @property

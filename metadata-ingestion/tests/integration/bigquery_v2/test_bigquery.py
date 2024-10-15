@@ -19,11 +19,8 @@ from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfi
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDataReader
 from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper import (
-    BigQueryLabel,
     BigQueryLabelInfo,
-    BigQueryLabelPlatformResource,
     BigQueryPlatformResourceHelper,
-    UrnConflictResolutionStrategy,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
