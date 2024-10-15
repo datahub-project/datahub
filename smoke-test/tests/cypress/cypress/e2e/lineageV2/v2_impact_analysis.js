@@ -160,30 +160,4 @@ describe("impact analysis", () => {
     );
     cy.contains("temperature_etl_2");
   });
-
-  it.skip("can see when a dataset join changes", () => {
-    cy.login();
-    // 8 days ago, both gdp and factor_income were joined to create gnp
-    cy.visit(
-      `/dataset/${GNP_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
-    );
-    cy.wait(2000);
-    cy.get("#entity-sidebar-tabs-tab-Lineage").click();
-    cy.clickOptionWithTestId(
-      "compact-lineage-tab-direction-select-option-upstream",
-    );
-    cy.contains("gdp");
-    cy.contains("factor_income");
-    // 1 day ago, factor_income was removed from the join
-    cy.visit(
-      `/dataset/${GNP_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
-    );
-    cy.wait(2000);
-    cy.get("#entity-sidebar-tabs-tab-Lineage").click();
-    cy.clickOptionWithTestId(
-      "compact-lineage-tab-direction-select-option-upstream",
-    );
-    cy.contains("gdp");
-    cy.contains("factor_income").should("not.exist");
-  });
 });

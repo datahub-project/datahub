@@ -434,6 +434,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                 />
                                 {entity?.health && (
                                     <HealthIcon
+                                        urn={urn}
                                         health={entity.health}
                                         baseUrl={entityRegistry.getEntityUrl(type, urn)}
                                     />

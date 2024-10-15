@@ -19,12 +19,13 @@ const HealthyIcon = styled(CheckCircleOutlined)`
 `;
 
 interface Props {
+    urn: string;
     health: Health[];
     baseUrl: string;
     className?: string;
 }
 
-const HealthIcon = ({ health, baseUrl, className }: Props) => {
+const HealthIcon = ({ urn, health, baseUrl, className }: Props) => {
     let icon: JSX.Element;
     if (isUnhealthy(health)) {
         icon = <AmbulanceIcon />;
@@ -36,7 +37,9 @@ const HealthIcon = ({ health, baseUrl, className }: Props) => {
 
     return (
         <Popover content={<HealthPopover health={health} baseUrl={baseUrl} />} placement="bottom">
-            <IconContainer className={className}>{icon}</IconContainer>
+            <IconContainer className={className} data-testid={`${urn}-health-icon`}>
+                {icon}
+            </IconContainer>
         </Popover>
     );
 };

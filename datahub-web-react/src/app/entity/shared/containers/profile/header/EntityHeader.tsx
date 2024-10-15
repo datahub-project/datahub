@@ -132,6 +132,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                                 )}
                                 {entityData?.health && (
                                     <EntityHealth
+                                        urn={urn}
                                         health={entityData.health}
                                         baseUrl={entityRegistry.getEntityUrl(entityType, urn)}
                                     />

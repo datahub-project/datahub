@@ -382,6 +382,7 @@ export default function LineageEntityNode({
                     <foreignObject x={healthX} y={healthY} width="20" height="20">
                         {hasHealth && (
                             <EntityHealth
+                                urn={node.data.urn || ''}
                                 health={health as any}
                                 baseUrl={baseUrl as any}
                                 fontSize={20}

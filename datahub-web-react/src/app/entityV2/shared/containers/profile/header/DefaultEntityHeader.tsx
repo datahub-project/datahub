@@ -204,7 +204,7 @@ export const DefaultEntityHeader = ({
                                             />
                                         )}
                                         {entityData?.health && (
-                                            <HealthIcon health={entityData.health} baseUrl={entityUrl} />
+                                            <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />
                                         )}
                                     </TitleRow>
                                     <HeaderRow>

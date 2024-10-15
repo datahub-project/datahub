@@ -63,7 +63,7 @@ interface Props {
 
 export default function HealthPopover({ health, baseUrl }: Props) {
     return (
-        <Content>
+        <Content data-testid="assertions-details">
             {health.map((item) => (
                 <StyledLink key={item.type} to={`${baseUrl}${healthUrlSuffix(item)}`}>
                     <Icon>{healthIcon(item)}</Icon>

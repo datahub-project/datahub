@@ -2496,6 +2496,18 @@
   },
   {
     "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "assertionsSummary",
+    "aspect": {
+      "value": "{\"failingAssertionDetails\":[{ \"urn\": \"urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0154\", \"type\": \"DATASET\", \"lastResultAt\": 1675155843000 }], \"passingAssertionDetails\": []}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
     "entityType": "incident",
     "entityUrn": "urn:li:incident:test",
     "changeType": "UPSERT",

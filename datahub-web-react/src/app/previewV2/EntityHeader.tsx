@@ -111,7 +111,7 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
                 </Tooltip>
             )}
             {deprecation?.deprecated && <DeprecationPill urn={urn} deprecation={deprecation} showUndeprecate />}
-            {health && <HealthIcon health={health} baseUrl={url} />}
+            {health && <HealthIcon urn={urn} health={health} baseUrl={url} />}
         </EntityTitleContainer>
     );
 };

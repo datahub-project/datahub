@@ -17,13 +17,14 @@ const Container = styled.div`
 `;
 
 type Props = {
+    urn: string;
     health: Health[];
     baseUrl: string;
     fontSize?: number;
     tooltipPlacement?: any;
 };
 
-export const EntityHealth = ({ health, baseUrl, fontSize, tooltipPlacement }: Props) => {
+export const EntityHealth = ({ urn, health, baseUrl, fontSize, tooltipPlacement }: Props) => {
     const unhealthy = isUnhealthy(health);
     const healthy = isHealthy(health);
     const icon = getHealthSummaryIcon(health, HealthSummaryIconType.FILLED, fontSize);
@@ -38,7 +39,7 @@ export const EntityHealth = ({ health, baseUrl, fontSize, tooltipPlacement }: Pr
                             baseUrl={baseUrl}
                             placement={tooltipPlacement}
                         >
-                            {icon}
+                            <span data-testid={`${urn}-health-icon`}>{icon}</span>
                         </EntityHealthPopover>
                     </Container>
                 </Link>

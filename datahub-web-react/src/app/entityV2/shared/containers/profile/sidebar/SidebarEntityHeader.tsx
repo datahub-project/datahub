@@ -34,7 +34,7 @@ const NameWrapper = styled.div`
 `;
 
 const SidebarEntityHeader = () => {
-    const { entityType, entityData, loading } = useEntityData();
+    const { urn, entityType, entityData, loading } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const entityUrl = entityRegistry.getEntityUrl(entityType, entityData?.urn as string);
 
@@ -67,7 +67,7 @@ const SidebarEntityHeader = () => {
                     {!!entityData?.notes?.total && (
                         <NotesIcon notes={entityData?.notes?.relationships?.map((r) => r.entity as Post) || []} />
                     )}
-                    {entityData?.health && <HealthIcon health={entityData.health} baseUrl={entityUrl} />}
+                    {entityData?.health && <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />}
                 </NameWrapper>
                 <ContextPath
                     instanceId={entityData?.dataPlatformInstance?.instanceId}
