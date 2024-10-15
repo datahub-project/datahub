@@ -13,6 +13,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     QueryLogSetting,
     SqlParsingAggregator,
+    TableSwap,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -667,8 +668,10 @@ def test_table_swap(pytestconfig: pytest.Config) -> None:
     )
 
     aggregator.add_table_swap(
-        urn1=DatasetUrn("snowflake", "dev.public.foo").urn(),
-        urn2=DatasetUrn("snowflake", "dev.public.foo_staging").urn(),
+        TableSwap(
+            urn1=DatasetUrn("snowflake", "dev.public.foo").urn(),
+            urn2=DatasetUrn("snowflake", "dev.public.foo_staging").urn(),
+        )
     )
 
     # Add the query that is created from foo_staging table.
@@ -727,8 +730,10 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
     )
 
     aggregator.add_table_swap(
-        urn1=DatasetUrn("snowflake", "dev.public.foo").urn(),
-        urn2=DatasetUrn("snowflake", "dev.public.foo_staging").urn(),
+        TableSwap(
+            urn1=DatasetUrn("snowflake", "dev.public.foo").urn(),
+            urn2=DatasetUrn("snowflake", "dev.public.foo_staging").urn(),
+        )
     )
 
     # Add the query that is created from foo_staging table.
@@ -858,4 +863,17 @@ def test_basic_usage(pytestconfig: pytest.Config) -> None:
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_basic_usage.json",
+    )
+
+
+def test_table_swap_id() -> None:
+    assert (
+        TableSwap(
+            urn1=DatasetUrn("snowflake", "dev.public.foo").urn(),
+            urn2=DatasetUrn("snowflake", "dev.public.foo_staging").urn(),
+        ).id()
+        == TableSwap(
+            urn1=DatasetUrn("snowflake", "dev.public.foo_staging").urn(),
+            urn2=DatasetUrn("snowflake", "dev.public.foo").urn(),
+        ).id()
     )

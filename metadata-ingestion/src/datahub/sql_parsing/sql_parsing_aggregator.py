@@ -185,6 +185,10 @@ class TableSwap:
     urn1: UrnStr
     urn2: UrnStr
 
+    def id(self) -> str:
+        # TableSwap(A,B) is same as TableSwap(B,A)
+        return str(hash(frozenset([self.urn1, self.urn2])))
+
 
 @dataclasses.dataclass
 class PreparsedQuery:
@@ -452,6 +456,12 @@ class SqlParsingAggregator(Closeable):
         )
         self._exit_stack.push(self._table_renames)
 
+        # Map of table swaps, from unique swap id to TableSwap
+        self._table_swaps = FileBackedDict[TableSwap](
+            shared_connection=self._shared_connection, tablename="table_swaps"
+        )
+        self._exit_stack.push(self._table_swaps)
+
         # Usage aggregator. This will only be initialized if usage statistics are enabled.
         # TODO: Replace with FileBackedDict.
         # TODO: The BaseUsageConfig class is much too broad for our purposes, and has a number of
@@ -558,7 +568,7 @@ class SqlParsingAggregator(Closeable):
         elif isinstance(item, TableRename):
             self.add_table_rename(item.original_urn, item.new_urn)
         elif isinstance(item, TableSwap):
-            self.add_table_swap(item.urn1, item.urn2)
+            self.add_table_swap(item)
         else:
             raise ValueError(f"Cannot add unknown item type: {type(item)}")
 
@@ -930,36 +940,37 @@ class SqlParsingAggregator(Closeable):
         # This will not work if the table is renamed multiple times.
         self._table_renames[original_urn] = new_urn
 
-    def add_table_swap(
-        self,
-        urn1: UrnStr,
-        urn2: UrnStr,
-    ) -> None:
+    def add_table_swap(self, table_swap: TableSwap) -> None:
         """Add a table swap to the aggregator.
 
         Args:
-            urn1, urn2: The dataset URNs to swap.
+            table_swap.urn1, table_swap.urn2: The dataset URNs to swap.
         """
 
+        if table_swap.id() in self._table_swaps:
+            # We have already processed this table swap once
+            return
+
         self.report.num_table_swaps += 1
+        self._table_swaps[table_swap.id()] = table_swap
 
         urn1_lineage: Optional[OrderedSet[QueryId]] = None
         urn2_lineage: Optional[OrderedSet[QueryId]] = None
 
-        if urn1 in self._lineage_map:
-            urn1_lineage = self._lineage_map.pop(urn1)
+        if table_swap.urn1 in self._lineage_map:
+            urn1_lineage = self._lineage_map.pop(table_swap.urn1)
 
-        if urn2 in self._lineage_map:
-            urn2_lineage = self._lineage_map.pop(urn2)
+        if table_swap.urn2 in self._lineage_map:
+            urn2_lineage = self._lineage_map.pop(table_swap.urn2)
 
         if urn1_lineage:
-            self._lineage_map[urn2] = urn1_lineage
+            self._lineage_map[table_swap.urn2] = urn1_lineage
 
         if urn2_lineage:
-            self._lineage_map[urn1] = urn2_lineage
+            self._lineage_map[table_swap.urn1] = urn2_lineage
 
-        self._table_renames[urn1] = urn2
-        self._table_renames[urn2] = urn1
+        self._table_renames[table_swap.urn1] = table_swap.urn2
+        self._table_renames[table_swap.urn2] = table_swap.urn1
 
     def _make_schema_resolver_for_session(
         self, session_id: str
