@@ -16,6 +16,8 @@ import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
 import com.linkedin.form.FormPromptType;
+import com.linkedin.form.FormState;
+import com.linkedin.form.FormStatus;
 import com.linkedin.form.FormType;
 import com.linkedin.form.StructuredPropertyParams;
 import com.linkedin.metadata.key.FormKey;
@@ -29,8 +31,8 @@ import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -123,12 +125,7 @@ public class FormAssignmentHookTest {
         .upsertFormPromptCompletionAutomation(
             nullable(OperationContext.class),
             Mockito.eq(TEST_FORM_URN),
-            Mockito.eq(Collections.singletonList(testPrompt1)));
-    Mockito.verify(service, Mockito.times(1))
-        .upsertFormPromptCompletionAutomation(
-            nullable(OperationContext.class),
-            Mockito.eq(TEST_FORM_URN),
-            Mockito.eq(Collections.singletonList(testPrompt2)));
+            Mockito.eq(ImmutableList.of(testPrompt1, testPrompt2)));
     Mockito.verify(service, Mockito.times(0))
         .removeFormPromptCompletionAutomation(
             nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), any(FormPrompt.class));
@@ -175,12 +172,7 @@ public class FormAssignmentHookTest {
         .upsertFormPromptCompletionAutomation(
             nullable(OperationContext.class),
             Mockito.eq(TEST_FORM_URN),
-            Mockito.eq(Collections.singletonList(newPrompt1)));
-    Mockito.verify(service, Mockito.times(1))
-        .upsertFormPromptCompletionAutomation(
-            nullable(OperationContext.class),
-            Mockito.eq(TEST_FORM_URN),
-            Mockito.eq(Collections.singletonList(newPrompt2)));
+            Mockito.eq(ImmutableList.of(newPrompt1, newPrompt2)));
     Mockito.verify(service, Mockito.times(1))
         .removeFormPromptCompletionAutomation(
             nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), Mockito.eq(prevPrompt1));
@@ -211,11 +203,51 @@ public class FormAssignmentHookTest {
             Mockito.eq(newFormFilters));
   }
 
+  @Test
+  public void testNotPublished() {
+    FormService service = mockFormService();
+    FormAssignmentHook hook = new FormAssignmentHook(service, true);
+    FormPrompt testPrompt1 =
+        new FormPrompt()
+            .setId(TEST_FORM_PROMPT_ID_1)
+            .setTitle("Test")
+            .setType(FormPromptType.STRUCTURED_PROPERTY)
+            .setStructuredPropertyParams(new StructuredPropertyParams().setUrn(TEST_PROPERTY_URN))
+            .setRequired(true);
+    FormPrompt testPrompt2 =
+        new FormPrompt()
+            .setId(TEST_FORM_PROMPT_ID_2)
+            .setTitle("Test 2")
+            .setType(FormPromptType.STRUCTURED_PROPERTY)
+            .setStructuredPropertyParams(new StructuredPropertyParams().setUrn(TEST_PROPERTY_URN))
+            .setRequired(true);
+    final FormStatus formStatus = new FormStatus();
+    formStatus.setState(FormState.UNPUBLISHED);
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_FORM_URN,
+            FORM_INFO_ASPECT_NAME,
+            ChangeType.UPSERT,
+            mockFormInfo(ImmutableList.of(testPrompt1, testPrompt2), formStatus),
+            mockFormInfo(ImmutableList.of(testPrompt1, testPrompt2)));
+    hook.invoke(event);
+    Mockito.verify(service, Mockito.times(2))
+        .removeFormPromptCompletionAutomation(
+            nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), any(FormPrompt.class));
+  }
+
   private FormInfo mockFormInfo(final List<FormPrompt> prompts) {
+    return mockFormInfo(prompts, null);
+  }
+
+  private FormInfo mockFormInfo(final List<FormPrompt> prompts, @Nullable FormStatus status) {
     FormInfo formInfo = new FormInfo();
     formInfo.setName("Test");
     formInfo.setType(FormType.VERIFICATION);
     formInfo.setPrompts(new FormPromptArray(prompts));
+    if (status != null) {
+      formInfo.setStatus(status);
+    }
     return formInfo;
   }
 
