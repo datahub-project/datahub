@@ -145,7 +145,7 @@ export const PostList = () => {
             {error && <Message type="error" content="Failed to load Posts! An unexpected error occurred." />}
             <PostsContainer>
                 <TabToolbar>
-                    <Button id="posts-create-post" type="text" onClick={() => setIsCreatingPost(true)}>
+                    <Button data-testid="posts-create-post" type="text" onClick={() => setIsCreatingPost(true)}>
                         <PlusOutlined /> New
                     </Button>
                     <SearchBar

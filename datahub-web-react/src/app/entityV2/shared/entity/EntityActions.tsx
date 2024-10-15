@@ -258,7 +258,7 @@ function EntityActions(props: Props) {
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_NODE) && (
                     <Tooltip title="Create New Term Group" showArrow={false} placement="bottom">
                         <TransparentButton
-                            data-testid="add-term-group-button"
+                            data-testid="add-term-group-button-v2"
                             size="large"
                             onClick={() => setIsCreateNodeModalVisible(true)}
                         >

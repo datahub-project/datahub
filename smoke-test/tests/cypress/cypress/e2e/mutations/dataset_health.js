@@ -8,7 +8,7 @@ describe("dataset health test", () => {
     cy.login();
   });
 
-  it.skip("go to dataset with failing assertions and active incidents and verify health of dataset", () => {
+  it("go to dataset with failing assertions and active incidents and verify health of dataset", () => {
     cy.goToDataset(urn, datasetName);
     // Ensure that the “Health” badge is present and there is an active incident warning
     cy.get(`[data-testid="${urn}-health-icon"]`).should("be.visible");
