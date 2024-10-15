@@ -4,6 +4,7 @@
 #
 #########################################################
 import logging
+from datetime import datetime
 from typing import Iterable, List, Optional, Tuple, Union
 
 import datahub.emitter.mce_builder as builder
@@ -52,7 +53,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata._schema_classes import EdgeClass
+from datahub.metadata._schema_classes import AuditStampClass, EdgeClass
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
@@ -1348,7 +1349,18 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 if workspace.app.description
                 else workspace.app.name,
                 # lastModified=workspace.app.last_update,
-                lastModified=ChangeAuditStamps(),
+                lastModified=ChangeAuditStamps(
+                    lastModified=AuditStampClass(
+                        actor=str(),
+                        time=int(
+                            datetime.strptime(
+                                workspace.app.last_update, "%Y-%m-%dT%H:%M:%S.%fZ"
+                            ).timestamp()
+                        ),
+                    )
+                    if workspace.app.last_update
+                    else None
+                ),
                 dashboards=edges,
             )
 
