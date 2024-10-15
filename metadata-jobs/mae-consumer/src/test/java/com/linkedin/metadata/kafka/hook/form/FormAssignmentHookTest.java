@@ -29,6 +29,7 @@ import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -120,10 +121,14 @@ public class FormAssignmentHookTest {
     hook.invoke(event);
     Mockito.verify(service, Mockito.times(1))
         .upsertFormPromptCompletionAutomation(
-            nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), Mockito.eq(testPrompt1));
+            nullable(OperationContext.class),
+            Mockito.eq(TEST_FORM_URN),
+            Mockito.eq(Collections.singletonList(testPrompt1)));
     Mockito.verify(service, Mockito.times(1))
         .upsertFormPromptCompletionAutomation(
-            nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), Mockito.eq(testPrompt2));
+            nullable(OperationContext.class),
+            Mockito.eq(TEST_FORM_URN),
+            Mockito.eq(Collections.singletonList(testPrompt2)));
     Mockito.verify(service, Mockito.times(0))
         .removeFormPromptCompletionAutomation(
             nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), any(FormPrompt.class));
@@ -168,10 +173,14 @@ public class FormAssignmentHookTest {
     hook.invoke(event);
     Mockito.verify(service, Mockito.times(1))
         .upsertFormPromptCompletionAutomation(
-            nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), Mockito.eq(newPrompt1));
+            nullable(OperationContext.class),
+            Mockito.eq(TEST_FORM_URN),
+            Mockito.eq(Collections.singletonList(newPrompt1)));
     Mockito.verify(service, Mockito.times(1))
         .upsertFormPromptCompletionAutomation(
-            nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), Mockito.eq(newPrompt2));
+            nullable(OperationContext.class),
+            Mockito.eq(TEST_FORM_URN),
+            Mockito.eq(Collections.singletonList(newPrompt2)));
     Mockito.verify(service, Mockito.times(1))
         .removeFormPromptCompletionAutomation(
             nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), Mockito.eq(prevPrompt1));

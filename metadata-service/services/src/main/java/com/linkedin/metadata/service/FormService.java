@@ -203,19 +203,21 @@ public class FormService extends BaseService {
   public void upsertFormPromptCompletionAutomation(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn formUrn,
-      @Nonnull final FormPrompt prompt) {
-    if (FIELD_LEVEL_PROMPT_TYPES.contains(prompt.getType())) {
-      log.info("Encountered field level prompt type. Skipping form prompt completion automation");
-      return;
+      @Nonnull final List<FormPrompt> prompts) {
+    List<MetadataChangeProposal> changes = new ArrayList<>();
+    for (FormPrompt prompt : prompts) {
+      if (FIELD_LEVEL_PROMPT_TYPES.contains(prompt.getType())) {
+        log.info("Encountered field level prompt type. Skipping form prompt completion automation");
+        return;
+      }
+      final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormPrompt(formUrn, prompt);
+      final TestInfo testDefinition =
+          FormTestBuilder.buildFormPromptCompletionTest(opContext, formUrn, prompt);
+      changes.add(
+          AspectUtils.buildMetadataChangeProposal(
+              metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition));
     }
-    final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormPrompt(formUrn, prompt);
-    final TestInfo testDefinition =
-        FormTestBuilder.buildFormPromptCompletionTest(opContext, formUrn, prompt);
     try {
-      List<MetadataChangeProposal> changes =
-          ImmutableList.of(
-              AspectUtils.buildMetadataChangeProposal(
-                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition));
       if (_appSource != null) {
         applyAppSource(changes, _appSource);
       }
