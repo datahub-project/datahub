@@ -258,7 +258,7 @@ export const SearchResults = ({
                     {showBrowseV2 && (
                         <SidebarProvider selectedFilters={selectedFilters} onChangeFilters={onChangeFilters}>
                             <BrowseProvider>
-                                <BrowseSidebar visible width={260} />
+                                <BrowseSidebar visible />
                             </BrowseProvider>
                         </SidebarProvider>
                     )}

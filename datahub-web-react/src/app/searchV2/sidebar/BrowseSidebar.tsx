@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 import { Button, Divider, Tooltip, Typography } from 'antd';
+import { ProfileSidebarResizer } from '@src/app/entityV2/shared/containers/profile/sidebar/ProfileSidebarResizer';
 import EntityBrowse from './EntityBrowse';
 import PlatformBrowse from './PlatformBrowse';
 import { useIsPlatformBrowseMode } from './BrowseContext';
@@ -9,6 +10,8 @@ import SidebarBackArrow from '../../../images/sidebarBackArrow.svg?react';
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '../../onboarding/config/SearchOnboardingConfig';
 
 const PLATFORM_BROWSE_TRANSITION_MS = 200;
+export const MAX_BROWSER_WIDTH = 500;
+export const MIN_BROWSWER_WIDTH = 260;
 
 const StyledEntitySidebarContainer = styled.div<{
     isCollapsed: boolean;
@@ -20,13 +23,13 @@ const StyledEntitySidebarContainer = styled.div<{
     overflow: hidden;
     display: ${(props) => (props.isHidden ? 'none' : undefined)};
 
-    ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
+    ${(props) => !props.isCollapsed && props.$width && `max-width: ${props.$width}px;`}
     ${(props) => props.isCollapsed && 'min-width: 63px; max-width: 63px;'}
     &::-webkit-scrollbar {
         display: none;
     }
 
-    margin: 12px;
+    margin: ${(props) => (props.isCollapsed ? '12px' : '12px 0 12px 12px')};
     transition: max-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out,
         min-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
 
@@ -99,13 +102,14 @@ const StyledSidebarBackArrow = styled(SidebarBackArrow)<{ direction: 'left' | 'r
 
 type Props = {
     visible: boolean;
-    width: number;
 };
 
-const BrowseSidebar = ({ visible, width }: Props) => {
+const BrowseSidebar = ({ visible }: Props) => {
     const isPlatformBrowseMode = useIsPlatformBrowseMode();
     const [isClosed, setIsClosed] = useState(false);
     const [isHidden, setIsHidden] = useState(false);
+
+    const [sidebarWidth, setSidebarWidth] = useState(MIN_BROWSWER_WIDTH);
 
     const hideSidebar = useCallback(() => {
         setIsHidden(true);
@@ -115,40 +119,56 @@ const BrowseSidebar = ({ visible, width }: Props) => {
     const unhideSidebar = useCallback(() => setIsHidden(false), []);
 
     return (
-        <StyledEntitySidebarContainer isCollapsed={isClosed} isHidden={isHidden} $width={width} id="browse-v2">
-            <Controls isCollapsed={isClosed}>
-                <NavigateTitle level={5} isClosed={isClosed}>
-                    Navigate
-                </NavigateTitle>
-                <Tooltip
-                    placement="left"
-                    showArrow={false}
-                    title={!isClosed ? 'Close navigator' : 'Open navigator'}
-                    mouseEnterDelay={0.7}
-                    mouseLeaveDelay={0}
-                >
-                    <CloseButton $isActive={!isClosed} type="link" onClick={() => setIsClosed(!isClosed)}>
-                        <StyledSidebarBackArrow direction={isClosed ? 'left' : 'right'} />
-                    </CloseButton>
-                </Tooltip>
-            </Controls>
-            <StyledSidebar id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID}>
-                <ThinDivider />
-                <SidebarBody>
-                    {!isPlatformBrowseMode ? (
-                        <EntityBrowse visible={visible} />
-                    ) : (
-                        <PlatformBrowse
-                            collapsed={isClosed}
-                            expand={() => setIsClosed(false)}
-                            visible={visible}
-                            hideSidebar={hideSidebar}
-                            unhideSidebar={unhideSidebar}
-                        />
-                    )}
-                </SidebarBody>
-            </StyledSidebar>
-        </StyledEntitySidebarContainer>
+        <>
+            <StyledEntitySidebarContainer
+                isCollapsed={isClosed}
+                isHidden={isHidden}
+                $width={sidebarWidth}
+                id="browse-v2"
+            >
+                <Controls isCollapsed={isClosed}>
+                    <NavigateTitle level={5} isClosed={isClosed}>
+                        Navigate
+                    </NavigateTitle>
+                    <Tooltip
+                        placement="left"
+                        showArrow={false}
+                        title={!isClosed ? 'Close navigator' : 'Open navigator'}
+                        mouseEnterDelay={0.7}
+                        mouseLeaveDelay={0}
+                    >
+                        <CloseButton $isActive={!isClosed} type="link" onClick={() => setIsClosed(!isClosed)}>
+                            <StyledSidebarBackArrow direction={isClosed ? 'left' : 'right'} />
+                        </CloseButton>
+                    </Tooltip>
+                </Controls>
+                <StyledSidebar id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID}>
+                    <ThinDivider />
+                    <SidebarBody>
+                        {!isPlatformBrowseMode ? (
+                            <EntityBrowse visible={visible} />
+                        ) : (
+                            <PlatformBrowse
+                                collapsed={isClosed}
+                                expand={() => setIsClosed(false)}
+                                visible={visible}
+                                hideSidebar={hideSidebar}
+                                unhideSidebar={unhideSidebar}
+                            />
+                        )}
+                    </SidebarBody>
+                </StyledSidebar>
+            </StyledEntitySidebarContainer>
+            {!isClosed && (
+                <ProfileSidebarResizer
+                    setSidePanelWidth={(widthProp) => {
+                        setSidebarWidth(Math.min(Math.max(widthProp, MIN_BROWSWER_WIDTH), MAX_BROWSER_WIDTH));
+                    }}
+                    initialSize={sidebarWidth}
+                    isSidebarOnLeft
+                />
+            )}
+        </>
     );
 };
 

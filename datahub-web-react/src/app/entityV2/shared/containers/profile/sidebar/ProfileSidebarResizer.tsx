@@ -9,9 +9,11 @@ type Props = {
 
 const ResizerBar = styled.div`
     min-height: 100%;
-    border: 0.5px solid #efefef;
+    width: 4px;
     cursor: col-resize;
+    margin-right: 12px;
 `;
+
 export const ProfileSidebarResizer = ({ setSidePanelWidth, initialSize, isSidebarOnLeft }: Props) => {
     let dragState: { initialX: number; initialSize: number } | undefined;
 
