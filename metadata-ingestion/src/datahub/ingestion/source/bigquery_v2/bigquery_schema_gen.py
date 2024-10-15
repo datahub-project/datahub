@@ -298,19 +298,21 @@ class BigQuerySchemaGenerator:
                 if is_tag_allowed(self.config.capture_dataset_label_as_tag, k):
                     tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
                     label = BigQueryLabel(key=k, value=v)
-                    platform_resource: PlatformResource = (
-                        self.platform_resource_helper.generate_label_platform_resource(
+                    try:
+                        platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
                             label, tag_urn, managed_by_datahub=False
                         )
-                    )
-                    label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
-                        BigQueryLabelInfo
-                    )
-                    tag_urn = TagUrn.from_string(label_info.datahub_urn)
+                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                            BigQueryLabelInfo
+                        )
+                        tag_urn = TagUrn.from_string(label_info.datahub_urn)
 
-                    for mcpw in platform_resource.to_mcps():
-                        yield mcpw.as_workunit()
-
+                        for mcpw in platform_resource.to_mcps():
+                            yield mcpw.as_workunit()
+                    except ValueError as e:
+                        logger.warning(
+                            f"Failed to generate platform resource for label {k}:{v}: {e}"
+                        )
                     tags_joined.append(tag_urn.urn())
 
         database_container_key = self.gen_project_id_key(database=project_id)
@@ -769,20 +771,22 @@ class BigQuerySchemaGenerator:
             for k, v in table.labels.items():
                 if is_tag_allowed(self.config.capture_table_label_as_tag, k):
                     tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
-                    label = BigQueryLabel(key=k, value=v)
-                    platform_resource: PlatformResource = (
-                        self.platform_resource_helper.generate_label_platform_resource(
+                    try:
+                        label = BigQueryLabel(key=k, value=v)
+                        platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
                             label, tag_urn, managed_by_datahub=False
                         )
-                    )
-                    label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
-                        BigQueryLabelInfo
-                    )
-                    tag_urn = TagUrn.from_string(label_info.datahub_urn)
+                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                            BigQueryLabelInfo
+                        )
+                        tag_urn = TagUrn.from_string(label_info.datahub_urn)
 
-                    for mcpw in platform_resource.to_mcps():
-                        yield mcpw.as_workunit()
-
+                        for mcpw in platform_resource.to_mcps():
+                            yield mcpw.as_workunit()
+                    except ValueError as e:
+                        logger.warning(
+                            f"Failed to generate platform resource for label {k}:{v}: {e}"
+                        )
                     tags_to_add.append(tag_urn.urn())
 
         yield from self.gen_dataset_workunits(
@@ -807,19 +811,23 @@ class BigQuerySchemaGenerator:
             for k, v in table.labels.items():
                 if is_tag_allowed(self.config.capture_view_label_as_tag, k):
                     tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
-                    label = BigQueryLabel(key=k, value=v)
-                    platform_resource: PlatformResource = (
-                        self.platform_resource_helper.generate_label_platform_resource(
+                    try:
+                        label = BigQueryLabel(key=k, value=v)
+                        platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
                             label, tag_urn, managed_by_datahub=False
                         )
-                    )
-                    label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
-                        BigQueryLabelInfo
-                    )
-                    tag_urn = TagUrn.from_string(label_info.datahub_urn)
+                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                            BigQueryLabelInfo
+                        )
+                        tag_urn = TagUrn.from_string(label_info.datahub_urn)
 
-                    for mcpw in platform_resource.to_mcps():
-                        yield mcpw.as_workunit()
+                        for mcpw in platform_resource.to_mcps():
+                            yield mcpw.as_workunit()
+                    except ValueError as e:
+                        logger.warning(
+                            f"Failed to generate platform resource for label {k}:{v}: {e}"
+                        )
+
                     tags_to_add.append(tag_urn.urn())
         yield from self.gen_dataset_workunits(
             table=table,
