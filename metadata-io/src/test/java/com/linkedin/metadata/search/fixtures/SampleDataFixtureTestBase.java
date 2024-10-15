@@ -283,7 +283,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         Map.of(
             "dataset", 13,
             "chart", 0,
-            "container", 1,
+            "container", 2,
             "dashboard", 0,
             "tag", 0,
             "mlmodel", 0);
@@ -820,7 +820,17 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   @Test
   public void testChartAutoComplete() throws InterruptedException, IOException {
     // Two charts exist Baz Chart 1 & Baz Chart 2
-    List.of("Baz", "Baz ", "Baz C", "Baz Ch", "Baz Cha", "Baz Char", "Baz Chart", "Baz Chart ")
+    List.of(
+            "B",
+            "Ba",
+            "Baz",
+            "Baz ",
+            "Baz C",
+            "Baz Ch",
+            "Baz Cha",
+            "Baz Char",
+            "Baz Chart",
+            "Baz Chart ")
         .forEach(
             query -> {
               try {
@@ -894,8 +904,28 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   }
 
   @Test
+  public void testContainerAutoComplete_with_exactMatch_onTop() {
+    List.of("container")
+        .forEach(
+            query -> {
+              try {
+                AutoCompleteResults result =
+                    autocomplete(
+                        getOperationContext(), new ContainerType(getEntityClient()), query);
+                assertTrue(
+                    result.getSuggestions().get(0).equals("container"),
+                    String.format(
+                        "Expected query:`%s` on top of suggestions, found %s",
+                        query, result.getSuggestions().get(0)));
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              }
+            });
+  }
+
+  @Test
   public void testGroupAutoComplete() {
-    List.of("Tes", "Test ", "Test G", "Test Gro", "Test Group ")
+    List.of("T", "Te", "Tes", "Test ", "Test G", "Test Gro", "Test Group ")
         .forEach(
             query -> {
               try {
@@ -915,7 +945,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   @Test
   public void testUserAutoComplete() {
-    List.of("Dat", "Data ", "Data H", "Data Hu", "Data Hub", "Data Hub ")
+    List.of("D", "Da", "Dat", "Data ", "Data H", "Data Hu", "Data Hub", "Data Hub ")
         .forEach(
             query -> {
               try {

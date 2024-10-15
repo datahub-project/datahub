@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESAccessControlUtil.restrictUrn;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
@@ -8,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.AutocompleteConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
@@ -57,11 +57,13 @@ public class AutocompleteRequestHandler {
 
   private final EntitySpec entitySpec;
   private final QueryFilterRewriteChain queryFilterRewriteChain;
+  private final SearchConfiguration searchConfiguration;
 
   public AutocompleteRequestHandler(
       @Nonnull EntitySpec entitySpec,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
-      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      @Nonnull SearchConfiguration searchConfiguration) {
     this.entitySpec = entitySpec;
     List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
     this.customizedQueryHandler = CustomizedQueryHandler.builder(customSearchConfiguration).build();
@@ -75,7 +77,7 @@ public class AutocompleteRequestHandler {
                             Pair.of(
                                 searchableAnnotation.getFieldName(),
                                 Double.toString(searchableAnnotation.getBoostScore()))),
-                Stream.of(Pair.of("urn", PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"))))
+                Stream.of(Pair.of("urn", "1.0")))
             .collect(Collectors.toList());
     searchableFieldTypes =
         fieldSpecs.stream()
@@ -92,17 +94,22 @@ public class AutocompleteRequestHandler {
                       return set1;
                     }));
     this.queryFilterRewriteChain = queryFilterRewriteChain;
+    this.searchConfiguration = searchConfiguration;
   }
 
   public static AutocompleteRequestHandler getBuilder(
       @Nonnull EntitySpec entitySpec,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
-      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      @Nonnull SearchConfiguration searchConfiguration) {
     return AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME.computeIfAbsent(
         entitySpec,
         k ->
             new AutocompleteRequestHandler(
-                entitySpec, customSearchConfiguration, queryFilterRewriteChain));
+                entitySpec,
+                customSearchConfiguration,
+                queryFilterRewriteChain,
+                searchConfiguration));
   }
 
   public SearchRequest getSearchRequest(
@@ -205,33 +212,39 @@ public class AutocompleteRequestHandler {
     return result;
   }
 
-  private static BoolQueryBuilder defaultQuery(
-      List<Pair> autocompleteFields, @Nonnull String query) {
+  private BoolQueryBuilder defaultQuery(List<Pair> autocompleteFields, @Nonnull String query) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
 
     // Search for exact matches with higher boost and ngram matches
-    MultiMatchQueryBuilder autocompleteQueryBuilder =
-        QueryBuilders.multiMatchQuery(query).type(MultiMatchQueryBuilder.Type.PHRASE);
+    MultiMatchQueryBuilder multiMatchQueryBuilder =
+        QueryBuilders.multiMatchQuery(query).type(MultiMatchQueryBuilder.Type.BOOL_PREFIX);
 
     autocompleteFields.forEach(
         pair -> {
           final String fieldName = (String) pair.getLeft();
           final float boostScore = Float.parseFloat((String) pair.getRight());
-          if ("urn".equals(fieldName)) {
-            autocompleteQueryBuilder.field(fieldName + ".ngram", boostScore);
-            autocompleteQueryBuilder.field(fieldName + ".ngram._2gram", boostScore);
-            autocompleteQueryBuilder.field(fieldName + ".ngram._3gram", boostScore);
-            autocompleteQueryBuilder.field(fieldName + ".ngram._4gram", boostScore);
-          } else {
-            autocompleteQueryBuilder.field(fieldName + ".ngram", boostScore);
-            autocompleteQueryBuilder.field(fieldName + ".ngram._2gram", boostScore);
-            autocompleteQueryBuilder.field(fieldName + ".ngram._3gram", boostScore);
-            autocompleteQueryBuilder.field(fieldName + ".ngram._4gram", boostScore);
+          multiMatchQueryBuilder.field(fieldName + ".ngram");
+          multiMatchQueryBuilder.field(fieldName + ".ngram._2gram");
+          multiMatchQueryBuilder.field(fieldName + ".ngram._3gram");
+          multiMatchQueryBuilder.field(fieldName + ".ngram._4gram");
+          multiMatchQueryBuilder.field(fieldName + ".delimited");
+          if (!fieldName.equalsIgnoreCase("urn")) {
+            multiMatchQueryBuilder.field(fieldName + ".ngram", boostScore);
+            multiMatchQueryBuilder.field(
+                fieldName + ".ngram._2gram",
+                boostScore * (searchConfiguration.getWordGram().getTwoGramFactor()));
+            multiMatchQueryBuilder.field(
+                fieldName + ".ngram._3gram",
+                boostScore * (searchConfiguration.getWordGram().getThreeGramFactor()));
+            multiMatchQueryBuilder.field(
+                fieldName + ".ngram._4gram",
+                boostScore * (searchConfiguration.getWordGram().getFourGramFactor()));
+            finalQuery.should(
+                QueryBuilders.matchQuery(fieldName + ".keyword", query).boost(boostScore));
           }
-          autocompleteQueryBuilder.field(fieldName + ".delimited");
           finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(fieldName + ".delimited", query));
         });
-    finalQuery.should(autocompleteQueryBuilder);
+    finalQuery.should(multiMatchQueryBuilder);
     return finalQuery;
   }
 
@@ -253,6 +266,9 @@ public class AutocompleteRequestHandler {
                   .field(fieldName + ".*")
                   .field(fieldName + ".ngram")
                   .field(fieldName + ".delimited");
+              if (!fieldName.equalsIgnoreCase("urn")) {
+                highlightBuilder.field(fieldName + ".keyword");
+              }
             });
 
     // set field match req false for ngram
@@ -264,8 +280,8 @@ public class AutocompleteRequestHandler {
   }
 
   private List<Pair> getAutocompleteFields(@Nullable String field) {
-    if (field != null && !field.isEmpty()) {
-      return ImmutableList.of(Pair.of(field, "2.0"));
+    if (field != null && !field.isEmpty() && !field.equalsIgnoreCase("urn")) {
+      return ImmutableList.of(Pair.of(field, "10.0"));
     }
     return _defaultAutocompleteFields;
   }
