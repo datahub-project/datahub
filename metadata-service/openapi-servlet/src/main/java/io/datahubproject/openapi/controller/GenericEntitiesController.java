@@ -170,6 +170,9 @@ public abstract class GenericEntitiesController<
       @Nonnull UpdateAspectResult updateAspectResult,
       boolean withSystemMetadata);
 
+  protected abstract E buildGenericEntity(
+      @Nonnull String aspectName, @Nonnull IngestResult ingestResult, boolean withSystemMetadata);
+
   protected abstract AspectsBatch toMCPBatch(
       @Nonnull OperationContext opContext, String entityArrayList, Actor actor)
       throws JsonProcessingException, InvalidUrnException;
@@ -560,8 +563,11 @@ public abstract class GenericEntitiesController<
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName,
+      @RequestParam(value = "async", required = false, defaultValue = "false") Boolean async,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata,
+      @RequestParam(value = "createIfEntityNotExists", required = false, defaultValue = "false")
+          Boolean createIfEntityNotExists,
       @RequestParam(value = "createIfNotExists", required = false, defaultValue = "true")
           Boolean createIfNotExists,
       @RequestBody @Nonnull String jsonAspect)
@@ -591,24 +597,38 @@ public abstract class GenericEntitiesController<
             opContext.getRetrieverContext().get().getAspectRetriever(),
             urn,
             aspectSpec,
+            createIfEntityNotExists,
             createIfNotExists,
             jsonAspect,
             authentication.getActor());
 
-    List<UpdateAspectResult> results =
-        entityService.ingestAspects(
+    Set<IngestResult> results =
+        entityService.ingestProposal(
             opContext,
             AspectsBatchImpl.builder()
                 .retrieverContext(opContext.getRetrieverContext().get())
                 .items(List.of(upsert))
                 .build(),
-            true,
-            true);
+            async);
 
-    return ResponseEntity.of(
-        results.stream()
-            .findFirst()
-            .map(result -> buildGenericEntity(aspectName, result, withSystemMetadata)));
+    if (!async) {
+      return ResponseEntity.of(
+          results.stream()
+              .filter(item -> aspectName.equals(item.getRequest().getAspectName()))
+              .findFirst()
+              .map(
+                  result ->
+                      buildGenericEntity(aspectName, result.getResult(), withSystemMetadata)));
+    } else {
+      return results.stream()
+          .filter(item -> aspectName.equals(item.getRequest().getAspectName()))
+          .map(
+              result ->
+                  ResponseEntity.accepted()
+                      .body(buildGenericEntity(aspectName, result, withSystemMetadata)))
+          .findFirst()
+          .orElse(ResponseEntity.accepted().build());
+    }
   }
 
   @Tag(name = "Generic Aspects")
@@ -789,6 +809,7 @@ public abstract class GenericEntitiesController<
       @Nonnull AspectRetriever aspectRetriever,
       Urn entityUrn,
       AspectSpec aspectSpec,
+      Boolean createIfEntityNotExists,
       Boolean createIfNotExists,
       String jsonAspect,
       Actor actor)

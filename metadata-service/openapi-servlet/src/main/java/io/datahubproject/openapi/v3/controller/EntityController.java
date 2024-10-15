@@ -328,6 +328,24 @@ public class EntityController
                     .build()));
   }
 
+  @Override
+  protected GenericEntityV3 buildGenericEntity(
+      @Nonnull String aspectName, @Nonnull IngestResult ingestResult, boolean withSystemMetadata) {
+    return GenericEntityV3.builder()
+        .build(
+            objectMapper,
+            ingestResult.getUrn(),
+            Map.of(
+                aspectName,
+                AspectItem.builder()
+                    .aspect(ingestResult.getRequest().getRecordTemplate())
+                    .systemMetadata(
+                        withSystemMetadata ? ingestResult.getRequest().getSystemMetadata() : null)
+                    .auditStamp(
+                        withSystemMetadata ? ingestResult.getRequest().getAuditStamp() : null)
+                    .build()));
+  }
+
   private List<GenericEntityV3> toRecordTemplates(
       @Nonnull OperationContext opContext,
       SearchEntityArray searchEntities,
@@ -472,16 +490,27 @@ public class EntityController
       @Nonnull AspectRetriever aspectRetriever,
       Urn entityUrn,
       AspectSpec aspectSpec,
+      Boolean createIfEntityNotExists,
       Boolean createIfNotExists,
       String jsonAspect,
       Actor actor)
       throws JsonProcessingException {
     JsonNode jsonNode = objectMapper.readTree(jsonAspect);
     String aspectJson = jsonNode.get("value").toString();
+
+    final ChangeType changeType;
+    if (Boolean.TRUE.equals(createIfEntityNotExists)) {
+      changeType = ChangeType.CREATE_ENTITY;
+    } else if (Boolean.TRUE.equals(createIfNotExists)) {
+      changeType = ChangeType.CREATE;
+    } else {
+      changeType = ChangeType.UPSERT;
+    }
+
     return ChangeItemImpl.builder()
         .urn(entityUrn)
         .aspectName(aspectSpec.getName())
-        .changeType(Boolean.TRUE.equals(createIfNotExists) ? ChangeType.CREATE : ChangeType.UPSERT)
+        .changeType(changeType)
         .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
         .recordTemplate(
             GenericRecordUtils.deserializeAspect(

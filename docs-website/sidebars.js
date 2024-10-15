@@ -113,6 +113,18 @@ module.exports = {
               id: "docs/automations/snowflake-tag-propagation",
               className: "saasOnly",
             },
+            {
+              label: "AI Classification",
+              type: "doc",
+              id: "docs/automations/ai-term-suggestion",
+              className: "saasOnly",
+            },
+            {
+              label: "AI Documentation",
+              type: "doc",
+              id: "docs/automations/ai-docs",
+              className: "saasOnly",
+            },
           ],
         },
         {

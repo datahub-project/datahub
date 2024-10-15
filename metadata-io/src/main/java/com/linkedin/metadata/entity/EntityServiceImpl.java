@@ -1357,6 +1357,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               return IngestResult.builder()
                   .urn(item.getUrn())
                   .request(item)
+                  .result(result)
                   .publishedMCL(result.getMclFuture() != null)
                   .sqlCommitted(true)
                   .isUpdate(result.getOldValue() != null)

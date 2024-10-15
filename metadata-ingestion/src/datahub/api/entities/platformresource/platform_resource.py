@@ -186,10 +186,17 @@ class PlatformResource(BaseModel):
     def from_datahub(
         cls, graph_client: DataHubGraph, key: Union[PlatformResourceKey, str]
     ) -> Optional["PlatformResource"]:
+        """
+        Fetches a PlatformResource from the graph given a key.
+        Key can be either a PlatformResourceKey object or an urn string.
+        Returns None if the resource is not found.
+        """
         if isinstance(key, PlatformResourceKey):
             urn = PlatformResourceUrn(id=key.id)
         else:
             urn = PlatformResourceUrn.from_string(key)
+        if not graph_client.exists(str(urn)):
+            return None
         platform_resource = graph_client.get_entity_semityped(str(urn))
         return cls(
             id=urn.id,

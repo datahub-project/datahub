@@ -99,3 +99,16 @@ def test_platform_resource_search(graph_client, test_id, cleanup_resources):
     ]
     assert len(search_results) == 1
     assert search_results[0] == platform_resource
+
+
+def test_platform_resource_non_existent(graph_client, test_id):
+    key = PlatformResourceKey(
+        platform=f"test_platform_{test_id}",
+        resource_type=f"test_resource_type_{test_id}",
+        primary_key=f"test_primary_key_{test_id}",
+    )
+    platform_resource = PlatformResource.from_datahub(
+        key=key,
+        graph_client=graph_client,
+    )
+    assert platform_resource is None

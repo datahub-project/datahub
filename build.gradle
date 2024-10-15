@@ -398,6 +398,7 @@ subprojects {
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
         implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
         implementation(externalDependency.commonsIo)
+        implementation(externalDependency.protobuf)
       }
     }
 

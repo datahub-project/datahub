@@ -1,6 +1,6 @@
 import datetime
 from pathlib import Path
-from typing import Any, TypeVar, Union
+from typing import Any, Union
 
 import pytest
 from mlflow import MlflowClient
@@ -10,8 +10,6 @@ from mlflow.store.entities import PagedList
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.mlflow import MLflowConfig, MLflowSource
-
-T = TypeVar("T")
 
 
 @pytest.fixture
@@ -46,7 +44,7 @@ def model_version(
     )
 
 
-def dummy_search_func(page_token: Union[None, str], **kwargs: Any) -> PagedList[T]:
+def dummy_search_func(page_token: Union[None, str], **kwargs: Any) -> PagedList[str]:
     dummy_pages = dict(
         page_1=PagedList(items=["a", "b"], token="page_2"),
         page_2=PagedList(items=["c", "d"], token="page_3"),

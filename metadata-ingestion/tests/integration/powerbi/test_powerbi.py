@@ -19,6 +19,7 @@ from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Page,
     Report,
+    ReportType,
     Workspace,
 )
 from tests.test_helpers import mce_helpers, test_connection_helpers
@@ -70,6 +71,9 @@ def scan_init_response(request, context):
         "64ED5CAD-7C10-4684-8180-826122881108||64ED5CAD-7C22-4684-8180-826122881108": {
             "id": "a674efd1-603c-4129-8d82-03cf2be05aff"
         },
+        "90E9E256-3D6D-4D38-86C8-6CCCBD8C170C": {
+            "id": "4278EDC0-85AA-4BF2-B96A-2BC6C82B73C3"
+        },
     }
 
     return w_id_vs_response[workspace_id]
@@ -78,11 +82,10 @@ def scan_init_response(request, context):
 def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
     override_data = override_data or {}
     api_vs_response = {
-        "https://api.powerbi.com/v1.0/myorg/groups": {
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                "@odata.count": 3,
                 "value": [
                     {
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
@@ -103,6 +106,13 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "type": "Workspace",
                     },
                 ],
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
@@ -228,6 +238,11 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ]
             },
         },
+        "https://api.powerbi.com/v1.0/myorg/groups/90E9E256-3D6D-4D38-86C8-6CCCBD8C170C/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"value": []},
+        },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/dashboards/7D668CAD-8FFC-4505-9215-655BCA5BEBAE/tiles": {
             "method": "GET",
             "status_code": 200,
@@ -318,6 +333,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
                         "name": "demo-workspace",
                         "state": "Active",
+                        "type": "Workspace",
                         "datasets": [
                             {
                                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
@@ -473,6 +489,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                             {
                                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                                "reportType": "PaginatedReport",
                                 "name": "SalesMarketing",
                                 "description": "Acryl sales marketing report",
                             }
@@ -489,6 +506,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     {
                         "id": "64ED5CAD-7C22-4684-8180-826122881108",
                         "name": "second-demo-workspace",
+                        "type": "Workspace",
                         "state": "Active",
                         "datasets": [
                             {
@@ -515,9 +533,17 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                             {
                                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                                "reportType": "PowerBIReport",
                                 "name": "SalesMarketing",
                                 "description": "Acryl sales marketing report",
-                            }
+                            },
+                            {
+                                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                                "id": "584cf13a-1485-41c2-a514-b1bb66fff163",
+                                "reportType": "PaginatedReport",
+                                "name": "SalesMarketing",
+                                "description": "Acryl sales marketing report",
+                            },
                         ],
                     },
                 ]
@@ -536,11 +562,21 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     {
                         "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                         "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                        "reportType": "PowerBIReport",
                         "name": "SalesMarketing",
                         "description": "Acryl sales marketing report",
                         "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
                         "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
-                    }
+                    },
+                    {
+                        "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                        "id": "584cf13a-1485-41c2-a514-b1bb66fff163",
+                        "reportType": "PaginatedReport",
+                        "name": "Printable SalesMarketing",
+                        "description": "Acryl sales marketing report",
+                        "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/584cf13a-1485-41c2-a514-b1bb66fff163",
+                        "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=584cf13a-1485-41c2-a514-b1bb66fff163&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
+                    },
                 ]
             },
         },
@@ -550,10 +586,24 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
             "json": {
                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                "reportType": "PowerBIReport",
                 "name": "SalesMarketing",
                 "description": "Acryl sales marketing report",
                 "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
                 "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/584cf13a-1485-41c2-a514-b1bb66fff163": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "id": "584cf13a-1485-41c2-a514-b1bb66fff163",
+                "reportType": "PaginatedReport",
+                "name": "Printable SalesMarketing",
+                "description": "Acryl sales marketing report",
+                "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/584cf13a-1485-41c2-a514-b1bb66fff163",
+                "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=584cf13a-1485-41c2-a514-b1bb66fff163&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/pages": {
@@ -573,6 +623,11 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     },
                 ]
             },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/584cf13a-1485-41c2-a514-b1bb66fff163/pages": {
+            "method": "GET",
+            "status_code": 400,  # Pages API is not supported for PaginatedReport
+            "text": '{"error":{"code":"InvalidRequest","message":"Request is currently not supported for RDL reports"}}',
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/parameters": {
             "method": "GET",
@@ -612,7 +667,8 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
-            json=api_vs_response[url]["json"],
+            json=api_vs_response[url].get("json"),
+            text=api_vs_response[url].get("text"),
             status_code=api_vs_response[url]["status_code"],
         )
 
@@ -675,6 +731,131 @@ def test_powerbi_ingest(
     pipeline.run()
     pipeline.raise_from_status()
     golden_file = "golden_test_ingest.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_powerbi_workspace_type_filter(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    enable_logging()
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        request_mock=requests_mock,
+        override_data={
+            "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "value": [
+                        {
+                            "id": "90E9E256-3D6D-4D38-86C8-6CCCBD8C170C",
+                            "isReadOnly": True,
+                            "name": "Jane Smith Workspace",
+                            "type": "PersonalGroup",
+                            "state": "Active",
+                        },
+                        {
+                            "id": "C6B5DBBC-7580-406C-A6BE-72628C28801C",
+                            "isReadOnly": True,
+                            "name": "Sales",
+                            "type": "Workspace",
+                            "state": "Active",
+                        },
+                    ],
+                },
+            },
+            "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "value": [],
+                },
+            },
+            "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/4278EDC0-85AA-4BF2-B96A-2BC6C82B73C3": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "workspaces": [
+                        {
+                            "id": "90E9E256-3D6D-4D38-86C8-6CCCBD8C170C",
+                            "name": "Jane Smith Workspace",
+                            "type": "PersonalGroup",
+                            "state": "Active",
+                            "datasets": [],
+                        },
+                    ]
+                },
+            },
+            "https://api.powerbi.com/v1.0/myorg/groups/90E9E256-3D6D-4D38-86C8-6CCCBD8C170C/dashboards": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "value": [
+                        {
+                            "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
+                            "isReadOnly": True,
+                            "displayName": "test_dashboard",
+                            "description": "Description of test dashboard",
+                            "embedUrl": "https://localhost/dashboards/embed/1",
+                            "webUrl": "https://localhost/dashboards/web/1",
+                        }
+                    ]
+                },
+            },
+            "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/4278EDC0-85AA-4BF2-B96A-2BC6C82B73C3": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "status": "SUCCEEDED",
+                },
+            },
+        },
+    )
+
+    default_config: dict = default_source_config()
+
+    del default_config["workspace_id"]
+    del default_config["workspace_id_pattern"]
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_config,
+                    "extract_workspaces_to_containers": True,
+                    "workspace_type_filter": [
+                        "PersonalGroup",
+                    ],
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_personal_ingest.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -1439,6 +1620,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
     mock_workspace: Workspace = Workspace(
         id="64ED5CAD-7C10-4684-8180-826122881108",
         name="demo-workspace",
+        type="Workspace",
         datasets={},
         dashboards=[],
         reports=[],
@@ -1485,6 +1667,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
         Report(
             id=report[Constant.ID],
             name=report[Constant.NAME],
+            type=ReportType.PowerBIReport,
             webUrl="",
             embedUrl="",
             description=report[Constant.DESCRIPTION],
@@ -1538,6 +1721,7 @@ def test_reports_with_failed_page_request(
                         {
                             "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                             "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                            "reportType": "PowerBIReport",
                             "name": "SalesMarketing",
                             "description": "Acryl sales marketing report",
                             "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715",
@@ -1546,6 +1730,7 @@ def test_reports_with_failed_page_request(
                         {
                             "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                             "id": "e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
+                            "reportType": "PaginatedReport",
                             "name": "Product",
                             "description": "Acryl product report",
                             "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
@@ -1561,6 +1746,7 @@ def test_reports_with_failed_page_request(
                     "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                     "id": "5b218778-e7a5-4d73-8187-f10824047715",
                     "name": "SalesMarketing",
+                    "reportType": "PowerBIReport",
                     "description": "Acryl sales marketing report",
                     "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715",
                     "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=64ED5CAD-7C10-4684-8180-826122881108",
@@ -1572,6 +1758,7 @@ def test_reports_with_failed_page_request(
                 "json": {
                     "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                     "id": "e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
+                    "reportType": "PowerBIReport",
                     "name": "Product",
                     "description": "Acryl product report",
                     "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
@@ -1647,11 +1834,10 @@ def test_independent_datasets_extraction(
     register_mock_api(
         request_mock=requests_mock,
         override_data={
-            "https://api.powerbi.com/v1.0/myorg/groups": {
+            "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
                 "method": "GET",
                 "status_code": 200,
                 "json": {
-                    "@odata.count": 3,
                     "value": [
                         {
                             "id": "64ED5CAD-7C10-4684-8180-826122881108",
@@ -1662,6 +1848,13 @@ def test_independent_datasets_extraction(
                     ],
                 },
             },
+            "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "value": [],
+                },
+            },
             "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/4674efd1-603c-4129-8d82-03cf2be05aff": {
                 "method": "GET",
                 "status_code": 200,
@@ -1670,6 +1863,7 @@ def test_independent_datasets_extraction(
                         {
                             "id": "64ED5CAD-7C10-4684-8180-826122881108",
                             "name": "demo-workspace",
+                            "type": "Workspace",
                             "state": "Active",
                             "datasets": [
                                 {

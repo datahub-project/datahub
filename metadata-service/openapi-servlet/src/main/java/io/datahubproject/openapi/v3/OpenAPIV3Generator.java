@@ -1100,6 +1100,28 @@ public class OpenAPIV3Generator {
         new Operation()
             .summary(String.format("Create aspect %s on %s ", aspect, upperFirstEntity))
             .tags(tags)
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name("async")
+                        .description("Use async ingestion for high throughput.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_SYSTEM_METADATA)
+                        .description("Include systemMetadata with response.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name("createIfEntityNotExists")
+                        .description("Only create the aspect if the Entity doesn't exist.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name("createIfNotExists")
+                        .description("Only create the aspect if the Aspect doesn't exist.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(true))))
             .requestBody(requestBody)
             .responses(new ApiResponses().addApiResponse("201", successPostResponse));
     // Patch Operation

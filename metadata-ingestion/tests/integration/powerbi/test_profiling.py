@@ -112,19 +112,26 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
             "status_code": 200,
             "json": admin_datasets_response,
         },
-        "https://api.powerbi.com/v1.0/myorg/groups?%24top=1000&%24skip=0&%24filter=type+eq+%27Workspace%27": {
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                "@odata.count": 3,
                 "value": [
                     {
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
                         "isReadOnly": True,
                         "name": "demo-workspace",
                         "type": "Workspace",
+                        "state": "Active",
                     }
                 ],
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
@@ -176,6 +183,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
                         "name": "demo-workspace",
                         "state": "Active",
+                        "type": "Workspace",
                         "datasets": [
                             {
                                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
