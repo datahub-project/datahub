@@ -916,7 +916,8 @@ public class FormServiceTest {
     SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
-    formService.upsertFormPromptCompletionAutomation(opContext, TEST_FORM_URN, prompt);
+    formService.upsertFormPromptCompletionAutomation(
+        opContext, TEST_FORM_URN, Collections.singletonList(prompt));
     JsonNode testDefinition =
         new ObjectMapper()
             .readTree(new ClassPathResource(TEST_FORM_PROMPT_TEST_DEFINITION_PATH).getFile());
@@ -951,7 +952,8 @@ public class FormServiceTest {
     SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
-    formService.upsertFormPromptCompletionAutomation(opContext, TEST_FORM_URN, prompt);
+    formService.upsertFormPromptCompletionAutomation(
+        opContext, TEST_FORM_URN, Collections.singletonList(prompt));
     JsonNode testDefinition =
         new ObjectMapper()
             .readTree(
@@ -1000,7 +1002,8 @@ public class FormServiceTest {
     SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
-    formService.upsertFormPromptCompletionAutomation(opContext, TEST_FORM_URN, prompt);
+    formService.upsertFormPromptCompletionAutomation(
+        opContext, TEST_FORM_URN, Collections.singletonList(prompt));
     JsonNode testDefinition =
         new ObjectMapper()
             .readTree(
@@ -1039,7 +1042,8 @@ public class FormServiceTest {
     SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
-    formService.upsertFormPromptCompletionAutomation(opContext, TEST_FORM_URN, prompt);
+    formService.upsertFormPromptCompletionAutomation(
+        opContext, TEST_FORM_URN, Collections.singletonList(prompt));
     JsonNode testDefinition =
         new ObjectMapper()
             .readTree(
@@ -1084,7 +1088,8 @@ public class FormServiceTest {
     SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
-    formService.upsertFormPromptCompletionAutomation(opContext, TEST_FORM_URN, prompt);
+    formService.upsertFormPromptCompletionAutomation(
+        opContext, TEST_FORM_URN, Collections.singletonList(prompt));
     JsonNode testDefinition =
         new ObjectMapper()
             .readTree(
@@ -1121,7 +1126,8 @@ public class FormServiceTest {
     SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
-    formService.upsertFormPromptCompletionAutomation(opContext, TEST_FORM_URN, prompt);
+    formService.upsertFormPromptCompletionAutomation(
+        opContext, TEST_FORM_URN, Collections.singletonList(prompt));
     JsonNode testDefinition =
         new ObjectMapper()
             .readTree(
@@ -1164,7 +1170,8 @@ public class FormServiceTest {
     SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
-    formService.upsertFormPromptCompletionAutomation(opContext, TEST_FORM_URN, prompt);
+    formService.upsertFormPromptCompletionAutomation(
+        opContext, TEST_FORM_URN, Collections.singletonList(prompt));
     JsonNode testDefinition =
         new ObjectMapper()
             .readTree(

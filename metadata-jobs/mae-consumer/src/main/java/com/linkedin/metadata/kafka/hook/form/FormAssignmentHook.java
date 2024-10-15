@@ -8,6 +8,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
+import com.linkedin.form.FormState;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.form.FormServiceFactory;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
@@ -48,8 +49,6 @@ import org.springframework.stereotype.Component;
  * <p>TODO: In the future, let's decide whether we want to support automations to auto-mark form
  * prompts as "completed" when they do in fact have the correct metadata. (Without user needing to
  * explicitly fill out a form prompt response)
- *
- * <p>TODO: Write a unit test for this class.
  */
 @Slf4j
 @Component
@@ -121,10 +120,18 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
                 FormInfo.class)
             : null;
 
-    // 2. Get the prompts to be added, prompts to be removed.
+    // 2. Get the prompts to be added, prompts to be removed. If not in a published state then act
+    // as if there are
+    // no prompts to add. This will result in all prompt tests being removed if they previously
+    // existed.
     final List<FormPrompt> promptsToUpsert = formDefinition.getPrompts();
+    final boolean isEnabled = FormState.PUBLISHED.equals(formDefinition.getStatus().getState());
     final Set<String> newPromptIds =
-        formDefinition.getPrompts().stream().map(FormPrompt::getId).collect(Collectors.toSet());
+        isEnabled
+            ? formDefinition.getPrompts().stream()
+                .map(FormPrompt::getId)
+                .collect(Collectors.toSet())
+            : Collections.emptySet();
     final List<FormPrompt> promptsToRemove =
         prevDefinition != null
             ? prevDefinition.getPrompts().stream()
@@ -133,10 +140,8 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
             : Collections.emptyList();
 
     // 3. For each prompt to upsert, generate a new automation
-    for (final FormPrompt prompt : promptsToUpsert) {
-      formService.upsertFormPromptCompletionAutomation(
-          systemOperationContext, event.getEntityUrn(), prompt);
-    }
+    formService.upsertFormPromptCompletionAutomation(
+        systemOperationContext, event.getEntityUrn(), promptsToUpsert);
 
     // 4. Remove tests for any prompts that were removed.
     for (final FormPrompt prompt : promptsToRemove) {
