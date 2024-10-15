@@ -10,7 +10,6 @@ import { useEmbeddedProfileLinkProps } from '../../../shared/useEmbeddedProfileL
 
 const TermLink = styled(Link)<{ $showOneAndCount?: boolean }>`
     display: inline-block;
-    margin-bottom: 4px;
     ${(props) =>
         props.$showOneAndCount &&
         `
@@ -21,7 +20,6 @@ const TermLink = styled(Link)<{ $showOneAndCount?: boolean }>`
 
 const TermWrapper = styled.span<{ $showOneAndCount?: boolean }>`
     display: inline-block;
-    margin-bottom: 4px;
     ${(props) =>
         props.$showOneAndCount &&
         `

@@ -18,9 +18,6 @@ const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
 const TermContainer = styled.div`
     position: relative;
-    margin-right: 8px;
-    margin-top: 4px;
-    margin-bottom: 4px;
 
     .ant-tag.ant-tag {
         border-radius: 5px;
@@ -34,7 +31,7 @@ const TermContainer = styled.div`
     }
 `;
 
-export const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; showOneAndCount?: boolean }>`
+const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; showOneAndCount?: boolean }>`
     &&& {
         ${(props) =>
             props.highlightTerm &&
@@ -48,6 +45,8 @@ export const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boole
     font-weight: 400;
     padding: 3px 8px;
     margin-right: 0;
+
+    display: flex;
     position: relative;
     overflow: hidden;
 

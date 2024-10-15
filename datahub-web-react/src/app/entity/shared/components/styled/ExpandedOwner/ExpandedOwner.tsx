@@ -12,9 +12,9 @@ import OwnerContent from './OwnerContent';
 import { useEmbeddedProfileLinkProps } from '../../../../../shared/useEmbeddedProfileLinkProps';
 
 const OwnerTag = styled(Tag)`
+    margin: 0;
     padding: 2px;
     padding-right: 6px;
-    margin-bottom: 8px;
     display: inline-flex;
     align-items: center;
 `;

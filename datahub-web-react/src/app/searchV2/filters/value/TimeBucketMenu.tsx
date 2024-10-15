@@ -38,12 +38,7 @@ export default function TimeBucketMenu({ field, values, type = 'card', onChangeV
             field.options.map(({ label, startOffsetMillis }): ItemType => {
                 const timestamp = moment()
                     .subtract(startOffsetMillis, 'milliseconds')
-                    .set({
-                        hour: 0,
-                        minute: 0,
-                        second: 0,
-                        millisecond: 0,
-                    })
+                    .set({ hour: 0, minute: 0, second: 0, millisecond: 0 })
                     .valueOf()
                     .toString();
                 return {

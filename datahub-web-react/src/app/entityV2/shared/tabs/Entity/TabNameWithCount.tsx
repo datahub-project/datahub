@@ -9,7 +9,7 @@ const Container = styled.div`
 `;
 
 const TabName = styled.div`
-    padding-right: 4px;
+    margin-right: 8px;
 `;
 
 type Props = {

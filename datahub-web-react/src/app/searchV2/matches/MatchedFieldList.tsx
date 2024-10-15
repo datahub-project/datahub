@@ -19,8 +19,6 @@ const MatchesContainer = styled.div`
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-bottom: 2px;
-    padding: 0 6px;
 `;
 
 const MatchContainer = styled.div`

@@ -13,8 +13,8 @@ import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultCon
 import LabelPropagationDetails from '../../propagation/LabelPropagationDetails';
 
 const TagLink = styled.span<{ $showOneAndCount?: boolean }>`
-    display: inline-block;
-    margin-bottom: 4px;
+    display: flex;
+    cursor: pointer;
     ${(props) =>
         props.$showOneAndCount &&
         `
@@ -115,7 +115,6 @@ export default function Tag({
             <HoverEntityTooltip entity={tag.tag} width={250}>
                 <TagLink data-testid={`tag-${displayName}`} $showOneAndCount={showOneAndCount}>
                     <StyledTag
-                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                         onClick={() => {
                             if (isEmbeddedProfile) {
                                 window.open(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn), '_blank');

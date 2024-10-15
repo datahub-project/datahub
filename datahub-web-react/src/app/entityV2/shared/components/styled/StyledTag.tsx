@@ -14,6 +14,9 @@ export const StyledTag = styled(Tag)<{
     $highlightTag?: boolean;
     $showOneAndCount?: boolean;
 }>`
+    display: flex;
+    align-items: center;
+    margin: 0;
     max-width: 200px;
     white-space: nowrap;
     overflow: hidden;

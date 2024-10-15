@@ -18,8 +18,10 @@ const PaddingContainer = styled.div`
     padding: 0px 8px;
 `;
 
-const OwnersContainer = styled(PaddingContainer)`
-    margin-bottom: -6px;
+const OwnersContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
 `;
 
 // slide out preview content for search cards
@@ -38,13 +40,13 @@ export const SearchCardSlideoutContent = ({ item, expandedSection }: Props) => {
 
     const genericProps = entityRegistry.getGenericEntityProperties(item?.entity?.type, item?.entity);
 
-    if (cachedExpandedSection === PreviewSection.MATCHES) {
-        return entityRegistry.renderSearchMatches(item.entity.type, item);
-    }
-
-    if (cachedExpandedSection === PreviewSection.TAGS) {
-        return (
-            <PaddingContainer>
+    let content: JSX.Element;
+    switch (cachedExpandedSection) {
+        case PreviewSection.MATCHES:
+            content = entityRegistry.renderSearchMatches(item.entity.type, item);
+            break;
+        case PreviewSection.TAGS:
+            content = (
                 <TagTermGroup
                     editableTags={genericProps?.globalTags}
                     showEmptyMessage
@@ -53,13 +55,10 @@ export const SearchCardSlideoutContent = ({ item, expandedSection }: Props) => {
                     readOnly
                     fontSize={12}
                 />
-            </PaddingContainer>
-        );
-    }
-
-    if (cachedExpandedSection === PreviewSection.GLOSSARY_TERMS) {
-        return (
-            <PaddingContainer>
+            );
+            break;
+        case PreviewSection.GLOSSARY_TERMS:
+            content = (
                 <TagTermGroup
                     editableGlossaryTerms={genericProps?.glossaryTerms}
                     showEmptyMessage
@@ -68,27 +67,28 @@ export const SearchCardSlideoutContent = ({ item, expandedSection }: Props) => {
                     readOnly
                     fontSize={12}
                 />
-            </PaddingContainer>
-        );
+            );
+            break;
+        case PreviewSection.OWNERS:
+            content = (
+                <OwnersContainer>
+                    {genericProps?.ownership?.owners?.map((owner) => (
+                        <ExpandedOwner
+                            key={owner.owner.urn}
+                            entityUrn={genericProps?.urn || ''}
+                            owner={owner}
+                            readOnly
+                        />
+                    ))}
+                </OwnersContainer>
+            );
+            break;
+        case PreviewSection.COLUMN_PATHS:
+            content = <EntityPaths paths={item.paths || []} resultEntityUrn={item.entity.urn} />;
+            break;
+        default:
+            content = <></>;
+            break;
     }
-
-    if (cachedExpandedSection === PreviewSection.OWNERS) {
-        return (
-            <OwnersContainer>
-                {genericProps?.ownership?.owners?.map((owner) => (
-                    <ExpandedOwner key={owner.owner.urn} entityUrn={genericProps?.urn || ''} owner={owner} readOnly />
-                ))}
-            </OwnersContainer>
-        );
-    }
-
-    if (cachedExpandedSection === PreviewSection.COLUMN_PATHS) {
-        return (
-            <PaddingContainer>
-                <EntityPaths paths={item.paths || []} resultEntityUrn={item.entity.urn} />
-            </PaddingContainer>
-        );
-    }
-
-    return <>TODO: {cachedExpandedSection}</>;
+    return <PaddingContainer>{content}</PaddingContainer>;
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { SEARCH_COLORS } from '../../entityV2/shared/constants';
 import MatchContext, { PreviewSection } from '../../shared/MatchesContext';
@@ -38,11 +38,11 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean; comp
     `}
 `;
 
-const MatchesBottomGroup = styled.div<{ addMargin?: boolean }>`
+const MatchesBottomGroup = styled.div`
     margin-top: auto;
-    ${(props) => (props.addMargin ? 'margin-bottom: 4px;' : ``)}
+    margin-bottom: 8px;
     /* The following div ensures that Tags, Terms, etc., override their default flex-wrap: wrap; with flex-wrap: nowrap; 
-    and maintain alignment as needed, making them scrollable horizontally */    
+    and maintain alignment as needed, making them scrollable horizontally */
     div {
         display: flex;
         flex-wrap: nowrap;
@@ -81,12 +81,6 @@ export const MatchContextContainer = ({
     const { isFullViewCard } = useSearchContext();
     const expandedSection = isFullViewCard ? urnToExpandedSection[item.entity.urn] : undefined;
 
-    const [cachedExpandedSection, setCachedExpandedSection] = useState<PreviewSection | undefined>(expandedSection);
-    useEffect(() => {
-        if (!expandedSection || !isFullViewCard) return;
-        setCachedExpandedSection(expandedSection);
-    }, [expandedSection, isFullViewCard]);
-
     return (
         <MatchContext.Provider
             value={{
@@ -112,7 +106,7 @@ export const MatchContextContainer = ({
                     onClick={onClick}
                     compactUserSearchCardStyle={compactUserSearchCardStyle || false}
                 >
-                    <MatchesBottomGroup addMargin={cachedExpandedSection !== PreviewSection.GLOSSARY_TERMS}>
+                    <MatchesBottomGroup>
                         <MatchContext.Provider
                             value={{
                                 expandedSection: undefined,

@@ -1,11 +1,11 @@
 import { ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
 import { Tag as AntTag, Tooltip, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
 import { ActionRequest, Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '../../../types.generated';
-import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import { ANTD_GRAY, EMPTY_MESSAGES } from '../../entity/shared/constants';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import ProposalModal from '../../shared/tags/ProposalModal';
@@ -59,6 +59,9 @@ const NoElementButton = styled.div`
 const TagTermWrapper = styled.div<{ $showOneAndCount?: boolean }>`
     display: flex;
     flex-wrap: ${(props) => (!props.$showOneAndCount ? 'wrap' : '')};
+    align-items: center;
+    row-gap: 4px;
+    column-gap: 8px;
 `;
 
 const TagText = styled.span`
@@ -69,9 +72,7 @@ const TagText = styled.span`
 `;
 
 const ProposedTermContainer = styled.div`
-    margin-right: 8px;
-    margin-top: 4px;
-    margin-bottom: 4px;
+    display: flex;
 
     .ant-tag.ant-tag {
         border-radius: 5px;
@@ -80,6 +81,7 @@ const ProposedTermContainer = styled.div`
 `;
 
 export const ProposedTerm = styled(AntTag)`
+    margin: 0;
     padding: 3px 8px;
     font-size: 12px;
     color: ${REDESIGN_COLORS.TEXT_HEADING};
@@ -114,9 +116,7 @@ const Count = styled(Typography.Text)`
     font-size: 12px;
     font-weight: 400;
     line-height: 24px;
-    margin-left: 3px;
     overflow: hidden;
-    width: 100%;
     white-space: nowrap;
 `;
 
@@ -215,8 +215,6 @@ export default function TagTermGroup({
 
     let renderedTags = 0;
     let renderedTerms = 0;
-    let renderTermsCount = false;
-    let renderTagsCount = false;
 
     return (
         <TagTermWrapper $showOneAndCount={showOneAndCount}>
@@ -224,15 +222,12 @@ export default function TagTermGroup({
                 <DomainLink domain={domain} name={entityRegistry.getDisplayName(EntityType.Domain, domain) || ''} />
             )}
             {uneditableGlossaryTerms?.terms?.map((term) => {
-                renderedTags += 1;
                 renderedTerms += 1;
-                if (renderedTerms === 2) renderTermsCount = true;
-                if (showOneAndCount && renderTermsCount && renderedTerms === 2) {
-                    renderTermsCount = false;
+                if (showOneAndCount && renderedTerms === 2) {
                     return <Count>{`+${termsLength - 1}`}</Count>;
                 }
                 if (showOneAndCount && renderedTerms > 2) return null;
-                if (maxShow && renderedTags === maxShow + 1)
+                if (maxShow && renderedTerms === maxShow + 1)
                     return (
                         <TagText>
                             <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
@@ -242,7 +237,7 @@ export default function TagTermGroup({
                             </Highlight>
                         </TagText>
                     );
-                if (maxShow && renderedTags > maxShow) return null;
+                if (maxShow && renderedTerms > maxShow) return null;
 
                 return (
                     <Term
@@ -261,9 +256,7 @@ export default function TagTermGroup({
             })}
             {editableGlossaryTerms?.terms?.map((term) => {
                 renderedTerms += 1;
-                if (renderedTerms === 2) renderTermsCount = true;
-                if (showOneAndCount && renderTermsCount && renderedTerms === 2) {
-                    renderTermsCount = false;
+                if (showOneAndCount && renderedTerms === 2) {
                     return <Count>{`+${termsLength - 1}`}</Count>;
                 }
                 if (showOneAndCount && renderedTerms > 2) return null;
@@ -331,9 +324,7 @@ export default function TagTermGroup({
 
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
-                if (renderedTags === 2) renderTagsCount = true;
-                if (showOneAndCount && renderTagsCount && renderedTags === 2) {
-                    renderTagsCount = false;
+                if (showOneAndCount && renderedTags === 2) {
                     return <Count>{`+${tagsLength - 1}`}</Count>;
                 }
                 if (showOneAndCount && renderedTags > 2) return null;
@@ -361,9 +352,7 @@ export default function TagTermGroup({
             {/* editable tags may be provided by ingestion pipelines or the UI */}
             {editableTags?.tags?.map((tag) => {
                 renderedTags += 1;
-                if (renderedTags === 2) renderTagsCount = true;
-                if (showOneAndCount && renderTagsCount && renderedTags === 2) {
-                    renderTagsCount = false;
+                if (showOneAndCount && renderedTags === 2) {
                     return <Count>{`+${tagsLength - 1}`}</Count>;
                 }
                 if (showOneAndCount && renderedTags > 2) return null;
@@ -390,6 +379,7 @@ export default function TagTermGroup({
                     data-testid={`proposed-tag-${actionRequest?.params?.tagProposal?.tag?.properties?.name}`}
                     $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
                     $color={actionRequest?.params?.tagProposal?.tag?.properties?.colorHex}
+                    $showOneAndCount={showOneAndCount}
                     onClick={(e) => {
                         e.stopPropagation();
                         setShowProposalDecisionModal(true);
