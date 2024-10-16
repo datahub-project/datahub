@@ -218,6 +218,13 @@ def sql_format(sql: str, platform: str) -> None:
     type=str,
     help="The default schema to use for unqualified table names",
 )
+@click.option(
+    "--online/--offline",
+    type=bool,
+    is_flag=True,
+    default=True,
+    help="Run in offline mode and disable schema-aware parsing.",
+)
 @telemetry.with_telemetry()
 def sql_lineage(
     sql: str,
@@ -226,22 +233,27 @@ def sql_lineage(
     default_schema: Optional[str],
     platform_instance: Optional[str],
     env: str,
+    online: bool,
 ) -> None:
     """Parse the lineage of a SQL query.
 
-    This performs schema-aware parsing in order to generate column-level lineage.
-    If the relevant tables are not in DataHub, this will be less accurate.
+    In online mode (the default), we perform schema-aware parsing in order to generate column-level lineage.
+    If offline mode is enabled or if the relevant tables are not in DataHub, this will be less accurate.
     """
 
-    graph = get_default_graph()
+    from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
-    lineage = graph.parse_sql_lineage(
+    graph = None
+    if online:
+        graph = get_default_graph()
+
+    lineage = create_lineage_sql_parsed_result(
         sql,
+        default_db=default_db,
         platform=platform,
         platform_instance=platform_instance,
         env=env,
-        default_db=default_db,
-        default_schema=default_schema,
+        graph=graph,
     )
 
     logger.debug("Sql parsing debug info: %s", lineage.debug_info)
