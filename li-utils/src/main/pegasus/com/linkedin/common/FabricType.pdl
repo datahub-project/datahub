@@ -69,4 +69,9 @@ enum FabricType {
    * Alternative Test spelling
    */
   TST
+
+  /**
+   * Designates sandbox fabrics
+   */
+  SANDBOX
 }
