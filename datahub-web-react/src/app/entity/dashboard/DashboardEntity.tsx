@@ -32,8 +32,8 @@ import { LOOKER_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
-import AccessManagement from "../shared/tabs/Dataset/AccessManagement/AccessManagement";
-import {useAppConfig} from "../../useAppConfig";
+import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
+import { useAppConfig } from '../../useAppConfig';
 
 /**
  * Definition of the DataHub Dashboard entity.
