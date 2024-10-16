@@ -65,10 +65,6 @@ def test_stateful_ingestion(auth_session):
             "enabled": True,
             "remove_stale_metadata": True,
             "fail_safe_threshold": 100.0,
-            "state_provider": {
-                "type": "datahub",
-                "config": {"datahub_api": {"server": auth_session.gms_url()}},
-            },
         },
     }
 
