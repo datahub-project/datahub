@@ -1,0 +1,22 @@
+namespace com.linkedin.dataaccess
+
+import com.linkedin.common.TimeStamp
+import com.linkedin.dataset.SchemaFieldPath
+import com.linkedin.schema.SchemaFieldDataType
+
+record SchemaFieldAccess {
+
+  fieldPath: SchemaFieldPath
+
+  type: SchemaFieldDataType
+
+  /**
+   * Requested accessible values in case of restricted row-level access.
+   */
+  values: optional array[string]
+
+  /**
+   * Flag indicating if access is requested on all rows despite restricted row-level access
+   */
+  fullAccessToRows: boolean = false
+}

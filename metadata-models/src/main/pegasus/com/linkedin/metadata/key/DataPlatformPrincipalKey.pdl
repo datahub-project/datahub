@@ -1,0 +1,33 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.DataPlatformUrn
+
+/**
+ * Key for a principal in a platform (e.g. Snowflake, GCP, etc.)
+ */
+@Aspect = {
+  "name": "dataPlatformPrincipalKey"
+}
+record DataPlatformPrincipalKey {
+
+  /**
+   * Data platform in which the principal is defined
+   */
+  @Searchable = {
+    "fieldType": "URN",
+    "enableAutocomplete": true
+  }
+  @Relationship = {
+    "name": "IsOfPlatform",
+    "entityTypes": [ "dataPlatform" ]
+  }
+  platform: DataPlatformUrn
+
+  /**
+   * Principal representation, e.g. group:alpha@gmail.com in GCP BigQuery.
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  name: string
+}

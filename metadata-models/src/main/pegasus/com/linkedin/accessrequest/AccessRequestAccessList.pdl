@@ -1,0 +1,19 @@
+namespace com.linkedin.accessrequest
+
+import com.linkedin.common.Urn
+
+/**
+ * Sources that can be part of an unique Access Request
+ */
+@Aspect = {
+  "name": "accessRequestAccessList"
+}
+record AccessRequestAccessList {
+  @Relationship = {
+    "/*": {
+      "name": "AccessRequestContains",
+      "entityTypes": [ "dataAccess" ]
+    }
+  }
+  urns: array[Urn]
+}
