@@ -31,8 +31,9 @@ When a user makes a request for Data within DataHub, the request is authenticate
 and programmatic calls to DataHub APIs. There are two types of tokens that are important:
 
 1. **Session Tokens**: Generated for users of the DataHub web application. By default, having a duration of 24 hours. 
-These tokens are encoded and stored inside browser-side session cookies. The duration a session token is valid for is configurable via the `AUTH_SESSION_TTL_HOURS` environment variable
-on the datahub-frontend deployment.
+These tokens are encoded and stored inside browser-side session cookies. The duration a session token is valid for is configurable via the `MAX_SESSION_TOKEN_AGE` environment variable
+on the datahub-frontend deployment. Additionally, the `AUTH_SESSION_TTL_HOURS` configures the expiration time of the actor cookie on the user's browser which will also prompt a user login. The difference between these is that the actor cookie expiration only affects the browser session and can still be used programmatically,
+but when the session expires it can no longer be used programmatically either as it is created as a JWT with an expiration claim.
 2. **Personal Access Tokens**: These are tokens generated via the DataHub settings panel useful for interacting
 with DataHub APIs. They can be used to automate processes like enriching documentation, ownership, tags, and more on DataHub. Learn
 more about Personal Access Tokens [here](personal-access-tokens.md). 

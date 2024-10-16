@@ -16,7 +16,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -44,7 +45,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -63,7 +65,32 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),fed5914b-937b-37dd-89c0-b34ffbae9cf4)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_S3_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -78,7 +105,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -96,7 +124,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -124,7 +153,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -145,7 +175,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -160,7 +191,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -178,7 +210,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -206,7 +239,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -225,7 +259,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -246,7 +281,32 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c5f6fc66-ffbb-3f60-9564-f2466ae32493)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_S3_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -267,7 +327,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -295,7 +356,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -314,7 +376,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -329,7 +392,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -347,7 +411,32 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8a218b6e-e6a0-36b6-bc4b-79d202a80167)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_S3_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -362,7 +451,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -380,7 +470,56 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),71bc17ed-a3bc-339a-a100-ebad434717d4)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_S3_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c8c73d4c-ebdd-1bee-9b46-629672cd11a0)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_SFTP_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -408,7 +547,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -428,7 +568,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -443,7 +584,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -461,7 +603,32 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb5263d-017d-1000-ffff-ffff911b23aa)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_SFTP_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -476,7 +643,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -494,7 +662,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -522,7 +691,32 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb55aeb-017d-1000-ffff-fffff475768d)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_SFTP_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -546,7 +740,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -567,7 +762,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -586,7 +782,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -601,7 +798,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -618,7 +816,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -633,7 +832,32 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),3ec2acd6-a0d4-3198-9066-a59fb757bc05)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_SFTP_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -650,7 +874,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -665,7 +890,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -680,7 +906,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -695,7 +922,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -710,7 +938,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -725,7 +954,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -740,7 +970,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -755,7 +986,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -770,7 +1002,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -785,7 +1018,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -800,7 +1034,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -815,7 +1050,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -830,7 +1066,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -845,7 +1082,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -860,7 +1098,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638532800000,
-        "runId": "nifi-test-cluster"
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

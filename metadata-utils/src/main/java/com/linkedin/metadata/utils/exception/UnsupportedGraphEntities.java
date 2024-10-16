@@ -1,8 +1,6 @@
 package com.linkedin.metadata.utils.exception;
 
-/**
- * An exception to be thrown when certain graph entities are not supported.
- */
+/** An exception to be thrown when certain graph entities are not supported. */
 public class UnsupportedGraphEntities extends RuntimeException {
 
   public UnsupportedGraphEntities(String message) {

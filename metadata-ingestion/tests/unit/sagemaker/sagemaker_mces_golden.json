@@ -337,42 +337,6 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/model-artifact.tar_gz,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "dataset_type": "s3",
-                            "uri": "s3://edge-packaging-bucket/model-artifact.tar.gz"
-                        },
-                        "tags": []
-                    }
-                }
-            ]
-        }
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/output-config.tar_gz,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "dataset_type": "s3",
-                            "uri": "s3://edge-packaging-bucket/output-config.tar.gz"
-                        },
-                        "tags": []
-                    }
-                }
-            ]
-        }
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/data-source.tar_gz,PROD)",
             "aspects": [
                 {
@@ -677,12 +641,11 @@
                         "customProperties": {
                             "AutoMLJobName": "an-auto-ml-job",
                             "AutoMLJobArn": "arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job",
-                            "InputDataConfig": "[{'DataSource': {'S3DataSource': {'S3DataType': 'ManifestFile', 'S3Uri': 's3://auto-ml-job-input-bucket/file.txt'}}, 'CompressionType': 'None', 'TargetAttributeName': 'some-name'}]",
+                            "AutoMLJobInputDataConfig": "[{'DataSource': {'S3DataSource': {'S3DataType': 'ManifestFile', 'S3Uri': 's3://auto-ml-job-input-bucket/file.txt'}}, 'CompressionType': 'None'}]",
                             "OutputDataConfig": "{'KmsKeyId': 'some-key-id', 'S3OutputPath': 's3://auto-ml-job-output-bucket/file.txt'}",
                             "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
-                            "AutoMLJobObjective": "{'MetricName': 'Accuracy'}",
-                            "ProblemType": "BinaryClassification",
-                            "AutoMLJobConfig": "{'CompletionCriteria': {'MaxCandidates': 123, 'MaxRuntimePerTrainingJobInSeconds': 123, 'MaxAutoMLJobRuntimeInSeconds': 123}, 'SecurityConfig': {'VolumeKmsKeyId': 'string', 'EnableInterContainerTrafficEncryption': True, 'VpcConfig': {'SecurityGroupIds': ['string'], 'Subnets': ['string']}}}",
+                            "ResolvedAttributes": "{'AutoMLJobObjective': {'MetricName': 'Accuracy'}, 'CompletionCriteria': {'MaxCandidates': 123, 'MaxRuntimePerTrainingJobInSeconds': 123, 'MaxAutoMLJobRuntimeInSeconds': 123}, 'AutoMLProblemTypeResolvedAttributes': {'TabularResolvedAttributes': {'ProblemType': 'BinaryClassification'}}}",
+                            "SecurityConfig": "{'VolumeKmsKeyId': 'string', 'EnableInterContainerTrafficEncryption': True, 'VpcConfig': {'SecurityGroupIds': ['string'], 'Subnets': ['string']}}",
                             "CreationTime": "2015-01-01 00:00:00+00:00",
                             "EndTime": "2015-01-01 00:00:00+00:00",
                             "LastModifiedTime": "2015-01-01 00:00:00+00:00",
@@ -691,9 +654,8 @@
                             "BestCandidate": "{'CandidateName': 'string', 'FinalAutoMLJobObjectiveMetric': {'Type': 'Maximize', 'MetricName': 'Accuracy', 'Value': 1.0}, 'ObjectiveStatus': 'Succeeded', 'CandidateSteps': [{'CandidateStepType': 'AWS::SageMaker::TrainingJob', 'CandidateStepArn': 'string', 'CandidateStepName': 'string'}], 'CandidateStatus': 'Completed', 'InferenceContainers': [{'Image': 'string', 'ModelDataUrl': 's3://auto-ml-job/model-artifact.tar.gz', 'Environment': {'string': 'string'}}], 'CreationTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'EndTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'LastModifiedTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'FailureReason': 'string', 'CandidateProperties': {'CandidateArtifactLocations': {'Explainability': 'string'}}}",
                             "AutoMLJobStatus": "Completed",
                             "AutoMLJobSecondaryStatus": "Starting",
-                            "GenerateCandidateDefinitionsOnly": "True",
+                            "AutoMLProblemTypeConfig": "{'TabularJobConfig': {'CandidateGenerationConfig': {'AlgorithmsConfig': [{'AutoMLAlgorithms': ['xgboost']}]}, 'CompletionCriteria': {'MaxCandidates': 123, 'MaxRuntimePerTrainingJobInSeconds': 123, 'MaxAutoMLJobRuntimeInSeconds': 123}, 'FeatureSpecificationS3Uri': 'string', 'Mode': 'AUTO', 'GenerateCandidateDefinitionsOnly': True, 'ProblemType': 'BinaryClassification', 'TargetAttributeName': 'ChannelType', 'SampleWeightAttributeName': 'string'}}",
                             "AutoMLJobArtifacts": "{'CandidateDefinitionNotebookLocation': 'string', 'DataExplorationNotebookLocation': 'string'}",
-                            "ResolvedAttributes": "{'AutoMLJobObjective': {'MetricName': 'Accuracy'}, 'ProblemType': 'BinaryClassification', 'CompletionCriteria': {'MaxCandidates': 123, 'MaxRuntimePerTrainingJobInSeconds': 123, 'MaxAutoMLJobRuntimeInSeconds': 123}}",
                             "ModelDeployConfig": "{'AutoGenerateEndpointName': True, 'EndpointName': 'string'}",
                             "ModelDeployResult": "{'EndpointName': 'string'}",
                             "jobType": "auto_ml"
@@ -790,77 +752,6 @@
                         ],
                         "outputDatasets": [
                             "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/output-config.tar_gz,PROD)"
-                        ],
-                        "inputDatajobs": [
-                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)"
-                        ]
-                    }
-                }
-            ]
-        }
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-            "urn": "urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
-                        "customProperties": {},
-                        "name": "an-edge-packaging-job"
-                    }
-                }
-            ]
-        }
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-                        "customProperties": {
-                            "EdgePackagingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job",
-                            "EdgePackagingJobName": "an-edge-packaging-job",
-                            "CompilationJobName": "a-compilation-job",
-                            "ModelName": "the-second-model",
-                            "ModelVersion": "string",
-                            "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
-                            "OutputConfig": "{'S3OutputLocation': 's3://edge-packaging-bucket/output-config.tar.gz', 'KmsKeyId': 'string', 'PresetDeploymentType': 'GreengrassV2Component', 'PresetDeploymentConfig': 'string'}",
-                            "ResourceKey": "string",
-                            "EdgePackagingJobStatus": "STARTING",
-                            "EdgePackagingJobStatusMessage": "string",
-                            "CreationTime": "2015-01-01 00:00:00+00:00",
-                            "LastModifiedTime": "2015-01-01 00:00:00+00:00",
-                            "ModelArtifact": "s3://edge-packaging-bucket/model-artifact.tar.gz",
-                            "ModelSignature": "string",
-                            "PresetDeploymentOutput": "{'Type': 'GreengrassV2Component', 'Artifact': 'arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/some-artifact', 'Status': 'COMPLETED', 'StatusMessage': 'string'}",
-                            "jobType": "edge_packaging"
-                        },
-                        "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/edge-packaging-jobs/an-edge-packaging-job",
-                        "name": "an-edge-packaging-job",
-                        "type": {
-                            "string": "SAGEMAKER"
-                        },
-                        "status": "STARTING"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/edge_packaging"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-                        "inputDatasets": [],
-                        "outputDatasets": [
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/model-artifact.tar_gz,PROD)",
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/output-config.tar_gz,PROD)"
                         ],
                         "inputDatajobs": []
                     }
@@ -1343,6 +1234,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -1468,7 +1360,6 @@
                             "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
                         ],
                         "downstreamJobs": [
-                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
                             "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)"
                         ],
                         "groups": [
@@ -1501,17 +1392,6 @@
 {
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1589,17 +1469,6 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1699,28 +1568,6 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/output-config.tar_gz,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/model-artifact.tar_gz,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/output-config.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

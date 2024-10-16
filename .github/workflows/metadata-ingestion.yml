@@ -6,13 +6,15 @@ on:
     paths:
       - ".github/workflows/metadata-ingestion.yml"
       - "metadata-ingestion/**"
+      - "metadata-ingestion-modules/**"
       - "metadata-models/**"
   pull_request:
     branches:
       - "**"
     paths:
-      - ".github/**"
+      - ".github/workflows/metadata-ingestion.yml"
       - "metadata-ingestion/**"
+      - "metadata-ingestion-modules/**"
       - "metadata-models/**"
   release:
     types: [published]
@@ -24,6 +26,7 @@ concurrency:
 jobs:
   metadata-ingestion:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     env:
       SPARK_VERSION: 3.3.2
       DATAHUB_TELEMETRY_ENABLED: false
@@ -31,7 +34,7 @@ jobs:
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
       matrix:
-        python-version: ["3.7", "3.10"]
+        python-version: ["3.8", "3.10"]
         command:
           [
             "testQuick",
@@ -40,12 +43,32 @@ jobs:
             "testIntegrationBatch2",
           ]
         include:
-          - python-version: "3.7"
+          - python-version: "3.8"
           - python-version: "3.10"
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v3
+      - uses: acryldata/sane-checkout-action@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -61,7 +84,7 @@ jobs:
       - name: Debug info
         if: always()
         run: |
-          source metadata-ingestion/venv/bin/activate && pip freeze
+          source metadata-ingestion/venv/bin/activate && uv pip freeze
           set -x
           df -hl
           docker image ls
@@ -73,6 +96,7 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
+            !**/binary/**
       - name: Upload coverage to Codecov
         if: ${{ always() && matrix.python-version == '3.10' }}
         uses: codecov/codecov-action@v3

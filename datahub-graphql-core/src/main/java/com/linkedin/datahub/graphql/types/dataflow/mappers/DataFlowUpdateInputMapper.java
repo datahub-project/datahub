@@ -1,10 +1,13 @@
 package com.linkedin.datahub.graphql.types.dataflow.mappers;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataFlowUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
@@ -16,21 +19,22 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.Constants.*;
-
-
-public class DataFlowUpdateInputMapper implements InputModelMapper<DataFlowUpdateInput,
-    Collection<MetadataChangeProposal>, Urn> {
+public class DataFlowUpdateInputMapper
+    implements InputModelMapper<DataFlowUpdateInput, Collection<MetadataChangeProposal>, Urn> {
   public static final DataFlowUpdateInputMapper INSTANCE = new DataFlowUpdateInputMapper();
 
-  public static Collection<MetadataChangeProposal> map(@Nonnull final DataFlowUpdateInput dataFlowUpdateInput,
+  public static Collection<MetadataChangeProposal> map(
+      @Nullable final QueryContext context,
+      @Nonnull final DataFlowUpdateInput dataFlowUpdateInput,
       @Nonnull final Urn actor) {
-    return INSTANCE.apply(dataFlowUpdateInput, actor);
+    return INSTANCE.apply(context, dataFlowUpdateInput, actor);
   }
 
   @Override
   public Collection<MetadataChangeProposal> apply(
+      @Nullable final QueryContext context,
       @Nonnull final DataFlowUpdateInput dataFlowUpdateInput,
       @Nonnull final Urn actor) {
     final Collection<MetadataChangeProposal> proposals = new ArrayList<>(3);
@@ -41,7 +45,8 @@ public class DataFlowUpdateInputMapper implements InputModelMapper<DataFlowUpdat
 
     if (dataFlowUpdateInput.getOwnership() != null) {
       proposals.add(
-          updateMappingHelper.aspectToProposal(OwnershipUpdateMapper.map(dataFlowUpdateInput.getOwnership(), actor),
+          updateMappingHelper.aspectToProposal(
+              OwnershipUpdateMapper.map(context, dataFlowUpdateInput.getOwnership(), actor),
               OWNERSHIP_ASPECT_NAME));
     }
 
@@ -50,28 +55,29 @@ public class DataFlowUpdateInputMapper implements InputModelMapper<DataFlowUpdat
       if (dataFlowUpdateInput.getGlobalTags() != null) {
         globalTags.setTags(
             new TagAssociationArray(
-                dataFlowUpdateInput.getGlobalTags().getTags().stream().map(TagAssociationUpdateMapper::map
-                ).collect(Collectors.toList())
-            )
-        );
+                dataFlowUpdateInput.getGlobalTags().getTags().stream()
+                    .map(t -> TagAssociationUpdateMapper.map(context, t))
+                    .collect(Collectors.toList())));
       } else {
         globalTags.setTags(
             new TagAssociationArray(
-                dataFlowUpdateInput.getTags().getTags().stream().map(TagAssociationUpdateMapper::map
-                ).collect(Collectors.toList())
-            )
-        );
+                dataFlowUpdateInput.getTags().getTags().stream()
+                    .map(t -> TagAssociationUpdateMapper.map(context, t))
+                    .collect(Collectors.toList())));
       }
       proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));
     }
 
     if (dataFlowUpdateInput.getEditableProperties() != null) {
-      final EditableDataFlowProperties editableDataFlowProperties = new EditableDataFlowProperties();
-      editableDataFlowProperties.setDescription(dataFlowUpdateInput.getEditableProperties().getDescription());
+      final EditableDataFlowProperties editableDataFlowProperties =
+          new EditableDataFlowProperties();
+      editableDataFlowProperties.setDescription(
+          dataFlowUpdateInput.getEditableProperties().getDescription());
       editableDataFlowProperties.setCreated(auditStamp);
       editableDataFlowProperties.setLastModified(auditStamp);
-      proposals.add(updateMappingHelper.aspectToProposal(editableDataFlowProperties,
-          EDITABLE_DATA_FLOW_PROPERTIES_ASPECT_NAME));
+      proposals.add(
+          updateMappingHelper.aspectToProposal(
+              editableDataFlowProperties, EDITABLE_DATA_FLOW_PROPERTIES_ASPECT_NAME));
     }
 
     return proposals;

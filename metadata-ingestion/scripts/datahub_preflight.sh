@@ -45,8 +45,6 @@ arm64_darwin_preflight() {
   	pip3 install --no-use-pep517 scipy
   fi
 
-  printf "✨ Setting up librdkafka prerequisities\n"
-  brew_install "librdkafka" "1.9.1"
   brew_install "openssl@1.1"
   brew install "postgresql@14"
 
@@ -69,25 +67,16 @@ arm64_darwin_preflight() {
   export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL
   GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1
   export GRPC_PYTHON_BUILD_SYSTEM_ZLIB
-  CPPFLAGS="-I$(brew --prefix openssl@1.1)/include -I$(brew --prefix librdkafka)/include"
+  CPPFLAGS="-I$(brew --prefix openssl@1.1)/include"
   export CPPFLAGS
-  LDFLAGS="-L$(brew --prefix openssl@1.1)/lib -L$(brew --prefix librdkafka)/lib"
+  LDFLAGS="-L$(brew --prefix openssl@1.1)/lib"
   export LDFLAGS
-  CPATH="$(brew --prefix librdkafka)/include"
-  export CPATH
-  C_INCLUDE_PATH="$(brew --prefix librdkafka)/include"
-  export C_INCLUDE_PATH
-  LIBRARY_PATH="$(brew --prefix librdkafka)/lib"
-  export LIBRARY_PATH
 
 cat << EOF
   export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
   export GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1
-  export CPPFLAGS="-I$(brew --prefix openssl@1.1)/include -I$(brew --prefix librdkafka)/include"
-  export LDFLAGS="-L$(brew --prefix openssl@1.1)/lib -L$(brew --prefix librdkafka)/lib -L$(brew --prefix postgresql@14)/lib/postgresql@14"
-  export CPATH="$(brew --prefix librdkafka)/include"
-  export C_INCLUDE_PATH="$(brew --prefix librdkafka)/include"
-  export LIBRARY_PATH="$(brew --prefix librdkafka)/lib"
+  export CPPFLAGS="-I$(brew --prefix openssl@1.1)/include"
+  export LDFLAGS="-L$(brew --prefix openssl@1.1)/lib -L$(brew --prefix postgresql@14)/lib/postgresql@14"
 
 EOF
 

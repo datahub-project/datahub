@@ -1,0 +1,413 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "OpenLineage",
+    "version": "2-0-2",
+    "description": "OpenLineage is an open source **lineage and metadata collection API** for the data ecosystem.",
+    "license": {
+      "name": "Apache 2.0",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    }
+  },
+  "paths": {
+  "/lineage": {
+      "post": {
+        "summary": "Send an event related to the state of a run",
+        "description": "Updates a run state for a job.",
+        "operationId": "postRunEventRaw",
+        "tags": [
+          "OpenLineage"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BaseEvent": {
+        "type": "object",
+        "properties": {
+          "eventTime": {
+            "description": "the time the event occurred at",
+            "type": "string",
+            "format": "date-time"
+          },
+          "producer": {
+            "description": "URI identifying the producer of this metadata. For example this could be a git url with a given tag or sha",
+            "type": "string",
+            "format": "uri",
+            "example": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client"
+          },
+          "schemaURL": {
+            "description": "The JSON Pointer (https://tools.ietf.org/html/rfc6901) URL to the corresponding version of the schema definition for this RunEvent",
+            "type": "string",
+            "format": "uri",
+            "example": "https://openlineage.io/spec/0-0-1/OpenLineage.json"
+          }
+        },
+        "required": [
+          "eventTime",
+          "producer",
+          "schemaURL"
+        ]
+      },
+      "BaseFacet": {
+        "description": "all fields of the base facet are prefixed with _ to avoid name conflicts in facets",
+        "type": "object",
+        "properties": {
+          "_producer": {
+            "description": "URI identifying the producer of this metadata. For example this could be a git url with a given tag or sha",
+            "type": "string",
+            "format": "uri",
+            "example": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client"
+          },
+          "_schemaURL": {
+            "description": "The JSON Pointer (https://tools.ietf.org/html/rfc6901) URL to the corresponding version of the schema definition for this facet",
+            "type": "string",
+            "format": "uri",
+            "example": "https://openlineage.io/spec/1-0-2/OpenLineage.json#/$defs/BaseFacet"
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "_producer",
+          "_schemaURL"
+        ]
+      },
+      "RunFacet": {
+        "description": "A Run Facet",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          }
+        ]
+      },
+      "Run": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "description": "The globally unique ID of the run associated with the job.",
+            "type": "string",
+            "format": "uuid"
+          },
+          "facets": {
+            "description": "The run facets.",
+            "type": "object",
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/RunFacet"
+                }
+              }
+            ]
+          }
+        },
+        "required": [
+          "runId"
+        ]
+      },
+      "JobFacet": {
+        "description": "A Job Facet",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_deleted": {
+                "description": "set to true to delete a facet",
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "description": "The namespace containing that job",
+            "type": "string",
+            "example": "my-scheduler-namespace"
+          },
+          "name": {
+            "description": "The unique name for that job within that namespace",
+            "type": "string",
+            "example": "myjob.mytask"
+          },
+          "facets": {
+            "description": "The job facets.",
+            "type": "object",
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JobFacet"
+                }
+              }
+            ]
+          }
+        },
+        "required": [
+          "namespace",
+          "name"
+        ]
+      },
+      "DatasetFacet": {
+        "description": "A Dataset Facet",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_deleted": {
+                "description": "set to true to delete a facet",
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
+      "Dataset": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "description": "The namespace containing that dataset",
+            "type": "string",
+            "example": "my-datasource-namespace"
+          },
+          "name": {
+            "description": "The unique name for that dataset within that namespace",
+            "type": "string",
+            "example": "instance.schema.table"
+          },
+          "facets": {
+            "description": "The facets for this dataset",
+            "type": "object",
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/DatasetFacet"
+                }
+              }
+            ]
+          }
+        },
+        "required": [
+          "namespace",
+          "name"
+        ]
+      },
+      "InputDatasetFacet": {
+        "description": "An Input Dataset Facet",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          }
+        ]
+      },
+      "InputDataset": {
+        "description": "An input dataset",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Dataset"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "inputFacets": {
+                "description": "The input facets for this dataset.",
+                "type": "object",
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/InputDatasetFacet"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "OutputDatasetFacet": {
+        "description": "An Output Dataset Facet",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          }
+        ]
+      },
+      "OutputDataset": {
+        "description": "An output dataset",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Dataset"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outputFacets": {
+                "description": "The output facets for this dataset",
+                "type": "object",
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/OutputDatasetFacet"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "RunEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseEvent"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "eventType": {
+                "description": "the current transition of the run state. It is required to issue 1 START event and 1 of [ COMPLETE, ABORT, FAIL ] event per run. Additional events with OTHER eventType can be added to the same run. For example to send additional metadata after the run is complete",
+                "type": "string",
+                "enum": [
+                  "START",
+                  "RUNNING",
+                  "COMPLETE",
+                  "ABORT",
+                  "FAIL",
+                  "OTHER"
+                ],
+                "example": "START|RUNNING|COMPLETE|ABORT|FAIL|OTHER"
+              },
+              "run": {
+                "$ref": "#/components/schemas/Run"
+              },
+              "job": {
+                "$ref": "#/components/schemas/Job"
+              },
+              "inputs": {
+                "description": "The set of **input** datasets.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/InputDataset"
+                }
+              },
+              "outputs": {
+                "description": "The set of **output** datasets.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/OutputDataset"
+                }
+              }
+            },
+            "required": [
+              "run",
+              "job"
+            ]
+          }
+        ]
+      },
+      "StaticDataset": {
+        "description": "A Dataset sent within static metadata events",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Dataset"
+          }
+        ]
+      },
+      "DatasetEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseEvent"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "dataset": {
+                "$ref": "#/components/schemas/StaticDataset"
+              }
+            },
+            "required": [
+              "dataset"
+            ],
+            "not": {
+              "required": [
+                "job",
+                "run"
+              ]
+            }
+          }
+        ]
+      },
+      "JobEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseEvent"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "job": {
+                "$ref": "#/components/schemas/Job"
+              },
+              "inputs": {
+                "description": "The set of **input** datasets.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/InputDataset"
+                }
+              },
+              "outputs": {
+                "description": "The set of **output** datasets.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/OutputDataset"
+                }
+              }
+            },
+            "required": [
+              "job"
+            ],
+            "not": {
+              "required": [
+                "run"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

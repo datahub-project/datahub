@@ -4,7 +4,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.ModelValidationException;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -15,17 +14,21 @@ import javax.annotation.Nonnull;
 import lombok.Value;
 import org.apache.commons.lang3.EnumUtils;
 
-
-/**
- * Simple object representation of the @Searchable annotation metadata.
- */
+/** Simple object representation of the @Searchable annotation metadata. */
 @Value
 public class SearchableAnnotation {
 
   public static final String FIELD_NAME_ALIASES = "fieldNameAliases";
   public static final String ANNOTATION_NAME = "Searchable";
+  public static final Set<FieldType> OBJECT_FIELD_TYPES =
+      ImmutableSet.of(FieldType.OBJECT, FieldType.MAP_ARRAY);
   private static final Set<FieldType> DEFAULT_QUERY_FIELD_TYPES =
-      ImmutableSet.of(FieldType.TEXT, FieldType.TEXT_PARTIAL, FieldType.WORD_GRAM, FieldType.URN, FieldType.URN_PARTIAL);
+      ImmutableSet.of(
+          FieldType.TEXT,
+          FieldType.TEXT_PARTIAL,
+          FieldType.WORD_GRAM,
+          FieldType.URN,
+          FieldType.URN_PARTIAL);
 
   // Name of the field in the search index. Defaults to the field name in the schema
   String fieldName;
@@ -53,6 +56,9 @@ public class SearchableAnnotation {
   Map<Object, Double> weightsPerFieldValue;
   // (Optional) Aliases for this given field that can be used for sorting etc.
   List<String> fieldNameAliases;
+  // Whether to create a missing field aggregation when querying the corresponding field,
+  // only adds to query time not mapping
+  boolean includeQueryEmptyAggregation;
 
   public enum FieldType {
     KEYWORD,
@@ -66,16 +72,21 @@ public class SearchableAnnotation {
     DATETIME,
     OBJECT,
     BROWSE_PATH_V2,
-    WORD_GRAM
+    WORD_GRAM,
+    DOUBLE,
+    MAP_ARRAY
   }
 
   @Nonnull
-  public static SearchableAnnotation fromPegasusAnnotationObject(@Nonnull final Object annotationObj,
-      @Nonnull final String schemaFieldName, @Nonnull final DataSchema.Type schemaDataType,
+  public static SearchableAnnotation fromPegasusAnnotationObject(
+      @Nonnull final Object annotationObj,
+      @Nonnull final String schemaFieldName,
+      @Nonnull final DataSchema.Type schemaDataType,
       @Nonnull final String context) {
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
       throw new ModelValidationException(
-          String.format("Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
+          String.format(
+              "Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
               ANNOTATION_NAME, context));
     }
 
@@ -83,23 +94,34 @@ public class SearchableAnnotation {
     final Optional<String> fieldName = AnnotationUtils.getField(map, "fieldName", String.class);
     final Optional<String> fieldType = AnnotationUtils.getField(map, "fieldType", String.class);
     if (fieldType.isPresent() && !EnumUtils.isValidEnum(FieldType.class, fieldType.get())) {
-      throw new ModelValidationException(String.format(
-          "Failed to validate @%s annotation declared at %s: Invalid field 'fieldType'. Invalid fieldType provided. Valid types are %s",
-          ANNOTATION_NAME, context, Arrays.toString(FieldType.values())));
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: Invalid field 'fieldType'. Invalid fieldType provided. Valid types are %s",
+              ANNOTATION_NAME, context, Arrays.toString(FieldType.values())));
     }
 
-    final Optional<Boolean> queryByDefault = AnnotationUtils.getField(map, "queryByDefault", Boolean.class);
-    final Optional<Boolean> enableAutocomplete = AnnotationUtils.getField(map, "enableAutocomplete", Boolean.class);
-    final Optional<Boolean> addToFilters = AnnotationUtils.getField(map, "addToFilters", Boolean.class);
-    final Optional<Boolean> addHasValuesToFilters = AnnotationUtils.getField(map, "addHasValuesToFilters", Boolean.class);
-    final Optional<String> filterNameOverride = AnnotationUtils.getField(map, "filterNameOverride", String.class);
+    final Optional<Boolean> queryByDefault =
+        AnnotationUtils.getField(map, "queryByDefault", Boolean.class);
+    final Optional<Boolean> enableAutocomplete =
+        AnnotationUtils.getField(map, "enableAutocomplete", Boolean.class);
+    final Optional<Boolean> addToFilters =
+        AnnotationUtils.getField(map, "addToFilters", Boolean.class);
+    final Optional<Boolean> addHasValuesToFilters =
+        AnnotationUtils.getField(map, "addHasValuesToFilters", Boolean.class);
+    final Optional<String> filterNameOverride =
+        AnnotationUtils.getField(map, "filterNameOverride", String.class);
     final Optional<String> hasValuesFilterNameOverride =
         AnnotationUtils.getField(map, "hasValuesFilterNameOverride", String.class);
     final Optional<Double> boostScore = AnnotationUtils.getField(map, "boostScore", Double.class);
-    final Optional<String> hasValuesFieldName = AnnotationUtils.getField(map, "hasValuesFieldName", String.class);
-    final Optional<String> numValuesFieldName = AnnotationUtils.getField(map, "numValuesFieldName", String.class);
+    final Optional<String> hasValuesFieldName =
+        AnnotationUtils.getField(map, "hasValuesFieldName", String.class);
+    final Optional<String> numValuesFieldName =
+        AnnotationUtils.getField(map, "numValuesFieldName", String.class);
     final Optional<Map> weightsPerFieldValueMap =
-        AnnotationUtils.getField(map, "weightsPerFieldValue", Map.class).map(m -> (Map<Object, Double>) m);
+        AnnotationUtils.getField(map, "weightsPerFieldValue", Map.class)
+            .map(m -> (Map<Object, Double>) m);
+    final Optional<Boolean> includeQueryEmptyAggregation =
+        AnnotationUtils.getField(map, "includeQueryEmptyAggregation", Boolean.class);
     final List<String> fieldNameAliases = getFieldNameAliases(map);
 
     final FieldType resolvedFieldType = getFieldType(fieldType, schemaDataType);
@@ -116,10 +138,12 @@ public class SearchableAnnotation {
         hasValuesFieldName,
         numValuesFieldName,
         weightsPerFieldValueMap.orElse(ImmutableMap.of()),
-        fieldNameAliases);
+        fieldNameAliases,
+        includeQueryEmptyAggregation.orElse(false));
   }
 
-  private static FieldType getFieldType(Optional<String> maybeFieldType, DataSchema.Type schemaDataType) {
+  private static FieldType getFieldType(
+      Optional<String> maybeFieldType, DataSchema.Type schemaDataType) {
     if (!maybeFieldType.isPresent()) {
       return getDefaultFieldType(schemaDataType);
     }
@@ -129,16 +153,19 @@ public class SearchableAnnotation {
   private static FieldType getDefaultFieldType(DataSchema.Type schemaDataType) {
     switch (schemaDataType) {
       case INT:
-      case FLOAT:
         return FieldType.COUNT;
       case MAP:
         return FieldType.KEYWORD;
+      case FLOAT:
+      case DOUBLE:
+        return FieldType.DOUBLE;
       default:
         return FieldType.TEXT;
     }
   }
 
-  private static Boolean getQueryByDefault(Optional<Boolean> maybeQueryByDefault, FieldType fieldType) {
+  private static Boolean getQueryByDefault(
+      Optional<Boolean> maybeQueryByDefault, FieldType fieldType) {
     if (!maybeQueryByDefault.isPresent()) {
       if (DEFAULT_QUERY_FIELD_TYPES.contains(fieldType)) {
         return Boolean.TRUE;
@@ -167,7 +194,8 @@ public class SearchableAnnotation {
 
   private static List<String> getFieldNameAliases(Map map) {
     final List<String> aliases = new ArrayList<>();
-    final Optional<List> fieldNameAliases = AnnotationUtils.getField(map, FIELD_NAME_ALIASES, List.class);
+    final Optional<List> fieldNameAliases =
+        AnnotationUtils.getField(map, FIELD_NAME_ALIASES, List.class);
     if (fieldNameAliases.isPresent()) {
       for (Object alias : fieldNameAliases.get()) {
         aliases.add((String) alias);

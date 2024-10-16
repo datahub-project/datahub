@@ -8,9 +8,9 @@ import { VIEW_ENTITY_PAGE } from '../entity/shared/constants';
 import { decodeUrn } from '../entity/shared/utils';
 import CompactContext from '../shared/CompactContext';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { useGetAuthenticatedUserUrn } from '../useGetAuthenticatedUser';
 import analytics from '../analytics/analytics';
 import { EventType } from '../analytics';
+import { useUserContext } from '../context/useUserContext';
 
 const EmbeddedPageWrapper = styled.div`
     max-height: 100%;
@@ -39,15 +39,16 @@ export default function EmbeddedPage({ entityType }: Props) {
         });
     }, [entityType, urn]);
 
-    const authenticatedUserUrn = useGetAuthenticatedUserUrn();
+    const { urn: authenticatedUserUrn } = useUserContext();
     const { data } = useGetGrantedPrivilegesQuery({
         variables: {
             input: {
-                actorUrn: authenticatedUserUrn,
+                actorUrn: authenticatedUserUrn as string,
                 resourceSpec: { resourceType: entityType, resourceUrn: urn },
             },
         },
         fetchPolicy: 'cache-first',
+        skip: !authenticatedUserUrn,
     });
 
     const privileges = data?.getGrantedPrivileges?.privileges || [];

@@ -11,11 +11,12 @@ import { RoutedTabs } from '../../shared/RoutedTabs';
 import GroupInfoSidebar from './GroupInfoSideBar';
 import { GroupAssets } from './GroupAssets';
 import { ErrorSection } from '../../shared/error/ErrorSection';
+import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
 
 const messageStyle = { marginTop: '10%' };
 
 export enum TabType {
-    Assets = 'Assets',
+    Assets = 'Owner Of',
     Members = 'Members',
 }
 
@@ -88,7 +89,7 @@ export default function GroupProfile() {
 
     // Side bar data
     const sideBarData = {
-        photoUrl: undefined,
+        photoUrl: data?.corpGroup?.editableProperties?.pictureLink || undefined,
         avatarName:
             data?.corpGroup?.properties?.displayName ||
             data?.corpGroup?.name ||
@@ -110,6 +111,9 @@ export default function GroupProfile() {
         urn,
     };
 
+    if (data?.corpGroup?.exists === false) {
+        return <NonExistentEntityPage />;
+    }
     return (
         <>
             {error && <ErrorSection />}

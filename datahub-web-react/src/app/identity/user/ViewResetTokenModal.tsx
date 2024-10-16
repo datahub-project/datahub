@@ -34,13 +34,13 @@ const CreateResetTokenButton = styled(Button)`
 `;
 
 type Props = {
-    visible: boolean;
+    open: boolean;
     userUrn: string;
     username: string;
     onClose: () => void;
 };
 
-export default function ViewResetTokenModal({ visible, userUrn, username, onClose }: Props) {
+export default function ViewResetTokenModal({ open, userUrn, username, onClose }: Props) {
     const baseUrl = window.location.origin;
     const [hasGeneratedResetToken, setHasGeneratedResetToken] = useState(false);
 
@@ -87,7 +87,7 @@ export default function ViewResetTokenModal({ visible, userUrn, username, onClos
                     <b>Reset User Password</b>
                 </Typography.Text>
             }
-            visible={visible}
+            open={open}
             onCancel={onClose}
         >
             {hasGeneratedResetToken ? (
@@ -114,7 +114,12 @@ export default function ViewResetTokenModal({ visible, userUrn, username, onClos
                 <ModalSectionParagraph>
                     Generate a new reset link! Note, any old links will <b>cease to be active</b>.
                 </ModalSectionParagraph>
-                <CreateResetTokenButton onClick={createNativeUserResetToken} size="small" type="text">
+                <CreateResetTokenButton
+                    onClick={createNativeUserResetToken}
+                    size="small"
+                    type="text"
+                    data-testid="refreshButton"
+                >
                     <RedoOutlined style={{}} />
                 </CreateResetTokenButton>
             </ModalSection>

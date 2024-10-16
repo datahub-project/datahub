@@ -1,14 +1,13 @@
 package com.linkedin.common.util;
 
+import static org.testng.AssertJUnit.*;
+
 import com.linkedin.common.urn.VersionedUrnUtils;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import org.testng.annotations.Test;
-
-import static org.testng.AssertJUnit.*;
-
 
 public class VersionedUrnUtilsTest {
 

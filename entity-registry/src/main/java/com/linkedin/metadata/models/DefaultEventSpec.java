@@ -5,7 +5,6 @@ import com.linkedin.metadata.models.annotation.EventAnnotation;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-
 @RequiredArgsConstructor
 @Getter
 public class DefaultEventSpec implements EventSpec {

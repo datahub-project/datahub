@@ -24,17 +24,20 @@ query getGlossaryNode($urn: String!) {
             ...parentNodesFields
         }
         privileges {
-            canManageEntity
-            canManageChildren
+            ...entityPrivileges
         }
-        children: relationships(
-            input: {
-                types: ["IsPartOf"]
-                direction: INCOMING
-                start: 0
-                count: 10000
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
             }
-        ) {
+        }
+        forms {
+            ...formsFields
+        }
+        children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 10000 }) {
             total
             relationships {
                 direction

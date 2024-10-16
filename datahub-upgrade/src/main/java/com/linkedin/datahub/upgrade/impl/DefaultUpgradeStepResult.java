@@ -1,19 +1,19 @@
 package com.linkedin.datahub.upgrade.impl;
 
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-
+import com.linkedin.upgrade.DataHubUpgradeState;
 
 public class DefaultUpgradeStepResult implements UpgradeStepResult {
 
   private final String _stepId;
-  private final Result _result;
+  private final DataHubUpgradeState _result;
   private final Action _action;
 
-  public DefaultUpgradeStepResult(String stepId, Result result) {
+  public DefaultUpgradeStepResult(String stepId, DataHubUpgradeState result) {
     this(stepId, result, Action.CONTINUE);
   }
 
-  public DefaultUpgradeStepResult(String stepId, Result result, Action action) {
+  public DefaultUpgradeStepResult(String stepId, DataHubUpgradeState result, Action action) {
     _stepId = stepId;
     _result = result;
     _action = action;
@@ -25,7 +25,7 @@ public class DefaultUpgradeStepResult implements UpgradeStepResult {
   }
 
   @Override
-  public Result result() {
+  public DataHubUpgradeState result() {
     return _result;
   }
 

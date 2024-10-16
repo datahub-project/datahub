@@ -48,6 +48,7 @@ export enum EventType {
     CreateResetCredentialsLinkEvent,
     DeleteEntityEvent,
     SelectUserRoleEvent,
+    SelectGroupRoleEvent,
     BatchSelectUserRoleEvent,
     CreatePolicyEvent,
     UpdatePolicyEvent,
@@ -80,6 +81,7 @@ export enum EventType {
     EmbedProfileViewEvent,
     EmbedProfileViewInDataHubEvent,
     EmbedLookupNotFoundEvent,
+    CreateBusinessAttributeEvent,
 }
 
 /**
@@ -189,6 +191,7 @@ export interface SearchResultClickEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     index: number;
     total: number;
+    pageNumber: number;
 }
 
 export interface SearchFiltersClearAllEvent extends BaseEvent {
@@ -302,6 +305,8 @@ export const EntityActionType = {
     UpdateSchemaTags: 'UpdateSchemaTags',
     UpdateSchemaTerms: 'UpdateSchemaTerms',
     ClickExternalUrl: 'ClickExternalUrl',
+    AddIncident: 'AddIncident',
+    ResolvedIncident: 'ResolvedIncident',
 };
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
@@ -410,6 +415,12 @@ export interface SelectUserRoleEvent extends BaseEvent {
     type: EventType.SelectUserRoleEvent;
     roleUrn: string;
     userUrn: string;
+}
+
+export interface SelectGroupRoleEvent extends BaseEvent {
+    type: EventType.SelectGroupRoleEvent;
+    roleUrn: string;
+    groupUrn?: string;
 }
 
 export interface BatchSelectUserRoleEvent extends BaseEvent {
@@ -624,6 +635,11 @@ export interface EmbedLookupNotFoundEvent extends BaseEvent {
     reason: EmbedLookupNotFoundReason;
 }
 
+export interface CreateBusinessAttributeEvent extends BaseEvent {
+    type: EventType.CreateBusinessAttributeEvent;
+    name: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -668,6 +684,7 @@ export type Event =
     | CreateResetCredentialsLinkEvent
     | DeleteEntityEvent
     | SelectUserRoleEvent
+    | SelectGroupRoleEvent
     | BatchSelectUserRoleEvent
     | CreatePolicyEvent
     | UpdatePolicyEvent
@@ -700,4 +717,5 @@ export type Event =
     | DeselectQuickFilterEvent
     | EmbedProfileViewEvent
     | EmbedProfileViewInDataHubEvent
-    | EmbedLookupNotFoundEvent;
+    | EmbedLookupNotFoundEvent
+    | CreateBusinessAttributeEvent;

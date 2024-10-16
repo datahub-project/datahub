@@ -1,15 +1,22 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
+import styled from 'styled-components';
 import { useCreateGroupMutation } from '../../../graphql/group.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { validateCustomUrnId } from '../../shared/textUtil';
 import analytics, { EventType } from '../../analytics';
 import { CorpGroup, EntityType } from '../../../types.generated';
+import { Editor as MarkdownEditor } from '../../entity/shared/tabs/Documentation/components/editor/Editor';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 type Props = {
     onClose: () => void;
     onCreate: (group: CorpGroup) => void;
 };
+
+const StyledEditor = styled(MarkdownEditor)`
+    border: 1px solid ${ANTD_GRAY[4]};
+`;
 
 export default function CreateGroupModal({ onClose, onCreate }: Props) {
     const [stagedName, setStagedName] = useState('');
@@ -19,45 +26,54 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
     const [form] = Form.useForm();
 
+    // Reference to the styled editor for handling focus
+    const styledEditorRef = useRef<HTMLDivElement>(null);
+
     const onCreateGroup = () => {
-        createGroupMutation({
-            variables: {
-                input: {
-                    id: stagedId,
-                    name: stagedName,
-                    description: stagedDescription,
-                },
-            },
-        })
-            .then(({ data, errors }) => {
-                if (!errors) {
-                    analytics.event({
-                        type: EventType.CreateGroupEvent,
-                    });
-                    message.success({
-                        content: `Created group!`,
-                        duration: 3,
-                    });
-                    // TODO: Get a full corp group back from create endpoint.
-                    onCreate({
-                        urn: data?.createGroup || '',
-                        type: EntityType.CorpGroup,
+        // Check if the Enter key was pressed inside the styled editor to prevent unintended form submission
+        const isEditorNewlineKeypress =
+            document.activeElement !== styledEditorRef.current &&
+            !styledEditorRef.current?.contains(document.activeElement);
+        if (isEditorNewlineKeypress) {
+            createGroupMutation({
+                variables: {
+                    input: {
+                        id: stagedId,
                         name: stagedName,
-                        info: {
-                            description: stagedDescription,
-                        },
-                    });
-                }
+                        description: stagedDescription,
+                    },
+                },
             })
-            .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
-            })
-            .finally(() => {
-                setStagedName('');
-                setStagedDescription('');
-            });
-        onClose();
+                .then(({ data, errors }) => {
+                    if (!errors) {
+                        analytics.event({
+                            type: EventType.CreateGroupEvent,
+                        });
+                        message.success({
+                            content: `Created group!`,
+                            duration: 3,
+                        });
+                        // TODO: Get a full corp group back from create endpoint.
+                        onCreate({
+                            urn: data?.createGroup || '',
+                            type: EntityType.CorpGroup,
+                            name: stagedName,
+                            info: {
+                                description: stagedDescription,
+                            },
+                        });
+                    }
+                })
+                .catch((e) => {
+                    message.destroy();
+                    message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
+                })
+                .finally(() => {
+                    setStagedName('');
+                    setStagedDescription('');
+                });
+            onClose();
+        }
     };
 
     // Handle the Enter press
@@ -65,10 +81,15 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
         querySelectorToExecuteClick: '#createGroupButton',
     });
 
+    function updateDescription(description: string) {
+        setStagedDescription(description);
+    }
+
     return (
         <Modal
+            width={700}
             title="Create new group"
-            visible
+            open
             onCancel={onClose}
             footer={
                 <>
@@ -112,12 +133,11 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                 </Form.Item>
                 <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
                     <Typography.Paragraph>An optional description for your new group.</Typography.Paragraph>
-                    <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
-                        <Input
-                            placeholder="A description for your group"
-                            value={stagedDescription}
-                            onChange={(event) => setStagedDescription(event.target.value)}
-                        />
+                    <Form.Item name="description" rules={[{ whitespace: true }]} hasFeedback>
+                        {/* Styled editor for the group description */}
+                        <div ref={styledEditorRef}>
+                            <StyledEditor doNotFocus content={stagedDescription} onChange={updateDescription} />
+                        </div>
                     </Form.Item>
                 </Form.Item>
                 <Collapse ghost>

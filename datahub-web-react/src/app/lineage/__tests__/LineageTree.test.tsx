@@ -1,6 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react';
-import { Zoom } from '@vx/zoom';
+import { Zoom } from '@visx/zoom';
 import { MockedProvider } from '@apollo/client/testing';
 import {
     dataset3WithLineage,
@@ -9,7 +9,7 @@ import {
     dataset6WithLineage,
     mocks,
 } from '../../../Mocks';
-import { Direction, FetchedEntities } from '../types';
+import { Direction, EntityAndType } from '../types';
 import constructTree from '../utils/constructTree';
 import LineageTree from '../LineageTree';
 import extendAsyncEntities from '../utils/extendAsyncEntities';
@@ -47,10 +47,10 @@ describe('LineageTree', () => {
                     {},
                     acc,
                     testEntityRegistry,
-                    { entity: entry.entity, type: EntityType.Dataset },
+                    { entity: entry.entity, type: EntityType.Dataset } as EntityAndType,
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         const downstreamData = constructTree(
@@ -78,7 +78,7 @@ describe('LineageTree', () => {
                         scaleXMax={2}
                         scaleYMin={1 / 8}
                         scaleYMax={2}
-                        transformMatrix={initialTransform}
+                        initialTransformMatrix={initialTransform}
                     >
                         {(zoom) => (
                             <svg>
@@ -86,17 +86,17 @@ describe('LineageTree', () => {
                                     upstreamData={upstreamData}
                                     downstreamData={downstreamData}
                                     zoom={zoom}
-                                    onEntityClick={jest.fn()}
-                                    onLineageExpand={jest.fn()}
+                                    onEntityClick={vi.fn()}
+                                    onLineageExpand={vi.fn()}
                                     canvasHeight={yMax}
                                     margin={margin}
-                                    direction={Direction.Upstream}
-                                    setIsDraggingNode={jest.fn()}
+                                    setIsDraggingNode={vi.fn()}
                                     draggedNodes={{}}
-                                    setDraggedNodes={jest.fn()}
-                                    onEntityCenter={jest.fn()}
-                                    setHoveredEntity={jest.fn()}
+                                    setDraggedNodes={vi.fn()}
+                                    onEntityCenter={vi.fn()}
+                                    setHoveredEntity={vi.fn()}
                                     fetchedEntities={mockFetchedEntities}
+                                    setUpdatedLineages={vi.fn()}
                                 />
                             </svg>
                         )}

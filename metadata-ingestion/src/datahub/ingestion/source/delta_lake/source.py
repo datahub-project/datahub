@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import time
@@ -35,23 +36,23 @@ from datahub.ingestion.source.delta_lake.delta_lake_utils import (
     read_delta_table,
 )
 from datahub.ingestion.source.delta_lake.report import DeltaLakeSourceReport
-from datahub.ingestion.source.schema_inference.csv_tsv import tableschema_type_map
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
-    SchemaFieldDataType,
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
-    NullTypeClass,
     OperationClass,
     OperationTypeClass,
     OtherSchemaClass,
+    SchemaFieldClass,
 )
 from datahub.telemetry import telemetry
+from datahub.utilities.delta import delta_type_to_hive_type
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
@@ -126,26 +127,23 @@ class DeltaLakeSource(Source):
         config = DeltaLakeSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def _parse_datatype(self, raw_field_json_str: str) -> List[SchemaFieldClass]:
+        raw_field_json = json.loads(raw_field_json_str)
+
+        # get the parent field name and type
+        field_name = raw_field_json.get("name")
+        field_type = delta_type_to_hive_type(raw_field_json.get("type"))
+
+        return get_schema_fields_for_hive_column(field_name, field_type)
+
     def get_fields(self, delta_table: DeltaTable) -> List[SchemaField]:
         fields: List[SchemaField] = []
 
         for raw_field in delta_table.schema().fields:
-            field = SchemaField(
-                fieldPath=raw_field.name,
-                type=SchemaFieldDataType(
-                    tableschema_type_map.get(raw_field.type.type, NullTypeClass)()
-                ),
-                nativeDataType=raw_field.type.type,
-                recursive=False,
-                nullable=raw_field.nullable,
-                description=str(raw_field.metadata),
-                isPartitioningKey=True
-                if raw_field.name in delta_table.metadata().partition_columns
-                else False,
-            )
-            fields.append(field)
-        fields = sorted(fields, key=lambda f: f.fieldPath)
+            parsed_data_list = self._parse_datatype(raw_field.to_json())
+            fields = fields + parsed_data_list
 
+        fields = sorted(fields, key=lambda f: f.fieldPath)
         return fields
 
     def _create_operation_aspect_wu(
@@ -225,15 +223,14 @@ class DeltaLakeSource(Source):
         )
 
         customProperties = {
-            "number_of_files": str(get_file_count(delta_table)),
             "partition_columns": str(delta_table.metadata().partition_columns),
             "table_creation_time": str(delta_table.metadata().created_time),
             "id": str(delta_table.metadata().id),
             "version": str(delta_table.version()),
             "location": self.source_config.complete_path,
         }
-        if not self.source_config.require_files:
-            del customProperties["number_of_files"]  # always 0
+        if self.source_config.require_files:
+            customProperties["number_of_files"] = str(get_file_count(delta_table))
 
         dataset_properties = DatasetPropertiesClass(
             description=delta_table.metadata().description,
@@ -312,8 +309,7 @@ class DeltaLakeSource(Source):
         delta_table = read_delta_table(path, self.storage_options, self.source_config)
         if delta_table:
             logger.debug(f"Delta table found at: {path}")
-            for wu in self.ingest_table(delta_table, path.rstrip("/")):
-                yield wu
+            yield from self.ingest_table(delta_table, path.rstrip("/"))
         else:
             for folder in self.get_folders(path):
                 yield from self.process_folder(folder)

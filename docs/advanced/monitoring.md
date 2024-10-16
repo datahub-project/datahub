@@ -95,3 +95,7 @@ docker-compose -p datahub \
 We set up quickstart.sh, dev.sh, and dev-without-neo4j.sh to add the above docker-compose when MONITORING=true. For
 instance `MONITORING=true ./docker/quickstart.sh` will add the correct env variables to start collecting traces and
 metrics, and also deploy Jaeger, Prometheus, and Grafana. We will soon support this as a flag during quickstart. 
+
+## Health check endpoint
+
+For monitoring healthiness of your DataHub service, `/admin` endpoint can be used.

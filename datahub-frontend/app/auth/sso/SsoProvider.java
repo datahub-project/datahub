@@ -3,15 +3,10 @@ package auth.sso;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.credentials.Credentials;
 
-/**
- * A thin interface over a Pac4j {@link Client} object and its
- * associated configurations.
- */
+/** A thin interface over a Pac4j {@link Client} object and its associated configurations. */
 public interface SsoProvider<C extends SsoConfigs> {
 
-  /**
-   * The protocol used for SSO.
-   */
+  /** The protocol used for SSO. */
   enum SsoProtocol {
     OIDC("oidc");
     // SAML -- not yet supported.
@@ -28,19 +23,12 @@ public interface SsoProvider<C extends SsoConfigs> {
     }
   }
 
-  /**
-   * Returns the configs required by the provider.
-   */
+  /** Returns the configs required by the provider. */
   C configs();
 
-  /**
-   * Returns the SSO protocol associated with the provider instance.
-   */
+  /** Returns the SSO protocol associated with the provider instance. */
   SsoProtocol protocol();
 
-  /**
-   * Retrieves an initialized Pac4j {@link Client}.
-   */
+  /** Retrieves an initialized Pac4j {@link Client}. */
   Client<? extends Credentials> client();
-
 }

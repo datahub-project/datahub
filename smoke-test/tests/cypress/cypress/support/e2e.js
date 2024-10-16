@@ -14,14 +14,14 @@
 // ***********************************************************
 
 // Import commands.js using ES2015 syntax:
-import './commands'
+import "./commands";
 
 // Alternatively you can use CommonJS syntax:
 // require('./commands')
 
 // https://github.com/bahmutov/cypress-timestamps
-require('cypress-timestamps/support')({
-    terminal: true, // by default the terminal output is disabled
-    error: true,
-    commandLog: true,
+require("cypress-timestamps/support")({
+  terminal: true, // by default the terminal output is disabled
+  error: true,
+  commandLog: true,
 });

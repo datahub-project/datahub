@@ -177,7 +177,7 @@
   "dataset_query": {
     "type": "native",
     "native": {
-      "query": "SELECT\\n\\tcustomer.customer_id,\\n\\tfirst_name,\\n\\tlast_name,\\n\\tamount,\\n\\tpayment_date,\\n\\trental_id\\nFROM\\n\\tcustomer\\nINNER JOIN payment \\n    ON payment.customer_id = customer.customer_id\\nORDER BY payment_date",
+      "query": "SELECT\n\tcustomer.customer_id,\n\tfirst_name,\n\tlast_name,\n\tamount,\n\tpayment_date,\n\trental_id\nFROM\n\tcustomer\nINNER JOIN payment \n    ON payment.customer_id = customer.customer_id\nORDER BY payment_date",
       "template-tags": {}
     },
     "database": 2

@@ -39,6 +39,7 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
 
     return (
         <StyledModal
+            data-testid="entity-paths-modal"
             title={
                 <Header>
                     Column path{paths.length > 1 && 's'} from{' '}
@@ -46,7 +47,7 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
                 </Header>
             }
             width="75vw"
-            visible
+            open
             onCancel={hideModal}
             onOk={hideModal}
             footer={null}

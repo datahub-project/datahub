@@ -31,9 +31,36 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
 logger = logging.getLogger(__name__)
 
 
+def form_full_table_name(
+    config: PowerBiDashboardSourceConfig,
+    workspace: Workspace,
+    dataset_name: str,
+    table_name: str,
+) -> str:
+
+    full_table_name: str = "{}.{}".format(
+        dataset_name.replace(" ", "_"), table_name.replace(" ", "_")
+    )
+
+    if config.include_workspace_name_in_dataset_urn:
+        workspace_identifier: str = (
+            workspace.id
+            if config.workspace_id_as_urn_part
+            else workspace.name.replace(" ", "_").lower()
+        )
+        full_table_name = f"{workspace_identifier}.{full_table_name}"
+
+    return full_table_name
+
+
 class PowerBiAPI:
-    def __init__(self, config: PowerBiDashboardSourceConfig) -> None:
+    def __init__(
+        self,
+        config: PowerBiDashboardSourceConfig,
+        reporter: PowerBiDashboardSourceReport,
+    ) -> None:
         self.__config: PowerBiDashboardSourceConfig = config
+        self.__reporter = reporter
 
         self.__regular_api_resolver = RegularAPIResolver(
             client_id=self.__config.client_id,
@@ -46,6 +73,14 @@ class PowerBiAPI:
             client_secret=self.__config.client_secret,
             tenant_id=self.__config.tenant_id,
         )
+
+        self.reporter: PowerBiDashboardSourceReport = reporter
+
+        # A report or tile in one workspace can be built using a dataset from another workspace.
+        # We need to store the dataset ID (which is a UUID) mapped to its dataset instance.
+        # This mapping will allow us to retrieve the appropriate dataset for
+        # reports and tiles across different workspaces.
+        self.dataset_registry: Dict[str, PowerBIDataset] = {}
 
     def log_http_error(self, message: str) -> Any:
         logger.warning(message)
@@ -153,6 +188,16 @@ class PowerBiAPI:
         reports: List[Report] = []
         try:
             reports = self._get_resolver().get_reports(workspace)
+            # Fill Report dataset
+            for report in reports:
+                if report.dataset_id:
+                    report.dataset = self.dataset_registry.get(report.dataset_id)
+                    if report.dataset is None:
+                        self.reporter.info(
+                            title="Missing Lineage For Report",
+                            message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
+                            context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
+                        )
         except:
             self.log_http_error(
                 message=f"Unable to fetch reports for workspace {workspace.name}"
@@ -182,24 +227,36 @@ class PowerBiAPI:
 
         fill_ownership()
         fill_tags()
-
         return reports
 
     def get_workspaces(self) -> List[Workspace]:
+        modified_workspace_ids: List[str] = []
+
         if self.__config.modified_since:
-            workspaces = self.get_modified_workspaces()
-            return workspaces
+            modified_workspace_ids = self.get_modified_workspaces()
 
         groups: List[dict] = []
+        filter_: Dict[str, str] = {}
         try:
-            groups = self._get_resolver().get_groups()
+            if modified_workspace_ids:
+                id_filter: List[str] = []
+
+                for id_ in modified_workspace_ids:
+                    id_filter.append(f"id eq {id_}")
+
+                filter_["$filter"] = " or ".join(id_filter)
+
+            groups = self._get_resolver().get_groups(filter_=filter_)
+
         except:
             self.log_http_error(message="Unable to fetch list of workspaces")
+            raise  # we want this exception to bubble up
 
         workspaces = [
             Workspace(
                 id=workspace[Constant.ID],
                 name=workspace[Constant.NAME],
+                type=workspace[Constant.TYPE],
                 datasets={},
                 dashboards=[],
                 reports=[],
@@ -212,34 +269,20 @@ class PowerBiAPI:
         ]
         return workspaces
 
-    def get_modified_workspaces(self) -> List[Workspace]:
-        workspaces: List[Workspace] = []
+    def get_modified_workspaces(self) -> List[str]:
+        modified_workspace_ids: List[str] = []
 
         if self.__config.modified_since is None:
-            return workspaces
+            return modified_workspace_ids
 
         try:
             modified_workspace_ids = self.__admin_api_resolver.get_modified_workspaces(
                 self.__config.modified_since
             )
-            workspaces = [
-                Workspace(
-                    id=workspace_id,
-                    name="",
-                    datasets={},
-                    dashboards=[],
-                    reports=[],
-                    report_endorsements={},
-                    dashboard_endorsements={},
-                    scan_result={},
-                    independent_datasets=[],
-                )
-                for workspace_id in modified_workspace_ids
-            ]
         except:
             self.log_http_error(message="Unable to fetch list of modified workspaces.")
 
-        return workspaces
+        return modified_workspace_ids
 
     def _get_scan_result(self, workspace_ids: List[str]) -> Any:
         scan_id: Optional[str] = None
@@ -286,11 +329,12 @@ class PowerBiAPI:
 
         return [endorsement]
 
-    def _get_workspace_datasets(self, scan_result: Optional[dict]) -> dict:
+    def _get_workspace_datasets(self, workspace: Workspace) -> dict:
         """
         Filter out "dataset" from scan_result and return Dataset instance set
         """
         dataset_map: dict = {}
+        scan_result = workspace.scan_result
 
         if scan_result is None:
             return dataset_map
@@ -308,14 +352,14 @@ class PowerBiAPI:
 
         for dataset_dict in datasets:
             dataset_instance: PowerBIDataset = self._get_resolver().get_dataset(
-                workspace_id=scan_result[Constant.ID],
+                workspace=workspace,
                 dataset_id=dataset_dict[Constant.ID],
             )
 
             # fetch + set dataset parameters
             try:
                 dataset_parameters = self._get_resolver().get_dataset_parameters(
-                    workspace_id=scan_result[Constant.ID],
+                    workspace_id=workspace.id,
                     dataset_id=dataset_dict[Constant.ID],
                 )
                 dataset_instance.parameters = dataset_parameters
@@ -344,34 +388,44 @@ class PowerBiAPI:
                     and len(table[Constant.SOURCE]) > 0
                     else None
                 )
-                dataset_instance.tables.append(
-                    Table(
-                        name=table[Constant.NAME],
-                        full_name="{}.{}".format(
-                            dataset_name.replace(" ", "_"),
-                            table[Constant.NAME].replace(" ", "_"),
-                        ),
-                        expression=expression,
-                        columns=[
-                            Column(
-                                **column,
-                                datahubDataType=FIELD_TYPE_MAPPING.get(
-                                    column["dataType"], FIELD_TYPE_MAPPING["Null"]
-                                ),
-                            )
-                            for column in table.get("columns", [])
-                        ],
-                        measures=[
-                            Measure(**measure) for measure in table.get("measures", [])
-                        ],
-                        dataset=dataset_instance,
-                    )
+                table = Table(
+                    name=table[Constant.NAME],
+                    full_name=form_full_table_name(
+                        config=self.__config,
+                        workspace=workspace,
+                        dataset_name=dataset_name,
+                        table_name=table[Constant.NAME],
+                    ),
+                    expression=expression,
+                    columns=[
+                        Column(
+                            **column,
+                            datahubDataType=FIELD_TYPE_MAPPING.get(
+                                column["dataType"], FIELD_TYPE_MAPPING["Null"]
+                            ),
+                        )
+                        for column in table.get("columns", [])
+                    ],
+                    measures=[
+                        Measure(**measure) for measure in table.get("measures", [])
+                    ],
+                    dataset=dataset_instance,
+                    row_count=None,
+                    column_count=None,
                 )
-
+                if self.__config.profiling.enabled:
+                    self._get_resolver().profile_dataset(
+                        dataset_instance,
+                        table,
+                        workspace.name,
+                        self.__config.profile_pattern,
+                    )
+                dataset_instance.tables.append(table)
         return dataset_map
 
     def _fill_metadata_from_scan_result(
-        self, workspaces: List[Workspace]
+        self,
+        workspaces: List[Workspace],
     ) -> List[Workspace]:
         workspace_ids = [workspace.id for workspace in workspaces]
         scan_result = self._get_scan_result(workspace_ids)
@@ -380,9 +434,28 @@ class PowerBiAPI:
 
         workspaces = []
         for workspace_metadata in scan_result["workspaces"]:
+            if (
+                workspace_metadata.get(Constant.STATE) != Constant.ACTIVE
+                or workspace_metadata.get(Constant.TYPE)
+                not in self.__config.workspace_type_filter
+            ):
+                # if the state is not "Active" then in some state like Not Found, "name" attribute is not present
+                wrk_identifier: str = (
+                    workspace_metadata[Constant.NAME]
+                    if workspace_metadata.get(Constant.NAME)
+                    else workspace_metadata.get(Constant.ID)
+                )
+                self.__reporter.info(
+                    title="Skipped Workspace",
+                    message="Workspace was skipped due to the workspace_type_filter",
+                    context=f"workspace={wrk_identifier}",
+                )
+                continue
+
             cur_workspace = Workspace(
-                id=workspace_metadata["id"],
-                name=workspace_metadata["name"],
+                id=workspace_metadata[Constant.ID],
+                name=workspace_metadata[Constant.NAME],
+                type=workspace_metadata[Constant.TYPE],
                 datasets={},
                 dashboards=[],
                 reports=[],
@@ -392,11 +465,10 @@ class PowerBiAPI:
                 independent_datasets=[],
             )
             cur_workspace.scan_result = workspace_metadata
-            cur_workspace.datasets = self._get_workspace_datasets(
-                cur_workspace.scan_result
-            )
-
-            # Fetch endorsements tag if it is enabled from configuration
+            cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
+            # collect all datasets in the registry
+            self.dataset_registry.update(cur_workspace.datasets)
+            # Fetch endorsement tag if it is enabled from configuration
             if self.__config.extract_endorsements_to_tags:
                 cur_workspace.dashboard_endorsements = self._get_dashboard_endorsements(
                     cur_workspace.scan_result
@@ -415,11 +487,6 @@ class PowerBiAPI:
         return workspaces
 
     def _fill_independent_datasets(self, workspace: Workspace) -> None:
-        if self.__config.extract_independent_datasets is False:
-            logger.info(
-                "Skipping independent datasets retrieval as extract_independent_datasets is set to false"
-            )
-            return
 
         reachable_datasets: List[str] = []
         # Find out reachable datasets
@@ -445,6 +512,16 @@ class PowerBiAPI:
                 dashboard.tiles = self._get_resolver().get_tiles(
                     workspace, dashboard=dashboard
                 )
+                # set the dataset for tiles
+                for tile in dashboard.tiles:
+                    if tile.dataset_id:
+                        tile.dataset = self.dataset_registry.get(tile.dataset_id)
+                        if tile.dataset is None:
+                            self.reporter.info(
+                                title="Missing Lineage For Tile",
+                                message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
+                                context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, dataset-id: {tile.dataset_id}",
+                            )
 
         def fill_reports() -> None:
             if self.__config.extract_reports is False:
@@ -474,6 +551,7 @@ class PowerBiAPI:
     def fill_workspaces(
         self, workspaces: List[Workspace], reporter: PowerBiDashboardSourceReport
     ) -> Iterable[Workspace]:
+
         workspaces = self._fill_metadata_from_scan_result(workspaces=workspaces)
         # First try to fill the admin detail as some regular metadata contains lineage to admin metadata
         for workspace in workspaces:

@@ -1,8 +1,9 @@
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import boto3
 from boto3.session import Session
-from botocore.config import Config
+from botocore.config import DEFAULT_TIMEOUT, Config
 from botocore.utils import fix_s3_host
 from pydantic.fields import Field
 
@@ -14,6 +15,7 @@ from datahub.configuration.common import (
 from datahub.configuration.source_common import EnvConfigMixin
 
 if TYPE_CHECKING:
+    from mypy_boto3_dynamodb import DynamoDBClient
     from mypy_boto3_glue import GlueClient
     from mypy_boto3_s3 import S3Client, S3ServiceResource
     from mypy_boto3_sagemaker import SageMakerClient
@@ -34,7 +36,7 @@ class AwsAssumeRoleConfig(PermissiveConfigModel):
 
 def assume_role(
     role: AwsAssumeRoleConfig,
-    aws_region: str,
+    aws_region: Optional[str],
     credentials: Optional[dict] = None,
 ) -> dict:
     credentials = credentials or {}
@@ -72,6 +74,8 @@ class AwsConnectionConfig(ConfigModel):
         - dbt source
     """
 
+    _credentials_expiration: Optional[datetime] = None
+
     aws_access_key_id: Optional[str] = Field(
         default=None,
         description=f"AWS access key ID. {AUTODETECT_CREDENTIALS_DOC_LINK}",
@@ -87,13 +91,13 @@ class AwsConnectionConfig(ConfigModel):
     aws_role: Optional[Union[str, List[Union[str, AwsAssumeRoleConfig]]]] = Field(
         default=None,
         description="AWS roles to assume. If using the string format, the role ARN can be specified directly. "
-        "If using the object format, the role can be specified in the RoleArn field and additional available arguments are documented at https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html?highlight=assume_role#STS.Client.assume_role",
+        "If using the object format, the role can be specified in the RoleArn field and additional available arguments are the same as [boto3's STS.Client.assume_role](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html?highlight=assume_role#STS.Client.assume_role).",
     )
     aws_profile: Optional[str] = Field(
         default=None,
         description="Named AWS profile to use. Only used if access key / secret are unset. If not set the default will be used",
     )
-    aws_region: str = Field(description="AWS region code.")
+    aws_region: Optional[str] = Field(None, description="AWS region code.")
 
     aws_endpoint_url: Optional[str] = Field(
         default=None,
@@ -103,6 +107,21 @@ class AwsConnectionConfig(ConfigModel):
         default=None,
         description="A set of proxy configs to use with AWS. See the [botocore.config](https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html) docs for details.",
     )
+
+    read_timeout: float = Field(
+        default=DEFAULT_TIMEOUT,
+        description="The timeout for reading from the connection (in seconds).",
+    )
+
+    aws_advanced_config: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Advanced AWS configuration options. These are passed directly to [botocore.config.Config](https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html).",
+    )
+
+    def allowed_cred_refresh(self) -> bool:
+        if self._normalized_aws_roles():
+            return True
+        return False
 
     def _normalized_aws_roles(self) -> List[AwsAssumeRoleConfig]:
         if not self.aws_role:
@@ -142,11 +161,14 @@ class AwsConnectionConfig(ConfigModel):
             }
 
             for role in self._normalized_aws_roles():
-                credentials = assume_role(
-                    role,
-                    self.aws_region,
-                    credentials=credentials,
-                )
+                if self._should_refresh_credentials():
+                    credentials = assume_role(
+                        role,
+                        self.aws_region,
+                        credentials=credentials,
+                    )
+                    if isinstance(credentials["Expiration"], datetime):
+                        self._credentials_expiration = credentials["Expiration"]
 
             session = Session(
                 aws_access_key_id=credentials["AccessKeyId"],
@@ -157,7 +179,13 @@ class AwsConnectionConfig(ConfigModel):
 
         return session
 
-    def get_credentials(self) -> Dict[str, str]:
+    def _should_refresh_credentials(self) -> bool:
+        if self._credentials_expiration is None:
+            return True
+        remaining_time = self._credentials_expiration - datetime.now(timezone.utc)
+        return remaining_time < timedelta(minutes=5)
+
+    def get_credentials(self) -> Dict[str, Optional[str]]:
         credentials = self.get_session().get_credentials()
         if credentials is not None:
             return {
@@ -167,13 +195,20 @@ class AwsConnectionConfig(ConfigModel):
             }
         return {}
 
+    def _aws_config(self) -> Config:
+        return Config(
+            proxies=self.aws_proxy,
+            read_timeout=self.read_timeout,
+            **self.aws_advanced_config,
+        )
+
     def get_s3_client(
         self, verify_ssl: Optional[Union[bool, str]] = None
     ) -> "S3Client":
         return self.get_session().client(
             "s3",
             endpoint_url=self.aws_endpoint_url,
-            config=Config(proxies=self.aws_proxy),
+            config=self._aws_config(),
             verify=verify_ssl,
         )
 
@@ -183,7 +218,7 @@ class AwsConnectionConfig(ConfigModel):
         resource = self.get_session().resource(
             "s3",
             endpoint_url=self.aws_endpoint_url,
-            config=Config(proxies=self.aws_proxy),
+            config=self._aws_config(),
             verify=verify_ssl,
         )
         # according to: https://stackoverflow.com/questions/32618216/override-s3-endpoint-using-boto3-configuration-file
@@ -195,10 +230,13 @@ class AwsConnectionConfig(ConfigModel):
         return resource
 
     def get_glue_client(self) -> "GlueClient":
-        return self.get_session().client("glue")
+        return self.get_session().client("glue", config=self._aws_config())
+
+    def get_dynamodb_client(self) -> "DynamoDBClient":
+        return self.get_session().client("dynamodb", config=self._aws_config())
 
     def get_sagemaker_client(self) -> "SageMakerClient":
-        return self.get_session().client("sagemaker")
+        return self.get_session().client("sagemaker", config=self._aws_config())
 
 
 class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):
@@ -207,6 +245,7 @@ class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):
 
     Currently used by:
         - Glue source
+        - DynamoDB source
         - SageMaker source
     """
 

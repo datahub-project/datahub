@@ -4,11 +4,12 @@ services:
     - MAE_CONSUMER_ENABLED=false
     - MCE_CONSUMER_ENABLED=false
   datahub-mae-consumer:
-    container_name: datahub-mae-consumer
     depends_on:
       neo4j:
         condition: service_healthy
     environment:
+    - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
+    - KAFKA_CONSUMER_HEALTH_CHECK_ENABLED=${KAFKA_CONSUMER_HEALTH_CHECK_ENABLED:-true}
     - DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID=generic-duhe-consumer-job-client-mcl
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
@@ -26,11 +27,10 @@ services:
     - GRAPH_SERVICE_IMPL=neo4j
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-mae-consumer/resources/entity-registry.yml
     hostname: datahub-mae-consumer
-    image: ${DATAHUB_MAE_CONSUMER_IMAGE:-linkedin/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_MAE_CONSUMER_IMAGE:-acryldata/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
     ports:
     - 9091:9091
   datahub-mce-consumer:
-    container_name: datahub-mce-consumer
     depends_on:
       neo4j:
         condition: service_healthy
@@ -54,6 +54,8 @@ services:
     - GRAPH_SERVICE_IMPL=neo4j
     - JAVA_OPTS=-Xms1g -Xmx1g
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - KAFKA_CONSUMER_HEALTH_CHECK_ENABLED=${KAFKA_CONSUMER_HEALTH_CHECK_ENABLED:-true}
+    - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - MAE_CONSUMER_ENABLED=false
     - MCE_CONSUMER_ENABLED=true
@@ -64,7 +66,6 @@ services:
     - PE_CONSUMER_ENABLED=false
     - UI_INGESTION_ENABLED=false
     hostname: datahub-mce-consumer
-    image: ${DATAHUB_MCE_CONSUMER_IMAGE:-linkedin/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_MCE_CONSUMER_IMAGE:-acryldata/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
     ports:
     - 9090:9090
-version: '3.9'

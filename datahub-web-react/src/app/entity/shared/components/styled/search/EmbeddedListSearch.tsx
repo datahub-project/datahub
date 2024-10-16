@@ -106,6 +106,8 @@ type Props = {
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
     applyView?: boolean;
+    onLineageClick?: () => void;
+    isLineageTab?: boolean;
 };
 
 export const EmbeddedListSearch = ({
@@ -134,6 +136,8 @@ export const EmbeddedListSearch = ({
     shouldRefetch,
     resetShouldRefetch,
     applyView = false,
+    onLineageClick,
+    isLineageTab = false,
 }: Props) => {
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
     // Adjust query based on props
@@ -143,7 +147,6 @@ export const EmbeddedListSearch = ({
         unionType,
         filters,
     };
-
     const finalFilters =
         (fixedFilters && mergeFilterSets(fixedFilters, baseFilters)) || generateOrFilters(unionType, filters);
 
@@ -188,7 +191,14 @@ export const EmbeddedListSearch = ({
         variables: {
             input: searchInput,
         },
+        fetchPolicy: 'cache-first',
     });
+
+    const [serverError, setServerError] = useState<any>(undefined);
+
+    useEffect(() => {
+        setServerError(error);
+    }, [error]);
 
     useEffect(() => {
         if (shouldRefetch && resetShouldRefetch) {
@@ -281,9 +291,18 @@ export const EmbeddedListSearch = ({
         });
     }
 
+    const isServerOverloadError = [503, 500, 504].includes(serverError?.networkError?.response?.status);
+
+    const onClickLessHops = () => {
+        setServerError(undefined);
+        onChangeFilters(defaultFilters);
+    };
+
+    const ErrorMessage = () => <Message type="error" content="Failed to load results! An unexpected error occurred." />;
+
     return (
         <Container>
-            {error && <Message type="error" content="Failed to load results! An unexpected error occurred." />}
+            {!isLineageTab ? error && <ErrorMessage /> : serverError && !isServerOverloadError && <ErrorMessage />}
             <EmbeddedListSearchHeader
                 onSearch={(q) => onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string))}
                 placeholderText={placeholderText}
@@ -302,6 +321,10 @@ export const EmbeddedListSearch = ({
             />
             <EmbeddedListSearchResults
                 unionType={unionType}
+                isServerOverloadError={isServerOverloadError}
+                onClickLessHops={onClickLessHops}
+                onLineageClick={onLineageClick}
+                isLineageTab={isLineageTab}
                 loading={loading}
                 searchResponse={data}
                 filters={finalFacets}

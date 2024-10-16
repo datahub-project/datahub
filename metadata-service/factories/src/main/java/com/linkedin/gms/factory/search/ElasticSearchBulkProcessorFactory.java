@@ -1,10 +1,8 @@
 package com.linkedin.gms.factory.search;
 
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
-import javax.annotation.Nonnull;
-
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.client.RestHighLevelClient;
@@ -14,13 +12,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
-
 
 @Slf4j
 @Configuration
 @Import({RestHighLevelClientFactory.class})
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class ElasticSearchBulkProcessorFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -51,13 +46,13 @@ public class ElasticSearchBulkProcessorFactory {
   @Nonnull
   protected ESBulkProcessor getInstance() {
     return ESBulkProcessor.builder(searchClient)
-            .async(async)
-            .bulkFlushPeriod(bulkFlushPeriod)
-            .bulkRequestsLimit(bulkRequestsLimit)
-            .retryInterval(retryInterval)
-            .numRetries(numRetries)
-            .batchDelete(enableBatchDelete)
-            .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.valueOf(refreshPolicy))
-            .build();
+        .async(async)
+        .bulkFlushPeriod(bulkFlushPeriod)
+        .bulkRequestsLimit(bulkRequestsLimit)
+        .retryInterval(retryInterval)
+        .numRetries(numRetries)
+        .batchDelete(enableBatchDelete)
+        .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.valueOf(refreshPolicy))
+        .build();
   }
 }

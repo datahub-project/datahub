@@ -9,16 +9,18 @@ DataHub Metadata Service is a service written in Java consisting of multiple ser
 2. A general-purpose Rest.li API for ingesting the underlying storage models composing the Metadata graph.
 
 ## Pre-requisites
-* You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) 
-installed on your machine to be able to build `DataHub Metadata Service`.
+
+Follow the [main developer guide](../docs/developers.md) to set up your development environment and install the required dependencies.
 
 ## Build
 `DataHub Metadata Service` is already built as part of top level build:
-```
+
+```shell
 ./gradlew build
 ```
+
 However, if you only want to build `DataHub Metadata Service` specifically:
-```
+```shell
 ./gradlew :metadata-service:war:build
 ```
 
@@ -1289,6 +1291,7 @@ where valid conditions include
     - CONTAIN
     - END_WITH
     - EQUAL
+    - IEQUAL (support case insensitive values)
     - GREATER_THAN
     - GREATER_THAN_OR_EQUAL_TO
     - LESS_THAN

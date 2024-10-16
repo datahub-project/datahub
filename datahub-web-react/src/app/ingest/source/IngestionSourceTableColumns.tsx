@@ -61,6 +61,14 @@ const CliBadge = styled.span`
         margin-right: 5px;
     }
 `;
+const StatusText = styled(Typography.Text)`
+    font-weight: bold;
+    margin-left: 8px;
+    color: ${(props) => props.color};
+    &:hover {
+        text-decoration: underline;
+      },
+`;
 interface TypeColumnProps {
     type: string;
     record: any;
@@ -98,7 +106,13 @@ export function LastExecutionColumn(time: any) {
 }
 
 export function ScheduleColumn(schedule: any, record: any) {
-    const tooltip = schedule && `Runs ${cronstrue.toString(schedule).toLowerCase()} (${record.timezone})`;
+    let tooltip: string;
+    try {
+        tooltip = schedule && `Runs ${cronstrue.toString(schedule).toLowerCase()} (${record.timezone})`;
+    } catch (e) {
+        tooltip = 'Invalid cron schedule';
+        console.debug('Error parsing cron schedule', e);
+    }
     return (
         <Tooltip title={tooltip || 'Not scheduled'}>
             <Typography.Text code>{schedule || 'None'}</Typography.Text>
@@ -119,10 +133,12 @@ export function LastStatusColumn({ status, record, setFocusExecutionUrn }: LastS
     return (
         <StatusContainer>
             {Icon && <Icon style={{ color, fontSize: 14 }} />}
-            <StatusButton type="link" onClick={() => setFocusExecutionUrn(record.lastExecUrn)}>
-                <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                    {text || 'Pending...'}
-                </Typography.Text>
+            <StatusButton
+                data-testid="ingestion-source-table-status"
+                type="link"
+                onClick={() => setFocusExecutionUrn(record.lastExecUrn)}
+            >
+                <StatusText color={color}>{text || 'Pending...'}</StatusText>
             </StatusButton>
         </StatusContainer>
     );
@@ -159,7 +175,11 @@ export function ActionsColumn({
                 </Tooltip>
             )}
             {!record.cliIngestion && (
-                <Button style={{ marginRight: 16 }} onClick={() => onEdit(record.urn)}>
+                <Button
+                    data-testid="ingestion-source-table-edit-button"
+                    style={{ marginRight: 16 }}
+                    onClick={() => onEdit(record.urn)}
+                >
                     EDIT
                 </Button>
             )}

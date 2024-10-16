@@ -17,6 +17,11 @@ the mapping between database id in Metabase and platform instance in DataHub may
 ```
 The key in this map must be string, not integer although  Metabase API provides `id` as number.
 If `database_id_to_instance_map` is not specified, `platform_instance_map` is used for platform instance mapping. If none of the above are specified, platform instance is not used when constructing `urn` when searching for dataset relations.
+
+If needed it is possible to exclude collections from other users by setting the following configuration:
+```yaml
+exclude_other_user_collections: true
+```
 ## Compatibility
 
-Metabase version [v0.41.2](https://www.metabase.com/start/oss/)
+Metabase version [v0.48.3](https://www.metabase.com/start/oss/)

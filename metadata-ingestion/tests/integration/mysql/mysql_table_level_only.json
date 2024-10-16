@@ -11,12 +11,14 @@
                 "env": "PROD",
                 "database": "northwind"
             },
-            "name": "northwind"
+            "name": "northwind",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -31,7 +33,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -46,7 +49,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -63,7 +67,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -78,7 +83,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -93,7 +99,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -141,7 +148,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -153,7 +160,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -165,7 +172,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -177,7 +184,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -189,7 +196,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -201,7 +208,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "FLOAT()",
+                                "nativeDataType": "FLOAT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -213,7 +220,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -230,7 +238,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -250,7 +259,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -265,7 +275,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -313,7 +324,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -325,7 +336,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -337,7 +348,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -361,7 +372,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -378,7 +390,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -398,7 +411,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -410,17 +424,19 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 5,
             "columnCount": 6,
-            "fieldProfiles": []
+            "fieldProfiles": [],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -432,17 +448,19 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 0,
             "columnCount": 3,
-            "fieldProfiles": []
+            "fieldProfiles": [],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00"
+        "runId": "mysql-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

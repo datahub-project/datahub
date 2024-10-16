@@ -2,7 +2,7 @@ import dataclasses
 import random
 import uuid
 from collections import defaultdict
-from typing import Dict, Iterable, List, cast
+from typing import Dict, Iterable, List, Set
 
 from typing_extensions import get_args
 
@@ -15,7 +15,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.usage import OPERATION_STATEMENT_TYPES
-from tests.performance.data_model import Query, StatementType, Table, View
+from tests.performance.data_model import Query, StatementType, Table
 
 # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.TableDataRead.Reason
 READ_REASONS = [
@@ -47,9 +47,11 @@ def generate_events(
     for query in queries:
         project = (  # Most queries are run in the project of the tables they access
             table_to_project[
-                query.object_modified.name
-                if query.object_modified
-                else query.fields_accessed[0].table.name
+                (
+                    query.object_modified.name
+                    if query.object_modified
+                    else query.fields_accessed[0].table.name
+                )
             ]
             if random.random() >= proabability_of_project_mismatch
             else random.choice(projects)
@@ -71,9 +73,11 @@ def generate_events(
                 query=query.text,
                 statementType=random.choice(OPERATION_TYPE_MAP[query.type]),
                 project_id=project,
-                destinationTable=ref_from_table(query.object_modified, table_to_project)
-                if query.object_modified
-                else None,
+                destinationTable=(
+                    ref_from_table(query.object_modified, table_to_project)
+                    if query.object_modified
+                    else None
+                ),
                 referencedTables=list(
                     dict.fromkeys(  # Preserve order
                         ref_from_table(field.table, table_to_project)
@@ -86,17 +90,19 @@ def generate_events(
                         ref_from_table(parent, table_to_project)
                         for field in query.fields_accessed
                         if field.table.is_view()
-                        for parent in cast(View, field.table).parents
+                        for parent in field.table.upstreams
                     )
                 ),
                 referencedViews=referencedViews,
-                payload=dataclasses.asdict(query)
-                if config.debug_include_full_payloads
-                else None,
+                payload=(
+                    dataclasses.asdict(query)
+                    if config.debug_include_full_payloads
+                    else None
+                ),
                 query_on_view=True if referencedViews else False,
             )
         )
-        table_accesses = defaultdict(set)
+        table_accesses: Dict[BigQueryTableRef, Set[str]] = defaultdict(set)
         for field in query.fields_accessed:
             if not field.table.is_view():
                 table_accesses[ref_from_table(field.table, table_to_project)].add(
@@ -104,7 +110,7 @@ def generate_events(
                 )
             else:
                 # assuming that same fields are accessed in parent tables
-                for parent in cast(View, field.table).parents:
+                for parent in field.table.upstreams:
                     table_accesses[ref_from_table(parent, table_to_project)].add(
                         field.column
                     )
@@ -118,9 +124,11 @@ def generate_events(
                     resource=ref,
                     fieldsRead=list(columns),
                     readReason=random.choice(READ_REASONS),
-                    payload=dataclasses.asdict(query)
-                    if config.debug_include_full_payloads
-                    else None,
+                    payload=(
+                        dataclasses.asdict(query)
+                        if config.debug_include_full_payloads
+                        else None
+                    ),
                 )
             )
 

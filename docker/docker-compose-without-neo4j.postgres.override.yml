@@ -1,6 +1,5 @@
 # Override to use PostgreSQL as a backing store for datahub-gms.
 ---
-version: '3.9'
 services:
   datahub-gms:
     env_file:
@@ -9,6 +8,7 @@ services:
     environment:
       - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
       - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+      - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
     depends_on:
       datahub-upgrade:
         condition: service_completed_successfully
@@ -16,7 +16,6 @@ services:
       - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
   datahub-upgrade:
-    container_name: datahub-upgrade
     hostname: datahub-upgrade
     image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
     command:
@@ -37,7 +36,6 @@ services:
         condition: service_completed_successfully
 
   postgres-setup:
-    container_name: postgres-setup
     hostname: postgres-setup
     image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-acryldata/datahub-postgres-setup}:${DATAHUB_VERSION:-head}
     build:
@@ -51,9 +49,8 @@ services:
       datahub_setup_job: true
 
   postgres:
-    container_name: postgres
     hostname: postgres
-    image: postgres:12.3
+    image: postgres:${DATAHUB_POSTGRES_VERSION:-12.3}
     env_file: postgres/env/docker.env
     ports:
       - '5432:5432'

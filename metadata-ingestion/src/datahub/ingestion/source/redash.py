@@ -10,7 +10,7 @@ from packaging import version
 from pydantic.fields import Field
 from redash_toolbelt import Redash
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -18,12 +18,13 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
 from datahub.ingestion.api.registry import import_path
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -39,6 +40,7 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     DashboardInfoClass,
 )
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sql_parser import SQLParser
 
@@ -282,7 +284,7 @@ class RedashConfig(ConfigModel):
 @dataclass
 class RedashSourceReport(SourceReport):
     items_scanned: int = 0
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
     queries_problem_parsing: Set[str] = field(default_factory=set)
     queries_no_dataset: Set[str] = field(default_factory=set)
     charts_no_input: Set[str] = field(default_factory=set)
@@ -295,7 +297,7 @@ class RedashSourceReport(SourceReport):
     )
     max_page_dashboards: Optional[int] = field(default=None)
     api_page_limit: Optional[float] = field(default=None)
-    timing: Dict[str, int] = field(default_factory=dict)
+    timing: LossyDict[str, int] = field(default_factory=LossyDict)
 
     def report_item_scanned(self) -> None:
         self.items_scanned += 1
@@ -307,6 +309,7 @@ class RedashSourceReport(SourceReport):
 @platform_name("Redash")
 @config_class(RedashConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class RedashSource(Source):
     """
     This plugin extracts the following:
@@ -358,12 +361,12 @@ class RedashSource(Source):
         )
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason)
-        log.error(f"{key} => {reason}")
+        # TODO: Remove this method.
+        self.report.failure(key, reason)
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        log.warning(f"{key} => {reason}")
+        # TODO: Remove this method.
+        self.report.warning(key, reason)
 
     def validate_connection(self) -> None:
         test_response = self.client._get(f"{self.config.connect_uri}/api")
@@ -554,7 +557,7 @@ class RedashSource(Source):
         title = dashboard_data.get("name", "")
 
         last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=modified_ts, actor=modified_actor),
+            created=None,
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
@@ -658,7 +661,7 @@ class RedashSource(Source):
         viz_type = viz_data.get("type", "")
         viz_options = viz_data.get("options", {})
         globalSeriesType = viz_options.get("globalSeriesType", "")
-        report_key = f"redash-chart-{viz_data['id']}"
+        report_type = f"redash-chart-{viz_data['id']}"
 
         # handle Plotly chart types
         if viz_type == "CHART":
@@ -666,14 +669,14 @@ class RedashSource(Source):
             if chart_type is None:
                 chart_type = DEFAULT_VISUALIZATION_TYPE
                 message = f"ChartTypeClass for Redash Visualization Type={viz_type} with options.globalSeriesType={globalSeriesType} is missing. Setting to {DEFAULT_VISUALIZATION_TYPE}"
-                self.report.report_warning(key=report_key, reason=message)
+                self.report.report_warning(title=report_type, message=message)
                 logger.warning(message)
         else:
             chart_type = VISUALIZATION_TYPE_MAP.get(viz_type)
             if chart_type is None:
                 chart_type = DEFAULT_VISUALIZATION_TYPE
                 message = f"ChartTypeClass for Redash Visualization Type={viz_type} is missing. Setting to {DEFAULT_VISUALIZATION_TYPE}"
-                self.report.report_warning(key=report_key, reason=message)
+                self.report.report_warning(title=report_type, message=message)
                 logger.warning(message)
 
         return chart_type
@@ -693,7 +696,7 @@ class RedashSource(Source):
         title = f"{query_data.get('name')} {viz_data.get('name', '')}"
 
         last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=modified_ts, actor=modified_actor),
+            created=None,
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
@@ -712,8 +715,8 @@ class RedashSource(Source):
             self.report.charts_no_input.add(chart_urn)
             self.report.queries_no_dataset.add(str(query_id))
             self.report.report_warning(
-                key="redash-chart-input-missing",
-                reason=f"For viz-id-{viz_id}-query-{query_id}-datasource-{data_source_id} data_source_type={data_source_type} no datasources found. Setting inputs to None",
+                title="redash-chart-input-missing",
+                message=f"For viz-id-{viz_id}-query-{query_id}-datasource-{data_source_id} data_source_type={data_source_type} no datasources found. Setting inputs to None",
             )
 
         chart_info = ChartInfoClass(

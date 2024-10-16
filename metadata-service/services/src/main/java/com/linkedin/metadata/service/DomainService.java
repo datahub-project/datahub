@@ -1,33 +1,31 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.entity.AspectUtils.*;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.domain.Domains;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import com.linkedin.entity.client.EntityClient;
-import com.datahub.authentication.Authentication;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.entity.AspectUtils.*;
-
 
 @Slf4j
 public class DomainService extends BaseService {
 
-  public DomainService(@Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+  public DomainService(@Nonnull SystemEntityClient entityClient) {
+    super(entityClient);
   }
 
   /**
@@ -36,25 +34,19 @@ public class DomainService extends BaseService {
    * @param domainUrn the urns of the domain to set
    * @param resources references to the resources to change
    */
-  public void batchSetDomain(@Nonnull Urn domainUrn, @Nonnull List<ResourceReference> resources) {
-    batchSetDomain(domainUrn, resources, this.systemAuthentication);
-  }
-
-  /**
-   * Batch sets a single domain for a set of resources.
-   *
-   * @param domainUrn the urns of the domain to set
-   * @param resources references to the resources to change
-   * @param authentication authentication to use when making the change
-   */
-  public void batchSetDomain(@Nonnull Urn domainUrn, @Nonnull List<ResourceReference> resources, @Nonnull Authentication authentication) {
+  public void batchSetDomain(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn domainUrn,
+      @Nonnull List<ResourceReference> resources) {
     log.debug("Batch setting Domain to entities. domain: {}, resources: {}", resources, domainUrn);
     try {
-      setDomainForResources(domainUrn, resources, authentication);
+      setDomainForResources(opContext, domainUrn, resources);
     } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to batch set Domain %s to resources with urns %s!",
-          domainUrn,
-          resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
+      throw new RuntimeException(
+          String.format(
+              "Failed to batch set Domain %s to resources with urns %s!",
+              domainUrn,
+              resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
           e);
     }
   }
@@ -65,25 +57,20 @@ public class DomainService extends BaseService {
    * @param domainUrns the urns of the domain to set
    * @param resources references to the resources to change
    */
-  public void batchAddDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources) {
-    batchAddDomains(domainUrns, resources, this.systemAuthentication);
-  }
-
-  /**
-   * Batch adds multiple domains for a set of resources. (NOT YET USED)
-   *
-   * @param domainUrns the urns of the domain to set
-   * @param resources references to the resources to change
-   * @param authentication authentication to use when making the change
-   */
-  public void batchAddDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources, @Nonnull Authentication authentication) {
-    log.debug("Batch adding Domains to entities. domains: {}, resources: {}", resources, domainUrns);
+  public void batchAddDomains(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<Urn> domainUrns,
+      @Nonnull List<ResourceReference> resources) {
+    log.debug(
+        "Batch adding Domains to entities. domains: {}, resources: {}", resources, domainUrns);
     try {
-      addDomainsToResources(domainUrns, resources, authentication);
+      addDomainsToResources(opContext, domainUrns, resources);
     } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to batch add Domains %s to resources with urns %s!",
-          domainUrns,
-          resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
+      throw new RuntimeException(
+          String.format(
+              "Failed to batch add Domains %s to resources with urns %s!",
+              domainUrns,
+              resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
           e);
     }
   }
@@ -93,23 +80,16 @@ public class DomainService extends BaseService {
    *
    * @param resources references to the resources to change
    */
-  public void batchUnsetDomain(@Nonnull List<ResourceReference> resources) {
-    batchUnsetDomain(resources, this.systemAuthentication);
-  }
-
-  /**
-   * Batch unsets a domains for a set of resources. This removes all domains.
-   *
-   * @param resources references to the resources to change
-   * @param authentication authentication to use when making the change
-   */
-  public void batchUnsetDomain(@Nonnull List<ResourceReference> resources, @Nullable Authentication authentication) {
+  public void batchUnsetDomain(
+      @Nonnull OperationContext opContext, @Nonnull List<ResourceReference> resources) {
     log.debug("Batch unsetting Domains to entities. resources: {}", resources);
     try {
-      unsetDomainForResources(resources, authentication);
+      unsetDomainForResources(opContext, resources);
     } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to unset add Domain for resources with urns %s!",
-          resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
+      throw new RuntimeException(
+          String.format(
+              "Failed to unset add Domain for resources with urns %s!",
+              resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
           e);
     }
   }
@@ -120,75 +100,67 @@ public class DomainService extends BaseService {
    * @param domainUrns the urns of domains to remove
    * @param resources references to the resources to change
    */
-  public void batchRemoveDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources) {
-    batchRemoveDomains(domainUrns, resources, this.systemAuthentication);
-  }
-
-  /**
-   * Batch removes a specific set of domains for a set of resources. (NOT YET USED)
-   *
-   * @param domainUrns the urns of domains to remove
-   * @param resources references to the resources to change
-   * @param authentication authentication to use when making the change
-   */
-  public void batchRemoveDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources, @Nullable Authentication authentication) {
-    log.debug("Batch adding Domains to entities. domains: {}, resources: {}", resources, domainUrns);
+  public void batchRemoveDomains(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<Urn> domainUrns,
+      @Nonnull List<ResourceReference> resources) {
+    log.debug(
+        "Batch adding Domains to entities. domains: {}, resources: {}", resources, domainUrns);
     try {
-      removeDomainsFromResources(domainUrns, resources, authentication);
+      removeDomainsFromResources(opContext, domainUrns, resources);
     } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to batch add Domains %s to resources with urns %s!",
-        domainUrns,
-        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
-      e);
+      throw new RuntimeException(
+          String.format(
+              "Failed to batch add Domains %s to resources with urns %s!",
+              domainUrns,
+              resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
+          e);
     }
   }
 
   private void setDomainForResources(
+      @Nonnull OperationContext opContext,
       com.linkedin.common.urn.Urn domainUrn,
-      List<ResourceReference> resources,
-      @Nullable Authentication authentication
-  ) throws Exception {
+      List<ResourceReference> resources)
+      throws Exception {
     final List<MetadataChangeProposal> changes = buildSetDomainProposals(domainUrn, resources);
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(opContext, changes);
   }
 
   private void addDomainsToResources(
+      @Nonnull OperationContext opContext,
       List<com.linkedin.common.urn.Urn> domainUrns,
-      List<ResourceReference> resources,
-      @Nonnull Authentication authentication
-  ) throws Exception {
-    final List<MetadataChangeProposal> changes = buildAddDomainsProposals(domainUrns, resources, authentication);
-    ingestChangeProposals(changes, authentication);
+      List<ResourceReference> resources)
+      throws Exception {
+    final List<MetadataChangeProposal> changes =
+        buildAddDomainsProposals(opContext, domainUrns, resources);
+    ingestChangeProposals(opContext, changes);
   }
 
   private void unsetDomainForResources(
-      List<ResourceReference> resources,
-      @Nonnull Authentication authentication
-  ) throws Exception {
+      @Nonnull OperationContext opContext, List<ResourceReference> resources) throws Exception {
     final List<MetadataChangeProposal> changes = buildUnsetDomainProposals(resources);
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(opContext, changes);
   }
 
   public void removeDomainsFromResources(
-      List<Urn> domains,
-      List<ResourceReference> resources,
-      @Nonnull Authentication authentication
-  ) throws Exception {
-    final List<MetadataChangeProposal> changes = buildRemoveDomainsProposals(domains, resources, authentication);
-    ingestChangeProposals(changes, authentication);
+      @Nonnull OperationContext opContext, List<Urn> domains, List<ResourceReference> resources)
+      throws Exception {
+    final List<MetadataChangeProposal> changes =
+        buildRemoveDomainsProposals(opContext, domains, resources);
+    ingestChangeProposals(opContext, changes);
   }
 
   @VisibleForTesting
   @Nonnull
   List<MetadataChangeProposal> buildSetDomainProposals(
-      com.linkedin.common.urn.Urn domainUrn,
-      List<ResourceReference> resources
-  ) {
+      com.linkedin.common.urn.Urn domainUrn, List<ResourceReference> resources) {
     List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
       Domains domains = new Domains();
       domains.setDomains(new UrnArray(ImmutableList.of(domainUrn)));
-      changes.add(buildMetadataChangeProposal(resource.getUrn(), Constants.DOMAINS_ASPECT_NAME, domains));
+      changes.add(
+          buildMetadataChangeProposal(resource.getUrn(), Constants.DOMAINS_ASPECT_NAME, domains));
     }
     return changes;
   }
@@ -196,42 +168,42 @@ public class DomainService extends BaseService {
   @VisibleForTesting
   @Nonnull
   List<MetadataChangeProposal> buildAddDomainsProposals(
+      @Nonnull OperationContext opContext,
       List<com.linkedin.common.urn.Urn> domainUrns,
-      List<ResourceReference> resources,
-      @Nonnull Authentication authentication
-  ) throws URISyntaxException {
+      List<ResourceReference> resources)
+      throws URISyntaxException {
 
-    final Map<Urn, Domains> domainAspects = getDomainsAspects(
-        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-        new Domains(),
-        authentication
-    );
+    final Map<Urn, Domains> domainAspects =
+        getDomainsAspects(
+            opContext,
+            resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+            new Domains());
 
-   final List<MetadataChangeProposal> proposals = new ArrayList<>();
-   for (ResourceReference resource : resources) {
-     Domains domains = domainAspects.get(resource.getUrn());
-     if (domains == null) {
-       continue;
-     }
-     if (!domains.hasDomains()) {
-       domains.setDomains(new UrnArray());
-     }
-     addDomainsIfNotExists(domains, domainUrns);
-     proposals.add(buildMetadataChangeProposal(resource.getUrn(), Constants.DOMAINS_ASPECT_NAME, domains));
-   }
-   return proposals;
+    final List<MetadataChangeProposal> proposals = new ArrayList<>();
+    for (ResourceReference resource : resources) {
+      Domains domains = domainAspects.get(resource.getUrn());
+      if (domains == null) {
+        continue;
+      }
+      if (!domains.hasDomains()) {
+        domains.setDomains(new UrnArray());
+      }
+      addDomainsIfNotExists(domains, domainUrns);
+      proposals.add(
+          buildMetadataChangeProposal(resource.getUrn(), Constants.DOMAINS_ASPECT_NAME, domains));
+    }
+    return proposals;
   }
 
   @VisibleForTesting
   @Nonnull
-  List<MetadataChangeProposal> buildUnsetDomainProposals(
-      List<ResourceReference> resources
-  ) {
+  List<MetadataChangeProposal> buildUnsetDomainProposals(List<ResourceReference> resources) {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
       Domains domains = new Domains();
       domains.setDomains(new UrnArray(Collections.emptyList()));
-      changes.add(buildMetadataChangeProposal(resource.getUrn(), Constants.DOMAINS_ASPECT_NAME, domains));
+      changes.add(
+          buildMetadataChangeProposal(resource.getUrn(), Constants.DOMAINS_ASPECT_NAME, domains));
     }
     return changes;
   }
@@ -239,15 +211,14 @@ public class DomainService extends BaseService {
   @VisibleForTesting
   @Nonnull
   List<MetadataChangeProposal> buildRemoveDomainsProposals(
+      @Nonnull OperationContext opContext,
       List<Urn> domainUrns,
-      List<ResourceReference> resources,
-      @Nonnull Authentication authentication
-  ) {
-    final Map<Urn, Domains> domainAspects = getDomainsAspects(
-        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-        new Domains(),
-        authentication
-    );
+      List<ResourceReference> resources) {
+    final Map<Urn, Domains> domainAspects =
+        getDomainsAspects(
+            opContext,
+            resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+            new Domains());
 
     final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (ResourceReference resource : resources) {
@@ -259,7 +230,8 @@ public class DomainService extends BaseService {
         domains.setDomains(new UrnArray());
       }
       removeDomainsIfExists(domains, domainUrns);
-      proposals.add(buildMetadataChangeProposal(resource.getUrn(), Constants.DOMAINS_ASPECT_NAME, domains));
+      proposals.add(
+          buildMetadataChangeProposal(resource.getUrn(), Constants.DOMAINS_ASPECT_NAME, domains));
     }
     return proposals;
   }

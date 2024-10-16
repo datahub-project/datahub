@@ -1,5 +1,8 @@
 package com.linkedin.metadata.kafka.hook;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.kafka.hook.UpdateIndicesHookTest.*;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
@@ -18,15 +21,9 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.kafka.hook.UpdateIndicesHookTest.*;
-
-
 public class MCLProcessingTestDataGenerator {
 
-  private MCLProcessingTestDataGenerator() {
-
-  }
+  private MCLProcessingTestDataGenerator() {}
 
   public static MetadataChangeLog createBaseChangeLog() throws URISyntaxException {
     MetadataChangeLog event = new MetadataChangeLog();
@@ -39,7 +36,8 @@ public class MCLProcessingTestDataGenerator {
     event.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
     event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
     event.setEntityType(DATASET_ENTITY_NAME);
-    event.setCreated(new AuditStamp().setActor(UrnUtils.getUrn(TEST_ACTOR_URN)).setTime(EVENT_TIME));
+    event.setCreated(
+        new AuditStamp().setActor(UrnUtils.getUrn(TEST_ACTOR_URN)).setTime(EVENT_TIME));
     return event;
   }
 
@@ -68,7 +66,8 @@ public class MCLProcessingTestDataGenerator {
     return changeLog.setSystemMetadata(systemMetadata);
   }
 
-  public static MetadataChangeLog setPreviousData(MetadataChangeLog changeLog, MetadataChangeLog previousState) {
+  public static MetadataChangeLog setPreviousData(
+      MetadataChangeLog changeLog, MetadataChangeLog previousState) {
     changeLog.setPreviousAspectValue(previousState.getAspect());
     return changeLog.setPreviousSystemMetadata(previousState.getSystemMetadata());
   }
@@ -93,7 +92,8 @@ public class MCLProcessingTestDataGenerator {
     return changeLog.setSystemMetadata(systemMetadata);
   }
 
-  public static MetadataChangeLog modifyAspect(MetadataChangeLog changeLog, UpstreamLineage upstreamLineage) {
+  public static MetadataChangeLog modifyAspect(
+      MetadataChangeLog changeLog, UpstreamLineage upstreamLineage) {
     return changeLog.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
   }
 
@@ -109,7 +109,8 @@ public class MCLProcessingTestDataGenerator {
     return upstreamLineage;
   }
 
-  public static UpstreamLineage addLineageEdge(UpstreamLineage upstreamLineage) throws URISyntaxException {
+  public static UpstreamLineage addLineageEdge(UpstreamLineage upstreamLineage)
+      throws URISyntaxException {
     UpstreamArray upstreamArray = upstreamLineage.getUpstreams();
     Upstream upstream = new Upstream();
     upstream.setType(DatasetLineageType.TRANSFORMED);
@@ -127,5 +128,4 @@ public class MCLProcessingTestDataGenerator {
     upstreamArray.set(0, upstream);
     return upstreamLineage.setUpstreams(upstreamArray);
   }
-
 }

@@ -32,6 +32,7 @@ _DELETE_WITH_REFERENCES_TYPES = {
     "domain",
     "glossaryTerm",
     "glossaryNode",
+    "form",
 }
 
 _RECURSIVE_DELETE_TYPES = {
@@ -122,6 +123,8 @@ def by_registry(
     Delete all metadata written using the given registry id and version pair.
     """
 
+    client = get_default_graph()
+
     if soft and not dry_run:
         raise click.UsageError(
             "Soft-deleting with a registry-id is not yet supported. Try --dry-run to see what you will be deleting, before issuing a hard-delete using the --hard flag"
@@ -137,7 +140,10 @@ def by_registry(
             unsafe_entity_count,
             unsafe_entities,
         ) = cli_utils.post_rollback_endpoint(
-            registry_delete, "/entities?action=deleteAll"
+            client._session,
+            client.config.server,
+            registry_delete,
+            "/entities?action=deleteAll",
         )
 
     if not dry_run:
@@ -332,10 +338,18 @@ def by_filter(
     # TODO: add some validation on entity_type
 
     if not force and not soft and not dry_run:
-        click.confirm(
-            "This will permanently delete data from DataHub. Do you want to continue?",
-            abort=True,
-        )
+        if only_soft_deleted:
+            click.confirm(
+                "This will permanently delete data from DataHub. Do you want to continue?",
+                abort=True,
+            )
+        else:
+            click.confirm(
+                "Hard deletion will permanently delete data from DataHub and can be slow. "
+                "We generally recommend using soft deletes instead. "
+                "Do you want to continue?",
+                abort=True,
+            )
 
     graph = get_default_graph()
     logger.info(f"Using {graph}")

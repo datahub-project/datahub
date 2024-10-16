@@ -1,8 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.view;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.UpdateViewInput;
@@ -14,13 +17,10 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-/**
- * Resolver responsible for updating a particular DataHub View
- */
+/** Resolver responsible for updating a particular DataHub View */
 @Slf4j
 public class UpdateViewResolver implements DataFetcher<CompletableFuture<DataHubView>> {
 
@@ -31,41 +31,54 @@ public class UpdateViewResolver implements DataFetcher<CompletableFuture<DataHub
   }
 
   @Override
-  public CompletableFuture<DataHubView> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<DataHubView> get(final DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
     final String urnStr = environment.getArgument("urn");
-    final UpdateViewInput input = bindArgument(environment.getArgument("input"), UpdateViewInput.class);
+    final UpdateViewInput input =
+        bindArgument(environment.getArgument("input"), UpdateViewInput.class);
 
     final Urn urn = Urn.createFromString(urnStr);
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        if (ViewUtils.canUpdateView(_viewService, urn, context)) {
-            _viewService.updateView(
-                urn,
-                input.getName(),
-                input.getDescription(),
-                ViewUtils.mapDefinition(input.getDefinition()),
-                context.getAuthentication(),
-                System.currentTimeMillis());
-            log.info(String.format("Successfully updated View %s with urn", urn));
-            return getView(urn, context.getAuthentication());
-        }
-        throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-      } catch (AuthorizationException e) {
-        throw e;
-      } catch (Exception e) {
-        throw new RuntimeException(String.format("Failed to perform update against View with urn %s", urn), e);
-      }
-    });
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> {
+          try {
+            if (ViewUtils.canUpdateView(_viewService, urn, context)) {
+              _viewService.updateView(
+                  context.getOperationContext(),
+                  urn,
+                  input.getName(),
+                  input.getDescription(),
+                  ViewUtils.mapDefinition(
+                      input.getDefinition(), context.getOperationContext().getAspectRetriever()),
+                  System.currentTimeMillis());
+              log.info(String.format("Successfully updated View %s with urn", urn));
+              return getView(context, urn, context.getAuthentication());
+            }
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          } catch (AuthorizationException e) {
+            throw e;
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format("Failed to perform update against View with urn %s", urn), e);
+          }
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
-  private DataHubView getView(@Nonnull final Urn urn, @Nonnull final Authentication authentication) {
-    final EntityResponse maybeResponse = _viewService.getViewEntityResponse(urn, authentication);
+  private DataHubView getView(
+      @Nullable QueryContext context,
+      @Nonnull final Urn urn,
+      @Nonnull final Authentication authentication) {
+    final EntityResponse maybeResponse =
+        _viewService.getViewEntityResponse(context.getOperationContext(), urn);
     // If there is no response, there is a problem.
     if (maybeResponse == null) {
       throw new RuntimeException(
-          String.format("Failed to perform update to View with urn %s. Failed to find view in GMS.", urn));
+          String.format(
+              "Failed to perform update to View with urn %s. Failed to find view in GMS.", urn));
     }
-    return DataHubViewMapper.map(maybeResponse);
+    return DataHubViewMapper.map(context, maybeResponse);
   }
 }

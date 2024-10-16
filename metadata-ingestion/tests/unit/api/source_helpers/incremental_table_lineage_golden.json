@@ -1,0 +1,41 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:platform,dataset1,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:platform,upstream1,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:platform,upstream1,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:platform,upstream2,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:platform,upstream2,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "run-id",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

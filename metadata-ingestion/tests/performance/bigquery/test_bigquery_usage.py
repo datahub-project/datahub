@@ -6,13 +6,14 @@ from datetime import timedelta
 import humanfriendly
 import psutil
 
-from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryUsageConfig,
     BigQueryV2Config,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilder
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.perf_timer import PerfTimer
 from tests.performance.bigquery.bigquery_events import generate_events, ref_from_table
 from tests.performance.data_generation import (
@@ -47,7 +48,8 @@ def run_test():
     usage_extractor = BigQueryUsageExtractor(
         config,
         report,
-        lambda ref: make_dataset_urn("bigquery", str(ref.table_identifier)),
+        schema_resolver=SchemaResolver(platform="bigquery"),
+        identifiers=BigQueryIdentifierBuilder(config, report),
     )
     report.set_ingestion_stage("All", "Event Generation")
 
@@ -83,12 +85,10 @@ def run_test():
     print(
         f"Peak Memory Used: {humanfriendly.format_size(peak_memory_usage - pre_mem_usage)}"
     )
-    print(f"Disk Used: {report.usage_state_size}")
+    print(f"Disk Used: {report.processing_perf.usage_state_size}")
     print(f"Hash collisions: {report.num_usage_query_hash_collisions}")
 
 
 if __name__ == "__main__":
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
-    root_logger.addHandler(logging.StreamHandler())
+    logging.basicConfig(level=logging.INFO)
     run_test()

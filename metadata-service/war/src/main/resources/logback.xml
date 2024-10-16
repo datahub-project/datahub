@@ -10,6 +10,7 @@
         </filter>
         <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
             <excluded>scanned from multiple locations</excluded>
+            <excluded>[ignore_throttled] parameter is deprecated because frozen indices have been deprecated</excluded>
         </filter>
     </appender>
 
@@ -32,6 +33,7 @@
         </encoder>
         <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
             <excluded>scanned from multiple locations</excluded>
+            <excluded>[ignore_throttled] parameter is deprecated because frozen indices have been deprecated</excluded>
         </filter>
     </appender>
 
@@ -47,13 +49,38 @@
             <maxHistory>1</maxHistory>
         </rollingPolicy>
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>DEBUG</level>
+            <level>${logging.appender.debug_file.level:-DEBUG}</level>
             <onMatch>ACCEPT</onMatch>
             <onMismatch>DENY</onMismatch>
         </filter>
         <encoder>
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
+    </appender>
+
+    <appender name="GRAPHQL_DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/gms.graphql.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <FileNamePattern>${LOG_DIR}/gms.graphql.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
+            <!-- each archived file, size max 10MB -->
+            <maxFileSize>100MB</maxFileSize>
+            <!-- total size of all archive files, if total size > 2GB, it will delete old archived file -->
+            <totalSizeCap>2GB</totalSizeCap>
+            <!-- 1 days to keep -->
+            <maxHistory>1</maxHistory>
+        </rollingPolicy>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>${logging.appender.graphql_debug_file.level:-DEBUG}</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <encoder>
+            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="ASYNC_GRAPHQL_DEBUG_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="GRAPHQL_DEBUG_FILE" />
     </appender>
 
     <!-- Remove this to disable logging debug -->
@@ -73,6 +100,13 @@
         <appender-ref ref="STDOUT" />
     </logger>
 
+    <logger name="com.datahub.graphql" level="TRACE">
+        <appender-ref ref="ASYNC_GRAPHQL_DEBUG_FILE"/>
+    </logger>
+
+    <logger name="com.datahub.graphql" level="DEBUG">
+        <appender-ref ref="ASYNC_GRAPHQL_DEBUG_FILE"/>
+    </logger>
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />

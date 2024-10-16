@@ -1,4 +1,6 @@
-apply plugin: 'java'
+plugins {
+  id 'java'
+}
 
 dependencies {
   implementation project(':metadata-auth:auth-api')
@@ -16,4 +18,12 @@ dependencies {
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
+
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.springBootTest
+}
+
+test {
+  testLogging.showStandardStreams = true
+  testLogging.exceptionFormat = 'full'
 }

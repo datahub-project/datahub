@@ -1,5 +1,6 @@
 namespace com.linkedin.glossary
 
+import com.linkedin.common.CustomProperties
 import com.linkedin.common.GlossaryNodeUrn
 
 /**
@@ -8,7 +9,7 @@ import com.linkedin.common.GlossaryNodeUrn
 @Aspect = {
    "name": "glossaryNodeInfo"
 }
-record GlossaryNodeInfo {
+record GlossaryNodeInfo includes CustomProperties {
 
   /**
    * Definition of business node

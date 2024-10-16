@@ -8,12 +8,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-
-> ⚠️ The **Freshness Assertions** feature is currently in private beta, part of the **Acryl Observe** module, and may only be available to a 
-> limited set of design partners.
-> 
-> If you are interested in trying it and providing feedback, please reach out to your Acryl Customer Success
-> representative.
+> The **Freshness Assertions** feature is available as part of the **Acryl Observe** module of DataHub Cloud.
+> If you are interested in learning more about **Acryl Observe** or trying it out, please [visit our website](https://www.acryldata.io/observe). 
 
 ## Introduction
 
@@ -22,13 +18,13 @@ months without being updated with fresh data?
 
 Perhaps a bug had been introduced into an upstream Airflow DAG
 or worse, the person in charge of maintaining the Table has departed from your organization entirely. 
-There are many reasons why an important Table on Snowflake, Redshift, or BigQuery may fail to be updated as often as expected. 
+There are many reasons why an important Table on Snowflake, Redshift, BigQuery, or Databricks may fail to be updated as often as expected. 
 
 What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data 
 issues _before_ anyone else? What if you could communicate commitments about the freshness or change frequency
-of a table? With Acryl DataHub Freshness Assertions, you can.
+of a table? With DataHub Cloud Freshness Assertions, you can.
 
-Acryl DataHub allows users to define expectations about when a particular Table in the warehouse
+DataHub Cloud allows users to define expectations about when a particular Table in the warehouse
 should change, and then monitor those expectations over time, with the ability to be notified when things go wrong. 
 
 In this article, we'll cover the basics of monitoring Freshness Assertions - what they are, how to configure them, and more - so that you and your team can
@@ -43,12 +39,14 @@ Freshness Assertions are currently supported for:
 1. Snowflake
 2. Redshift
 3. BigQuery
+4. Databricks
+5. DataHub Operations (collected via ingestion)
 
-Note that an Ingestion Source _must_ be configured with the data platform of your choice in Acryl DataHub's **Ingestion** 
+Note that an Ingestion Source _must_ be configured with the data platform of your choice in DataHub Cloud's **Ingestion** 
 tab.
 
 > Note that Freshness Assertions are not yet supported if you are connecting to your warehouse
-> using the DataHub CLI or a Remote Ingestion Executor. 
+> using the DataHub CLI.
 
 ## What is a Freshness Assertion?
 
@@ -101,17 +99,19 @@ We can either check for change to the Table
 
 #### 3. Change Source
 
-The **Change Source**: This is the mechanism that Acryl DataHub should use to determine whether the Table has changed. The supported
+The **Change Source**: This is the mechanism that DataHub Cloud should use to determine whether the Table has changed. The supported
 Change Source types vary by the platform, but generally fall into these categories:
 
   - **Audit Log** (Default): A metadata API or Table that is exposed by the Data Warehouse which contains captures information about the
    operations that have been performed to each Table. It is usually efficient to check, but some useful operations are not 
-   fully supported across all major Warehouse platforms.
+   fully supported across all major Warehouse platforms. Note that for Databricks, [this option](https://docs.databricks.com/en/delta/history.html) 
+   is only available for tables stored in Delta format.
 
   - **Information Schema**: A system Table that is exposed by the Data Warehouse which contains live information about the Databases 
     and Tables stored inside the Data Warehouse. It is usually efficient to check, but lacks detailed information about the _type_
-    of change that was last made to a specific table (e.g. the operation itself - INSERT, UPDATE, DELETE, number of impacted rows, etc)
-      
+    of change that was last made to a specific table (e.g. the operation itself - INSERT, UPDATE, DELETE, number of impacted rows, etc).
+    Note that for Databricks, [this option](https://docs.databricks.com/en/delta/table-details.html) is only available for tables stored in Delta format.
+
   - **Last Modified Column**: A Date or Timestamp column that represents the last time that a specific _row_ was touched or updated. 
     Adding a Last Modified Column to each warehouse Table is a pattern is often used for existing use cases around change management. 
     If this change source is used, a query will be issued to the Table to search for rows that have been modified within a specific 
@@ -127,8 +127,11 @@ Change Source types vary by the platform, but generally fall into these categori
     This relies on Operations being reported to DataHub, either via ingestion or via use of the DataHub APIs (see [Report Operation via API](#reporting-operations-via-api)).
     Note if you have not configured an ingestion source through DataHub, then this may be the only option available. By default, any operation type found will be considered a valid change. Use the **Operation Types** dropdown when selecting this option to specify which operation types should be considered valid changes. You may choose from one of DataHub's standard Operation Types, or specify a "Custom" Operation Type by typing in the name of the Operation Type.
 
-  Using either of the column value approaches (**Last Modified Column** or **High Watermark Column**) to determine whether a Table has changed can be useful because it can be customized to determine whether specific types of important changes have been made to a given Table.
-  Because it does not involve system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers. 
+  - **File Metadata** (Databricks Only): A column that is exposed by Databricks for both Unity Catalog and Hive Metastore based tables
+    which includes information about the last time that a file for the table was changed. Read more about it [here](https://docs.databricks.com/en/ingestion/file-metadata-column.html). 
+
+    Using either of the column value approaches (**Last Modified Column** or **High Watermark Column**) to determine whether a Table has changed can be useful because it can be customized to determine whether specific types of changes have been made to a given Table.
+    And because this type of assertion does not involve system warehouse tables, they are easily portable across Data Warehouse and Data Lake providers. 
 
 Freshness Assertions also have an off switch: they can be started or stopped at any time with the click of button.
 
@@ -138,10 +141,12 @@ Freshness Assertions also have an off switch: they can be started or stopped at 
 ### Prerequisites
 
 1. **Permissions**: To create or delete Freshness Assertions for a specific entity on DataHub, you'll need to be granted the
-`Edit Assertions` and `Edit Monitors` privileges for the entity. This is granted to Entity owners by default.
+`Edit Assertions` and `Edit Monitors` privileges for the entity. This will be granted to Entity owners as part of the `Asset Owners - Metadata Policy`
+by default.
    
-2. **Data Platform Connection**: In order to create a Freshness Assertion, you'll need to have an **Ingestion Source** configured to your
+2. (Optional)  **Data Platform Connection**: In order to create a Freshness Assertion that queries the source data platform directly (instead of DataHub metadata), you'll need to have an **Ingestion Source** configured to your
 Data Platform: Snowflake, BigQuery, or Redshift under the **Integrations** tab. 
+
 
 Once these are in place, you're ready to create your Freshness Assertions!
 
@@ -150,14 +155,14 @@ Once these are in place, you're ready to create your Freshness Assertions!
 1. Navigate to the Table that to monitor for freshness
 2. Click the **Validations** tab
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
+<p align="left">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
 </p>
 
 3. Click **+ Create Assertion**
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-choose-type.png"/>
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-choose-type.png"/>
 </p>
 
 4. Choose **Freshness**
@@ -170,22 +175,22 @@ or _In the past X hours_ to configure a fixed interval that is used when checkin
 
 _Check whether the table has changed between subsequent evaluations of the check_
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-since-last.png"/>
+<p align="left">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-since-last.png"/>
 </p>
 
 _Check whether the table has changed in a specific window of time_
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-fixed-interval.png"/>
+<p align="left">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-fixed-interval.png"/>
 </p>
 
 
 7. (Optional) Click **Advanced** to customize the evaluation **source**. This is the mechanism that will be used to evaluate
 the check. Each Data Platform supports different options including Audit Log, Information Schema, Last Modified Column, High Watermark Column, and DataHub Operation.
    
-<p align="center">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-source-type.png"/>
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-source-type.png"/>
 </p>
 
 - **Audit Log**: Check the Data Platform operational audit log to determine whether the table changed within the evaluation period.
@@ -197,67 +202,61 @@ the check. Each Data Platform supports different options including Audit Log, In
   when using a fixed lookback period. 
 - **DataHub Operation**: Use DataHub Operations to determine whether the table changed within the evaluation period.
 
-1. Click **Next**
-2. Configure actions that should be taken when the Freshness Assertion passes or fails
+8. Configure actions that should be taken when the Freshness Assertion passes or fails
 
 <p align="left">
-  <img width="55%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-actions.png"/>
+  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-actions.png"/>
 </p>
 
 - **Raise incident**: Automatically raise a new DataHub `Freshness` Incident for the Table whenever the Freshness Assertion is failing. This
   may indicate that the Table is unfit for consumption. Configure Slack Notifications under **Settings** to be notified when
-  an incident is created due to an Assertion failure. 
+  an incident is created due to an Assertion failure.
+
 - **Resolve incident**: Automatically resolved any incidents that were raised due to failures in this Freshness Assertion. Note that
-  any other incidents will not be impacted. 
+  any other incidents will not be impacted.
+
+9. Click **Next** and add a description.
 
 10. Click **Save**. 
 
 And that's it! DataHub will now begin to monitor your Freshness Assertion for the table. 
 
-To view the time of the next Freshness Assertion evaluation, simply click **Freshness** and then click on your 
-new Assertion:
-
-<p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-next-evaluation-time.png"/>
-</p>
-
 Once your assertion has run, you will begin to see Success or Failure status for the Table
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/failing-assertions-section.png"/>
+<p align="left">
+  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/failing-assertions-section.png"/>
 </p>
 
 
 ## Stopping a Freshness Assertion
 
-In order to temporarily stop the evaluation of a Freshness Assertion:
+In order to temporarily stop the evaluation of the assertion:
 
 1. Navigate to the **Validations** tab of the Table with the assertion
-2. Click **Freshness** to open the Freshness Assertions list
-3. Click the three-dot menu on the right side of the assertion you want to disable
-4. Click **Stop**
+2. Click **Freshness** to open the Freshness Assertion assertions
+3. Click the "Stop" button for the assertion you wish to pause.
 
 <p align="left">
-  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/manage-assertion-menu.png"/>
+  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/stop-assertion.png"/>
 </p>
 
-To resume the Freshness Assertion, simply click **Turn On**. 
+To resume the assertion, simply click **Start**.
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/stopped-assertion.png"/>
+<p align="left">
+  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
 
 
 ## Smart Assertions ⚡
 
-As part of the **Acryl Observe** module, Acryl DataHub also provides **Smart Assertions** out of the box. These are
+As part of the **Acryl Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
 dynamic, AI-powered Freshness Assertions that you can use to monitor the freshness of important warehouse Tables, without
 requiring any manual setup. 
 
-If Acryl DataHub is able to detect a pattern in the change frequency of a Snowflake, Redshift, or BigQuery Table, you'll find
+If DataHub Cloud is able to detect a pattern in the change frequency of a Snowflake, Redshift, BigQuery, or Databricks Table, you'll find
 a recommended Smart Assertion under the `Validations` tab on the Table profile page:
 
-<p align="center">
+<p align="left">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/smart-assertion.png"/>
 </p>
 
@@ -269,7 +268,7 @@ Don't need it anymore? Smart Assertions can just as easily be turned off by clic
 
 ## Creating Freshness Assertions via API 
 
-Under the hood, Acryl DataHub implements Freshness Assertion Monitoring using two "entity" concepts:
+Under the hood, DataHub Cloud implements Freshness Assertion Monitoring using two concepts:
 
 - **Assertion**: The specific expectation for freshness, e.g. "The table was changed int the past 7 hours"
   or "The table is changed on a schedule of every day by 8am". This is the "what". 
@@ -282,26 +281,29 @@ Note that to create or delete Assertions and Monitors for a specific entity on D
 
 #### GraphQL
 
-In order to create a Freshness Assertion that is being monitored on a specific **Evaluation Schedule**, you'll need to use 2
-GraphQL mutation queries to  create a Freshness Assertion entity and create an Assertion Monitor entity responsible for evaluating it.
-
-Start by creating the Freshness Assertion entity using the `createFreshnessAssertion` query and hang on to the 'urn' field of the Assertion entity
-you get back. Then continue by creating a Monitor entity using the `createAssertionMonitor`.
+In order to create or update a Freshness Assertion, you can use the `upsertDatasetFreshnessAssertionMonitor` mutation.
 
 ##### Examples
 
-To create a Freshness Assertion Entity that checks whether a table has been updated in the past 8 hours: 
+To create a Freshness Assertion Entity that checks whether a table has been updated in the past 8, and runs every 8 hours: 
 
-```json
-mutation createFreshnessAssertion {
-  createFreshnessAssertion(
+```graphql
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
     input: {
-      entityUrn: "<urn of the table to be monitored>",
-      type: DATASET_CHANGE,
+      entityUrn: "<urn of entity being monitored>",
       schedule: {
         type: FIXED_INTERVAL,
         fixedInterval: { unit: HOUR, multiple: 8 }
       }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles",
+        cron: "0 */8 * * *"
+      }
+      evaluationParameters: {
+        sourceType: INFORMATION_SCHEMA
+      }
+      mode: ACTIVE      
     }
   ) {
     urn
@@ -309,36 +311,32 @@ mutation createFreshnessAssertion {
 }
 ```
 
-This defines the user's expectation: that the table should have changed in the past 8 hours whenever the assertion is evaluated. 
+You can use same endpoint with assertion urn input to update an existing Freshness Assertion and corresponding Monitor:
 
-To create an Assertion Monitor Entity that evaluates the assertion every 8 hours using the Audit Log:
-
-```json
-mutation createAssertionMonitor {
-  createAssertionMonitor(
+```graphql
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
+    assertionUrn: "<urn of assertion created in earlier query>"
     input: {
       entityUrn: "<urn of entity being monitored>",
-      assertionUrn: "<urn of assertion created in first query>",
       schedule: {
-        cron: "0 */8 * * *",
-        timezone: "America/Los_Angeles"
-      },
-      parameters: {
-        type: DATASET_FRESHNESS,
-        datasetFreshnessParameters: {
-          sourceType: AUDIT_LOG,
-        }
+        type: FIXED_INTERVAL,
+        fixedInterval: { unit: HOUR, multiple: 6 }
       }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles",
+        cron: "0 */6 * * *"
+      }
+      evaluationParameters: {
+        sourceType: INFORMATION_SCHEMA
+      }
+      mode: ACTIVE      
     }
   ) {
     urn
   }
 }
 ```
-
-This entity defines _when_ to run the check (Using CRON format - every 8th hour) and _how_ to run the check (using the Audit Log). 
-
-After creating the monitor, the new assertion will start to be evaluated every 8 hours in your selected timezone. 
 
 You can delete assertions along with their monitors using GraphQL mutations: `deleteAssertion` and `deleteMonitor`.
 
@@ -349,7 +347,7 @@ to capture changes, or where the data platform's mechanism is not reliable. In o
 
 
 ##### Examples
-```json
+```graphql
 mutation reportOperation {
   reportOperation(
     input: {

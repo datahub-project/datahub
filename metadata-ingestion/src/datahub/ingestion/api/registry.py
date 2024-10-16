@@ -184,6 +184,12 @@ class PluginRegistry(Generic[T]):
             # If it's not an exception, then it's a registered type.
             return tp
 
+    def get_optional(self, key: str) -> Optional[Type[T]]:
+        try:
+            return self.get(key)
+        except Exception:
+            return None
+
     def summary(
         self, verbose: bool = True, col_width: int = 15, verbose_col_width: int = 20
     ) -> str:

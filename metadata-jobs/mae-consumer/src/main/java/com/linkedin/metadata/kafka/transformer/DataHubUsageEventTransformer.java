@@ -1,5 +1,8 @@
 package com.linkedin.metadata.kafka.transformer;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.*;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,47 +11,37 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.kafka.hydrator.EntityHydrator;
 import com.linkedin.metadata.kafka.hydrator.EntityType;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.*;
-
-
-/**
- * Transformer that transforms usage event (schema defined HERE) into a search document
- */
+/** Transformer that transforms usage event (schema defined HERE) into a search document */
 @Slf4j
 @Component
 public class DataHubUsageEventTransformer {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
   static {
-    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
+
   private static final Set<DataHubUsageEventType> EVENTS_WITH_ENTITY_URN =
-      ImmutableSet.of(DataHubUsageEventType.SEARCH_RESULT_CLICK_EVENT, DataHubUsageEventType.BROWSE_RESULT_CLICK_EVENT,
-          DataHubUsageEventType.ENTITY_VIEW_EVENT, DataHubUsageEventType.ENTITY_SECTION_VIEW_EVENT,
+      ImmutableSet.of(
+          DataHubUsageEventType.SEARCH_RESULT_CLICK_EVENT,
+          DataHubUsageEventType.BROWSE_RESULT_CLICK_EVENT,
+          DataHubUsageEventType.ENTITY_VIEW_EVENT,
+          DataHubUsageEventType.ENTITY_SECTION_VIEW_EVENT,
           DataHubUsageEventType.ENTITY_ACTION_EVENT);
 
   private final EntityHydrator _entityHydrator;
-
-  private static final Map<EntityType, String> ENTITY_TYPE_MAP;
-
-  static {
-    ENTITY_TYPE_MAP = new HashMap<>(6);
-    ENTITY_TYPE_MAP.put(EntityType.CHART, CHART_ENTITY_NAME);
-    ENTITY_TYPE_MAP.put(EntityType.CORP_USER, CORP_GROUP_ENTITY_NAME);
-    ENTITY_TYPE_MAP.put(EntityType.DASHBOARD, DASHBOARD_ENTITY_NAME);
-    ENTITY_TYPE_MAP.put(EntityType.DATA_FLOW, DATA_FLOW_ENTITY_NAME);
-    ENTITY_TYPE_MAP.put(EntityType.DATA_JOB, DATA_JOB_ENTITY_NAME);
-    ENTITY_TYPE_MAP.put(EntityType.DATASET, DATASET_ENTITY_NAME);
-  }
 
   @Value
   public static class TransformedDocument {
@@ -97,7 +90,8 @@ public class DataHubUsageEventTransformer {
 
     try {
       return Optional.of(
-          new TransformedDocument(getId(eventDocument), OBJECT_MAPPER.writeValueAsString(eventDocument)));
+          new TransformedDocument(
+              getId(eventDocument), OBJECT_MAPPER.writeValueAsString(eventDocument)));
     } catch (JsonProcessingException e) {
       log.info("Failed to package document: {}", eventDocument);
       return Optional.empty();
@@ -122,19 +116,26 @@ public class DataHubUsageEventTransformer {
   }
 
   private void setFieldsForEntity(EntityType entityType, String urn, ObjectNode searchObject) {
-    String entityTypeName = ENTITY_TYPE_MAP.get(entityType);
-    Optional<ObjectNode> entityObject = _entityHydrator.getHydratedEntity(entityTypeName, urn);
+    Optional<ObjectNode> entityObject = _entityHydrator.getHydratedEntity(urn);
     if (!entityObject.isPresent()) {
       log.info("No matches for urn {}", urn);
       return;
     }
-    entityObject.get().fieldNames()
+    entityObject
+        .get()
+        .fieldNames()
         .forEachRemaining(
-            key -> searchObject.put(entityType.name().toLowerCase() + "_" + key, entityObject.get().get(key).asText()));
+            key ->
+                searchObject.put(
+                    entityType.name().toLowerCase() + "_" + key,
+                    entityObject.get().get(key).asText()));
   }
 
   private String getId(final ObjectNode eventDocument) {
-    return eventDocument.get(TYPE).asText() + "_" + eventDocument.get(ACTOR_URN).asText() + "_" + eventDocument.get(
-        TIMESTAMP).asText();
+    return eventDocument.get(TYPE).asText()
+        + "_"
+        + eventDocument.get(ACTOR_URN).asText()
+        + "_"
+        + eventDocument.get(TIMESTAMP).asText();
   }
 }

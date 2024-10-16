@@ -13,7 +13,25 @@ source:
       profile_table_row_count_estimate_only: true
       turn_off_expensive_profiling_metrics: true
       catch_exceptions: true
-    include_views: false
+    include_views: true
+    classification:
+      enabled: True
+      classifiers:
+        - type: datahub          
+          config:
+            minimum_values_threshold: 1
+            info_types_config:
+              URN:
+                prediction_factors_and_weights:
+                  name: 0
+                  description: 0
+                  datatype: 0
+                  values: 1
+                values:
+                  prediction_type: regex
+                  regex:
+                    - "^urn:li:.*:.*"
+                  library: []
 sink:
   type: file
   config:

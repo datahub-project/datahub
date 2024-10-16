@@ -1,5 +1,7 @@
-apply plugin: 'java'
-apply plugin: 'pegasus'
+plugins {
+  id 'java-library'
+  id 'pegasus'
+}
 
 sourceSets {
   integTest {
@@ -48,7 +50,7 @@ dependencies {
   implementation externalDependency.dropwizardMetricsCore
   implementation externalDependency.dropwizardMetricsJmx
 
-  compileOnly externalDependency.lombok
+  implementation externalDependency.lombok
   implementation externalDependency.neo4jJavaDriver
   implementation externalDependency.opentelemetryAnnotations
 
@@ -60,6 +62,7 @@ dependencies {
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
   testImplementation project(':mock-entity-registry')
   testImplementation externalDependency.mockito
+  testImplementation externalDependency.mockitoInline
   testImplementation externalDependency.testng
 
   integTestImplementation externalDependency.junitJupiterApi
@@ -103,3 +106,6 @@ pegasus.main.idlOptions.addIdlItem([
 ])
 
 ext.apiProject = project(':metadata-service:restli-api')
+
+spotlessJava.dependsOn generateTestDataTemplate
+spotlessJava.dependsOn generateIntegTestDataTemplate

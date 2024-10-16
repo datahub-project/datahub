@@ -98,15 +98,13 @@ class ViewLineageEntry(BaseModel):
 
 
 class BasePostgresConfig(BasicSQLAlchemyConfig):
-    scheme = Field(default="postgresql+psycopg2", description="database scheme")
-    schema_pattern = Field(default=AllowDenyPattern(deny=["information_schema"]))
+    scheme: str = Field(default="postgresql+psycopg2", description="database scheme")
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern(deny=["information_schema"])
+    )
 
 
 class PostgresConfig(BasePostgresConfig):
-    include_view_lineage = Field(
-        default=False, description="Include table lineage for views"
-    )
-
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
@@ -141,14 +139,16 @@ class PostgresSource(SQLAlchemySource):
     - Metadata for databases, schemas, views, and tables
     - Column types associated with each table
     - Also supports PostGIS extensions
-    - database_alias (optional) can be used to change the name of database to be ingested
     - Table, row, and column statistics via optional SQL profiling
     """
 
     config: PostgresConfig
 
     def __init__(self, config: PostgresConfig, ctx: PipelineContext):
-        super().__init__(config, ctx, "postgres")
+        super().__init__(config, ctx, self.get_platform())
+
+    def get_platform(self):
+        return "postgres"
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -183,9 +183,10 @@ class PostgresSource(SQLAlchemySource):
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_workunits_internal()
 
-        for inspector in self.get_inspectors():
-            if self.config.include_view_lineage:
-                yield from self._get_view_lineage_workunits(inspector)
+        if self.views_failed_parsing:
+            for inspector in self.get_inspectors():
+                if self.config.include_view_lineage:
+                    yield from self._get_view_lineage_workunits(inspector)
 
     def _get_view_lineage_elements(
         self, inspector: Inspector
@@ -217,14 +218,15 @@ class PostgresSource(SQLAlchemySource):
             key = (lineage.dependent_view, lineage.dependent_schema)
             # Append the source table to the list.
             lineage_elements[key].append(
-                mce_builder.make_dataset_urn(
-                    self.platform,
-                    self.get_identifier(
+                mce_builder.make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=self.get_identifier(
                         schema=lineage.source_schema,
                         entity=lineage.source_table,
                         inspector=inspector,
                     ),
-                    self.config.env,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
                 )
             )
 
@@ -244,12 +246,16 @@ class PostgresSource(SQLAlchemySource):
             dependent_view, dependent_schema = key
 
             # Construct a lineage object.
-            urn = mce_builder.make_dataset_urn(
-                self.platform,
-                self.get_identifier(
-                    schema=dependent_schema, entity=dependent_view, inspector=inspector
-                ),
-                self.config.env,
+            view_identifier = self.get_identifier(
+                schema=dependent_schema, entity=dependent_view, inspector=inspector
+            )
+            if view_identifier not in self.views_failed_parsing:
+                return
+            urn = mce_builder.make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=view_identifier,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
             )
 
             # use the mce_builder to ensure that the change proposal inherits
@@ -267,8 +273,22 @@ class PostgresSource(SQLAlchemySource):
     ) -> str:
         regular = f"{schema}.{entity}"
         if self.config.database:
-            if self.config.database_alias:
-                return f"{self.config.database_alias}.{regular}"
             return f"{self.config.database}.{regular}"
         current_database = self.get_db_name(inspector)
         return f"{current_database}.{regular}"
+
+    def add_profile_metadata(self, inspector: Inspector) -> None:
+        try:
+            with inspector.engine.connect() as conn:
+                for row in conn.execute(
+                    """SELECT table_catalog, table_schema, table_name, pg_table_size('"' || table_catalog || '"."' || table_schema || '"."' || table_name || '"') AS table_size FROM information_schema.TABLES"""
+                ):
+                    self.profile_metadata_info.dataset_name_to_storage_bytes[
+                        self.get_identifier(
+                            schema=row.table_schema,
+                            entity=row.table_name,
+                            inspector=inspector,
+                        )
+                    ] = row.table_size
+        except Exception as e:
+            logger.error(f"failed to fetch profile metadata: {e}")

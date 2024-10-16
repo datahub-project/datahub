@@ -11,12 +11,14 @@
                 "env": "PROD",
                 "database": "northwind"
             },
-            "name": "northwind"
+            "name": "northwind",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -31,7 +33,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -46,7 +49,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -63,7 +67,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -80,7 +85,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -95,7 +101,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -110,7 +117,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -158,7 +166,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -170,7 +178,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -182,7 +190,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -194,7 +202,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -206,7 +214,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -218,7 +226,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "FLOAT()",
+                                "nativeDataType": "FLOAT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -230,7 +238,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -247,7 +256,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -264,7 +274,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -284,7 +295,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -299,7 +311,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -347,7 +360,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -359,7 +372,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -371,7 +384,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -395,7 +408,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -412,7 +426,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -429,7 +444,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -449,7 +465,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -461,8 +478,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 5,
             "columnCount": 6,
@@ -530,10 +547,17 @@
                 },
                 {
                     "fieldPath": "email_address",
-                    "uniqueCount": 0,
-                    "nullCount": 5,
-                    "nullProportion": 1,
-                    "sampleValues": []
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Bedecs@xyz.com",
+                        "Gratacos@xyz.com",
+                        "Axen@xyz.com",
+                        "Lee@xyz.com",
+                        "Donnell@xyz.com"
+                    ]
                 },
                 {
                     "fieldPath": "priority",
@@ -567,12 +591,14 @@
                         "3.8"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -584,8 +610,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 0,
             "columnCount": 3,
@@ -593,37 +619,26 @@
                 {
                     "fieldPath": "id",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "min": "None",
-                    "max": "None",
-                    "mean": "None",
-                    "median": "None",
-                    "stdev": "0.0",
-                    "sampleValues": []
+                    "nullCount": 0
                 },
                 {
                     "fieldPath": "description",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "sampleValues": []
+                    "nullCount": 0
                 },
                 {
                     "fieldPath": "customer_id",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "min": "None",
-                    "max": "None",
-                    "mean": "None",
-                    "median": "None",
-                    "stdev": "0.0",
-                    "sampleValues": []
+                    "nullCount": 0
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

@@ -1,10 +1,24 @@
 package com.linkedin.metadata.search.indexbuilder;
 
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
+import static org.testng.Assert.*;
+
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataMappingsBuilder;
 import com.linkedin.metadata.version.GitVersion;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
@@ -14,204 +28,398 @@ import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetIndexResponse;
 import org.opensearch.cluster.metadata.AliasMetadata;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import javax.annotation.Nonnull;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
+public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTests {
 
-import static org.testng.Assert.*;
+  @Nonnull
+  protected abstract RestHighLevelClient getSearchClient();
 
-abstract public class IndexBuilderTestBase extends AbstractTestNGSpringContextTests {
+  private IndicesClient _indexClient;
+  private static final String TEST_INDEX_NAME = "esindex_builder_test";
+  private ESIndexBuilder testDefaultBuilder;
 
-    @Nonnull
-    abstract protected RestHighLevelClient getSearchClient();
+  @BeforeClass
+  public void setup() {
+    _indexClient = getSearchClient().indices();
+    GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+    testDefaultBuilder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            1,
+            0,
+            0,
+            0,
+            Map.of(),
+            false,
+            false,
+            false,
+            new ElasticSearchConfiguration(),
+            gitVersion);
+  }
 
-    private static IndicesClient _indexClient;
-    private static final String TEST_INDEX_NAME = "esindex_builder_test";
-    private static ESIndexBuilder testDefaultBuilder;
+  @BeforeMethod
+  public void wipe() throws Exception {
+    try {
+      _indexClient
+          .getAlias(new GetAliasesRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT)
+          .getAliases()
+          .keySet()
+          .forEach(
+              index -> {
+                try {
+                  _indexClient.delete(new DeleteIndexRequest(index), RequestOptions.DEFAULT);
+                } catch (IOException e) {
+                  throw new RuntimeException(e);
+                }
+              });
 
-
-    @BeforeClass
-    public void setup() {
-        _indexClient = getSearchClient().indices();
-        GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
-        testDefaultBuilder = new ESIndexBuilder(getSearchClient(), 1, 0, 0,
-                0, Map.of(), false, false,
-                new ElasticSearchConfiguration(), gitVersion);
+      _indexClient.delete(new DeleteIndexRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT);
+    } catch (OpenSearchException exception) {
+      if (exception.status() != RestStatus.NOT_FOUND) {
+        throw exception;
+      }
     }
+  }
 
-    @BeforeMethod
-    public static void wipe() throws Exception {
-        try {
-            _indexClient.getAlias(new GetAliasesRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT)
-                    .getAliases().keySet().forEach(index -> {
-                        try {
-                            _indexClient.delete(new DeleteIndexRequest(index), RequestOptions.DEFAULT);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
+  public GetIndexResponse getTestIndex() throws IOException {
+    return _indexClient.get(
+        new GetIndexRequest(TEST_INDEX_NAME).includeDefaults(true), RequestOptions.DEFAULT);
+  }
 
-            _indexClient.delete(new DeleteIndexRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT);
-        } catch (OpenSearchException exception) {
-            if (exception.status() != RestStatus.NOT_FOUND) {
-                throw exception;
-            }
-        }
-    }
+  @Test
+  public void testESIndexBuilderCreation() throws Exception {
+    GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+    ESIndexBuilder customIndexBuilder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            2,
+            0,
+            1,
+            0,
+            Map.of(),
+            false,
+            false,
+            false,
+            new ElasticSearchConfiguration(),
+            gitVersion);
+    customIndexBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    GetIndexResponse resp = getTestIndex();
 
-    public static GetIndexResponse getTestIndex() throws IOException {
-        return _indexClient.get(new GetIndexRequest(TEST_INDEX_NAME).includeDefaults(true), RequestOptions.DEFAULT);
-    }
+    assertEquals("2", resp.getSetting(TEST_INDEX_NAME, "index.number_of_shards"));
+    assertEquals("0", resp.getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
+    assertEquals("0s", resp.getSetting(TEST_INDEX_NAME, "index.refresh_interval"));
+  }
 
-    @Test
-    public void testESIndexBuilderCreation() throws Exception {
-        GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
-        ESIndexBuilder customIndexBuilder = new ESIndexBuilder(getSearchClient(), 2, 0, 1,
-                0, Map.of(), false, false,
-                new ElasticSearchConfiguration(), gitVersion);
-        customIndexBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
-        GetIndexResponse resp = getTestIndex();
+  @Test
+  public void testMappingReindex() throws Exception {
+    GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+    ESIndexBuilder enabledMappingReindex =
+        new ESIndexBuilder(
+            getSearchClient(),
+            1,
+            0,
+            0,
+            0,
+            Map.of(),
+            false,
+            true,
+            false,
+            new ElasticSearchConfiguration(),
+            gitVersion);
 
-        assertEquals("2", resp.getSetting(TEST_INDEX_NAME, "index.number_of_shards"));
-        assertEquals("0", resp.getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
-        assertEquals("0s", resp.getSetting(TEST_INDEX_NAME, "index.refresh_interval"));
-    }
+    // No mappings
+    enabledMappingReindex.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
 
-    @Test
-    public void testMappingReindex() throws Exception {
-        GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
-        ESIndexBuilder enabledMappingReindex = new ESIndexBuilder(getSearchClient(), 1, 0, 0,
-                0, Map.of(), false, true,
-                new ElasticSearchConfiguration(), gitVersion);
+    // add new mappings
+    enabledMappingReindex.buildIndex(
+        TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
 
-        // No mappings
-        enabledMappingReindex.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
-        String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
+    String afterAddedMappingCreationDate =
+        getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
+    assertEquals(
+        beforeCreationDate,
+        afterAddedMappingCreationDate,
+        "Expected no reindex on *adding* mappings");
 
-        // add new mappings
-        enabledMappingReindex.buildIndex(TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
-
-        String afterAddedMappingCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
-        assertEquals(beforeCreationDate, afterAddedMappingCreationDate, "Expected no reindex on *adding* mappings");
-
-        // change mappings
-        Map<String, Object> newProps = ((Map<String, Object>) SystemMetadataMappingsBuilder.getMappings().get("properties"))
-                .entrySet().stream()
-                .map(m -> !m.getKey().equals("urn") ? m
-                        : Map.entry("urn", ImmutableMap.<String, Object>builder().put("type", "text").build()))
+    // change mappings
+    Map<String, Object> newProps =
+        ((Map<String, Object>) SystemMetadataMappingsBuilder.getMappings().get("properties"))
+            .entrySet().stream()
+                .map(
+                    m ->
+                        !m.getKey().equals("urn")
+                            ? m
+                            : Map.entry(
+                                "urn",
+                                ImmutableMap.<String, Object>builder().put("type", "text").build()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        enabledMappingReindex.buildIndex(TEST_INDEX_NAME, Map.of("properties", newProps), Map.of());
+    enabledMappingReindex.buildIndex(TEST_INDEX_NAME, Map.of("properties", newProps), Map.of());
 
-        assertTrue(Arrays.stream(getTestIndex().getIndices()).noneMatch(name -> name.equals(TEST_INDEX_NAME)),
-                "Expected original index to be replaced with alias");
+    assertTrue(
+        Arrays.stream(getTestIndex().getIndices()).noneMatch(name -> name.equals(TEST_INDEX_NAME)),
+        "Expected original index to be replaced with alias");
 
-        Map.Entry<String, List<AliasMetadata>> newIndex = getTestIndex().getAliases().entrySet().stream()
-                .filter(e -> e.getValue().stream().anyMatch(aliasMeta -> aliasMeta.alias().equals(TEST_INDEX_NAME)))
-                .findFirst().get();
-        String afterChangedMappingCreationDate = getTestIndex().getSetting(newIndex.getKey(), "index.creation_date");
-        assertNotEquals(beforeCreationDate, afterChangedMappingCreationDate, "Expected reindex on *changing* mappings");
-    }
+    Map.Entry<String, List<AliasMetadata>> newIndex =
+        getTestIndex().getAliases().entrySet().stream()
+            .filter(
+                e ->
+                    e.getValue().stream()
+                        .anyMatch(aliasMeta -> aliasMeta.alias().equals(TEST_INDEX_NAME)))
+            .findFirst()
+            .get();
+    String afterChangedMappingCreationDate =
+        getTestIndex().getSetting(newIndex.getKey(), "index.creation_date");
+    assertNotEquals(
+        beforeCreationDate,
+        afterChangedMappingCreationDate,
+        "Expected reindex on *changing* mappings");
+  }
 
-    @Test
-    public void testSettingsNumberOfShardsReindex() throws Exception {
-        // Set test defaults
-        testDefaultBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
-        assertEquals("1", getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_shards"));
-        String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
+  @Test
+  public void testSettingsNumberOfShardsReindex() throws Exception {
+    // Set test defaults
+    testDefaultBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    assertEquals("1", getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_shards"));
+    String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
 
-        String expectedShards = "5";
-        GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
-        ESIndexBuilder changedShardBuilder = new ESIndexBuilder(getSearchClient(),
-                Integer.parseInt(expectedShards),
+    String expectedShards = "5";
+    GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+    ESIndexBuilder changedShardBuilder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            Integer.parseInt(expectedShards),
+            testDefaultBuilder.getNumReplicas(),
+            testDefaultBuilder.getNumRetries(),
+            testDefaultBuilder.getRefreshIntervalSeconds(),
+            Map.of(),
+            true,
+            false,
+            false,
+            new ElasticSearchConfiguration(),
+            gitVersion);
+
+    // add new shard setting
+    changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    assertTrue(
+        Arrays.stream(getTestIndex().getIndices()).noneMatch(name -> name.equals(TEST_INDEX_NAME)),
+        "Expected original index to be replaced with alias");
+
+    Map.Entry<String, List<AliasMetadata>> newIndex =
+        getTestIndex().getAliases().entrySet().stream()
+            .filter(
+                e ->
+                    e.getValue().stream()
+                        .anyMatch(aliasMeta -> aliasMeta.alias().equals(TEST_INDEX_NAME)))
+            .findFirst()
+            .get();
+
+    String afterCreationDate = getTestIndex().getSetting(newIndex.getKey(), "index.creation_date");
+    assertNotEquals(
+        beforeCreationDate, afterCreationDate, "Expected reindex to result in different timestamp");
+    assertEquals(
+        expectedShards,
+        getTestIndex().getSetting(newIndex.getKey(), "index.number_of_shards"),
+        "Expected number of shards: " + expectedShards);
+  }
+
+  @Test
+  public void testSettingsNoReindex() throws Exception {
+    GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+    List<ESIndexBuilder> noReindexBuilders =
+        List.of(
+            new ESIndexBuilder(
+                getSearchClient(),
+                testDefaultBuilder.getNumShards(),
+                testDefaultBuilder.getNumReplicas() + 1,
+                testDefaultBuilder.getNumRetries(),
+                testDefaultBuilder.getRefreshIntervalSeconds(),
+                Map.of(),
+                true,
+                false,
+                false,
+                new ElasticSearchConfiguration(),
+                gitVersion),
+            new ESIndexBuilder(
+                getSearchClient(),
+                testDefaultBuilder.getNumShards(),
+                testDefaultBuilder.getNumReplicas(),
+                testDefaultBuilder.getNumRetries(),
+                testDefaultBuilder.getRefreshIntervalSeconds() + 10,
+                Map.of(),
+                true,
+                false,
+                false,
+                new ElasticSearchConfiguration(),
+                gitVersion),
+            new ESIndexBuilder(
+                getSearchClient(),
+                testDefaultBuilder.getNumShards() + 1,
                 testDefaultBuilder.getNumReplicas(),
                 testDefaultBuilder.getNumRetries(),
                 testDefaultBuilder.getRefreshIntervalSeconds(),
                 Map.of(),
-                true, false,
-                new ElasticSearchConfiguration(), gitVersion);
+                false,
+                false,
+                false,
+                new ElasticSearchConfiguration(),
+                gitVersion),
+            new ESIndexBuilder(
+                getSearchClient(),
+                testDefaultBuilder.getNumShards(),
+                testDefaultBuilder.getNumReplicas() + 1,
+                testDefaultBuilder.getNumRetries(),
+                testDefaultBuilder.getRefreshIntervalSeconds(),
+                Map.of(),
+                false,
+                false,
+                false,
+                new ElasticSearchConfiguration(),
+                gitVersion));
 
-        // add new shard setting
-        changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
-        assertTrue(Arrays.stream(getTestIndex().getIndices()).noneMatch(name -> name.equals(TEST_INDEX_NAME)),
-                    "Expected original index to be replaced with alias");
+    for (ESIndexBuilder builder : noReindexBuilders) {
+      // Set test defaults
+      testDefaultBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+      assertEquals("0", getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
+      assertEquals("0s", getTestIndex().getSetting(TEST_INDEX_NAME, "index.refresh_interval"));
+      String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
 
-        Map.Entry<String, List<AliasMetadata>> newIndex = getTestIndex().getAliases().entrySet().stream()
-                .filter(e -> e.getValue().stream().anyMatch(aliasMeta -> aliasMeta.alias().equals(TEST_INDEX_NAME)))
-                .findFirst().get();
+      // build index with builder
+      builder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+      assertTrue(
+          Arrays.asList(getTestIndex().getIndices()).contains(TEST_INDEX_NAME),
+          "Expected original index to remain");
+      String afterCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
 
-        String afterCreationDate = getTestIndex().getSetting(newIndex.getKey(), "index.creation_date");
-        assertNotEquals(beforeCreationDate, afterCreationDate, "Expected reindex to result in different timestamp");
-        assertEquals(expectedShards, getTestIndex().getSetting(newIndex.getKey(), "index.number_of_shards"),
-                "Expected number of shards: " + expectedShards);
+      assertEquals(
+          beforeCreationDate, afterCreationDate, "Expected no difference in index timestamp");
+      assertEquals(
+          String.valueOf(builder.getNumReplicas()),
+          getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
+      assertEquals(
+          builder.getRefreshIntervalSeconds() + "s",
+          getTestIndex().getSetting(TEST_INDEX_NAME, "index.refresh_interval"));
+
+      wipe();
     }
+  }
 
-    @Test
-    public void testSettingsNoReindex() throws Exception {
-        GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
-        List<ESIndexBuilder> noReindexBuilders = List.of(
-                new ESIndexBuilder(getSearchClient(),
-                        testDefaultBuilder.getNumShards(),
-                        testDefaultBuilder.getNumReplicas() + 1,
-                        testDefaultBuilder.getNumRetries(),
-                        testDefaultBuilder.getRefreshIntervalSeconds(),
-                        Map.of(),
-                        true, false,
-                        new ElasticSearchConfiguration(), gitVersion),
-                new ESIndexBuilder(getSearchClient(),
-                        testDefaultBuilder.getNumShards(),
-                        testDefaultBuilder.getNumReplicas(),
-                        testDefaultBuilder.getNumRetries(),
-                        testDefaultBuilder.getRefreshIntervalSeconds() + 10,
-                        Map.of(),
-                        true, false,
-                        new ElasticSearchConfiguration(), gitVersion),
-               new ESIndexBuilder(getSearchClient(),
-                                testDefaultBuilder.getNumShards() + 1,
-                                testDefaultBuilder.getNumReplicas(),
-                                testDefaultBuilder.getNumRetries(),
-                                testDefaultBuilder.getRefreshIntervalSeconds(),
-                                Map.of(),
-                                false, false,
-                       new ElasticSearchConfiguration(), gitVersion),
-                new ESIndexBuilder(getSearchClient(),
-                        testDefaultBuilder.getNumShards(),
-                        testDefaultBuilder.getNumReplicas() + 1,
-                        testDefaultBuilder.getNumRetries(),
-                        testDefaultBuilder.getRefreshIntervalSeconds(),
-                        Map.of(),
-                        false, false,
-                        new ElasticSearchConfiguration(), gitVersion)
-        );
+  @Test
+  public void testCopyStructuredPropertyMappings() throws Exception {
+    GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+    ESIndexBuilder enabledMappingReindex =
+        new ESIndexBuilder(
+            getSearchClient(),
+            1,
+            0,
+            0,
+            0,
+            Map.of(),
+            false,
+            true,
+            false,
+            new ElasticSearchConfiguration(),
+            gitVersion);
 
-        for (ESIndexBuilder builder : noReindexBuilders) {
-            // Set test defaults
-            testDefaultBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
-            assertEquals("0", getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
-            assertEquals("0s", getTestIndex().getSetting(TEST_INDEX_NAME, "index.refresh_interval"));
-            String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
+    ReindexConfig reindexConfigNoIndexBefore =
+        enabledMappingReindex.buildReindexState(
+            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
+    assertNull(reindexConfigNoIndexBefore.currentMappings());
+    assertEquals(
+        reindexConfigNoIndexBefore.targetMappings(), SystemMetadataMappingsBuilder.getMappings());
+    assertFalse(reindexConfigNoIndexBefore.requiresApplyMappings());
+    assertFalse(reindexConfigNoIndexBefore.isPureMappingsAddition());
 
-            // build index with builder
-            builder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
-            assertTrue(Arrays.asList(getTestIndex().getIndices()).contains(TEST_INDEX_NAME),
-                    "Expected original index to remain");
-            String afterCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
+    // Create index
+    enabledMappingReindex.buildIndex(
+        TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
 
-            assertEquals(beforeCreationDate, afterCreationDate, "Expected no difference in index timestamp");
-            assertEquals(String.valueOf(builder.getNumReplicas()), getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
-            assertEquals(builder.getRefreshIntervalSeconds() + "s", getTestIndex().getSetting(TEST_INDEX_NAME, "index.refresh_interval"));
+    // Test build reindex config with no structured properties added
+    ReindexConfig reindexConfigNoChange =
+        enabledMappingReindex.buildReindexState(
+            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
+    assertEquals(
+        reindexConfigNoChange.currentMappings(), SystemMetadataMappingsBuilder.getMappings());
+    assertEquals(
+        reindexConfigNoChange.targetMappings(), SystemMetadataMappingsBuilder.getMappings());
+    assertFalse(reindexConfigNoIndexBefore.requiresApplyMappings());
+    assertFalse(reindexConfigNoIndexBefore.isPureMappingsAddition());
 
-            wipe();
-        }
-    }
+    // Test add new field to the mappings
+    Map<String, Object> targetMappingsNewField =
+        new HashMap<>(SystemMetadataMappingsBuilder.getMappings());
+    ((Map<String, Object>) targetMappingsNewField.get("properties"))
+        .put("myNewField", Map.of(SettingsBuilder.TYPE, SettingsBuilder.KEYWORD));
 
+    // Test build reindex config for new fields with no structured properties added
+    ReindexConfig reindexConfigNewField =
+        enabledMappingReindex.buildReindexState(TEST_INDEX_NAME, targetMappingsNewField, Map.of());
+    assertEquals(
+        reindexConfigNewField.currentMappings(), SystemMetadataMappingsBuilder.getMappings());
+    assertEquals(reindexConfigNewField.targetMappings(), targetMappingsNewField);
+    assertTrue(reindexConfigNewField.requiresApplyMappings());
+    assertTrue(reindexConfigNewField.isPureMappingsAddition());
+
+    // Add structured properties to index
+    Map<String, Object> mappingsWithStructuredProperties =
+        new HashMap<>(SystemMetadataMappingsBuilder.getMappings());
+    ((Map<String, Object>) mappingsWithStructuredProperties.get("properties"))
+        .put(
+            STRUCTURED_PROPERTY_MAPPING_FIELD + ".myStringProp",
+            Map.of(SettingsBuilder.TYPE, SettingsBuilder.KEYWORD));
+    ((Map<String, Object>) mappingsWithStructuredProperties.get("properties"))
+        .put(
+            STRUCTURED_PROPERTY_MAPPING_FIELD + ".myNumberProp",
+            Map.of(SettingsBuilder.TYPE, ESUtils.DOUBLE_FIELD_TYPE));
+
+    enabledMappingReindex.buildIndex(TEST_INDEX_NAME, mappingsWithStructuredProperties, Map.of());
+
+    // Test build reindex config with structured properties not copied
+    ReindexConfig reindexConfigNoCopy =
+        enabledMappingReindex.buildReindexState(
+            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
+    Map<String, Object> expectedMappingsStructPropsNested =
+        new HashMap<>(SystemMetadataMappingsBuilder.getMappings());
+    ((Map<String, Object>) expectedMappingsStructPropsNested.get("properties"))
+        .put(
+            "structuredProperties",
+            Map.of(
+                "properties",
+                Map.of(
+                    "myNumberProp",
+                    Map.of(SettingsBuilder.TYPE, ESUtils.DOUBLE_FIELD_TYPE),
+                    "myStringProp",
+                    Map.of(SettingsBuilder.TYPE, SettingsBuilder.KEYWORD))));
+    assertEquals(reindexConfigNoCopy.currentMappings(), expectedMappingsStructPropsNested);
+    assertEquals(reindexConfigNoCopy.targetMappings(), SystemMetadataMappingsBuilder.getMappings());
+    assertFalse(reindexConfigNoCopy.isPureMappingsAddition());
+
+    // Test build reindex config with structured properties copied
+    ReindexConfig reindexConfigCopy =
+        enabledMappingReindex.buildReindexState(
+            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of(), true);
+    assertEquals(reindexConfigCopy.currentMappings(), expectedMappingsStructPropsNested);
+    assertEquals(reindexConfigCopy.targetMappings(), expectedMappingsStructPropsNested);
+    assertFalse(reindexConfigCopy.requiresApplyMappings());
+    assertFalse(reindexConfigCopy.isPureMappingsAddition());
+
+    // Test build reindex config with new field added and structured properties copied
+    ReindexConfig reindexConfigCopyAndNewField =
+        enabledMappingReindex.buildReindexState(
+            TEST_INDEX_NAME, targetMappingsNewField, Map.of(), true);
+    assertEquals(reindexConfigCopyAndNewField.currentMappings(), expectedMappingsStructPropsNested);
+    Map<String, Object> targetMappingsNewFieldAndStructProps =
+        new HashMap<>(expectedMappingsStructPropsNested);
+    ((Map<String, Object>) targetMappingsNewFieldAndStructProps.get("properties"))
+        .put("myNewField", Map.of(SettingsBuilder.TYPE, SettingsBuilder.KEYWORD));
+    assertEquals(
+        reindexConfigCopyAndNewField.targetMappings(), targetMappingsNewFieldAndStructProps);
+    assertTrue(reindexConfigCopyAndNewField.requiresApplyMappings());
+    assertTrue(reindexConfigCopyAndNewField.isPureMappingsAddition());
+  }
 }

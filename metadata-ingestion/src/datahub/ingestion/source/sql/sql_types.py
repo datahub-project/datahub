@@ -79,6 +79,7 @@ POSTGRES_TYPES_MAP: Dict[str, Any] = {
     "regtype": None,
     "regrole": None,
     "regnamespace": None,
+    "super": None,
     "uuid": StringType,
     "pg_lsn": None,
     "tsvector": None,  # text search vector
@@ -387,6 +388,7 @@ ATHENA_SQL_TYPES_MAP: Dict[str, Any] = {
     "struct": RecordType,
     "map": MapType,
     "array": ArrayType,
+    "row": RecordType,
 }
 
 # https://www.vertica.com/docs/11.1.x/HTML/Content/Authoring/SQLReferenceManual/DataTypes/SQLDataTypes.htm

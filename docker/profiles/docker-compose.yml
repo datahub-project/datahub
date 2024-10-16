@@ -1,0 +1,12 @@
+---
+name: datahub
+
+include:
+  # Contains storage layers: i.e. mysql, kafka, elasticsearch
+  - docker-compose.prerequisites.yml
+  # Actions pod
+  - docker-compose.actions.yml
+  # Frontend
+  - docker-compose.frontend.yml
+  # Remaining components: i.e. gms, system-update, consumers
+  - docker-compose.gms.yml

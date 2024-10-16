@@ -1,7 +1,6 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
 import styled from 'styled-components/macro';
-import { Message } from '../shared/Message';
 import { Entity, FacetFilterInput, FacetMetadata, MatchedField, SearchSuggestion } from '../../types.generated';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
@@ -28,6 +27,9 @@ import SearchSortSelect from './sorting/SearchSortSelect';
 import { combineSiblingsInSearchResults } from './utils/combineSiblingsInSearchResults';
 import SearchQuerySuggester from './suggestions/SearchQuerySugggester';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
+import { formatNumberWithoutAbbreviation } from '../shared/formatNumber';
+import SearchResultsLoadingSection from './SearchResultsLoadingSection';
+import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -108,6 +110,7 @@ const SearchResultListContainer = styled.div<{ v2Styles: boolean }>`
 `;
 
 interface Props {
+    loading: boolean;
     unionType?: UnionType;
     query: string;
     viewUrn?: string;
@@ -123,7 +126,6 @@ interface Props {
     } | null;
     facets?: Array<FacetMetadata> | null;
     selectedFilters: Array<FacetFilterInput>;
-    loading: boolean;
     error: any;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangeUnionType: (unionType: UnionType) => void;
@@ -141,6 +143,7 @@ interface Props {
 }
 
 export const SearchResults = ({
+    loading,
     unionType = UnionType.AND,
     query,
     viewUrn,
@@ -148,7 +151,6 @@ export const SearchResults = ({
     searchResponse,
     facets,
     selectedFilters,
-    loading,
     error,
     onChangeUnionType,
     onChangeFilters,
@@ -172,14 +174,17 @@ export const SearchResults = ({
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
     const authenticatedUserUrn = useUserContext().user?.urn;
-    const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
+    const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const combinedSiblingSearchResults = combineSiblingsInSearchResults(
+        showSeparateSiblings,
+        searchResponse?.searchResults,
+    );
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
 
     return (
         <>
-            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             <SearchResultsWrapper v2Styles={showSearchFiltersV2}>
                 <SearchBody>
                     {!showSearchFiltersV2 && (
@@ -197,7 +202,7 @@ export const SearchResults = ({
                     {showBrowseV2 && (
                         <SidebarProvider selectedFilters={selectedFilters} onChangeFilters={onChangeFilters}>
                             <BrowseProvider>
-                                <BrowseSidebar visible={isSidebarOpen} width={360} />
+                                <BrowseSidebar visible={isSidebarOpen} />
                             </BrowseProvider>
                         </SidebarProvider>
                     )}
@@ -210,7 +215,13 @@ export const SearchResults = ({
                                     <b>
                                         {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
                                     </b>{' '}
-                                    of <b>{totalResults}</b> results
+                                    of{' '}
+                                    <b>
+                                        {totalResults >= 10000
+                                            ? `${formatNumberWithoutAbbreviation(10000)}+`
+                                            : formatNumberWithoutAbbreviation(totalResults)}
+                                    </b>{' '}
+                                    results
                                 </Typography.Text>
                             </LeftControlsContainer>
                             <SearchMenuContainer>
@@ -240,10 +251,12 @@ export const SearchResults = ({
                             </StyledTabToolbar>
                         )}
                         {(error && <ErrorSection />) ||
-                            (!loading && (
+                            (loading && !combinedSiblingSearchResults.length && <SearchResultsLoadingSection />) ||
+                            (combinedSiblingSearchResults && (
                                 <SearchResultListContainer v2Styles={showSearchFiltersV2}>
                                     {totalResults > 0 && <SearchQuerySuggester suggestions={suggestions} />}
                                     <SearchResultList
+                                        loading={loading}
                                         query={query}
                                         searchResults={combinedSiblingSearchResults}
                                         totalResultCount={totalResults}
@@ -251,6 +264,7 @@ export const SearchResults = ({
                                         selectedEntities={selectedEntities}
                                         setSelectedEntities={setSelectedEntities}
                                         suggestions={suggestions}
+                                        pageNumber={page}
                                     />
                                     {totalResults > 0 && (
                                         <PaginationControlContainer id="search-pagination">

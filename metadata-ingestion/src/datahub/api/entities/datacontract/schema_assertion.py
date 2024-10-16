@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 from typing import List, Union
 
-import pydantic
 from typing_extensions import Literal
 
-from datahub.configuration.common import ConfigModel
+from datahub.api.entities.datacontract.assertion import BaseAssertion
+from datahub.configuration.pydantic_migration_helpers import v1_ConfigModel, v1_Field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.extractor.json_schema_util import get_schema_metadata
 from datahub.metadata.schema_classes import (
@@ -19,10 +19,10 @@ from datahub.metadata.schema_classes import (
 )
 
 
-class JsonSchemaContract(ConfigModel):
+class JsonSchemaContract(BaseAssertion):
     type: Literal["json-schema"]
 
-    json_schema: dict = pydantic.Field(alias="json-schema")
+    json_schema: dict = v1_Field(alias="json-schema")
 
     _schema_metadata: SchemaMetadataClass
 
@@ -36,7 +36,10 @@ class JsonSchemaContract(ConfigModel):
         )
 
 
-class FieldListSchemaContract(ConfigModel, arbitrary_types_allowed=True):
+class FieldListSchemaContract(BaseAssertion):
+    class Config:
+        arbitrary_types_allowed = True
+
     type: Literal["field-list"]
 
     fields: List[SchemaFieldClass]
@@ -55,8 +58,8 @@ class FieldListSchemaContract(ConfigModel, arbitrary_types_allowed=True):
         )
 
 
-class SchemaAssertion(ConfigModel):
-    __root__: Union[JsonSchemaContract, FieldListSchemaContract] = pydantic.Field(
+class SchemaAssertion(v1_ConfigModel):
+    __root__: Union[JsonSchemaContract, FieldListSchemaContract] = v1_Field(
         discriminator="type"
     )
 
@@ -67,15 +70,13 @@ class SchemaAssertion(ConfigModel):
     def generate_mcp(
         self, assertion_urn: str, entity_urn: str
     ) -> List[MetadataChangeProposalWrapper]:
-        schema_metadata = self.__root__._schema_metadata
-
-        assertionInfo = AssertionInfoClass(
+        aspect = AssertionInfoClass(
             type=AssertionTypeClass.DATA_SCHEMA,
             schemaAssertion=SchemaAssertionInfoClass(
-                entity=entity_urn, schema=schema_metadata
+                entity=entity_urn,
+                schema=self.__root__._schema_metadata,
             ),
+            description=self.__root__.description,
         )
 
-        return [
-            MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=assertionInfo)
-        ]
+        return [MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=aspect)]

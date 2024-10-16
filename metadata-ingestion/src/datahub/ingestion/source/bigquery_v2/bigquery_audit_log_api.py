@@ -4,7 +4,6 @@ from typing import Callable, Iterable, List, Optional
 
 from google.cloud import bigquery
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
-from ratelimiter import RateLimiter
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     AuditLogEntry,
@@ -17,6 +16,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
 )
+from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -66,6 +66,7 @@ class BigQueryAuditLogApi:
             rate_limiter = RateLimiter(max_calls=self.requests_per_min, period=60)
 
         with self.report.get_exported_log_entries as current_timer:
+            self.report.num_get_exported_log_entries_api_requests += 1
             for dataset in bigquery_audit_metadata_datasets:
                 logger.info(
                     f"Start loading log entries from BigQueryAuditMetadata in {dataset}"
@@ -115,6 +116,7 @@ class BigQueryAuditLogApi:
             )
 
         with self.report.list_log_entries as current_timer:
+            self.report.num_list_log_entries_api_requests += 1
             list_entries = client.list_entries(
                 filter_=filter,
                 page_size=log_page_size,
@@ -122,7 +124,7 @@ class BigQueryAuditLogApi:
             )
 
             for i, entry in enumerate(list_entries):
-                if i % 1000 == 0:
+                if i > 0 and i % 1000 == 0:
                     logger.info(
                         f"Loaded {i} log entries from GCP Log for {client.project}"
                     )

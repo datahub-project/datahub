@@ -15,6 +15,7 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
+from datahub.ingestion.source.datahub.datahub_api_reader import DataHubApiReader
 from datahub.ingestion.source.datahub.datahub_database_reader import (
     DataHubDatabaseReader,
 )
@@ -38,6 +39,10 @@ class DataHubSource(StatefulIngestionSourceBase):
     def __init__(self, config: DataHubSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.config = config
+
+        if self.config.urn_pattern:
+            self.urn_pattern = self.config.urn_pattern
+
         self.report: DataHubSourceReport = DataHubSourceReport()
         self.stateful_ingestion_handler = StatefulDataHubIngestionHandler(self)
 
@@ -57,6 +62,9 @@ class DataHubSource(StatefulIngestionSourceBase):
         self.report.stop_time = datetime.now(tz=timezone.utc)
         logger.info(f"Ingesting DataHub metadata up until {self.report.stop_time}")
         state = self.stateful_ingestion_handler.get_last_run_state()
+
+        if self.config.pull_from_datahub_api:
+            yield from self._get_api_workunits()
 
         if self.config.database_connection is not None:
             yield from self._get_database_workunits(
@@ -88,6 +96,10 @@ class DataHubSource(StatefulIngestionSourceBase):
         )
         mcps = reader.get_aspects(from_createdon, self.report.stop_time)
         for i, (mcp, createdon) in enumerate(mcps):
+
+            if not self.urn_pattern.allowed(str(mcp.entityUrn)):
+                continue
+
             yield mcp.as_workunit()
             self.report.num_database_aspects_ingested += 1
 
@@ -122,6 +134,9 @@ class DataHubSource(StatefulIngestionSourceBase):
                     )
                     continue
 
+                if not self.urn_pattern.allowed(str(mcp.entityUrn)):
+                    continue
+
                 if isinstance(mcp, MetadataChangeProposalWrapper):
                     yield mcp.as_workunit()
                 else:
@@ -138,6 +153,20 @@ class DataHubSource(StatefulIngestionSourceBase):
                         last_offset=offset
                     )
                 self._commit_progress(i)
+
+    def _get_api_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if self.ctx.graph is None:
+            self.report.report_failure(
+                "datahub_api",
+                "Specify datahub_api on your ingestion recipe to ingest from the DataHub API",
+            )
+            return
+
+        reader = DataHubApiReader(self.config, self.report, self.ctx.graph)
+        for mcp in reader.get_aspects():
+            if not self.urn_pattern.allowed(str(mcp.entityUrn)):
+                continue
+            yield mcp.as_workunit()
 
     def _commit_progress(self, i: Optional[int] = None) -> None:
         """Commit progress to stateful storage, if there have been no errors.

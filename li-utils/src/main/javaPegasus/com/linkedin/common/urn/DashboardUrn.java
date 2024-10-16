@@ -5,7 +5,6 @@ import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
 
-
 public final class DashboardUrn extends Urn {
 
   public static final String ENTITY_TYPE = "dashboard";
@@ -42,7 +41,8 @@ public final class DashboardUrn extends Urn {
         throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
       } else {
         try {
-          return new DashboardUrn((String) key.getAs(0, String.class), (String) key.getAs(1, String.class));
+          return new DashboardUrn(
+              (String) key.getAs(0, String.class), (String) key.getAs(1, String.class));
         } catch (Exception e) {
           throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + e.getMessage());
         }
@@ -55,18 +55,20 @@ public final class DashboardUrn extends Urn {
   }
 
   static {
-    Custom.registerCoercer(new DirectCoercer<DashboardUrn>() {
-      public Object coerceInput(DashboardUrn object) throws ClassCastException {
-        return object.toString();
-      }
+    Custom.registerCoercer(
+        new DirectCoercer<DashboardUrn>() {
+          public Object coerceInput(DashboardUrn object) throws ClassCastException {
+            return object.toString();
+          }
 
-      public DashboardUrn coerceOutput(Object object) throws TemplateOutputCastException {
-        try {
-          return DashboardUrn.createFromString((String) object);
-        } catch (URISyntaxException e) {
-          throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
-        }
-      }
-    }, DashboardUrn.class);
+          public DashboardUrn coerceOutput(Object object) throws TemplateOutputCastException {
+            try {
+              return DashboardUrn.createFromString((String) object);
+            } catch (URISyntaxException e) {
+              throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
+            }
+          }
+        },
+        DashboardUrn.class);
   }
 }

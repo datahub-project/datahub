@@ -1,8 +1,24 @@
 query getMLFeature($urn: String!) {
     mlFeature(urn: $urn) {
+        urn
+        type
         ...nonRecursiveMLFeature
+        privileges {
+            ...entityPrivileges
+        }
         featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
             ...fullRelationshipResults
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
     }
 }

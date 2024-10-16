@@ -5,7 +5,6 @@ import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
 
-
 public final class DataJobUrn extends Urn {
 
   public static final String ENTITY_TYPE = "dataJob";
@@ -42,8 +41,8 @@ public final class DataJobUrn extends Urn {
         throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
       } else {
         try {
-          return new DataJobUrn((DataFlowUrn) key.getAs(0, DataFlowUrn.class),
-              (String) key.getAs(1, String.class));
+          return new DataJobUrn(
+              (DataFlowUrn) key.getAs(0, DataFlowUrn.class), (String) key.getAs(1, String.class));
         } catch (Exception e) {
           throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + e.getMessage());
         }
@@ -57,18 +56,20 @@ public final class DataJobUrn extends Urn {
 
   static {
     Custom.initializeCustomClass(DataFlowUrn.class);
-    Custom.registerCoercer(new DirectCoercer<DataJobUrn>() {
-      public Object coerceInput(DataJobUrn object) throws ClassCastException {
-        return object.toString();
-      }
+    Custom.registerCoercer(
+        new DirectCoercer<DataJobUrn>() {
+          public Object coerceInput(DataJobUrn object) throws ClassCastException {
+            return object.toString();
+          }
 
-      public DataJobUrn coerceOutput(Object object) throws TemplateOutputCastException {
-        try {
-          return DataJobUrn.createFromString((String) object);
-        } catch (URISyntaxException e) {
-          throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
-        }
-      }
-    }, DataJobUrn.class);
+          public DataJobUrn coerceOutput(Object object) throws TemplateOutputCastException {
+            try {
+              return DataJobUrn.createFromString((String) object);
+            } catch (URISyntaxException e) {
+              throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
+            }
+          }
+        },
+        DataJobUrn.class);
   }
 }

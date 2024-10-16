@@ -3,16 +3,12 @@ from typing import Dict, Optional, Set
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel, ConfigurationError
-from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.common import ConfigModel
+from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.schema_classes import FabricTypeClass
 
 DEFAULT_ENV = FabricTypeClass.PROD
-
-# Get all the constants from the FabricTypeClass. It's not an enum, so this is a bit hacky but works.
-ALL_ENV_TYPES: Set[str] = set(
-    [value for name, value in vars(FabricTypeClass).items() if not name.startswith("_")]
-)
+ALL_ENV_TYPES: Set[str] = set(get_enum_options(FabricTypeClass))
 
 
 class PlatformInstanceConfigMixin(ConfigModel):
@@ -22,7 +18,9 @@ class PlatformInstanceConfigMixin(ConfigModel):
 
     platform_instance: Optional[str] = Field(
         default=None,
-        description="The instance of the platform that all assets produced by this recipe belong to",
+        description="The instance of the platform that all assets produced by this recipe belong to. "
+        "This should be unique within the platform. "
+        "See https://datahubproject.io/docs/platform-instances/ for more details.",
     )
 
 
@@ -36,15 +34,10 @@ class EnvConfigMixin(ConfigModel):
         description="The environment that all assets produced by this connector belong to",
     )
 
-    _env_deprecation = pydantic_field_deprecated(
-        "env",
-        message="env is deprecated and will be removed in a future release. Please use platform_instance instead.",
-    )
-
     @validator("env")
     def env_must_be_one_of(cls, v: str) -> str:
         if v.upper() not in ALL_ENV_TYPES:
-            raise ConfigurationError(f"env must be one of {ALL_ENV_TYPES}, found {v}")
+            raise ValueError(f"env must be one of {ALL_ENV_TYPES}, found {v}")
         return v.upper()
 
 
@@ -52,6 +45,16 @@ class DatasetSourceConfigMixin(PlatformInstanceConfigMixin, EnvConfigMixin):
     """
     Any source that is a primary producer of Dataset metadata should inherit this class
     """
+
+    # TODO: Deprecate this in favor of the more granular config mixins in order
+    # to flatten our config inheritance hierarchies.
+
+
+class LowerCaseDatasetUrnConfigMixin(ConfigModel):
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description="Whether to convert dataset urns to lowercase.",
+    )
 
 
 class DatasetLineageProviderConfigBase(EnvConfigMixin):

@@ -129,7 +129,8 @@ Follow the below steps to create the GitHub Deploy Key.
 ### Generate a private-public SSH key pair
 
 ```bash
-   ssh-keygen -t rsa -f looker_datahub_deploy_key
+ssh-keygen -t rsa -f looker_datahub_deploy_key
+# If prompted, don't add a passphrase to the key
 ```
 
 This will typically generate two files like the one below.
@@ -153,4 +154,3 @@ Make a note of the private key file. You must paste the file's contents into the
 
 Once you've done all the above steps, it's time to move on to [configuring the actual ingestion source](configuration.md) within DataHub.
 
-_Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!_

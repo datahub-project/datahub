@@ -7,26 +7,26 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testcontainers.containers.GenericContainer;
 import org.testng.annotations.AfterSuite;
 
-
 @TestConfiguration
 public class ElasticSearchSuite extends AbstractTestNGSpringContextTests {
 
-    private static final ElasticsearchTestContainer ELASTICSEARCH_TEST_CONTAINER;
-    private static GenericContainer<?> container;
-    static {
-        ELASTICSEARCH_TEST_CONTAINER = new ElasticsearchTestContainer();
-    }
+  private static final ElasticsearchTestContainer ELASTICSEARCH_TEST_CONTAINER;
+  private static GenericContainer<?> container;
 
-    @AfterSuite
-    public void after() {
-        ELASTICSEARCH_TEST_CONTAINER.stopContainer();
-    }
+  static {
+    ELASTICSEARCH_TEST_CONTAINER = new ElasticsearchTestContainer();
+  }
 
-    @Bean(name = "testSearchContainer")
-    public GenericContainer<?> testSearchContainer() {
-        if (container == null) {
-            container = ELASTICSEARCH_TEST_CONTAINER.startContainer();
-        }
-        return container;
+  @AfterSuite
+  public void after() {
+    ELASTICSEARCH_TEST_CONTAINER.stopContainer();
+  }
+
+  @Bean(name = "testSearchContainer")
+  public GenericContainer<?> testSearchContainer() {
+    if (container == null) {
+      container = ELASTICSEARCH_TEST_CONTAINER.startContainer();
     }
+    return container;
+  }
 }

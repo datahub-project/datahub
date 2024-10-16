@@ -1,8 +1,10 @@
 from typing import Iterable
 
-from datahub.metadata.schema_classes import (DatasetFieldProfileClass,
-                                             DatasetProfileClass,
-                                             TimeWindowSizeClass)
+from datahub.metadata.schema_classes import (
+    DatasetFieldProfileClass,
+    DatasetProfileClass,
+    TimeWindowSizeClass,
+)
 
 from tests.utils import get_timestampmillis_at_start_of_day
 

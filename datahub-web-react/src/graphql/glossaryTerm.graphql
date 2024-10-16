@@ -85,7 +85,18 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
             ...deprecationFields
         }
         privileges {
-            canManageEntity
+            ...entityPrivileges
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
     }
 }

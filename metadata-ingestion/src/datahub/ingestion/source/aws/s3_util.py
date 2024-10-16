@@ -34,19 +34,24 @@ def get_bucket_relative_path(s3_uri: str) -> str:
     return "/".join(strip_s3_prefix(s3_uri).split("/")[1:])
 
 
-def make_s3_urn(s3_uri: str, env: str) -> str:
+def make_s3_urn(s3_uri: str, env: str, remove_extension: bool = True) -> str:
     s3_name = strip_s3_prefix(s3_uri)
 
     if s3_name.endswith("/"):
         s3_name = s3_name[:-1]
 
     name, extension = os.path.splitext(s3_name)
-
-    if extension != "":
+    if remove_extension and extension != "":
         extension = extension[1:]  # remove the dot
         return f"urn:li:dataset:(urn:li:dataPlatform:s3,{name}_{extension},{env})"
 
     return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{env})"
+
+
+def make_s3_urn_for_lineage(s3_uri: str, env: str) -> str:
+    # Ideally this is the implementation for all S3 URNs
+    # Don't feel comfortable changing `make_s3_urn` for glue, sagemaker, and athena
+    return make_s3_urn(s3_uri, env, remove_extension=False)
 
 
 def get_bucket_name(s3_uri: str) -> str:

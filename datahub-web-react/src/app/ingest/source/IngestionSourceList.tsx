@@ -1,5 +1,6 @@
 import { PlusOutlined, RedoOutlined } from '@ant-design/icons';
 import React, { useCallback, useEffect, useState } from 'react';
+import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import { Button, message, Modal, Pagination, Select } from 'antd';
@@ -15,7 +16,7 @@ import { Message } from '../../shared/Message';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { IngestionSourceBuilderModal } from './builder/IngestionSourceBuilderModal';
 import { addToListIngestionSourcesCache, CLI_EXECUTOR_ID, removeFromListIngestionSourcesCache } from './utils';
-import { DEFAULT_EXECUTOR_ID, SourceBuilderState } from './builder/types';
+import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from './builder/types';
 import { IngestionSource, UpdateIngestionSourceInput } from '../../../types.generated';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -30,6 +31,8 @@ import {
     INGESTION_CREATE_SOURCE_ID,
     INGESTION_REFRESH_SOURCES_ID,
 } from '../../onboarding/config/IngestionOnboardingConfig';
+import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
+import { useCommandS } from './hooks';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -48,6 +51,8 @@ const StyledSelect = styled(Select)`
 const FilterWrapper = styled.div`
     display: flex;
 `;
+
+const SYSTEM_INTERNAL_SOURCE_TYPE = 'SYSTEM';
 
 export enum IngestionSourceType {
     ALL,
@@ -100,6 +105,17 @@ export const IngestionSourceList = () => {
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
+    const [hideSystemSources, setHideSystemSources] = useState(true);
+
+    /**
+     * Show or hide system ingestion sources using a hidden command S command.
+     */
+    useCommandS(() => setHideSystemSources(!hideSystemSources));
+
+    // Ingestion Source Default Filters
+    const filters = hideSystemSources
+        ? [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }]
+        : undefined;
 
     // Ingestion Source Queries
     const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
@@ -107,10 +123,11 @@ export const IngestionSourceList = () => {
             input: {
                 start,
                 count: pageSize,
-                query,
+                query: (query?.length && query) || undefined,
+                filters,
             },
         },
-        fetchPolicy: 'cache-first',
+        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
@@ -132,6 +149,10 @@ export const IngestionSourceList = () => {
         // Used to force a re-render of the child execution request list.
         setLastRefresh(new Date().getTime());
     }, [refetch]);
+
+    const debouncedSetQuery = debounce((newQuery: string | undefined) => {
+        setQuery(newQuery);
+    }, ONE_SECOND_IN_MS);
 
     function hasActiveExecution() {
         return !!filteredSources.find((source) =>
@@ -171,6 +192,11 @@ export const IngestionSourceList = () => {
         setTimeout(() => refetch(), 2000);
         setIsBuildingSource(false);
         setFocusSourceUrn(undefined);
+    };
+
+    const formatExtraArgs = (extraArgs): StringMapEntryInput[] => {
+        if (extraArgs === null || extraArgs === undefined) return [];
+        return extraArgs.map((entry) => ({ key: entry.key, value: entry.value }));
     };
 
     const createOrUpdateIngestionSource = (
@@ -294,6 +320,7 @@ export const IngestionSourceList = () => {
                             (recipeBuilderState.config?.executorId as string)) ||
                         DEFAULT_EXECUTOR_ID,
                     debugMode: recipeBuilderState.config?.debugMode || false,
+                    extraArgs: formatExtraArgs(recipeBuilderState.config?.extraArgs || []),
                 },
                 schedule: recipeBuilderState.schedule && {
                     interval: recipeBuilderState.schedule?.interval as string,
@@ -358,7 +385,12 @@ export const IngestionSourceList = () => {
             <SourceContainer>
                 <TabToolbar>
                     <div>
-                        <Button id={INGESTION_CREATE_SOURCE_ID} type="text" onClick={() => setIsBuildingSource(true)}>
+                        <Button
+                            id={INGESTION_CREATE_SOURCE_ID}
+                            type="text"
+                            onClick={() => setIsBuildingSource(true)}
+                            data-testid="create-ingestion-source-button"
+                        >
                             <PlusOutlined /> Create new source
                         </Button>
                         <Button id={INGESTION_REFRESH_SOURCES_ID} type="text" onClick={onRefresh}>
@@ -388,7 +420,10 @@ export const IngestionSourceList = () => {
                                 fontSize: 12,
                             }}
                             onSearch={() => null}
-                            onQueryChange={(q) => setQuery(q)}
+                            onQueryChange={(q) => {
+                                setPage(1);
+                                debouncedSetQuery(q);
+                            }}
                             entityRegistry={entityRegistry}
                             hideRecommendations
                         />
@@ -418,17 +453,13 @@ export const IngestionSourceList = () => {
             </SourceContainer>
             <IngestionSourceBuilderModal
                 initialState={removeExecutionsFromIngestionSource(focusSource)}
-                visible={isBuildingSource}
+                open={isBuildingSource}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
             />
             {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config.recipe} onCancel={onCancel} />}
             {focusExecutionUrn && (
-                <ExecutionDetailsModal
-                    urn={focusExecutionUrn}
-                    visible
-                    onClose={() => setFocusExecutionUrn(undefined)}
-                />
+                <ExecutionDetailsModal urn={focusExecutionUrn} open onClose={() => setFocusExecutionUrn(undefined)} />
             )}
         </>
     );

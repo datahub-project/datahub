@@ -1,11 +1,11 @@
-# Managing Lineage via UI
+# Managing Data Lineage via UI
 
-## Viewing lineage
-The UI shows the latest version of the lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical lineages. It will only filter the view of the latest version of the lineage. 
+## Viewing Data Lineage
+The UI shows the latest version of the data lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical data lineages. It will only filter the view of the latest version of the lineage. 
 
 ## Editing from Lineage Graph View
 
-The first place that you can edit lineage for entities is from the Lineage Visualization screen. Click on the "Lineage" button on the top right of an entity's profile to get to this view.
+The first place that you can edit data lineage for entities is from the Lineage Visualization screen. Click on the "Lineage" button on the top right of an entity's profile to get to this view.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-viz-button.png"/>
@@ -25,7 +25,7 @@ If you want to edit upstream lineage for entities downstream of the center node 
 
 ### Adding Lineage Edges
 
-Once you click "Edit Upstream" or "Edit Downstream," a modal will open that allows you to manage lineage for the selected entity in the chosen direction. In order to add a lineage edge to a new entity, search for it by name in the provided search bar and select it. Once you're satisfied with everything you've added, click "Save Changes." If you change your mind, you can always cancel or exit without saving the changes you've made.
+Once you click "Edit Upstream" or "Edit Downstream," a modal will open that allows you to manage data lineage for the selected entity in the chosen direction. In order to add a lineage edge to a new entity, search for it by name in the provided search bar and select it. Once you're satisfied with everything you've added, click "Save Changes." If you change your mind, you can always cancel or exit without saving the changes you've made.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/add-upstream.png"/>

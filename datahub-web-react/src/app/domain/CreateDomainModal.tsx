@@ -115,7 +115,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
     return (
         <Modal
             title="Create New Domain"
-            visible
+            open
             onCancel={onClose}
             footer={
                 <>
@@ -191,7 +191,10 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         rules={[{ whitespace: true }, { min: 1, max: 500 }]}
                         hasFeedback
                     >
-                        <Input.TextArea placeholder="A description for your domain" />
+                        <Input.TextArea
+                            placeholder="A description for your domain"
+                            data-testid="create-domain-description"
+                        />
                     </FormItemNoMargin>
                 </FormItemWithMargin>
                 <Collapse ghost>

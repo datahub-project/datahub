@@ -70,7 +70,11 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                     </Typography.Paragraph>
                 )}
                 {!readOnly && (
-                    <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
+                    <Button
+                        type={ownersEmpty ? 'default' : 'text'}
+                        onClick={() => setShowAddModal(true)}
+                        data-testid="add-owners-button"
+                    >
                         <PlusOutlined /> Add Owners
                     </Button>
                 )}

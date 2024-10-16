@@ -24,6 +24,7 @@ import {
 } from '../../onboarding/config/SearchOnboardingConfig';
 import { useFilterRendererRegistry } from './render/useFilterRenderer';
 import { FilterScenarioType } from './render/types';
+import BasicFiltersLoadingSection from './BasicFiltersLoadingSection';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 5;
 
@@ -56,6 +57,7 @@ const FILTERS_TO_REMOVE = [
 ];
 
 interface Props {
+    loading: boolean;
     availableFilters: FacetMetadata[] | null;
     activeFilters: FacetFilterInput[];
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
@@ -64,6 +66,7 @@ interface Props {
 }
 
 export default function BasicFilters({
+    loading,
     availableFilters,
     activeFilters,
     onChangeFilters,
@@ -88,6 +91,7 @@ export default function BasicFilters({
         <span id={SEARCH_RESULTS_FILTERS_ID}>
             <FlexSpacer>
                 <FlexWrapper>
+                    {loading && !visibleFilters?.length && <BasicFiltersLoadingSection />}
                     {visibleFilters?.map((filter) => {
                         return filterRendererRegistry.hasRenderer(filter.field) ? (
                             filterRendererRegistry.render(filter.field, {

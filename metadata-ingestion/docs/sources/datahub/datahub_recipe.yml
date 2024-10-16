@@ -1,13 +1,13 @@
 pipeline_name: datahub_source_1
 datahub_api:
-  server: "http://localhost:8080"  # Migrate data from DataHub instance on localhost:8080
+  server: "http://localhost:8080" # Migrate data from DataHub instance on localhost:8080
   token: "<token>"
 source:
   type: datahub
   config:
     include_all_versions: false
     database_connection:
-      scheme: "mysql+pymysql"  # or "postgresql+psycopg2" for Postgres
+      scheme: "mysql+pymysql" # or "postgresql+psycopg2" for Postgres
       host_port: "<database_host>:<database_port>"
       username: "<username>"
       password: "<password>"
@@ -18,13 +18,21 @@ source:
     stateful_ingestion:
       enabled: true
       ignore_old_state: false
-  extractor_config:
-    set_system_metadata: false  # Replicate system metadata
+    urn_pattern:
+      deny:
+        # Ignores all datahub metadata where the urn matches the regex
+        - ^denied.urn.*
+      allow:
+        # Ingests all datahub metadata where the urn matches the regex.
+        - ^allowed.urn.*
+
+flags:
+  set_system_metadata: false # Replicate system metadata
 
 # Here, we write to a DataHub instance
 # You can also use a different sink, e.g. to write the data to a file instead
 sink:
-  type: datahub
+  type: datahub-rest
   config:
     server: "<destination_gms_url>"
     token: "<token>"

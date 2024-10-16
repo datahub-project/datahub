@@ -64,7 +64,7 @@ class SQLAlchemyGenericConfig(SQLCommonConfig):
 
 @platform_name("SQLAlchemy", id="sqlalchemy")
 @config_class(SQLAlchemyGenericConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class SQLAlchemyGenericSource(SQLAlchemySource):

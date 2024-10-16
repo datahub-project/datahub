@@ -7,15 +7,15 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 
-T = TypeVar("T", bound=MetadataPatchProposal)
+_Parent = TypeVar("_Parent", bound=MetadataPatchProposal)
 
 
-class OwnershipPatchHelper(Generic[T]):
-    def __init__(self, parent: T) -> None:
+class OwnershipPatchHelper(Generic[_Parent]):
+    def __init__(self, parent: _Parent) -> None:
         self._parent = parent
         self.aspect_field = OwnershipClass.ASPECT_NAME
 
-    def parent(self) -> T:
+    def parent(self) -> _Parent:
         return self._parent
 
     def add_owner(self, owner: OwnerClass) -> "OwnershipPatchHelper":
@@ -43,6 +43,6 @@ class OwnershipPatchHelper(Generic[T]):
 
     def set_owners(self, owners: List[OwnerClass]) -> "OwnershipPatchHelper":
         self._parent._add_patch(
-            OwnershipClass.ASPECT_NAME, "replace", path="/owners", value=owners
+            OwnershipClass.ASPECT_NAME, "add", path="/owners", value=owners
         )
         return self

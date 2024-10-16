@@ -1,12 +1,11 @@
 import datetime
 import logging
-import uuid
+import random
+import string
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, root_validator, validator
+from pydantic import Field, validator
 
-from datahub.cli.cli_utils import get_url_and_token
-from datahub.configuration import config_loader
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
 from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.sink.file import FileSinkConfig
@@ -57,15 +56,35 @@ class FlagsConfig(ConfigModel):
         ),
     )
 
+    generate_memory_profiles: Optional[str] = Field(
+        default=None,
+        description=(
+            "Generate memray memory dumps for ingestion process by providing a path to write the dump file in."
+        ),
+    )
+
+    set_system_metadata: bool = Field(
+        True, description="Set system metadata on entities."
+    )
+    set_system_metadata_pipeline_name: bool = Field(
+        True,
+        description="Set system metadata pipeline name. Requires `set_system_metadata` to be enabled.",
+    )
+
+
+def _generate_run_id(source_type: Optional[str] = None) -> str:
+    current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
+    random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+
+    if source_type is None:
+        source_type = "ingestion"
+    return f"{source_type}-{current_time}-{random_suffix}"
+
 
 class PipelineConfig(ConfigModel):
-    # Once support for discriminated unions gets merged into Pydantic, we can
-    # simplify this configuration and validation.
-    # See https://github.com/samuelcolvin/pydantic/pull/2336.
-
     source: SourceConfig
-    sink: DynamicTypedConfig
-    transformers: Optional[List[DynamicTypedConfig]]
+    sink: Optional[DynamicTypedConfig] = None
+    transformers: Optional[List[DynamicTypedConfig]] = None
     flags: FlagsConfig = Field(default=FlagsConfig(), hidden_from_docs=True)
     reporting: List[ReporterConfig] = []
     run_id: str = DEFAULT_RUN_ID
@@ -82,45 +101,14 @@ class PipelineConfig(ConfigModel):
         cls, v: Optional[str], values: Dict[str, Any], **kwargs: Any
     ) -> str:
         if v == DEFAULT_RUN_ID:
+            source_type = None
             if "source" in values and hasattr(values["source"], "type"):
                 source_type = values["source"].type
-                current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
-                return f"{source_type}-{current_time}"
 
-            return str(uuid.uuid1())  # default run_id if we cannot infer a source type
+            return _generate_run_id(source_type)
         else:
             assert v is not None
             return v
-
-    @root_validator(pre=True)
-    def default_sink_is_datahub_rest(cls, values: Dict[str, Any]) -> Any:
-        if "sink" not in values:
-            gms_host, gms_token = get_url_and_token()
-            default_sink_config = {
-                "type": "datahub-rest",
-                "config": {
-                    "server": gms_host,
-                    "token": gms_token,
-                },
-            }
-            # resolve env variables if present
-            default_sink_config = config_loader.resolve_env_variables(
-                default_sink_config
-            )
-            values["sink"] = default_sink_config
-
-        return values
-
-    @validator("datahub_api", always=True)
-    def datahub_api_should_use_rest_sink_as_default(
-        cls, v: Optional[DatahubClientConfig], values: Dict[str, Any], **kwargs: Any
-    ) -> Optional[DatahubClientConfig]:
-        if v is None and "sink" in values and hasattr(values["sink"], "type"):
-            sink_type = values["sink"].type
-            if sink_type == "datahub-rest":
-                sink_config = values["sink"].config
-                v = DatahubClientConfig.parse_obj_allow_extras(sink_config)
-        return v
 
     @classmethod
     def from_dict(

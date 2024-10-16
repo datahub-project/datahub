@@ -1,0 +1,21 @@
+namespace com.linkedin.datatype
+
+@Aspect = {
+    "name": "dataTypeInfo"
+}
+record DataTypeInfo {
+    /**
+     * The qualified name for the data type. Usually a unique namespace + name, e.g. datahub.string
+     */
+    qualifiedName: string
+
+    /**
+     * An optional display name for the data type.
+     */
+    displayName: optional string
+
+    /**
+     * An optional description for the data type.
+     */
+    description: optional string
+}

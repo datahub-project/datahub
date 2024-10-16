@@ -1,6 +1,7 @@
 query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Long) {
     dataset(urn: $urn) {
         urn
+        type
         datasetProfiles(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime) {
             rowCount
             columnCount
@@ -98,13 +99,17 @@ fragment nonSiblingDatasetFields on Dataset {
         }
     }
     health {
-        type
-        status
-        message
-        causes
+        ...entityHealth
     }
     assertions(start: 0, count: 1) {
         total
+    }
+    access {
+        roles {
+            role {
+                urn
+            }
+        }
     }
     operations(limit: 1) {
         timestampMillis
@@ -112,23 +117,12 @@ fragment nonSiblingDatasetFields on Dataset {
     }
     ...viewProperties
     autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
-        aspectName
-        payload
-        renderSpec {
-            displayType
-            displayName
-            key
-        }
+        ...autoRenderAspectFields
     }
     status {
         removed
     }
-    readRuns: runs(start: 0, count: 20, direction: INCOMING) {
-        count
-        start
-        total
-    }
-    writeRuns: runs(start: 0, count: 20, direction: OUTGOING) {
+    runs: runs(start: 0, count: 20, direction: OUTGOING) {
         count
         start
         total
@@ -169,10 +163,14 @@ fragment nonSiblingDatasetFields on Dataset {
     siblings {
         isPrimary
     }
+    activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+        total
+    }
     privileges {
-        canEditLineage
-        canEditEmbed
-        canEditQueries
+        ...entityPrivileges
+    }
+    forms {
+        ...formsFields
     }
 }
 
@@ -233,12 +231,13 @@ fragment viewProperties on Dataset {
     viewProperties {
         materialized
         logic
+        formattedLogic
         language
     }
 }
 
 fragment assertionsQuery on Dataset {
-    assertions(start: 0, count: 1000) {
+    assertions(start: 0, count: 1000, includeSoftDeleted: false) {
         start
         count
         total
@@ -332,13 +331,7 @@ fragment getRoles on Access {
                 requestUrl
             }
             urn
-            actors {
-                users {
-                    user {
-                        urn
-                    }
-                }
-            }
+            isAssignedToMe
         }
     }
 }

@@ -3,15 +3,15 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, ClassVar, Dict, List, Optional, Pattern, Set, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Optional, Pattern, Tuple, Union
 
 from dateutil import parser
 
-from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.utilities.parsing_util import (
     get_first_missing_key,
     get_first_missing_key_any,
 )
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 AuditLogEntry = Any
 
@@ -20,7 +20,13 @@ BigQueryAuditMetadata = Any
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = "((.+)[_$])?(\\d{8})$"
+# Regexp for sharded tables.
+# A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
+# The regexp checks for valid dates in the suffix (e.g. 20200101, 20200229, 20201231) and if the date is not valid
+# then it is not a sharded table.
+_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
+    "((.+\\D)[_$]?)?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
+)
 
 
 @dataclass(frozen=True, order=True)
@@ -28,8 +34,6 @@ class BigqueryTableIdentifier:
     project_id: str
     dataset: str
     table: str
-
-    invalid_chars: ClassVar[Set[str]] = {"$", "@"}
 
     # Note: this regex may get overwritten by the sharded_table_pattern config.
     # The class-level constant, however, will not be overwritten.
@@ -40,7 +44,7 @@ class BigqueryTableIdentifier:
     _BQ_SHARDED_TABLE_SUFFIX: str = "_yyyymmdd"
 
     @staticmethod
-    def get_table_and_shard(table_name: str) -> Tuple[str, Optional[str]]:
+    def get_table_and_shard(table_name: str) -> Tuple[Optional[str], Optional[str]]:
         """
         Args:
             table_name:
@@ -53,21 +57,32 @@ class BigqueryTableIdentifier:
                 In case of non-sharded tables, returns (<table-id>, None)
                 In case of sharded tables, returns (<table-prefix>, shard)
         """
+        new_table_name = table_name
         match = re.match(
             BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
             table_name,
             re.IGNORECASE,
         )
         if match:
-            table_name = match.group(2)
-            shard = match.group(3)
-            return table_name, shard
-        return table_name, None
+            shard: str = match[3]
+            if shard:
+                if table_name.endswith(shard):
+                    new_table_name = table_name[: -len(shard)]
+
+            new_table_name = (
+                new_table_name.rstrip("_") if new_table_name else new_table_name
+            )
+            if new_table_name.endswith("."):
+                new_table_name = table_name
+            return (new_table_name, shard) if new_table_name else (None, shard)
+        return new_table_name, None
 
     @classmethod
     def from_string_name(cls, table: str) -> "BigqueryTableIdentifier":
-        parts = table.split(".")
-        return cls(parts[0], parts[1], parts[2])
+        parts = table.split(".", maxsplit=2)
+        # If the table name contains dollar sign, it is a reference to a partitioned table and we have to strip it
+        table = parts[2].split("$", 1)[0]
+        return cls(parts[0], parts[1], table)
 
     def raw_table_name(self):
         return f"{self.project_id}.{self.dataset}.{self.table}"
@@ -78,6 +93,7 @@ class BigqueryTableIdentifier:
             - removes shard suffix (table_yyyymmdd-> table)
             - removes wildcard part (table_yyyy* -> table)
             - remove time decorator (table@1624046611000 -> table)
+            - removes partition ids (table$20210101 -> table or table$__UNPARTITIONED__ -> table)
         """
         # if table name ends in _* or * or _yyyy* or _yyyymm* then we strip it as that represents a query on a sharded table
         shortened_table_name = re.sub(self._BIGQUERY_WILDCARD_REGEX, "", self.table)
@@ -89,19 +105,14 @@ class BigqueryTableIdentifier:
                 f"Found table snapshot. Using {shortened_table_name} as the table name."
             )
 
-        table_name, _ = self.get_table_and_shard(shortened_table_name)
-        if not table_name:
-            table_name = self.dataset
-
-        # Handle exceptions
-        invalid_chars_in_table_name: List[str] = [
-            c for c in self.invalid_chars if c in table_name
-        ]
-        if invalid_chars_in_table_name:
-            raise ValueError(
-                f"Cannot handle {self.raw_table_name()} - poorly formatted table name, contains {invalid_chars_in_table_name}"
+        if "$" in shortened_table_name:
+            shortened_table_name = shortened_table_name.split("$", maxsplit=1)[0]
+            logger.debug(
+                f"Found partitioned table. Using {shortened_table_name} as the table name."
             )
-        return table_name
+
+        table_name, _ = self.get_table_and_shard(shortened_table_name)
+        return table_name or self.dataset
 
     def get_table_name(self) -> str:
         """
@@ -176,6 +187,17 @@ class BigQueryTableRef:
             raise ValueError(f"invalid BigQuery table reference: {ref}")
         return cls(BigqueryTableIdentifier(parts[1], parts[3], parts[5]))
 
+    @classmethod
+    def from_urn(cls, urn: str) -> "BigQueryTableRef":
+        """Raises: ValueError if urn is not a valid BigQuery table URN."""
+        dataset_urn = DatasetUrn.create_from_string(urn)
+        split = dataset_urn.name.rsplit(".", 3)
+        if len(split) == 3:
+            project, dataset, table = split
+        else:
+            _, project, dataset, table = split
+        return cls(BigqueryTableIdentifier(project, dataset, table))
+
     def is_temporary_table(self, prefixes: List[str]) -> bool:
         for prefix in prefixes:
             if self.table_identifier.dataset.startswith(prefix):
@@ -188,13 +210,6 @@ class BigQueryTableRef:
         # Handle partitioned and sharded tables.
         return BigQueryTableRef(
             BigqueryTableIdentifier.from_string_name(sanitized_table)
-        )
-
-    def to_urn(self, env: str) -> str:
-        return make_dataset_urn(
-            "bigquery",
-            f"{self.table_identifier.project_id}.{self.table_identifier.dataset}.{self.table_identifier.table}",
-            env,
         )
 
     def __str__(self) -> str:
@@ -271,19 +286,27 @@ class QueryEvent:
                 job.get("jobName", {}).get("jobId"),
             ),
             project_id=job.get("jobName", {}).get("projectId"),
-            default_dataset=job_query_conf["defaultDataset"]
-            if job_query_conf["defaultDataset"]
-            else None,
-            start_time=parser.parse(job["jobStatistics"]["startTime"])
-            if job["jobStatistics"]["startTime"]
-            else None,
-            end_time=parser.parse(job["jobStatistics"]["endTime"])
-            if job["jobStatistics"]["endTime"]
-            else None,
-            numAffectedRows=int(job["jobStatistics"]["queryOutputRowCount"])
-            if "queryOutputRowCount" in job["jobStatistics"]
-            and job["jobStatistics"]["queryOutputRowCount"]
-            else None,
+            default_dataset=(
+                job_query_conf["defaultDataset"]
+                if job_query_conf["defaultDataset"]
+                else None
+            ),
+            start_time=(
+                parser.parse(job["jobStatistics"]["startTime"])
+                if job["jobStatistics"]["startTime"]
+                else None
+            ),
+            end_time=(
+                parser.parse(job["jobStatistics"]["endTime"])
+                if job["jobStatistics"]["endTime"]
+                else None
+            ),
+            numAffectedRows=(
+                int(job["jobStatistics"]["queryOutputRowCount"])
+                if "queryOutputRowCount" in job["jobStatistics"]
+                and job["jobStatistics"]["queryOutputRowCount"]
+                else None
+            ),
             statementType=job_query_conf.get("statementType", "UNKNOWN"),
         )
         # destinationTable
@@ -353,18 +376,26 @@ class QueryEvent:
             query=query_config["query"],
             job_name=job["jobName"],
             project_id=QueryEvent._get_project_id_from_job_name(job["jobName"]),
-            default_dataset=query_config["defaultDataset"]
-            if query_config.get("defaultDataset")
-            else None,
-            start_time=parser.parse(job["jobStats"]["startTime"])
-            if job["jobStats"]["startTime"]
-            else None,
-            end_time=parser.parse(job["jobStats"]["endTime"])
-            if job["jobStats"]["endTime"]
-            else None,
-            numAffectedRows=int(query_stats["outputRowCount"])
-            if query_stats.get("outputRowCount")
-            else None,
+            default_dataset=(
+                query_config["defaultDataset"]
+                if query_config.get("defaultDataset")
+                else None
+            ),
+            start_time=(
+                parser.parse(job["jobStats"]["startTime"])
+                if job["jobStats"]["startTime"]
+                else None
+            ),
+            end_time=(
+                parser.parse(job["jobStats"]["endTime"])
+                if job["jobStats"]["endTime"]
+                else None
+            ),
+            numAffectedRows=(
+                int(query_stats["outputRowCount"])
+                if query_stats.get("outputRowCount")
+                else None
+            ),
             statementType=query_config.get("statementType", "UNKNOWN"),
         )
         # jobName
@@ -422,18 +453,26 @@ class QueryEvent:
             timestamp=row.timestamp,
             actor_email=payload["authenticationInfo"]["principalEmail"],
             query=query_config["query"],
-            default_dataset=query_config["defaultDataset"]
-            if "defaultDataset" in query_config and query_config["defaultDataset"]
-            else None,
-            start_time=parser.parse(job["jobStats"]["startTime"])
-            if job["jobStats"]["startTime"]
-            else None,
-            end_time=parser.parse(job["jobStats"]["endTime"])
-            if job["jobStats"]["endTime"]
-            else None,
-            numAffectedRows=int(query_stats["outputRowCount"])
-            if "outputRowCount" in query_stats and query_stats["outputRowCount"]
-            else None,
+            default_dataset=(
+                query_config["defaultDataset"]
+                if "defaultDataset" in query_config and query_config["defaultDataset"]
+                else None
+            ),
+            start_time=(
+                parser.parse(job["jobStats"]["startTime"])
+                if job["jobStats"]["startTime"]
+                else None
+            ),
+            end_time=(
+                parser.parse(job["jobStats"]["endTime"])
+                if job["jobStats"]["endTime"]
+                else None
+            ),
+            numAffectedRows=(
+                int(query_stats["outputRowCount"])
+                if "outputRowCount" in query_stats and query_stats["outputRowCount"]
+                else None
+            ),
             statementType=query_config.get("statementType", "UNKNOWN"),
         )
         query_event.job_name = job.get("jobName")
@@ -564,7 +603,7 @@ class ReadEvent:
         query_event: QueryEvent,
         debug_include_full_payloads: bool = False,
     ) -> "ReadEvent":
-        readEvent = ReadEvent(
+        return ReadEvent(
             actor_email=query_event.actor_email,
             timestamp=query_event.timestamp,
             resource=read_resource,
@@ -574,8 +613,6 @@ class ReadEvent:
             payload=query_event.payload if debug_include_full_payloads else None,
             from_query=True,
         )
-
-        return readEvent
 
     @classmethod
     def from_exported_bigquery_audit_metadata(

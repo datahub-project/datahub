@@ -1,5 +1,7 @@
 namespace com.linkedin.execution
 
+import com.linkedin.common.Urn
+
 /**
  * An request to execution some remote logic or action.
  * TODO: Determine who is responsible for emitting execution request success or failure. Executor?
@@ -37,4 +39,12 @@ record ExecutionRequestInput {
     "queryByDefault": false
   }
   requestedAt: long
+
+  /**
+   * Urn of the actor who created this execution request.
+   */
+  @Searchable = {
+    "fieldType": "URN"
+  }
+  actorUrn: optional Urn
 }

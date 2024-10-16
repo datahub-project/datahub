@@ -5,6 +5,10 @@ export interface SecretBuilderState {
     /**
      * The name of the secret.
      */
+    urn?: string;
+    /**
+     * The name of the secret.
+     */
     name?: string;
 
     /**

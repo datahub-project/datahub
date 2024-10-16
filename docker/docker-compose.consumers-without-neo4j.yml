@@ -1,24 +1,24 @@
 # Service definitions for standalone Kafka consumer containers.
-version: '3.9'
 services:
   datahub-gms:
     environment:
     - MAE_CONSUMER_ENABLED=false
     - MCE_CONSUMER_ENABLED=false
   datahub-mae-consumer:
-    container_name: datahub-mae-consumer
     hostname: datahub-mae-consumer
-    image: ${DATAHUB_MAE_CONSUMER_IMAGE:-linkedin/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_MAE_CONSUMER_IMAGE:-acryldata/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
     ports:
     - 9091:9091
     build:
       context: ../
       dockerfile: docker/datahub-mae-consumer/Dockerfile
     env_file: datahub-mae-consumer/env/docker-without-neo4j.env
+    environment:
+      - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
+      - KAFKA_CONSUMER_HEALTH_CHECK_ENABLED=${KAFKA_CONSUMER_HEALTH_CHECK_ENABLED:-true}
   datahub-mce-consumer:
-    container_name: datahub-mce-consumer
     hostname: datahub-mce-consumer
-    image: ${DATAHUB_MCE_CONSUMER_IMAGE:-linkedin/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_MCE_CONSUMER_IMAGE:-acryldata/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
     ports:
     - 9090:9090
     build:
@@ -28,3 +28,5 @@ services:
     environment:
     - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+    - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
+    - KAFKA_CONSUMER_HEALTH_CHECK_ENABLED=${KAFKA_CONSUMER_HEALTH_CHECK_ENABLED:-true}

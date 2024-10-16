@@ -1,7 +1,7 @@
 import json
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -12,6 +12,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
     SystemMetadataClass,
 )
+from datahub.utilities.urns.urn import guess_entity_type
 
 
 def _recursive_to_obj(obj: Any) -> Any:
@@ -47,18 +48,26 @@ class MetadataPatchProposal:
     def __init__(
         self,
         urn: str,
-        entity_type: str,
         system_metadata: Optional[SystemMetadataClass] = None,
         audit_header: Optional[KafkaAuditHeaderClass] = None,
     ) -> None:
         self.urn = urn
-        # TODO: Remove the entity_type parameter, as MCPW can infer it from the URN.
-        self.entity_type = entity_type
+        self.entity_type = guess_entity_type(urn)
         self.system_metadata = system_metadata
         self.audit_header = audit_header
         self.patches = defaultdict(list)
 
-    def _add_patch(self, aspect_name: str, op: str, path: str, value: Any) -> None:
+    # Json Patch quoting based on https://jsonpatch.com/#json-pointer
+    @classmethod
+    def quote(cls, value: str) -> str:
+        return value.replace("~", "~0").replace("/", "~1")
+
+    def _add_patch(
+        self, aspect_name: str, op: str, path: Union[str, Sequence[str]], value: Any
+    ) -> None:
+        if not isinstance(path, str):
+            path = "/" + "/".join(self.quote(p) for p in path)
+
         # TODO: Validate that aspectName is a valid aspect for this entityType
         self.patches[aspect_name].append(_Patch(op, path, value))
 

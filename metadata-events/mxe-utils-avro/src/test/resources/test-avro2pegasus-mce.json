@@ -1,0 +1,31 @@
+{
+  "auditHeader": null,
+  "proposedSnapshot": {
+    "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,baz)",
+      "aspects": [
+        {
+          "com.linkedin.pegasus2avro.common.Ownership": {
+            "owners": [
+              {
+                "owner": "urn:li:corpuser:foobar",
+                "type": "DEVELOPER",
+                "typeUrn": null,
+                "source": null
+              }
+            ],
+            "ownerTypes": null,
+            "lastModified": {
+              "time": 0,
+              "actor": "urn:li:corpuser:foobar",
+              "impersonator": null,
+              "message": null
+            }
+          }
+        }
+      ]
+    }
+  },
+  "proposedDelta": null,
+  "systemMetadata": null
+}

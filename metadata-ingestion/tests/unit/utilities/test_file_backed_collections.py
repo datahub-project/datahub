@@ -1,6 +1,7 @@
 import dataclasses
 import json
 import pathlib
+import random
 import sqlite3
 from dataclasses import dataclass
 from typing import Counter, Dict
@@ -53,6 +54,12 @@ def test_file_dict() -> None:
         cache["key-3"] = i
     assert cache["key-3"] == 99
     cache["key-3"] = 3
+
+    # Test in operator
+    assert "key-3" in cache
+    assert "key-99" in cache
+    assert "missing" not in cache
+    assert "missing" not in cache
 
     # Test deleting keys, in and out of cache
     del cache["key-0"]
@@ -155,21 +162,64 @@ def test_file_dict_stores_counter() -> None:
     )
 
     n = 5
+
+    # initialize
     in_memory_counters: Dict[int, Counter[str]] = {}
     for i in range(n):
         cache[str(i)] = Counter[str]()
         in_memory_counters[i] = Counter[str]()
-        for j in range(n):
-            if i == j:
-                cache[str(i)][str(j)] += 100
-                in_memory_counters[i][str(j)] += 100
-            cache[str(i)][str(j)] += j
+
+    # increment the counters
+    increments = [(i, j) for i in range(n) for j in range(n)]
+    random.shuffle(increments)
+    for i, j in increments:
+        if i == j:
+            cache[str(i)][str(j)] += 100 + j
             cache.mark_dirty(str(i))
+            in_memory_counters[i][str(j)] += 100 + j
+        else:
+            cache.for_mutation(str(i))[str(j)] += j
             in_memory_counters[i][str(j)] += j
 
     for i in range(n):
         assert in_memory_counters[i] == cache[str(i)]
         assert in_memory_counters[i].most_common(2) == cache[str(i)].most_common(2)
+
+
+def test_file_dict_ordering() -> None:
+    """
+    We require that FileBackedDict maintains insertion order, similar to Python's
+    built-in dict. This test makes one of each and validates that they behave the same.
+    """
+
+    cache = FileBackedDict[int](
+        serializer=str,
+        deserializer=int,
+        cache_max_size=1,
+    )
+    data = {}
+
+    num_items = 14
+
+    for i in range(num_items):
+        cache[str(i)] = i
+        data[str(i)] = i
+
+    assert list(cache.items()) == list(data.items())
+
+    # Try some deletes.
+    for i in range(3, num_items, 3):
+        del cache[str(i)]
+        del data[str(i)]
+
+    assert list(cache.items()) == list(data.items())
+
+    # And some updates + inserts.
+    for i in range(2, num_items, 2):
+        cache[str(i)] = i * 10
+        data[str(i)] = i * 10
+
+    assert list(cache.items()) == list(data.items())
 
 
 @dataclass

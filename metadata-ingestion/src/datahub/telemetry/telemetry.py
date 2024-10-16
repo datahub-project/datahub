@@ -13,9 +13,11 @@ from mixpanel import Consumer, Mixpanel
 from typing_extensions import ParamSpec
 
 import datahub as datahub_package
-from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER, get_boolean_env_variable
+from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import ExceptionWithProps
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import _custom_package_path
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -87,6 +89,10 @@ CI_ENV_VARS = {
 
 # disable when running in any CI
 if any(var in os.environ for var in CI_ENV_VARS):
+    ENV_ENABLED = False
+
+# Also disable if a custom metadata model package is in use.
+if _custom_package_path:
     ENV_ENABLED = False
 
 TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
@@ -168,7 +174,7 @@ class Telemetry:
                         indent=2,
                     )
                 return True
-            except IOError as x:
+            except OSError as x:
                 if x.errno == errno.ENOENT:
                     logger.debug(
                         f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder."
@@ -209,12 +215,12 @@ class Telemetry:
         """
 
         try:
-            with open(CONFIG_FILE, "r") as f:
+            with open(CONFIG_FILE) as f:
                 config = json.load(f)
                 self.client_id = config["client_id"]
                 self.enabled = config["enabled"] & ENV_ENABLED
                 return True
-        except IOError as x:
+        except OSError as x:
             if x.errno == errno.ENOENT:
                 logger.debug(
                     f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder."
@@ -277,7 +283,7 @@ class Telemetry:
         if not self.enabled or self.mp is None or self.tracking_init is True:
             return
 
-        logger.debug("Sending init Telemetry")
+        logger.debug("Sending init telemetry")
         try:
             self.mp.people_set(
                 self.client_id,
@@ -304,13 +310,21 @@ class Telemetry:
         if not self.enabled or self.mp is None:
             return
 
+        properties = properties or {}
+
         # send event
         try:
-            logger.debug(f"Sending telemetry for {event_name}")
+            if event_name == "function-call":
+                logger.debug(
+                    f"Sending telemetry for {event_name} {properties.get('function')}, status {properties.get('status')}"
+                )
+            else:
+                logger.debug(f"Sending telemetry for {event_name}")
+
             properties = {
                 **_default_telemetry_properties(),
                 **self._server_props(server),
-                **(properties or {}),
+                **properties,
             }
             self.mp.track(self.client_id, event_name, properties)
         except Exception as e:
@@ -329,7 +343,7 @@ class Telemetry:
                     "serverType", "missing"
                 ),
                 "server_version": server.server_config.get("versions", {})
-                .get("linkedin/datahub", {})
+                .get("acryldata/datahub", {})
                 .get("version", "missing"),
                 "server_id": server.server_id or "missing",
             }

@@ -67,14 +67,17 @@ function MoveDomainModal(props: Props) {
     return (
         <Modal
             title="Move"
-            visible
+            data-testid="move-domain-modal"
+            open
             onCancel={onClose}
             footer={
                 <>
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={moveDomain}>Move</Button>
+                    <Button onClick={moveDomain} data-testid="move-domain-modal-move-button">
+                        Move
+                    </Button>
                 </>
             }
         >

@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Schema History
+# Schema History
 
 <FeatureAvailability/>
 

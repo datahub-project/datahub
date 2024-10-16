@@ -4,9 +4,9 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import java.util.function.Function;
-
 
 // Do we need SQL-tech specific migration paths?
 public class DeleteAspectTableStep implements UpgradeStep {
@@ -34,11 +34,9 @@ public class DeleteAspectTableStep implements UpgradeStep {
         _server.execute(_server.sqlUpdate("DROP TABLE IF EXISTS metadata_aspect;"));
       } catch (Exception e) {
         context.report().addLine("Failed to delete data from legacy table metadata_aspect", e);
-        return new DefaultUpgradeStepResult(
-            id(),
-            UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 }

@@ -1,0 +1,38 @@
+id: test-registry-3
+entities: []
+plugins:
+  aspectPayloadValidators:
+    - className: 'com.linkedin.metadata.aspect.plugins.validation.ValidatorPluginTest$TestValidator'
+      enabled: false
+      supportedOperations:
+        - DELETE
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: status
+  mutationHooks:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationPluginTest$TestMutator'
+      enabled: false
+      supportedOperations:
+        - UPSERT
+        - DELETE
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: schemaMetadata
+  mclSideEffects:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffectTest$TestMCLSideEffect'
+      enabled: false
+      supportedOperations:
+        - UPSERT
+        - DELETE
+      supportedEntityAspectNames:
+        - entityName: chart
+          aspectName: chartInfo
+  mcpSideEffects:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffectTest$TestMCPSideEffect'
+      enabled: false
+      supportedOperations:
+        - UPSERT
+        - DELETE
+      supportedEntityAspectNames:
+        - entityName: dataset
+          aspectName: datasetKey

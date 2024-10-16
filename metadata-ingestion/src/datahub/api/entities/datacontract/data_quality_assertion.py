@@ -1,10 +1,11 @@
 from typing import List, Optional, Union
 
-import pydantic
 from typing_extensions import Literal
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
+from datahub.api.entities.datacontract.assertion import BaseAssertion
+from datahub.api.entities.datacontract.assertion_operator import Operators
+from datahub.configuration.pydantic_migration_helpers import v1_ConfigModel, v1_Field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -14,13 +15,16 @@ from datahub.metadata.schema_classes import (
     AssertionStdParametersClass,
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
+    AssertionValueChangeTypeClass,
     DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
+    SqlAssertionInfoClass,
+    SqlAssertionTypeClass,
 )
 
 
-class IdConfigMixin(ConfigModel):
-    id_raw: Optional[str] = pydantic.Field(
+class IdConfigMixin(BaseAssertion):
+    id_raw: Optional[str] = v1_Field(
         default=None,
         alias="id",
         description="The id of the assertion. If not provided, one will be generated using the type.",
@@ -30,25 +34,32 @@ class IdConfigMixin(ConfigModel):
         raise NotImplementedError
 
 
-class CustomSQLAssertion(IdConfigMixin, ConfigModel):
+class CustomSQLAssertion(IdConfigMixin, BaseAssertion):
     type: Literal["custom_sql"]
-
     sql: str
+    operator: Operators = v1_Field(discriminator="type")
 
-    def generate_dataset_assertion_info(
-        self, entity_urn: str
-    ) -> DatasetAssertionInfoClass:
-        return DatasetAssertionInfoClass(
-            dataset=entity_urn,
-            scope=DatasetAssertionScopeClass.UNKNOWN,
-            fields=[],
-            operator=AssertionStdOperatorClass._NATIVE_,
-            aggregation=AssertionStdAggregationClass._NATIVE_,
-            logic=self.sql,
+    def generate_default_id(self) -> str:
+        return f"{self.type}-{self.sql}-{self.operator.id()}"
+
+    def generate_assertion_info(self, entity_urn: str) -> AssertionInfoClass:
+        sql_assertion_info = SqlAssertionInfoClass(
+            entity=entity_urn,
+            statement=self.sql,
+            operator=self.operator.operator,
+            parameters=self.operator.generate_parameters(),
+            # TODO: Support other types of assertions
+            type=SqlAssertionTypeClass.METRIC,
+            changeType=AssertionValueChangeTypeClass.ABSOLUTE,
+        )
+        return AssertionInfoClass(
+            type=AssertionTypeClass.SQL,
+            sqlAssertion=sql_assertion_info,
+            description=self.description,
         )
 
 
-class ColumnUniqueAssertion(IdConfigMixin, ConfigModel):
+class ColumnUniqueAssertion(IdConfigMixin, BaseAssertion):
     type: Literal["unique"]
 
     # TODO: support multiple columns?
@@ -57,10 +68,8 @@ class ColumnUniqueAssertion(IdConfigMixin, ConfigModel):
     def generate_default_id(self) -> str:
         return f"{self.type}-{self.column}"
 
-    def generate_dataset_assertion_info(
-        self, entity_urn: str
-    ) -> DatasetAssertionInfoClass:
-        return DatasetAssertionInfoClass(
+    def generate_assertion_info(self, entity_urn: str) -> AssertionInfoClass:
+        dataset_assertion_info = DatasetAssertionInfoClass(
             dataset=entity_urn,
             scope=DatasetAssertionScopeClass.DATASET_COLUMN,
             fields=[builder.make_schema_field_urn(entity_urn, self.column)],
@@ -72,13 +81,18 @@ class ColumnUniqueAssertion(IdConfigMixin, ConfigModel):
                 )
             ),
         )
+        return AssertionInfoClass(
+            type=AssertionTypeClass.DATASET,
+            datasetAssertion=dataset_assertion_info,
+            description=self.description,
+        )
 
 
-class DataQualityAssertion(ConfigModel):
+class DataQualityAssertion(v1_ConfigModel):
     __root__: Union[
         CustomSQLAssertion,
         ColumnUniqueAssertion,
-    ] = pydantic.Field(discriminator="type")
+    ] = v1_Field(discriminator="type")
 
     @property
     def id(self) -> str:
@@ -92,16 +106,9 @@ class DataQualityAssertion(ConfigModel):
     def generate_mcp(
         self, assertion_urn: str, entity_urn: str
     ) -> List[MetadataChangeProposalWrapper]:
-        dataset_assertion_info = self.__root__.generate_dataset_assertion_info(
-            entity_urn
-        )
-
         return [
             MetadataChangeProposalWrapper(
                 entityUrn=assertion_urn,
-                aspect=AssertionInfoClass(
-                    type=AssertionTypeClass.DATASET,
-                    datasetAssertion=dataset_assertion_info,
-                ),
+                aspect=self.__root__.generate_assertion_info(entity_urn),
             )
         ]

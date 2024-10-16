@@ -29,6 +29,13 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 > Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information.
 
 </TabItem>
+<TabItem value="java" label="Java">
+
+```java
+{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetAdd.java show_path_as_comment }}
+```
+
+</TabItem>
 <TabItem value="python" label="Python" default>
 
 ```python

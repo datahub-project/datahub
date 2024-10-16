@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Tuple
 import pydantic
 import pytest
 
-from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.elastic_search import (
     CollapseUrns,
     ElasticsearchSourceConfig,
@@ -19,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def test_elasticsearch_throws_error_wrong_operation_config():
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(pydantic.ValidationError):
         ElasticsearchSourceConfig.parse_obj(
             {
                 "profiling": {

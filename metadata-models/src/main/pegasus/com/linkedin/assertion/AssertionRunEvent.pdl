@@ -39,12 +39,7 @@ record AssertionRunEvent {
   * The status of the assertion run as per this timeseries event.
   */
   @TimeseriesField = {}
-  status: enum AssertionRunStatus {
-    /**
-     * The Assertion Run has completed
-     */
-    COMPLETE
-  }
+  status: AssertionRunStatus
 
   /**
   * Results of assertion, present if the status is COMPLETE

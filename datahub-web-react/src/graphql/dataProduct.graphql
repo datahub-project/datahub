@@ -1,6 +1,22 @@
 query getDataProduct($urn: String!) {
     dataProduct(urn: $urn) {
+        urn
+        type
         ...dataProductFields
+        privileges {
+            ...entityPrivileges
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
     }
 }
 

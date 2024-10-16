@@ -1,8 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.policy;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.PolicyUpdateInput;
 import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyUpdateInputInfoMapper;
@@ -15,10 +19,6 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-
 
 public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<String>> {
 
@@ -38,17 +38,20 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
     if (PolicyAuthUtils.canManagePolicies(context)) {
 
       final Optional<String> policyUrn = Optional.ofNullable(environment.getArgument("urn"));
-      final PolicyUpdateInput input = bindArgument(environment.getArgument("input"), PolicyUpdateInput.class);
+      final PolicyUpdateInput input =
+          bindArgument(environment.getArgument("input"), PolicyUpdateInput.class);
 
       // Finally, create the MetadataChangeProposal.
       final MetadataChangeProposal proposal;
 
-      final DataHubPolicyInfo info = PolicyUpdateInputInfoMapper.map(input);
+      final DataHubPolicyInfo info = PolicyUpdateInputInfoMapper.map(context, input);
       info.setLastUpdatedTimestamp(System.currentTimeMillis());
 
       if (policyUrn.isPresent()) {
         // Update existing policy
-        proposal = buildMetadataChangeProposalWithUrn(Urn.createFromString(policyUrn.get()), POLICY_INFO_ASPECT_NAME, info);
+        proposal =
+            buildMetadataChangeProposalWithUrn(
+                Urn.createFromString(policyUrn.get()), POLICY_INFO_ASPECT_NAME, info);
       } else {
         // Create new policy
         // Since we are creating a new Policy, we need to generate a unique UUID.
@@ -58,21 +61,31 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
         // Create the Policy key.
         final DataHubPolicyKey key = new DataHubPolicyKey();
         key.setId(uuidStr);
-        proposal = buildMetadataChangeProposalWithKey(key, POLICY_ENTITY_NAME, POLICY_INFO_ASPECT_NAME, info);
+        proposal =
+            buildMetadataChangeProposalWithKey(
+                key, POLICY_ENTITY_NAME, POLICY_INFO_ASPECT_NAME, info);
       }
 
-      return CompletableFuture.supplyAsync(() -> {
-        try {
-          String urn = _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
-          if (context.getAuthorizer() instanceof AuthorizerChain) {
-            ((AuthorizerChain) context.getAuthorizer()).getDefaultAuthorizer().invalidateCache();
-          }
-          return urn;
-        } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
-        }
-      });
+      return GraphQLConcurrencyUtils.supplyAsync(
+          () -> {
+            try {
+              String urn =
+                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+              if (context.getAuthorizer() instanceof AuthorizerChain) {
+                ((AuthorizerChain) context.getAuthorizer())
+                    .getDefaultAuthorizer()
+                    .invalidateCache();
+              }
+              return urn;
+            } catch (Exception e) {
+              throw new RuntimeException(
+                  String.format("Failed to perform update against input %s", input), e);
+            }
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    throw new AuthorizationException(
+        "Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 }

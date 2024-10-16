@@ -11,7 +11,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "Status": "published",
+                            "IsPublished": "true",
+                            "Owners": "test_username_1, test_username_2",
+                            "IsCertified": "true",
+                            "CertifiedBy": "Certification team",
+                            "CertificationDetails": "Approved"
+                        },
                         "title": "test_dashboard_title_1",
                         "description": "",
                         "charts": [
@@ -21,8 +28,8 @@
                         "datasets": [],
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -37,7 +44,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-test"
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -52,7 +60,12 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "Status": "draft",
+                            "IsPublished": "false",
+                            "Owners": "unknown",
+                            "IsCertified": "false"
+                        },
                         "title": "test_dashboard_title_2",
                         "description": "",
                         "charts": [
@@ -62,8 +75,8 @@
                         "datasets": [],
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -78,7 +91,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-test"
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -102,8 +116,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -124,7 +138,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-test"
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -148,8 +163,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -170,7 +185,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-test"
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -194,8 +210,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -216,7 +232,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-test"
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -240,8 +257,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -262,7 +279,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-test"
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

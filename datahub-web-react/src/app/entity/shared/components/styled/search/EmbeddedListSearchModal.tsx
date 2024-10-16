@@ -72,7 +72,7 @@ export const EmbeddedListSearchModal = ({
             style={modalStyle}
             bodyStyle={modalBodyStyle}
             title={title}
-            visible
+            open
             onCancel={onClose}
             footer={<Button onClick={onClose}>Close</Button>}
         >

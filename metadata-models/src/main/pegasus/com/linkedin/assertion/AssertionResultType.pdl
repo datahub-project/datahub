@@ -1,0 +1,23 @@
+namespace com.linkedin.assertion
+
+/**
+*  The final result of evaluating an assertion, e.g. SUCCESS, FAILURE, or ERROR.
+*/
+enum AssertionResultType {
+  /**
+  *  The Assertion has not yet been fully evaluated
+  */
+  INIT
+  /**
+  *  The Assertion Succeeded
+  */
+  SUCCESS
+  /**
+  *  The Assertion Failed
+  */
+  FAILURE
+  /**
+  *  The Assertion encountered an Error
+  */
+  ERROR
+}

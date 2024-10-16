@@ -28,6 +28,21 @@ class HiveColumnToAvroConverter:
         "bigint": "long",
         "varchar": "string",
         "char": "string",
+        "long": "long",
+        "bytes": "bytes",
+    }
+    _EXTRA_BIGQUERY_TYPE_TO_AVRO_TYPE = {
+        # A few extra types, purely to map BigQuery things correctly.
+        "bool": "boolean",
+        "decimal": "double",
+        "numeric": "int",
+        "bignumeric": "long",
+        "bigdecimal": "double",
+        "float64": "double",
+        "int64": "long",
+        "smallint": "int",
+        "tinyint": "int",
+        "byteint": "int",
     }
 
     _COMPLEX_TYPE = re.compile("^(struct|map|array|uniontype)")
@@ -57,10 +72,8 @@ class HiveColumnToAvroConverter:
             parts = HiveColumnToAvroConverter._ignore_brackets_split(s[4:-1], ",")
             if len(parts) != 2:
                 raise ValueError(
-                    (
-                        "The map type string format is: 'map<key_type,value_type>', "
-                        + f"but got: {s}"
-                    )
+                    "The map type string format is: 'map<key_type,value_type>', "
+                    + f"but got: {s}"
                 )
 
             kt = HiveColumnToAvroConverter._parse_datatype_string(parts[0])
@@ -112,10 +125,8 @@ class HiveColumnToAvroConverter:
             )
             if len(name_and_type) != 2:
                 raise ValueError(
-                    (
-                        "The struct field string format is: 'field_name:field_type', "
-                        + f"but got: {part}"
-                    )
+                    "The struct field string format is: 'field_name:field_type', "
+                    + f"but got: {part}"
                 )
 
             field_name = name_and_type[0].strip()
@@ -180,10 +191,16 @@ class HiveColumnToAvroConverter:
                 "native_data_type": s,
                 "_nullable": True,
             }
-        elif s == "timestamp":
+        elif s in {"timestamp", "datetime"}:
             return {
                 "type": "int",
                 "logicalType": "timestamp-millis",
+                "native_data_type": s,
+                "_nullable": True,
+            }
+        elif s in HiveColumnToAvroConverter._EXTRA_BIGQUERY_TYPE_TO_AVRO_TYPE:
+            return {
+                "type": HiveColumnToAvroConverter._EXTRA_BIGQUERY_TYPE_TO_AVRO_TYPE[s],
                 "native_data_type": s,
                 "_nullable": True,
             }

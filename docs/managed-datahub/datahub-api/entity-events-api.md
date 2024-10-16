@@ -346,6 +346,70 @@ This event is emitted when an existing owner has been removed from an entity on 
 }
 ```
 
+### Add Description Event
+
+This event is emitted when a description has been added to an entity on DataHub.
+
+#### Header
+
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>DOCUMENTATION</td><td>ADD</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>dataFlow</code> , <code>container</code>, <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code>, <code>schemaField</code></td><td></td></tr></tbody></table>
+
+#### Parameters
+
+| Name        | Type   | Description                                                                                                  | Optional |
+|-------------| ------ |--------------------------------------------------------------------------------------------------------------| -------- |
+| description | String | The description that has been added.                                                                         | False    |
+
+#### Sample Event
+
+```
+{
+  "entityUrn": "urn:li:dataset:abc",
+  "entityType": "dataset",
+  "category": "DOCUMENTATION",
+  "operation": "ADD",
+  "parameters": {
+    "description": "This is a new description"
+  },
+  "auditStamp": {
+    "actor": "urn:li:corpuser:jdoe",
+    "time": 1706646452982
+  }
+}
+```
+
+### Remove Description Event
+
+This event is emitted when an existing description has been removed from an entity on DataHub.
+
+#### Header
+
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>DOCUMENTATION</td><td>REMOVE</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>container</code> ,<code>dataFlow</code> , <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code>, <code>schemaField</code></td><td></td></tr></tbody></table>
+
+#### Parameters
+
+| Name        | Type   | Description                            | Optional |
+|-------------| ------ |----------------------------------------| -------- |
+| description | String | The description that has been removed. | False    |
+
+#### Sample Event
+
+```
+{
+  "entityUrn": "urn:li:dataset:abc",
+  "entityType": "dataset",
+  "category": "DOCUMENTATION",
+  "operation": "REMOVE",
+  "parameters": {
+    "description": "This is the removed description"
+  },
+  "auditStamp": {
+    "actor": "urn:li:corpuser:jdoe",
+    "time": 1706646452982
+  }
+}
+```
+
 ### Modify Deprecation Event
 
 This event is emitted when the deprecation status of an entity has been modified on DataHub.
@@ -563,7 +627,7 @@ This event is emitted when an Assertion has been run has succeeded on DataHub.
   "parameters": {
     "runResult": "SUCCESS",
     "runId": "123",
-    "aserteeUrn": "urn:li:dataset:def"
+    "asserteeUrn": "urn:li:dataset:def"
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
@@ -802,6 +866,38 @@ These are the common parameters for all parameters.
   "parameters": {
     "actionRequestStatus": "COMPLETED",
     "actionRequestResult": "ACCEPTED"
+  },
+  "auditStamp": {
+    "actor": "urn:li:corpuser:jdoe",
+    "time": 1649953100653   
+  }
+}
+```
+
+### Incident Change Event
+
+This event is emitted when an Incident has been created or it's status changes.
+
+#### Header
+
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>INCIDENT</td><td><code>ACTIVE, </code><code>RESOLVED</code></td><td><code>incident</code></td><td></td></tr></tbody></table>
+
+#### Parameters
+
+| Name         | Type   | Description                                       | Optional |
+|--------------| ------ |---------------------------------------------------| -------- |
+| entities     | String | The list of entities associated with the incident | False    |
+
+#### Sample Event
+
+```
+{
+  "entityUrn": "urn:li:incident:16ff200a-0ac5-4a7d-bbab-d4bdb4f831f9",
+  "entityType": "incident",
+  "category": "INCIDENT",
+  "operation": "ACTIVE",
+  "parameters": {
+    "entities": "[urn:li:dataset:abc, urn:li:dataset:abc2]",
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",

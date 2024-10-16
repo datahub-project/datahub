@@ -22,6 +22,7 @@ import {
 import useSidebarAnalytics from './useSidebarAnalytics';
 import EntityLink from './EntityLink';
 import { EntityType } from '../../../types.generated';
+import { SortBy, useSort } from './useSort';
 
 const FolderStyled = styled(FolderOutlined)`
     font-size: 16px;
@@ -34,7 +35,11 @@ const Count = styled(Typography.Text)`
     padding-right: 2px;
 `;
 
-const BrowseNode = () => {
+interface EntityNodeProps {
+    sortBy: string;
+}
+
+const BrowseNode: React.FC<EntityNodeProps> = ({ sortBy }) => {
     const isBrowsePathPrefix = useIsBrowsePathPrefix();
     const isBrowsePathSelected = useIsBrowsePathSelected();
     const onSelectBrowsePath = useOnSelectBrowsePath();
@@ -71,6 +76,8 @@ const BrowseNode = () => {
 
     const color = '#000';
 
+    const sortedGroups = useSort(groups, sortBy as SortBy);
+
     return (
         <ExpandableNode
             isOpen={isOpen && !isClosing && loaded}
@@ -105,7 +112,7 @@ const BrowseNode = () => {
             }
             body={
                 <ExpandableNode.Body>
-                    {groups.map((group) => (
+                    {sortedGroups.map((group) => (
                         <BrowseProvider
                             key={group.name}
                             entityAggregation={entityAggregation}
@@ -114,7 +121,7 @@ const BrowseNode = () => {
                             browseResultGroup={group}
                             parentPath={path}
                         >
-                            <BrowseNode />
+                            <BrowseNode sortBy={sortBy} />
                         </BrowseProvider>
                     ))}
                     {error && <SidebarLoadingError onClickRetry={retry} />}

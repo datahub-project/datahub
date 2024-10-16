@@ -1,4 +1,4 @@
-import { ProvidedZoom, TransformMatrix } from '@vx/zoom/lib/types';
+import { ProvidedZoom, TransformMatrix } from '@visx/zoom/lib/types';
 import React, { SVGProps, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -10,12 +10,12 @@ import constructTree from './utils/constructTree';
 type Props = {
     margin: { top: number; right: number; bottom: number; left: number };
     entityAndType?: EntityAndType | null;
-    fetchedEntities: { [x: string]: FetchedEntity };
+    fetchedEntities: Map<string, FetchedEntity>;
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (data: EntityAndType) => void;
     selectedEntity?: EntitySelectParams;
-    zoom: ProvidedZoom & {
+    zoom: ProvidedZoom<any> & {
         transformMatrix: TransformMatrix;
         isDragging: boolean;
     };

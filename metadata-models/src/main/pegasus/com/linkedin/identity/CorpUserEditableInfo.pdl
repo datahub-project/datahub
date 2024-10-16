@@ -1,6 +1,7 @@
 namespace com.linkedin.identity
 
 import com.linkedin.common.Url
+import com.linkedin.common.Urn
 
 /**
  * Linkedin corp user information that can be edited from UI
@@ -55,6 +56,26 @@ record CorpUserEditableInfo {
    * DataHub-native Title, e.g. 'Software Engineer'
    */
   title: optional string
+
+  /**
+   * The platforms that the user commonly works with
+   */
+  @Relationship = {
+    "/*": {
+        "name": "IsUserOf",
+        "entityTypes": ["dataPlatform"]
+    }
+  }
+  platforms: optional array[Urn]
+
+  /**
+   * The user's persona type, based on their role
+   */
+  @Relationship = {
+     "name": "IsPersona",
+     "entityTypes": ["dataHubPersona"]
+  }
+  persona: optional Urn
 
   /**
    * Slack handle for the user

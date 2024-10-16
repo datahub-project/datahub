@@ -5,25 +5,25 @@ const correct_url = "https://www.linkedin.com";
 
 describe("edit documentation and link to dataset", () => {
   it("open test dataset page, edit documentation", () => {
-    //edit documentation and verify changes saved
+    // edit documentation and verify changes saved
     cy.loginWithCredentials();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema"
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema",
     );
-    cy.get("[role='tab']").contains("Documentation").click();
+    cy.openEntityTab("Documentation");
     cy.waitTextVisible("my hive dataset");
     cy.waitTextVisible("Sample doc");
-    cy.clickOptionWithText("Edit");
+    cy.clickOptionWithTestId("edit-documentation-button");
     cy.focused().clear();
     cy.focused().type(documentation_edited);
-    cy.get("button").contains("Save").click();
+    cy.clickOptionWithTestId("description-editor-save-button");
     cy.waitTextVisible("Description Updated");
     cy.waitTextVisible(documentation_edited);
-    //return documentation to original state
-    cy.clickOptionWithText("Edit");
+    // return documentation to original state
+    cy.clickOptionWithTestId("edit-documentation-button");
     cy.focused().clear().wait(1000);
     cy.focused().type("my hive dataset");
-    cy.get("button").contains("Save").click();
+    cy.clickOptionWithTestId("description-editor-save-button");
     cy.waitTextVisible("Description Updated");
     cy.waitTextVisible("my hive dataset");
   });
@@ -31,23 +31,23 @@ describe("edit documentation and link to dataset", () => {
   it("open test dataset page, remove and add dataset link", () => {
     cy.loginWithCredentials();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema"
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema",
     );
-    cy.get("[role='tab']").contains("Documentation").click();
+    cy.openEntityTab("Documentation");
     cy.contains("Sample doc").trigger("mouseover", { force: true });
     cy.get('[data-icon="delete"]').click();
     cy.waitTextVisible("Link Removed");
-    cy.get("button").contains("Add Link").click().wait(1000);
-    cy.get('[role="dialog"] #addLinkForm_url').type(wrong_url);
+    cy.clickOptionWithTestId("add-link-button").wait(1000);
+    cy.enterTextInTestId("add-link-modal-url", wrong_url);
     cy.waitTextVisible("This field must be a valid url.");
     cy.focused().clear();
     cy.waitTextVisible("A URL is required.");
-    cy.focused().type(correct_url);
+    cy.enterTextInTestId("add-link-modal-url", correct_url);
     cy.ensureTextNotPresent("This field must be a valid url.");
-    cy.get("#addLinkForm_label").type("Sample doc");
-    cy.get('[role="dialog"] button').contains("Add").click();
+    cy.enterTextInTestId("add-link-modal-label", "Sample doc");
+    cy.clickOptionWithTestId("add-link-modal-add-button");
     cy.waitTextVisible("Link Added");
-    cy.get("[role='tab']").contains("Documentation").click();
+    cy.openEntityTab("Documentation");
     cy.get(`[href='${correct_url}']`).should("be.visible");
   });
 
@@ -55,18 +55,18 @@ describe("edit documentation and link to dataset", () => {
     cy.loginWithCredentials();
     cy.visit("/domain/urn:li:domain:marketing/Entities");
     cy.waitTextVisible("SampleCypressKafkaDataset");
-    cy.get("button").contains("Add Link").click().wait(1000);
-    cy.get('[role="dialog"] #addLinkForm_url').type(wrong_url);
+    cy.clickOptionWithTestId("add-link-button").wait(1000);
+    cy.enterTextInTestId("add-link-modal-url", wrong_url);
     cy.waitTextVisible("This field must be a valid url.");
     cy.focused().clear();
     cy.waitTextVisible("A URL is required.");
-    cy.focused().type(correct_url);
+    cy.enterTextInTestId("add-link-modal-url", correct_url);
     cy.ensureTextNotPresent("This field must be a valid url.");
-    cy.get("#addLinkForm_label").type("Sample doc");
-    cy.get('[role="dialog"] button').contains("Add").click();
+    cy.enterTextInTestId("add-link-modal-label", "Sample doc");
+    cy.clickOptionWithTestId("add-link-modal-add-button");
     cy.waitTextVisible("Link Added");
-    cy.get("[role='tab']").contains("Documentation").click();
-    cy.waitTextVisible("Edit");
+    cy.openEntityTab("Documentation");
+    cy.get("[data-testid='edit-documentation-button']").should("be.visible");
     cy.get(`[href='${correct_url}']`).should("be.visible");
     cy.contains("Sample doc").trigger("mouseover", { force: true });
     cy.get('[data-icon="delete"]').click();
@@ -76,21 +76,22 @@ describe("edit documentation and link to dataset", () => {
   it("edit field documentation", () => {
     cy.loginWithCredentials();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema"
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema",
     );
-    cy.get("tbody [data-icon='edit']").first().click({ force: true });
+    cy.clickOptionWithText("field_foo");
+    cy.clickOptionWithTestId("edit-field-description");
     cy.waitTextVisible("Update description");
     cy.waitTextVisible("Foo field description has changed");
-    cy.focused().clear().wait(1000);
+    cy.getWithTestId("description-editor").clear().wait(1000);
     cy.focused().type(documentation_edited);
-    cy.get("button").contains("Update").click();
+    cy.clickOptionWithTestId("description-modal-update-button");
     cy.waitTextVisible("Updated!");
     cy.waitTextVisible(documentation_edited);
     cy.waitTextVisible("(edited)");
-    cy.get("tbody [data-icon='edit']").first().click({ force: true });
-    cy.focused().clear().wait(1000);
+    cy.clickOptionWithTestId("edit-field-description");
+    cy.getWithTestId("description-editor").clear().wait(1000);
     cy.focused().type("Foo field description has changed");
-    cy.get("button").contains("Update").click();
+    cy.clickOptionWithTestId("description-modal-update-button");
     cy.waitTextVisible("Updated!");
     cy.waitTextVisible("Foo field description has changed");
     cy.waitTextVisible("(edited)");

@@ -1,15 +1,19 @@
 import dataclasses
 import os
 import re
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union, cast
 
 import pydantic
+from looker_sdk.sdk.api40.models import DBConnection
 from pydantic import Field, validator
-from typing_extensions import ClassVar
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.configuration.source_common import DatasetSourceConfigMixin, EnvConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPIConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -56,11 +60,11 @@ class NamingPattern(ConfigModel):
 
         for v in variables:
             if v not in self.ALLOWED_VARS:
-                raise ConfigurationError(
+                raise ValueError(
                     f"Failed to find {v} in allowed_variables {self.ALLOWED_VARS}"
                 )
         if at_least_one and len(variables) == 0:
-            raise ConfigurationError(
+            raise ValueError(
                 f"Failed to find any variable assigned to pattern {self.pattern}. Must have at least one. {self.allowed_docstring()}"
             )
         return True
@@ -86,6 +90,7 @@ class NamingPatternMapping:
 @dataclasses.dataclass
 class ViewNamingPatternMapping(NamingPatternMapping):
     file_path: str
+    folder_path: str
 
 
 class LookerNamingPattern(NamingPattern):
@@ -98,35 +103,121 @@ class LookerViewNamingPattern(NamingPattern):
     ]
 
 
-class LookerCommonConfig(DatasetSourceConfigMixin):
+# TODO: deprecate browse_pattern configs
+class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
     explore_naming_pattern: LookerNamingPattern = pydantic.Field(
         description=f"Pattern for providing dataset names to explores. {LookerNamingPattern.allowed_docstring()}",
         default=LookerNamingPattern(pattern="{model}.explore.{name}"),
     )
     explore_browse_pattern: LookerNamingPattern = pydantic.Field(
         description=f"Pattern for providing browse paths to explores. {LookerNamingPattern.allowed_docstring()}",
-        default=LookerNamingPattern(pattern="/{env}/{platform}/{project}/explores"),
+        default=LookerNamingPattern(pattern="/Explore/{model}"),
     )
     view_naming_pattern: LookerViewNamingPattern = Field(
         LookerViewNamingPattern(pattern="{project}.view.{name}"),
         description=f"Pattern for providing dataset names to views. {LookerViewNamingPattern.allowed_docstring()}",
     )
     view_browse_pattern: LookerViewNamingPattern = Field(
-        LookerViewNamingPattern(pattern="/{env}/{platform}/{project}/views"),
+        LookerViewNamingPattern(pattern="/Develop/{project}/{folder_path}"),
         description=f"Pattern for providing browse paths to views. {LookerViewNamingPattern.allowed_docstring()}",
     )
+
+    _deprecate_explore_browse_pattern = pydantic_field_deprecated(
+        "explore_browse_pattern"
+    )
+    _deprecate_view_browse_pattern = pydantic_field_deprecated("view_browse_pattern")
+
     tag_measures_and_dimensions: bool = Field(
         True,
         description="When enabled, attaches tags to measures, dimensions and dimension groups to make them more "
         "discoverable. When disabled, adds this information to the description of the column.",
     )
     platform_name: str = Field(
-        "looker", description="Default platform name. Don't change."
+        # TODO: This shouldn't be part of the config.
+        "looker",
+        description="Default platform name.",
+        hidden_from_docs=True,
     )
     extract_column_level_lineage: bool = Field(
         True,
         description="When enabled, extracts column-level lineage from Views and Explores",
     )
+
+
+def _get_bigquery_definition(
+    looker_connection: DBConnection,
+) -> Tuple[str, Optional[str], Optional[str]]:
+    platform = "bigquery"
+    # bigquery project ids are returned in the host field
+    db = looker_connection.host
+    schema = looker_connection.database
+    return platform, db, schema
+
+
+def _get_generic_definition(
+    looker_connection: DBConnection, platform: Optional[str] = None
+) -> Tuple[str, Optional[str], Optional[str]]:
+    if platform is None:
+        # We extract the platform from the dialect name
+        dialect_name = looker_connection.dialect_name
+        assert dialect_name is not None
+        # generally the first part of the dialect name before _ is the name of the platform
+        # versions are encoded as numbers and can be removed
+        # e.g. spark1 or hive2 or druid_18
+        platform = re.sub(r"[0-9]+", "", dialect_name.split("_")[0])
+
+    assert (
+        platform is not None
+    ), f"Failed to extract a valid platform from connection {looker_connection}"
+    db = looker_connection.database
+    schema = looker_connection.schema  # ok for this to be None
+    return platform, db, schema
+
+
+class LookerConnectionDefinition(ConfigModel):
+    platform: str
+    default_db: str
+    default_schema: Optional[str]  # Optional since some sources are two-level only
+    platform_instance: Optional[str] = None
+    platform_env: Optional[str] = Field(
+        default=None,
+        description="The environment that the platform is located in. Leaving this empty will inherit defaults from "
+        "the top level Looker configuration",
+    )
+
+    @validator("platform_env")
+    def platform_env_must_be_one_of(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return EnvConfigMixin.env_must_be_one_of(v)
+        return v
+
+    @validator("platform", "default_db", "default_schema")
+    def lower_everything(cls, v):
+        """We lower case all strings passed in to avoid casing issues later"""
+        if v is not None:
+            return v.lower()
+
+    @classmethod
+    def from_looker_connection(
+        cls, looker_connection: DBConnection
+    ) -> "LookerConnectionDefinition":
+        """Dialect definitions are here: https://docs.looker.com/setup-and-management/database-config"""
+        extractors: Dict[str, Any] = {
+            "^bigquery": _get_bigquery_definition,
+            ".*": _get_generic_definition,
+        }
+
+        if looker_connection.dialect_name is None:
+            raise ConfigurationError(
+                f"Unable to fetch a fully filled out connection for {looker_connection.name}. Please check your API permissions."
+            )
+        for extractor_pattern, extracting_function in extractors.items():
+            if re.match(extractor_pattern, looker_connection.dialect_name):
+                (platform, db, schema) = extracting_function(looker_connection)
+                return cls(platform=platform, default_db=db, default_schema=schema)
+        raise ConfigurationError(
+            f"Could not find an appropriate platform for looker_connection: {looker_connection.name} with dialect: {looker_connection.dialect_name}"
+        )
 
 
 class LookerDashboardSourceConfig(
@@ -154,11 +245,6 @@ class LookerDashboardSourceConfig(
         description="When enabled, extracts ownership from Looker directly. When disabled, ownership is left empty "
         "for dashboards and charts.",
     )
-    actor: Optional[str] = Field(
-        None,
-        description="This config is deprecated in favor of `extract_owners`. Previously, was the actor to use in "
-        "ownership properties of ingested metadata.",
-    )
     strip_user_ids_from_email: bool = Field(
         False,
         description="When enabled, converts Looker user emails of the form name@domain.com to urn:li:corpuser:name "
@@ -170,7 +256,7 @@ class LookerDashboardSourceConfig(
         "ingest dashboards in the Shared folder space.",
     )
     max_threads: int = Field(
-        os.cpu_count() or 40,
+        default_factory=lambda: os.cpu_count() or 40,
         description="Max parallelism for Looker API calls. Defaults to cpuCount or 40",
     )
     external_base_url: Optional[str] = Field(
@@ -200,7 +286,26 @@ class LookerDashboardSourceConfig(
     )
     extract_independent_looks: bool = Field(
         False,
-        description="Extract looks which are not part of any Dashboard. To enable this flag the stateful_ingestion should also be enabled.",
+        description="Extract looks which are not part of any Dashboard. To enable this flag the stateful_ingestion "
+        "should also be enabled.",
+    )
+    emit_used_explores_only: bool = Field(
+        True,
+        description="When enabled, only explores that are used by a Dashboard/Look will be ingested.",
+    )
+    include_platform_instance_in_urns: bool = Field(
+        False,
+        description="When enabled, platform instance will be added in dashboard and chart urn.",
+    )
+
+    folder_path_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Allow or deny dashboards from specific folders. "
+        "For example: \n"
+        "deny: \n"
+        " - sales/deprecated \n"
+        "This pattern will deny the ingestion of all dashboards and looks within the sales/deprecated folder. \n"
+        "Dashboards will only be ingested if they're allowed by both this config and dashboard_pattern.",
     )
 
     @validator("external_base_url", pre=True, always=True)
@@ -213,7 +318,6 @@ class LookerDashboardSourceConfig(
     def stateful_ingestion_should_be_enabled(
         cls, v: Optional[bool], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
     ) -> Optional[bool]:
-
         stateful_ingestion: StatefulStaleMetadataRemovalConfig = cast(
             StatefulStaleMetadataRemovalConfig, values.get("stateful_ingestion")
         )

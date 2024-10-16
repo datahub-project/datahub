@@ -17,6 +17,7 @@ query getBrowseResults($input: BrowseInput!) {
                     description
                 }
                 editableProperties {
+                    name
                     description
                 }
                 platform {
@@ -126,6 +127,9 @@ query getBrowseResults($input: BrowseInput!) {
                 domain {
                     ...entityDomain
                 }
+                subTypes {
+                    typeNames
+                }
                 ...entityDataProduct
             }
             ... on DataFlow {
@@ -184,6 +188,9 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 domain {
                     ...entityDomain
+                }
+                subTypes {
+                    typeNames
                 }
                 ...entityDataProduct
             }

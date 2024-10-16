@@ -64,6 +64,51 @@ export const addSecretToListSecretsCache = (secret, client, pageSize) => {
     });
 };
 
+export const updateSecretInListSecretsCache = (updatedSecret, client, pageSize, page) => {
+    const currData: ListSecretsQuery | null = client.readQuery({
+        query: ListSecretsDocument,
+        variables: {
+            input: {
+                start: (page - 1) * pageSize,
+                count: pageSize,
+            },
+        },
+    });
+
+    const updatedSecretIndex = (currData?.listSecrets?.secrets || [])
+        .map((secret, index) => {
+            if (secret.urn === updatedSecret.urn) {
+                return index;
+            }
+            return -1;
+        })
+        .find((index) => index !== -1);
+
+    if (updatedSecretIndex !== undefined) {
+        const newSecrets = (currData?.listSecrets?.secrets || []).map((secret, index) => {
+            return index === updatedSecretIndex ? updatedSecret : secret;
+        });
+
+        client.writeQuery({
+            query: ListSecretsDocument,
+            variables: {
+                input: {
+                    start: (page - 1) * pageSize,
+                    count: pageSize,
+                },
+            },
+            data: {
+                listSecrets: {
+                    start: currData?.listSecrets?.start || 0,
+                    count: currData?.listSecrets?.count || 1,
+                    total: currData?.listSecrets?.total || 1,
+                    secrets: newSecrets,
+                },
+            },
+        });
+    }
+};
+
 export const clearSecretListCache = (client) => {
     // Remove any caching of 'listSecrets'
     client.cache.evict({ id: 'ROOT_QUERY', fieldName: 'listSecrets' });

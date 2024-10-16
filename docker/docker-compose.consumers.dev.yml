@@ -1,7 +1,6 @@
-version: '3.9'
 services:
   datahub-mae-consumer:
-    image: linkedin/datahub-mae-consumer:debug
+    image: acryldata/datahub-mae-consumer:debug
     build:
       context: ../
       dockerfile: docker/datahub-mae-consumer/Dockerfile
@@ -13,7 +12,7 @@ services:
     - ../metadata-jobs/mae-consumer-job/build/libs/:/datahub/datahub-mae-consumer/bin/
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
   datahub-mce-consumer:
-    image: linkedin/datahub-mce-consumer:debug
+    image: acryldata/datahub-mce-consumer:debug
     build:
       context: ../
       dockerfile: docker/datahub-mce-consumer/Dockerfile

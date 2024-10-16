@@ -1,7 +1,7 @@
 #!/bin/bash
 
 CURRENT_DIR=$(pwd)
-BUILD_DIR=../build/stage/playBinary
+BUILD_DIR=../build/stage/main
 CONF_DIR=$BUILD_DIR/conf
 
 set -a

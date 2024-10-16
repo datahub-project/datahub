@@ -1,13 +1,11 @@
 ---
-version: '3.5'
 services:
   ingestion:
     build:
       context: ../../
       dockerfile: docker/datahub-ingestion/Dockerfile
-    image: linkedin/datahub-ingestion:${DATAHUB_VERSION:-head}
+    image: acryldata/datahub-ingestion:${DATAHUB_VERSION:-head}
     hostname: ingestion
-    container_name: ingestion
     command: "ingest -c /sample_recipe.yml"
     volumes: 
       # Most of the config is embedded inside the sample recipe file.

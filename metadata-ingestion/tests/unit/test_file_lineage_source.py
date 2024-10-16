@@ -3,8 +3,8 @@ from typing import List
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
-from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.metadata.lineage import LineageConfig, _get_lineage_mcp
 from datahub.metadata.schema_classes import FineGrainedLineageClass, UpstreamClass
 
@@ -196,25 +196,25 @@ def test_basic_lineage_finegrained_upstream_urns(basic_mcp):
 def test_unsupported_entity_type():
     """
     Checks to see how we handle the case of unsupported entity types.
-    If validation is working correctly, it should raise a ConfigurationError
+    If validation is working correctly, it should raise a ValidationError
     """
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(ValidationError):
         unsupported_entity_type_mcp()
 
 
 def test_unsupported_upstream_entity_type():
     """
     Checks to see how invalid types work in the upstream node.
-    If validation is working correctly, it should raise a ConfigurationError
+    If validation is working correctly, it should raise a ValidationError
     """
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(ValidationError):
         unsupported_upstream_entity_type_mcp()
 
 
 def test_unsupported_entity_env():
     """
     Checks to see how invalid envs work.
-    If validation is working correctly, it should raise a ConfigurationError
+    If validation is working correctly, it should raise a ValidationError
     """
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(ValidationError):
         unsupported_entity_env_mcp()

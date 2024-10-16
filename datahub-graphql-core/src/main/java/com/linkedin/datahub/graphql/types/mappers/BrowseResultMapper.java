@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BrowseResultGroup;
 import com.linkedin.datahub.graphql.generated.BrowseResultMetadata;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
@@ -8,13 +9,13 @@ import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-
+import javax.annotation.Nullable;
 
 public class BrowseResultMapper {
-  private BrowseResultMapper() {
-  }
+  private BrowseResultMapper() {}
 
-  public static BrowseResults map(com.linkedin.metadata.browse.BrowseResult input) {
+  public static BrowseResults map(
+      @Nullable final QueryContext context, com.linkedin.metadata.browse.BrowseResult input) {
     final BrowseResults result = new BrowseResults();
 
     if (!input.hasFrom() || !input.hasPageSize() || !input.hasNumElements()) {
@@ -26,12 +27,15 @@ public class BrowseResultMapper {
     result.setTotal(input.getNumElements());
 
     final BrowseResultMetadata browseResultMetadata = new BrowseResultMetadata();
-    browseResultMetadata.setPath(BrowsePathMapper.map(input.getMetadata().getPath()).getPath());
+    browseResultMetadata.setPath(
+        BrowsePathMapper.map(context, input.getMetadata().getPath()).getPath());
     browseResultMetadata.setTotalNumEntities(input.getMetadata().getTotalNumEntities());
     result.setMetadata(browseResultMetadata);
 
     List<Entity> entities =
-        input.getEntities().stream().map(entity -> UrnToEntityMapper.map(entity.getUrn())).collect(Collectors.toList());
+        input.getEntities().stream()
+            .map(entity -> UrnToEntityMapper.map(context, entity.getUrn()))
+            .collect(Collectors.toList());
     result.setEntities(entities);
 
     List<BrowseResultGroup> groups =
@@ -41,7 +45,8 @@ public class BrowseResultMapper {
     return result;
   }
 
-  private static BrowseResultGroup mapGroup(@Nonnull final com.linkedin.metadata.browse.BrowseResultGroup group) {
+  private static BrowseResultGroup mapGroup(
+      @Nonnull final com.linkedin.metadata.browse.BrowseResultGroup group) {
     final BrowseResultGroup result = new BrowseResultGroup();
     result.setName(group.getName());
     result.setCount(group.getCount());

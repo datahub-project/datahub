@@ -14,7 +14,10 @@ from datahub.configuration.common import ExceptionWithProps
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
 MIN_MEMORY_NEEDED = 3.8  # GB
 
-DATAHUB_COMPOSE_PROJECT_FILTER = {"label": "com.docker.compose.project=datahub"}
+DOCKER_COMPOSE_PROJECT_NAME = os.getenv("DATAHUB_COMPOSE_PROJECT_NAME", "datahub")
+DATAHUB_COMPOSE_PROJECT_FILTER = {
+    "label": f"com.docker.compose.project={DOCKER_COMPOSE_PROJECT_NAME}"
+}
 
 DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS = [
     {"name": "datahub_neo4jdata"},
@@ -193,9 +196,14 @@ def check_docker_quickstart() -> QuickstartStatus:
             .labels.get("com.docker.compose.project.config_files")
             .split(",")
         )
+
+        # If using profiles, alternative check
+        if config_files and "/profiles/" in config_files[0]:
+            return check_docker_quickstart_profiles(client)
+
         all_containers = set()
         for config_file in config_files:
-            with open(config_file, "r") as config_file:
+            with open(config_file) as config_file:
                 all_containers.update(
                     yaml.safe_load(config_file).get("services", {}).keys()
                 )
@@ -232,5 +240,37 @@ def check_docker_quickstart() -> QuickstartStatus:
             container_statuses.append(
                 DockerContainerStatus(missing, ContainerStatus.MISSING)
             )
+
+    return QuickstartStatus(container_statuses)
+
+
+def check_docker_quickstart_profiles(client: docker.DockerClient) -> QuickstartStatus:
+    container_statuses: List[DockerContainerStatus] = []
+    containers = client.containers.list(
+        all=True,
+        filters={"label": "io.datahubproject.datahub.component=gms"},
+        # We can get race conditions between docker running up / recreating
+        # containers and our status checks.
+        ignore_removed=True,
+    )
+    if len(containers) == 0:
+        return QuickstartStatus([])
+
+    existing_containers = set()
+    # Check that the containers are running and healthy.
+    container: docker.models.containers.Container
+    for container in containers:
+        name = container.labels.get("com.docker.compose.service", container.name)
+        existing_containers.add(name)
+        status = ContainerStatus.OK
+        if container.status != "running":
+            status = ContainerStatus.DIED
+        elif "Health" in container.attrs["State"]:
+            if container.attrs["State"]["Health"]["Status"] == "starting":
+                status = ContainerStatus.STARTING
+            elif container.attrs["State"]["Health"]["Status"] != "healthy":
+                status = ContainerStatus.UNHEALTHY
+
+        container_statuses.append(DockerContainerStatus(name, status))
 
     return QuickstartStatus(container_statuses)

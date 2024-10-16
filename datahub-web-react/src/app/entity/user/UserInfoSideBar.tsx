@@ -1,5 +1,5 @@
 import { Divider, message, Space, Button, Typography, Tag } from 'antd';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { EntityRelationship, DataHubRole } from '../../../types.generated';
@@ -21,6 +21,7 @@ import {
 import EntityGroups from '../shared/EntityGroups';
 import { mapRoleIcon } from '../../identity/user/UserUtils';
 import { useUserContext } from '../../context/useUserContext';
+import { useBrowserTitle } from '../../shared/BrowserTabTitleContext';
 
 const { Paragraph } = Typography;
 
@@ -60,6 +61,23 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const me = useUserContext();
     const isProfileOwner = me?.user?.urn === urn;
+
+    const { updateTitle } = useBrowserTitle();
+
+    useEffect(() => {
+        // You can use the title and updateTitle function here
+        // For example, updating the title when the component mounts
+        if (name) {
+            updateTitle(`User | ${name}`);
+        }
+        // // Don't forget to clean up the title when the component unmounts
+        return () => {
+            if (name) {
+                // added to condition for rerendering issue
+                updateTitle('');
+            }
+        };
+    }, [name, updateTitle]);
 
     const getEditModalData = {
         urn,
@@ -156,7 +174,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
             </SideBar>
             {/* Modal */}
             <UserEditProfileModal
-                visible={editProfileModal}
+                open={editProfileModal}
                 onClose={() => showEditProfileModal(false)}
                 onSave={() => {
                     refetch();

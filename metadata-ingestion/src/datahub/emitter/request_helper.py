@@ -25,4 +25,4 @@ def make_curl_command(
         ),
         url,
     ]
-    return " ".join(shlex.quote(fragment) for fragment in fragments)
+    return shlex.join(fragments)

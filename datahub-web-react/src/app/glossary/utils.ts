@@ -1,4 +1,5 @@
-import { EntityType } from '../../types.generated';
+import { Entity, EntityType } from '../../types.generated';
+import EntityRegistry from '../entity/EntityRegistry';
 import { GenericEntityProperties } from '../entity/shared/types';
 
 export const ROOT_NODES = 'rootNodes';
@@ -24,4 +25,9 @@ export function updateGlossarySidebar(
     setUrnsToUpdate: (updatdUrns: string[]) => void,
 ) {
     setUrnsToUpdate([...urnsToUpdate, ...parentNodesToUpdate]);
+}
+
+export function getParentGlossary<T extends Entity>(node: T, entityRegistry: EntityRegistry) {
+    const props = entityRegistry.getGenericEntityProperties(EntityType.GlossaryNode, node);
+    return props?.parentNodes?.nodes ?? [];
 }

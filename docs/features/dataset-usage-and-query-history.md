@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Dataset Usage & Query History
+# Dataset Usage & Query History
 
 <FeatureAvailability/>
 
@@ -74,4 +74,4 @@ With the collected usage data, you can even see column-level usage statistics (R
 
 Queries/Stats tab is greyed out if there is no usage statistics for that dataset or there were no ingestion with usage extraction run before.
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+

@@ -20,7 +20,9 @@ import {
     HOME_PAGE_MOST_POPULAR_ID,
     HOME_PAGE_PLATFORMS_ID,
 } from '../onboarding/config/HomePageOnboardingConfig';
-import { useUpdateEducationStepIdsAllowlist } from '../onboarding/useUpdateEducationStepIdsAllowlist';
+import { useToggleEducationStepIdsAllowList } from '../onboarding/useToggleEducationStepIdsAllowList';
+import { useBusinessAttributesFlag } from '../useAppConfig';
+import { useUserContext } from '../context/useUserContext';
 
 const PLATFORMS_MODULE_ID = 'Platforms';
 const MOST_POPULAR_MODULE_ID = 'HighUsageEntities';
@@ -104,12 +106,18 @@ export const HomePageRecommendations = ({ user }: Props) => {
     const browseEntityList = entityRegistry.getBrowseEntityTypes();
     const userUrn = user?.urn;
 
+    const userContext = useUserContext();
+    const viewUrn = userContext.localState?.selectedViewUrn;
+
+    const businessAttributesFlag = useBusinessAttributesFlag();
+
     const showSimplifiedHomepage = user?.settings?.appearance?.showSimplifiedHomepage;
 
     const { data: entityCountData } = useGetEntityCountsQuery({
         variables: {
             input: {
                 types: browseEntityList,
+                viewUrn,
             },
         },
     });
@@ -130,6 +138,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                     scenario,
                 },
                 limit: 10,
+                viewUrn,
             },
         },
         fetchPolicy: 'no-cache',
@@ -147,15 +156,15 @@ export const HomePageRecommendations = ({ user }: Props) => {
 
     // Render domain onboarding step if the domains module exists
     const hasDomains = !!domainRecommendationModule;
-    useUpdateEducationStepIdsAllowlist(hasDomains, HOME_PAGE_DOMAINS_ID);
+    useToggleEducationStepIdsAllowList(hasDomains, HOME_PAGE_DOMAINS_ID);
 
     // Render platforms onboarding step if the platforms module exists
     const hasPlatforms = !!recommendationModules?.some((module) => module?.moduleId === PLATFORMS_MODULE_ID);
-    useUpdateEducationStepIdsAllowlist(hasPlatforms, HOME_PAGE_PLATFORMS_ID);
+    useToggleEducationStepIdsAllowList(hasPlatforms, HOME_PAGE_PLATFORMS_ID);
 
     // Render most popular onboarding step if the most popular module exists
     const hasMostPopular = !!recommendationModules?.some((module) => module?.moduleId === MOST_POPULAR_MODULE_ID);
-    useUpdateEducationStepIdsAllowlist(hasMostPopular, HOME_PAGE_MOST_POPULAR_ID);
+    useToggleEducationStepIdsAllowList(hasMostPopular, HOME_PAGE_MOST_POPULAR_ID);
 
     return (
         <RecommendationsContainer>
@@ -182,7 +191,21 @@ export const HomePageRecommendations = ({ user }: Props) => {
                             {orderedEntityCounts.map(
                                 (entityCount) =>
                                     entityCount &&
-                                    entityCount.count !== 0 && (
+                                    entityCount.count !== 0 &&
+                                    entityCount.entityType !== EntityType.BusinessAttribute && (
+                                        <BrowseEntityCard
+                                            key={entityCount.entityType}
+                                            entityType={entityCount.entityType}
+                                            count={entityCount.count}
+                                        />
+                                    ),
+                            )}
+                            {orderedEntityCounts.map(
+                                (entityCount) =>
+                                    entityCount &&
+                                    entityCount.count !== 0 &&
+                                    entityCount.entityType === EntityType.BusinessAttribute &&
+                                    businessAttributesFlag && (
                                         <BrowseEntityCard
                                             key={entityCount.entityType}
                                             entityType={entityCount.entityType}

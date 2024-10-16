@@ -1,0 +1,112 @@
+version: 1
+source: DataHub
+owners:
+  users:
+    - mjames
+url: "https://github.com/datahub-project/datahub/"
+nodes:
+  - name: E-Commerce Business Glossary
+    description: "E-Commerce Business Glossary"
+    nodes:
+    - name: Customer
+      description: "A person or entity who purchases products or services from the e-commerce platform."
+      terms:
+        - name: User
+          description: "An individual who interacts with the e-commerce website or application, including both customers and visitors."
+          inherits:
+            - Classification.Confidential
+          custom_properties:
+            is_confidential: true
+        - name: Account
+          description: "A registered user's profile on the e-commerce platform, which includes personal information, order history, and preferences."
+          domain: Customer Success
+          inherits:
+            - Classification.Confidential
+          custom_properties:
+            is_confidential: true
+    - name: Product
+      description: "Items or services available for sale on the e-commerce platform."
+      owners:
+        users:
+          - mjames
+      terms:
+        - name: SKU
+          description: "A unique identifier assigned to each product to track inventory and sales."
+          owners:
+            groups:
+              - categoryManagement
+        - name: Inventory
+          description: "The quantity of products available for sale."
+        - name: Product Description
+          description: "Information about a product, including specifications, features, and usage instructions."
+    - name: Order
+      description: "A request made by a customer to purchase one or more products."
+      owners:
+        users:
+          - njones
+        groups:
+          - logistics
+      terms:
+        - name: Cart
+          description: "A virtual container where customers can add products before proceeding to checkout."
+          contains:
+            - Shipping.ZipCode
+            - Shipping.CountryCode
+            - Shipping.StreetAddress
+          domain: "urn:li:domain:Logistics"
+        - name: Checkout
+          description: "The process of finalizing and paying for an order."
+        - name: Payment
+          description: "The transfer of funds from the customer to the e-commerce company for a purchase."
+          inherits:
+            - Classification.HighlyConfidential
+    - name: Shipping
+      description: "The process of delivering purchased products to customers."
+      knowledge_links:
+        - label: Wiki link for shipping
+          url: "https://en.wikipedia.org/wiki/Freight_transport"
+      terms:
+        - name: ZipCode
+          description: "Zip code for order"
+          domain: "urn:li:domain:Logistics"
+        - name: CountryCode
+          description: "Country code for order"
+          domain: "urn:li:domain:Logistics"
+        - name: StreetAddress
+          description: "Street address for order"
+          domain: "urn:li:domain:Logistics"
+          custom_properties:
+            is_used_for_compliance_tracking: true
+          knowledge_links:
+            - url: "https://en.wikipedia.org/wiki/Address"
+              label: Wiki link
+    - name: Privacy Regulations
+      description: "Standards and best practices for security."
+      owners:
+        groups:
+          - compliance
+      terms:
+        - name: GDPR
+          description: "European Union regulations that govern the collection, use, and protection of personal data."
+          term_source: "EXTERNAL"
+          source_ref: FIBO
+          source_url: "https://gdpr-info.eu/"
+        - name: CCPA
+          description: "California Consumer Privacy Act"
+          term_source: "EXTERNAL"
+          source_ref: FIBO
+          source_url: "https://oag.ca.gov/privacy/ccpa"
+        - name: Privacy Policy
+          description: "A statement outlining how the e-commerce company collects, uses, and protects customer information."
+          term_source: "EXTERNAL"
+          source_ref: FIBO
+          source_url: "https://en.wikipedia.org/wiki/Privacy_policy"
+    - name: Classification
+      description: "A set of terms related to Data Classification"
+      terms:
+        - name: Confidential
+          description: "Confidential Data"
+        - name: HighlyConfidential
+          description: "Highly Confidential Data"
+        - name: Sensitive
+          description: "Sensitive Data"

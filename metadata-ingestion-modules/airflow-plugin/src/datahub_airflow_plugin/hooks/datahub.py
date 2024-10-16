@@ -12,7 +12,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 if TYPE_CHECKING:
     from airflow.models.connection import Connection
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
-    from datahub.emitter.rest_emitter import DatahubRestEmitter
+    from datahub.emitter.rest_emitter import DataHubRestEmitter
     from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter
     from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
 
@@ -63,6 +63,13 @@ class DatahubRestHook(BaseHook):
         return True, "Successfully connected to DataHub."
 
     def _get_config(self) -> Tuple[str, Optional[str], Optional[int]]:
+        # We have a few places in the codebase that use this method directly, despite
+        # it being "private". For now, we retain backwards compatibility by keeping
+        # this method around, but should stop using it in the future.
+        host, token, extra_args = self._get_config_v2()
+        return host, token, extra_args.get("timeout_sec")
+
+    def _get_config_v2(self) -> Tuple[str, Optional[str], Dict]:
         conn: "Connection" = self.get_connection(self.datahub_rest_conn_id)
 
         host = conn.host
@@ -74,14 +81,18 @@ class DatahubRestHook(BaseHook):
                     "host parameter should not contain a port number if the port is specified separately"
                 )
             host = f"{host}:{conn.port}"
-        password = conn.password
-        timeout_sec = conn.extra_dejson.get("timeout_sec")
-        return (host, password, timeout_sec)
+        token = conn.password
 
-    def make_emitter(self) -> "DatahubRestEmitter":
+        extra_args = conn.extra_dejson
+        return (host, token, extra_args)
+
+    def make_emitter(self) -> "DataHubRestEmitter":
         import datahub.emitter.rest_emitter
 
-        return datahub.emitter.rest_emitter.DatahubRestEmitter(*self._get_config())
+        host, token, extra_args = self._get_config_v2()
+        return datahub.emitter.rest_emitter.DataHubRestEmitter(
+            host, token, **extra_args
+        )
 
     def emit(
         self,

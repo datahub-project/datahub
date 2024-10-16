@@ -9,6 +9,7 @@ from lark import Tree
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
+    DataBricksPlatformDetail,
     DataPlatformPair,
     PlatformDetail,
     PowerBiDashboardSourceConfig,
@@ -25,9 +26,10 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     AbstractIdentifierAccessor,
     DataAccessFunctionDetail,
     IdentifierAccessor,
+    ReferencedTable,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
-from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +157,48 @@ class AbstractDataPlatformTableCreator(ABC):
 
         return arguments[0], arguments[1]
 
+    @staticmethod
+    def create_reference_table(
+        arg_list: Tree,
+        table_detail: Dict[str, str],
+    ) -> Optional[ReferencedTable]:
+
+        arguments: List[str] = tree_function.strip_char_from_list(
+            values=tree_function.remove_whitespaces_from_list(
+                tree_function.token_values(arg_list)
+            ),
+        )
+
+        logger.debug(f"Processing arguments {arguments}")
+
+        if (
+            len(arguments)
+            >= 4  # [0] is warehouse FQDN.
+            # [1] is endpoint, we are not using it.
+            # [2] is "Catalog" key
+            # [3] is catalog's value
+        ):
+            return ReferencedTable(
+                warehouse=arguments[0],
+                catalog=arguments[3],
+                # As per my observation, database and catalog names are same in M-Query
+                database=table_detail["Database"]
+                if table_detail.get("Database")
+                else arguments[3],
+                schema=table_detail["Schema"],
+                table=table_detail.get("Table") or table_detail["View"],
+            )
+        elif len(arguments) == 2:
+            return ReferencedTable(
+                warehouse=arguments[0],
+                database=table_detail["Database"],
+                schema=table_detail["Schema"],
+                table=table_detail.get("Table") or table_detail["View"],
+                catalog=None,
+            )
+
+        return None
+
     def parse_custom_sql(
         self, query: str, server: str, database: Optional[str], schema: Optional[str]
     ) -> Lineage:
@@ -199,9 +243,11 @@ class AbstractDataPlatformTableCreator(ABC):
 
         return Lineage(
             upstreams=dataplatform_tables,
-            column_lineage=parsed_result.column_lineage
-            if parsed_result.column_lineage is not None
-            else [],
+            column_lineage=(
+                parsed_result.column_lineage
+                if parsed_result.column_lineage is not None
+                else []
+            ),
         )
 
 
@@ -525,12 +571,12 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
             # From supported_resolver enum get respective resolver like AmazonRedshift or Snowflake or Oracle or NativeQuery and create instance of it
             # & also pass additional information that will be need to generate urn
-            table_qualified_name_creator: AbstractDataPlatformTableCreator = (
-                supported_resolver.get_table_full_name_creator()(
-                    ctx=ctx,
-                    config=config,
-                    platform_instance_resolver=platform_instance_resolver,
-                )
+            table_qualified_name_creator: (
+                AbstractDataPlatformTableCreator
+            ) = supported_resolver.get_table_full_name_creator()(
+                ctx=ctx,
+                config=config,
+                platform_instance_resolver=platform_instance_resolver,
             )
 
             lineage.append(table_qualified_name_creator.create_lineage(f_detail))
@@ -617,16 +663,25 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
 
         tables: List[str] = native_sql_parser.get_tables(query)
 
-        for table in tables:
-            schema_and_table: List[str] = table.split(".")
-            if len(schema_and_table) == 1:
-                # schema name is not present. set default schema
-                schema_and_table.insert(0, MSSqlDataPlatformTableCreator.DEFAULT_SCHEMA)
+        for parsed_table in tables:
+            # components: List[str] = [v.strip("[]") for v in parsed_table.split(".")]
+            components = [v.strip("[]") for v in parsed_table.split(".")]
+            if len(components) == 3:
+                database, schema, table = components
+            elif len(components) == 2:
+                schema, table = components
+                database = db_name
+            elif len(components) == 1:
+                (table,) = components
+                database = db_name
+                schema = MSSqlDataPlatformTableCreator.DEFAULT_SCHEMA
+            else:
+                logger.warning(
+                    f"Unsupported table format found {parsed_table} in query {query}"
+                )
+                continue
 
-            qualified_table_name = (
-                f"{db_name}.{schema_and_table[0]}.{schema_and_table[1]}"
-            )
-
+            qualified_table_name = f"{database}.{schema}.{table}"
             urn = urn_creator(
                 config=self.config,
                 platform_instance_resolver=self.platform_instance_resolver,
@@ -634,7 +689,6 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
                 server=server,
                 qualified_table_name=qualified_table_name,
             )
-
             dataplatform_tables.append(
                 DataPlatformTable(
                     data_platform_pair=self.get_platform_pair(),
@@ -750,19 +804,59 @@ class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
 
 
 class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
+    def form_qualified_table_name(
+        self,
+        table_reference: ReferencedTable,
+        data_platform_pair: DataPlatformPair,
+    ) -> str:
+
+        platform_detail: PlatformDetail = (
+            self.platform_instance_resolver.get_platform_instance(
+                PowerBIPlatformDetail(
+                    data_platform_pair=data_platform_pair,
+                    data_platform_server=table_reference.warehouse,
+                )
+            )
+        )
+
+        metastore: Optional[str] = None
+
+        qualified_table_name: str = f"{table_reference.database}.{table_reference.schema}.{table_reference.table}"
+
+        if isinstance(platform_detail, DataBricksPlatformDetail):
+            metastore = platform_detail.metastore
+
+        if metastore is not None:
+            return f"{metastore}.{qualified_table_name}"
+
+        return qualified_table_name
+
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> Lineage:
         logger.debug(
             f"Processing Databrick data-access function detail {data_access_func_detail}"
         )
-        value_dict = {}
+        table_detail: Dict[str, str] = {}
         temp_accessor: Optional[
             Union[IdentifierAccessor, AbstractIdentifierAccessor]
         ] = data_access_func_detail.identifier_accessor
+
         while temp_accessor:
             if isinstance(temp_accessor, IdentifierAccessor):
-                value_dict[temp_accessor.items["Kind"]] = temp_accessor.items["Name"]
+                # Condition to handle databricks M-query pattern where table, schema and database all are present in
+                # the same invoke statement
+                if all(
+                    element in temp_accessor.items
+                    for element in ["Item", "Schema", "Catalog"]
+                ):
+                    table_detail["Schema"] = temp_accessor.items["Schema"]
+                    table_detail["Table"] = temp_accessor.items["Item"]
+                else:
+                    table_detail[temp_accessor.items["Kind"]] = temp_accessor.items[
+                        "Name"
+                    ]
+
                 if temp_accessor.next is not None:
                     temp_accessor = temp_accessor.next
                 else:
@@ -773,36 +867,36 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
                 )
                 return Lineage.empty()
 
-        db_name: str = value_dict["Database"]
-        schema_name: str = value_dict["Schema"]
-        table_name: str = value_dict["Table"]
+        table_reference = self.create_reference_table(
+            arg_list=data_access_func_detail.arg_list,
+            table_detail=table_detail,
+        )
 
-        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
-
-        server, _ = self.get_db_detail_from_argument(data_access_func_detail.arg_list)
-        if server is None:
-            logger.info(
-                f"server information is not available for {qualified_table_name}. Skipping upstream table"
+        if table_reference:
+            qualified_table_name: str = self.form_qualified_table_name(
+                table_reference=table_reference,
+                data_platform_pair=self.get_platform_pair(),
             )
-            return Lineage.empty()
 
-        urn = urn_creator(
-            config=self.config,
-            platform_instance_resolver=self.platform_instance_resolver,
-            data_platform_pair=self.get_platform_pair(),
-            server=server,
-            qualified_table_name=qualified_table_name,
-        )
+            urn = urn_creator(
+                config=self.config,
+                platform_instance_resolver=self.platform_instance_resolver,
+                data_platform_pair=self.get_platform_pair(),
+                server=table_reference.warehouse,
+                qualified_table_name=qualified_table_name,
+            )
 
-        return Lineage(
-            upstreams=[
-                DataPlatformTable(
-                    data_platform_pair=self.get_platform_pair(),
-                    urn=urn,
-                )
-            ],
-            column_lineage=[],
-        )
+            return Lineage(
+                upstreams=[
+                    DataPlatformTable(
+                        data_platform_pair=self.get_platform_pair(),
+                        urn=urn,
+                    )
+                ],
+                column_lineage=[],
+            )
+
+        return Lineage.empty()
 
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.DATABRICK_SQL.value
@@ -879,7 +973,7 @@ class GoogleBigQueryDataPlatformTableCreator(DefaultThreeStepDataAccessSources):
         return (
             data_access_func_detail.identifier_accessor.items["Name"]
             if data_access_func_detail.identifier_accessor is not None
-            else str()
+            else ""
         )
 
 
@@ -1017,6 +1111,7 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         self.current_data_platform = self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM[
             data_access_tokens[0]
         ]
+
         # First argument is the query
         sql_query: str = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
@@ -1052,12 +1147,18 @@ class FunctionName(Enum):
     DATABRICK_DATA_ACCESS = "Databricks.Catalogs"
     GOOGLE_BIGQUERY_DATA_ACCESS = "GoogleBigQuery.Database"
     AMAZON_REDSHIFT_DATA_ACCESS = "AmazonRedshift.Database"
+    DATABRICK_MULTI_CLOUD_DATA_ACCESS = "DatabricksMultiCloud.Catalogs"
 
 
 class SupportedResolver(Enum):
-    DATABRICK_QUERY = (
+    DATABRICKS_QUERY = (
         DatabrickDataPlatformTableCreator,
         FunctionName.DATABRICK_DATA_ACCESS,
+    )
+
+    DATABRICKS_MULTI_CLOUD = (
+        DatabrickDataPlatformTableCreator,
+        FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS,
     )
 
     POSTGRES_SQL = (

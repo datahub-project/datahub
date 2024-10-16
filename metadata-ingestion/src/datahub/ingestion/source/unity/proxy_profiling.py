@@ -1,19 +1,22 @@
 import logging
 import time
-from typing import Optional, Union
+from typing import Optional
 
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.core import DatabricksError
 from databricks.sdk.service._internal import Wait
 from databricks.sdk.service.catalog import TableInfo
 from databricks.sdk.service.sql import (
-    ExecuteStatementResponse,
-    GetStatementResponse,
     GetWarehouseResponse,
+    StatementResponse,
     StatementState,
     StatementStatus,
 )
 
+from datahub.ingestion.source.unity.hive_metastore_proxy import (
+    HIVE_METASTORE,
+    HiveMetastoreProxy,
+)
 from datahub.ingestion.source.unity.proxy_types import (
     ColumnProfile,
     TableProfile,
@@ -30,6 +33,7 @@ class UnityCatalogProxyProfilingMixin:
     _workspace_client: WorkspaceClient
     report: UnityCatalogReport
     warehouse_id: str
+    hive_metastore_proxy: Optional[HiveMetastoreProxy]
 
     def check_profiling_connectivity(self):
         self._workspace_client.warehouses.get(self.warehouse_id)
@@ -120,7 +124,7 @@ class UnityCatalogProxyProfilingMixin:
 
     def _analyze_table(
         self, ref: TableReference, include_columns: bool
-    ) -> ExecuteStatementResponse:
+    ) -> StatementResponse:
         statement = f"ANALYZE TABLE {ref.schema}.{ref.table} COMPUTE STATISTICS"
         if include_columns:
             statement += " FOR ALL COLUMNS"
@@ -134,8 +138,10 @@ class UnityCatalogProxyProfilingMixin:
         return response
 
     def _check_analyze_table_statement_status(
-        self, execute_response: ExecuteStatementResponse, max_wait_secs: int
+        self, execute_response: StatementResponse, max_wait_secs: int
     ) -> bool:
+        if not execute_response.statement_id or not execute_response.status:
+            return False
         statement_id: str = execute_response.statement_id
         status: StatementStatus = execute_response.status
 
@@ -152,13 +158,15 @@ class UnityCatalogProxyProfilingMixin:
                 statement_id
             )
             self._raise_if_error(response, "get-statement")
-            status = response.status
+            status = response.status  # type: ignore
 
         return status.state == StatementState.SUCCEEDED
 
     def _get_table_profile(
         self, ref: TableReference, include_columns: bool
-    ) -> TableProfile:
+    ) -> Optional[TableProfile]:
+        if self.hive_metastore_proxy and ref.catalog == HIVE_METASTORE:
+            return self.hive_metastore_proxy.get_table_profile(ref, include_columns)
         table_info = self._workspace_client.tables.get(ref.qualified_table_name)
         return self._create_table_profile(table_info, include_columns=include_columns)
 
@@ -166,22 +174,30 @@ class UnityCatalogProxyProfilingMixin:
         self, table_info: TableInfo, include_columns: bool
     ) -> TableProfile:
         # Warning: this implementation is brittle -- dependent on properties that can change
-        columns_names = [column.name for column in table_info.columns]
+        columns_names = (
+            [column.name for column in table_info.columns if column.name]
+            if table_info.columns
+            else []
+        )
+
         return TableProfile(
             num_rows=self._get_int(table_info, "spark.sql.statistics.numRows"),
             total_size=self._get_int(table_info, "spark.sql.statistics.totalSize"),
             num_columns=len(columns_names),
-            column_profiles=[
-                self._create_column_profile(column, table_info)
-                for column in columns_names
-            ]
-            if include_columns
-            else [],
+            column_profiles=(
+                [
+                    self._create_column_profile(column, table_info)
+                    for column in columns_names
+                ]
+                if include_columns
+                else []
+            ),
         )
 
     def _create_column_profile(
         self, column: str, table_info: TableInfo
     ) -> ColumnProfile:
+        tblproperties = table_info.properties or {}
         return ColumnProfile(
             name=column,
             null_count=self._get_int(
@@ -190,25 +206,18 @@ class UnityCatalogProxyProfilingMixin:
             distinct_count=self._get_int(
                 table_info, f"spark.sql.statistics.colStats.{column}.distinctCount"
             ),
-            min=table_info.properties.get(
-                f"spark.sql.statistics.colStats.{column}.min"
-            ),
-            max=table_info.properties.get(
-                f"spark.sql.statistics.colStats.{column}.max"
-            ),
-            avg_len=table_info.properties.get(
-                f"spark.sql.statistics.colStats.{column}.avgLen"
-            ),
-            max_len=table_info.properties.get(
-                f"spark.sql.statistics.colStats.{column}.maxLen"
-            ),
-            version=table_info.properties.get(
+            min=tblproperties.get(f"spark.sql.statistics.colStats.{column}.min"),
+            max=tblproperties.get(f"spark.sql.statistics.colStats.{column}.max"),
+            avg_len=tblproperties.get(f"spark.sql.statistics.colStats.{column}.avgLen"),
+            max_len=tblproperties.get(f"spark.sql.statistics.colStats.{column}.maxLen"),
+            version=tblproperties.get(
                 f"spark.sql.statistics.colStats.{column}.version"
             ),
         )
 
     def _get_int(self, table_info: TableInfo, field: str) -> Optional[int]:
-        value = table_info.properties.get(field)
+        tblproperties = table_info.properties or {}
+        value = tblproperties.get(field)
         if value is not None:
             try:
                 return int(value)
@@ -220,17 +229,23 @@ class UnityCatalogProxyProfilingMixin:
         return None
 
     @staticmethod
-    def _raise_if_error(
-        response: Union[ExecuteStatementResponse, GetStatementResponse], key: str
-    ) -> None:
-        if response.status.state in [
+    def _raise_if_error(response: StatementResponse, key: str) -> None:
+        if response.status and response.status.state in [
             StatementState.FAILED,
             StatementState.CANCELED,
             StatementState.CLOSED,
         ]:
             raise DatabricksError(
-                response.status.error.message,
-                error_code=response.status.error.error_code.value,
+                (
+                    response.status.error.message
+                    if response.status.error and response.status.error.message
+                    else "Unknown Error"
+                ),
+                error_code=(
+                    response.status.error.error_code.value
+                    if response.status.error and response.status.error.error_code
+                    else "Unknown Error Code"
+                ),
                 status=response.status.state.value,
                 context=key,
             )

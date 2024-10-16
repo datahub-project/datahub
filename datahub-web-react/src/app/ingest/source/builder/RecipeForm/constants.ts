@@ -83,7 +83,7 @@ import {
     PROJECT_NAME,
 } from './lookml';
 import { PRESTO, PRESTO_HOST_PORT, PRESTO_DATABASE, PRESTO_USERNAME, PRESTO_PASSWORD } from './presto';
-import { BIGQUERY_BETA, DBT_CLOUD, MYSQL, POWER_BI, UNITY_CATALOG, VERTICA } from '../constants';
+import { AZURE, BIGQUERY_BETA, CSV, DBT_CLOUD, MYSQL, OKTA, POWER_BI, SAC, UNITY_CATALOG, VERTICA } from '../constants';
 import { BIGQUERY_BETA_PROJECT_ID, DATASET_ALLOW, DATASET_DENY, PROJECT_ALLOW, PROJECT_DENY } from './bigqueryBeta';
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from './mysql';
 import { MSSQL, MSSQL_DATABASE, MSSQL_HOST_PORT, MSSQL_PASSWORD, MSSQL_USERNAME } from './mssql';
@@ -140,6 +140,51 @@ import {
     INCLUDE_VIEW_LINEAGE,
     INCLUDE_PROJECTIONS_LINEAGE,
 } from './vertica';
+import { CSV_ARRAY_DELIMITER, CSV_DELIMITER, CSV_FILE_URL, CSV_WRITE_SEMANTICS } from './csv';
+import {
+    INCLUDE_DEPROVISIONED_USERS,
+    INCLUDE_SUSPENDED_USERS,
+    INGEST_GROUPS,
+    INGEST_USERS,
+    OKTA_API_TOKEN,
+    OKTA_DOMAIN_URL,
+    POFILE_TO_GROUP,
+    POFILE_TO_GROUP_REGX_ALLOW,
+    POFILE_TO_GROUP_REGX_DENY,
+    POFILE_TO_USER,
+    POFILE_TO_USER_REGX_ALLOW,
+    POFILE_TO_USER_REGX_DENY,
+    SKIP_USERS_WITHOUT_GROUP,
+} from './okta';
+import {
+    AZURE_AUTHORITY_URL,
+    AZURE_CLIENT_ID,
+    AZURE_CLIENT_SECRET,
+    AZURE_GRAPH_URL,
+    AZURE_INGEST_GROUPS,
+    AZURE_INGEST_USERS,
+    AZURE_REDIRECT_URL,
+    AZURE_TENANT_ID,
+    AZURE_TOKEN_URL,
+    GROUP_ALLOW,
+    GROUP_DENY,
+    USER_ALLOW,
+    USER_DENY,
+} from './azure';
+import {
+    SAC_TENANT_URL,
+    SAC_TOKEN_URL,
+    SAC_CLIENT_ID,
+    SAC_CLIENT_SECRET,
+    INGEST_STORIES,
+    INGEST_APPLICATIONS,
+    RESOURCE_ID_ALLOW,
+    RESOURCE_ID_DENY,
+    RESOURCE_NAME_ALLOW,
+    RESOURCE_NAME_DENY,
+    FOLDER_ALLOW,
+    FOLDER_DENY,
+} from './sac';
 
 export enum RecipeSections {
     Connection = 0,
@@ -453,8 +498,64 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables, Views and Projections from ingestion.',
     },
+    [CSV]: {
+        fields: [CSV_FILE_URL],
+        filterFields: [],
+        advancedFields: [CSV_ARRAY_DELIMITER, CSV_DELIMITER, CSV_WRITE_SEMANTICS],
+    },
+    [OKTA]: {
+        fields: [OKTA_DOMAIN_URL, OKTA_API_TOKEN, POFILE_TO_USER, POFILE_TO_GROUP],
+        filterFields: [
+            POFILE_TO_USER_REGX_ALLOW,
+            POFILE_TO_USER_REGX_DENY,
+            POFILE_TO_GROUP_REGX_ALLOW,
+            POFILE_TO_GROUP_REGX_DENY,
+        ],
+        advancedFields: [
+            INGEST_USERS,
+            INGEST_GROUPS,
+            INCLUDE_DEPROVISIONED_USERS,
+            INCLUDE_SUSPENDED_USERS,
+            STATEFUL_INGESTION_ENABLED,
+            SKIP_USERS_WITHOUT_GROUP,
+        ],
+    },
+    [AZURE]: {
+        fields: [
+            AZURE_CLIENT_ID,
+            AZURE_TENANT_ID,
+            AZURE_CLIENT_SECRET,
+            AZURE_REDIRECT_URL,
+            AZURE_AUTHORITY_URL,
+            AZURE_TOKEN_URL,
+            AZURE_GRAPH_URL,
+        ],
+        filterFields: [GROUP_ALLOW, GROUP_DENY, USER_ALLOW, USER_DENY],
+        advancedFields: [AZURE_INGEST_USERS, AZURE_INGEST_GROUPS, STATEFUL_INGESTION_ENABLED, SKIP_USERS_WITHOUT_GROUP],
+    },
+    [SAC]: {
+        fields: [SAC_TENANT_URL, SAC_TOKEN_URL, SAC_CLIENT_ID, SAC_CLIENT_SECRET],
+        filterFields: [
+            INGEST_STORIES,
+            INGEST_APPLICATIONS,
+            RESOURCE_ID_ALLOW,
+            RESOURCE_ID_DENY,
+            RESOURCE_NAME_ALLOW,
+            RESOURCE_NAME_DENY,
+            FOLDER_ALLOW,
+            FOLDER_DENY,
+        ],
+        advancedFields: [STATEFUL_INGESTION_ENABLED],
+    },
 };
 
 export const CONNECTORS_WITH_FORM = new Set(Object.keys(RECIPE_FIELDS));
 
-export const CONNECTORS_WITH_TEST_CONNECTION = new Set([SNOWFLAKE, LOOKER, BIGQUERY_BETA, BIGQUERY, UNITY_CATALOG]);
+export const CONNECTORS_WITH_TEST_CONNECTION = new Set([
+    SNOWFLAKE,
+    LOOKER,
+    BIGQUERY_BETA,
+    BIGQUERY,
+    UNITY_CATALOG,
+    SAC,
+]);

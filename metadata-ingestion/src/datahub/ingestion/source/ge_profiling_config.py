@@ -147,7 +147,7 @@ class GEProfilingConfig(ConfigModel):
 
     partition_profiling_enabled: bool = Field(
         default=True,
-        description="Whether to profile partitioned tables. Only BigQuery supports this. "
+        description="Whether to profile partitioned tables. Only BigQuery and Aws Athena supports this. "
         "If enabled, latest partition data is used for profiling.",
     )
     partition_datetime: Optional[datetime.datetime] = Field(
@@ -157,14 +157,27 @@ class GEProfilingConfig(ConfigModel):
     )
     use_sampling: bool = Field(
         default=True,
-        description="Whether to profile column level stats on sample of table. Only BigQuery supports this. "
+        description="Whether to profile column level stats on sample of table. Only BigQuery and Snowflake support this. "
         "If enabled, profiling is done on rows sampled from table. Sampling is not done for smaller tables. ",
     )
 
     sample_size: int = Field(
-        default=1000,
+        default=10000,
         description="Number of rows to be sampled from table for column level profiling."
         "Applicable only if `use_sampling` is set to True.",
+    )
+
+    profile_external_tables: bool = Field(
+        default=False,
+        description="Whether to profile external tables. Only Snowflake and Redshift supports this.",
+    )
+
+    tags_to_ignore_sampling: Optional[List[str]] = pydantic.Field(
+        default=None,
+        description=(
+            "Fixed list of tags to ignore sampling."
+            " If not specified, tables will be sampled based on `use_sampling`."
+        ),
     )
 
     @pydantic.root_validator(pre=True)

@@ -3,52 +3,63 @@ package com.linkedin.datahub.upgrade.system;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
-import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
-import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
+import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCP;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.DataHubStartupStep;
-import com.linkedin.datahub.upgrade.system.entity.steps.BackfillBrowsePathsV2;
-import com.linkedin.metadata.dao.producer.KafkaEventProducer;
+import java.util.LinkedList;
+import java.util.List;
+import javax.annotation.Nullable;
+import lombok.Getter;
+import lombok.NonNull;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-
+@Getter
 @Slf4j
+@Accessors(fluent = true)
 public class SystemUpdate implements Upgrade {
-    private final List<Upgrade> _preStartupUpgrades;
-    private final List<Upgrade> _postStartupUpgrades;
-    private final List<UpgradeStep> _steps;
+  private final List<UpgradeStep> steps;
+  private final List<UpgradeCleanupStep> cleanupSteps;
 
-    public SystemUpdate(final BuildIndices buildIndicesJob, final CleanIndices cleanIndicesJob,
-                        final KafkaEventProducer kafkaEventProducer, final String version,
-                        final BackfillBrowsePathsV2 backfillBrowsePathsV2) {
+  public SystemUpdate(
+      @NonNull final List<BlockingSystemUpgrade> blockingSystemUpgrades,
+      @NonNull final List<NonBlockingSystemUpgrade> nonBlockingSystemUpgrades,
+      @Nullable final DataHubStartupStep dataHubStartupStep,
+      @Nullable final BootstrapMCP bootstrapMCPBlocking,
+      @Nullable final BootstrapMCP bootstrapMCPNonBlocking) {
 
-        _preStartupUpgrades = List.of(buildIndicesJob);
-        _steps = List.of(new DataHubStartupStep(kafkaEventProducer, version));
-        _postStartupUpgrades = List.of(cleanIndicesJob, backfillBrowsePathsV2);
+    steps = new LinkedList<>();
+    cleanupSteps = new LinkedList<>();
+
+    // blocking upgrades
+    steps.addAll(blockingSystemUpgrades.stream().flatMap(up -> up.steps().stream()).toList());
+    cleanupSteps.addAll(
+        blockingSystemUpgrades.stream().flatMap(up -> up.cleanupSteps().stream()).toList());
+
+    // bootstrap blocking only
+    if (bootstrapMCPBlocking != null) {
+      steps.addAll(bootstrapMCPBlocking.steps());
+      cleanupSteps.addAll(bootstrapMCPBlocking.cleanupSteps());
     }
 
-    @Override
-    public String id() {
-      return "SystemUpdate";
+    // emit system update message if blocking upgrade(s) present
+    if (dataHubStartupStep != null && !blockingSystemUpgrades.isEmpty()) {
+      steps.add(dataHubStartupStep);
     }
 
-    @Override
-    public List<UpgradeStep> steps() {
-        return Stream.concat(Stream.concat(
-                _preStartupUpgrades.stream().flatMap(up -> up.steps().stream()),
-                _steps.stream()),
-                _postStartupUpgrades.stream().flatMap(up -> up.steps().stream()))
-                .collect(Collectors.toList());
+    // bootstrap non-blocking only
+    if (bootstrapMCPNonBlocking != null) {
+      steps.addAll(bootstrapMCPNonBlocking.steps());
+      cleanupSteps.addAll(bootstrapMCPNonBlocking.cleanupSteps());
     }
 
-    @Override
-    public List<UpgradeCleanupStep> cleanupSteps() {
-        return Stream.concat(
-                _preStartupUpgrades.stream().flatMap(up -> up.cleanupSteps().stream()),
-                _postStartupUpgrades.stream().flatMap(up -> up.cleanupSteps().stream()))
-                .collect(Collectors.toList());
-    }
+    // add non-blocking upgrades last
+    steps.addAll(nonBlockingSystemUpgrades.stream().flatMap(up -> up.steps().stream()).toList());
+    cleanupSteps.addAll(
+        nonBlockingSystemUpgrades.stream().flatMap(up -> up.cleanupSteps().stream()).toList());
+  }
+
+  @Override
+  public String id() {
+    return getClass().getSimpleName();
+  }
 }

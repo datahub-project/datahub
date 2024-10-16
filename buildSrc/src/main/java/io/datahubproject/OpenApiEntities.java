@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
@@ -58,8 +59,13 @@ public class OpenApiEntities {
                 .add("notebookInfo").add("editableNotebookProperties")
                 .add("dataProductProperties")
                 .add("institutionalMemory")
+                .add("forms").add("formInfo").add("dynamicFormAssignment")
+                .add("businessAttributeInfo")
                 .build();
 
+    private final static ImmutableSet<String> ENTITY_EXCLUSIONS = ImmutableSet.<String>builder()
+            .add("structuredProperty")
+            .build();
 
     public OpenApiEntities(JsonNodeFactory NODE_FACTORY) {
         this.NODE_FACTORY = NODE_FACTORY;
@@ -117,14 +123,27 @@ public class OpenApiEntities {
         return componentsNode;
     }
 
-    private static String toUpperFirst(String s) {
-        return s.substring(0, 1).toUpperCase() + s.substring(1);
+    /**
+     * Convert the pdl model names to desired class names. Upper case first letter unless the 3rd character is upper case.
+     * i.e. mlModel -> MLModel
+     *      dataset -> Dataset
+     *      dataProduct -> DataProduct
+     * @param s input string
+     * @return class name
+     */
+    public static String toUpperFirst(String s) {
+        if (s.length() > 2 && s.substring(2, 3).equals(s.substring(2, 3).toUpperCase())) {
+            return s.substring(0, 2).toUpperCase() + s.substring(2);
+        } else {
+            return s.substring(0, 1).toUpperCase() + s.substring(1);
+        }
     }
 
     private Set<String> withEntitySchema(ObjectNode schemasNode, Set<String> definitions) {
         return entityMap.values().stream()
                 // Make sure the primary key is defined
                 .filter(entity -> definitions.contains(toUpperFirst(entity.getKeyAspect())))
+                .filter(entity -> !ENTITY_EXCLUSIONS.contains(entity.getName()))
                 .map(entity -> {
                     final String upperName = toUpperFirst(entity.getName());
 
@@ -442,6 +461,22 @@ public class OpenApiEntities {
         ObjectNode postMethod = NODE_FACTORY.objectNode()
                 .put("summary", "Create " + upperFirst)
                 .put("operationId", String.format("create", upperFirst));
+        ArrayNode postParameters = NODE_FACTORY.arrayNode();
+        postMethod.set("parameters", postParameters);
+        postParameters.add(NODE_FACTORY.objectNode()
+                .put("in", "query")
+                .put("name", "createIfNotExists")
+                .put("description", "Create the aspect if it does not already exist.")
+                .set("schema", NODE_FACTORY.objectNode()
+                        .put("type", "boolean")
+                        .put("default", false)));
+        postParameters.add(NODE_FACTORY.objectNode()
+                .put("in", "query")
+                .put("name", "createEntityIfNotExists")
+                .put("description", "Create the entity ONLY if it does not already exist. Fails in case when the entity exists.")
+                .set("schema", NODE_FACTORY.objectNode()
+                        .put("type", "boolean")
+                        .put("default", false)));
         postMethod.set("requestBody", NODE_FACTORY.objectNode()
                 .put("description", "Create " + entity.getName() + " entities.")
                 .put("required", true)
@@ -547,7 +582,7 @@ public class OpenApiEntities {
 
         ObjectNode getMethod = NODE_FACTORY.objectNode()
                 .put("summary", String.format("Get %s for %s.", aspect, entity.getName()))
-                .put("operationId", String.format("get%s", upperFirstAspect, upperFirstEntity));
+                .put("operationId", String.format("get%s", upperFirstAspect));
         getMethod.set("tags", tagsNode);
         ArrayNode singlePathParametersNode = NODE_FACTORY.arrayNode();
         getMethod.set("parameters", singlePathParametersNode);
@@ -575,13 +610,13 @@ public class OpenApiEntities {
                         .set("application/json", NODE_FACTORY.objectNode())));
         ObjectNode headMethod = NODE_FACTORY.objectNode()
                 .put("summary", String.format("%s on %s existence.", aspect, upperFirstEntity))
-                .put("operationId", String.format("head%s", upperFirstAspect, upperFirstEntity))
+                .put("operationId", String.format("head%s", upperFirstAspect))
                 .set("responses", headResponses);
         headMethod.set("tags", tagsNode);
 
         ObjectNode deleteMethod = NODE_FACTORY.objectNode()
                 .put("summary", String.format("Delete %s on entity %s", aspect, upperFirstEntity))
-                .put("operationId", String.format("delete%s", upperFirstAspect, upperFirstEntity))
+                .put("operationId", String.format("delete%s", upperFirstAspect))
                 .set("responses", NODE_FACTORY.objectNode()
                         .set("200", NODE_FACTORY.objectNode()
                                 .put("description", String.format("Delete %s on %s entity.", aspect, upperFirstEntity))
@@ -591,7 +626,23 @@ public class OpenApiEntities {
 
         ObjectNode postMethod = NODE_FACTORY.objectNode()
                 .put("summary", String.format("Create aspect %s on %s ", aspect, upperFirstEntity))
-                .put("operationId", String.format("create%s", upperFirstAspect, upperFirstEntity));
+                .put("operationId", String.format("create%s", upperFirstAspect));
+        ArrayNode postParameters = NODE_FACTORY.arrayNode();
+        postMethod.set("parameters", postParameters);
+        postParameters.add(NODE_FACTORY.objectNode()
+                .put("in", "query")
+                .put("name", "createIfNotExists")
+                .put("description", "Create the aspect if it does not already exist.")
+                .set("schema", NODE_FACTORY.objectNode()
+                        .put("type", "boolean")
+                        .put("default", false)));
+        postParameters.add(NODE_FACTORY.objectNode()
+                .put("in", "query")
+                .put("name", "createEntityIfNotExists")
+                .put("description", "Create the entity if it does not already exist. Fails in case when the entity exists.")
+                .set("schema", NODE_FACTORY.objectNode()
+                        .put("type", "boolean")
+                        .put("default", false)));
         postMethod.set("requestBody", NODE_FACTORY.objectNode()
                 .put("description", String.format("Create aspect %s on %s entity.", aspect, upperFirstEntity))
                 .put("required", true).set("content", NODE_FACTORY.objectNode()

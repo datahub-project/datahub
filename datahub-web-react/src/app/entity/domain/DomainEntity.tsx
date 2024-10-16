@@ -14,6 +14,7 @@ import { EntityActionItem } from '../shared/entity/EntityActions';
 import DataProductsTab from './DataProductsTab/DataProductsTab';
 import { EntityProfileTab } from '../shared/constants';
 import DomainIcon from '../../domain/DomainIcon';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 /**
  * Definition of the DataHub Domain entity.
@@ -65,6 +66,8 @@ export class DomainEntity implements Entity<Domain> {
 
     getCollectionName = () => 'Domains';
 
+    useEntityQuery = useGetDomainQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -91,17 +94,23 @@ export class DomainEntity implements Entity<Domain> {
                     name: 'Data Products',
                     component: DataProductsTab,
                 },
-            ]}
-            sidebarSections={[
                 {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
             ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+    ];
 
     renderPreview = (_: PreviewType, data: Domain) => {
         return (

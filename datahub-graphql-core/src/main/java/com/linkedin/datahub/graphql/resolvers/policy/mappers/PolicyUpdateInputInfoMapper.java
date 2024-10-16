@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.policy.mappers;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActorFilterInput;
 import com.linkedin.datahub.graphql.generated.PolicyMatchFilterInput;
 import com.linkedin.datahub.graphql.generated.PolicyUpdateInput;
@@ -18,21 +19,22 @@ import com.linkedin.policy.PolicyMatchFilter;
 import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
-
-/**
- * Maps GraphQL {@link PolicyUpdateInput} to DataHub backend {@link DataHubPolicyInfo}.
- */
-public class PolicyUpdateInputInfoMapper implements ModelMapper<PolicyUpdateInput, DataHubPolicyInfo> {
+/** Maps GraphQL {@link PolicyUpdateInput} to DataHub backend {@link DataHubPolicyInfo}. */
+public class PolicyUpdateInputInfoMapper
+    implements ModelMapper<PolicyUpdateInput, DataHubPolicyInfo> {
 
   public static final PolicyUpdateInputInfoMapper INSTANCE = new PolicyUpdateInputInfoMapper();
 
-  public static DataHubPolicyInfo map(@Nonnull final PolicyUpdateInput policyInput) {
-    return INSTANCE.apply(policyInput);
+  public static DataHubPolicyInfo map(
+      @Nullable QueryContext context, @Nonnull final PolicyUpdateInput policyInput) {
+    return INSTANCE.apply(context, policyInput);
   }
 
   @Override
-  public DataHubPolicyInfo apply(@Nonnull final PolicyUpdateInput policyInput) {
+  public DataHubPolicyInfo apply(
+      @Nullable QueryContext queryContext, @Nonnull final PolicyUpdateInput policyInput) {
     final DataHubPolicyInfo result = new DataHubPolicyInfo();
     result.setDescription(policyInput.getDescription());
     result.setType(policyInput.getType().toString());
@@ -52,13 +54,21 @@ public class PolicyUpdateInputInfoMapper implements ModelMapper<PolicyUpdateInpu
     result.setAllUsers(actorInput.getAllUsers());
     result.setResourceOwners(actorInput.getResourceOwners());
     if (actorInput.getResourceOwnersTypes() != null) {
-      result.setResourceOwnersTypes(new UrnArray(actorInput.getResourceOwnersTypes().stream().map(this::createUrn).collect(Collectors.toList())));
+      result.setResourceOwnersTypes(
+          new UrnArray(
+              actorInput.getResourceOwnersTypes().stream()
+                  .map(this::createUrn)
+                  .collect(Collectors.toList())));
     }
     if (actorInput.getGroups() != null) {
-      result.setGroups(new UrnArray(actorInput.getGroups().stream().map(this::createUrn).collect(Collectors.toList())));
+      result.setGroups(
+          new UrnArray(
+              actorInput.getGroups().stream().map(this::createUrn).collect(Collectors.toList())));
     }
     if (actorInput.getUsers() != null) {
-      result.setUsers(new UrnArray(actorInput.getUsers().stream().map(this::createUrn).collect(Collectors.toList())));
+      result.setUsers(
+          new UrnArray(
+              actorInput.getUsers().stream().map(this::createUrn).collect(Collectors.toList())));
     }
     return result;
   }
@@ -83,19 +93,26 @@ public class PolicyUpdateInputInfoMapper implements ModelMapper<PolicyUpdateInpu
   }
 
   private PolicyMatchFilter mapFilter(final PolicyMatchFilterInput filter) {
-    return new PolicyMatchFilter().setCriteria(new PolicyMatchCriterionArray(filter.getCriteria()
-        .stream()
-        .map(criterion -> new PolicyMatchCriterion().setField(criterion.getField())
-            .setValues(new StringArray(criterion.getValues()))
-            .setCondition(PolicyMatchCondition.valueOf(criterion.getCondition().name())))
-        .collect(Collectors.toList())));
+    return new PolicyMatchFilter()
+        .setCriteria(
+            new PolicyMatchCriterionArray(
+                filter.getCriteria().stream()
+                    .map(
+                        criterion ->
+                            new PolicyMatchCriterion()
+                                .setField(criterion.getField())
+                                .setValues(new StringArray(criterion.getValues()))
+                                .setCondition(
+                                    PolicyMatchCondition.valueOf(criterion.getCondition().name())))
+                    .collect(Collectors.toList())));
   }
 
   private Urn createUrn(String urnStr) {
     try {
       return Urn.createFromString(urnStr);
     } catch (URISyntaxException e) {
-      throw new RuntimeException(String.format("Failed to convert urnStr %s into an URN object", urnStr), e);
+      throw new RuntimeException(
+          String.format("Failed to convert urnStr %s into an URN object", urnStr), e);
     }
   }
 }

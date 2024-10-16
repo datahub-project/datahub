@@ -1,5 +1,8 @@
 package com.linkedin.metadata.systemmetadata;
 
+import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
+import static org.testng.Assert.assertEquals;
+
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -8,48 +11,54 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.SystemMetadata;
+import java.util.Collections;
+import java.util.List;
+import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import javax.annotation.Nonnull;
-import java.util.List;
-
-import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
-import static org.testng.Assert.assertEquals;
-
-abstract public class SystemMetadataServiceTestBase extends AbstractTestNGSpringContextTests {
+public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpringContextTests {
 
   @Nonnull
-  abstract protected RestHighLevelClient getSearchClient();
+  protected abstract RestHighLevelClient getSearchClient();
 
   @Nonnull
-  abstract protected ESBulkProcessor getBulkProcessor();
+  protected abstract ESBulkProcessor getBulkProcessor();
 
   @Nonnull
-  abstract protected ESIndexBuilder getIndexBuilder();
+  protected abstract ESIndexBuilder getIndexBuilder();
 
-  private final IndexConvention _indexConvention = new IndexConventionImpl("es_system_metadata_service_test");
+  private final IndexConvention _indexConvention =
+      new IndexConventionImpl(
+          IndexConventionImpl.IndexConventionConfig.builder()
+              .prefix("es_system_metadata_service_test")
+              .hashIdAlgo("MD5")
+              .build());
 
   private ElasticSearchSystemMetadataService _client;
 
   @BeforeClass
   public void setup() {
     _client = buildService();
-    _client.configure();
+    _client.reindexAll(Collections.emptySet());
   }
 
   @BeforeMethod
   public void wipe() throws Exception {
+    syncAfterWrite(getBulkProcessor());
     _client.clear();
+    syncAfterWrite(getBulkProcessor());
   }
 
   @Nonnull
   private ElasticSearchSystemMetadataService buildService() {
-    ESSystemMetadataDAO dao = new ESSystemMetadataDAO(getSearchClient(), _indexConvention, getBulkProcessor(), 1);
-    return new ElasticSearchSystemMetadataService(getBulkProcessor(), _indexConvention, dao, getIndexBuilder());
+    ESSystemMetadataDAO dao =
+        new ESSystemMetadataDAO(getSearchClient(), _indexConvention, getBulkProcessor(), 1);
+    return new ElasticSearchSystemMetadataService(
+        getBulkProcessor(), _indexConvention, dao, getIndexBuilder(), "MD5");
   }
 
   @Test

@@ -125,7 +125,6 @@ function list_markdown_files(): string[] {
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
-    /^SECURITY\.md$/,
     /^\s*$/, //Empty string
   ];
 
@@ -177,7 +176,7 @@ const hardcoded_titles = {
   "docs/actions/README.md": "Introduction",
   "docs/actions/concepts.md": "Concepts",
   "docs/actions/quickstart.md": "Quickstart",
-  "docs/saas.md": "Managed DataHub",
+  "docs/saas.md": "DataHub Cloud",
 };
 // titles that have been hardcoded in sidebars.js
 // (for cases where doc is reference multiple times with different titles)
@@ -573,6 +572,9 @@ function copy_python_wheels(): void {
   const wheel_dirs = [
     "../metadata-ingestion/dist",
     "../metadata-ingestion-modules/airflow-plugin/dist",
+    "../metadata-ingestion-modules/dagster-plugin/dist",
+    "../metadata-ingestion-modules/prefect-plugin/dist",
+    "../metadata-ingestion-modules/gx-plugin/dist",
   ];
 
   const wheel_output_directory = path.join(STATIC_DIRECTORY, "wheels");

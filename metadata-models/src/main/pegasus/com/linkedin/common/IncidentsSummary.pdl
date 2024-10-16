@@ -1,0 +1,92 @@
+namespace com.linkedin.common
+
+/**
+ * Summary related incidents on an entity.
+ */
+@Aspect = {
+    "name": "incidentsSummary"
+}
+record IncidentsSummary {
+    /**
+    * Resolved incidents for an asset
+    * Deprecated! Use the richer resolvedIncidentsDetails instead.
+    */
+    @deprecated
+    resolvedIncidents: array[Urn] = []
+
+    /**
+    * Active incidents for an asset
+    * Deprecated! Use the richer activeIncidentsDetails instead.
+    */
+    @deprecated
+    activeIncidents: array[Urn] = []
+
+    /**
+    * Summary details about the set of resolved incidents
+    */
+    @Searchable = {
+       "/*/urn" : {
+           "fieldType": "URN",
+           "fieldName": "resolvedIncidents",
+           "hasValuesFieldName": "hasResolvedIncidents",
+           "numValuesFieldName": "numResolvedIncidents",
+           "queryByDefault": false,
+       },
+       "/*/type" : {
+           "fieldType": "KEYWORD",
+           "fieldName": "resolvedIncidentTypes"
+       },
+       "/*/createdAt" : {
+           "fieldType": "DATETIME",
+           "fieldName": "resolvedIncidentCreatedTimes"
+       },
+       "/*/priority" : {
+           "fieldType": "COUNT",
+           "fieldName": "resolvedIncidentPriorities"
+       },
+       "/*/resolvedAt" : {
+           "fieldType": "DATETIME",
+           "fieldName": "resolvedIncidentResolvedTimes"
+       }
+    }
+    @Relationship = {
+     "/*/urn" : {
+       "name": "ResolvedIncidents",
+       "entityTypes": [ "incident" ]
+     }
+    }
+    resolvedIncidentDetails: array[IncidentSummaryDetails] = []
+
+    /**
+    * Summary details about the set of active incidents
+    */
+    @Searchable = {
+        "/*/urn" : {
+            "fieldType": "URN",
+            "fieldName": "activeIncidents",
+            "hasValuesFieldName": "hasActiveIncidents",
+            "numValuesFieldName": "numActiveIncidents",
+            "addHasValuesToFilters": true,
+            "queryByDefault": false,
+        },
+        "/*/type" : {
+            "fieldType": "KEYWORD",
+            "fieldName": "activeIncidentTypes"
+        },
+        "/*/createdAt" : {
+            "fieldType": "DATETIME",
+            "fieldName": "activeIncidentCreatedTimes"
+        },
+        "/*/priority" : {
+            "fieldType": "COUNT",
+            "fieldName": "activeIncidentPriorities"
+        }
+    }
+    @Relationship = {
+      "/*/urn" : {
+        "name": "ActiveIncidents",
+        "entityTypes": [ "incident" ]
+      }
+    }
+    activeIncidentDetails: array[IncidentSummaryDetails] = []
+}

@@ -14,7 +14,7 @@ import {
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
 } from '../utils/constants';
-import { IconSpacer, Label } from './ActiveFilter';
+import { IconSpacer, Label } from './styledComponents';
 import { isFilterOptionSelected, getFilterIconAndLabel, isAnyOptionSelected, getParentEntities } from './utils';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import ParentEntities from './ParentEntities';

@@ -12,7 +12,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Value;
 
-
 @EqualsAndHashCode(callSuper = true)
 @Value
 @Getter
@@ -26,19 +25,15 @@ public class DomainChangeEvent extends ChangeEvent {
       AuditStamp auditStamp,
       SemanticChangeType semVerChange,
       String description,
-      Urn domainUrn
-  ) {
+      Urn domainUrn) {
     super(
         entityUrn,
         category,
         operation,
         modifier,
-        ImmutableMap.of(
-            "domainUrn", domainUrn.toString()
-        ),
+        ImmutableMap.of("domainUrn", domainUrn.toString()),
         auditStamp,
         semVerChange,
-        description
-    );
+        description);
   }
 }

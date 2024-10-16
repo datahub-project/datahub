@@ -5,9 +5,10 @@ import java.io.Closeable;
 import java.io.IOException;
 import lombok.extern.slf4j.Slf4j;
 
-
 /**
- * Abstract class that reads entries from a given source and transforms then into {@link EbeanAspectV2} instances.
+ * Abstract class that reads entries from a given source and transforms then into {@link
+ * EbeanAspectV2} instances.
+ *
  * @param <T> The object type to read from a reader source.
  */
 @Slf4j
@@ -69,9 +70,15 @@ public abstract class ReaderWrapper<T> implements Closeable {
   abstract EbeanAspectV2 convertRecord(T record);
 
   private void printStat(String prefix) {
-    log.info("{} Reader {}. Stats: records processed: {}, Total millis spent in reading: {}, records skipped: {},"
-            + " records failed: {}, Total millis in convert: {}", prefix, _fileName,
-        recordsProcessed, totalTimeSpentInRead / 1000 / 1000, recordsSkipped, recordsFailed,
+    log.info(
+        "{} Reader {}. Stats: records processed: {}, Total millis spent in reading: {}, records skipped: {},"
+            + " records failed: {}, Total millis in convert: {}",
+        prefix,
+        _fileName,
+        recordsProcessed,
+        totalTimeSpentInRead / 1000 / 1000,
+        recordsSkipped,
+        recordsFailed,
         totalTimeSpentInConvert / 1000 / 1000);
   }
 

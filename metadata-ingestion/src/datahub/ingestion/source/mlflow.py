@@ -1,9 +1,3 @@
-import sys
-
-if sys.version_info < (3, 8):
-    raise ImportError("MLflow is only supported on Python 3.8+")
-
-
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Optional, TypeVar, Union
 

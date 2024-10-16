@@ -18,7 +18,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.apache.avro.Schema;
 
-
 public class SchemaRegistryServiceImpl implements SchemaRegistryService {
 
   @AllArgsConstructor
@@ -33,8 +32,7 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
     MAE_TOPIC(MetadataAuditEvent.getClassSchema()),
     DUHE_TOPIC(DataHubUpgradeHistoryEvent.getClassSchema());
 
-    @Getter
-    private final Schema schema;
+    @Getter private final Schema schema;
   }
 
   private final Map<String, Schema> _schemaMap;
@@ -44,28 +42,45 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
   public SchemaRegistryServiceImpl(final TopicConvention convention) {
     this._schemaMap = new HashMap<>();
     this._subjectToIdMap = HashBiMap.create();
-    this._schemaMap.put(convention.getMetadataChangeProposalTopicName(), TopicOrdinal.MCP_TOPIC.getSchema());
-    this._subjectToIdMap.put(convention.getMetadataChangeProposalTopicName(), TopicOrdinal.MCP_TOPIC.ordinal());
-    this._schemaMap.put(convention.getMetadataChangeLogVersionedTopicName(), TopicOrdinal.MCL_TOPIC.getSchema());
-    this._subjectToIdMap.put(convention.getMetadataChangeLogVersionedTopicName(), TopicOrdinal.MCL_TOPIC.ordinal());
-    this._schemaMap.put(convention.getMetadataChangeLogTimeseriesTopicName(),
+    this._schemaMap.put(
+        convention.getMetadataChangeProposalTopicName(), TopicOrdinal.MCP_TOPIC.getSchema());
+    this._subjectToIdMap.put(
+        convention.getMetadataChangeProposalTopicName(), TopicOrdinal.MCP_TOPIC.ordinal());
+    this._schemaMap.put(
+        convention.getMetadataChangeLogVersionedTopicName(), TopicOrdinal.MCL_TOPIC.getSchema());
+    this._subjectToIdMap.put(
+        convention.getMetadataChangeLogVersionedTopicName(), TopicOrdinal.MCL_TOPIC.ordinal());
+    this._schemaMap.put(
+        convention.getMetadataChangeLogTimeseriesTopicName(),
         TopicOrdinal.MCL_TIMESERIES_TOPIC.getSchema());
-    this._subjectToIdMap.put(convention.getMetadataChangeLogTimeseriesTopicName(),
+    this._subjectToIdMap.put(
+        convention.getMetadataChangeLogTimeseriesTopicName(),
         TopicOrdinal.MCL_TIMESERIES_TOPIC.ordinal());
-    this._schemaMap.put(convention.getFailedMetadataChangeProposalTopicName(), TopicOrdinal.FMCP_TOPIC.getSchema());
-    this._subjectToIdMap.put(convention.getFailedMetadataChangeProposalTopicName(), TopicOrdinal.FMCP_TOPIC.ordinal());
+    this._schemaMap.put(
+        convention.getFailedMetadataChangeProposalTopicName(), TopicOrdinal.FMCP_TOPIC.getSchema());
+    this._subjectToIdMap.put(
+        convention.getFailedMetadataChangeProposalTopicName(), TopicOrdinal.FMCP_TOPIC.ordinal());
     this._schemaMap.put(convention.getPlatformEventTopicName(), TopicOrdinal.PE_TOPIC.getSchema());
-    this._subjectToIdMap.put(convention.getPlatformEventTopicName(), TopicOrdinal.PE_TOPIC.ordinal());
-    this._schemaMap.put(convention.getDataHubUpgradeHistoryTopicName(), TopicOrdinal.DUHE_TOPIC.getSchema());
-    this._subjectToIdMap.put(convention.getDataHubUpgradeHistoryTopicName(), TopicOrdinal.DUHE_TOPIC.ordinal());
+    this._subjectToIdMap.put(
+        convention.getPlatformEventTopicName(), TopicOrdinal.PE_TOPIC.ordinal());
+    this._schemaMap.put(
+        convention.getDataHubUpgradeHistoryTopicName(), TopicOrdinal.DUHE_TOPIC.getSchema());
+    this._subjectToIdMap.put(
+        convention.getDataHubUpgradeHistoryTopicName(), TopicOrdinal.DUHE_TOPIC.ordinal());
 
     // Adding legacy topics as they are still produced in the EntityService IngestAspect code path.
-    this._schemaMap.put(convention.getMetadataChangeEventTopicName(), TopicOrdinal.MCE_TOPIC.getSchema());
-    this._subjectToIdMap.put(convention.getMetadataChangeEventTopicName(), TopicOrdinal.MCE_TOPIC.ordinal());
-    this._schemaMap.put(convention.getFailedMetadataChangeEventTopicName(), TopicOrdinal.FMCE_TOPIC.getSchema());
-    this._subjectToIdMap.put(convention.getFailedMetadataChangeEventTopicName(), TopicOrdinal.FMCE_TOPIC.ordinal());
-    this._schemaMap.put(convention.getMetadataAuditEventTopicName(), TopicOrdinal.MAE_TOPIC.getSchema());
-    this._subjectToIdMap.put(convention.getMetadataAuditEventTopicName(), TopicOrdinal.MAE_TOPIC.ordinal());
+    this._schemaMap.put(
+        convention.getMetadataChangeEventTopicName(), TopicOrdinal.MCE_TOPIC.getSchema());
+    this._subjectToIdMap.put(
+        convention.getMetadataChangeEventTopicName(), TopicOrdinal.MCE_TOPIC.ordinal());
+    this._schemaMap.put(
+        convention.getFailedMetadataChangeEventTopicName(), TopicOrdinal.FMCE_TOPIC.getSchema());
+    this._subjectToIdMap.put(
+        convention.getFailedMetadataChangeEventTopicName(), TopicOrdinal.FMCE_TOPIC.ordinal());
+    this._schemaMap.put(
+        convention.getMetadataAuditEventTopicName(), TopicOrdinal.MAE_TOPIC.getSchema());
+    this._subjectToIdMap.put(
+        convention.getMetadataAuditEventTopicName(), TopicOrdinal.MAE_TOPIC.ordinal());
   }
 
   @Override

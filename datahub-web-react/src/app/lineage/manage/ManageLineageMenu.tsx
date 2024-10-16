@@ -1,5 +1,5 @@
 import { ArrowDownOutlined, ArrowUpOutlined, MoreOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, Popover, Tooltip } from 'antd';
+import { Dropdown, Popover, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import FocusIcon from '../../../images/focus.svg';
@@ -7,6 +7,7 @@ import { Direction, UpdatedLineages } from '../types';
 import { EntityType } from '../../../types.generated';
 import ManageLineageModal from './ManageLineageModal';
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '../../entity/shared/constants';
+import { MenuItemStyle } from '../../entity/view/menu/item/styledComponent';
 
 const DROPDOWN_Z_INDEX = 1;
 const POPOVER_Z_INDEX = 2;
@@ -21,13 +22,7 @@ const UnderlineWrapper = styled.span`
     cursor: pointer;
 `;
 
-const StyledMenuItem = styled(Menu.Item)`
-    padding: 0;
-`;
-
-const MenuItemContent = styled.div`
-    padding: 5px 12px;
-`;
+const MenuItemContent = styled.div``;
 
 function PopoverContent({ centerEntity, direction }: { centerEntity?: () => void; direction: string }) {
     return (
@@ -93,6 +88,65 @@ export default function ManageLineageMenu({
     // if we don't show manual lineage options or the center node option, this menu has no options
     if (!isManualLineageSupported && isCenterNode) return null;
 
+    const items = [
+        isManualLineageSupported
+            ? {
+                  key: 0,
+                  label: (
+                      <MenuItemStyle onClick={() => manageLineage(Direction.Upstream)} disabled={isUpstreamDisabled}>
+                          <Popover
+                              content={
+                                  !canEditLineage ? (
+                                      UNAUTHORIZED_TEXT
+                                  ) : (
+                                      <PopoverContent centerEntity={centerEntity} direction="upstream" />
+                                  )
+                              }
+                              overlayStyle={isUpstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
+                          >
+                              <MenuItemContent>
+                                  <ArrowUpOutlined />
+                                  &nbsp; Edit Upstream
+                              </MenuItemContent>
+                          </Popover>
+                      </MenuItemStyle>
+                  ),
+              }
+            : null,
+        isManualLineageSupported
+            ? {
+                  key: 1,
+                  label: (
+                      <MenuItemStyle
+                          onClick={() => manageLineage(Direction.Downstream)}
+                          disabled={isDownstreamDisabled}
+                      >
+                          <Popover
+                              content={getDownstreamDisabledPopoverContent(!!canEditLineage, isDashboard, centerEntity)}
+                              overlayStyle={isDownstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
+                          >
+                              <MenuItemContent>
+                                  <ArrowDownOutlined />
+                                  &nbsp; Edit Downstream
+                              </MenuItemContent>
+                          </Popover>
+                      </MenuItemStyle>
+                  ),
+              }
+            : null,
+        !isCenterNode && centerEntity
+            ? {
+                  key: 2,
+                  label: (
+                      <MenuItemStyle onClick={centerEntity}>
+                          <StyledImage src={FocusIcon} alt="focus on entity" />
+                          &nbsp; Focus on Entity
+                      </MenuItemStyle>
+                  ),
+              }
+            : null,
+    ];
+
     return (
         <>
             <Tooltip title={disableDropdown ? UNAUTHORIZED_TEXT : ''}>
@@ -100,71 +154,7 @@ export default function ManageLineageMenu({
                     <Dropdown
                         overlayStyle={{ zIndex: DROPDOWN_Z_INDEX }}
                         disabled={disableDropdown}
-                        overlay={
-                            <Menu>
-                                {isManualLineageSupported && (
-                                    <>
-                                        <StyledMenuItem
-                                            key="0"
-                                            onClick={() => manageLineage(Direction.Upstream)}
-                                            disabled={isUpstreamDisabled}
-                                        >
-                                            <Popover
-                                                content={
-                                                    !canEditLineage ? (
-                                                        UNAUTHORIZED_TEXT
-                                                    ) : (
-                                                        <PopoverContent
-                                                            centerEntity={centerEntity}
-                                                            direction="upstream"
-                                                        />
-                                                    )
-                                                }
-                                                overlayStyle={
-                                                    isUpstreamDisabled
-                                                        ? { zIndex: POPOVER_Z_INDEX }
-                                                        : { display: 'none' }
-                                                }
-                                            >
-                                                <MenuItemContent>
-                                                    <ArrowUpOutlined />
-                                                    &nbsp; Edit Upstream
-                                                </MenuItemContent>
-                                            </Popover>
-                                        </StyledMenuItem>
-                                        <StyledMenuItem
-                                            key="1"
-                                            onClick={() => manageLineage(Direction.Downstream)}
-                                            disabled={isDownstreamDisabled}
-                                        >
-                                            <Popover
-                                                content={getDownstreamDisabledPopoverContent(
-                                                    !!canEditLineage,
-                                                    isDashboard,
-                                                    centerEntity,
-                                                )}
-                                                overlayStyle={
-                                                    isDownstreamDisabled
-                                                        ? { zIndex: POPOVER_Z_INDEX }
-                                                        : { display: 'none' }
-                                                }
-                                            >
-                                                <MenuItemContent>
-                                                    <ArrowDownOutlined />
-                                                    &nbsp; Edit Downstream
-                                                </MenuItemContent>
-                                            </Popover>
-                                        </StyledMenuItem>
-                                    </>
-                                )}
-                                {!isCenterNode && centerEntity && (
-                                    <Menu.Item key="2" onClick={centerEntity}>
-                                        <StyledImage src={FocusIcon} alt="focus on entity" />
-                                        &nbsp; Focus on Entity
-                                    </Menu.Item>
-                                )}
-                            </Menu>
-                        }
+                        menu={{ items }}
                         trigger={['click']}
                     >
                         {menuIcon || <MoreOutlined style={{ fontSize: 18 }} />}

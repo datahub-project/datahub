@@ -40,7 +40,10 @@ def run_test():
     print("Data generated")
 
     config = UnityCatalogSourceConfig(
-        token="", workspace_url="http://localhost:1234", include_usage_statistics=False
+        token="",
+        workspace_url="http://localhost:1234",
+        include_usage_statistics=True,
+        include_hive_metastore=False,
     )
     ctx = PipelineContext(run_id="test")
     with patch(
@@ -61,11 +64,9 @@ def run_test():
     print(
         f"Peak Memory Used: {humanfriendly.format_size(peak_memory_usage - pre_mem_usage)}"
     )
-    print(source.report.aspects)
+    print(source.report.as_string())
 
 
 if __name__ == "__main__":
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
-    root_logger.addHandler(logging.StreamHandler())
+    logging.basicConfig(level=logging.INFO)
     run_test()

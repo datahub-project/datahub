@@ -10,10 +10,9 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.search.EntitySearchService;
-
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -25,7 +24,6 @@ import java.util.concurrent.Future;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class IndexDataPlatformsStep extends UpgradeStep {
   private static final String VERSION = "1";
@@ -33,24 +31,27 @@ public class IndexDataPlatformsStep extends UpgradeStep {
   private static final Integer BATCH_SIZE = 1000;
 
   private final EntitySearchService _entitySearchService;
-  private final EntityRegistry _entityRegistry;
 
-  public IndexDataPlatformsStep(EntityService entityService, EntitySearchService entitySearchService,
-      EntityRegistry entityRegistry) {
+  public IndexDataPlatformsStep(
+      EntityService<?> entityService, EntitySearchService entitySearchService) {
     super(entityService, VERSION, UPGRADE_ID);
     _entitySearchService = entitySearchService;
-    _entityRegistry = entityRegistry;
   }
 
   @Override
-  public void upgrade() throws Exception {
-    final AspectSpec dataPlatformSpec = _entityRegistry.getEntitySpec(Constants.DATA_PLATFORM_ENTITY_NAME)
-        .getAspectSpec(Constants.DATA_PLATFORM_INFO_ASPECT_NAME);
+  public void upgrade(@Nonnull OperationContext systemOperationContext) throws Exception {
+    final AspectSpec dataPlatformSpec =
+        systemOperationContext
+            .getEntityRegistry()
+            .getEntitySpec(Constants.DATA_PLATFORM_ENTITY_NAME)
+            .getAspectSpec(Constants.DATA_PLATFORM_INFO_ASPECT_NAME);
 
     final AuditStamp auditStamp =
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
 
-    getAndReIndexDataPlatforms(auditStamp, dataPlatformSpec);
+    getAndReIndexDataPlatforms(systemOperationContext, auditStamp, dataPlatformSpec);
 
     log.info("Successfully indexed data platform aspects");
   }
@@ -61,10 +62,13 @@ public class IndexDataPlatformsStep extends UpgradeStep {
     return ExecutionMode.ASYNC;
   }
 
-  private int getAndReIndexDataPlatforms(AuditStamp auditStamp, AspectSpec dataPlatformInfoAspectSpec)
+  private int getAndReIndexDataPlatforms(
+      @Nonnull OperationContext opContext,
+      AuditStamp auditStamp,
+      AspectSpec dataPlatformInfoAspectSpec)
       throws Exception {
     ListUrnsResult listResult =
-        _entityService.listUrns(Constants.DATA_PLATFORM_ENTITY_NAME, 0, BATCH_SIZE);
+        entityService.listUrns(opContext, Constants.DATA_PLATFORM_ENTITY_NAME, 0, BATCH_SIZE);
 
     List<Urn> dataPlatformUrns = listResult.getEntities();
 
@@ -73,9 +77,11 @@ public class IndexDataPlatformsStep extends UpgradeStep {
     }
 
     final Map<Urn, EntityResponse> dataPlatformInfoResponses =
-        _entityService.getEntitiesV2(Constants.DATA_PLATFORM_ENTITY_NAME, new HashSet<>(dataPlatformUrns),
-        Collections.singleton(Constants.DATA_PLATFORM_INFO_ASPECT_NAME)
-    );
+        entityService.getEntitiesV2(
+            opContext,
+            Constants.DATA_PLATFORM_ENTITY_NAME,
+            new HashSet<>(dataPlatformUrns),
+            Collections.singleton(Constants.DATA_PLATFORM_INFO_ASPECT_NAME));
 
     //  Loop over Data platforms and produce changelog
     List<Future<?>> futures = new LinkedList<>();
@@ -92,26 +98,33 @@ public class IndexDataPlatformsStep extends UpgradeStep {
         continue;
       }
 
-      futures.add(_entityService.alwaysProduceMCLAsync(
-          dpUrn,
-          Constants.DATA_PLATFORM_ENTITY_NAME,
-          Constants.DATA_PLATFORM_INFO_ASPECT_NAME,
-          dataPlatformInfoAspectSpec,
-          null,
-          dpInfo,
-          null,
-          null,
-          auditStamp,
-          ChangeType.RESTATE).getFirst());
+      futures.add(
+          entityService
+              .alwaysProduceMCLAsync(
+                  opContext,
+                  dpUrn,
+                  Constants.DATA_PLATFORM_ENTITY_NAME,
+                  Constants.DATA_PLATFORM_INFO_ASPECT_NAME,
+                  dataPlatformInfoAspectSpec,
+                  null,
+                  dpInfo,
+                  null,
+                  null,
+                  auditStamp,
+                  ChangeType.RESTATE)
+              .getFirst());
     }
 
-    futures.stream().filter(Objects::nonNull).forEach(f -> {
-      try {
-        f.get();
-      } catch (InterruptedException | ExecutionException e) {
-        throw new RuntimeException(e);
-      }
-    });
+    futures.stream()
+        .filter(Objects::nonNull)
+        .forEach(
+            f -> {
+              try {
+                f.get();
+              } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+              }
+            });
 
     return listResult.getTotal();
   }
@@ -122,6 +135,7 @@ public class IndexDataPlatformsStep extends UpgradeStep {
       return null;
     }
 
-    return new DataPlatformInfo(aspectMap.get(Constants.DATA_PLATFORM_INFO_ASPECT_NAME).getValue().data());
+    return new DataPlatformInfo(
+        aspectMap.get(Constants.DATA_PLATFORM_INFO_ASPECT_NAME).getValue().data());
   }
 }

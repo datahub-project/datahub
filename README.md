@@ -22,13 +22,13 @@ HOSTED_DOCS_ONLY-->
 </p>
 <!-- -->
 
-# DataHub: The Metadata Platform for the Modern Data Stack
+# DataHub: The Data Discovery Platform for the Modern Data Stack
 ## Built with ❤️ by <img src="https://datahubproject.io/img/acryl-logo-light-mark.png" width="25"/> [Acryl Data](https://acryldata.io) and <img src="https://datahubproject.io/img/LI-In-Bug.png" width="25"/> [LinkedIn](https://engineering.linkedin.com)
 [![Version](https://img.shields.io/github/v/release/datahub-project/datahub?include_prereleases)](https://github.com/datahub-project/datahub/releases/latest)
 [![PyPI version](https://badge.fury.io/py/acryl-datahub.svg)](https://badge.fury.io/py/acryl-datahub)
 [![build & test](https://github.com/datahub-project/datahub/workflows/build%20&%20test/badge.svg?branch=master&event=push)](https://github.com/datahub-project/datahub/actions?query=workflow%3A%22build+%26+test%22+branch%3Amaster+event%3Apush)
-[![Docker Pulls](https://img.shields.io/docker/pulls/linkedin/datahub-gms.svg)](https://hub.docker.com/r/linkedin/datahub-gms)
-[![Slack](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://slack.datahubproject.io)
+[![Docker Pulls](https://img.shields.io/docker/pulls/acryldata/datahub-gms.svg)](https://hub.docker.com/r/acryldata/datahub-gms)
+[![Slack](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://datahubproject.io/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/datahub-project/datahub/blob/master/docs/CONTRIBUTING.md)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/datahub-project/datahub)](https://github.com/datahub-project/datahub/pulls?q=is%3Apr)
 [![License](https://img.shields.io/github/license/datahub-project/datahub)](https://github.com/datahub-project/datahub/blob/master/LICENSE)
@@ -40,7 +40,7 @@ HOSTED_DOCS_ONLY-->
 ---
 
 [Quickstart](https://datahubproject.io/docs/quickstart) |
-[Features](https://datahubproject.io/docs/features) |
+[Features](https://datahubproject.io/docs/) |
 [Roadmap](https://feature-requests.datahubproject.io/roadmap) |
 [Adoption](#adoption) |
 [Demo](https://demo.datahubproject.io/) |
@@ -61,7 +61,7 @@ HOSTED_DOCS_ONLY-->
 
 ## Introduction
 
-DataHub is an open-source metadata platform for the modern data stack. Read about the architectures of different metadata systems and why DataHub excels [here](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained). Also read our
+DataHub is an open-source data catalog for the modern data stack. Read about the architectures of different metadata systems and why DataHub excels [here](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained). Also read our
 [LinkedIn Engineering blog post](https://engineering.linkedin.com/blog/2019/data-hub), check out our [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) and watch our [Crunch Conference Talk](https://www.youtube.com/watch?v=OB-O0Y6OYDE). You should also visit [DataHub Architecture](docs/architecture/architecture.md) to get a better understanding of how DataHub is implemented.
 
 ## Features & Roadmap
@@ -106,7 +106,11 @@ We welcome contributions from the community. Please refer to our [Contributing G
 
 ## Community
 
-Join our [Slack workspace](https://slack.datahubproject.io) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](docs/townhalls.md) and view past recordings.
+Join our [Slack workspace](https://datahubproject.io/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](docs/townhalls.md) and view past recordings.
+
+## Security
+
+See [Security Stance](docs/SECURITY_STANCE.md) for information on DataHub's Security.
 
 ## Adoption
 
@@ -118,6 +122,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Cabify](https://cabify.tech/)
 - [ClassDojo](https://www.classdojo.com/)
 - [Coursera](https://www.coursera.org/)
+- [CVS Health](https://www.cvshealth.com/)
 - [DefinedCrowd](http://www.definedcrowd.com)
 - [DFDS](https://www.dfds.com/)
 - [Digital Turbine](https://www.digitalturbine.com/)
@@ -128,6 +133,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Haibo Technology](https://www.botech.com.cn)
 - [hipages](https://hipages.com.au/)
 - [inovex](https://www.inovex.de/)
+- [Inter&Co](https://inter.co/)
 - [IOMED](https://iomed.health)
 - [Klarna](https://www.klarna.com)
 - [LinkedIn](http://linkedin.com)
@@ -137,11 +143,12 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Peloton](https://www.onepeloton.com)
 - [PITS Global Data Recovery Services](https://www.pitsdatarecovery.net/)
 - [Razer](https://www.razer.com)
-- [Saxo Bank](https://www.home.saxo)
+- [Rippling](https://www.rippling.com/)
 - [Showroomprive](https://www.showroomprive.com/)
 - [SpotHero](https://spothero.com)
 - [Stash](https://www.stash.com)
 - [Shanghai HuaRui Bank](https://www.shrbank.com)
+- [s7 Airlines](https://www.s7.ru/)
 - [ThoughtWorks](https://www.thoughtworks.com)
 - [TypeForm](http://typeform.com)
 - [Udemy](https://www.udemy.com/)
@@ -150,6 +157,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Wikimedia](https://www.wikimedia.org)
 - [Wolt](https://wolt.com)
 - [Zynga](https://www.zynga.com)
+
 
 
 ## Select Articles & Talks

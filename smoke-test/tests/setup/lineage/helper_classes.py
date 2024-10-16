@@ -1,10 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from datahub.metadata.schema_classes import (
-    EdgeClass,
-    SchemaFieldDataTypeClass,
-)
+from datahub.metadata.schema_classes import EdgeClass, SchemaFieldDataTypeClass
 
 
 @dataclass

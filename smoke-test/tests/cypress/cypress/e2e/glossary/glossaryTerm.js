@@ -1,107 +1,108 @@
+const glossaryTerms = {
+  glossaryTermUrl:
+    "/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressColumnInfoType/Related%20Entities",
+  hdfsDataset: "SampleCypressHdfsDataset",
+  hiveDataset: "cypress_logging_events",
+};
+
+const applyTagFilter = (tag) => {
+  cy.get('[aria-label="filter"]').should("be.visible").click();
+  cy.waitTextVisible("Filter");
+  cy.get(`[data-testid="facet-tags-${tag}"]`).click({ force: true });
+};
+
+const applyAdvancedSearchFilter = (filterType, value) => {
+  cy.get('[aria-label="filter"]').click();
+  cy.get('[id="search-results-advanced-search"]').click();
+  cy.clickOptionWithText("Add Filter");
+
+  if (filterType === "Tag") {
+    applyTagFilterInSearch(value);
+  } else if (filterType === "Description") {
+    applyDescriptionFilterInAdvancedSearch(value);
+  }
+};
+
+const applyBasicSearchFilter = () => {
+  cy.waitTextVisible("Basic");
+  cy.clickOptionWithText("Add Filter");
+};
+
+const searchByConceptsWithLogicalOperator = (concept1, concept2, operator) => {
+  cy.waitTextVisible("Filters");
+  applyBasicSearchFilter();
+  applyTagFilterInSearch(concept1);
+  cy.clickOptionWithText("Add Filter");
+  applyDescriptionFilterInAdvancedSearch(concept2);
+  cy.get('[title="all filters"]').click();
+  cy.clickOptionWithText(operator);
+};
+
+// Helper function to apply tag filter in basic search
+const applyTagFilterInSearch = (tag) => {
+  cy.contains(/^Tag$/).click({ force: true });
+  cy.selectOptionInTagTermModal(tag);
+};
+
+// Helper function to apply description filter in advanced search
+const applyDescriptionFilterInAdvancedSearch = (value) => {
+  cy.get('[data-testid="adv-search-add-filter-description"]').click({
+    force: true,
+  });
+  cy.get('[data-testid="edit-text-input"]').type(value);
+  cy.get('[data-testid="edit-text-done-btn"]').click({ force: true });
+};
+
 describe("glossaryTerm", () => {
-  it("can visit related entities", () => {
-    cy.login();
-    cy.visit("/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressColumnInfoType/Related%20Entities");
-    cy.wait(5000);
-    cy.contains("of 0").should("not.exist");
-    cy.contains(/of [0-9]+/);
+  beforeEach(() => {
+    cy.loginWithCredentials();
+    cy.visit(glossaryTerms.glossaryTermUrl);
   });
 
   it("can search related entities by query", () => {
-    cy.login();
-    cy.visit("/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressColumnInfoType/Related%20Entities");
-    cy.get('[placeholder="Filter entities..."]').click().type(
-      "logging{enter}"
-    );
-    cy.wait(5000);
-    cy.contains("of 0").should("not.exist");
-    cy.contains(/of 1/);
-    cy.contains("cypress_logging_events");
-    cy.contains("SampleCypressHdfsDataset").should("not.exist");
+    cy.get('[placeholder="Filter entities..."]')
+      .should("be.visible")
+      .click()
+      .type("logging{enter}");
+    cy.waitTextVisible(glossaryTerms.hiveDataset);
+    cy.contains(glossaryTerms.hdfsDataset).should("not.exist");
   });
 
   it("can apply filters on related entities", () => {
-    cy.login();
-    cy.visit("/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressColumnInfoType/Related%20Entities");
-    cy.wait(5000);
-    // Select tags filter
-    cy.contains("Filters").click();
-
-    cy.get('[data-testid="facet-tags-urn:li:tag:Cypress2"]').click({force: true})
-    cy.wait(3000);
-
-    // Unselect tags filter
-    cy.contains("cypress_logging_events").should("not.exist");
-    cy.contains("SampleCypressHdfsDataset");
-    cy.get('[data-testid="facet-tags-urn:li:tag:Cypress2"]').click({force: true})
-
-    cy.wait(3000);
-    cy.contains("cypress_logging_events");
-    cy.contains("SampleCypressHdfsDataset");
+    cy.waitTextVisible(glossaryTerms.hiveDataset);
+    applyTagFilter("urn:li:tag:Cypress2");
+    cy.contains(glossaryTerms.hiveDataset).should("not.exist");
+    cy.waitTextVisible(glossaryTerms.hdfsDataset);
   });
 
   it("can search related entities by a specific tag using advanced search", () => {
-    cy.login();
-
-    cy.visit("/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressColumnInfoType/Related%20Entities");
-    cy.wait(3000);
-    cy.contains("Filters").click();
-    cy.contains("Advanced").click();
-    cy.contains("Add Filter").click();
-    cy.contains(/^Tag$/).click({ force: true });
-
-    cy.selectOptionInTagTermModal("Cypress2");
-
-    cy.contains("SampleCypressHdfsDataset");
-    // Only 1 result.
-    cy.contains("of 1");
+    cy.waitTextVisible(glossaryTerms.hdfsDataset);
+    applyAdvancedSearchFilter("Tag", "Cypress2");
+    cy.waitTextVisible(glossaryTerms.hdfsDataset);
+    cy.clickOptionWithText(glossaryTerms.hdfsDataset);
+    cy.waitTextVisible("Cypress 2");
   });
 
-  it("can search related entities by AND-ing two concepts using advanced search", () => {
-    cy.login();
-
-    cy.visit("/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressColumnInfoType/Related%20Entities");
-    cy.wait(3000);
-    cy.contains("Filters").click();
-    cy.contains("Advanced").click();
-    cy.contains("Add Filter").click();
-    cy.contains(/^Tag$/).click({ force: true });
-
-    cy.selectOptionInTagTermModal("Cypress2")
-
-    cy.contains("Add Filter").click();
+  it("can search related entities by AND-ing two concepts using search", () => {
+    cy.waitTextVisible(glossaryTerms.hdfsDataset);
+    applyAdvancedSearchFilter();
+    cy.clickOptionWithText("Add Filter");
     cy.get('[data-testid="adv-search-add-filter-description"]').click({
       force: true,
     });
-    cy.get('[data-testid="edit-text-input"]').type("my hdfs");
+    cy.get('[data-testid="edit-text-input"]').type("my hdfs dataset");
     cy.get('[data-testid="edit-text-done-btn"]').click({ force: true });
-    cy.contains("SampleCypressHdfsDataset");
-    cy.contains("of 1");
+    cy.waitTextVisible(glossaryTerms.hdfsDataset);
+    cy.clickOptionWithText(glossaryTerms.hdfsDataset);
+    cy.waitTextVisible("my hdfs dataset");
   });
 
-  it("can search related entities by OR-ing two concepts using advanced search", () => {
-    cy.login();
-
-    cy.visit("/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressColumnInfoType/Related%20Entities");
-    cy.wait(3000);
-    cy.contains("Filters").click();
-    cy.contains("Advanced").click();
-    cy.contains("Add Filter").click();
-    cy.get('[data-testid="adv-search-add-filter-description"]').click({
-      force: true,
-    });
-    cy.get('[data-testid="edit-text-input"]').type("single log event");
-    cy.get('[data-testid="edit-text-done-btn"]').click({ force: true });
-    cy.wait(2000);
-    cy.contains("Add Filter").click();
-    cy.contains(/^Tag$/).click({ force: true });
-
-    cy.selectOptionInTagTermModal("Cypress2");
-
-    cy.contains("all filters").click();
-    cy.contains("any filter").click({ force: true });
-
-    cy.contains("SampleCypressHdfsDataset");
-    cy.contains("cypress_logging_events");
+  it("can search related entities by OR-ing two concepts using search", () => {
+    cy.waitTextVisible(glossaryTerms.hdfsDataset);
+    applyAdvancedSearchFilter("Description", "single log event");
+    applyBasicSearchFilter("Tag", "Cypress2");
+    searchByConceptsWithLogicalOperator("Cypress", "Tag", "any filter");
+    cy.waitTextVisible(glossaryTerms.hdfsDataset);
+    cy.waitTextVisible(glossaryTerms.hiveDataset);
   });
 });

@@ -1,14 +1,11 @@
 #### Configuration Notes
 
-:::note
-
-The integration can use an SQL parser to try to parse the tables the views depends on.
-
-:::
-
-This parsing is disabled by default, but can be enabled by setting `parse_table_names_from_sql: True`. The default parser is based on the [`sqllineage`](https://pypi.org/project/sqllineage/) package.
-As this package doesn't officially support all the SQL dialects that Looker supports, the result might not be correct. You can, however, implement a custom parser and take it into use by setting the `sql_parser` configuration value. A custom SQL parser must inherit from `datahub.utilities.sql_parser.SQLParser`
-and must be made available to Datahub by ,for example, installing it. The configuration then needs to be set to `module_name.ClassName` of the parser.
+1. If a view contains a liquid template (e.g. `sql_table_name: {{ user_attributes['db']}}.kafka_streaming.events }}`, with `db=ANALYTICS_PROD`), then you will need to specify the values of those variables in the `liquid_variable` config as shown below:
+    ```yml
+      liquid_variable:
+        user_attributes:
+          db: ANALYTICS_PROD
+    ```
 
 ### Multi-Project LookML (Advanced)
 
@@ -84,7 +81,7 @@ If you see messages like `my_file.view.lkml': "failed to load view file: Unable 
 The first thing to check is that the Looker IDE can validate the file without issues. You can check this by clicking this "Validate LookML" button in the IDE when in development mode.
 
 If that's not the issue, it might be because DataHub's parser, which is based on the [joshtemple/lkml](https://github.com/joshtemple/lkml) library, is slightly more strict than the official Looker parser.
-Note that there's currently only one known discrepancy between the two parsers, and it's related to using [multiple colon characters](https://github.com/joshtemple/lkml/issues/82) when defining parameters.
+Note that there's currently only one known discrepancy between the two parsers, and it's related to using [leading colons in blocks](https://github.com/joshtemple/lkml/issues/90).
 
 To check if DataHub can parse your LookML file syntax, you can use the `lkml` CLI tool. If this raises an exception, DataHub will fail to parse the file.
 

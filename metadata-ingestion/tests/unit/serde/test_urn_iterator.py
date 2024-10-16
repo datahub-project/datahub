@@ -1,4 +1,5 @@
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     FineGrainedLineage,
@@ -10,11 +11,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.utilities.urns.urn_iter import list_urns_with_path, lowercase_dataset_urns
 
 
-def _datasetUrn(tbl):
+def _datasetUrn(tbl: str) -> str:
     return builder.make_dataset_urn("bigquery", tbl, "PROD")
 
 
-def _fldUrn(tbl, fld):
+def _fldUrn(tbl: str, fld: str) -> str:
     return builder.make_schema_field_urn(_datasetUrn(tbl), fld)
 
 
@@ -114,8 +115,10 @@ def test_upstream_lineage_urn_iterator():
     ]
 
 
-def _make_test_lineage_obj(upstream: str, downstream: str) -> UpstreamLineage:
-    return UpstreamLineage(
+def _make_test_lineage_obj(
+    table: str, upstream: str, downstream: str
+) -> MetadataChangeProposalWrapper:
+    lineage = UpstreamLineage(
         upstreams=[
             Upstream(
                 dataset=_datasetUrn(upstream),
@@ -132,11 +135,17 @@ def _make_test_lineage_obj(upstream: str, downstream: str) -> UpstreamLineage:
         ],
     )
 
+    return MetadataChangeProposalWrapper(entityUrn=_datasetUrn(table), aspect=lineage)
+
 
 def test_dataset_urn_lowercase_transformer():
-    original = _make_test_lineage_obj("upstreamTable", "downstreamTable")
+    original = _make_test_lineage_obj(
+        "mainTableName", "upstreamTable", "downstreamTable"
+    )
 
-    expected = _make_test_lineage_obj("upstreamtable", "downstreamtable")
+    expected = _make_test_lineage_obj(
+        "maintablename", "upstreamtable", "downstreamtable"
+    )
 
     assert original != expected  # sanity check
 

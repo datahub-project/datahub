@@ -19,6 +19,7 @@ const ViewLogicButton = styled(Button)`
 `;
 
 type Props = {
+    description?: string;
     assertionInfo: DatasetAssertionInfo;
 };
 
@@ -319,18 +320,20 @@ const TOOLTIP_MAX_WIDTH = 440;
  *
  * For example, Column 'X' values are in [1, 2, 3]
  */
-export const DatasetAssertionDescription = ({ assertionInfo }: Props) => {
+export const DatasetAssertionDescription = ({ description, assertionInfo }: Props) => {
     const { scope, aggregation, fields, operator, parameters, nativeType, nativeParameters, logic } = assertionInfo;
     const [isLogicVisible, setIsLogicVisible] = useState(false);
     /**
      * Build a description component from a) input (aggregation, inputs) b) the operator text
      */
-    const description = (
+    const descriptionFragment = (
         <>
-            <Typography.Text>
-                {getAggregationText(scope, aggregation, fields)}{' '}
-                {getOperatorText(operator, parameters || undefined, nativeType || undefined)}
-            </Typography.Text>
+            {description || (
+                <Typography.Text>
+                    {getAggregationText(scope, aggregation, fields)}{' '}
+                    {getOperatorText(operator, parameters || undefined, nativeType || undefined)}
+                </Typography.Text>
+            )}
         </>
     );
 
@@ -349,7 +352,7 @@ export const DatasetAssertionDescription = ({ assertionInfo }: Props) => {
                 </>
             }
         >
-            <div>{description}</div>
+            <div>{descriptionFragment}</div>
             {logic && (
                 <div>
                     <ViewLogicButton onClick={() => setIsLogicVisible(true)} type="link">
@@ -359,7 +362,7 @@ export const DatasetAssertionDescription = ({ assertionInfo }: Props) => {
             )}
             <DatasetAssertionLogicModal
                 logic={logic || 'N/A'}
-                visible={isLogicVisible}
+                open={isLogicVisible}
                 onClose={() => setIsLogicVisible(false)}
             />
         </Popover>

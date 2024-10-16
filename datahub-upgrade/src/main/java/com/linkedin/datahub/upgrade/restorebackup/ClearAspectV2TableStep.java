@@ -5,13 +5,11 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import java.util.function.Function;
 
-
-/**
- * Optional step for removing Aspect V2 table.
- */
+/** Optional step for removing Aspect V2 table. */
 public class ClearAspectV2TableStep implements UpgradeStep {
 
   private final Database _server;
@@ -29,7 +27,7 @@ public class ClearAspectV2TableStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       _server.find(EbeanAspectV2.class).delete();
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 }
