@@ -59,6 +59,13 @@ def recipe(mcp_output_path: str, source_config_override: dict = {}) -> dict:
             "type": "bigquery",
             "config": {
                 "project_ids": ["project-id-1"],
+                "credential": {
+                    "project_id": "project-id-1",
+                    "private_key_id": "private_key_id",
+                    "private_key": "private_key",
+                    "client_email": "client_email",
+                    "client_id": "client_id",
+                },
                 "include_usage_statistics": False,
                 "include_table_lineage": True,
                 "include_data_platform_instance": True,
