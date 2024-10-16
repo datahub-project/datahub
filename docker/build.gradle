@@ -143,6 +143,10 @@ dockerCompose {
     quickstartDebug {
         isRequiredBy(tasks.named('quickstartDebug'))
         composeAdditionalArgs = ['--profile', 'debug']
+
+        if (System.getenv().containsKey("DATAHUB_VERSION")) {
+            environment.put 'DATAHUB_VERSION', System.getenv("DATAHUB_VERSION")
+        }
         environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false' // disabled when built locally
         // SaaS only Start
         environment.put "METADATA_TESTS_ENABLED", "true"
