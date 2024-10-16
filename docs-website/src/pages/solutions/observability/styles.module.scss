@@ -1,7 +1,6 @@
 .container {
   display: flex;
   flex-direction: column;
-  background: #fafafa;
   width: 80vw;
   min-width: 900px;
   max-width: 1200px;
@@ -388,83 +387,88 @@
     }
     
     .card {
-      display: flex !important;
-      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
       justify-content: space-between;
       flex-direction: column;
       position: relative;
-      width: 467px;
-      height: 395px;
+      width: 300px;
+      height: 500px;
       flex-shrink: 0;
       border-radius: 12px;
       background: white;
       margin-right: 20px;
-      transition: box-shadow .2s ease-in-out;
-      transition: opacity .2s ease-in-out;
+      transition: box-shadow 0.2s ease-in-out;
+      box-shadow: 0px 6px 16px 0px rgba(55, 61, 68, 0.08), 0px 3px 6px -4px rgba(55, 61, 68, 0.12), 0px 9px 28px 8px rgba(55, 61, 68, 0.05);    
 
-      &:hover {
-        box-shadow: 0px 0px 4px 0px #0000001C;
-        opacity: .9;
+    
+    
+      .read_time {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        color: white;
+        font-size: 1rem;
+        z-index: 10;
       }
 
-      .card_image  {
-        width: 100%;
-        height: 14rem;
-        border-radius: 16px 16px 0 0;
+      .card_image {
+        position: relative;
+        height: 200px;
+        background-size: cover;
+        background-position: center;
+        border-radius: 12px 12px 0 0;
         display: flex;
         justify-content: center;
         align-items: center;
-        position: relative;
-        overflow: hidden;
-        background-color: #25252e;
-
+    
         img {
-          object-fit: center;
-          max-width: 40%;
-          max-height: 40%;
-          z-index: 10;
-          filter: brightness(2);
-          opacity: .9;
-        }
-        .cardImageBackground {
-          position: absolute;
-          height: 100%;
-          width: 100%;
-          z-index: 0;
-          background-size: cover;
-          opacity: .15;
+          max-width: 100%;
+          max-height: 100%;
+          object-fit: cover;
         }
       }
+    
+      .card_content {
+        padding: 16px;
+    
+        .card_heading {
+          font-size: 1.5rem;
+          font-weight: bold;
+          margin-bottom: 8px;
+        }
 
+        .read_more {
+          color: #1890ff;
+          font-weight: bold;
+          text-decoration: none;
+          font-size: 1.2rem;
+          position: absolute; 
+          bottom: 8px;
+          left: 8px;
+          width: 100%;
+          
+    
+          &:hover {
+            text-decoration: underline;
+          }
+        }
+      }
+    
       .card_tag {
         position: absolute;
-        left: 2rem;
-        top: 2rem;
-        color: var(--primitives-text-text-heading, #373A47);
+        top: 16px;
+        left: 16px;
+        background-color: white;
+        color: black;
+        padding: 4px 24px;
+        border-radius: 20px;
         font-size: 1.2rem;
-        font-family: 'Manrope';
-        font-weight: 600;
-        padding: 8px;
-        gap: 8px;
-        border-radius: var(--number-scales-2s-32, 32px);
-        background: var(--primitives-grays-1, #F3F3F6);
+        font-weight: bold;
         z-index: 10;
       }
-      .card_heading_div {
-        text-align: start;
-        padding: 12px;
-
-        .card_heading {
-          font-family: "Manrope";
-          font-size: 1.5rem;
-          font-weight: 700;
-          overflow: hidden;
-          white-space: nowrap;
-          text-overflow: ellipsis;
-          margin-bottom: 2px;
-        }
-      }
     }
+    
   }
 
   .bottom_line {

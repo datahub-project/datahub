@@ -134,22 +134,24 @@ function Home() {
         <div className={styles.resource_heading}>
           Resources
         </div>
-
         <div className={styles.card_row}>
-          <div className={styles.card_row_wrapper} >
+          <div className={styles.card_row_wrapper}>
             {resourceData.map((resource) => (
               <div className={styles.card} key={resource.link}>
-                <a className={styles.cardLink} href={resource.link} style={resource.backgroundImage ? null : {
-                  opacity: .5
-                }}>
+                <a className={styles.cardLink} href={resource.link}>
                   {resource.tag ? <span className={styles.card_tag}>{resource.tag}</span> : null}
-                  <div className={styles.card_image} style={{ backgroundColor: resource.backgroundImage ? null : '#eee' }}>
-                    <img src={resource.image} alt="" />
-                    <div className={styles.cardImageBackground} style={{ backgroundImage: `url(${resource.backgroundImage})` }} />
+                  <div class={styles.read_time}>{resource.readTime} mins read</div>
+                  <div className={styles.card_image} style={{ backgroundImage: `url(${resource.backgroundImage})` }}>
+                    <div className={styles.cardImageBackground} />
                   </div>
-                  <div className={styles.card_heading_div}>
+                  <div className={styles.card_content}>
                     <div className={styles.card_heading}>
-                      <span>{resource.title}</span>
+                      {resource.title}
+                    </div>
+                    <div className={styles.read_more}>
+                      <a href={resource.link} className={styles.read_more}>
+                        Read more
+                      </a>
                     </div>
                   </div>
                 </a>
@@ -157,9 +159,6 @@ function Home() {
             ))}
           </div>
         </div>
-        <Link className={styles.bottom_line} to="/adoption-stories">
-          See all adoption stories →
-        </Link>
       </div>
     </div>
     </Layout>
