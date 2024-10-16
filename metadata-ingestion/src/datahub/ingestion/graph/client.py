@@ -351,6 +351,7 @@ class DataHubGraph(DatahubRestEmitter):
     def get_glossary_terms(self, entity_urn: str) -> Optional[GlossaryTermsClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=GlossaryTermsClass)
 
+    @functools.lru_cache(maxsize=1)
     def get_domain(self, entity_urn: str) -> Optional[DomainsClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainsClass)
 
