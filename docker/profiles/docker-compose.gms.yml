@@ -73,7 +73,7 @@ x-datahub-system-update-service: &datahub-system-update-service
 
 x-datahub-system-update-service-dev: &datahub-system-update-service-dev
   <<: *datahub-system-update-service
-  image: ${DATAHUB_UPGRADE_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-upgrade}:debug
+  image: ${DATAHUB_UPGRADE_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-upgrade}:${DATAHUB_VERSION:-debug}
   ports:
     - ${DATAHUB_MAPPED_UPGRADE_DEBUG_PORT:-5003}:5003
   environment: &datahub-system-update-dev-env
@@ -115,7 +115,7 @@ x-datahub-gms-service: &datahub-gms-service
 
 x-datahub-gms-service-dev: &datahub-gms-service-dev
   <<: *datahub-gms-service
-  image: ${DATAHUB_GMS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-gms}:debug
+  image: ${DATAHUB_GMS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-gms}:${DATAHUB_VERSION:-debug}
   ports:
     - ${DATAHUB_MAPPED_GMS_DEBUG_PORT:-5001}:5001
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
@@ -159,7 +159,7 @@ x-datahub-mae-consumer-service: &datahub-mae-consumer-service
 
 x-datahub-mae-consumer-service-dev: &datahub-mae-consumer-service-dev
   <<: *datahub-mae-consumer-service
-  image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:debug
+  image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:${DATAHUB_VERSION:-debug}
   environment:
     <<: [*datahub-dev-telemetry-env, *datahub-mae-consumer-env]
   volumes:
@@ -185,7 +185,7 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
 
 x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
   <<: *datahub-mce-consumer-service
-  image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:debug
+  image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_VERSION:-debug}
   environment:
     <<: [*datahub-dev-telemetry-env, *datahub-mce-consumer-env]
   volumes:
