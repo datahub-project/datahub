@@ -107,8 +107,8 @@ project.ext.externalDependency = [
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
     'antlr4': 'org.antlr:antlr4:4.9.3',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
-    'avro': 'org.apache.avro:avro:1.11.3',
-    'avroCompiler': 'org.apache.avro:avro-compiler:1.11.3',
+    'avro': 'org.apache.avro:avro:1.11.4',
+    'avroCompiler': 'org.apache.avro:avro-compiler:1.11.4',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.17',
     'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.0.3',
     'awsS3': 'software.amazon.awssdk:s3:2.26.21',
@@ -398,6 +398,7 @@ subprojects {
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
         implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
         implementation(externalDependency.commonsIo)
+        implementation(externalDependency.protobuf)
       }
     }
 

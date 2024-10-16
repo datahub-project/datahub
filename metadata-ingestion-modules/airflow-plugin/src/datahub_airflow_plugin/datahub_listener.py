@@ -383,8 +383,12 @@ class DataHubListener:
             return
 
         logger.debug(
-            f"DataHub listener got notification about task instance start for {task_instance.task_id}"
+            f"DataHub listener got notification about task instance start for {task_instance.task_id} of dag {task_instance.dag_id}"
         )
+
+        if not self.config.dag_filter_pattern.allowed(task_instance.dag_id):
+            logger.debug(f"DAG {task_instance.dag_id} is not allowed by the pattern")
+            return
 
         if self.config.render_templates:
             task_instance = _render_templates(task_instance)
@@ -491,6 +495,10 @@ class DataHubListener:
         assert task is not None
 
         dag: "DAG" = task.dag  # type: ignore[assignment]
+
+        if not self.config.dag_filter_pattern.allowed(dag.dag_id):
+            logger.debug(f"DAG {dag.dag_id} is not allowed by the pattern")
+            return
 
         datajob = AirflowGenerator.generate_datajob(
             cluster=self.config.cluster,
@@ -689,8 +697,12 @@ class DataHubListener:
                 f"DataHub listener got notification about dag run start for {dag_run.dag_id}"
             )
 
-            self.on_dag_start(dag_run)
+            assert dag_run.dag_id
+            if not self.config.dag_filter_pattern.allowed(dag_run.dag_id):
+                logger.debug(f"DAG {dag_run.dag_id} is not allowed by the pattern")
+                return
 
+            self.on_dag_start(dag_run)
             self.emitter.flush()
 
     # TODO: Add hooks for on_dag_run_success, on_dag_run_failed -> call AirflowGenerator.complete_dataflow

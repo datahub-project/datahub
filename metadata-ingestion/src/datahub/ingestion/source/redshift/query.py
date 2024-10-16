@@ -284,6 +284,34 @@ SELECT  schemaname as schema_name,
         """
 
     @staticmethod
+    def list_copy_commands_sql(
+        db_name: str, start_time: datetime, end_time: datetime
+    ) -> str:
+        return """
+                select
+                    distinct
+                        "schema" as target_schema,
+                        "table" as target_table,
+                        c.file_name as filename
+                from
+                    SYS_QUERY_DETAIL as si
+                join SYS_LOAD_DETAIL as c on
+                    si.query_id = c.query_id
+                join SVV_TABLE_INFO sti on
+                    sti.table_id = si.table_id
+                where
+                    database = '{db_name}'
+                    and si.start_time >= '{start_time}'
+                    and si.start_time < '{end_time}'
+                order by target_schema, target_table, si.start_time asc
+                """.format(
+            # We need the original database name for filtering
+            db_name=db_name,
+            start_time=start_time.strftime(redshift_datetime_format),
+            end_time=end_time.strftime(redshift_datetime_format),
+        )
+
+    @staticmethod
     def additional_table_metadata_query() -> str:
         raise NotImplementedError
 
@@ -313,12 +341,6 @@ SELECT  schemaname as schema_name,
 
     @staticmethod
     def list_insert_create_queries_sql(
-        db_name: str, start_time: datetime, end_time: datetime
-    ) -> str:
-        raise NotImplementedError
-
-    @staticmethod
-    def list_copy_commands_sql(
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         raise NotImplementedError
@@ -530,34 +552,6 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                     ddl,
                     sq.query
         """.format(
-            # We need the original database name for filtering
-            db_name=db_name,
-            start_time=start_time.strftime(redshift_datetime_format),
-            end_time=end_time.strftime(redshift_datetime_format),
-        )
-
-    @staticmethod
-    def list_copy_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
-    ) -> str:
-        return """
-                select
-                    distinct
-                        "schema" as target_schema,
-                        "table" as target_table,
-                        filename
-                from
-                    stl_insert as si
-                join stl_load_commits as c on
-                    si.query = c.query
-                join SVV_TABLE_INFO sti on
-                    sti.table_id = tbl
-                where
-                    database = '{db_name}'
-                    and si.starttime >= '{start_time}'
-                    and si.starttime < '{end_time}'
-                order by target_schema, target_table, starttime asc
-                """.format(
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -941,33 +935,6 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
 
     # when loading from s3 using prefix with a single file it produces 2 lines (for file and just directory) - also
     # behaves like this when run in the old way
-    @staticmethod
-    def list_copy_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
-    ) -> str:
-        return """
-                select
-                    distinct
-                        "schema" as target_schema,
-                        "table" as target_table,
-                        c.file_name
-                from
-                    SYS_QUERY_DETAIL as si
-                join SYS_LOAD_DETAIL as c on
-                    si.query_id = c.query_id
-                join SVV_TABLE_INFO sti on
-                    sti.table_id = si.table_id
-                where
-                    database = '{db_name}'
-                    and si.start_time >= '{start_time}'
-                    and si.start_time < '{end_time}'
-                order by target_schema, target_table, si.start_time asc
-                """.format(
-            # We need the original database name for filtering
-            db_name=db_name,
-            start_time=start_time.strftime(redshift_datetime_format),
-            end_time=end_time.strftime(redshift_datetime_format),
-        )
 
     # handles "create table IF ..." statements wrong probably - "create command" field contains only "create table if" in such cases
     # also similar happens if for example table name contains special characters quoted with " i.e. "test-table1"
