@@ -251,14 +251,36 @@ def handle_ingestion_signal_requests(
             return
 
 
-def emit_execution_request_input(
-    execution_request: ExecutionRequest,
-) -> None:
-    # before actually running, we generate a unique exec_id so the executor downstream don't complain
+def emit_execution_request_input(input: ExecutionRequestInputClass) -> bool:
     exec_id = str(uuid.uuid4())
 
+    mcpw = MetadataChangeProposalWrapper(
+        entityKeyAspect=ExecutionRequestKeyClass(id=exec_id),
+        entityUrn=f"urn:li:dataHubExecutionRequest:{exec_id}",
+        entityType="dataHubExecutionRequest",
+        aspectName="dataHubExecutionRequestInput",
+        aspect=input,
+        changeType="UPSERT",
+    )
+
+    try:
+        STATS_MCP_EMIT_EVENTS.inc()
+        graph = create_datahub_graph()
+        graph.emit_mcp(mcpw, async_flag=False)
+        return True
+    except Exception as e:
+        STATS_MCP_EMIT_ERRORS.labels("GmsError").inc()
+        logger.exception(
+            f"An unknown error occurred when attempting to emit dataHubExecutionRequestInput - {e}"
+        )
+    return False
+
+
+def build_execution_request_input_from_request(
+    execution_request: ExecutionRequest,
+) -> ExecutionRequestInputClass:
     # Construct the dataHubExecutionRequestInput aspect
-    execution_input_aspect = ExecutionRequestInputClass(
+    return ExecutionRequestInputClass(
         task=execution_request.name,
         args=execution_request.args,
         executorId=execution_request.executor_id,
@@ -268,22 +290,3 @@ def emit_execution_request_input(
             ingestionSource=execution_request.args["urn"],
         ),
     )
-    # Emit the dataHubExecutionRequestInput aspect
-    mcpw = MetadataChangeProposalWrapper(
-        entityKeyAspect=ExecutionRequestKeyClass(id=exec_id),
-        entityUrn=f"urn:li:dataHubExecutionRequest:{exec_id}",
-        entityType="dataHubExecutionRequest",
-        aspectName="dataHubExecutionRequestInput",
-        aspect=execution_input_aspect,
-        changeType="UPSERT",
-    )
-
-    try:
-        STATS_MCP_EMIT_EVENTS.inc()
-        graph = create_datahub_graph()
-        graph.emit_mcp(mcpw, async_flag=False)
-    except Exception as e:
-        STATS_MCP_EMIT_ERRORS.labels("GmsError").inc()
-        logger.exception(
-            f"An unknown error occurred when attempting to emit dataHubExecutionRequestInput - {e}"
-        )

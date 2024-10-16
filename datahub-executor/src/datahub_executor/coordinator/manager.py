@@ -47,7 +47,7 @@ class ExecutionRequestManager:
             self.sweeper.run,
             args=[],
             trigger="interval",
-            minutes=DATAHUB_EXECUTOR_SWEEPER_INTERVAL,
+            seconds=DATAHUB_EXECUTOR_SWEEPER_INTERVAL,
         )
 
         # Schedule the refresh method to run.

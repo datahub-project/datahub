@@ -180,3 +180,22 @@ STATS_SCHEDULER_SQS_LIMIT_EXCEEDED = Gauge(
     "datahub_executor_scheduler_message_size_exceeded",
     "Number of requests that failed to send over SQS due to excessive size",
 )
+
+
+STATS_SWEEPER_ACTIONS_PLANNED = Gauge(
+    "datahub_executor_sweeper_actions_planned",
+    "Number of actions scheduled for execution by the sweeper",
+    ["action_type"],
+)
+
+STATS_SWEEPER_ACTIONS_EXECUTED = Gauge(
+    "datahub_executor_sweeper_actions_executed",
+    "Number of actions executed by the sweeper",
+    ["action_type"],
+)
+
+STATS_SWEEPER_EXECUTION_REQUESTS_COUNT = Gauge(
+    "datahub_executor_sweeper_actions",
+    "Number of execution requests processed by the sweeper grouped by status",
+    ["status"],
+)

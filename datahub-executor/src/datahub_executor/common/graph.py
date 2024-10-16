@@ -10,9 +10,11 @@ from datahub.metadata.schema_classes import (
 
 from datahub_executor.common.constants import (
     DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
+    DATAHUB_EXECUTION_REQUEST_INDEX_THRESHOLD_MS,
     DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME,
     DATAHUB_EXECUTION_REQUEST_KEY_ASPECT_NAME,
     DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME,
+    DATAHUB_EXECUTION_REQUEST_STATUS_DUPLICATE,
     DATAHUB_EXECUTION_REQUEST_STATUS_RUNNING,
 )
 from datahub_executor.common.types import ExecutionRequestStatus
@@ -56,12 +58,12 @@ class DataHubExecutorGraph(DataHubGraph):
         )
         return res["cancelIngestionExecutionRequest"]
 
-    def abort_execution_request(
-        self, execution_request_urn: str, report: str, start_time: int = 0
+    def set_execution_request_status(
+        self, execution_request_urn: str, report: str, status: str, start_time: int = 0
     ) -> None:
         key_aspect = ExecutionRequestKeyClass(id=execution_request_urn)
         result_aspect = ExecutionRequestResultClass(
-            status="ABORTED",
+            status=status,
             startTimeMs=start_time,
             durationMs=None,
             report=report,
@@ -77,24 +79,35 @@ class DataHubExecutorGraph(DataHubGraph):
     def _entity_to_execution_request_status(
         self, entity: Dict
     ) -> ExecutionRequestStatus:
-        result_aspect = entity.get("aspects", {}).get(
-            DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME, {}
+        result_aspect = (
+            entity.get("aspects", {})
+            .get(DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME, {})
+            .get("value", {})
         )
-        input_aspect = entity.get("aspects", {}).get(
-            DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME, {}
+        input_aspect = (
+            entity.get("aspects", {})
+            .get(DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME, {})
+            .get("value", {})
         )
-        key_aspect = entity.get("aspects", {}).get(
-            DATAHUB_EXECUTION_REQUEST_KEY_ASPECT_NAME, {}
+        key_aspect = (
+            entity.get("aspects", {})
+            .get(DATAHUB_EXECUTION_REQUEST_KEY_ASPECT_NAME, {})
+            .get("value", {})
         )
 
-        ingestion_source_urn = (
-            input_aspect.get("value", {}).get("source", {}).get("ingestionSource")
+        ingestion_source_urn = input_aspect.get("source", {}).get("ingestionSource")
+        execution_request_id = key_aspect.get("id")
+        execution_request_status = result_aspect.get("status", "PENDING")
+        report = result_aspect.get("report", "")
+        request_time = input_aspect.get("requestedAt", 0)
+        start_time = result_aspect.get("startTimeMs", 0)
+
+        last_observed = (
+            entity.get("aspects", {})
+            .get(DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME, {})
+            .get("systemMetadata", {})
+            .get("lastObserved", 0)
         )
-        execution_request_id = key_aspect.get("value", {}).get("id")
-        execution_request_status = result_aspect.get("value", {}).get("status")
-        report = result_aspect.get("value", {}).get("report", "")
-        start_time = result_aspect.get("value", {}).get("startTimeMs", 0)
-        last_observed = result_aspect.get("systemMetadata", {}).get("lastObserved", 0)
 
         ers = ExecutionRequestStatus.parse_obj(
             {
@@ -105,12 +118,14 @@ class DataHubExecutorGraph(DataHubGraph):
                 "last_observed": last_observed,
                 "report": report,
                 "start_time": start_time,
+                "request_time": request_time,
+                "raw_input_aspect": input_aspect,
             }
         )
         return ers
 
-    def get_running_ingestions(
-        self,
+    def _get_execution_requests_by_query(
+        self, overrides: Dict[str, Any]
     ) -> List[ExecutionRequestStatus]:
         headers: Dict[str, Any] = {
             "Accept": "application/json",
@@ -122,13 +137,12 @@ class DataHubExecutorGraph(DataHubGraph):
                 DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME,
             ],
             "count": "10",
-            "query": f"executionResultStatus:{DATAHUB_EXECUTION_REQUEST_STATUS_RUNNING}",
-            "sort": "urn",
+            "sort": "requestTimeMs",
             "sortOrder": "ASCENDING",
             "systemMetadata": "true",
             "skipCache": "true",
         }
-
+        params.update(overrides)
         retval: List[ExecutionRequestStatus] = []
 
         iteration = 0
@@ -152,7 +166,57 @@ class DataHubExecutorGraph(DataHubGraph):
             iteration = iteration + 1
             if (iteration % self.PAGINATION_ITERATIONS_WARNING_THRESHOLD) == 0:
                 logger.warning(
-                    f"get_running_ingestions: possible infinite loop; iterations: {iteration}"
+                    f"get_running_and_pending_ingestions: possible infinite loop; iterations: {iteration}"
                 )
 
         return retval
+
+    def get_recent_requests_for_sources(
+        self, input: List
+    ) -> Dict[str, List[ExecutionRequestStatus]]:
+        retval: Dict[str, List[ExecutionRequestStatus]] = {}
+        batch_size = 10
+
+        for i in range(0, len(input), batch_size):
+            slice = input[i : i + batch_size]
+            conditions = map(
+                lambda x: (
+                    '(ingestionSource:"{}" AND requestTimeMs: >={} AND '
+                    "(((!(_exists_:executionResultStatus)) AND requestTimeMs: >{}) OR (!executionResultStatus:{})))"
+                ).format(
+                    *(
+                        x
+                        + [
+                            DATAHUB_EXECUTION_REQUEST_INDEX_THRESHOLD_MS,
+                            DATAHUB_EXECUTION_REQUEST_STATUS_DUPLICATE,
+                        ]
+                    )
+                ),
+                slice,
+            )
+            conditions_string = " OR ".join(conditions)
+            params = {
+                "query": "requestTimeMs: >{} AND ({})".format(
+                    DATAHUB_EXECUTION_REQUEST_INDEX_THRESHOLD_MS,
+                    conditions_string,
+                ),
+            }
+            entries = self._get_execution_requests_by_query(params)
+            for entry in entries:
+                retval[entry.ingestion_source_urn] = retval.get(
+                    entry.ingestion_source_urn, []
+                )
+                retval[entry.ingestion_source_urn].append(entry)
+
+        return retval
+
+    def get_running_and_pending_ingestions(
+        self,
+    ) -> List[ExecutionRequestStatus]:
+        params = {
+            "query": "((!(_exists_:executionResultStatus)) AND requestTimeMs: >{}) OR (executionResultStatus:{})".format(
+                DATAHUB_EXECUTION_REQUEST_INDEX_THRESHOLD_MS,
+                DATAHUB_EXECUTION_REQUEST_STATUS_RUNNING,
+            ),
+        }
+        return self._get_execution_requests_by_query(params)

@@ -1325,7 +1325,19 @@ class ExecutionRequestStatus(PermissiveBaseModel):
     execution_request_id: str
     execution_request_urn: str
     ingestion_source_urn: str
-    status: str
+    raw_input_aspect: Dict
+
     last_observed: int
+    status: str
     report: str
+
     start_time: int
+    request_time: int
+
+
+class SweeperAction(PermissiveBaseModel):
+    action: str
+    description: str
+    report: str
+    ingestion: ExecutionRequestStatus
+    errors_fatal: bool = False

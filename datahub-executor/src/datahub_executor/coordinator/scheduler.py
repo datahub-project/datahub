@@ -6,7 +6,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from datahub_executor.common.assertion.executor import AssertionExecutor
 from datahub_executor.common.constants import RUN_INGEST_TASK_NAME
-from datahub_executor.common.ingestion.helpers import emit_execution_request_input
+from datahub_executor.common.ingestion.helpers import (
+    build_execution_request_input_from_request,
+    emit_execution_request_input,
+)
 from datahub_executor.common.monitoring.metrics import (
     STATS_SCHEDULER_ASSERTION_REQUESTS,
     STATS_SCHEDULER_INGESTION_REQUESTS,
@@ -83,7 +86,8 @@ class ExecutionRequestScheduler:
                 ).inc()
                 # for scheduled ingestion, we create an ExecutionRequestInput
                 # this will wind up being acted on as a pipeline (kafka) action.
-                emit_execution_request_input(execution_request)
+                input = build_execution_request_input_from_request(execution_request)
+                emit_execution_request_input(input)
             else:
                 if self.should_execute_embedded(execution_request):
                     STATS_SCHEDULER_ASSERTION_REQUESTS.labels(

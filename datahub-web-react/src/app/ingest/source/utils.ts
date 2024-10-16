@@ -71,6 +71,7 @@ export const FAILURE = 'FAILURE';
 export const CONNECTION_FAILURE = 'CONNECTION_FAILURE';
 export const CANCELLED = 'CANCELLED';
 export const ABORTED = 'ABORTED';
+export const DUPLICATE = 'DUPLICATE';
 export const UP_FOR_RETRY = 'UP_FOR_RETRY';
 export const ROLLING_BACK = 'ROLLING_BACK';
 export const ROLLED_BACK = 'ROLLED_BACK';
@@ -93,6 +94,7 @@ export const getExecutionRequestStatusIcon = (status: string) => {
         (status === ROLLING_BACK && LoadingOutlined) ||
         (status === ROLLBACK_FAILED && CloseCircleOutlined) ||
         (status === ABORTED && CloseCircleOutlined) ||
+        (status === DUPLICATE && StopOutlined) ||
         ClockCircleOutlined
     );
 };
@@ -109,6 +111,7 @@ export const getExecutionRequestStatusDisplayText = (status: string) => {
         (status === ROLLING_BACK && 'Rolling Back') ||
         (status === ROLLBACK_FAILED && 'Rollback Failed') ||
         (status === ABORTED && 'Aborted') ||
+        (status === DUPLICATE && 'Duplicate') ||
         status
     );
 };
@@ -133,6 +136,8 @@ export const getExecutionRequestSummaryText = (status: string) => {
             return 'Ingestion rollback failed.';
         case ABORTED:
             return 'Ingestion job got aborted due to worker restart.';
+        case DUPLICATE:
+            return 'Ingestion job was cancelled because another instance(s) of this job already exists.';
         default:
             return 'Ingestion status not recognized.';
     }
@@ -150,6 +155,7 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
         (status === ROLLING_BACK && 'orange') ||
         (status === ROLLBACK_FAILED && 'red') ||
         (status === ABORTED && 'red') ||
+        (status === DUPLICATE && ANTD_GRAY[9]) ||
         ANTD_GRAY[7]
     );
 };
