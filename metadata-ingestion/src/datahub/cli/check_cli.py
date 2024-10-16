@@ -188,8 +188,12 @@ def sql_format(sql: str, platform: str) -> None:
 @click.option(
     "--sql",
     type=str,
-    required=True,
     help="The SQL query to parse",
+)
+@click.option(
+    "--sql-file",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    help="The SQL file to parse",
 )
 @click.option(
     "--platform",
@@ -227,7 +231,8 @@ def sql_format(sql: str, platform: str) -> None:
 )
 @telemetry.with_telemetry()
 def sql_lineage(
-    sql: str,
+    sql: Optional[str],
+    sql_file: Optional[str],
     platform: str,
     default_db: Optional[str],
     default_schema: Optional[str],
@@ -243,17 +248,23 @@ def sql_lineage(
 
     from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
+    if sql is None:
+        if sql_file is None:
+            raise click.UsageError("Either --sql or --sql-file must be provided")
+        sql = pathlib.Path(sql_file).read_text()
+
     graph = None
     if online:
         graph = get_default_graph()
 
     lineage = create_lineage_sql_parsed_result(
         sql,
-        default_db=default_db,
+        graph=graph,
         platform=platform,
         platform_instance=platform_instance,
         env=env,
-        graph=graph,
+        default_db=default_db,
+        default_schema=default_schema,
     )
 
     logger.debug("Sql parsing debug info: %s", lineage.debug_info)
