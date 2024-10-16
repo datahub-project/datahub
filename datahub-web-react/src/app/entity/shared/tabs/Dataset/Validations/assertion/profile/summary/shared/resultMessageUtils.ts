@@ -248,11 +248,29 @@ const getFormattedReasonTextForVolumeAssertion = (run: AssertionRunEvent) => {
 };
 
 const getFormattedReasonTextForDefaultAssertion = (run: AssertionRunEvent) => {
-    const result = run.result?.type;
-    if (result === AssertionResultType.Success) {
-        return `The expected conditions were met`;
+    const type = run.result?.type;
+    switch (type) {
+        case AssertionResultType.Success: {
+            return `The expected conditions were met`;
+        }
+        case AssertionResultType.Error: {
+            let message = `Assertion encountered an error during execution.`;
+
+            const maybeError = run.result?.error;
+            const maybeType = maybeError?.type;
+            const maybeErrorMessage = maybeError?.properties?.find((e) => e.key === 'message')?.value;
+            if (maybeType) {
+                message = `Assertion execution encountered an error with type ${maybeType}.`;
+            }
+            if (maybeErrorMessage) {
+                message += ` "${maybeErrorMessage}"`;
+            }
+            return message;
+        }
+        default: {
+            return `The expected conditions were not met.`;
+        }
     }
-    return `The expected conditions were not met.`;
 };
 
 export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEvent) => {
