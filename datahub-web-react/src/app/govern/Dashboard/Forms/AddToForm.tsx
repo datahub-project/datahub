@@ -33,7 +33,7 @@ const AddToForm = () => {
             ...formValues,
             assets: {
                 logicalPredicate: {
-                    operator: LogicalOperatorType.OR,
+                    operator: LogicalOperatorType.AND,
                     operands: [],
                 },
             },

@@ -78,7 +78,8 @@ public class UpdateStructuredPropertyResolver
             if (input.getNewAllowedValues() != null) {
               buildAllowedValues(input, builder);
             }
-            if (input.getSetCardinalityAsMultiple() != null) {
+            if (input.getSetCardinalityAsMultiple() != null
+                && input.getSetCardinalityAsMultiple().equals(true)) {
               builder.setCardinality(PropertyCardinality.MULTIPLE);
             }
             if (input.getNewEntityTypes() != null) {

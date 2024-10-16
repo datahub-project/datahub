@@ -51,7 +51,7 @@ const QueryBuilder = ({ selectedPredicate, onChangePredicate, properties, depth,
 
     const onAddLogicalPredicate = () => {
         const newPredicate = {
-            operator: LogicalOperatorType.OR,
+            operator: LogicalOperatorType.AND,
             operands: [],
         };
         const newOperands = [...operands, newPredicate];
