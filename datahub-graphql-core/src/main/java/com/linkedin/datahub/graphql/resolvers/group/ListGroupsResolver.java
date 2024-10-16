@@ -12,7 +12,7 @@ import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ListGroupsInput;
 import com.linkedin.datahub.graphql.generated.ListGroupsResult;
-import com.linkedin.entity.EntityResponse;
+import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -21,10 +21,7 @@ import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -52,6 +49,11 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
       final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
       final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
       final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
+      List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());
+      sortCriteria.add(
+          new SortCriterion()
+              .setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME)
+              .setOrder(SortOrder.DESCENDING));
 
       return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
@@ -65,23 +67,9 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
                       CORP_GROUP_ENTITY_NAME,
                       query,
                       null,
-                      Collections.singletonList(
-                          new SortCriterion()
-                              .setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME)
-                              .setOrder(SortOrder.DESCENDING)),
+                      sortCriteria,
                       start,
                       count);
-
-              // Then, get hydrate all groups.
-              final Map<Urn, EntityResponse> entities =
-                  _entityClient.batchGetV2(
-                      context.getOperationContext(),
-                      CORP_GROUP_ENTITY_NAME,
-                      new HashSet<>(
-                          gmsResult.getEntities().stream()
-                              .map(SearchEntity::getEntity)
-                              .collect(Collectors.toList())),
-                      null);
 
               // Now that we have entities we can bind this to a result.
               final ListGroupsResult result = new ListGroupsResult();

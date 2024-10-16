@@ -83,24 +83,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                   : inputFilter;
 
           SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
-          List<SortCriterion> sortCriteria;
-          if (input.getSortInput() != null) {
-            if (input.getSortInput().getSortCriteria() != null) {
-              sortCriteria =
-                  input.getSortInput().getSortCriteria().stream()
-                      .map(SearchUtils::mapSortCriterion)
-                      .collect(Collectors.toList());
-            } else {
-              sortCriteria =
-                  input.getSortInput().getSortCriterion() != null
-                      ? Collections.singletonList(
-                          mapSortCriterion(input.getSortInput().getSortCriterion()))
-                      : Collections.emptyList();
-            }
-
-          } else {
-            sortCriteria = Collections.emptyList();
-          }
+          List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());
 
           try {
             log.debug(
