@@ -72,13 +72,14 @@ export const Label = styled.div`
 `;
 
 type Props = {
-    shortType: string;
+    type: EntityType;
+    typeName: string;
     selects: SelectDropdownProps[];
     radio: {
         allowedRadios: string[];
         preselectedValue: RadioValue;
     };
-    onChange: (value: any, entity?: EntityType) => void;
+    onChange: (value: any, entity: EntityType) => void;
 };
 
 type SelectedOptionType = {
@@ -91,7 +92,7 @@ const INITIAL_SELECTED_VALUE = {
     GLOSSARY_NODE: [],
 };
 
-export const TermOption = ({ shortType, selects, radio, onChange }: Props) => {
+export const TermOption = ({ type, typeName, selects, radio, onChange }: Props) => {
     const { allowedRadios, preselectedValue } = radio;
 
     // Internal state for selected options
@@ -130,7 +131,7 @@ export const TermOption = ({ shortType, selects, radio, onChange }: Props) => {
                 selectionType: value,
                 selected: selectedOptions,
             },
-            shortType === 'terms' ? EntityType.GlossaryTerm : EntityType.Tag,
+            type,
         );
     };
 
@@ -151,10 +152,10 @@ export const TermOption = ({ shortType, selects, radio, onChange }: Props) => {
     // Configurable options
     const options: { label: string; value: string }[] = [];
     if (allowedRadios.includes('all')) {
-        options.push({ label: `All ${shortType}`, value: 'all' });
+        options.push({ label: `All ${typeName}`, value: 'all' });
     }
     if (allowedRadios.includes('some')) {
-        options.push({ label: `${capitalizeFirstLetterOnly(shortType)} in a specific set`, value: 'some' });
+        options.push({ label: `${capitalizeFirstLetterOnly(typeName)} in a specific set`, value: 'some' });
     }
     if (allowedRadios.includes('none')) {
         options.push({ label: 'None', value: 'none' });
@@ -176,20 +177,27 @@ export const TermOption = ({ shortType, selects, radio, onChange }: Props) => {
             }
         });
         setSelectedOptions(newSelectedOptions);
-        onChange({
-            selectionType: radioValue,
-            selected: newSelectedOptions,
-        });
+        onChange(
+            {
+                selectionType: radioValue,
+                selected: newSelectedOptions,
+            },
+            type,
+        );
     };
 
     const initialOptions = selectedOptions?.GLOSSARY_TERM?.map((urn) => ({ value: urn })) || [];
 
     return (
-        <Wrapper className={options.length === 1 && shortType === 'terms' ? 'termOptionSingleContainer' : undefined}>
+        <Wrapper
+            className={
+                options.length === 1 && type === EntityType.GlossaryTerm ? 'termOptionSingleContainer' : undefined
+            }
+        >
             {/* Radio for selection type */}
             {options.length > 1 && (
                 <div>
-                    <Label>Allowed {shortType}</Label>
+                    <Label>Allowed {typeName}</Label>
                     <StyledRadioGroup
                         options={options}
                         value={radioValue}
@@ -199,13 +207,15 @@ export const TermOption = ({ shortType, selects, radio, onChange }: Props) => {
             )}
 
             {/* Select dropdown for selecting options */}
-            <ContentWrapper className={options.length === 1 && shortType === 'terms' ? 'termSelector' : undefined}>
+            <ContentWrapper
+                className={options.length === 1 && type === EntityType.GlossaryTerm ? 'termSelector' : undefined}
+            >
                 {radioValue === 'all' && (
-                    <Label className="heading">All {shortType.toLowerCase()} will be propagated.</Label>
+                    <Label className="heading">All {typeName.toLowerCase()} will be propagated.</Label>
                 )}
                 {radioValue === 'some' && (
                     <DropdownsWrapper>
-                        {shortType === 'terms' && options.length === 1 ? (
+                        {type === EntityType.GlossaryTerm && options.length === 1 ? (
                             <GlossaryTermsSelector
                                 onUpdate={onUpdate}
                                 initialOptions={initialOptions}
@@ -224,7 +234,7 @@ export const TermOption = ({ shortType, selects, radio, onChange }: Props) => {
                     </DropdownsWrapper>
                 )}
                 {radioValue === 'none' && (
-                    <Label className="heading">No {shortType.toLowerCase()} will be propagated.</Label>
+                    <Label className="heading">No {typeName.toLowerCase()} will be propagated.</Label>
                 )}
             </ContentWrapper>
         </Wrapper>

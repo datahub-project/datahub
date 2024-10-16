@@ -243,24 +243,30 @@ export const SortButton = styled(Button)`
  */
 
 export const CheckboxGroup = styled.div`
-    & .ant-checkbox-group {
-        display: flex;
+    & .ant-checkbox-group,
+    & .ant-radio-group {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
         margin-bottom: 8px;
+        gap: 8px;
     }
 
-    & .ant-checkbox-wrapper {
-        display: flex;
+    & .ant-checkbox-wrapper,
+    & .ant-radio-wrapper {
+        display: flex !important;
         align-items: flex-start;
         flex: 1;
         border: 1px solid ${sharedStyles.borderColor};
         border-radius: 6px;
         padding: 8px;
 
-        & .ant-checkbox {
-            top: 1px;
+        & .ant-checkbox,
+        & .ant-radio {
+            top: 3px;
         }
 
-        &.ant-checkbox-wrapper-checked {
+        &.ant-checkbox-wrapper-checked,
+        &.ant-radio-wrapper-checked {
             border-color: ${sharedStyles.activeColor};
         }
     }
@@ -268,11 +274,13 @@ export const CheckboxGroup = styled.div`
 
 export const CustomCheckboxLabel = styled.div`
     & strong {
+        display: block;
+        line-height: 1.4;
         color: ${sharedStyles.subHeadingColor};
         font-size: 14px;
         font-weight: 700;
-        margin: 0;
-        line-height: normal;
+        margin-bottom: 4px;
+        white-space: break-spaces;
     }
 
     & p {

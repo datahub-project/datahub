@@ -290,8 +290,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
 
         # See https://pymongo.readthedocs.io/en/stable/examples/datetimes.html#handling-out-of-range-datetimes
         self.mongo_client = MongoClient(
-            self.config.connect_uri, datetime_conversion="DATETIME_AUTO", **options
-        )  # type: ignore
+            self.config.connect_uri, datetime_conversion="DATETIME_AUTO", **options  # type: ignore
+        )
 
         # This cheaply tests the connection. For details, see
         # https://pymongo.readthedocs.io/en/stable/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient

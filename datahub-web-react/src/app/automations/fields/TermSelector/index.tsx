@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { Alert } from 'antd';
 import styled from 'styled-components';
 import { isEqual } from 'lodash';
 
@@ -28,16 +29,13 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
     const { terms = [], nodes = [], tags = [], termsEnabled = false, tagsEnabled = false } = state;
 
     const getRadioValue = useCallback(
-        (enabled: boolean) => {
+        (enabled: boolean, selectedValues: string[]) => {
             if (allowedRadios.length === 1) {
                 return allowedRadios[0]; // If there's only one radio, return it.
             }
 
-            if (enabled) {
-                if (state?.terms?.length > 0 || state?.nodes?.length > 0) return 'some' as RadioValue;
-                if (state?.tags?.length > 0) return 'some' as RadioValue;
-                if (state?.tags?.length === 0 || state?.nodes?.length === 0 || state?.terms?.length === 0)
-                    return 'all' as RadioValue;
+            if (enabled && selectedValues?.length) {
+                return 'some' as RadioValue;
             }
 
             if (!enabled) return 'none' as RadioValue;
@@ -45,19 +43,19 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
             // Default to all
             return 'all' as RadioValue;
         },
-        [allowedRadios, state],
+        [allowedRadios],
     );
 
     const [selected, setSelected] = useState({
         terms: {
-            selectionType: getRadioValue(termsEnabled),
+            selectionType: getRadioValue(termsEnabled, [...terms, ...nodes]),
             selected: {
                 [EntityType.GlossaryTerm]: terms,
                 [EntityType.GlossaryNode]: nodes,
             },
         },
         tags: {
-            selectionType: getRadioValue(tagsEnabled),
+            selectionType: getRadioValue(tagsEnabled, [...tags]),
             selected: {
                 [EntityType.Tag]: tags,
             },
@@ -67,14 +65,14 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
     useEffect(() => {
         const newState = {
             terms: {
-                selectionType: getRadioValue(termsEnabled),
+                selectionType: getRadioValue(termsEnabled, [...terms, ...nodes]),
                 selected: {
                     [EntityType.GlossaryTerm]: terms,
                     [EntityType.GlossaryNode]: nodes,
                 },
             },
             tags: {
-                selectionType: getRadioValue(tagsEnabled),
+                selectionType: getRadioValue(tagsEnabled, [...tags]),
                 selected: {
                     [EntityType.Tag]: tags,
                 },
@@ -119,62 +117,74 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
         });
     };
 
-    return (
-        <Wrapper>
-            {fieldTypes.map((fieldType) => {
-                if (fieldType === EntityType.GlossaryTerm) {
-                    return (
-                        <TermOption
-                            key="terms"
-                            shortType="terms"
-                            selects={[
-                                {
-                                    label: 'Glossary Terms',
-                                    type: EntityType.GlossaryTerm,
-                                    preselectedOptions: terms || [],
-                                    enabled: fieldTypes.includes(EntityType.GlossaryTerm),
-                                },
-                                {
-                                    label: 'Term Groups',
-                                    type: EntityType.GlossaryNode,
-                                    preselectedOptions: nodes || [],
-                                    enabled: fieldTypes.includes(EntityType.GlossaryNode),
-                                },
-                            ]}
-                            radio={{
-                                allowedRadios,
-                                preselectedValue: selected.terms.selectionType,
-                            }}
-                            onChange={(values) => {
-                                handleTermsChange(values, [EntityType.GlossaryNode, EntityType.GlossaryTerm], 'terms');
-                            }}
-                        />
-                    );
-                }
-                if (fieldType === EntityType.Tag) {
-                    return (
-                        <TermOption
-                            key="tags"
-                            shortType="tags"
-                            selects={[
-                                {
-                                    label: 'Tags',
-                                    type: EntityType.Tag,
-                                    preselectedOptions: tags || [],
-                                    enabled: fieldTypes.includes(EntityType.Tag),
-                                },
-                            ]}
-                            radio={{
-                                allowedRadios,
-                                preselectedValue: selected.tags.selectionType,
-                            }}
-                            onChange={(values, entity) => handleTermsChange(values, [entity as EntityType], 'tags')}
-                        />
-                    );
-                }
+    // Show notice of Ingestion Overwrite if `some` selected
+    const showNotice = selected.tags.selectionType === 'some' || selected.terms.selectionType === 'some';
 
-                return null;
-            })}
-        </Wrapper>
+    return (
+        <>
+            <Wrapper>
+                {fieldTypes.map((fieldType) => {
+                    if (fieldType === EntityType.GlossaryTerm) {
+                        return (
+                            <TermOption
+                                key="terms"
+                                type={EntityType.GlossaryTerm}
+                                typeName="terms"
+                                selects={[
+                                    {
+                                        label: 'Glossary Terms',
+                                        type: EntityType.GlossaryTerm,
+                                        preselectedOptions: terms || [],
+                                        enabled: fieldTypes.includes(EntityType.GlossaryTerm),
+                                    },
+                                    {
+                                        label: 'Term Groups',
+                                        type: EntityType.GlossaryNode,
+                                        preselectedOptions: nodes || [],
+                                        enabled: fieldTypes.includes(EntityType.GlossaryNode),
+                                    },
+                                ]}
+                                radio={{
+                                    allowedRadios,
+                                    preselectedValue: selected.terms.selectionType,
+                                }}
+                                onChange={(values, entity: EntityType) => handleTermsChange(values, [entity], 'terms')}
+                            />
+                        );
+                    }
+                    if (fieldType === EntityType.Tag) {
+                        return (
+                            <TermOption
+                                key="tags"
+                                type={EntityType.Tag}
+                                typeName="tags"
+                                selects={[
+                                    {
+                                        label: 'Tags',
+                                        type: EntityType.Tag,
+                                        preselectedOptions: tags || [],
+                                        enabled: fieldTypes.includes(EntityType.Tag),
+                                    },
+                                ]}
+                                radio={{
+                                    allowedRadios,
+                                    preselectedValue: selected.tags.selectionType,
+                                }}
+                                onChange={(values, entity: EntityType) => handleTermsChange(values, [entity], 'tags')}
+                            />
+                        );
+                    }
+
+                    return null;
+                })}
+            </Wrapper>
+            {showNotice && (
+                <Alert
+                    message="Be careful: Regular ingestion may override any unselected tags or terms that have been added to assets within DataHub."
+                    type="warning"
+                    style={{ marginTop: '8px' }}
+                />
+            )}
+        </>
     );
 };

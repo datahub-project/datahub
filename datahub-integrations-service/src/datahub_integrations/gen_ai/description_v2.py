@@ -87,9 +87,10 @@ def get_table_upstream_lineage_info(
             break
         dataset_urn = upstream.dataset
         entity = graph_client.get_entity_semityped(dataset_urn)
-        upstream_table_name, upstream_table_description = (
-            get_table_name_and_description(entity=entity, urn=dataset_urn)
-        )
+        (
+            upstream_table_name,
+            upstream_table_description,
+        ) = get_table_name_and_description(entity=entity, urn=dataset_urn)
         if upstream.query is not None:
             query = get_lineage_query(graph_client, upstream.query)
         else:
@@ -161,9 +162,10 @@ def get_table_downstream_lineage_info(
         if downstream_table_count >= _MAX_DOWNSTREAM_TABLES:
             break
         entity = graph_client.get_entity_semityped(downstream_urn)
-        downstream_table_name, downstream_table_description = (
-            get_table_name_and_description(entity=entity, urn=downstream_urn)
-        )
+        (
+            downstream_table_name,
+            downstream_table_description,
+        ) = get_table_name_and_description(entity=entity, urn=downstream_urn)
         # # Get query and Lineage type:
         # upstream_lineages_of_downstream_urn = entity.get("upstreamLineage")
         # if upstream_lineages_of_downstream_urn is not None:

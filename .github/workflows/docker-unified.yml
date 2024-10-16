@@ -1104,6 +1104,17 @@ jobs:
         run: find ./*/* ! -path "./metadata-ingestion*" ! -path "./smoke-test*" ! -path "./gradle*" -delete
       - name: Disk Check
         run: df -h . && docker images
+      - name: Load secrets
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          BIGQUERY_PROJECT_ID: op://Engineering/SmokeTest - Bigquery/project_id
+          BIGQUERY_CLIENT_EMAIL: op://Engineering/SmokeTest - Bigquery/client_email
+          BIGQUERY_PRIVATE_KEY: op://Engineering/SmokeTest - Bigquery/private_key
+          BIGQUERY_PRIVATE_KEY_ID: op://Engineering/SmokeTest - Bigquery/private_key_id
+          BIGQUERY_CLIENT_ID: op://Engineering/SmokeTest - Bigquery/client_id
       - name: Smoke test
         env:
           RUN_QUICKSTART: false

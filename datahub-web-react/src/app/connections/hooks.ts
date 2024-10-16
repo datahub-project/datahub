@@ -6,7 +6,11 @@ import { message } from 'antd';
 import { EntityType, DataHubConnectionDetailsType } from '@types';
 
 import { useListSecretsQuery } from '@graphql/ingestion.generated';
-import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import {
+    useGetSearchResultsForMultipleQuery,
+    GetSearchResultsForMultipleDocument,
+    GetSearchResultsForMultipleQuery,
+} from '@graphql/search.generated';
 import {
     useConnectionQuery,
     useUpsertConnectionMutation,
@@ -41,25 +45,41 @@ export const useGetConnections = ({ platformUrn }: { platformUrn: string }) => {
 /*
  * Hook to get a connection by id
  */
-export const useGetConnection = ({ urn }: { urn?: string }) => {
+export const useGetConnection = ({ urn, skip }: { urn?: string; skip?: boolean }) => {
     const { data, loading, error, refetch } = useConnectionQuery({
         variables: {
             urn: urn || '',
         },
-        skip: !urn,
+        skip: !urn || urn === 'new' || skip,
     });
 
-    const connection = data?.connection;
+    let connection = data?.connection;
+    if (urn === 'new') connection = undefined;
     return { connection, loading, error, refetch };
 };
 
 /*
  * Hook to create a connection
  */
-export const useCreateConnection = () => {
-    const [upsertConnection, { data, loading, error }] = useUpsertConnectionMutation();
+export const useCreateConnection = ({ platformUrn }) => {
+    const [upsertConnection, { data, loading, error, client }] = useUpsertConnectionMutation();
 
-    const createConnection = ({ values, platformUrn }) => {
+    //  Read the data from our cache for this query.
+    const queryInput = {
+        types: [EntityType.DatahubConnection],
+        query: '*',
+        start: 0,
+        count: 50,
+        orFilters: [{ and: [{ field: PLATFORM_FILTER_NAME, values: [platformUrn] }] }],
+        searchFlags: { skipCache: true },
+    };
+
+    const currData: GetSearchResultsForMultipleQuery | null = client.readQuery({
+        query: GetSearchResultsForMultipleDocument,
+        variables: { input: queryInput },
+    });
+
+    const createConnection = ({ values }) => {
         message.loading({ content: 'Loading...', duration: 3 });
 
         // remove `name` from blob
@@ -83,6 +103,24 @@ export const useCreateConnection = () => {
             },
         });
     };
+
+    const existingProperties = currData?.searchAcrossEntities?.searchResults || [];
+    if (!loading && data) {
+        const newProperties = [data?.upsertConnection, ...existingProperties];
+
+        // Write our data back to the cache.
+        client.writeQuery({
+            query: GetSearchResultsForMultipleDocument,
+            variables: { input: queryInput },
+            data: {
+                searchAcrossEntities: {
+                    ...currData?.searchAcrossEntities,
+                    total: newProperties.length,
+                    searchResults: newProperties,
+                },
+            },
+        });
+    }
 
     return { createConnection, data, loading, error };
 };
@@ -154,10 +192,13 @@ export const useConnectionSecrets = () => {
                 count: 1000,
             },
         },
+        fetchPolicy: 'cache-first',
     });
 
-    const secrets =
-        data?.listSecrets?.secrets.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
+    // Clone the secrets array before sorting to avoid mutating a read-only array.
+    const secrets = [...(data?.listSecrets?.secrets || [])].sort((secretA, secretB) =>
+        secretA.name.localeCompare(secretB.name),
+    );
 
     return { secrets, refetchSecrets };
 };

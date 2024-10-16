@@ -268,7 +268,8 @@
                             "actor": "urn:li:corpuser:datahub"
                         }
                     },
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 },
                 {
                     "fieldPath": "email",
@@ -295,7 +296,8 @@
                             "actor": "urn:li:corpuser:datahub"
                         }
                     },
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 }
             ]
         }

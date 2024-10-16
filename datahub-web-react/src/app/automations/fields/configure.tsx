@@ -1,103 +1,119 @@
-import React, { createElement, useState, useEffect, useRef, useMemo } from 'react';
-import _ from 'lodash';
-
-import { getFields, flattenObject } from '@app/automations/utils';
-
+/* eslint-disable react-hooks/exhaustive-deps, no-param-reassign */
+import React, { createElement, useMemo } from 'react';
+import { isEqual, camelCase, cloneDeep } from 'lodash';
 import { useAutomationContext } from '../Automations/AutomationProvider';
-import { updateRecipe } from '../Automations/utils/updateRecipe';
-import { updateFormData } from '../Automations/utils/updateFormData';
-
 import { Step, StepHeader, StepField } from './components';
 
 interface Props {
-    automation: any;
     isEdit?: boolean;
 }
 
-export const Configure = ({ automation, isEdit = false }: Props) => {
-    const { formData, recipe, setRecipe, definition } = useAutomationContext();
+export const Configure = ({ isEdit = false }: Props) => {
+    const { formState, typeTemplate, setFormState } = useAutomationContext();
 
-    // Memoize steps to prevent unnecessary recalculations
-    const steps = useMemo(() => automation.fields || getFields(automation), [automation]);
+    // Compute the fields that should be displayed in the form, based on the recipe type template.
+    const allFields = useMemo(() => {
+        if (typeTemplate) {
+            // The default recipe fields come from the type template, which defined the fields to be collected.
+            const recipeFields = cloneDeep(typeTemplate.fields);
 
-    // Collects any state changes from the form fields
-    const [data, setData] = useState<any>({});
-
-    // Use ref to skip initial effect execution
-    const isInitialMount = useRef(true);
-
-    // Handle updating the memorized state when a field component state changes
-    const handleComponentStateChange = (componentName: string, newState: any) => {
-        setData((prevData) => {
-            const updatedData = { ...prevData, [componentName]: newState };
-            return !_.isEqual(updatedData, prevData) ? updatedData : prevData;
-        });
-    };
-
-    // Format the form data for the state
-    const formatDataForState = (d: any) => {
-        const dataObject: Record<string, any> = {};
-        steps.forEach((step) => {
-            step.fields.forEach((field) => {
-                const componentName = field.component.name;
-                const initialState = field.state || {};
-                dataObject[componentName] = { ...initialState };
-                Object.keys(initialState).forEach((key) => {
-                    if (key in d) {
-                        dataObject[componentName][key] = d[key];
-                    }
+            // Add unique keys to each step & field component
+            (recipeFields || []).forEach((step, i) => {
+                step.key = `${camelCase(step.title)}_${i}`;
+                (step.fields || []).forEach((field) => {
+                    // Create a unique id for the field component being rendered, mainly to support non-conflict with multiple fields
+                    // of the same component type.
+                    // Currently, you cannot have 2 nonConditional fields of the same name. TODO: Think about how to make these globally unique.
+                    field.key = `${camelCase(field.component.name)}-${camelCase(
+                        step.conditionalKey || 'nonConditional',
+                    )}`;
                 });
             });
-        });
-        return dataObject;
-    };
 
-    // Use effect that only runs once to update the form data in the context
-    useEffect(() => {
-        const initialFormattedData = flattenObject({ ...data, ...formData });
-        const initialUpdatedFormData = updateFormData(definition, initialFormattedData);
-        setData(formatDataForState(initialUpdatedFormData));
-        // Mark the initial mount as done
-        isInitialMount.current = false;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // Empty dependency array to ensure it only runs once
-
-    // Send the form data back to the parent component
-    useEffect(() => {
-        if (isInitialMount.current) return; // Skip this effect on the initial mount
-
-        const formattedFieldState = flattenObject(data);
-        const updatedRecipe = updateRecipe(recipe, formattedFieldState);
-
-        if (!_.isEqual(formData, formattedFieldState)) {
-            setRecipe?.(updatedRecipe);
+            return recipeFields;
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [data]); // Only run when `data` changes
+        return [];
+    }, [typeTemplate]);
+
+    // Conditional steps (steps that have the key `conditionalKey`)
+    const conditionalFields = allFields.filter((step) => step.conditionalKey);
+
+    // Memoized field steps, including conditionally rendered steps based on `fieldState`
+    // Initializing the "local" component state for each field that is currently visible.
+    const visibleFields = useMemo(() => {
+        const newVisibleFields: any[] = [];
+
+        // Determine if some of the fields are now visible, due to the updated state change!
+        allFields.forEach((field) => {
+            if (!field.conditionalKey) {
+                newVisibleFields.push(field); // Add the current step if it's not a conditional step
+            } else {
+                // If this step has a `controlKey`, check for conditional steps
+                const { controlKey } = field;
+                if (controlKey) {
+                    const conditionalFieldsForThisControl = conditionalFields.filter(
+                        (conditionalStep) => conditionalStep.controlKey === controlKey,
+                    );
+                    conditionalFieldsForThisControl.forEach((conditionalStep) => {
+                        const canConditionallyRender = Object.values(formState).includes(
+                            conditionalStep.conditionalKey,
+                        );
+
+                        if (
+                            canConditionallyRender &&
+                            !newVisibleFields.some((visibleStep) => visibleStep.title === conditionalStep.title)
+                        ) {
+                            newVisibleFields.push(conditionalStep);
+                        }
+                    });
+                }
+            }
+        });
+
+        return newVisibleFields;
+    }, [formState, allFields]); // Only recalculate `visibleFields` when `formState` changes
+
+    // Handle updating the global form state when a field makes a change.
+    const handleSingleFieldStateChange = (newPartialState: any) => {
+        const newFormState = {
+            ...formState,
+            ...newPartialState,
+        };
+
+        // Only set form state if this version is different from the context
+        if (!isEqual(formState, newFormState)) {
+            setFormState?.(newFormState);
+        }
+    };
 
     return (
         <div>
-            {steps.map((step: any) => (
-                <Step key={step.title}>
-                    <StepHeader>
-                        <h2>{step.title}</h2>
-                        <p>{step.description}</p>
-                    </StepHeader>
-                    {step.fields.map((field: any) => {
-                        const componentState = data[field.component.name] || {};
-                        return (
-                            <StepField key={field.component.name}>
-                                {createElement(field.component, {
-                                    state: componentState,
-                                    props: { ...field.props, isEdit },
-                                    passStateToParent: (newState) =>
-                                        handleComponentStateChange(field.component.name, newState),
-                                })}
-                            </StepField>
-                        );
-                    })}
-                </Step>
-            ))}
+            {visibleFields.map((step: any) => {
+                return (
+                    <Step key={step.key}>
+                        {!step.isHidden && (
+                            <StepHeader>
+                                <h2>{step.title}</h2>
+                                <p>{step.description}</p>
+                            </StepHeader>
+                        )}
+                        {step.fields.map((field: any) => {
+                            const componentKey = field.key;
+                            const props = { ...field.props, isEdit };
+
+                            return (
+                                <StepField key={componentKey}>
+                                    {createElement(field.component, {
+                                        state: formState,
+                                        props,
+                                        passStateToParent: (newState) => handleSingleFieldStateChange(newState),
+                                    })}
+                                </StepField>
+                            );
+                        })}
+                    </Step>
+                );
+            })}
         </div>
     );
 };

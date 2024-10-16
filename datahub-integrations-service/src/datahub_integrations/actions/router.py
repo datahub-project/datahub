@@ -32,6 +32,9 @@ from datahub_integrations.actions.actions_manager import (
 )
 from datahub_integrations.actions.constants import DEFAULT_EXECUTOR_ID
 from datahub_integrations.actions.reporter import ActionStatsReporter
+from datahub_integrations.actions.secret_store.environment_secret_store import (
+    EnvironmentSecretStore,
+)
 from datahub_integrations.actions.stats_util import Stage
 from datahub_integrations.app import DATAHUB_SERVER, graph
 
@@ -166,6 +169,11 @@ def get_config_from_details(action_urn: str, action_details: dict) -> dict:
                 DataHubSecretStoreConfig(
                     graph_client=graph,
                 )
+            )
+        )
+        secret_stores.append(
+            EnvironmentSecretStore(
+                config={},
             )
         )
 

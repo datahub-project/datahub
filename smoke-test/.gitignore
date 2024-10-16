@@ -133,3 +133,4 @@ dmypy.json
 .pyre/
 junit*
 tests/cypress/onboarding.json
+.env

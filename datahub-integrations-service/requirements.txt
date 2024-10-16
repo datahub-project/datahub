@@ -79,6 +79,7 @@ cachetools==5.3.3
     # via
     #   acryl-datahub
     #   acryl-datahub-integrations
+    #   google-auth
 catalogue==2.0.10
     # via
     #   spacy
@@ -195,10 +196,72 @@ gitpython==3.1.43
     # via
     #   acryl-datahub-integrations
     #   pygitops
+google-api-core==2.20.0
+    # via
+    #   google-cloud-appengine-logging
+    #   google-cloud-bigquery
+    #   google-cloud-core
+    #   google-cloud-datacatalog
+    #   google-cloud-datacatalog-lineage
+    #   google-cloud-logging
+    #   google-cloud-resource-manager
+    #   sqlalchemy-bigquery
+google-auth==2.35.0
+    # via
+    #   google-api-core
+    #   google-cloud-appengine-logging
+    #   google-cloud-bigquery
+    #   google-cloud-core
+    #   google-cloud-datacatalog
+    #   google-cloud-resource-manager
+    #   sqlalchemy-bigquery
+google-cloud-appengine-logging==1.4.5
+    # via google-cloud-logging
+google-cloud-audit-log==0.3.0
+    # via google-cloud-logging
+google-cloud-bigquery==3.26.0
+    # via
+    #   acryl-datahub
+    #   sqlalchemy-bigquery
+google-cloud-core==2.4.1
+    # via
+    #   google-cloud-bigquery
+    #   google-cloud-logging
+google-cloud-datacatalog==3.20.1
+    # via acryl-datahub
+google-cloud-datacatalog-lineage==0.2.2
+    # via acryl-datahub
+google-cloud-logging==3.5.0
+    # via acryl-datahub
+google-cloud-resource-manager==1.12.5
+    # via acryl-datahub
+google-crc32c==1.6.0
+    # via google-resumable-media
+google-resumable-media==2.7.2
+    # via google-cloud-bigquery
+googleapis-common-protos==1.65.0
+    # via
+    #   google-api-core
+    #   google-cloud-audit-log
+    #   grpc-google-iam-v1
+    #   grpcio-status
 great-expectations==0.15.50
     # via acryl-datahub
 greenlet==3.0.3
     # via acryl-datahub
+grpc-google-iam-v1==0.13.1
+    # via
+    #   google-cloud-datacatalog
+    #   google-cloud-logging
+    #   google-cloud-resource-manager
+grpcio==1.66.2
+    # via
+    #   google-api-core
+    #   googleapis-common-protos
+    #   grpc-google-iam-v1
+    #   grpcio-status
+grpcio-status==1.62.3
+    # via google-api-core
 h11==0.14.0
     # via
     #   httpcore
@@ -329,7 +392,9 @@ mistune==3.0.2
 mixpanel==4.10.1
     # via acryl-datahub
 more-itertools==10.2.0
-    # via inflect
+    # via
+    #   acryl-datahub
+    #   inflect
 msal==1.28.0
     # via acryl-datahub
 multidict==6.0.5
@@ -390,6 +455,7 @@ packaging==24.0
     #   acryl-datahub
     #   build
     #   docker
+    #   google-cloud-bigquery
     #   great-expectations
     #   ipykernel
     #   jupyter-server
@@ -397,6 +463,7 @@ packaging==24.0
     #   nbconvert
     #   snowflake-connector-python
     #   spacy
+    #   sqlalchemy-bigquery
     #   thinc
 pandas==2.2.2
     # via
@@ -436,6 +503,27 @@ prometheus-client==0.20.0
     #   notebook
 prompt-toolkit==3.0.43
     # via ipython
+proto-plus==1.24.0
+    # via
+    #   google-api-core
+    #   google-cloud-appengine-logging
+    #   google-cloud-datacatalog
+    #   google-cloud-datacatalog-lineage
+    #   google-cloud-logging
+    #   google-cloud-resource-manager
+protobuf==4.25.5
+    # via
+    #   google-api-core
+    #   google-cloud-appengine-logging
+    #   google-cloud-audit-log
+    #   google-cloud-datacatalog
+    #   google-cloud-datacatalog-lineage
+    #   google-cloud-logging
+    #   google-cloud-resource-manager
+    #   googleapis-common-protos
+    #   grpc-google-iam-v1
+    #   grpcio-status
+    #   proto-plus
 psutil==5.9.8
     # via
     #   acryl-datahub
@@ -448,6 +536,12 @@ pure-eval==0.2.2
     # via stack-data
 pyarrow==16.0.0
     # via acryl-datahub-integrations
+pyasn1==0.6.1
+    # via
+    #   pyasn1-modules
+    #   rsa
+pyasn1-modules==0.4.1
+    # via google-auth
 pycountry==23.12.11
     # via schwifty
 pycparser==2.22
@@ -487,6 +581,7 @@ python-dateutil==2.8.2
     #   acryl-datahub
     #   acryl-datahub-actions
     #   botocore
+    #   google-cloud-bigquery
     #   great-expectations
     #   jupyter-client
     #   pandas
@@ -530,6 +625,8 @@ referencing==0.35.0
 requests==2.31.0
     # via
     #   docker
+    #   google-api-core
+    #   google-cloud-bigquery
     #   great-expectations
     #   mixpanel
     #   msal
@@ -544,6 +641,8 @@ rpds-py==0.18.0
     # via
     #   jsonschema
     #   referencing
+rsa==4.9
+    # via google-auth
 ruamel-yaml==0.17.17
     # via
     #   acryl-datahub
@@ -613,6 +712,9 @@ sqlalchemy==1.4.52
     # via
     #   acryl-datahub
     #   snowflake-sqlalchemy
+    #   sqlalchemy-bigquery
+sqlalchemy-bigquery==1.11.0
+    # via acryl-datahub
 sqlglotrs==0.2.12
     # via acryl-sqlglot
 sqlparse==0.5.0

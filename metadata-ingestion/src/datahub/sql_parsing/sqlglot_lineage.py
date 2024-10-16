@@ -1020,9 +1020,8 @@ def _sqlglot_lineage_inner(
     )
 
 
-@functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)
-def sqlglot_lineage(
-    sql: str,
+def _sqlglot_lineage_nocache(
+    sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
@@ -1089,6 +1088,28 @@ def sqlglot_lineage(
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
+
+
+_sqlglot_lineage_cached = functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)(
+    _sqlglot_lineage_nocache
+)
+
+
+def sqlglot_lineage(
+    sql: sqlglot.exp.ExpOrStr,
+    schema_resolver: SchemaResolverInterface,
+    default_db: Optional[str] = None,
+    default_schema: Optional[str] = None,
+    default_dialect: Optional[str] = None,
+) -> SqlParsingResult:
+    if schema_resolver.includes_temp_tables():
+        return _sqlglot_lineage_nocache(
+            sql, schema_resolver, default_db, default_schema, default_dialect
+        )
+    else:
+        return _sqlglot_lineage_cached(
+            sql, schema_resolver, default_db, default_schema, default_dialect
+        )
 
 
 def create_lineage_sql_parsed_result(

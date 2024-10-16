@@ -42,7 +42,7 @@ export const ProtectedRoutes = (): JSX.Element => {
                     <Route exact path="/" render={() => <FinalHomePage />} />
                     <Route path={PageRoutes.EMBED} render={() => <EmbedRoutes />} />
                     <Route path={Object.values(AcrylPageRoutes)} component={AcrylRoutes} />
-                    <Route path="/*" render={() => <SearchRoutes />} />
+                    <Route path="/*" component={SearchRoutes} />
                 </Switch>
             </StyledLayout>
         </OnboardingContextProvider>

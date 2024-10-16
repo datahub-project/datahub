@@ -115,7 +115,7 @@ export const SearchRoutes = (): JSX.Element => {
                     path={PageRoutes.ACTION_REQUESTS}
                     render={() => (isDocumentationFormsEnabled ? <TaskCenter /> : <ActionRequestsPage />)}
                 />
-                <Route path={PageRoutes.AUTOMATIONS} render={() => <Automations />} />
+                <Route path={PageRoutes.AUTOMATIONS} component={Automations} />
                 {/* TODO: Remove this route - currently in place for a grafeful redirect to new Automations center */}
                 <Route path={PageRoutes.TESTS} render={() => <ManageTestsPage />} />
                 <Route path={PageRoutes.DATASET_HEALTH_DASHBOARD} render={() => <DatasetHealthPage />} />

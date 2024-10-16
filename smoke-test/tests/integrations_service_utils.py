@@ -126,6 +126,14 @@ def bootstrap_action(
     return response.json()
 
 
+def get_live_logs(action_urn: str, integrations_url: str):
+    action_urn_encoded = quote(action_urn)
+    url = f"{integrations_url}/private/actions/{action_urn_encoded}/live_logs"
+    response = requests.get(url)
+    response.raise_for_status()
+    return response.content.decode("utf-8")
+
+
 def wait_for_bootstrap_completion(action_urn: str, integrations_url: str, timeout: int):
     action_urn_encoded = quote(action_urn)
     url = f"{integrations_url}/private/actions/{action_urn_encoded}/stats"

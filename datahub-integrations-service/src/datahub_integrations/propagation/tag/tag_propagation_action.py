@@ -13,15 +13,19 @@
 # limitations under the License.
 
 import logging
-from typing import List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import make_tag_urn
+from datahub.ingestion.graph.client import SearchFilterRule
+from datahub.metadata.com.linkedin.pegasus2avro.common import GlobalTags
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import EntityChangeEvent
 from datahub_actions.pipeline.pipeline_context import PipelineContext
 from pydantic import BaseModel, Field, validator
+
+from datahub_integrations.propagation.propagation_utils import SelectedAsset
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -128,6 +132,63 @@ class TagPropagationAction(Action):
                         entity=semantic_event.entityUrn,
                     )
         return None
+
+    def asset_filters(self) -> Dict[str, Dict[str, List[SearchFilterRule]]]:
+
+        asset_filters: Dict[str, Dict[str, List[SearchFilterRule]]] = {}
+
+        entity_index_field_map = {
+            "schemaField": {
+                "dataset": ["globalTags"],
+            },
+            "dataset": {
+                "dataset": ["globalTags"],
+            },
+            "chart": {
+                "chart": ["globalTags"],
+            },
+            "dashboard": {
+                "dashboard": ["globalTags"],
+            },
+            "dataJob": {
+                "dataJob": ["globalTags"],
+            },
+            "dataFlow": {
+                "dataFlow": ["globalTags"],
+            },
+        }
+        entity_type = "dataset"
+        index_field_map = entity_index_field_map.get(entity_type, {})
+        asset_filters[entity_type] = {}
+        for index, index_fields in index_field_map.items():
+            asset_filters[entity_type] = {}
+            or_filters: List[SearchFilterRule] = []
+            asset_filters[entity_type][index] = or_filters
+        return asset_filters
+
+    def process_one_asset(
+        self, asset: SelectedAsset, operation: str
+    ) -> Iterable[TagPropagationDirective]:
+        """
+        Process one asset and return a list of tag propagation directives
+        """
+        target_entity_type = asset.target_entity_type
+        logger.info(f"Processing asset {asset.urn} of type {asset}")
+        if target_entity_type == "dataset":
+            assert self.ctx.graph
+            dataset_urn = asset.urn
+            global_tags = self.ctx.graph.graph.get_aspect(dataset_urn, GlobalTags)
+            if not global_tags:
+                return
+            for tag in global_tags.tags:
+                logger.info(f"Processing tag {tag.tag} on {dataset_urn}")
+                tag_urn = make_tag_urn(tag.tag)
+                yield TagPropagationDirective(
+                    propagate=True,
+                    tag=tag_urn,
+                    operation=operation,
+                    entity=dataset_urn,
+                )
 
     def act(self, event: EventEnvelope) -> None:
         tag_propagation_directive = self.should_propagate(event)

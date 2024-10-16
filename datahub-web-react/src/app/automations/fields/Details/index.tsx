@@ -86,7 +86,7 @@ export const Details = ({ state, props, passStateToParent }: ComponentBaseProps)
                     />
                 </div>
             )}
-            <Collapse collapsible="icon">
+            <Collapse>
                 <Panel header="Advanced" key="details-advanced">
                     <div>
                         <StyledLabel htmlFor="executorId">

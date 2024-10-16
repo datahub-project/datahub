@@ -385,7 +385,10 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
             semantic_event = event.event
             if (
                 semantic_event.category == "GLOSSARY_TERM"
-                and semantic_event.operation == "ADD"
+                and (
+                    semantic_event.operation == "ADD"
+                    or semantic_event.operation == "REMOVE"
+                )
                 and self.config is not None
                 and self.config.enabled
             ):

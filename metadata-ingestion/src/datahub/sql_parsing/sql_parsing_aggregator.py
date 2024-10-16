@@ -39,10 +39,12 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
     SqlParsingResult,
+    _sqlglot_lineage_cached,
     infer_output_schema,
     sqlglot_lineage,
 )
 from datahub.sql_parsing.sqlglot_utils import (
+    _parse_statement,
     generate_hash,
     get_query_fingerprint,
     try_format_query,
@@ -222,6 +224,9 @@ class SqlAggregatorReport(Report):
     sql_parsing_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_fingerprinting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_formatting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    sql_parsing_cache_stats: Optional[dict] = dataclasses.field(default=None)
+    parse_statement_cache_stats: Optional[dict] = dataclasses.field(default=None)
+    format_query_cache_stats: Optional[dict] = dataclasses.field(default=None)
 
     # Other lineage loading metrics.
     num_known_query_lineage: int = 0
@@ -239,6 +244,7 @@ class SqlAggregatorReport(Report):
     queries_with_non_authoritative_session: LossyList[QueryId] = dataclasses.field(
         default_factory=LossyList
     )
+    make_schema_resolver_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
     # Lineage-related.
     schema_resolver_count: Optional[int] = None
@@ -271,6 +277,10 @@ class SqlAggregatorReport(Report):
         self.num_urns_with_lineage = len(self._aggregator._lineage_map)
         self.num_temp_sessions = len(self._aggregator._temp_lineage_map)
         self.num_inferred_temp_schemas = len(self._aggregator._inferred_temp_schemas)
+
+        self.sql_parsing_cache_stats = _sqlglot_lineage_cached.cache_info()._asdict()
+        self.parse_statement_cache_stats = _parse_statement.cache_info()._asdict()
+        self.format_query_cache_stats = try_format_query.cache_info()._asdict()
 
         return super().compute_stats()
 
@@ -679,11 +689,12 @@ class SqlParsingAggregator(Closeable):
         # All queries with no session ID are assumed to be part of the same session.
         session_id = observed.session_id or _MISSING_SESSION_ID
 
-        # Load in the temp tables for this session.
-        schema_resolver: SchemaResolverInterface = (
-            self._make_schema_resolver_for_session(session_id)
-        )
-        session_has_temp_tables = schema_resolver.includes_temp_tables()
+        with self.report.make_schema_resolver_timer:
+            # Load in the temp tables for this session.
+            schema_resolver: SchemaResolverInterface = (
+                self._make_schema_resolver_for_session(session_id)
+            )
+            session_has_temp_tables = schema_resolver.includes_temp_tables()
 
         # Run the SQL parser.
         parsed = self._run_sql_parser(

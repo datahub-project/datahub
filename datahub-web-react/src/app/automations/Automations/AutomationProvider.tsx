@@ -1,37 +1,37 @@
 /* eslint-disable no-param-reassign */
-import React, { useContext, useState, useEffect, useMemo, ReactNode } from 'react';
-import { message } from 'antd';
-import { isEqual } from 'lodash';
-
+import React, { useContext, useState, useEffect, useMemo, ReactNode, useCallback, useRef } from 'react';
 import {
     useCreateActionPipelineMutation,
     useUpsertActionPipelineMutation,
     useDeleteActionPipelineMutation,
-    useGetActionPipelineQuery,
 } from '@graphql/actionPipeline.generated';
-
-import { AutomationTypes } from '@app/automations/constants';
-import { useAutomationsContext } from './AutomationsProvider';
-import { updateFormData } from './utils/updateFormData';
-
+import { ActionPipelineState, EntityType } from '@src/types.generated';
+import { useApolloClient } from '@apollo/client';
+import { mapRecipeToFormState } from './utils/mapRecipeToFormState';
 import { openSuccessNotification, openErrorNotification } from './Notifications';
+import { mapFormStateToRecipe } from './utils/mapFormStateToRecipe';
+import { configMaps } from '../recipes';
+import { getTemplate } from '../utils';
+import { removeFromListAutomationsCache, updateListAutomationsCache } from './utils/cacheUtils';
 
 export interface AutomationContextType {
-    // Data from the parent
+    // For edits, we pass in the following information.
     urn?: string;
-    type?: AutomationTypes;
-    name?: string;
-    category?: string;
-    description?: string;
-    definition?: any;
-    localTemplate?: any;
+    initialName?: string;
+    initialCategory?: string;
+    initialDescription?: string;
+    initialExecutorId?: string;
+    initialRecipe?: any;
 
     // Locally Set Data
-    formData?: any;
-    setFormData?: (data: any) => void;
+    type?: string;
+    setAutomationType?: (newType: string) => void;
+    typeTemplate?: any;
+    formState?: any;
+    setFormState?: (data: any) => void;
     recipe?: any;
     setRecipe?: (data: any) => void;
-    createAutomation?: (type: AutomationTypes) => void;
+    createAutomation?: () => void;
     updateAutomation?: () => void;
     deleteAutomation?: () => void;
 
@@ -41,14 +41,15 @@ export interface AutomationContextType {
 
 export const AutomationContext = React.createContext<AutomationContextType>({
     urn: '',
-    type: AutomationTypes.ACTION,
-    name: undefined,
-    category: undefined,
-    description: undefined,
-    localTemplate: {},
-    definition: {},
-    formData: {},
-    setFormData: () => {},
+    type: '',
+    setAutomationType: () => {},
+    initialName: undefined,
+    initialCategory: undefined,
+    initialDescription: undefined,
+    initialExecutorId: undefined,
+    initialRecipe: {},
+    formState: {},
+    setFormState: () => {},
     recipe: {},
     setRecipe: () => {},
     createAutomation: () => null,
@@ -58,93 +59,145 @@ export const AutomationContext = React.createContext<AutomationContextType>({
 
 export const useAutomationContext = () => useContext(AutomationContext);
 
+// Important: Clean recipe config of top level fields present in the action pipeline, but not allowed in the Action Recipes themselves.
+// If this is not handled properly, then the backend Pydantic models will throw an exception will unexpected fields!
+const cleanRecipe = (r: any) => {
+    delete r.description;
+    delete r.category;
+    delete r.executorId;
+    return r;
+};
+
+const resolveVirtualFormStateFields = (formState: any): any => {
+    if (!formState.type) {
+        return formState;
+    }
+
+    const configMap = configMaps[formState.type];
+    const virtualFormState = { ...formState };
+
+    Object.keys(configMap).forEach((field) => {
+        const fieldConfig = configMap[field];
+        if (fieldConfig?.isVirtual) {
+            const derivedValue = fieldConfig.resolveVirtualFormStateFieldValue(formState);
+            virtualFormState[field] = derivedValue;
+        }
+    });
+
+    return virtualFormState;
+};
+
+const resolveBaseFormStateFromVirtualFields = (newFormState: any, oldFormState: any) => {
+    let resolvedFormState = { ...newFormState };
+
+    if (!newFormState.type) {
+        return newFormState;
+    }
+
+    const configMap = configMaps[newFormState.type];
+
+    Object.keys(configMap).forEach((field) => {
+        const fieldConfig = configMap[field];
+        if (fieldConfig.isVirtual && newFormState[field] !== oldFormState[field]) {
+            // If a virtual field has changed, reverse map it to the base form state
+            const partialFormState = fieldConfig.onChangeVirtualFormStateFieldValue(newFormState[field]);
+            resolvedFormState = { ...resolvedFormState, ...partialFormState };
+        }
+    });
+
+    return resolvedFormState;
+};
+
 interface Props {
     context?: AutomationContextType;
     children?: ReactNode | undefined;
 }
 
 export const AutomationContextProvider = ({ context, children }: Props) => {
-    const { refetch } = useGetActionPipelineQuery({
-        variables: {
-            urn: context?.urn || '',
-        },
-    });
+    const isInitialMount = useRef(true);
 
+    const client = useApolloClient();
     const [createActionPipelineMutation] = useCreateActionPipelineMutation();
     const [upsertActionPipelineMutation] = useUpsertActionPipelineMutation();
     const [deleteActionPipeline] = useDeleteActionPipelineMutation();
 
-    // Overall context wrapper (manages the list of automations)
-    const { refetchAutomations } = useAutomationsContext();
+    // This represents a global state for the automation form contents.
+    const [formState, setFormState] = useState<Record<string, any>>({
+        type: context?.type,
+        name: context?.initialName,
+        category: context?.initialCategory,
+        description: context?.initialDescription,
+        executorId: context?.initialExecutorId,
+    });
 
-    // This is the default recipe details
-    const details = useMemo(
-        () => ({
-            name: context?.name || '',
-            category: context?.category || '',
-            description: context?.description || '',
-        }),
-        [context],
+    // This represents the object form of the JSON action recipe file.
+    const [recipe, setRecipe] = useState<any>({
+        ...context?.initialRecipe,
+    });
+
+    // This represents the "template" or "configuration" for a given automation type, or the set of predefined fields and placeholder text,
+    // for a given automation type.
+    const typeTemplate = useMemo(() => {
+        return formState.type ? getTemplate(formState.type) : undefined;
+    }, [formState.type]);
+
+    const setFormStateFromRecipe = useCallback(
+        (r: any) => {
+            const updatedFormState = mapRecipeToFormState(r, formState);
+            const finalFormState = resolveVirtualFormStateFields(updatedFormState);
+            setFormState(finalFormState);
+        },
+        [formState],
     );
 
-    // This is the form data that will be updated
-    const [formData, setFormData] = useState<any>({
-        name: context?.name || '',
-        category: context?.category || '',
-        description: context?.description || '',
-    });
-
-    // This is the recipe that will be updated
-    const [recipe, setRecipe] = useState<any>({
-        ...details,
-    });
-
-    // Update default recipe based on the context
+    // Keep the Recipe JSON in sync with the form state here.
+    // Any time the form state is changed (e.g. by selecting values within a field component), we try to update the recipe accordingly.
     useEffect(() => {
-        const r = { ...context?.definition, ...details } || {};
-        setRecipe(r);
-        setFormData(updateFormData(r, details));
-    }, [context, details]);
+        // Any time the form state changes, we map the form state to the recipe to keep
+        // the recipe definition in sync with the form.
+        const updatedRecipe = mapFormStateToRecipe(formState);
+        setRecipe(updatedRecipe);
+    }, [formState]);
 
-    // Update the form data when the recipe changes
+    // If the initial recipe context changes, reset the form state.
     useEffect(() => {
-        const updatedFormData = updateFormData(recipe, formData);
-        if (!isEqual(updatedFormData, formData)) {
-            setFormData(updatedFormData);
+        if (context?.initialRecipe && isInitialMount.current) {
+            setFormStateFromRecipe(context?.initialRecipe);
+            isInitialMount.current = false;
         }
-    }, [recipe, formData]);
-
-    // Clean recipe config of actionPipeline graph fields
-    const cleanRecipe = (r: any) => {
-        // Remove description & category
-        delete r.description;
-        delete r.category;
-        delete r.executorId;
-        return r;
-    };
+    }, [context?.initialRecipe, setFormStateFromRecipe]);
 
     // Create Automation Function
     const createAutomation = () => {
-        message.loading({ content: 'Loading...', duration: 3 });
+        const newAutomationDetails = {
+            type: formState.type || '',
+            name: formState.name || '',
+            category: formState.category || 'Data Discovery',
+            description: formState.description || '',
+            config: {
+                recipe: JSON.stringify(cleanRecipe(recipe)),
+                version: null,
+                executorId: formState.executorId || 'default',
+                debugMode: false,
+            },
+        };
+
         createActionPipelineMutation({
             variables: {
-                input: {
-                    name: formData.name || '',
-                    category: formData.category || '',
-                    description: formData.description || '',
-                    type: recipe.action.type,
-                    config: {
-                        recipe: JSON.stringify(cleanRecipe(recipe)),
-                        version: undefined,
-                        executorId: formData.executorId || recipe?.executorId || 'default',
-                        debugMode: false,
-                    },
-                },
+                input: newAutomationDetails,
             },
         })
-            .then(() => {
-                refetchAutomations?.(true); // Fetch list of automations
-                refetch?.(); // Fetch this automation
+            .then((result) => {
+                const newAutomation = {
+                    urn: result?.data?.createActionPipeline,
+                    type: EntityType.ActionsPipeline,
+                    status: 'RUNNING',
+                    details: {
+                        ...newAutomationDetails,
+                        state: ActionPipelineState.Active,
+                    },
+                };
+                updateListAutomationsCache(client, newAutomation, 100);
                 openSuccessNotification('Automation succesfully created.');
             })
             .catch((error) => {
@@ -154,26 +207,35 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
 
     // Update Automation Function
     const updateAutomation = () => {
+        const updatedAutomationDetails = {
+            type: formState.type,
+            name: formState.name || '',
+            category: formState.category || '',
+            description: formState.description || '',
+            config: {
+                recipe: JSON.stringify(cleanRecipe(recipe)),
+                version: null,
+                executorId: formState.executorId || 'default',
+                debugMode: false,
+            },
+        };
         upsertActionPipelineMutation({
             variables: {
                 urn: context?.urn || '',
-                input: {
-                    name: formData.name || '',
-                    category: formData.category || '',
-                    description: formData.description || '',
-                    type: recipe.action.type,
-                    config: {
-                        recipe: JSON.stringify(cleanRecipe(recipe)),
-                        version: undefined,
-                        executorId: formData.executorId || 'default',
-                        debugMode: false,
-                    },
-                },
+                input: updatedAutomationDetails,
             },
         })
-            .then(() => {
-                refetchAutomations?.(false); // Fetch list of automations
-                refetch?.(); // Fetch this automation
+            .then((result) => {
+                const updatedAutomation = {
+                    urn: result?.data?.upsertActionPipeline,
+                    type: EntityType.ActionsPipeline,
+                    status: 'RUNNING',
+                    details: {
+                        ...updatedAutomationDetails,
+                        state: ActionPipelineState.Active,
+                    },
+                };
+                updateListAutomationsCache(client, updatedAutomation, 100);
                 openSuccessNotification('Automation succesfully updated.');
             })
             .catch((error) => {
@@ -183,15 +245,13 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
 
     // Delete Automation Function
     const deleteAutomation = () => {
-        message.loading({ content: 'Loading...', duration: 3 });
         deleteActionPipeline({
             variables: {
                 urn: context?.urn || '',
             },
         })
             .then(() => {
-                refetchAutomations?.(true); // Fetch list of automations
-                refetch?.(); // Fetch this automation
+                removeFromListAutomationsCache(client, context?.urn, 100);
                 openSuccessNotification('Automation succesfully deleted.');
             })
             .catch((error) => {
@@ -199,14 +259,42 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
             });
     };
 
+    /**
+     * Called within children components to change the automation type being edited.
+     */
+    const onChangeAutomationType = (newType: string) => {
+        // When changing the automation type, simply reset form state based on the default recipe provided
+        // for the automation! (e.g. when creating a new automation)
+        const partialFormState = { type: newType };
+        const defaultRecipe = getTemplate(newType)?.defaultRecipe;
+        const defaultRecipeFormState = defaultRecipe
+            ? mapRecipeToFormState(defaultRecipe, partialFormState)
+            : partialFormState;
+        const resolvedFormState = resolveVirtualFormStateFields(defaultRecipeFormState);
+        setFormState(resolvedFormState);
+    };
+
+    /**
+     * Called within children components any time the global form state object should be updated,
+     * e.g. any time a select or input value is changed.
+     */
+    const onSetFormState = (newFormState: any) => {
+        // TODO: Ensure that form state gets updated with the proper defaults for a new recipe.
+        const finalFormState = resolveBaseFormStateFromVirtualFields(newFormState, formState);
+        setFormState(finalFormState);
+    };
+
     return (
         <AutomationContext.Provider
             value={{
                 ...context,
-                formData,
-                setFormData,
+                type: formState.type, // Special type field is elevated.
+                setAutomationType: onChangeAutomationType,
+                typeTemplate,
+                formState,
+                setFormState: onSetFormState,
                 recipe,
-                setRecipe,
+                setRecipe, // Careful about calling this directly, this does not update form state!
                 createAutomation,
                 updateAutomation,
                 deleteAutomation,

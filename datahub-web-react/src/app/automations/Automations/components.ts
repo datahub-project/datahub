@@ -316,7 +316,7 @@ export const AutomationsModalHeader = styled.div`
 export const AutomationModalFooter = styled.div`
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: end;
     gap: 4px;
 
     & button {

@@ -1,8 +1,9 @@
 import type { Field } from '@app/automations/types';
 import { EntityType } from '@src/types.generated';
 
-import { DEFAULT_AUTOMATION_CATEGORY, DEFAULT_APPLY_TYPE, DEFAULT_CARDINALITY } from '../constants';
+import { DEFAULT_AUTOMATION_CATEGORY, DEFAULT_APPLY_TYPE, DEFAULT_CARDINALITY, DEFAULT_MODE } from '../constants';
 
+// Specific field components
 import { TermSelector, TermSelectorStateType } from './TermSelector';
 import { EntityTypeSelector, EntityTypeSelectorStateType } from './EntityTypeSelector';
 import { TraversalSelector, TraversalSelectorStateType } from './TraversalSelector';
@@ -11,7 +12,72 @@ import { ApplyTypeSelector, ApplyTypeSelectorStateType } from './ApplyTypeSelect
 import { CardinalitySelector, CardinalitySelectorStateType } from './CardinalitySelector';
 import { PlatformSelector, PlatformSelectorStateType } from './PlatformSelector';
 import { ContainerSelector, ContainerSelectorStateType } from './ContainerSelector';
+import { ModeSelector, ModeSelectorStateType } from './ModeSelector';
 import { Details, DetailsStateType } from './Details';
+
+// Generic field components
+import { RadioSelector } from './RadioSelector';
+import { HiddenRecipeModifer } from './HiddenRecipeModifer';
+
+// Recipe Modifier (for hidden config fields)
+// This field is used to modify the recipe state, usually during a
+// conditionally selected option that doesn't have config fields
+const hiddenRecipeModifier: Field = {
+    title: 'Hidden Recipe Modifier',
+    description: 'Modify the recipe state.',
+    isHidden: true,
+    fields: [
+        {
+            // The component that's rendered for this field
+            // Defined in @app/automations/fields/HiddenRecipeModifer
+            component: HiddenRecipeModifer,
+
+            // Available Component Props to customize the component
+            // You can set default values for the props here
+            props: {},
+
+            // State mapping to connect form data to the component's state
+            // You can set default values for the state here
+            state: {},
+        },
+    ],
+};
+
+// Generic Radio Selector
+const radioSelector: Field = {
+    title: 'Select Radio',
+    description: 'Choose the radio option.',
+    fields: [
+        {
+            // The component that's rendered for this field
+            // Defined in @app/automations/fields/RadioSelector
+            component: RadioSelector,
+
+            // Available Component Props to customize the component
+            // You can set default values for the props here
+            props: {
+                options: [
+                    {
+                        key: 'option1',
+                        name: 'Option 1',
+                        description: 'This is option 1',
+                    },
+                    {
+                        key: 'option2',
+                        name: 'Option 2',
+                        description: 'This is option 2',
+                    },
+                ],
+            },
+
+            // State mapping to connect form data to the component's state
+            // You can set default values for the state here
+            state: {
+                selectedKey: 'option1',
+            },
+        },
+    ],
+};
 
 // Term Selector
 // This field allows the user to select tags, glossary terms, or glossary nodes
@@ -37,8 +103,8 @@ const termSelector: Field = {
                 terms: [],
                 nodes: [],
                 tags: [],
-                termsEnabled: true,
-                tagsEnabled: true,
+                termsEnabled: false,
+                tagsEnabled: false,
             } as TermSelectorStateType,
         },
     ],
@@ -157,7 +223,7 @@ const connectionSelector: Field = {
             // Available Component Props to customize the component
             // You can set default values for the props here
             props: {
-                connectionTypes: ['snowflake'],
+                connectionTypes: ['snowflake', 'bigquery'],
             },
 
             // State mapping to connect form data to the component's state
@@ -165,6 +231,30 @@ const connectionSelector: Field = {
             state: {
                 connection: undefined,
             } as ConnectionSelectorStateType,
+        },
+    ],
+};
+
+// Mode Selector
+// This field allows the user to select the mode the automation
+const modeSelector: Field = {
+    title: 'Select Mode',
+    description: 'Choose the propagation mode for this automation.',
+    fields: [
+        {
+            // The component that's rendered for this field
+            // Defined in @app/automations/fields/ModeSelector
+            component: ModeSelector,
+
+            // Available Component Props to customize the component
+            // You can set default values for the props here
+            props: {},
+
+            // State mapping to connect form data to the component's state
+            // You can set default values for the state here
+            state: {
+                mode: DEFAULT_MODE,
+            } as ModeSelectorStateType,
         },
     ],
 };
@@ -320,6 +410,10 @@ const details = {
 
 // Define the available fields that can be used in the create/update automation form
 const fields = {
+    // Generic fields
+    radio_selector: radioSelector,
+    hidden_recipe_modifier: hiddenRecipeModifier,
+    // Specific fields
     select_tags_and_terms: termSelector,
     select_entity_types: entityTypeSelector,
     select_traversal_types: traversalSelector,
@@ -328,6 +422,7 @@ const fields = {
     select_cardinality: cardinalitySelector,
     select_platforms: platformSelector,
     select_containers: containerSelector,
+    select_mode: modeSelector,
     details,
     // select_conditions: conditionSelector,
     // select_custom_actions: customActionSelector,

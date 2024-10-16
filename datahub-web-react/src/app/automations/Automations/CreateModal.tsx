@@ -1,18 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState } from 'react';
 
 import { Modal, Button } from 'antd';
-
 import { useAppConfig } from '@src/app/useAppConfig';
-
 import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
-import { AutomationTypes } from '@app/automations/constants';
 import { getYaml } from '@app/automations/utils';
-
 import { Configure } from '../fields/configure';
 import { templates } from '../recipes';
-
 import { useAutomationContext } from './AutomationProvider';
-
 import {
     PremadeAutomations,
     PremadeAutomationCard,
@@ -22,9 +16,9 @@ import {
     AutomationLogo,
 } from './components';
 
-import { actionType as aiTermClassificationActionType } from '../recipes/glossaryTerm/glossaryTermAI';
+import { automationType as aiTermClassificationActionType } from '../recipes/glossaryTerm/glossaryTermAI';
 
-const SelectPremadeAutomation = ({ setAutomation }: any) => {
+const SelectAutomationType = ({ setAutomation }: any) => {
     const {
         config: { classificationConfig },
     } = useAppConfig();
@@ -37,7 +31,8 @@ const SelectPremadeAutomation = ({ setAutomation }: any) => {
                 // Check if automation is disabled
                 if (automation.isDisabled) return null;
 
-                // Check if snowflake is enabled
+                // Automation feature flags.
+                // TODO: Add bigquery feature flag here.
                 if (automation.platform === 'snowflake' && !isSnowflakeEnabled) return null;
                 if (automation.type === aiTermClassificationActionType && !isAiTermsEnabled) return null;
 
@@ -59,85 +54,52 @@ type AutomationCreateModalProps = {
 };
 
 export const AutomationCreateModal = ({ isOpen, setIsOpen }: AutomationCreateModalProps) => {
-    const { recipe, setRecipe, setFormData, createAutomation } = useAutomationContext();
-
-    const [automation, setAutomation] = useState();
+    const { type, typeTemplate, recipe, setAutomationType, setFormState, createAutomation } = useAutomationContext();
     const [showYaml, setShowYaml] = useState(false);
-
-    // Get the automation info
-    const template = useMemo(
-        () => (automation ? templates.find((t) => t.key === automation) : undefined),
-        [automation],
-    );
-
-    // Get the automation type (ACTION, TEST)
-    const automationType = template ? (template?.type as AutomationTypes) : undefined;
-
-    // Get the base recipe from the automation template
-    const baseRecipe = useMemo(() => {
-        if (!template) return {};
-        return template.baseRecipe;
-    }, [template]);
-
-    // Update context formData on mount
-    // This is necessary to ensure the form data is updated
-    useEffect(() => {
-        if (baseRecipe) setRecipe?.(baseRecipe);
-    }, [baseRecipe, setRecipe]);
-
-    // Check if the form is disabled
-    const isDisabled = false;
 
     // Close the modal util
     const closeModal = () => {
         setIsOpen(false);
         setShowYaml(false);
-        setFormData?.({});
-        setAutomation(undefined);
+        setFormState?.({});
     };
 
     // Handle going back to the automation selection
     const goBack = () => {
-        setAutomation(undefined);
-        setFormData?.({});
+        setFormState?.({});
         setShowYaml(false);
     };
 
     // Handle form create submission
     const handleCreate = () => {
-        if (!isDisabled) {
-            // Create is handled by the context
-            createAutomation?.(automationType || AutomationTypes.ACTION);
-            closeModal();
-        }
+        createAutomation?.();
+        closeModal();
     };
 
     // Conditional form details
     const formInfo = {
         modalTitle: 'Create an Automation',
         modalDescription: 'Configure an automation that takes action when important things occur',
-        submitContent: 'Save and Run', // generic, gets updated based on recipe items
+        submitContent: 'Save & Run', // generic, gets updated based on recipe items
         submitFn: handleCreate,
     };
 
-    // Form states
-    const showPreselect = !automation;
-    const showForm = automation && !showYaml;
+    const showPreselect = !type;
+    const showForm = !showPreselect && !showYaml;
 
     return (
         <Modal
             title={
-                automation ? (
+                typeTemplate ? (
                     <AutomationsModalHeader>
-                        {template?.logo && <AutomationLogo src={template.logo} alt={template.name} />}
+                        {typeTemplate?.logo && <AutomationLogo src={typeTemplate?.logo} alt={typeTemplate?.name} />}
                         <div>
-                            <h2>{template?.name}</h2>
-                            <AutomationsDescription>{template?.description}</AutomationsDescription>
+                            <h2>{typeTemplate?.name}</h2>
+                            <AutomationsDescription>{typeTemplate?.description}</AutomationsDescription>
                         </div>
                     </AutomationsModalHeader>
                 ) : (
                     <AutomationsModalHeader>
-                        {template?.logo && <AutomationLogo src={template?.logo} alt={template?.name} />}
                         <div>
                             <h2>{formInfo.modalTitle}</h2>
                             <AutomationsDescription>{formInfo.modalDescription}</AutomationsDescription>
@@ -148,21 +110,9 @@ export const AutomationCreateModal = ({ isOpen, setIsOpen }: AutomationCreateMod
             footer={
                 <AutomationModalFooter>
                     <div>
-                        {/* {(showForm || showYaml) && (
-                            <YamlButtonsContainer>
-                                <TextButton isActive={!showYaml} onClick={() => setShowYaml(!showYaml)}>
-                                    <FormOutlined /> Form
-                                </TextButton>
-                                <TextButton isActive={showYaml} onClick={() => setShowYaml(!showYaml)}>
-                                    <CodeOutlined /> YAML
-                                </TextButton>
-                            </YamlButtonsContainer>
-                        )} */}
-                    </div>
-                    <div>
                         {showForm || (showYaml && <Button onClick={goBack}>Back</Button>)}
                         <Button onClick={closeModal}>Cancel</Button>
-                        <Button type="primary" onClick={formInfo.submitFn} disabled={isDisabled}>
+                        <Button type="primary" onClick={formInfo.submitFn}>
                             {formInfo.submitContent}
                         </Button>
                     </div>
@@ -172,8 +122,8 @@ export const AutomationCreateModal = ({ isOpen, setIsOpen }: AutomationCreateMod
             open={isOpen}
             width={800}
         >
-            {showPreselect && <SelectPremadeAutomation setAutomation={setAutomation} />}
-            {showForm && <Configure automation={template} />}
+            {showPreselect && <SelectAutomationType setAutomation={setAutomationType} />}
+            {showForm && <Configure />}
             {showYaml && <YamlEditor initialText={getYaml(recipe)} height="450px" onChange={() => null} isDisabled />}
         </Modal>
     );

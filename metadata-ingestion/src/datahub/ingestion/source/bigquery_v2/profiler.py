@@ -173,6 +173,13 @@ WHERE
                         f"^{normalized_table_name}.{column}$"
                     )
 
+                if table.external and not self.config.profiling.profile_external_tables:
+                    self.report.profiling_skipped_other[f"{project_id}.{dataset}"] += 1
+                    logger.info(
+                        f"Skipping profiling of external table {project_id}.{dataset}.{table.name}"
+                    )
+                    continue
+
                 # Emit the profile work unit
                 logger.debug(
                     f"Creating profile request for table {normalized_table_name}"

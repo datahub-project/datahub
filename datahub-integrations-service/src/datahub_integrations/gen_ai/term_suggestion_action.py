@@ -96,9 +96,10 @@ class TermSuggestionAction(Action):
         self.bulk_suggester = BulkTermSuggester(
             graph=self.ctx.graph.graph, config=self.config
         )
-        self.bulk_suggester_thread, self.shutdown_event = (
-            self.bulk_suggester.run_forever_background()
-        )
+        (
+            self.bulk_suggester_thread,
+            self.shutdown_event,
+        ) = self.bulk_suggester.run_forever_background()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Self:

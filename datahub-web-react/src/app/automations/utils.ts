@@ -8,7 +8,10 @@ import { templates } from '@app/automations/recipes';
 
 // Function to flatten nested data using Lodash
 // This will only flatten one level of nesting
-export const flattenObject = (obj: Record<string, any>): Record<string, any> => {
+// Notice: If multiple components have the same state key names, they will conflict and
+// possibly overwrite.
+// Assumes that each part of the state is managed by different components. This may be true, but is not necessarily.
+export const extractFormState = (obj: Record<string, any>): Record<string, any> => {
     return _.transform(
         obj,
         (result, value, key) => {
@@ -61,7 +64,7 @@ export const getYaml = (recipe: any) => {
 };
 
 // Get the steps for the automation type
-export const getFields = (key: string) => templates.filter((automation) => automation.key === key)[0]?.fields;
+export const getFields = (key: string) => templates.filter((template) => template.key === key)[0]?.fields;
 
 // Get the data of the automation type
 export const getAutomationData = (key: string) => {
@@ -71,7 +74,7 @@ export const getAutomationData = (key: string) => {
 
 // Get the automation template
 export const getTemplate = (type: string): AutomationTemplate | undefined => {
-    const template = templates.filter((auto) => auto.baseRecipe?.action?.type === type);
+    const template = templates.filter((t) => t.type === type);
     return template[0] || undefined;
 };
 

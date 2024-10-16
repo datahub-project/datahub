@@ -115,6 +115,9 @@ export const ConnectionForm = ({
     // Config
     const { CONFIG, TEST_TYPE, PLATFORM_NAME, PLATFORM_URN } = constants;
 
+    // States
+    const isUpdate = !!urn && urn !== 'new' && urn !== '';
+
     // Connections mgmt
     const { refetch: refetchConnectionList } = connections || {};
 
@@ -159,7 +162,7 @@ export const ConnectionForm = ({
     const { secrets, refetchSecrets } = useConnectionSecrets();
 
     // Mutations
-    const { createConnection, loading: createLoading } = useCreateConnection();
+    const { createConnection, loading: createLoading } = useCreateConnection({ platformUrn: PLATFORM_URN });
     const { updateConnection, loading: updateLoading } = useUpdateConnection();
 
     // Test setup
@@ -172,7 +175,7 @@ export const ConnectionForm = ({
     const handleSave = async () => {
         try {
             const values = form.getFieldsValue();
-            if (urn) {
+            if (isUpdate) {
                 setFormError(undefined);
                 await updateConnection({ id: urn, values, platformUrn: PLATFORM_URN }).finally(() => {
                     refetchConnectionList?.();
@@ -185,7 +188,7 @@ export const ConnectionForm = ({
                 });
             } else {
                 setFormError(undefined);
-                await createConnection({ values, platformUrn: PLATFORM_URN }).finally(() => {
+                await createConnection({ values }).finally(() => {
                     refetchConnectionList?.(); // 3000 timeout is default
                     setTimeout(() => {
                         disclosure?.closeModal();
@@ -195,7 +198,7 @@ export const ConnectionForm = ({
                 });
             }
         } catch (e) {
-            setFormError(`Failed to ${urn ? 'update' : 'create'} connection: ${(e as Error).message}`);
+            setFormError(`Failed to ${isUpdate ? 'update' : 'create'} connection: ${(e as Error).message}`);
         }
     };
 
@@ -214,8 +217,8 @@ export const ConnectionForm = ({
     // If there is an urn, that means we're editing and we need to grab the initial values
     useEffect(() => {
         if (connectionDetails) {
-            form.setFieldsValue(connectionDetails);
-        } else if (urn && connection) {
+            form.setFieldsValue(flattenToDotNotation(connectionDetails, null));
+        } else if (isUpdate && connection) {
             const initValues = connection?.details?.json?.blob ? JSON.parse(connection?.details?.json?.blob) : {};
             const name = connection?.details?.name;
             const dotNotationValues = flattenToDotNotation(initValues, null);
@@ -223,16 +226,10 @@ export const ConnectionForm = ({
         } else {
             form.resetFields();
         }
-    }, [urn, connection, connectionDetails, form]);
+    }, [urn, connection, connectionDetails, form, isUpdate]);
 
     // Helpful booleans
     const isSubmitting = createLoading || updateLoading;
-
-    // If valuesChange is provided, call it with the form values
-    // This sends the form values to the parent component
-    useEffect(() => {
-        if (valuesChange && formValues) valuesChange(form.getFieldsValue());
-    }, [formValues, form, valuesChange]);
 
     // Update test recipe with form values
     const yamlRecipe = CONFIG.placeholderRecipe;
@@ -249,11 +246,18 @@ export const ConnectionForm = ({
 
     return (
         <>
-            <Form form={form} onValuesChange={onValuesChange}>
+            <Form
+                form={form}
+                onValuesChange={onValuesChange}
+                onBlur={(e) => {
+                    if (valuesChange) valuesChange(form.getFieldsValue());
+                    return e;
+                }}
+            >
                 <Wrapper>
                     {showHeader && (
                         <>
-                            <Heading>{urn ? 'Edit Connection' : 'Create Connection'}</Heading>
+                            <Heading>{isUpdate ? 'Edit Connection' : 'Create Connection'}</Heading>
                             <Divider style={{ margin: '8px 0' }} />
                         </>
                     )}
@@ -277,7 +281,7 @@ export const ConnectionForm = ({
                                     isDisabled={!canSubmit}
                                     isLoading={isSubmitting}
                                 >
-                                    {urn ? 'Update Connection' : 'Create Connection'}
+                                    {isUpdate ? 'Update Connection' : 'Create Connection'}
                                 </Button>
                             )}
                         </ButtonsContainer>

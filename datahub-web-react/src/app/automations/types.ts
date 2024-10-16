@@ -6,9 +6,9 @@ import { AutomationTypes } from './constants';
  * Component Base Type (props)
  */
 export type ComponentBaseProps = {
+    props: any;
     state: any;
     passStateToParent: (newState: any) => void;
-    props: any;
 };
 
 /**
@@ -52,6 +52,9 @@ export enum RequirementRule {
 export interface Field<T = any> {
     title: string;
     description?: string;
+    controlKey?: string;
+    conditionalKey?: string;
+    isHidden?: boolean;
     tooltop?: string;
     fields: Array<{
         // Instead of 'type' being a string, it's now a React component
@@ -76,8 +79,8 @@ export type AutomationTemplate = {
     description: string;
     logo: string;
     fields: Field[];
-    baseRecipe: any;
     isDisabled: boolean;
+    defaultRecipe: any; // Important! Used for initializing the form on creates.
 };
 
 /**
@@ -169,3 +172,28 @@ export interface TestDefinition {
 
 export type AutomationCategoryType = { name: string; description?: string };
 export type AutomationCategoryGroupType = { name: string; description?: string; tests: Test[] };
+
+/**
+ * Config mapping functions, to map from Action Config (recipe) into Form States, and vice versa.
+ */
+export type FormStateFieldMapping = {
+    /**
+     * Whether the form state field is "virtual", meaning that is derived from the other form fields.
+     */
+    isVirtual: boolean;
+    /**
+     * Derive the value of a 'virtual' or 'derived' form state field based on the current state of the form state.
+     * This is useful when initializing the state of a derived field, e.g. on edits.
+     */
+    resolveVirtualFormStateFieldValue: (formState: any) => any;
+    /**
+     * Mutation function invoked when a particular for state field is modified.
+     * This is used to mutate OTHER fields in the state based on a change in a derived / virtual field.
+     */
+    onChangeVirtualFormStateFieldValue: (fieldValue: string) => any;
+};
+
+/**
+ * General Config Map types.
+ */
+export type ConfigMap = Record<string, string | FormStateFieldMapping>;

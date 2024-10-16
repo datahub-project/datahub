@@ -1,7 +1,14 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, Generic, Iterable, Optional, TypeVar
+from typing import Callable, Dict, Generic, Iterable, List, Optional, TypeVar
 
 from datahub.configuration.common import ConfigModel
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.secret.datahub_secret_store import (
+    DataHubSecretStore,
+    DataHubSecretStoreConfig,
+)
+from datahub.secret.secret_common import resolve_recipe
+from datahub.secret.secret_store import SecretStore
 from datahub_actions.pipeline.pipeline_context import PipelineContext
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -10,6 +17,9 @@ from ratelimit import limits, sleep_and_retry
 from datahub_integrations.actions.oss.stats_util import (
     ActionStageReport,
     ReportingAction,
+)
+from datahub_integrations.actions.secret_store.environment_secret_store import (
+    EnvironmentSecretStore,
 )
 from datahub_integrations.actions.stats_util import Stage
 
@@ -175,3 +185,21 @@ class ExtendedAction(ReportingAction, Generic[T], ABC):
             logger.error(f"Error rolling back action: {e}")
             success = False
         rollback_report.end(success=success)
+
+    @staticmethod
+    def resolve_secrets(config_str: str, graph: DataHubGraph) -> Dict:
+        logger.info("Resolving secrets")
+        secret_stores: List[SecretStore] = [
+            DataHubSecretStore(
+                DataHubSecretStoreConfig(
+                    graph_client=graph,
+                )
+            ),
+            EnvironmentSecretStore(
+                config={},
+            ),
+        ]
+
+        resolved_recipe = resolve_recipe(config_str, secret_stores)
+
+        return resolved_recipe

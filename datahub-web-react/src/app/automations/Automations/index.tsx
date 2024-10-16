@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { uniq, orderBy } from 'lodash';
 
 import { Button } from '@components';
@@ -24,7 +24,7 @@ import { AutomationCreateModal } from './CreateModal';
 
 import { EmptyState } from './EmptyState';
 
-const AutomationPage = () => {
+const AutomationPage = React.memo(() => {
     // Rollout Variables (UI only)
     const { hideSidebar } = env;
 
@@ -35,8 +35,14 @@ const AutomationPage = () => {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
 
     // Get Categories
-    const categories = uniq(
-        automations.map((automation: any) => automation.details?.category).filter((category) => category !== ''),
+    const categories = useMemo(
+        () =>
+            uniq(
+                automations
+                    .map((automation: any) => automation.details?.category)
+                    .filter((category) => category !== ''),
+            ),
+        [automations],
     );
 
     // Build tabs
@@ -58,7 +64,7 @@ const AutomationPage = () => {
     });
 
     const [activeTab, setActiveTab] = useState(tabs[0].key);
-    const data = tabs.filter((tab) => tab.key === activeTab)[0].data || [];
+    const automationsData = tabs.filter((tab) => tab.key === activeTab)[0].data || [];
 
     return (
         <>
@@ -94,24 +100,24 @@ const AutomationPage = () => {
                             ))}
                         </AutomationsContentTabs>
                         <AutomationsBody>
-                            {data.map((item) => (
-                                <AutomationsListCard key={item.key} automation={item} />
+                            {automationsData.map((automation) => (
+                                <AutomationsListCard key={automation.key} automation={automation} />
                             ))}
                         </AutomationsBody>
-                        {!isLoading && data && data.length === 0 && <EmptyState />}
+                        {!isLoading && automationsData && automationsData.length === 0 && <EmptyState />}
                     </AutomationsContentBody>
                 </AutomationsContent>
             </AutomationsPageContainer>
-            <AutomationContextProvider>
+            <AutomationContextProvider key="create">
                 <AutomationCreateModal isOpen={isCreateOpen} setIsOpen={setIsCreateOpen} />
             </AutomationContextProvider>
         </>
     );
-};
+});
 
 // Export the Automations Page with the context provider
 export const Automations = () => (
-    <AutomationsContextProvider>
+    <AutomationsContextProvider key="create">
         <AutomationPage />
     </AutomationsContextProvider>
 );

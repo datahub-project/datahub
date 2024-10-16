@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-import { getTemplate, parseJSON } from '@app/automations/utils';
+import { parseJSON } from '@app/automations/utils';
 
 import { AutomationContextProvider } from '../AutomationProvider';
 import { ListCard } from '../components';
@@ -15,14 +15,15 @@ export const AutomationsListCard = ({ automation }: any) => {
 
     return (
         <AutomationContextProvider
+            key={urn}
             context={{
                 urn,
                 type,
-                name,
-                category,
-                description,
-                definition: parseJSON(config?.recipe),
-                localTemplate: getTemplate(type) || ({} as any),
+                initialName: name,
+                initialCategory: category,
+                initialDescription: description,
+                initialExecutorId: config?.executorId,
+                initialRecipe: parseJSON(config?.recipe),
             }}
         >
             <ListCard>

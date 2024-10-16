@@ -7,38 +7,46 @@
 
 import SnowflakeLogo from '@images/snowflakelogo.png';
 import { EntityType } from '@src/types.generated';
-import { AutomationTypes, commonFieldsMapping } from '@app/automations/constants';
+import { commonFieldsMapping } from '@app/automations/constants';
 import { getField } from '@app/automations/fields';
 
 // Common unique ID for the action
 // Used to identify the action in the backend & provide common key between template <> recipe
-export const actionType = 'datahub_integrations.propagation.snowflake.tag_propagator.SnowflakeTagPropagatorAction';
+export const automationType = 'datahub_integrations.propagation.snowflake.tag_propagator.SnowflakeTagPropagatorAction';
 
-// Configuration structure for the integration recipe
-// Default values can be set here and will be used to populate the UI form
-// This is only the information in action.config in the recipe
-export const defaultConfig = {
-    term_propagation: {
-        enabled: true,
-        target_terms: [],
+const automationName = 'Snowflake Tag Propagation';
+const automationDescription = 'Sync Tags and Glossary Terms to Snowflake Table and Column Tags';
+
+const defaultRecipe = {
+    name: automationName,
+    description: automationDescription,
+    category: 'Data Discovery',
+    filter: {
+        event_type: 'EntityChangeEvent_v1',
     },
-    tag_propagation: {
-        enabled: true,
-        tag_prefixes: [],
-    },
-    snowflake: {
-        account_id: '',
-        warehouse: '',
-        username: '',
-        password: '',
-        role: '',
-        database: '',
-        schema: '',
+    action: {
+        type: automationType,
+        config: {
+            term_propagation: {
+                enabled: true,
+                target_terms: [],
+            },
+            tag_propagation: {
+                enabled: true,
+                tag_prefixes: [],
+            },
+            snowflake: {
+                account_id: undefined,
+                warehouse: undefined,
+                username: undefined,
+                password: undefined,
+                role: undefined,
+                database: undefined,
+                schema: undefined,
+            },
+        },
     },
 };
-
-// Config type export (provides stricture typing)
-export type ConfigFields = typeof defaultConfig;
 
 // Mapping between the UI state values and the recipe config structure
 // This is used to enable dynamic updates to the recipe based on custom UI state structures
@@ -55,21 +63,6 @@ export const configMap: Record<string, string> = {
     'connection.role': 'action.config.snowflake.role',
     'connection.database': 'action.config.snowflake.database',
     'connection.schema': 'action.config.snowflake.schema',
-};
-
-// Recipe that's sent in JSON format to the integration service to create or update an automation
-// This structure has to match what's expected in the action recipe
-export const integrationRecipe = {
-    name: 'Snowflake Tag Propagation',
-    description: 'Sync Tags and Glossary Terms to Snowflake Table and Column Tags',
-    executorId: 'default',
-    filter: {
-        event_type: 'EntityChangeEvent_v1',
-    },
-    action: {
-        type: actionType,
-        config: defaultConfig as ConfigFields,
-    },
 };
 
 // Define UI fields for the create & edit forms
@@ -93,30 +86,30 @@ const fields = [
             },
         ],
     }),
-    getField('select_connection'),
-    getField('details', {
+    getField('select_connection', {
         fields: [
             {
-                state: {
-                    name: integrationRecipe.name,
-                    description: integrationRecipe.description,
-                    executorId: integrationRecipe.executorId,
+                props: {
+                    connectionTypes: ['snowflake'],
                 },
             },
         ],
+    }),
+    getField('details', {
+        fields: [],
     }),
 ];
 
 // Template for rendering all the things needed in the UI for creating/editing
 // an automation based off a templated recipe system
 export const template = {
-    key: actionType,
-    type: AutomationTypes.ACTION,
+    key: automationType,
+    type: automationType,
     platform: 'snowflake',
     logo: SnowflakeLogo,
-    baseRecipe: integrationRecipe,
-    name: integrationRecipe.name,
-    description: integrationRecipe.name,
+    name: automationName,
+    description: automationDescription,
+    defaultRecipe,
     isDisabled: false,
     isBeta: true,
     fields,

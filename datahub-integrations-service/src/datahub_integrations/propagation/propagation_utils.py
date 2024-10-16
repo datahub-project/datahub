@@ -96,7 +96,6 @@ class SelectedAsset(BaseModel):
 
 
 class ComposablePropagator:
-
     @abstractmethod
     def asset_filters(self) -> Dict[str, Dict[str, List[SearchFilterRule]]]:
         """

@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 
 import type { ComponentBaseProps } from '@app/automations/types';
 
 import { Snowflake, BigQuery } from '@app/connections';
-import { useConnectionQuery } from '@graphql/connection.generated';
-import { parseJSON } from '../../utils';
+
+// Get select components for each connection type
+const SnowflakeSelect = Snowflake.components.SelectOrCreate;
+const BigQuerySelect = BigQuery.components.SelectOrCreate;
 
 const Wrapper = styled.div`
     & form {
@@ -26,59 +28,23 @@ export const ConnectionSelector = ({ state, props, passStateToParent }: Componen
     // Defined in @app/automations/fields/index
     const { connection } = state as ConnectionSelectorStateType;
 
-    // TODO: Remove this when we support connection URNs in actionPipelines
-    // The handleChange prop in the select component returns a single urn
-    const [connectionUrn, setConnectionUrn] = useState<string>();
-    const handleUrnSelect = (urn: string) => {
-        if (urn === 'new') {
-            setConnectionUrn(urn);
-            passStateToParent({ connection: undefined });
-        } else {
-            setConnectionUrn(urn);
-        }
+    // Handle form state changes
+    const handleFormStateChange = (data: any) => {
+        passStateToParent({ connection: data });
     };
-    useConnectionQuery({
-        variables: {
-            urn: connectionUrn || '',
-        },
-        onCompleted: (connData) => {
-            if (connData?.connection?.details?.json) {
-                const json = parseJSON(connData.connection.details.json.blob);
-                passStateToParent({ connection: json });
-            }
-        },
-        skip: !connectionUrn || connectionUrn === 'new',
-    });
-
-    // Get select components for each connection type
-    const {
-        components: { SelectOrCreate: SnowflakeSelect, Form: SnowflakeForm },
-    } = Snowflake;
-    const {
-        components: { SelectOrCreate: BigQuerySelect, Form: BigQueryForm },
-    } = BigQuery;
-
-    // Show fields if connection isn't null
-    const showForm = !!connection || connectionUrn === 'new';
 
     // Check if connection types are provided
     if (!connectionTypes || connectionTypes.length === 0) return 'No connection types provided.';
 
     // Render the connection selector based on the connection type
     let connectionComponent: any = null;
-    (connectionTypes || []).map((connectionType: string) => {
+    (connectionTypes || []).forEach((connectionType: string) => {
+        // Since the connectionType is 'snowflake', the SnowflakeConnectionSelector component is rendered
+        // You can disable using the connection selector by setting forceManual to true on the field prop
         if (connectionType === 'snowflake') {
             connectionComponent = (
                 <Wrapper>
-                    <SnowflakeSelect connectionDetails={connection} handleUrnSelect={(urn) => handleUrnSelect(urn)} />
-                    {showForm && (
-                        <SnowflakeForm
-                            valuesChange={(values) => passStateToParent({ connection: values })}
-                            connectionDetails={connection}
-                            isInlineForm={connectionUrn !== 'new'}
-                            showHeader={false}
-                        />
-                    )}
+                    <SnowflakeSelect handleSelect={handleFormStateChange} connectionDetails={connection} />
                 </Wrapper>
             );
         }
@@ -86,23 +52,10 @@ export const ConnectionSelector = ({ state, props, passStateToParent }: Componen
         if (connectionType === 'bigquery') {
             connectionComponent = (
                 <Wrapper>
-                    <BigQuerySelect
-                        connectionDetails={connection}
-                        handleUrnSelect={(value) => handleUrnSelect(value)}
-                    />
-                    {showForm && (
-                        <BigQueryForm
-                            valuesChange={(values) => passStateToParent({ connection: values })}
-                            connectionDetails={connection}
-                            isInlineForm={connectionUrn !== 'new'}
-                            showHeader={false}
-                        />
-                    )}
+                    <BigQuerySelect handleSelect={handleFormStateChange} connectionDetails={connection} />
                 </Wrapper>
             );
         }
-
-        return `Support for ${connectionType} connections is not available yet.`;
     });
 
     // Return null if no connection type is provided

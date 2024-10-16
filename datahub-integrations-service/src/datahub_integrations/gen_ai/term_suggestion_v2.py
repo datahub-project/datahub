@@ -276,14 +276,16 @@ def get_term_recommendations(
     column_splits = split_columns_list(
         list(column_info_filtered.keys()), limit=COLUMN_SPLIT_LENGTH
     )
-    table_terms, column_terms, raw_llm_response = (
-        get_term_recommendations_for_column_splits(
-            column_splits=column_splits,
-            table_info=table_info_filtered,
-            column_info=column_info_filtered,
-            glossary_info=glossary_info,
-            prompt_path=prompt_path,
-        )
+    (
+        table_terms,
+        column_terms,
+        raw_llm_response,
+    ) = get_term_recommendations_for_column_splits(
+        column_splits=column_splits,
+        table_info=table_info_filtered,
+        column_info=column_info_filtered,
+        glossary_info=glossary_info,
+        prompt_path=prompt_path,
     )
     all_glossary_terms = []
     for term in glossary_info.glossary.values():

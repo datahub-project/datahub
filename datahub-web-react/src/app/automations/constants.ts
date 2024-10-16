@@ -1,4 +1,5 @@
 import type { AutomationCategoryType } from '@app/automations/types';
+import { ModeTypes } from './fields/ModeSelector/constants';
 
 export const env = {
     hideSidebar: true,
@@ -136,7 +137,14 @@ export const DEFAULT_CARDINALITY = CARDINALITY_TYPE_OPTIONS[1].key as Cardinalit
 export const AUTOMATION_CATEGORY_NAME_TO_INFO = new Map<string, AutomationCategoryType>();
 AUTOMATION_CATEGORIES.forEach((category) => AUTOMATION_CATEGORY_NAME_TO_INFO.set(category.name, category));
 
-/* Shared config map */
+/*
+ * Default Mode Type
+ */
+export const DEFAULT_MODE: ModeTypes = ModeTypes.POLICY_TAGS;
+
+/*
+ * Common Fields in Action Recipes
+ */
 export const commonFieldsMapping = {
     name: 'name',
     description: 'description',

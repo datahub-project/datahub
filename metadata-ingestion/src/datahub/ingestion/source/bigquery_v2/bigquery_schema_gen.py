@@ -1,10 +1,12 @@
 import logging
 import re
+from base64 import b32decode
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 
 from google.cloud.bigquery.table import TableListItem
 
+from datahub.api.entities.platformresource.platform_resource import PlatformResource
 from datahub.configuration.pattern_utils import is_schema_allowed, is_tag_allowed
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -15,6 +17,7 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationHandler,
     classification_workunit_processor,
 )
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
     BigQueryTableRef,
@@ -23,6 +26,11 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Confi
 from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDataReader
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
     unquote_and_decode_unicode_escape_seq,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper import (
+    BigQueryLabel,
+    BigQueryLabelInfo,
+    BigQueryPlatformResourceHelper,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -83,17 +91,19 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     TagAssociationClass,
 )
+from datahub.metadata.urns import TagUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import (
     HiveColumnToAvroConverter,
     get_schema_fields_for_hive_column,
 )
-from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
+
+ENCODED_TAG_PREFIX = "urn_li_encoded_tag_"
 
 logger: logging.Logger = logging.getLogger(__name__)
 # Handle table snapshots
@@ -158,6 +168,7 @@ class BigQuerySchemaGenerator:
         sql_parser_schema_resolver: SchemaResolver,
         profiler: BigqueryProfiler,
         identifiers: BigQueryIdentifierBuilder,
+        graph: Optional[DataHubGraph] = None,
     ):
         self.config = config
         self.report = report
@@ -166,6 +177,7 @@ class BigQuerySchemaGenerator:
         self.sql_parser_schema_resolver = sql_parser_schema_resolver
         self.profiler = profiler
         self.identifiers = identifiers
+        self.graph = graph
 
         self.classification_handler = ClassificationHandler(self.config, self.report)
         self.data_reader: Optional[BigQueryDataReader] = None
@@ -186,6 +198,21 @@ class BigQuerySchemaGenerator:
         # Maps snapshot ref -> Snapshot
         self.snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot] = FileBackedDict()
 
+        bq_project = (
+            self.config.project_on_behalf
+            if self.config.project_on_behalf
+            else self.config.credential.project_id
+            if self.config.credential
+            else None
+        )
+
+        self.platform_resource_helper: BigQueryPlatformResourceHelper = (
+            BigQueryPlatformResourceHelper(
+                bq_project,
+                self.graph,
+            )
+        )
+
     @property
     def store_table_refs(self):
         return (
@@ -193,6 +220,18 @@ class BigQuerySchemaGenerator:
             or self.config.include_usage_statistics
             or self.config.use_queries_v2
         )
+
+    def modified_base32decode(self, text_to_decode: str) -> str:
+        # When we sync from DataHub to BigQuery, we encode the tags as modified base32 strings.
+        # BiqQuery labels only support lowercase letters, international characters, numbers, or underscores.
+        # So we need to modify the base32 encoding to replace the padding character `=` with `_` and convert to lowercase.
+        if not text_to_decode.startswith("%s" % ENCODED_TAG_PREFIX):
+            return text_to_decode
+        text_to_decode = (
+            text_to_decode.replace(ENCODED_TAG_PREFIX, "").upper().replace("_", "=")
+        )
+        text = b32decode(text_to_decode.encode("utf-8")).decode("utf-8")
+        return text
 
     def get_project_workunits(
         self, project: BigqueryProject
@@ -242,17 +281,36 @@ class BigQuerySchemaGenerator:
         )
 
     def gen_dataset_containers(
-        self, dataset: str, project_id: str, tags: Optional[Dict[str, str]] = None
+        self,
+        dataset: str,
+        project_id: str,
+        tags: Optional[Dict[str, str]] = None,
+        extra_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_dataset_key(project_id, dataset)
 
-        tags_joined: Optional[List[str]] = None
+        tags_joined: List[str] = []
         if tags and self.config.capture_dataset_label_as_tag:
-            tags_joined = [
-                f"{k}:{v}"
-                for k, v in tags.items()
-                if is_tag_allowed(self.config.capture_dataset_label_as_tag, k)
-            ]
+            for k, v in tags.items():
+                if is_tag_allowed(self.config.capture_dataset_label_as_tag, k):
+                    tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
+                    label = BigQueryLabel(key=k, value=v)
+                    try:
+                        platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
+                            label, tag_urn, managed_by_datahub=False
+                        )
+                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                            BigQueryLabelInfo
+                        )
+                        tag_urn = TagUrn.from_string(label_info.datahub_urn)
+
+                        for mcpw in platform_resource.to_mcps():
+                            yield mcpw.as_workunit()
+                    except ValueError as e:
+                        logger.warning(
+                            f"Failed to generate platform resource for label {k}:{v}: {e}"
+                        )
+                    tags_joined.append(tag_urn.urn())
 
         database_container_key = self.gen_project_id_key(database=project_id)
 
@@ -272,6 +330,7 @@ class BigQuerySchemaGenerator:
                 else None
             ),
             tags=tags_joined,
+            extra_properties=extra_properties,
         )
 
     def _process_project(
@@ -400,7 +459,14 @@ class BigQuerySchemaGenerator:
 
         if self.config.include_schema_metadata:
             yield from self.gen_dataset_containers(
-                dataset_name, project_id, bigquery_dataset.labels
+                dataset_name,
+                project_id,
+                bigquery_dataset.labels,
+                (
+                    {"location": bigquery_dataset.location}
+                    if bigquery_dataset.location
+                    else None
+                ),
             )
 
         columns = None
@@ -445,7 +511,7 @@ class BigQuerySchemaGenerator:
 
         if self.config.include_tables:
             db_tables[dataset_name] = list(
-                self.get_tables_for_dataset(project_id, dataset_name)
+                self.get_tables_for_dataset(project_id, bigquery_dataset)
             )
 
             for table in db_tables[dataset_name]:
@@ -650,6 +716,12 @@ class BigQuerySchemaGenerator:
             dataset_name=dataset_name,
         )
 
+    def make_tag_urn_from_label(self, key: str, value: str) -> str:
+        if value:
+            return make_tag_urn(f"""{key}:{value}""")
+        else:
+            return make_tag_urn(key)
+
     def gen_table_dataset_workunits(
         self,
         table: BigqueryTable,
@@ -686,18 +758,33 @@ class BigQuerySchemaGenerator:
         if table.max_shard_id:
             custom_properties["max_shard_id"] = str(table.max_shard_id)
             custom_properties["is_sharded"] = str(True)
-            sub_types = ["sharded table"] + sub_types
+            sub_types = [DatasetSubTypes.SHARDED_TABLE] + sub_types
+        if table.external:
+            sub_types = [DatasetSubTypes.EXTERNAL_TABLE] + sub_types
 
         tags_to_add = None
         if table.labels and self.config.capture_table_label_as_tag:
             tags_to_add = []
-            tags_to_add.extend(
-                [
-                    make_tag_urn(f"""{k}:{v}""")
-                    for k, v in table.labels.items()
-                    if is_tag_allowed(self.config.capture_table_label_as_tag, k)
-                ]
-            )
+            for k, v in table.labels.items():
+                if is_tag_allowed(self.config.capture_table_label_as_tag, k):
+                    tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
+                    try:
+                        label = BigQueryLabel(key=k, value=v)
+                        platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
+                            label, tag_urn, managed_by_datahub=False
+                        )
+                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                            BigQueryLabelInfo
+                        )
+                        tag_urn = TagUrn.from_string(label_info.datahub_urn)
+
+                        for mcpw in platform_resource.to_mcps():
+                            yield mcpw.as_workunit()
+                    except ValueError as e:
+                        logger.warning(
+                            f"Failed to generate platform resource for label {k}:{v}: {e}"
+                        )
+                    tags_to_add.append(tag_urn.urn())
 
         yield from self.gen_dataset_workunits(
             table=table,
@@ -716,13 +803,29 @@ class BigQuerySchemaGenerator:
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-        tags_to_add = None
+        tags_to_add = []
         if table.labels and self.config.capture_view_label_as_tag:
-            tags_to_add = [
-                make_tag_urn(f"{k}:{v}")
-                for k, v in table.labels.items()
-                if is_tag_allowed(self.config.capture_view_label_as_tag, k)
-            ]
+            for k, v in table.labels.items():
+                if is_tag_allowed(self.config.capture_view_label_as_tag, k):
+                    tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
+                    try:
+                        label = BigQueryLabel(key=k, value=v)
+                        platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
+                            label, tag_urn, managed_by_datahub=False
+                        )
+                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                            BigQueryLabelInfo
+                        )
+                        tag_urn = TagUrn.from_string(label_info.datahub_urn)
+
+                        for mcpw in platform_resource.to_mcps():
+                            yield mcpw.as_workunit()
+                    except ValueError as e:
+                        logger.warning(
+                            f"Failed to generate platform resource for label {k}:{v}: {e}"
+                        )
+
+                    tags_to_add.append(tag_urn.urn())
         yield from self.gen_dataset_workunits(
             table=table,
             columns=columns,
@@ -908,11 +1011,6 @@ class BigQuerySchemaGenerator:
                             break
             else:
                 tags = []
-                if col.is_partition_column:
-                    tags.append(
-                        TagAssociationClass(make_tag_urn(Constants.TAG_PARTITION_KEY))
-                    )
-
                 if col.cluster_column_position is not None:
                     tags.append(
                         TagAssociationClass(
@@ -930,6 +1028,7 @@ class BigQuerySchemaGenerator:
                     type=SchemaFieldDataType(
                         self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
+                    isPartitioningKey=col.is_partition_column,
                     nativeDataType=col.data_type,
                     description=col.comment,
                     nullable=col.is_nullable,
@@ -971,25 +1070,36 @@ class BigQuerySchemaGenerator:
     def get_tables_for_dataset(
         self,
         project_id: str,
-        dataset_name: str,
+        dataset: BigqueryDataset,
     ) -> Iterable[BigqueryTable]:
         # In bigquery there is no way to query all tables in a Project id
         with PerfTimer() as timer:
+
+            # PARTITIONS INFORMATION_SCHEMA view is not available for BigLake tables
+            # based on Amazon S3 and Blob Storage data.
+            # https://cloud.google.com/bigquery/docs/omni-introduction#limitations
+            # Omni Locations - https://cloud.google.com/bigquery/docs/omni-introduction#locations
+            with_partitions = self.config.have_table_data_read_permission and not (
+                dataset.location
+                and dataset.location.lower().startswith(("aws-", "azure-"))
+            )
+
             # Partitions view throw exception if we try to query partition info for too many tables
             # so we have to limit the number of tables we query partition info.
             # The conn.list_tables returns table infos that information_schema doesn't contain and this
             # way we can merge that info with the queried one.
             # https://cloud.google.com/bigquery/docs/information-schema-partitions
-            max_batch_size: int = (
-                self.config.number_of_datasets_process_in_batch
-                if not self.config.have_table_data_read_permission
-                else self.config.number_of_datasets_process_in_batch_if_profiling_enabled
-            )
+            if with_partitions:
+                max_batch_size = (
+                    self.config.number_of_datasets_process_in_batch_if_profiling_enabled
+                )
+            else:
+                max_batch_size = self.config.number_of_datasets_process_in_batch
 
             # We get the list of tables in the dataset to get core table properties and to be able to process the tables in batches
             # We collect only the latest shards from sharded tables (tables with _YYYYMMDD suffix) and ignore temporary tables
             table_items = self.get_core_table_details(
-                dataset_name, project_id, self.config.temp_table_dataset_prefix
+                dataset.name, project_id, self.config.temp_table_dataset_prefix
             )
 
             items_to_get: Dict[str, TableListItem] = {}
@@ -998,9 +1108,9 @@ class BigQuerySchemaGenerator:
                 if len(items_to_get) % max_batch_size == 0:
                     yield from self.schema_api.get_tables_for_dataset(
                         project_id,
-                        dataset_name,
+                        dataset.name,
                         items_to_get,
-                        with_data_read_permission=self.config.have_table_data_read_permission,
+                        with_partitions=with_partitions,
                         report=self.report,
                     )
                     items_to_get.clear()
@@ -1008,13 +1118,13 @@ class BigQuerySchemaGenerator:
             if items_to_get:
                 yield from self.schema_api.get_tables_for_dataset(
                     project_id,
-                    dataset_name,
+                    dataset.name,
                     items_to_get,
-                    with_data_read_permission=self.config.have_table_data_read_permission,
+                    with_partitions=with_partitions,
                     report=self.report,
                 )
 
-        self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(
+        self.report.metadata_extraction_sec[f"{project_id}.{dataset.name}"] = round(
             timer.elapsed_seconds(), 2
         )
 

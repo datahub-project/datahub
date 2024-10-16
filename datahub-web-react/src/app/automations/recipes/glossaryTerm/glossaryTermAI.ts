@@ -7,33 +7,34 @@
 
 import AcrylLogo from '@images/acryl-logo.svg';
 import { EntityType } from '@src/types.generated';
-import {
-    AutomationTypes,
-    commonFieldsMapping,
-    DEFAULT_APPLY_TYPE,
-    DEFAULT_CARDINALITY,
-} from '@app/automations/constants';
+import { commonFieldsMapping, DEFAULT_APPLY_TYPE, DEFAULT_CARDINALITY } from '@app/automations/constants';
 import { getField } from '@app/automations/fields';
 
 // Common unique ID for the action
 // Used to identify the action in the backend & provide common key between template <> recipe
-export const actionType = 'ai_term_suggestion';
+export const automationType = 'ai_term_suggestion';
 
-// Configuration structure for the integration recipe
-// Default values can be set here and will be used to populate the UI form
-// This is only the information in action.config in the recipe
-export const defaultConfig = {
-    entity_types_enabled: [EntityType.Dataset, EntityType.SchemaField],
-    glossary_term_urns: [],
-    glossary_node_urns: [],
-    recommendation_action: DEFAULT_APPLY_TYPE,
-    cardinality: DEFAULT_CARDINALITY,
-    platforms: [],
-    containers: [],
+const automationName = 'Glossary Term AI';
+const automationDescription = 'Add or propose Glossary Terms to assets and columns using AI';
+
+// Important: This is the form state which is taken by default, when creating a new automation of this type.
+const defaultRecipe = {
+    name: automationName,
+    description: automationDescription,
+    category: 'Data Discovery',
+    action: {
+        type: automationType,
+        config: {
+            entity_types_enabled: [EntityType.Dataset, EntityType.SchemaField],
+            glossary_term_urns: [],
+            glossary_node_urns: [],
+            recommendation_action: DEFAULT_APPLY_TYPE,
+            cardinality: DEFAULT_CARDINALITY,
+            platforms: [],
+            containers: [],
+        },
+    },
 };
-
-// Config type export (provides strict typing)
-export type ConfigFields = typeof defaultConfig;
 
 // Mapping between the UI state values and the recipe config structure
 // This is used to enable dynamic updates to the recipe based on custom UI state structures
@@ -46,18 +47,6 @@ export const configMap: Record<string, string> = {
     cardinality: 'action.config.cardinality',
     platforms: 'action.config.platforms',
     containers: 'action.config.containers',
-};
-
-// Recipe that's sent in JSON format to the integration service to create or update an automation
-// This structure has to match what's expected in the action recipe
-export const integrationRecipe = {
-    name: 'Glossary Term AI',
-    description: 'Add or propose Glossary Terms to assets and columns using AI',
-    executorId: 'default',
-    action: {
-        type: actionType,
-        config: defaultConfig as ConfigFields,
-    },
 };
 
 // Define UI fields for the create & edit forms
@@ -73,11 +62,6 @@ const fields = [
                     fieldTypes: [EntityType.GlossaryTerm, EntityType.GlossaryNode],
                     allowedRadios: ['some'],
                 },
-                state: {
-                    termsEnabled: true,
-                    terms: [],
-                    nodes: [],
-                },
             },
         ],
     }),
@@ -90,31 +74,16 @@ const fields = [
                     entityTypes: [EntityType.Dataset, EntityType.SchemaField],
                     placeholder: 'Select Datasets, Columns, or both...',
                 },
-                state: {
-                    entities: defaultConfig.entity_types_enabled,
-                },
             },
         ],
     }),
     getField('select_apply_type', {
-        fields: [
-            {
-                state: {
-                    applyType: defaultConfig.recommendation_action,
-                },
-            },
-        ],
+        fields: [],
     }),
     getField('select_cardinality', {
         title: 'Allowed Term Count',
         description: 'When unchecked, limit to one term suggestion per dataset/column.',
-        fields: [
-            {
-                state: {
-                    cardinality: defaultConfig.cardinality,
-                },
-            },
-        ],
+        fields: [],
     }),
     getField('select_platforms', {
         fields: [
@@ -126,28 +95,20 @@ const fields = [
         ],
     }),
     getField('details', {
-        fields: [
-            {
-                state: {
-                    name: integrationRecipe.name,
-                    description: integrationRecipe.description,
-                    executorId: integrationRecipe.executorId,
-                },
-            },
-        ],
+        fields: [],
     }),
 ];
 
 // Template for rendering all the things needed in the UI for creating/editing
 // an automation based off a templated recipe system
 export const template = {
-    key: actionType,
+    key: automationType,
+    type: automationType,
     platform: 'acryl',
-    type: AutomationTypes.ACTION,
-    name: integrationRecipe.name,
-    description: integrationRecipe.description,
+    name: automationName,
+    description: automationDescription,
+    defaultRecipe,
     logo: AcrylLogo,
-    baseRecipe: integrationRecipe,
     isDisabled: false,
     isBeta: true,
     fields,

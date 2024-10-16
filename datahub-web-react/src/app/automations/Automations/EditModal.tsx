@@ -17,7 +17,7 @@ type AutomationEditModalProps = {
 };
 
 export const AutomationEditModal = ({ isOpen, setIsOpen }: AutomationEditModalProps) => {
-    const { name, localTemplate, formData, recipe, updateAutomation } = useAutomationContext();
+    const { recipe, typeTemplate, updateAutomation } = useAutomationContext();
     const [showYaml, setShowYaml] = useState(false);
 
     // Check if the form is disabled
@@ -38,19 +38,11 @@ export const AutomationEditModal = ({ isOpen, setIsOpen }: AutomationEditModalPr
         }
     };
 
-    const automation = {
-        ...localTemplate,
-        steps: localTemplate.steps || [], // failsafe
-        name: formData?.name || name,
-        baseRecipe: recipe,
-        definition: recipe,
-    };
-
     // Conditional form details
     const formInfo = {
         modalTitle: 'Edit Automation',
         modalDescription: "Edit an existing automation's settings",
-        submitContent: 'Save and Run', // generic, gets updated based on recipe items
+        submitContent: 'Save & Run',
         submitFn: handleUpdate,
     };
 
@@ -61,7 +53,7 @@ export const AutomationEditModal = ({ isOpen, setIsOpen }: AutomationEditModalPr
         <Modal
             title={
                 <AutomationsModalHeader>
-                    {localTemplate.logo && <AutomationLogo src={localTemplate.logo} alt={localTemplate.name} />}
+                    {typeTemplate?.logo && <AutomationLogo src={typeTemplate?.logo} alt={typeTemplate?.name} />}
                     <div>
                         <h2>{formInfo.modalTitle}</h2>
                         <AutomationsDescription>{formInfo?.modalDescription}</AutomationsDescription>
@@ -70,18 +62,6 @@ export const AutomationEditModal = ({ isOpen, setIsOpen }: AutomationEditModalPr
             }
             footer={
                 <AutomationModalFooter>
-                    <div>
-                        {/* {(showForm || showYaml) && (
-                            <YamlButtonsContainer>
-                                <TextButton isActive={!showYaml} onClick={() => setShowYaml(!showYaml)}>
-                                    <FormOutlined /> Form
-                                </TextButton>
-                                <TextButton isActive={showYaml} onClick={() => setShowYaml(!showYaml)}>
-                                    <CodeOutlined /> YAML
-                                </TextButton>
-                            </YamlButtonsContainer>
-                        )} */}
-                    </div>
                     <div>
                         <Button onClick={closeModal}>Cancel</Button>
                         <Button type="primary" onClick={formInfo.submitFn} disabled={isDisabled}>
@@ -94,7 +74,7 @@ export const AutomationEditModal = ({ isOpen, setIsOpen }: AutomationEditModalPr
             open={isOpen}
             width={800}
         >
-            {showForm && <Configure automation={automation} isEdit />}
+            {showForm && <Configure isEdit />}
             {showYaml && <YamlEditor initialText={getYaml(recipe)} height="450px" onChange={() => null} isDisabled />}
         </Modal>
     );
