@@ -14,11 +14,11 @@ const Tiles = ({ tilesContent }) => {
     <div className={clsx(sectionThemeClass)}>
       <div className={styles.ecosystem_section}>
         <div className={styles.ecosystem_section_content}>
-          <div className={styles.ecosystem_section_upper_content}>
-            <div className={styles.ecosystem_section_heading}>{title}</div>
-          </div>
           <div className={styles.ecosystem_section_lower_content}>
             <div className={styles.itemWrappers}>
+              <div className={styles.ecosystem_section_upper_content}>
+                <div className={styles.ecosystem_section_heading}>{title}</div>
+              </div>
               {tileItems.map((item, index) => (
                 <div
                   key={index}

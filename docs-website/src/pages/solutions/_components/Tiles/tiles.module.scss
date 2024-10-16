@@ -1,5 +1,5 @@
 .lightSection {
-  background: #E9EAEC;
+  background: #FAFAFA;
 }
 
 .darkSection {
@@ -13,27 +13,31 @@
   justify-content: center;
 
   .ecosystem_section_content {
-    width: 70%;
+    width: 80%;
     min-width: 800px;
     height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: center;
     padding: 2rem 0rem;
+    text-align: left;
 
     .ecosystem_section_upper_content {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: left;
       padding-top: 1rem;
+      padding-left: 0; 
+      display: flex; 
+      justify-content: flex-start;
 
       .ecosystem_section_heading {
-        font-size: 3.5rem;
+        padding-left: 54px;
         line-height: 4rem;
-        font-weight: 400;
         font-family: Manrope;
+        font-family: Manrope;
+        font-size: 48px;
+        font-style: normal;
+        font-weight: 700;
+        line-height: normal;
+        mix-blend-mode: luminosity;
       }
     }
 
@@ -45,118 +49,104 @@
       .itemWrappers {
         display: flex;
         flex-direction: column;
-      }
-
-      .itemWrapper {
-        margin-bottom: 16px;
-        display: flex;
-        justify-content: center;
-      }
-
-      .item {
-        border-radius: 20px;
-        align-items: end;
-        justify-content: start;
-        padding: 56px 48px;
-        white-space: normal;
-        cursor: pointer;
-        transition: all 0.3s ease-in-out;
-        text-decoration: none;
-        border: 1px solid #ddd;
-        box-shadow: none;
-
-        &:hover {
-          box-shadow: 0px 2px 12px 0px #0000001c;
-          border: 1px solid #333;
-          .itemLinkOpenArrow {
-            opacity: 1;
-          }
-        }
-
-        .item__title {
-          font-family: Manrope;
-          font-size: 36px;
-          font-style: normal;
-          font-weight: 500;
-          line-height: normal;
-          margin-bottom: 8px;
-        }
-
-        .item__subtitle {
-          font-family: Manrope;
-          font-size: 20px;
-          font-style: normal;
-          font-weight: 400;
-          line-height: normal;
-        }
-      }
-
-      .diagramItem {
-        display: flex;
-        border-radius: 20px;
-        overflow: hidden;
-        aspect-ratio: 1;
-        height: 100%;
-        border: 1px solid #f0f0f3;
-        justify-content: center;
-      }
-    }
-  }
-
-  .item, .diagramItem {
-    margin: 8px;
-  }
-
-  @media only screen and (max-width: 800px) {
-    .ecosystem_section_content {
-      width: 90%;
-      min-width: 0;
-      height: auto !important;
-      padding-bottom: 48px;
-      padding-top: 48px;
-
-      .ecosystem_section_upper_content {
-        height: auto !important;
-
-        .ecosystem_section_heading {
-          font-size: 1.75rem;
-          line-height: 2.25rem;
-        }
-      }
-
-      .ecosystem_section_lower_content {
-        height: auto;
-        margin-top: 8px;
-        flex-direction: column;
+        align-items: flex-start;
+        align-self: stretch;        
 
         .itemWrapper {
           display: flex;
-          flex-direction: column-reverse;
-          margin-bottom: 24px;
-
-          &:nth-child(odd) {
-            align-items: flex-start;
-          }
-          &:nth-child(even) {
-            align-items: flex-end; // Diagonal placement for every alternate row
-          }
+          padding: 68px 0px 67px 0px;
+          justify-content: center;
+          align-items: center;
+          gap: 54px;
         }
 
         .item {
-          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          align-self: stretch;
+                    
+          .item__title {
+            font-family: Manrope;
+            font-size: 36px;
+            font-style: normal;
+            font-weight: 500;
+            line-height: normal;
+            margin-bottom: 16px;
+          }
+
+          .item__subtitle {
+            font-family: Manrope;
+            font-size: 20px;
+            font-style: normal;
+            font-weight: 400;
+            line-height: normal;
+            color: #777E99;
+          }
+        }
+
+        .diagramItem {
+          display: flex;
+          flex-shrink: 0;
+          overflow: hidden;
+          height: 465px;
+          padding: 62.518px 0px 62.483px 65.5px;
+          justify-content: flex-end;
+          align-items: center;
+          border-radius: var(--number-scales-2s-20, 20px);
+          border: 0.5px solid #1890FF;
+          background: #FAFAFA;
+        }
+      }
+    }
+
+    .item, .diagramItem {
+      margin: 8px;
+    }
+
+    @media only screen and (max-width: 800px) {
+      .ecosystem_section_content {
+        width: 90%;
+        min-width: 0;
+        height: auto !important;
+        padding-bottom: 48px;
+        padding-top: 48px;
+
+        .ecosystem_section_lower_content {
+          height: auto;
+          margin-top: 8px;
+          flex-direction: column;
+
+          .itemWrapper {
+            display: flex;
+            flex-direction: column-reverse;
+            margin-bottom: 24px;
+
+            &:nth-child(odd) {
+              align-items: flex-start;
+            }
+
+            &:nth-child(even) {
+              align-items: flex-end; // Diagonal placement for every alternate row
+            }
+
+            .ecosystem_section_upper_content {
+              height: auto !important;
+    
+              .ecosystem_section_heading {
+                font-size: 1.75rem;
+                line-height: 2.25rem;
+              }
+            }
+          }
+
+          .item {
+            padding: 0 0 24px 0;
+          }
         }
       }
     }
   }
-}
-
-
-.evenItem {
-  background: var(--primitives-grays-7, #777E99);
-}
-
-.oddItem {
-  background: var(--primitives-grays-10, #373A47);
 }
 
 .darkDiagramItem {
@@ -165,33 +155,8 @@
 
 .lightDiagramItem {
   background: linear-gradient(37deg, rgba(238, 240, 242, 0.90) 2.81%, rgba(253, 249, 241, 0.90) 107.71%);
-
 }
 
 .diagramItem__img { 
   overflow: hidden;
-}
-
-
-.darkItem {
-  
-  .item__title {
-    color: var(--primitives-text-text-brand-on-bg-fill, #F3F3F6);
-  }
-
-  .item__subtitle {
-    color: var(--primitives-text-text-brand-on-bg-fill, #F3F3F6);
-  }
-}
-
-.lightItem {
-  background-color: #ffffff;
-
-  .item__title {
-    color: #2E2E38;
-  }
-
-  .item__subtitle {
-    color: #797F98;
-  }
 }

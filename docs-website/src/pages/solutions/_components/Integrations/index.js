@@ -36,7 +36,7 @@ const Integrations = () => {
                 <div className={styles.slide_track}>
                   {[...Array(3)].map((_, i) => (
                     <React.Fragment key={i}>
-                      {[1, 2, 3, 4, 5, 6].map((item, index) => (
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((item, index) => (
                         <div className={styles.slide} key={index} style={{ backgroundImage: `url(${useBaseUrl(`/img/solutions/integrations/logo-integration-${item}.png`)})` }}>
                         </div>
                       ))}
