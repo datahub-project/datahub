@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 
 from google.cloud.bigquery.table import TableListItem
 
+from datahub.api.entities.platformresource.platform_resource import PlatformResource
 from datahub.configuration.pattern_utils import is_schema_allowed, is_tag_allowed
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -16,6 +17,7 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationHandler,
     classification_workunit_processor,
 )
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
     BigQueryTableRef,
@@ -24,6 +26,11 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Confi
 from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDataReader
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
     unquote_and_decode_unicode_escape_seq,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper import (
+    BigQueryLabel,
+    BigQueryLabelInfo,
+    BigQueryPlatformResourceHelper,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -84,6 +91,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     TagAssociationClass,
 )
+from datahub.metadata.urns import TagUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import (
@@ -160,6 +168,7 @@ class BigQuerySchemaGenerator:
         sql_parser_schema_resolver: SchemaResolver,
         profiler: BigqueryProfiler,
         identifiers: BigQueryIdentifierBuilder,
+        graph: Optional[DataHubGraph] = None,
     ):
         self.config = config
         self.report = report
@@ -168,6 +177,7 @@ class BigQuerySchemaGenerator:
         self.sql_parser_schema_resolver = sql_parser_schema_resolver
         self.profiler = profiler
         self.identifiers = identifiers
+        self.graph = graph
 
         self.classification_handler = ClassificationHandler(self.config, self.report)
         self.data_reader: Optional[BigQueryDataReader] = None
@@ -187,6 +197,21 @@ class BigQuerySchemaGenerator:
         self.view_definitions: FileBackedDict[str] = FileBackedDict()
         # Maps snapshot ref -> Snapshot
         self.snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot] = FileBackedDict()
+
+        bq_project = (
+            self.config.project_on_behalf
+            if self.config.project_on_behalf
+            else self.config.credential.project_id
+            if self.config.credential
+            else None
+        )
+
+        self.platform_resource_helper: BigQueryPlatformResourceHelper = (
+            BigQueryPlatformResourceHelper(
+                bq_project,
+                self.graph,
+            )
+        )
 
     @property
     def store_table_refs(self):
@@ -264,13 +289,28 @@ class BigQuerySchemaGenerator:
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_dataset_key(project_id, dataset)
 
-        tags_joined: Optional[List[str]] = None
+        tags_joined: List[str] = []
         if tags and self.config.capture_dataset_label_as_tag:
-            tags_joined = [
-                self.make_tag_from_label(k, v)
-                for k, v in tags.items()
-                if is_tag_allowed(self.config.capture_dataset_label_as_tag, k)
-            ]
+            for k, v in tags.items():
+                if is_tag_allowed(self.config.capture_dataset_label_as_tag, k):
+                    tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
+                    label = BigQueryLabel(key=k, value=v)
+                    try:
+                        platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
+                            label, tag_urn, managed_by_datahub=False
+                        )
+                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                            BigQueryLabelInfo
+                        )
+                        tag_urn = TagUrn.from_string(label_info.datahub_urn)
+
+                        for mcpw in platform_resource.to_mcps():
+                            yield mcpw.as_workunit()
+                    except ValueError as e:
+                        logger.warning(
+                            f"Failed to generate platform resource for label {k}:{v}: {e}"
+                        )
+                    tags_joined.append(tag_urn.urn())
 
         database_container_key = self.gen_project_id_key(database=project_id)
 
@@ -676,10 +716,11 @@ class BigQuerySchemaGenerator:
             dataset_name=dataset_name,
         )
 
-    def make_tag_from_label(self, key: str, value: str) -> str:
-        if not value.startswith(ENCODED_TAG_PREFIX):
+    def make_tag_urn_from_label(self, key: str, value: str) -> str:
+        if value:
             return make_tag_urn(f"""{key}:{value}""")
-        return self.modified_base32decode(value)
+        else:
+            return make_tag_urn(key)
 
     def gen_table_dataset_workunits(
         self,
@@ -724,13 +765,26 @@ class BigQuerySchemaGenerator:
         tags_to_add = None
         if table.labels and self.config.capture_table_label_as_tag:
             tags_to_add = []
-            tags_to_add.extend(
-                [
-                    self.make_tag_from_label(k, v)
-                    for k, v in table.labels.items()
-                    if is_tag_allowed(self.config.capture_table_label_as_tag, k)
-                ]
-            )
+            for k, v in table.labels.items():
+                if is_tag_allowed(self.config.capture_table_label_as_tag, k):
+                    tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
+                    try:
+                        label = BigQueryLabel(key=k, value=v)
+                        platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
+                            label, tag_urn, managed_by_datahub=False
+                        )
+                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                            BigQueryLabelInfo
+                        )
+                        tag_urn = TagUrn.from_string(label_info.datahub_urn)
+
+                        for mcpw in platform_resource.to_mcps():
+                            yield mcpw.as_workunit()
+                    except ValueError as e:
+                        logger.warning(
+                            f"Failed to generate platform resource for label {k}:{v}: {e}"
+                        )
+                    tags_to_add.append(tag_urn.urn())
 
         yield from self.gen_dataset_workunits(
             table=table,
@@ -749,13 +803,29 @@ class BigQuerySchemaGenerator:
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-        tags_to_add = None
+        tags_to_add = []
         if table.labels and self.config.capture_view_label_as_tag:
-            tags_to_add = [
-                self.make_tag_from_label(k, v)
-                for k, v in table.labels.items()
-                if is_tag_allowed(self.config.capture_view_label_as_tag, k)
-            ]
+            for k, v in table.labels.items():
+                if is_tag_allowed(self.config.capture_view_label_as_tag, k):
+                    tag_urn = TagUrn.from_string(self.make_tag_urn_from_label(k, v))
+                    try:
+                        label = BigQueryLabel(key=k, value=v)
+                        platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
+                            label, tag_urn, managed_by_datahub=False
+                        )
+                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                            BigQueryLabelInfo
+                        )
+                        tag_urn = TagUrn.from_string(label_info.datahub_urn)
+
+                        for mcpw in platform_resource.to_mcps():
+                            yield mcpw.as_workunit()
+                    except ValueError as e:
+                        logger.warning(
+                            f"Failed to generate platform resource for label {k}:{v}: {e}"
+                        )
+
+                    tags_to_add.append(tag_urn.urn())
         yield from self.gen_dataset_workunits(
             table=table,
             columns=columns,

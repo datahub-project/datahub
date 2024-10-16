@@ -27,6 +27,8 @@ default_exclude_paths = [
     r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
     r"root\[\d+\]\['aspect'\]\['json'\]\['created'\]",
     r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+    r"root\[\d+\].*?\['systemMetadata'\]\['runId'\]",
+    r"root\[\d+\].*?\['systemMetadata'\]\['lastRunId'\]",
 ]
 
 
@@ -81,6 +83,8 @@ def assert_metadata_files_equal(
                     if item.get("path") in ignore_paths_v2:
                         json_path = f"root[{i}]['aspect']['json'][{j}]['value']"
                         ignore_paths = (*ignore_paths, re.escape(json_path))
+
+    ignore_paths = (*ignore_paths, *default_exclude_paths)
 
     diff = diff_metadata_json(output, golden, ignore_paths, ignore_order=ignore_order)
     if diff and update_golden:

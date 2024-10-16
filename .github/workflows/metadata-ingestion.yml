@@ -26,6 +26,7 @@ concurrency:
 jobs:
   metadata-ingestion:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     env:
       SPARK_VERSION: 3.3.2
       DATAHUB_TELEMETRY_ENABLED: false

@@ -489,30 +489,45 @@ def test_gen_table_dataset_workunits(
     gen = schema_gen.gen_table_dataset_workunits(
         bigquery_table, [], project_id, dataset_name
     )
-    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
-    assert mcp.aspect == StatusClass(removed=False)
+    mcps = list(gen)
 
-    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
-    assert isinstance(mcp.aspect, SchemaMetadataClass)
-    assert mcp.aspect.schemaName == f"{project_id}.{dataset_name}.{bigquery_table.name}"
-    assert mcp.aspect.fields == []
+    # Helper function to find MCP by aspect type
+    def find_mcp_by_aspect(aspect_type):
+        return next(
+            mcp  # type: ignore
+            for mcp in mcps
+            if isinstance(mcp.metadata.aspect, aspect_type)  # type: ignore
+        )
 
-    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
-    assert isinstance(mcp.aspect, DatasetPropertiesClass)
-    assert mcp.aspect.name == bigquery_table.name
+    # Assert StatusClass
+    status_mcp = find_mcp_by_aspect(StatusClass)
+    assert status_mcp.metadata.aspect.removed is False
+
+    # Assert SchemaMetadataClass
+    schema_mcp = find_mcp_by_aspect(SchemaMetadataClass)
     assert (
-        mcp.aspect.qualifiedName == f"{project_id}.{dataset_name}.{bigquery_table.name}"
+        schema_mcp.metadata.aspect.schemaName
+        == f"{project_id}.{dataset_name}.{bigquery_table.name}"
     )
-    assert mcp.aspect.description == bigquery_table.comment
-    assert mcp.aspect.created == TimeStampClass(
+    assert schema_mcp.metadata.aspect.fields == []
+
+    # Assert DatasetPropertiesClass
+    dataset_props_mcp = find_mcp_by_aspect(DatasetPropertiesClass)
+    assert dataset_props_mcp.metadata.aspect.name == bigquery_table.name
+    assert (
+        dataset_props_mcp.metadata.aspect.qualifiedName
+        == f"{project_id}.{dataset_name}.{bigquery_table.name}"
+    )
+    assert dataset_props_mcp.metadata.aspect.description == bigquery_table.comment
+    assert dataset_props_mcp.metadata.aspect.created == TimeStampClass(
         time=int(bigquery_table.created.timestamp() * 1000)
     )
-    assert mcp.aspect.lastModified == TimeStampClass(
+    assert dataset_props_mcp.metadata.aspect.lastModified == TimeStampClass(
         time=int(bigquery_table.last_altered.timestamp() * 1000)
     )
-    assert mcp.aspect.tags == []
+    assert dataset_props_mcp.metadata.aspect.tags == []
 
-    assert mcp.aspect.customProperties == {
+    expected_custom_properties = {
         "expiration_date": str(bigquery_table.expires),
         "size_in_bytes": str(bigquery_table.size_in_bytes),
         "billable_bytes_active": str(bigquery_table.active_billable_bytes),
@@ -523,24 +538,33 @@ def test_gen_table_dataset_workunits(
         "max_shard_id": str(bigquery_table.max_shard_id),
         "is_sharded": "True",
     }
+    assert (
+        dataset_props_mcp.metadata.aspect.customProperties == expected_custom_properties
+    )
 
-    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
-    assert isinstance(mcp.aspect, GlobalTagsClass)
-    assert mcp.aspect.tags == [
+    # Assert GlobalTagsClass
+    global_tags_mcp = find_mcp_by_aspect(GlobalTagsClass)
+    assert global_tags_mcp.metadata.aspect.tags == [
         TagAssociationClass(
             "urn:li:tag:data_producer_owner_email:games_team-nytimes_com"
         )
     ]
 
-    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
-    assert isinstance(mcp.aspect, ContainerClass)
+    # Assert ContainerClass
+    container_mcp = find_mcp_by_aspect(ContainerClass)
+    assert container_mcp is not None
 
-    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
-    assert isinstance(mcp.aspect, DataPlatformInstanceClass)
+    # Assert DataPlatformInstanceClass
+    data_platform_instance_mcp = find_mcp_by_aspect(DataPlatformInstanceClass)
+    assert data_platform_instance_mcp is not None
 
-    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
-    assert isinstance(mcp.aspect, SubTypesClass)
-    assert mcp.aspect.typeNames[1] == DatasetSubTypes.TABLE
+    # Assert SubTypesClass
+    sub_types_mcp = find_mcp_by_aspect(SubTypesClass)
+    assert sub_types_mcp.metadata.aspect.typeNames[1] == DatasetSubTypes.TABLE
+
+    # Ensure all MCPs were checked
+    # TODO: Test for PlatformResource MCPs as well
+    assert len(mcps) >= 7
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")

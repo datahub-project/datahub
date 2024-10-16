@@ -1,5 +1,8 @@
 package com.linkedin.gms.factory.plugins;
 
+import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 
 import com.linkedin.metadata.Constants;
@@ -7,6 +10,9 @@ import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
+import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
+import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
+import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
@@ -21,6 +27,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @Slf4j
 public class SpringStandardPluginConfiguration {
+  private static final String ALL = "*";
 
   @Value("${metadataChangeProposal.validation.ignoreUnknown}")
   private boolean ignoreUnknownEnabled;
@@ -103,5 +110,44 @@ public class SpringStandardPluginConfiguration {
 
     log.info("Initialized {}", SchemaFieldSideEffect.class.getName());
     return new DataProductUnsetSideEffect().setConfig(config);
+  }
+
+  @Bean
+  public AspectPayloadValidator fieldPathValidator() {
+    return new FieldPathValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(FieldPathValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "RESTATE"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(SCHEMA_METADATA_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator dataHubExecutionRequestResultValidator() {
+    return new ExecutionRequestResultValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(ExecutionRequestResultValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of("UPSERT", "UPDATE"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(EXECUTION_REQUEST_ENTITY_NAME)
+                            .aspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
+                            .build()))
+                .build());
   }
 }
