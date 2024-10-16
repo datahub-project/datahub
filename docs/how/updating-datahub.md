@@ -24,6 +24,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #11484 - Metadata service authentication enabled by default
 - #11484 - Rest API authorization enabled by default
 - #10472 - `SANDBOX` added as a FabricType. No rollbacks allowed once metadata with this fabric type is added without manual cleanups in databases.
+- #11619 - schema field/column paths can no longer be empty strings
+- #11619 - schema field/column paths can no longer be duplicated within the schema 
 
 ### Potential Downtime
 
