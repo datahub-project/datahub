@@ -496,8 +496,7 @@ def test_gen_table_dataset_workunits(
         return next(
             mcp  # type: ignore
             for mcp in mcps
-            if isinstance(mcp, MetadataChangeProposalWrapper)
-            and isinstance(mcp.metadata.aspect, aspect_type)  # type: ignore
+            if isinstance(mcp.metadata.aspect, aspect_type)  # type: ignore
         )
 
     # Assert StatusClass
