@@ -168,7 +168,10 @@ def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
     #    back to urns later on in our processing.
 
     task_name = f"{self.operator.dag_id}.{self.operator.task_id}"
-    sql = self.operator.sql
+    try:
+        sql = self.operator.sql
+    except AttributeError:
+        sql = self.operator.query
 
     default_database = getattr(self.operator, "database", None)
     if not default_database:
