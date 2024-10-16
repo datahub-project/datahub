@@ -1368,9 +1368,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             dashboard_urn: str = builder.make_dashboard_urn(
                 platform=self.source_config.platform_name,
                 platform_instance=self.source_config.platform_instance,
-                name=powerbi_data_classes.Dashboard.get_urn_part_by_id(
-                    workspace.app.id
-                ),
+                name=powerbi_data_classes.App.get_urn_part_by_id(workspace.app.id),
             )
 
             yield MetadataChangeProposalWrapper(

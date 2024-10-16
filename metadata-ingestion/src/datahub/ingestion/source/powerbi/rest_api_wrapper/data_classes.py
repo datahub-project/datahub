@@ -59,7 +59,11 @@ class App:
     reports: List["AppReport"]
 
     def get_urn_part(self):
-        return f"apps.{self.id}"
+        return App.get_urn_part_by_id(self.id)
+
+    @staticmethod
+    def get_urn_part_by_id(id_: str) -> str:
+        return f"apps.{id_}"
 
 
 @dataclass
