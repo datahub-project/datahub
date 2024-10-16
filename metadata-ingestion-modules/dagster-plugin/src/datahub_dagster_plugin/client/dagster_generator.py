@@ -78,12 +78,6 @@ class Constant:
     # Default config constants
     DEFAULT_DATAHUB_REST_URL = "http://localhost:8080"
 
-    # Environment variable contants
-    DATAHUB_REST_URL = "DATAHUB_REST_URL"
-    DATAHUB_ENV = "DATAHUB_ENV"
-    DATAHUB_PLATFORM_INSTANCE = "DATAHUB_PLATFORM_INSTANCE"
-    DAGSTER_UI_URL = "DAGSTER_UI_URL"
-
     # Datahub inputs/outputs constant
     DATAHUB_INPUTS = "datahub.inputs"
     DATAHUB_OUTPUTS = "datahub.outputs"
