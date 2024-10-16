@@ -132,18 +132,23 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   public AspectPayloadValidator dataHubExecutionRequestResultValidator() {
-    return new ExecutionRequestResultValidator().setConfig(AspectPluginConfig.builder()
-        .className(ExecutionRequestResultValidator.class.getName())
-        .enabled(true)
-        .supportedOperations(List.of("UPSERT", "UPDATE"))
-        .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.builder()
-            .entityName(EXECUTION_REQUEST_ENTITY_NAME)
-            .aspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
-            .build()))
-        .build());
+    return new ExecutionRequestResultValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(ExecutionRequestResultValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of("UPSERT", "UPDATE"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(EXECUTION_REQUEST_ENTITY_NAME)
+                            .aspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
+                            .build()))
+                .build());
   }
-    @Bean
-    @ConditionalOnProperty(
+
+  @Bean
+  @ConditionalOnProperty(
       name = "metadataChangeProposal.sideEffects.dataProductUnset.enabled",
       havingValue = "true")
   public MCPSideEffect dataProductUnsetSideEffect() {
