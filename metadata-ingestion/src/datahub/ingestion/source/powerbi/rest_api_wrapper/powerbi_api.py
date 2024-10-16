@@ -31,6 +31,28 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
 logger = logging.getLogger(__name__)
 
 
+def form_full_table_name(
+    config: PowerBiDashboardSourceConfig,
+    workspace: Workspace,
+    dataset_name: str,
+    table_name: str,
+) -> str:
+
+    full_table_name: str = "{}.{}".format(
+        dataset_name.replace(" ", "_"), table_name.replace(" ", "_")
+    )
+
+    if config.include_workspace_name_in_dataset_urn:
+        workspace_identifier: str = (
+            workspace.id
+            if config.workspace_id_as_urn_part
+            else workspace.name.replace(" ", "_").lower()
+        )
+        full_table_name = f"{workspace_identifier}.{full_table_name}"
+
+    return full_table_name
+
+
 class PowerBiAPI:
     def __init__(
         self,
@@ -51,6 +73,14 @@ class PowerBiAPI:
             client_secret=self.__config.client_secret,
             tenant_id=self.__config.tenant_id,
         )
+
+        self.reporter: PowerBiDashboardSourceReport = reporter
+
+        # A report or tile in one workspace can be built using a dataset from another workspace.
+        # We need to store the dataset ID (which is a UUID) mapped to its dataset instance.
+        # This mapping will allow us to retrieve the appropriate dataset for
+        # reports and tiles across different workspaces.
+        self.dataset_registry: Dict[str, PowerBIDataset] = {}
 
     def log_http_error(self, message: str) -> Any:
         logger.warning(message)
@@ -158,6 +188,16 @@ class PowerBiAPI:
         reports: List[Report] = []
         try:
             reports = self._get_resolver().get_reports(workspace)
+            # Fill Report dataset
+            for report in reports:
+                if report.dataset_id:
+                    report.dataset = self.dataset_registry.get(report.dataset_id)
+                    if report.dataset is None:
+                        self.reporter.info(
+                            title="Missing Lineage For Report",
+                            message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
+                            context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
+                        )
         except:
             self.log_http_error(
                 message=f"Unable to fetch reports for workspace {workspace.name}"
@@ -312,14 +352,14 @@ class PowerBiAPI:
 
         for dataset_dict in datasets:
             dataset_instance: PowerBIDataset = self._get_resolver().get_dataset(
-                workspace_id=scan_result[Constant.ID],
+                workspace=workspace,
                 dataset_id=dataset_dict[Constant.ID],
             )
 
             # fetch + set dataset parameters
             try:
                 dataset_parameters = self._get_resolver().get_dataset_parameters(
-                    workspace_id=scan_result[Constant.ID],
+                    workspace_id=workspace.id,
                     dataset_id=dataset_dict[Constant.ID],
                 )
                 dataset_instance.parameters = dataset_parameters
@@ -350,9 +390,11 @@ class PowerBiAPI:
                 )
                 table = Table(
                     name=table[Constant.NAME],
-                    full_name="{}.{}".format(
-                        dataset_name.replace(" ", "_"),
-                        table[Constant.NAME].replace(" ", "_"),
+                    full_name=form_full_table_name(
+                        config=self.__config,
+                        workspace=workspace,
+                        dataset_name=dataset_name,
+                        table_name=table[Constant.NAME],
                     ),
                     expression=expression,
                     columns=[
@@ -382,7 +424,8 @@ class PowerBiAPI:
         return dataset_map
 
     def _fill_metadata_from_scan_result(
-        self, workspaces: List[Workspace]
+        self,
+        workspaces: List[Workspace],
     ) -> List[Workspace]:
         workspace_ids = [workspace.id for workspace in workspaces]
         scan_result = self._get_scan_result(workspace_ids)
@@ -423,7 +466,8 @@ class PowerBiAPI:
             )
             cur_workspace.scan_result = workspace_metadata
             cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
-
+            # collect all datasets in the registry
+            self.dataset_registry.update(cur_workspace.datasets)
             # Fetch endorsement tag if it is enabled from configuration
             if self.__config.extract_endorsements_to_tags:
                 cur_workspace.dashboard_endorsements = self._get_dashboard_endorsements(
@@ -468,6 +512,16 @@ class PowerBiAPI:
                 dashboard.tiles = self._get_resolver().get_tiles(
                     workspace, dashboard=dashboard
                 )
+                # set the dataset for tiles
+                for tile in dashboard.tiles:
+                    if tile.dataset_id:
+                        tile.dataset = self.dataset_registry.get(tile.dataset_id)
+                        if tile.dataset is None:
+                            self.reporter.info(
+                                title="Missing Lineage For Tile",
+                                message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
+                                context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, dataset-id: {tile.dataset_id}",
+                            )
 
         def fill_reports() -> None:
             if self.__config.extract_reports is False:
@@ -497,6 +551,7 @@ class PowerBiAPI:
     def fill_workspaces(
         self, workspaces: List[Workspace], reporter: PowerBiDashboardSourceReport
     ) -> Iterable[Workspace]:
+
         workspaces = self._fill_metadata_from_scan_result(workspaces=workspaces)
         # First try to fill the admin detail as some regular metadata contains lineage to admin metadata
         for workspace in workspaces:

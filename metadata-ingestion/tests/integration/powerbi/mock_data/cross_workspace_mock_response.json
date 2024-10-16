@@ -1,0 +1,220 @@
+{
+    "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": [
+                {
+                    "id": "A8D655A6-F521-477E-8C22-255018583BF4",
+                    "isReadOnly": true,
+                    "name": "Sales",
+                    "type": "Workspace",
+                    "state": "Active"
+                },
+                {
+                    "id": "C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492",
+                    "isReadOnly": true,
+                    "name": "Global Workspace",
+                    "type": "Workspace",
+                    "state": "Active"
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": []
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/A8D655A6-F521-477E-8C22-255018583BF4/dashboards": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "id": "A1C7204F-4D04-4E5E-B886-B30EA2C64CB3",
+                        "isReadOnly": true,
+                        "displayName": "test_dashboard",
+                        "description": "Description of test dashboard",
+                        "embedUrl": "https://localhost/dashboards/embed/1",
+                        "webUrl": "https://localhost/dashboards/web/1"
+                    }
+                ]
+            }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492/dashboards": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": []
+            }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/A8D655A6-F521-477E-8C22-255018583BF4/dashboards/A1C7204F-4D04-4E5E-B886-B30EA2C64CB3/tiles": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": [
+                {
+                    "id": "885D1762-1655-46BA-AFE3-74C6EC403A9E",
+                    "title": "Sale Order Tile",
+                    "embedUrl": "https://localhost/tiles/embed/1",
+                    "datasetId": "317456E5-1FC7-4BDC-9C84-1185825E293D"
+                },
+                {
+                    "id": "945C2C2A-4588-45DE-8385-F24F5E39A57C",
+                    "title": "Yearly Sales",
+                    "embedUrl": "https://localhost/tiles/embed/2",
+                    "datasetId": "FE362B98-956E-4394-BA37-6367EE6435E9"
+                },
+                {
+                    "id": "B847EBDA-BC48-4F92-8E16-6B46D900E7BB",
+                    "title": "Not Present In Current Ingestion",
+                    "embedUrl": "https://localhost/tiles/embed/2",
+                    "datasetId": "0F0ADA0E-E38A-44F6-B667-90E93A96F5A1"
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/62DAF926-0B18-4FF1-982C-2A3EB6B8F0E4": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "workspaces": [
+                {
+                    "id": "A8D655A6-F521-477E-8C22-255018583BF4",
+                    "name": "Sales",
+                    "type": "Workspace",
+                    "state": "Active",
+                    "datasets": [
+                        {
+                            "id": "317456E5-1FC7-4BDC-9C84-1185825E293D",
+                            "endorsementDetails": {
+                                "endorsement": "Promoted"
+                            },
+                            "name": "sales semantic model",
+                            "tables": [
+                                {
+                                    "name": "public issue_history",
+                                    "source": [
+                                        {
+                                            "expression": "dummy"
+                                        }
+                                    ],
+                                    "datasourceUsages": [
+                                        {
+                                            "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492",
+                    "name": "Global Workspace",
+                    "type": "Workspace",
+                    "state": "Active",
+                    "datasets": [
+                        {
+                            "id": "FE362B98-956E-4394-BA37-6367EE6435E9",
+                            "endorsementDetails": {
+                                "endorsement": "Promoted"
+                            },
+                            "name": "base_records",
+                            "tables": [
+                                {
+                                    "name": "core_sales_set",
+                                    "source": [
+                                        {
+                                            "expression": "dummy"
+                                        }
+                                    ],
+                                    "datasourceUsages": [
+                                        {
+                                            "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/62DAF926-0B18-4FF1-982C-2A3EB6B8F0E4": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "status": "SUCCEEDED"
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/81B02907-E2A3-45C3-B505-3781839C8CAA": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "workspaces": [
+                {
+                    "id": "C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492",
+                    "name": "Global Workspace",
+                    "type": "Workspace",
+                    "state": "Active",
+                    "datasets": [
+                        {
+                            "id": "FE362B98-956E-4394-BA37-6367EE6435E9",
+                            "endorsementDetails": {
+                                "endorsement": "Promoted"
+                            },
+                            "name": "base_records",
+                            "tables": [
+                                {
+                                    "name": "core_sales_set",
+                                    "source": [
+                                        {
+                                            "expression": "dummy"
+                                        }
+                                    ],
+                                    "datasourceUsages": [
+                                        {
+                                            "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/81B02907-E2A3-45C3-B505-3781839C8CAA": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "status": "SUCCEEDED"
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/A8D655A6-F521-477E-8C22-255018583BF4/datasets/317456E5-1FC7-4BDC-9C84-1185825E293D": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "id": "317456E5-1FC7-4BDC-9C84-1185825E293D",
+            "name": "sales semantic model",
+            "description": "sales semantic model",
+            "webUrl": "http://localhost/groups/A8D655A6-F521-477E-8C22-255018583BF4/datasets/317456E5-1FC7-4BDC-9C84-1185825E293D"
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492/datasets/FE362B98-956E-4394-BA37-6367EE6435E9": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "id": "FE362B98-956E-4394-BA37-6367EE6435E9",
+            "name": "base_records",
+            "description": "base_records",
+            "webUrl": "http://localhost/groups/C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492/datasets/FE362B98-956E-4394-BA37-6367EE6435E9"
+        }
+    }
+}

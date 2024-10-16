@@ -129,7 +129,7 @@ class DataResolverBase(ABC):
 
     @abstractmethod
     def get_dataset(
-        self, workspace_id: str, dataset_id: str
+        self, workspace: Workspace, dataset_id: str
     ) -> Optional[PowerBIDataset]:
         pass
 
@@ -279,9 +279,10 @@ class DataResolverBase(ABC):
                 pages=self._get_pages_by_report(
                     workspace=workspace, report_id=raw_instance[Constant.ID]
                 ),
+                dataset_id=raw_instance.get(Constant.DATASET_ID),
                 users=[],  # It will be fetched using Admin Fetcher based on condition
                 tags=[],  # It will be fetched using Admin Fetcher based on condition
-                dataset=workspace.datasets.get(raw_instance.get(Constant.DATASET_ID)),
+                dataset=None,  # It will come from dataset_registry defined in powerbi_api.py
             )
             for raw_instance in fetch_reports()
             if Constant.APP_ID
@@ -317,11 +318,6 @@ class DataResolverBase(ABC):
             Find out which is the data source for tile. It is either REPORT or DATASET
             """
             report_fields = {
-                Constant.DATASET: (
-                    workspace.datasets.get(tile_instance.get(Constant.DATASET_ID))
-                    if tile_instance.get("datasetId") is not None
-                    else None
-                ),
                 Constant.REPORT: (
                     self.get_report(
                         workspace=workspace,
@@ -372,6 +368,7 @@ class DataResolverBase(ABC):
                 title=instance.get(Constant.TITLE),
                 embedUrl=instance.get(Constant.EMBED_URL),
                 dataset_id=instance.get(Constant.DATASET_ID),
+                dataset=None,
                 **new_dataset_or_report(instance),
             )
             for instance in tile_dict
@@ -430,14 +427,14 @@ class RegularAPIResolver(DataResolverBase):
     }
 
     def get_dataset(
-        self, workspace_id: str, dataset_id: str
+        self, workspace: Workspace, dataset_id: str
     ) -> Optional[PowerBIDataset]:
         """
         Fetch the dataset from PowerBi for the given dataset identifier
         """
-        if workspace_id is None or dataset_id is None:
+        if workspace.id is None or dataset_id is None:
             logger.debug("Input values are None")
-            logger.debug(f"{Constant.WorkspaceId}={workspace_id}")
+            logger.debug(f"{Constant.WorkspaceId}={workspace.id}")
             logger.debug(f"{Constant.DatasetId}={dataset_id}")
             return None
 
@@ -447,7 +444,7 @@ class RegularAPIResolver(DataResolverBase):
         # Replace place holders
         dataset_get_endpoint = dataset_get_endpoint.format(
             POWERBI_BASE_URL=DataResolverBase.BASE_URL,
-            WORKSPACE_ID=workspace_id,
+            WORKSPACE_ID=workspace.id,
             DATASET_ID=dataset_id,
         )
         # Hit PowerBi
@@ -456,13 +453,13 @@ class RegularAPIResolver(DataResolverBase):
             dataset_get_endpoint,
             headers=self.get_authorization_header(),
         )
-        # Check if we got response from PowerBi
+        # Check if we got a response from PowerBi
         response.raise_for_status()
         response_dict = response.json()
         logger.debug(f"datasets = {response_dict}")
-        # PowerBi Always return the webURL, in-case if it is None then setting complete webURL to None instead of
+        # PowerBi Always return the webURL, in-case if it is None, then setting complete webURL to None instead of
         # None/details
-        return new_powerbi_dataset(workspace_id, response_dict)
+        return new_powerbi_dataset(workspace, response_dict)
 
     def get_dataset_parameters(
         self, workspace_id: str, dataset_id: str
@@ -910,11 +907,11 @@ class AdminAPIResolver(DataResolverBase):
         )
 
     def get_dataset(
-        self, workspace_id: str, dataset_id: str
+        self, workspace: Workspace, dataset_id: str
     ) -> Optional[PowerBIDataset]:
         datasets_endpoint = self.API_ENDPOINTS[Constant.DATASET_LIST].format(
             POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
-            WORKSPACE_ID=workspace_id,
+            WORKSPACE_ID=workspace.id,
         )
         # Hit PowerBi
         logger.debug(f"Request to datasets URL={datasets_endpoint}")
@@ -930,13 +927,13 @@ class AdminAPIResolver(DataResolverBase):
         if len(response_dict.get(Constant.VALUE, [])) == 0:
             logger.warning(
                 "Dataset not found. workspace_id = %s, dataset_id = %s",
-                workspace_id,
+                workspace.id,
                 dataset_id,
             )
             return None
 
         raw_instance: dict = response_dict[Constant.VALUE][0]
-        return new_powerbi_dataset(workspace_id, raw_instance)
+        return new_powerbi_dataset(workspace, raw_instance)
 
     def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         return []  # Report pages are not available in Admin API
