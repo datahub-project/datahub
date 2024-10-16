@@ -1,7 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from functools import lru_cache
 from time import sleep
 from typing import Any, Dict, Iterator, List, Optional, Union
 
@@ -98,8 +97,6 @@ class DataResolverBase(ABC):
                 )
             ),
         )
-
-        self.get_app = lru_cache(maxsize=128)(self.__get_app)
 
     @abstractmethod
     def get_groups_endpoint(self) -> str:
@@ -427,7 +424,7 @@ class DataResolverBase(ABC):
 
             page_number += 1
 
-    def __get_app(
+    def get_app(
         self,
         app_id: str,
     ) -> Optional[App]:
