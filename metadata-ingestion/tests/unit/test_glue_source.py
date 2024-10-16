@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple, Type, cast
+from typing import Any, Dict, Optional, Tuple, Type, cast
 from unittest.mock import patch
 
 import pydantic
@@ -11,7 +11,7 @@ from freezegun import freeze_time
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import (
     GlueProfilingConfig,
@@ -74,7 +74,7 @@ GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 def glue_source(
     platform_instance: Optional[str] = None,
-    mock_datahub_graph: Optional[Callable[[DatahubClientConfig], DataHubGraph]] = None,
+    mock_datahub_graph_instance: Optional[DataHubGraph] = None,
     use_s3_bucket_tags: bool = True,
     use_s3_object_tags: bool = True,
     extract_delta_schema_from_parameters: bool = False,
@@ -83,8 +83,8 @@ def glue_source(
     extract_transforms: bool = True,
 ) -> GlueSource:
     pipeline_context = PipelineContext(run_id="glue-source-tes")
-    if mock_datahub_graph:
-        pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+    if mock_datahub_graph_instance:
+        pipeline_context.graph = mock_datahub_graph_instance
     return GlueSource(
         ctx=pipeline_context,
         config=GlueSourceConfig(
@@ -493,14 +493,14 @@ def test_glue_with_malformed_delta_schema_ingest(
 def test_glue_ingest_include_table_lineage(
     tmp_path: Path,
     pytestconfig: PytestConfig,
-    mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
+    mock_datahub_graph_instance: DataHubGraph,
     platform_instance: str,
     mce_file: str,
     mce_golden_file: str,
 ) -> None:
     glue_source_instance = glue_source(
         platform_instance=platform_instance,
-        mock_datahub_graph=mock_datahub_graph,
+        mock_datahub_graph_instance=mock_datahub_graph_instance,
         emit_s3_lineage=True,
     )
 
@@ -589,14 +589,14 @@ def test_glue_ingest_include_table_lineage(
 def test_glue_ingest_include_column_lineage(
     tmp_path: Path,
     pytestconfig: PytestConfig,
-    mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
+    mock_datahub_graph_instance: DataHubGraph,
     platform_instance: str,
     mce_file: str,
     mce_golden_file: str,
 ) -> None:
     glue_source_instance = glue_source(
         platform_instance=platform_instance,
-        mock_datahub_graph=mock_datahub_graph,
+        mock_datahub_graph_instance=mock_datahub_graph_instance,
         emit_s3_lineage=True,
         include_column_lineage=True,
         use_s3_bucket_tags=False,

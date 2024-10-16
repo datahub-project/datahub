@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class DatahubIngestionStateProviderConfig(IngestionCheckpointingProviderConfig):
-    datahub_api: DatahubClientConfig = DatahubClientConfig()
+    datahub_api: Optional[DatahubClientConfig] = None
 
 
 class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
@@ -31,8 +31,8 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
         self.graph = graph
         if not self._is_server_stateful_ingestion_capable():
             raise ConfigurationError(
-                "Datahub server is not capable of supporting stateful ingestion."
-                " Please consider upgrading to the latest server version to use this feature."
+                "Datahub server is not capable of supporting stateful ingestion. "
+                "Please consider upgrading to the latest server version to use this feature."
             )
 
     @classmethod
@@ -40,11 +40,15 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
         cls, config_dict: Dict[str, Any], ctx: PipelineContext
     ) -> "DatahubIngestionCheckpointingProvider":
         config = DatahubIngestionStateProviderConfig.parse_obj(config_dict)
-        if ctx.graph:
-            # Use the pipeline-level graph if set
+        if config.datahub_api is not None:
+            return cls(DataHubGraph(config.datahub_api))
+        elif ctx.graph:
+            # Use the pipeline-level graph if set.
             return cls(ctx.graph)
         else:
-            return cls(DataHubGraph(config.datahub_api))
+            raise ValueError(
+                "A graph instance is required. Either pass one in the pipeline context, or set it explicitly in the stateful ingestion provider config."
+            )
 
     def _is_server_stateful_ingestion_capable(self) -> bool:
         server_config = self.graph.get_config() if self.graph else None
