@@ -4,6 +4,9 @@ on:
   pull_request:
     types: [opened]
 
+permissions:
+  pull-requests: write
+
 jobs:
   post-pr-opened-comment:
     runs-on: ubuntu-latest
