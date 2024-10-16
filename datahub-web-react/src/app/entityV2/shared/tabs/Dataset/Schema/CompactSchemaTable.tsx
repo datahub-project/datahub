@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import { useDebounce } from 'react-use';
 
 import { FixedType } from 'rc-table/lib/interface';
+import translateFieldPath from '@src/app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import {
     EditableSchemaMetadata,
     EntityType,
@@ -22,6 +23,7 @@ import { REDESIGN_COLORS } from '../../../constants';
 import ExpandIcon from './components/ExpandIcon';
 import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
 import useKeyboardControls from './useKeyboardControls';
+import useExtractFieldDescriptionInfo from './utils/useExtractFieldDescriptionInfo';
 
 export type Props = {
     rows: Array<ExtendedSchemaFields>;
@@ -121,6 +123,8 @@ export default function CompactSchemaTable({
         setExpandedRows,
     );
 
+    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
+
     const fieldColumn = {
         fixed: 'left' as FixedType,
         width: 100,
@@ -135,6 +139,8 @@ export default function CompactSchemaTable({
                 whiteSpace: 'pre' as any,
             },
         }),
+        sorter: (sourceA, sourceB) =>
+            translateFieldPath(sourceA.fieldPath).localeCompare(translateFieldPath(sourceB.fieldPath)),
     };
 
     const descriptionColumn = {
@@ -151,6 +157,9 @@ export default function CompactSchemaTable({
                 textWrap: 'whitespace',
             },
         }),
+        sorter: (sourceA, sourceB) =>
+            (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
+            (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
     };
 
     // Function to get the count of each usageStats fieldPath
@@ -160,7 +169,7 @@ export default function CompactSchemaTable({
             usageStats?.aggregations?.fields.find((field) => {
                 return field?.fieldName === fieldPath;
             });
-        return data && data.count;
+        return (data && data.count) ?? 0;
     }
 
     const usageColumn = {

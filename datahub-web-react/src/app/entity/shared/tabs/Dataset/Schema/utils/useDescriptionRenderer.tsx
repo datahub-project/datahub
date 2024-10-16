@@ -6,8 +6,8 @@ import { useUpdateDescriptionMutation } from '../../../../../../../graphql/mutat
 import { useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { useSchemaRefetch } from '../SchemaContext';
 import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
-import { getFieldDescriptionDetails } from './getFieldDescriptionDetails';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../../graphql/proposals.generated';
+import useExtractFieldDescriptionInfo from './useExtractFieldDescriptionInfo';
 
 export default function useDescriptionRenderer(editableSchemaMetadata: EditableSchemaMetadata | null | undefined) {
     const urn = useMutationUrn();
@@ -17,6 +17,7 @@ export default function useDescriptionRenderer(editableSchemaMetadata: EditableS
     const [expandedRows, setExpandedRows] = useState({});
     const [expandedBARows, setExpandedBARows] = useState({});
     const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
+    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
 
     const refresh: any = () => {
         refetch?.();
@@ -27,14 +28,7 @@ export default function useDescriptionRenderer(editableSchemaMetadata: EditableS
         const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
             pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
-        const { schemaFieldEntity } = record;
-        const { displayedDescription, isPropagated, sourceDetail } = getFieldDescriptionDetails({
-            schemaFieldEntity,
-            editableFieldInfo,
-            defaultDescription: description,
-        });
-
-        const sanitizedDescription = DOMPurify.sanitize(displayedDescription);
+        const { sanitizedDescription, isPropagated, sourceDetail } = extractFieldDescription(record, description);
         const original = record.description ? DOMPurify.sanitize(record.description) : undefined;
         const businessAttributeDescription =
             record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties

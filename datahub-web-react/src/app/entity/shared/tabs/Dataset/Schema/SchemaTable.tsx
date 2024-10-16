@@ -27,6 +27,9 @@ import PropertiesColumn from './components/PropertiesColumn';
 import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
 import useBusinessAttributeRenderer from './utils/useBusinessAttributeRenderer';
 import { useBusinessAttributesFlag } from '../../../../../useAppConfig';
+import useExtractFieldGlossaryTermsInfo from './utils/useExtractFieldGlossaryTermsInfo';
+import useExtractFieldTagsInfo from './utils/useExtractFieldTagsInfo';
+import useExtractFieldDescriptionInfo from './utils/useExtractFieldDescriptionInfo';
 
 const TableContainer = styled.div`
     overflow: inherit;
@@ -123,6 +126,9 @@ export default function SchemaTable({
         false,
     );
     const businessAttributeRenderer = useBusinessAttributeRenderer(filterText, false);
+    const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata);
+    const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata);
+    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath, filterText);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
 
@@ -144,6 +150,9 @@ export default function SchemaTable({
         dataIndex: 'description',
         key: 'description',
         render: descriptionRender,
+        sorter: (sourceA, sourceB) =>
+            (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
+            (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
     };
 
     const tagColumn = {
@@ -152,14 +161,18 @@ export default function SchemaTable({
         dataIndex: 'globalTags',
         key: 'tag',
         render: tagRenderer,
+        sorter: (sourceA, sourceB) =>
+            extractFieldTagsInfo(sourceA).numberOfTags - extractFieldTagsInfo(sourceB).numberOfTags,
     };
 
     const termColumn = {
         width: '13%',
         title: 'Glossary Terms',
         dataIndex: 'globalTags',
-        key: 'tag',
+        key: 'term',
         render: termRenderer,
+        sorter: (sourceA, sourceB) =>
+            extractFieldGlossaryTermsInfo(sourceA).numberOfTerms - extractFieldGlossaryTermsInfo(sourceB).numberOfTerms,
     };
 
     const businessAttributeColumn = {
@@ -168,6 +181,9 @@ export default function SchemaTable({
         dataIndex: 'businessAttribute',
         key: 'businessAttribute',
         render: businessAttributeRenderer,
+        sorter: (sourceA, sourceB) =>
+            (sourceA?.schemaFieldEntity?.businessAttributes?.length ?? 0) -
+            (sourceB?.schemaFieldEntity?.businessAttributes?.length ?? 0),
     };
 
     const blameColumn = {
@@ -191,7 +207,7 @@ export default function SchemaTable({
             usageStats?.aggregations?.fields.find((field) => {
                 return field?.fieldName === fieldPath;
             });
-        return data && data.count;
+        return (data && data.count) ?? 0;
     }
 
     const usageColumn = {
@@ -209,6 +225,9 @@ export default function SchemaTable({
         dataIndex: '',
         key: 'menu',
         render: (field: SchemaField) => <PropertiesColumn field={field} />,
+        sorter: (sourceA, sourceB) =>
+            (sourceA?.schemaFieldEntity?.structuredProperties?.properties?.length ?? 0) -
+            (sourceB?.schemaFieldEntity?.structuredProperties?.properties?.length ?? 0),
     };
 
     let allColumns: ColumnsType<ExtendedSchemaFields> = [fieldColumn, descriptionColumn, tagColumn, termColumn];

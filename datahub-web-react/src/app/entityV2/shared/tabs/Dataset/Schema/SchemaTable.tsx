@@ -31,6 +31,9 @@ import useKeyboardControls from './useKeyboardControls';
 import { ProposedTag, ProposedTerm } from '../../../../../sharedV2/tags/TagTermGroup';
 import { useInferDocumentationForItem } from '../../../components/inferredDocs/utils';
 import { findIndexOfFieldPathExcludingCollapsedFields } from '../../../../dataset/profile/schema/utils/utils';
+import useExtractFieldGlossaryTermsInfo from './utils/useExtractFieldGlossaryTermsInfo';
+import useExtractFieldTagsInfo from './utils/useExtractFieldTagsInfo';
+import useExtractFieldDescriptionInfo from './utils/useExtractFieldDescriptionInfo';
 
 const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: boolean }>`
     overflow: inherit;
@@ -238,6 +241,9 @@ export default function SchemaTable({
         false,
         true,
     );
+    const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata);
+    const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata);
+    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, filterText);
     const schemaTypeRenderer = useSchemaTypeRenderer();
 
@@ -269,6 +275,9 @@ export default function SchemaTable({
         dataIndex: 'description',
         key: 'description',
         render: descriptionRender,
+        sorter: (sourceA, sourceB) =>
+            (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
+            (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
     };
 
     const tagColumn = {
@@ -277,14 +286,18 @@ export default function SchemaTable({
         dataIndex: 'globalTags',
         key: 'tag',
         render: tagRenderer,
+        sorter: (sourceA, sourceB) =>
+            extractFieldTagsInfo(sourceA).numberOfTags - extractFieldTagsInfo(sourceB).numberOfTags,
     };
 
     const termColumn = {
         width: 200,
         title: 'Glossary Terms',
         dataIndex: 'globalTags',
-        key: 'tag',
+        key: 'term',
         render: termRenderer,
+        sorter: (sourceA, sourceB) =>
+            extractFieldGlossaryTermsInfo(sourceA).numberOfTerms - extractFieldGlossaryTermsInfo(sourceB).numberOfTerms,
     };
 
     // Function to get the count of each usageStats fieldPath
@@ -294,7 +307,7 @@ export default function SchemaTable({
             usageStats?.aggregations?.fields.find((field) => {
                 return field?.fieldName === fieldPath;
             });
-        return data && data.count;
+        return (data && data.count) ?? 0;
     }
 
     const usageColumn = {

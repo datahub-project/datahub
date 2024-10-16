@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 
-import { useIsDocumentationInferenceEnabled } from '@src/app/entityV2/shared/components/inferredDocs/utils';
 import { EditableSchemaMetadata, SchemaField, SubResourceType } from '../../../../../../../types.generated';
 import DescriptionField from '../../../../../dataset/profile/schema/components/SchemaDescriptionField';
 import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
@@ -9,8 +8,8 @@ import { useMutationUrn, useRefetch } from '../../../../../../entity/shared/Enti
 import { useSchemaRefetch } from '../SchemaContext';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../../graphql/proposals.generated';
 import { sanitizeRichText } from '../../../Documentation/components/editor/utils';
-import { getFieldDescriptionDetails } from './getFieldDescriptionDetails';
 import CompactMarkdownViewer from '../../../Documentation/components/CompactMarkdownViewer';
+import useExtractFieldDescriptionInfo from './useExtractFieldDescriptionInfo';
 
 export default function useDescriptionRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
@@ -26,7 +25,7 @@ export default function useDescriptionRenderer(
     const [updateDescription] = useUpdateDescriptionMutation();
     const [expandedRows, setExpandedRows] = useState({});
     const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
-    const enableInferredDescriptions = useIsDocumentationInferenceEnabled();
+    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
 
     const refresh: any = () => {
         refetch?.();
@@ -38,13 +37,8 @@ export default function useDescriptionRenderer(
             pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
         const { schemaFieldEntity } = record;
-        const { displayedDescription, isPropagated, isInferred, sourceDetail } = getFieldDescriptionDetails({
-            schemaFieldEntity,
-            editableFieldInfo,
-            defaultDescription: description,
-            enableInferredDescriptions,
-        });
-        const sanitizedDescription = sanitizeRichText(displayedDescription);
+        const { displayedDescription, sanitizedDescription, isPropagated, isInferred, sourceDetail } =
+            extractFieldDescription(record, description);
         const original = record.description ? sanitizeRichText(record.description) : undefined;
 
         const handleExpandedRows = (expanded) => setExpandedRows((prev) => ({ ...prev, [index]: expanded }));
