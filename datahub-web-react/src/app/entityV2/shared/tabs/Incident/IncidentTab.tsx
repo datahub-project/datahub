@@ -4,7 +4,7 @@ import { Button, Empty, List, Select, Tooltip, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useGetEntityIncidentsQuery } from '../../../../../graphql/incident.generated';
 import TabToolbar from '../../components/styled/TabToolbar';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
+import { useEntityContext, useEntityData } from '../../../../entity/shared/EntityContext';
 import IncidentListItem from './components/IncidentListItem';
 import { INCIDENT_DISPLAY_STATES, PAGE_SIZE, getIncidentsStatusSummary } from './incidentUtils';
 import { Incident, IncidentState } from '../../../../../types.generated';
@@ -46,6 +46,7 @@ const IncidentStateSelect = styled(Select)`
 `;
 
 export const IncidentTab = () => {
+    const { refetch: refetchEntity } = useEntityContext();
     const { urn, entityType } = useEntityData();
     const incidentStates = INCIDENT_DISPLAY_STATES;
     const [selectedIncidentState, setSelectedIncidentState] = useState<IncidentState | undefined>(IncidentState.Active);
@@ -82,6 +83,11 @@ export const IncidentTab = () => {
 
     const canEditIncidents = (data?.entity as any)?.privileges?.canEditIncidents || false;
 
+    function handleRefetch() {
+        refetch();
+        refetchEntity();
+    }
+
     return (
         <>
             <Header>
@@ -101,7 +107,7 @@ export const IncidentTab = () => {
                         <AddIncidentModal
                             urn={urn}
                             entityType={entityType}
-                            refetch={refetch}
+                            refetch={handleRefetch}
                             visible={isRaiseIncidentModalVisible}
                             onClose={() => setIsRaiseIncidentModalVisible(false)}
                         />

@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { AppstoreOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../../entity/shared/EntityContext';
+import { useEntityContext, useEntityData } from '../../../entity/shared/EntityContext';
 import { useGetDomainEntitySummaryQuery } from '../../../../graphql/domain.generated';
 import {
     getContentsSummary,
@@ -33,10 +33,11 @@ const ViewAllButton = styled.div`
 `;
 
 export const ContentsSection = () => {
+    const { entityState } = useEntityContext();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { urn, entityType } = useEntityData();
-    const { data, loading } = useGetDomainEntitySummaryQuery({
+    const { data, loading, refetch } = useGetDomainEntitySummaryQuery({
         variables: {
             urn,
         },
@@ -45,6 +46,14 @@ export const ContentsSection = () => {
     const contentsSummary = data?.aggregateAcrossEntities && getContentsSummary(data.aggregateAcrossEntities as any);
     const contentsCount = contentsSummary?.total || 0;
     const hasContents = contentsCount > 0;
+
+    const shouldRefetch = entityState?.shouldRefetchContents;
+    useEffect(() => {
+        if (shouldRefetch) {
+            refetch();
+            entityState?.setShouldRefetchContents(false);
+        }
+    }, [shouldRefetch, entityState, refetch]);
 
     if (!hasContents) {
         return null;

@@ -123,6 +123,10 @@ export class DomainEntity implements Entity<Domain> {
                 {
                     id: EntityProfileTab.DATA_PRODUCTS_TAB,
                     name: 'Data Products',
+                    getDynamicName: (entityData, _, loading) => {
+                        const dataProductsCount = entityData?.dataProducts?.total;
+                        return <TabNameWithCount name="Data Products" count={dataProductsCount} loading={loading} />;
+                    },
                     component: DataProductsTab,
                     icon: FileDoneOutlined,
                 },

@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -69,6 +70,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
     final String query = input.getQuery() != null ? input.getQuery() : DEFAULT_QUERY;
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
+    SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -98,7 +100,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
             return UrnSearchResultsMapper.map(
                 context,
                 _entityClient.searchAcrossEntities(
-                    context.getOperationContext(),
+                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     SEARCHABLE_ENTITY_TYPES.stream()
                         .map(EntityTypeMapper::getName)
                         .collect(Collectors.toList()),

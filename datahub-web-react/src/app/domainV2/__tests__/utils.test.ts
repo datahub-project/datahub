@@ -30,7 +30,7 @@ describe('Domain V2 utils tests', () => {
             query: {
                 kind: 'Document',
                 definitions: expect.anything(),
-                loc: { start: 0, end: 5170 },
+                loc: expect.anything(),
             },
 
             variables: { input: { start: 0, count: 10, parentDomain: 'example.com' } },

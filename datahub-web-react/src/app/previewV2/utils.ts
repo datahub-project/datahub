@@ -28,7 +28,7 @@ export const isNullOrUndefined = (value: any) => {
 };
 
 export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
-    const { entityState } = useEntityContext();
+    const { entityState, refetch } = useEntityContext();
     const [unsetDomainMutation] = useUnsetDomainMutation();
 
     const handleRemoveDomain = (urnToRemoveFrom) => {
@@ -38,6 +38,7 @@ export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
                     entityState?.setShouldRefetchContents(true);
+                    refetch();
                     message.success({ content: 'Domain Removed!', duration: 2 });
                 }, 2000);
             })

@@ -1208,11 +1208,19 @@ fragment domainEntitiesFields on Domain {
             filters: [
                 { field: "_entityType", negated: true, values: ["DATA_PRODUCT", "DOMAIN"], value: "DATA_PRODUCT" }
             ]
+            searchFlags: { skipCache: true }
         }
     ) {
         total
     }
-    dataProducts: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }) {
+    dataProducts: entities(
+        input: {
+            start: 0
+            count: 0
+            filters: [{ field: "_entityType", value: "DATA_PRODUCT" }]
+            searchFlags: { skipCache: true }
+        }
+    ) {
         total
     }
     children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {

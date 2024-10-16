@@ -12,7 +12,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { scrollToTop } from '../../../shared/searchUtils';
 import { DomainsPaginationContainer } from '../../../domain/DomainsList';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../shared/constants';
-import { useEntityData } from '../../../entity/shared/EntityContext';
+import { useEntityContext, useEntityData } from '../../../entity/shared/EntityContext';
 import { DOMAINS_FILTER_NAME } from '../../../search/utils/constants';
 import DataProductResult from './DataProductResult';
 import CreateDataProductModal from './CreateDataProductModal';
@@ -47,6 +47,7 @@ const LoadingWrapper = styled.div`
 const DEFAULT_PAGE_SIZE = 10;
 
 export default function DataProductsTab() {
+    const { refetch } = useEntityContext();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
@@ -94,6 +95,7 @@ export default function DataProductsTab() {
 
     function onCreateDataProduct(dataProduct: DataProduct) {
         setCreatedDataProducts([dataProduct, ...createdDataProducts]);
+        setTimeout(() => refetch(), 3000);
     }
 
     function onUpdateDataProduct(dataProduct: DataProduct) {

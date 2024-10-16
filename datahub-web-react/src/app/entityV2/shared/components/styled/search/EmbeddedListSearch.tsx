@@ -78,8 +78,8 @@ export const removeFixedFiltersFromFacets = (fixedFilters: FilterSet, facets: Fa
 };
 
 function useWrappedSearchCountResults(params: GetSearchResultsParams) {
-    const { data, loading, error } = useGetSearchCountQuery(params);
-    return { total: data?.searchAcrossEntities?.total, loading, error };
+    const { data, loading, error, refetch } = useGetSearchCountQuery(params);
+    return { total: data?.searchAcrossEntities?.total, loading, error, refetch };
 }
 
 type Props = {
@@ -114,6 +114,7 @@ type Props = {
         total: number | undefined;
         loading: boolean;
         error?: ApolloError;
+        refetch?: () => void;
     };
     useGetDownloadSearchResults?: (params: DownloadSearchResultsParams) => {
         loading: boolean;
@@ -219,7 +220,7 @@ export const EmbeddedListSearch = ({
 
     const { data, loading, error, refetch } = useGetSearchResults({
         variables: { input: searchInput },
-        fetchPolicy: 'cache-first',
+        fetchPolicy: skipCache ? undefined : 'cache-first',
     });
 
     const useGetViewSearchData = (viewUrn: string | undefined) => {
@@ -230,12 +231,12 @@ export const EmbeddedListSearch = ({
                     viewUrn: viewUrn || undefined,
                 },
             },
-            fetchPolicy: 'cache-first',
+            fetchPolicy: skipCache ? undefined : 'cache-first',
         });
     };
 
-    const allSearchCount = useGetViewSearchData(undefined)?.total;
-    const defaultViewCount = useGetViewSearchData(defaultViewUrn)?.total;
+    const { total: allSearchCount, refetch: refetchAllSearchCount } = useGetViewSearchData(undefined);
+    const { total: defaultViewCount, refetch: refetchDefaultViewCount } = useGetViewSearchData(defaultViewUrn);
     const { data: viewData } = useGetViewQuery({
         variables: {
             urn: defaultViewUrn || '',
@@ -251,6 +252,8 @@ export const EmbeddedListSearch = ({
                 input: searchInput,
             });
             resetShouldRefetch();
+            refetchAllSearchCount?.();
+            if (defaultViewUrn) refetchDefaultViewCount?.();
         }
     });
 
@@ -260,6 +263,8 @@ export const EmbeddedListSearch = ({
                 input: searchInput,
             });
             setShouldRefetchEmbeddedListSearch?.(false);
+            refetchAllSearchCount?.();
+            if (defaultViewUrn) refetchDefaultViewCount?.();
         }
     });
 

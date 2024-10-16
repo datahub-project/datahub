@@ -14,7 +14,7 @@ type AddIncidentProps = {
     entityType: EntityType;
     visible: boolean;
     onClose?: () => void;
-    refetch?: () => Promise<any>;
+    refetch?: () => void;
 };
 
 export const AddIncidentModal = ({ urn, entityType, visible, onClose, refetch }: AddIncidentProps) => {

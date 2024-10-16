@@ -11504,6 +11504,11 @@ input DomainEntitiesInput {
   Optional Facet filters to apply to the result set
   """
   filters: [FacetFilterInput!]
+
+  """
+  Optional flags controlling search options
+  """
+  searchFlags: SearchFlags
 }
 
 """

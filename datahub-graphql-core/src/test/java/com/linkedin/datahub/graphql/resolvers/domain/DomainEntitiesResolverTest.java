@@ -36,7 +36,7 @@ import org.testng.annotations.Test;
 public class DomainEntitiesResolverTest {
 
   private static final DomainEntitiesInput TEST_INPUT =
-      new DomainEntitiesInput(null, 0, 20, Collections.emptyList());
+      new DomainEntitiesInput(null, 0, 20, Collections.emptyList(), null);
 
   @Test
   public void testGetSuccess() throws Exception {

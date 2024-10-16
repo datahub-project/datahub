@@ -1,4 +1,5 @@
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useEntityContext } from '@src/app/entity/shared/EntityContext';
 import { Button } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -80,6 +81,7 @@ interface Props {
 
 export default function DataProductResult({ dataProduct, onUpdateDataProduct, setDeletedDataProductUrns }: Props) {
     const entityRegistry = useEntityRegistryV2();
+    const { refetch } = useEntityContext();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
     function deleteDataProduct() {
@@ -88,13 +90,18 @@ export default function DataProductResult({ dataProduct, onUpdateDataProduct, se
 
     const { onDeleteEntity } = useDeleteEntity(dataProduct.urn, dataProduct.type, dataProduct, deleteDataProduct);
 
+    function onDeleteDataProduct() {
+        onDeleteEntity();
+        setTimeout(() => refetch(), 3000);
+    }
+
     return (
         <>
             <ResultWrapper>
                 <PreviewWrapper>
                     {entityRegistry.renderPreview(EntityType.DataProduct, PreviewType.PREVIEW, dataProduct)}
                     <ActionItemWrapper>
-                        <TransparentButton onClick={onDeleteEntity}>
+                        <TransparentButton onClick={onDeleteDataProduct}>
                             <DeleteOutlined size={5} /> Delete Data Product
                         </TransparentButton>
                         <ButtonsWrapper onClick={() => setIsEditModalVisible(true)}>
