@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.test;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -35,13 +36,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -54,7 +57,7 @@ public class EvaluateTestsStep implements UpgradeStep {
   private final EntityClient entityClient;
   private final EntitySearchService _entitySearchService;
   private final TestEngine testEngine;
-  private final ExecutorService executorService;
+  @VisibleForTesting @Getter private final ExecutorService executorService;
   private final TestEngine.EvaluationMode evaluationMode;
   private final String runId;
 
@@ -75,7 +78,19 @@ public class EvaluateTestsStep implements UpgradeStep {
                 .getOrDefault(
                     EvaluateTests.EXECUTOR_POOL_SIZE,
                     String.valueOf(Runtime.getRuntime().availableProcessors() + 1)));
-    executorService = Executors.newFixedThreadPool(numThreads);
+    int queueSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(
+                    EvaluateTests.EXECUTOR_QUEUE_SIZE,
+                    String.valueOf((Runtime.getRuntime().availableProcessors() + 1) * 2)));
+    executorService =
+        new ThreadPoolExecutor(
+            numThreads,
+            numThreads,
+            0L,
+            TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<>(queueSize));
     String envEvalMode = System.getenv(EvaluateTests.EVALUATION_MODE);
     evaluationMode = TestEngine.EvaluationMode.getEvaluationMode(envEvalMode);
   }

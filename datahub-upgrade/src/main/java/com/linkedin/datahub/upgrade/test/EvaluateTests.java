@@ -17,6 +17,7 @@ public class EvaluateTests implements Upgrade {
 
   public static final String ELASTIC_TIMEOUT_ENV_NAME = "METADATA_TEST_ELASTIC_TIMEOUT";
   public static final String EXECUTOR_POOL_SIZE = "EXECUTOR_POOL_SIZE";
+  public static final String EXECUTOR_QUEUE_SIZE = "EXECUTOR_QUEUE_SIZE";
   public static final String EVALUATION_MODE = "EVALUATION_MODE";
 
   private final List<UpgradeStep> _steps;
