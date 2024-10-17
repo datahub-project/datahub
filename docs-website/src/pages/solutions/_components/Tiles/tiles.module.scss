@@ -62,9 +62,8 @@
 
         .item {
           display: flex;
-          flex-direction: column;
+          justify-content: center;
           align-items: flex-start;
-          align-self: stretch;
                     
           .item__title {
             font-family: Manrope;

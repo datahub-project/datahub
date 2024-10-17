@@ -14,7 +14,7 @@ const Testimonials = ({ testimonialsData }) => {
                 {title}
             </div>
             <span className="testimonials__quote_description">
-                Seamlessly integrated with DataHub Cloud's <br /> <a href={useBaseUrl(feature1Link)} className="testimonials__quote_black">{feature1}</a> & <a href={useBaseUrl(feature2Link)} className="testimonials__quote_black">{feature2}</a> solutions.
+                Seamlessly integrated with <br /> DataHub Cloud's <a href={useBaseUrl(feature1Link)} className="testimonials__quote_black">{feature1}</a> & <br /> <a href={useBaseUrl(feature2Link)} className="testimonials__quote_black">{feature2}</a> solutions.
             </span>
             </div>
             <div className="testimonials__logo">

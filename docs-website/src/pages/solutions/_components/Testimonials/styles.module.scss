@@ -7,37 +7,15 @@
         max-width: 1200px;
         margin: 0 auto;
         position: relative;
-        padding: 40px 0;
-  
-        .arrow {
-          position: absolute;
-          cursor: pointer;
-          top: 50%;
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          background: #ffffff;
-          box-shadow: 0px 4px 9px rgba(0, 0, 0, 0.05);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 2rem;
-          color: #747474;
-          transform: translateY(-50%);
-          right: 0;
-  
-          &.left {
-            left: -10px;
-          }
-        }
+        padding: 4.5rem 0;
   
         .testimonials__card {
           margin: 2rem 4rem;
           display: flex;
   
           .testimonials__logo {
-            max-width: 160px;
-            margin: auto;
+            min-width: 200px;
+            margin: 2rem auto;
             img {
               max-width: 100%;
             }
@@ -52,30 +30,18 @@
               font-family: "Manrope";
               font-style: normal;
               font-weight: 500;
-              font-size: 2.2rem;
-              line-height: 2.8rem;
+              font-size: 3.5rem;
+              line-height: 120%;
               position: relative;
-              margin: 1rem auto;
-  
-              .quote {
-                display: inline;
-                position: absolute;
-                bottom: 0;
-                right: 0;
-  
-                &.left {
-                  top: -10px;
-                  left: -32px;
-                }
-              }
+              margin: 1.8rem auto;
             }
 
             .testimonials__quote_description {
-              font-size: 1.6rem;
+              font-size: 1.8rem;
               margin-top: 0.5rem;
               color: #98A2B3;
               font-weight: 400;
-              line-height: 2rem;
+              line-height: normal;
             }
 
             .testimonials__quote_black {

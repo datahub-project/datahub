@@ -1,7 +1,6 @@
 const tilesContent = [
   {
       title: "Enable self-service \n\n data discovery.",
-      theme: "dark",
       tileItems: [
         {
           title: "Your role, your view: discover data that matters to you.",

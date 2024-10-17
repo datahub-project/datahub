@@ -45,8 +45,8 @@
     }
     
     .card {
-      width: 419px;
-      height: 148px;
+      max-width: 419px;
+      max-height: 148px;
       padding: 1.2rem;
       margin: 1rem 0.5rem;
       display: flex; 
@@ -54,10 +54,7 @@
       align-items: center; 
       border-radius: var(--number-scales-2s-32, 32px);
       border: 2px solid var(--semantics-bg-bg-white, #FFF);
-      background: linear-gradient(180deg, rgba(248, 248, 252, 0.90) 0%, rgba(255, 255, 255, 0.90) 100%);
-      background-image: url("/img/solutions/case-study-card-bg.png");
-      background-repeat: no-repeat;
-      background-position: bottom 0rem center;
+      background: var(--primitives-grays-1, #F3F3F6);
 
       &:hover {
         box-shadow: 0px 0px 4px 0px #0000001C;
@@ -83,7 +80,7 @@
         .card_heading {
           color: var(--primitives-grays-9, #484C5C);
           font-family: Manrope;
-          font-size: 20px;
+          font-size: 1.3rem;
           font-style: normal;
           font-weight: 400;
           line-height: normal;

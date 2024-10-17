@@ -2,7 +2,7 @@ import React from "react";
 import styles from "./styles.module.scss";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import clsx from "clsx";
-import { Link } from "@docusaurus/router";
+import Link from "@docusaurus/Link";
 
 const Trials = ({ onOpenTourModal, trialsContent }) => {
   const { title, trialsCardItems } = trialsContent;
@@ -12,7 +12,8 @@ const Trials = ({ onOpenTourModal, trialsContent }) => {
       <div className={styles.trial}>
         <div className={styles.trial_left}>
           <div className={styles.left_content}>
-            <p className={styles.trial_title}>{title}</p>
+            <span className="">Discover. Observe. Govern.</span>
+            <p className="">{title}</p>
             <div className={styles.btn_div}>
               <Link to="/cloud">Book a Demo</Link>
               <a onClick={onOpenTourModal}>Product Tour</a>
@@ -21,33 +22,53 @@ const Trials = ({ onOpenTourModal, trialsContent }) => {
               Get started with Core →
             </Link>
           </div>
-        </div>
+        </div>å
         <div className={styles.trial_right}>
           <div className={styles.right_content}>
             <div className={styles.gradientTop} />
             <div className={styles.gradientBottom} />
-
-            {trialsCardItems.map((item, index) => (
-              <div
-                className={clsx(
-                  styles.card_wrapper,
-                  index < 2 ? styles.right_l : styles.right_r
-                )}
-                key={index}
-              >
+            <div className={styles.right_l}>
+              {trialsCardItems.slice(0, 2).map((item, index) => (
                 <div
-                  className={clsx(
-                    styles.card,
-                    index === 0 ? styles.soc :
-                    index === 1 ? styles.cost :
-                    index === 2 ? styles.enterprise : styles.link
-                  )}
+                  key={index}
+                  className={clsx(styles[item.className])} 
                 >
-                  <img width={60} height={60} src={useBaseUrl(item.imgSrc)} alt={item.title} />
-                  <p className={styles.card_text} dangerouslySetInnerHTML={{ __html: item.title }} />
+                  <img
+                    width={60}
+                    height={60}
+                    src={useBaseUrl(item.imgSrc)}
+                    alt={item.title}
+                  />
+                  {item.title.split("\n").map((line, idx) => (
+                    <React.Fragment key={idx}>
+                      {line}
+                      <br />
+                    </React.Fragment>
+                  ))}
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            <div className={styles.right_r}>
+              {trialsCardItems.slice(2).map((item, index) => (
+                <div
+                  key={index}
+                  className={clsx(styles[item.className])} 
+                >
+                  <img
+                    width={60}
+                    height={60}
+                    src={useBaseUrl(item.imgSrc)}
+                    alt={item.title}
+                  />
+                  {item.title.split("\n").map((line, idx) => (
+                    <React.Fragment key={idx}>
+                      {line}
+                      <br />
+                    </React.Fragment>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

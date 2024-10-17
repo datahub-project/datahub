@@ -1,0 +1,133 @@
+.tabbedComponent {
+  text-align: center;
+  padding: 20px;
+  padding-top: 48px;
+  padding-bottom: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+
+.container {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.1);
+  margin: 0rem 5rem;
+  max-width: 1200px;
+  width: 100%;
+}
+
+.tabs {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.tab {
+  align-items: center;
+  margin: 0;
+  border-bottom: 1px solid #e0e0e0;
+  position: relative;
+
+  &.activeTab {
+    border-bottom: none;
+  }
+}
+
+.activeTab .tabButton {
+  border-bottom: 1px solid #f1f1f1;
+}
+
+.tabButton {
+  padding: 1.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: space-between;
+  font-size: 1.2rem;
+  font-weight: 700;
+  transition: color 0.2s;
+
+  .tabTitle {
+    color: var(--primitives-text-text-brand, #1890FF);
+    font-family: Manrope;
+    font-size: 40px;
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+
+  .tabTitle.active {
+    color: #1890ff;
+    text-decoration: underline;
+  }
+
+  &:hover {
+    color: #1890ff;
+  }
+  
+  &:focus {
+    outline: none;
+  }
+}
+
+
+.imageContainer {
+  display: none;
+  justify-content: center;
+  align-items: center;
+  background-color: transparent;
+  margin: 1rem 0; 
+  height: 380px;
+  border-radius: 24px;
+}
+
+.tabImage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  padding: 4px;
+  align-items: center;
+  justify-content: center;
+}
+
+.tabImage video {
+  max-height: 100%;
+  max-width: 100%;
+  border-radius: 22px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.mobileImageContainer {
+  @media (max-width: 767px) {
+    display: flex;
+  }
+}
+
+.webImageContainer {
+  @media (min-width: 768px) {
+    display: flex;
+    flex-grow: 1;
+  }
+}
+
+@media (min-width: 768px) {
+  .container {
+    flex-direction: row; 
+    padding: 40px 32px;
+  }
+  .tabs {
+    width: 440px;
+  }
+
+  .imageContainer {
+    margin: 1rem;
+  }
+}

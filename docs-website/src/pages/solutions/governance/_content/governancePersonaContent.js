@@ -2,7 +2,7 @@ const personaContent = {
       title: "Highly customizable. Brings all stakeholders together.",
       personas: [
         {
-          imgSrc: "/img/solutions/persona_governance_officers.png",
+          imgSrc: "/img/solutions/persona_compliance_officers.png",
           desc: "Data Classification \n\n Glossary Custom Form builder \n\n Automated Form Assigning",
           link: "/",
           alt: "governance_officers"
@@ -14,7 +14,7 @@ const personaContent = {
           alt: "developers",
         },
         {
-          imgSrc: "/img/solutions/persona_data_owners.png",
+          imgSrc: "/img/solutions/persona_owners_and_smes.png",
           desc: "Seamless UI Workflows to  \n\n Respond to Requests \n\n Notifications where they work",
           link: "/",
           alt: "data_owners",
