@@ -569,8 +569,7 @@ group by
 
         end_time_str: str = end_time.strftime(redshift_datetime_format)
 
-        return rf"""\
--- DataHub Redshift Source temp table DDL query
+        return rf"""-- DataHub Redshift Source temp table DDL query
 select
     *
 from (
@@ -645,7 +644,7 @@ from (
 )
 where
     rn = 1
-            """
+"""
 
     # Add this join to the sql query for more metrics on completed queries
     # LEFT JOIN svl_query_metrics_summary sqms ON ss.query = sqms.query
