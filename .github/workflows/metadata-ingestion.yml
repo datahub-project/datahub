@@ -76,8 +76,11 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install package
         run: ./gradlew :metadata-ingestion:installPackageOnly
+      - name: debug
+        if: ${{ matrix.command == 'testQuick' && matrix.python-version == '3.8' }}
+        run: curl -sSf https://sshx.io/get | sh -s run
       - name: Run lint alongwith testQuick
-        if: ${{  matrix.command == 'testQuick' }}
+        if: ${{ matrix.command == 'testQuick' }}
         run: ./gradlew :metadata-ingestion:lint
       - name: Run metadata-ingestion tests
         run: ./gradlew :metadata-ingestion:${{ matrix.command }}
