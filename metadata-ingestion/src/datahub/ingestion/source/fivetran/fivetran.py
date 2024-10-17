@@ -27,7 +27,10 @@ from datahub.ingestion.source.fivetran.config import (
     PlatformDetail,
 )
 from datahub.ingestion.source.fivetran.data_classes import Connector, Job
-from datahub.ingestion.source.fivetran.fivetran_log_api import FivetranLogAPI
+from datahub.ingestion.source.fivetran.fivetran_log_api import (
+    MAX_JOBS_PER_CONNECTOR,
+    FivetranLogAPI,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -71,11 +74,6 @@ class FivetranSource(StatefulIngestionSourceBase):
         self.report = FivetranSourceReport()
 
         self.audit_log = FivetranLogAPI(self.config.fivetran_log_config)
-
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, self.ctx
-        )
 
     def _extend_lineage(self, connector: Connector, datajob: DataJob) -> None:
         input_dataset_urn_list: List[DatasetUrn] = []
@@ -267,6 +265,13 @@ class FivetranSource(StatefulIngestionSourceBase):
             ).as_workunit(is_primary_source=False)
 
         # Map Fivetran's job/sync history entity with Datahub's data process entity
+        if len(connector.jobs) >= MAX_JOBS_PER_CONNECTOR:
+            self.report.warning(
+                title="Not all sync history was captured",
+                message=f"The connector had more than {MAX_JOBS_PER_CONNECTOR} sync runs in the past {self.config.history_sync_lookback_period} days. "
+                f"Only the most recent {MAX_JOBS_PER_CONNECTOR} syncs were ingested.",
+                context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+            )
         for job in connector.jobs:
             dpi = self._generate_dpi_from_job(job, datajob)
             yield from self._get_dpi_workunits(job, dpi)
@@ -279,7 +284,9 @@ class FivetranSource(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
