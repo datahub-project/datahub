@@ -80,6 +80,9 @@ def scan_init_response(request, context):
         "C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492": {
             "id": "81B02907-E2A3-45C3-B505-3781839C8CAA",
         },
+        "8F756DE6-26AD-45FF-A201-44276FF1F561": {
+            "id": "6147FCEB-7531-4449-8FB6-1F7A5431BF2D",
+        },
     }
 
     return w_id_vs_response[workspace_id]
@@ -1486,6 +1489,68 @@ def test_powerbi_cross_workspace_reference_info_message(
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     golden_file = "golden_test_cross_workspace_dataset.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_powerbi_app_ingest(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    enable_logging()
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        pytestconfig=pytestconfig,
+        request_mock=requests_mock,
+        override_data=read_mock_data(
+            path=pytestconfig.rootpath
+            / "tests/integration/powerbi/mock_data/workspace_with_app_mock_response.json"
+        ),
+    )
+
+    config = default_source_config()
+
+    del config["workspace_id"]
+
+    config["workspace_id_pattern"] = {
+        "allow": [
+            "8F756DE6-26AD-45FF-A201-44276FF1F561",
+        ]
+    }
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **config,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_app_ingest.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,

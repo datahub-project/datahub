@@ -1009,7 +1009,9 @@ class Mapper:
             )
 
             # Browse path
-            browse_path = BrowsePathsClass(paths=[f"/powerbi/{workspace.name}"])
+            browse_path = BrowsePathsClass(
+                paths=[f"/{Constant.PLATFORM_NAME}/{workspace.name}"]
+            )
             browse_path_mcp = self.new_mcp(
                 entity_urn=chart_urn,
                 aspect=browse_path,
@@ -1344,6 +1346,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         if edges:
+            logger.debug(
+                f"Emitting metadata-workunits for app {workspace.app.name}({workspace.app.id})"
+            )
             dashboard_info: DashboardInfoClass = DashboardInfoClass(
                 title=workspace.app.name,
                 description=workspace.app.description
@@ -1352,7 +1357,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 # lastModified=workspace.app.last_update,
                 lastModified=ChangeAuditStamps(
                     lastModified=AuditStampClass(
-                        actor=str(),
+                        actor="urn:li:corpuser:unknown",
                         time=int(
                             datetime.strptime(
                                 workspace.app.last_update, "%Y-%m-%dT%H:%M:%S.%fZ"
@@ -1371,9 +1376,19 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 name=powerbi_data_classes.App.get_urn_part_by_id(workspace.app.id),
             )
 
+            # Browse path
+            browse_path: BrowsePathsClass = BrowsePathsClass(
+                paths=[f"/powerbi/{workspace.name}"]
+            )
+
             yield MetadataChangeProposalWrapper(
                 entityUrn=dashboard_urn,
                 aspect=dashboard_info,
+            ).as_workunit()
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
+                aspect=browse_path,
             ).as_workunit()
 
             yield MetadataChangeProposalWrapper(
