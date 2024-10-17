@@ -456,10 +456,10 @@ public class SearchUtils {
         sortCriteria =
             sortInput.getSortCriterion() != null
                 ? Collections.singletonList(mapSortCriterion(sortInput.getSortCriterion()))
-                : Collections.emptyList();
+                : new ArrayList<>();
       }
     } else {
-      sortCriteria = Collections.emptyList();
+      sortCriteria = new ArrayList<>();
     }
 
     return sortCriteria;
