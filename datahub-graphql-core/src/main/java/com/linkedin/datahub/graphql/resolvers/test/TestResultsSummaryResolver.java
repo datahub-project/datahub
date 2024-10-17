@@ -14,6 +14,7 @@ import com.linkedin.metadata.query.filter.*;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.util.TestUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.test.BatchTestRunEvent;
 import com.linkedin.test.TestInfo;
@@ -122,7 +123,7 @@ public class TestResultsSummaryResolver
     Filter filter = new Filter();
     final ArrayList<Criterion> criteria = new ArrayList<>();
     Criterion partitionCriterion =
-        new Criterion().setField("partition").setCondition(Condition.EQUAL).setValue("FULL");
+        CriterionUtils.buildCriterion("partition", Condition.EQUAL, "FULL");
     criteria.add(partitionCriterion);
     filter.setOr(
         new ConjunctiveCriterionArray(

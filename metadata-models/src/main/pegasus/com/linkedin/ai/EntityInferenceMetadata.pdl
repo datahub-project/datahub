@@ -12,10 +12,12 @@ record EntityInferenceMetadata {
    */
   @Searchable = {
     "/lastInferredAt": {
-        "fieldName": "glossaryTermsLastInferredAt"
+        "fieldName": "glossaryTermsLastInferredAt",
+        "queryByDefault": false,
     },
     "/version": {
-        "fieldName": "glossaryTermsVersion"
+        "fieldName": "glossaryTermsVersion",
+        "queryByDefault": false,
     },
   }
   glossaryTermsInference: optional InferenceGroupMetadata

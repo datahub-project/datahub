@@ -60,18 +60,6 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=Record].[type=long].FourthChord",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "FourthChord",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "[version=2.0].[type=Record].[type=long].SecondChord",
                     "nullable": false,
                     "type": {
@@ -92,6 +80,18 @@
                         }
                     },
                     "nativeDataType": "ThirdChord",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].FourthChord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "FourthChord",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -129,7 +129,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444899021
+            "lastUpdatedTimestamp": 1586808020000
         }
     },
     "systemMetadata": {
@@ -1619,7 +1619,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444909021
+            "lastUpdatedTimestamp": 1586808030000
         }
     },
     "systemMetadata": {
@@ -2069,6 +2069,50 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808020000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808030000
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,

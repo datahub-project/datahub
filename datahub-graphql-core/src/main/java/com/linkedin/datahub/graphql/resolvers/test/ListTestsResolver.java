@@ -6,7 +6,6 @@ import static com.linkedin.metadata.AcrylConstants.*;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -22,6 +21,7 @@ import com.linkedin.metadata.query.filter.*;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.CriterionUtils;
 import graphql.VisibleForTesting;
 import graphql.com.google.common.collect.ImmutableList;
 import graphql.schema.DataFetcher;
@@ -124,16 +124,12 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
-                                    new Criterion()
-                                        .setField("sourceType")
-                                        .setCondition(Condition.EQUAL)
-                                        .setValues(
-                                            new StringArray(
-                                                ImmutableList.of(
-                                                    "FORMS",
-                                                    "BULK_FORM_SUBMISSION",
-                                                    "FORM_PROMPT")))
-                                        .setValue("FORMS")
-                                        .setNegated(true)))))));
+                                    CriterionUtils.buildCriterion(
+                                        "sourceType",
+                                        Condition.EQUAL,
+                                        true,
+                                        "FORMS",
+                                        "BULK_FORM_SUBMISSION",
+                                        "FORM_PROMPT")))))));
   }
 }

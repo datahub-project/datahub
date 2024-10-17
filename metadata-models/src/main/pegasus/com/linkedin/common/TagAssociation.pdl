@@ -22,17 +22,17 @@ record TagAssociation {
     "/time": {
         "fieldName": "tagAttributionDates",
         "fieldType": "DATETIME",
-        "queryByDefault": false
+        "queryByDefault": false,
       },
     "/actor": {
         "fieldName": "tagAttributionActors",
         "fieldType": "URN",
-        "queryByDefault": false
+        "queryByDefault": false,
       },
     "/source": {
         "fieldName": "tagAttributionSources",
         "fieldType": "URN",
-        "queryByDefault": false
+        "queryByDefault": false,
       },
   }
   attribution: optional MetadataAttribution

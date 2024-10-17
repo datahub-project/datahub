@@ -347,6 +347,9 @@ def detach_ctes(
     dialect = get_dialect(platform)
     statement = parse_statement(sql, dialect=dialect)
 
+    if not cte_mapping:
+        return statement
+
     def replace_cte_refs(node: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
         if (
             isinstance(node, sqlglot.exp.Identifier)

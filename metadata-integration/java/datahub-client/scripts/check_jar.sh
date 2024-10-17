@@ -4,6 +4,10 @@ jarishFile=$(find build/libs -name "${libName}*.jar" -exec ls -1rt "{}" +;)
 jarFiles=$(echo "$jarishFile" | grep -v sources | grep -v javadoc | tail -n 1)
 for jarFile in ${jarFiles}; do
 jar -tvf $jarFile |\
+      grep -v "io/acryl/" |\
+      grep -v "avro/" |\
+      grep -v "avroutil1/" \|
+      grep -v "org/apache/velocity/" |\
       grep -v "datahub/shaded" |\
       grep -v "META-INF" |\
       grep -v "com/linkedin" |\
@@ -36,10 +40,11 @@ jar -tvf $jarFile |\
       grep -v "darwin" |\
       grep -v "MetadataChangeProposal.avsc" |\
       grep -v "aix" |\
-      grep -v "com/sun/"
-      grep -v "mozilla"
-      grep -v "VersionInfo.java"
-      grep -v "mime.types"
+      grep -v "com/sun/"  |\
+      grep -v "mozilla"  |\
+      grep -v "VersionInfo.java" |\
+      grep -v "mime.types" |\
+      grep -v "com/ibm/.*"
 
 
 if [ $? -ne 0 ]; then

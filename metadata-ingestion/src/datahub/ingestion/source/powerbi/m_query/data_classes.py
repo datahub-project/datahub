@@ -44,3 +44,12 @@ class DataAccessFunctionDetail:
     arg_list: Tree
     data_access_function_name: str
     identifier_accessor: Optional[IdentifierAccessor]
+
+
+@dataclass
+class ReferencedTable:
+    warehouse: str
+    catalog: Optional[str]
+    database: str
+    schema: str
+    table: str

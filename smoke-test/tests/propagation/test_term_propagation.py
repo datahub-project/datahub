@@ -6,7 +6,7 @@ import pathlib
 import signal
 import subprocess
 import time
-from typing import Iterable, Iterator, List, Optional, Set, Union
+from typing import Any, Iterable, Iterator, List, Optional, Set, Union
 
 import datahub.metadata.schema_classes as models
 import pydantic
@@ -19,7 +19,7 @@ from datahub.api.entities.dataset.dataset import (
 )
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -47,12 +47,7 @@ from tests.integrations_service_utils import (
     stop_action,
     wait_until_action_has_processed_event,
 )
-from tests.utils import (
-    get_gms_url,
-    get_integrations_service_url,
-    wait_for_healthcheck_util,
-    wait_for_writes_to_sync,
-)
+from tests.utils import wait_for_writes_to_sync
 
 """
 This file contains tests for the documentation propagation feature. The tests
@@ -84,23 +79,6 @@ TODOs:
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="session")
-def wait_for_healthchecks():
-    wait_for_healthcheck_util()
-    yield
-
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
-
-
-@pytest.fixture(scope="session")
-def graph_client() -> DataHubGraph:
-    return DataHubGraph(config=DatahubClientConfig(server=get_gms_url()))
 
 
 def kill_action_processes(action_urn=None):
@@ -151,6 +129,7 @@ def kill_action_processes(action_urn=None):
 
 
 def cleanup(
+    auth_session: Any,
     graph_client: DataHubGraph,
     urns: Iterable[str],
     test_resources_dir: str,
@@ -169,7 +148,7 @@ def cleanup(
             for action in all_actions["listActionPipelines"]["actionPipelines"]:
                 action_urn = action["urn"]
                 try:
-                    stop_action(action_urn, get_integrations_service_url())
+                    stop_action(action_urn, auth_session.integrations_service_url())
                 except Exception as e:
                     logger.error(f"Error stopping action: {e}")
                 # ensure all action processes that have been spawned are stopped
@@ -190,7 +169,7 @@ def cleanup(
 
 
 @pytest.fixture(scope="module")
-def load_glossary(test_resources_dir, wait_for_healthchecks):
+def load_glossary(auth_session, test_resources_dir):
     glossary_file = test_resources_dir / "test_glossary.dhub.yaml"
 
     pipeline = {
@@ -199,7 +178,14 @@ def load_glossary(test_resources_dir, wait_for_healthchecks):
             "config": {
                 "file": str(glossary_file),
             },
-        }
+        },
+        "sink": {
+            "type": "datahub-rest",
+            "config": {
+                "server": auth_session.gms_url(),
+                "token": auth_session.gms_token(),
+            },
+        },
     }
 
     # Run the pipeline
@@ -214,7 +200,7 @@ def load_glossary(test_resources_dir, wait_for_healthchecks):
 
 @pytest.fixture(scope="function")
 def create_test_action(
-    graph_client: DataHubGraph, test_resources_dir, test_action_urn
+    auth_session: Any, graph_client: DataHubGraph, test_resources_dir, test_action_urn
 ) -> Iterator[None]:
     try:
         action_urn = test_action_urn
@@ -224,6 +210,7 @@ def create_test_action(
             recipe_json_str = json.dumps(yaml.safe_load(f))
 
         cleanup(
+            auth_session,
             graph_client,
             [action_urn],
             test_resources_dir,
@@ -247,6 +234,7 @@ def create_test_action(
     finally:
         # we cleanup the action after all the tests have run
         cleanup(
+            auth_session,
             graph_client,
             [test_action_urn],
             test_resources_dir,
@@ -824,6 +812,7 @@ def graph_lineage_data(request, test_action_urn, create_test_action):
 
 
 def test_main_loop(
+    auth_session: Any,
     graph_client: DataHubGraph,
     graph_lineage_data: PropagationTestScenario,
     test_action_urn: str,
@@ -834,6 +823,7 @@ def test_main_loop(
     time_stages = {}
     time_stages["cleanup"] = time.time()
     cleanup(
+        auth_session,
         graph_client,
         urns=graph_lineage_data.get_urns(),
         test_resources_dir=test_resources_dir,
@@ -844,31 +834,44 @@ def test_main_loop(
     try:
         # First test bootstrap
         time_stages["bootstrap"] = time.time()
-        docs_propagation_bootstrap(graph_client, graph_lineage_data, test_action_urn)
+        docs_propagation_bootstrap(
+            auth_session, graph_client, graph_lineage_data, test_action_urn
+        )
         time_stages["bootstrap"] = time.time() - time_stages["bootstrap"]
 
         # Then test rollback
         time_stages["rollback"] = time.time()
         docs_propagation_rollback(
-            graph_client, graph_lineage_data, test_action_urn, post_mutation=False
+            auth_session,
+            graph_client,
+            graph_lineage_data,
+            test_action_urn,
+            post_mutation=False,
         )
         time_stages["rollback"] = time.time() - time_stages["rollback"]
 
         # Finally test live
         time_stages["live"] = time.time()
-        docs_propagation_live(graph_client, graph_lineage_data, test_action_urn)
+        docs_propagation_live(
+            auth_session, graph_client, graph_lineage_data, test_action_urn
+        )
         time_stages["live"] = time.time() - time_stages["live"]
 
         # Test rollback again
         time_stages["live_rollback"] = time.time()
         docs_propagation_rollback(
-            graph_client, graph_lineage_data, test_action_urn, post_mutation=True
+            auth_session,
+            graph_client,
+            graph_lineage_data,
+            test_action_urn,
+            post_mutation=True,
         )
         time_stages["live_rollback"] = time.time() - time_stages["live_rollback"]
 
     finally:
         time_stages["post_test_cleanup"] = time.time()
         cleanup(
+            auth_session,
             graph_client,
             urns=graph_lineage_data.get_urns(),
             test_resources_dir=test_resources_dir,
@@ -983,7 +986,10 @@ def check_expectation(
 
 
 def docs_propagation_bootstrap(
-    graph_client: DataHubGraph, scenario: PropagationTestScenario, test_action_urn: str
+    auth_session: Any,
+    graph_client: DataHubGraph,
+    scenario: PropagationTestScenario,
+    test_action_urn: str,
 ) -> None:
     time_stages = {}
 
@@ -999,7 +1005,9 @@ def docs_propagation_bootstrap(
 
     time_stages["bootstrap_action"] = time.time()
     bootstrap_action(
-        test_action_urn, get_integrations_service_url(), wait_for_completion=True
+        test_action_urn,
+        auth_session.integrations_service_url(),
+        wait_for_completion=True,
     )
     time_stages["bootstrap_action"] = time.time() - time_stages["bootstrap_action"]
 
@@ -1019,6 +1027,7 @@ def docs_propagation_bootstrap(
 
 
 def docs_propagation_live(
+    auth_session: Any,
     graph_client: DataHubGraph,
     scenario: PropagationTestScenario,
     test_action_urn: str,
@@ -1026,7 +1035,9 @@ def docs_propagation_live(
     time_stages = {}
     time_stages["start_action"] = time.time()
     start_action(
-        test_action_urn, get_integrations_service_url(), wait_for_completion=True
+        test_action_urn,
+        auth_session.integrations_service_url(),
+        wait_for_completion=True,
     )
     time_stages["start_action"] = time.time() - time_stages["start_action"]
 
@@ -1039,7 +1050,7 @@ def docs_propagation_live(
         time_stages["apply_mutations"] = time.time() - time_stages["apply_mutations"]
         time_stages["wait_for_action_has_processed_event"] = time.time()
         wait_until_action_has_processed_event(
-            test_action_urn, get_integrations_service_url(), audit_timestamp
+            test_action_urn, auth_session.integrations_service_url(), audit_timestamp
         )
         time_stages["wait_for_action_has_processed_event"] = (
             time.time() - time_stages["wait_for_action_has_processed_event"]
@@ -1050,12 +1061,13 @@ def docs_propagation_live(
 
     finally:
         time_stages["stop_action"] = time.time()
-        stop_action(test_action_urn, get_integrations_service_url())
+        stop_action(test_action_urn, auth_session.integrations_service_url())
         time_stages["stop_action"] = time.time() - time_stages["stop_action"]
         print(f"---------- Live time stages: {time_stages} ------------")
 
 
 def docs_propagation_rollback(
+    auth_session: Any,
     graph_client: DataHubGraph,
     scenario: PropagationTestScenario,
     test_action_urn: str,
@@ -1064,7 +1076,7 @@ def docs_propagation_rollback(
     wait_for_writes_to_sync()
     rollback_action(
         test_action_urn,
-        get_integrations_service_url(),
+        auth_session.integrations_service_url(),
         wait_for_completion=True,
     )
 

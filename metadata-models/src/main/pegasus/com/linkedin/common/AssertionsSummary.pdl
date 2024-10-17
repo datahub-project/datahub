@@ -29,18 +29,22 @@ record AssertionsSummary {
         "fieldType": "URN",
         "fieldName": "passingAssertions",
         "hasValuesFieldName": "hasPassingAssertions",
-        "numValuesFieldName": "numPassingAssertions"
+        "numValuesFieldName": "numPassingAssertions",
+        "queryByDefault": false,
       },
       "/*/type" : {
         "fieldType": "KEYWORD",
-        "fieldName": "passingAssertionTypes"
+        "fieldName": "passingAssertionTypes",
+        "queryByDefault": false,
       },
       "/*/lastResultAt" : {
         "fieldType": "DATETIME",
-        "fieldName": "passingAssertionResultTimes"
+        "fieldName": "passingAssertionResultTimes",
+        "queryByDefault": false,
       },
       "/*/source" : {
-        "fieldName": "passingAssertionSources"
+        "fieldName": "passingAssertionSources",
+        "queryByDefault": false,
       }
     }
     @Relationship = {
@@ -60,18 +64,22 @@ record AssertionsSummary {
         "fieldName": "failingAssertions",
         "hasValuesFieldName": "hasFailingAssertions",
         "numValuesFieldName": "numFailingAssertions",
-        "addHasValuesToFilters": true
+        "addHasValuesToFilters": true,
+        "queryByDefault": false,
       },
       "/*/type" : {
         "fieldType": "KEYWORD",
-        "fieldName": "failingAssertionType"
+        "fieldName": "failingAssertionType",
+        "queryByDefault": false,
       },
       "/*/lastResultAt" : {
        "fieldType": "DATETIME",
-       "fieldName": "failingAssertionResultTimes"
+       "fieldName": "failingAssertionResultTimes",
+       "queryByDefault": false,
       },
       "/*/source" : {
-        "fieldName": "failingAssertionSources"
+        "fieldName": "failingAssertionSources",
+        "queryByDefault": false,
       }
     }
     @Relationship = {

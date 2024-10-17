@@ -368,5 +368,27 @@
         "runId": "relative_path.json",
         "lastRunId": "no-run-id-provided"
     }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1655831477768
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "relative_path.json",
+        "lastRunId": "no-run-id-provided"
+    }
 }
 ]

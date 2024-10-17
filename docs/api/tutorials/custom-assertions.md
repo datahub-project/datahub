@@ -265,7 +265,7 @@ query getAssertion {
             customType # Will be your custom type. 
             description
             lastUpdated {
-                time
+                time 
                 actor
             }
             customAssertion {
@@ -279,6 +279,18 @@ query getAssertion {
                 created {
                     time
                     actor
+                }
+            }
+        }
+        # Fetch what entities have the assertion attached to it
+        relationships(input: {
+            types: ["Asserts"]
+            direction: OUTGOING
+        }) {
+            total
+            relationships {
+                entity {
+                    urn
                 }
             }
         }

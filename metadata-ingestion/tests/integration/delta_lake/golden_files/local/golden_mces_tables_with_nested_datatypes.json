@@ -1841,5 +1841,137 @@
         "runId": "tables_with_nested_datatypes.json",
         "lastRunId": "no-run-id-provided"
     }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct_1,UAT)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1709535906725
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "tables_with_nested_datatypes.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct,UAT)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1709110542636
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "tables_with_nested_datatypes.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array,UAT)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1708329078869
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "tables_with_nested_datatypes.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array_of_struct,UAT)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1708329897384
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "tables_with_nested_datatypes.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct_2,UAT)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1709536366367
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "tables_with_nested_datatypes.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_nested_array_of_numbers,UAT)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1708330178404
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "tables_with_nested_datatypes.json",
+        "lastRunId": "no-run-id-provided"
+    }
 }
 ]

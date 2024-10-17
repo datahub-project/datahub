@@ -11,6 +11,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "name": "taxis",
                         "customProperties": {
                             "owner": "root",
                             "created-at": "2024-05-22T14:10:22.926080700Z",

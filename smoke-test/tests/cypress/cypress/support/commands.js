@@ -535,23 +535,7 @@ Cypress.Commands.add(
 );
 
 Cypress.Commands.add("doInInbox", (action) => {
-  cy.contains("Inbox").click({ force: true });
-  cy.get(".action-request-test-id").should("have.length", 1);
-  cy.contains(action).first().click({ force: true });
-  cy.contains("Yes").click({ force: true });
-  cy.get(".action-request-test-id").should("have.length", 0);
-});
-
-Cypress.Commands.add("acceptProposalInbox", () => {
-  cy.doInInbox("Approve");
-});
-
-Cypress.Commands.add("rejectProposalInbox", () => {
-  cy.doInInbox("Decline");
-});
-
-Cypress.Commands.add("doInInbox", (action) => {
-  cy.contains("Inbox").click({ force: true });
+  cy.contains("span", "Inbox").click({ force: true });
   cy.get(".action-request-test-id").should("have.length", 1);
   cy.contains(action).first().click({ force: true });
   cy.contains("Yes").click({ force: true });

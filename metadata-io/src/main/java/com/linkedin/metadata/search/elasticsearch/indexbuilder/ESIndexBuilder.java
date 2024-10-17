@@ -87,6 +87,8 @@ public class ESIndexBuilder {
 
   @Getter private final GitVersion gitVersion;
 
+  @Getter private final int maxReindexHours;
+
   private static final RequestOptions REQUEST_OPTIONS =
       RequestOptions.DEFAULT.toBuilder()
           .setRequestConfig(RequestConfig.custom().setSocketTimeout(180 * 1000).build())
@@ -106,6 +108,34 @@ public class ESIndexBuilder {
       boolean enableStructuredPropertiesReindex,
       ElasticSearchConfiguration elasticSearchConfiguration,
       GitVersion gitVersion) {
+    this(
+        searchClient,
+        numShards,
+        numReplicas,
+        numRetries,
+        refreshIntervalSeconds,
+        indexSettingOverrides,
+        enableIndexSettingsReindex,
+        enableIndexMappingsReindex,
+        enableStructuredPropertiesReindex,
+        elasticSearchConfiguration,
+        gitVersion,
+        0);
+  }
+
+  public ESIndexBuilder(
+      RestHighLevelClient searchClient,
+      int numShards,
+      int numReplicas,
+      int numRetries,
+      int refreshIntervalSeconds,
+      Map<String, Map<String, String>> indexSettingOverrides,
+      boolean enableIndexSettingsReindex,
+      boolean enableIndexMappingsReindex,
+      boolean enableStructuredPropertiesReindex,
+      ElasticSearchConfiguration elasticSearchConfiguration,
+      GitVersion gitVersion,
+      int maxReindexHours) {
     this._searchClient = searchClient;
     this.numShards = numShards;
     this.numReplicas = numReplicas;
@@ -117,6 +147,7 @@ public class ESIndexBuilder {
     this.elasticSearchConfiguration = elasticSearchConfiguration;
     this.enableStructuredPropertiesReindex = enableStructuredPropertiesReindex;
     this.gitVersion = gitVersion;
+    this.maxReindexHours = maxReindexHours;
 
     RetryConfig config =
         RetryConfig.custom()
@@ -348,10 +379,10 @@ public class ESIndexBuilder {
   private void reindex(ReindexConfig indexState) throws Throwable {
     final long startTime = System.currentTimeMillis();
 
-    final int maxReindexHours = 8;
     final long initialCheckIntervalMilli = 1000;
     final long finalCheckIntervalMilli = 60000;
-    final long timeoutAt = startTime + (1000 * 60 * 60 * maxReindexHours);
+    final long timeoutAt =
+        maxReindexHours > 0 ? startTime + (1000L * 60 * 60 * maxReindexHours) : Long.MAX_VALUE;
 
     String tempIndexName = getNextIndexName(indexState.name(), startTime);
 

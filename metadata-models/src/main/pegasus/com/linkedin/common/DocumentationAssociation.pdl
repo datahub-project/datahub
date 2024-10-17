@@ -16,17 +16,17 @@ record DocumentationAssociation {
     "/time": {
         "fieldName": "documentationAttributionDates",
         "fieldType": "DATETIME",
-        "queryByDefault": false
+        "queryByDefault": false,
       },
     "/actor": {
         "fieldName": "documentationAttributionActors",
         "fieldType": "URN",
-        "queryByDefault": false
+        "queryByDefault": false,
       },
     "/source": {
         "fieldName": "documentationAttributionSources",
         "fieldType": "URN",
-        "queryByDefault": false
+        "queryByDefault": false,
       },
   }
   attribution: optional MetadataAttribution

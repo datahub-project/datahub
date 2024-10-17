@@ -22,7 +22,6 @@ from tests.utils import (
     get_frontend_url,
     get_sleep_info,
     login_as,
-    wait_for_healthcheck_util,
     wait_for_writes_to_sync,
 )
 
@@ -31,24 +30,11 @@ pytestmark = pytest.mark.no_cypress_suite1
 sleep_sec, sleep_times = get_sleep_info()
 
 
-@pytest.fixture(scope="session")
-def wait_for_healthchecks():
-    wait_for_healthcheck_util()
-    yield
-
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
-
-
-@pytest.fixture(scope="session")
-def admin_session(wait_for_healthchecks):
+@pytest.fixture(scope="module")
+def admin_session(auth_session):
     yield get_frontend_session()
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
 @pytest.fixture(scope="module", autouse=True)
 def privileges_and_test_user_setup(admin_session):
     """Fixture to execute setup before and tear down after all tests are run"""
@@ -163,7 +149,6 @@ def _ensure_can_create_user_policy(session, json):
     return res_data["data"]["createPolicy"]
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_privilege_to_create_and_manage_secrets():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
@@ -218,7 +203,6 @@ def test_privilege_to_create_and_manage_secrets():
     _ensure_cant_perform_action(user_session, create_secret, "createSecret")
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_privilege_to_create_and_manage_ingestion_source():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
@@ -327,7 +311,6 @@ def test_privilege_to_create_and_manage_ingestion_source():
     )
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_privilege_to_create_and_revoke_personal_access_tokens():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
@@ -413,7 +396,6 @@ def test_privilege_to_create_and_revoke_personal_access_tokens():
     _ensure_cant_perform_action(user_session, create_access_token, "createAccessToken")
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_privilege_to_create_and_manage_policies():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
@@ -509,7 +491,6 @@ def test_privilege_to_create_and_manage_policies():
     _ensure_cant_perform_action(user_session, create_policy, "createPolicy")
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_privilege_from_group_role_can_create_and_manage_secret():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)

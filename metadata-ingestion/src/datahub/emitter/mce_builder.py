@@ -11,7 +11,6 @@ from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
-    Iterable,
     List,
     Optional,
     Tuple,
@@ -25,7 +24,8 @@ from typing import (
 import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 
-from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
+from datahub.configuration.source_common import DEFAULT_ENV
+from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.schema_classes import (
     AssertionKeyClass,
     AuditStampClass,
@@ -50,15 +50,12 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     _Aspect as AspectAbstract,
 )
+from datahub.metadata.urns import DataFlowUrn, DatasetUrn, TagUrn
 from datahub.utilities.urn_encoder import UrnEncoder
-from datahub.utilities.urns.data_flow_urn import DataFlowUrn
-from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.tag_urn import TagUrn
 
 logger = logging.getLogger(__name__)
 Aspect = TypeVar("Aspect", bound=AspectAbstract)
 
-DEFAULT_ENV = DEFAULT_ENV_CONFIGURATION
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
 DATASET_URN_TO_LOWER: bool = (
@@ -374,19 +371,11 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
     )
 
 
-def _get_enum_options(_class: Type[object]) -> Iterable[str]:
-    return [
-        f
-        for f in dir(_class)
-        if not callable(getattr(_class, f)) and not f.startswith("_")
-    ]
-
-
 def validate_ownership_type(ownership_type: str) -> Tuple[str, Optional[str]]:
     if ownership_type.startswith("urn:li:"):
         return OwnershipTypeClass.CUSTOM, ownership_type
     ownership_type = ownership_type.upper()
-    if ownership_type in _get_enum_options(OwnershipTypeClass):
+    if ownership_type in get_enum_options(OwnershipTypeClass):
         return ownership_type, None
     raise ValueError(f"Unexpected ownership type: {ownership_type}")
 

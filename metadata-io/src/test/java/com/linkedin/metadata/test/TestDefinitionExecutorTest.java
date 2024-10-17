@@ -71,7 +71,7 @@ public class TestDefinitionExecutorTest {
             testPredicate, Mockito.mock(OperationContext.class));
     assertEquals(
         filter.toString(),
-        "{or=[{and=[{condition=EQUAL, field=platform, value=urn:li:dataPlatform:teradata, values=[urn:li:dataPlatform:teradata]}]}]}");
+        "{or=[{and=[{condition=EQUAL, negated=false, field=platform, value=, values=[urn:li:dataPlatform:teradata]}]}]}");
 
     ElasticTestDefinitionConvertor convertor = new ElasticTestDefinitionConvertor(mockRegistry);
     assertTrue(convertor.canEvaluate(result));

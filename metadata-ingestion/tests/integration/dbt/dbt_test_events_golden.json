@@ -1886,6 +1886,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.accepted_values_orders_status__placed__shipped__completed__return_pending__returned.be6b5b5ec3",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -1939,8 +1941,8 @@
             },
             "assertionUrn": "urn:li:assertion:b052a324c05327985f3b579a19ad7579",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -1974,6 +1976,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.accepted_values_stg_orders_status__placed__shipped__completed__return_pending__returned.080fb20aad",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.stg_orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -2027,8 +2031,8 @@
             },
             "assertionUrn": "urn:li:assertion:da743330013b7e3e3707ac6e526ab408",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -2062,6 +2066,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.accepted_values_stg_payments_payment_method__credit_card__coupon__bank_transfer__gift_card.3c3820f278",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.stg_payments",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -2115,8 +2121,8 @@
             },
             "assertionUrn": "urn:li:assertion:2887b9c826e0be6296a37833bdc380bd",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -2150,6 +2156,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.assert_total_payment_amount_is_positive",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -2191,8 +2199,8 @@
             },
             "assertionUrn": "urn:li:assertion:591d8dc8939e0cf9bf0fd03264ad1a0e",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -2226,6 +2234,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.dbt_expectations_expect_column_values_to_be_between_customers_customer_id__2000000__0__customer_id_is_not_null__False.e67667298f",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.customers",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -2293,6 +2303,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.dbt_expectations_expect_column_values_to_be_in_set_customers_customer_id__customer_id_is_not_null__0__1__2.81450cfcd8",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.customers",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -2349,8 +2361,8 @@
             },
             "assertionUrn": "urn:li:assertion:bf7fd2b46d2c32ee9bb036acd1559782",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -2384,6 +2396,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.dbt_expectations_expect_column_values_to_not_be_in_set_orders_credit_card_amount__credit_card_amount_is_not_null__0.888b06036c",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -2435,8 +2449,8 @@
             },
             "assertionUrn": "urn:li:assertion:1c217b7587a0cad47a07a09bfe154055",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -2470,6 +2484,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.not_null_customers_customer_id.5c9bf9911d",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.customers",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -2516,8 +2532,8 @@
             },
             "assertionUrn": "urn:li:assertion:44519aa345bf3ea896179f9f352ae946",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -2551,6 +2567,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.not_null_orders_amount.106140f9fd",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -2597,8 +2615,8 @@
             },
             "assertionUrn": "urn:li:assertion:bbd78a070092f54313153abec49f6f31",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -2632,6 +2650,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.not_null_orders_bank_transfer_amount.7743500c49",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -2678,8 +2698,8 @@
             },
             "assertionUrn": "urn:li:assertion:52d06197762e3608d94609e96f03a0a7",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -2713,6 +2733,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.not_null_orders_coupon_amount.ab90c90625",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -2759,8 +2781,8 @@
             },
             "assertionUrn": "urn:li:assertion:ca065a99637630468f688717590beeab",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -2794,6 +2816,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.not_null_orders_credit_card_amount.d3ca593b59",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -2840,8 +2864,8 @@
             },
             "assertionUrn": "urn:li:assertion:7a305acc5fc049dc9bbd141b814461d0",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -2875,6 +2899,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.not_null_orders_customer_id.c5f02694af",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -2921,8 +2947,8 @@
             },
             "assertionUrn": "urn:li:assertion:11087a3d7ae178df22c42922ac8ef8ad",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -2956,6 +2982,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.not_null_orders_gift_card_amount.413a0d2d7a",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -3002,8 +3030,8 @@
             },
             "assertionUrn": "urn:li:assertion:b301bb47cc4ebce4e78a194b3de11f25",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -3037,6 +3065,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.not_null_orders_order_id.cf6c17daed",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -3083,8 +3113,8 @@
             },
             "assertionUrn": "urn:li:assertion:2e9117138dcc9facda66f1efd55a8cd7",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -3118,6 +3148,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.not_null_stg_customers_customer_id.e2cfb1f9aa",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.stg_customers",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -3164,8 +3196,8 @@
             },
             "assertionUrn": "urn:li:assertion:25ebf4faa9b1654ef54c46d975ca0a81",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -3199,6 +3231,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.not_null_stg_orders_order_id.81cfe2fe64",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.stg_orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -3245,8 +3279,8 @@
             },
             "assertionUrn": "urn:li:assertion:b03abcc447aac70bbebb22a8a9d7dbbe",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -3280,6 +3314,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.not_null_stg_payments_payment_id.c19cc50075",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.stg_payments",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -3326,8 +3362,8 @@
             },
             "assertionUrn": "urn:li:assertion:c1eebc71f36690e4523adca30314e927",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -3339,7 +3375,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
+    "entityUrn": "urn:li:assertion:3191c2851901165afc07c3bd7f5f590a",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -3355,12 +3391,14 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
+    "entityUrn": "urn:li:assertion:3191c2851901165afc07c3bd7f5f590a",
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.relationships_orders_customer_id__customer_id__ref_customers_.c6ec7f58f2",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.customers",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -3401,7 +3439,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
+    "entityUrn": "urn:li:assertion:3191c2851901165afc07c3bd7f5f590a",
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3414,10 +3452,10 @@
                 "type": "SUCCESS",
                 "nativeResults": {}
             },
-            "assertionUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
+            "assertionUrn": "urn:li:assertion:3191c2851901165afc07c3bd7f5f590a",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -3429,12 +3467,30 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
+    "entityUrn": "urn:li:assertion:0331fa8a77015ca1a48d3a2fc90948fb",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:0331fa8a77015ca1a48d3a2fc90948fb",
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.relationships_orders_customer_id__customer_id__ref_customers_.c6ec7f58f2",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -3475,7 +3531,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
+    "entityUrn": "urn:li:assertion:0331fa8a77015ca1a48d3a2fc90948fb",
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3488,10 +3544,10 @@
                 "type": "SUCCESS",
                 "nativeResults": {}
             },
-            "assertionUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
+            "assertionUrn": "urn:li:assertion:0331fa8a77015ca1a48d3a2fc90948fb",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -3525,6 +3581,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.unique_customers_customer_id.c5af1ff4b1",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.customers",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -3577,8 +3635,8 @@
             },
             "assertionUrn": "urn:li:assertion:c51ca9c4b5a1f964bef748f0b8968e71",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -3612,6 +3670,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.unique_orders_order_id.fed79b3a6e",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -3664,8 +3724,8 @@
             },
             "assertionUrn": "urn:li:assertion:caa9b8060e214cecab88a92dc39c2e60",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -3699,6 +3759,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.unique_stg_customers_customer_id.c7614daada",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.stg_customers",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -3751,8 +3813,8 @@
             },
             "assertionUrn": "urn:li:assertion:54bac90e6785bdefd8685ebf8814c429",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -3786,6 +3848,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.unique_stg_orders_order_id.e3b841c71a",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.stg_orders",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -3838,8 +3902,8 @@
             },
             "assertionUrn": "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -3873,6 +3937,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.jaffle_shop.unique_stg_payments_payment_id.3744510712",
+                "dbt_test_upstream_unique_id": "model.jaffle_shop.stg_payments",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                 "manifest_version": "1.1.0",
                 "manifest_adapter": "bigquery",
@@ -3925,9 +3991,25 @@
             },
             "assertionUrn": "urn:li:assertion:fac27f352406b941125292413afa8096",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:0331fa8a77015ca1a48d3a2fc90948fb",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -4019,6 +4101,22 @@
 {
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:2ff754df689ea951ed2e12cbe356708f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:3191c2851901165afc07c3bd7f5f590a",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -4147,22 +4245,6 @@
 {
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b052a324c05327985f3b579a19ad7579",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

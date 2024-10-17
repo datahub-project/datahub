@@ -545,7 +545,72 @@ def test_value_error_projects_and_project_pattern(
             pipeline_config=new_config,
         )
     except Exception as e:
-        assert "projects is deprecated. Please use project_pattern only" in str(e)
+        assert "projects is deprecated. Please use project_path_pattern only" in str(e)
+
+
+def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph):
+    # Ingestion should raise ValueError
+    output_file_name: str = "tableau_project_pattern_deprecation_mces.json"
+    golden_file_name: str = "tableau_project_pattern_deprecation_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["project_pattern"] = {"allow": ["^Samples$"]}
+    new_config["project_path_pattern"] = {"allow": ["^Samples$"]}
+
+    try:
+        tableau_ingest_common(
+            pytestconfig,
+            tmp_path,
+            mock_data(),
+            golden_file_name,
+            output_file_name,
+            mock_datahub_graph,
+            pipeline_config=new_config,
+        )
+    except Exception as e:
+        assert (
+            "project_pattern is deprecated. Please use project_path_pattern only"
+            in str(e)
+        )
+
+
+def test_project_path_pattern_allow(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_project_path_pattern_allow_mces.json"
+    golden_file_name: str = "tableau_project_path_pattern_allow_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["project_path_pattern"] = {"allow": ["default/DenyProject"]}
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+    )
+
+
+def test_project_path_pattern_deny(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_project_path_pattern_deny_mces.json"
+    golden_file_name: str = "tableau_project_path_pattern_deny_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["project_path_pattern"] = {"deny": ["^default.*"]}
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+    )
 
 
 @freeze_time(FROZEN_TIME)

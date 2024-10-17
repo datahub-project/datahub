@@ -9,6 +9,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.GenericTable;
@@ -90,15 +91,14 @@ public class UsageFeature extends BatchFeatureExtractor {
     DateTime now = DateTime.now();
     DateTime monthAgo = now.minusMonths(1);
     Criterion startTimeCriterion =
-        new Criterion()
-            .setField("timestampMillis")
-            .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(Long.toString(monthAgo.getMillis()));
+        CriterionUtils.buildCriterion(
+            "timestampMillis",
+            Condition.GREATER_THAN_OR_EQUAL_TO,
+            Long.toString(monthAgo.getMillis()));
     Criterion endTimeCriterion =
-        new Criterion()
-            .setField("timestampMillis")
-            .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(Long.toString(now.getMillis()));
+        CriterionUtils.buildCriterion(
+            "timestampMillis", Condition.LESS_THAN_OR_EQUAL_TO, Long.toString(now.getMillis()));
+
     List<ConjunctiveCriterion> urnMatchCriterion =
         urns.stream()
             .map(
@@ -108,7 +108,7 @@ public class UsageFeature extends BatchFeatureExtractor {
                             new CriterionArray(
                                 startTimeCriterion,
                                 endTimeCriterion,
-                                new Criterion().setField("urn").setValue(urn))))
+                                CriterionUtils.buildCriterion("urn", Condition.EQUAL, urn))))
             .collect(Collectors.toList());
     return new Filter().setOr(new ConjunctiveCriterionArray(urnMatchCriterion));
   }

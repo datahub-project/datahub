@@ -42,7 +42,7 @@ public class AggregationQueryBuilderTest {
   private static String DEFAULT_FILTER = "_index";
 
   @BeforeClass
-  public static void setup() throws RemoteInvocationException, URISyntaxException {
+  public void setup() throws RemoteInvocationException, URISyntaxException {
     Urn helloUrn = Urn.createFromString("urn:li:structuredProperty:hello");
     Urn abFghTenUrn = Urn.createFromString("urn:li:structuredProperty:ab.fgh.ten");
 

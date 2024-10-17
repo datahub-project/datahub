@@ -334,19 +334,26 @@ class RedshiftSqlLineageV2:
         )
 
     def _process_copy_command(self, lineage_row: LineageRow) -> None:
-        source = self._lineage_v1._get_sources(
+        logger.debug(f"Processing COPY command for lineage row: {lineage_row}")
+        sources = self._lineage_v1._get_sources(
             lineage_type=LineageCollectorType.COPY,
             db_name=self.database,
             source_schema=None,
             source_table=None,
             ddl=None,
             filename=lineage_row.filename,
-        )[0]
+        )
+        logger.debug(f"Recognized sources: {sources}")
+        source = sources[0]
         if not source:
+            logger.debug("Ignoring command since couldn't recognize proper source")
             return
         s3_urn = source[0].urn
-
+        logger.debug(f"Recognized s3 dataset urn: {s3_urn}")
         if not lineage_row.target_schema or not lineage_row.target_table:
+            logger.debug(
+                f"Didn't find target schema (found: {lineage_row.target_schema}) or target table (found: {lineage_row.target_table})"
+            )
             return
         target = self._make_filtered_target(lineage_row)
         if not target:

@@ -1217,7 +1217,7 @@ fragment domainEntitiesFields on Domain {
         input: {
             start: 0
             count: 0
-            filters: [{ field: "_entityType", value: "DATA_PRODUCT" }]
+            filters: [{ field: "_entityType", values: "DATA_PRODUCT" }]
             searchFlags: { skipCache: true }
         }
     ) {

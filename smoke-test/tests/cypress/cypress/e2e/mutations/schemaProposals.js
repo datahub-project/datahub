@@ -171,7 +171,7 @@ describe("schemaProposals", () => {
     cy.clickOptionWithText("field_foo");
     deletePreviousEntity(
       "tags",
-      '[data-testid="tag-TagToPropose"]',
+      '[data-testid="proposed-tag-TagToPropose"]',
       "TagToPropose",
       "Removed Tag!",
     );
@@ -203,7 +203,7 @@ describe("schemaProposals", () => {
     cy.clickOptionWithText("field_foo");
     deletePreviousEntity(
       "tags",
-      '[data-testid="tag-TagToPropose"]',
+      '[data-testid="proposed-tag-TagToPropose"]',
       "TagToPropose",
       "Removed Tag!",
     );

@@ -15,18 +15,22 @@ record AnomaliesSummary {
         "fieldType": "URN",
         "fieldName": "activeAnomalies",
         "hasValuesFieldName": "hasActiveAnomalies",
-        "numValuesFieldName": "numActiveAnomalies"
+        "numValuesFieldName": "numActiveAnomalies",
+        "queryByDefault": false,
       },
       "/*/type" : {
         "fieldType": "KEYWORD",
-        "fieldName": "activeAnomalyTypes"
+        "fieldName": "activeAnomalyTypes",
+        "queryByDefault": false,
       },
       "/*/lastResultAt" : {
         "fieldType": "DATETIME",
-        "fieldName": "activeAnomalyResultTimes"
+        "fieldName": "activeAnomalyResultTimes",
+        "queryByDefault": false,
       },
       "/*/source" : {
-        "fieldName": "activeAnomalySources"
+        "fieldName": "activeAnomalySources",
+        "queryByDefault": false,
       }
     }
     @Relationship = {
@@ -45,18 +49,22 @@ record AnomaliesSummary {
         "fieldType": "URN",
         "fieldName": "resolvedAnomalies",
         "hasValuesFieldName": "hasResolvedAnomalies",
-        "numValuesFieldName": "numResolvedAnomalies"
+        "numValuesFieldName": "numResolvedAnomalies",
+        "queryByDefault": false,
       },
       "/*/type" : {
         "fieldType": "KEYWORD",
-        "fieldName": "resolvedAnomalyTypes"
+        "fieldName": "resolvedAnomalyTypes",
+        "queryByDefault": false,
       },
       "/*/lastResultAt" : {
        "fieldType": "DATETIME",
-       "fieldName": "resolvedAnomalyResultTimes"
+       "fieldName": "resolvedAnomalyResultTimes",
+       "queryByDefault": false,
       },
       "/*/source" : {
-        "fieldName": "resolvedAnomalySources"
+        "fieldName": "resolvedAnomalySources",
+        "queryByDefault": false,
       }
     }
     @Relationship = {

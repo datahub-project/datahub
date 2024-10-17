@@ -9,7 +9,7 @@ from requests import Response
 from termcolor import colored
 
 from datahub.emitter.mce_builder import dataset_urn_to_key, schema_field_urn_to_key
-from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn
@@ -62,8 +62,9 @@ def get_timeline(
     start_time: Optional[int],
     end_time: Optional[int],
     diff: bool,
+    graph: Optional[DataHubGraph] = None,
 ) -> Any:
-    client = get_default_graph()
+    client = graph if graph else get_default_graph()
     session = client._session
     host = client.config.server
     if urn.startswith("urn%3A"):

@@ -6,7 +6,6 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntit
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -19,13 +18,13 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -203,10 +202,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
-                                    new Criterion()
-                                        .setField("filterStatus")
-                                        .setCondition(Condition.EQUAL)
-                                        .setValues(new StringArray(ImmutableList.of("ENABLED")))
-                                        .setValue("ENABLED")))))));
+                                    CriterionUtils.buildCriterion(
+                                        "filterStatus", Condition.EQUAL, "ENABLED")))))));
   }
 }

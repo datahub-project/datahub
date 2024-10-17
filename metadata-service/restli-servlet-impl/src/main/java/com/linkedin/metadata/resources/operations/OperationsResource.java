@@ -1,7 +1,9 @@
 package com.linkedin.metadata.resources.operations;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+import static com.datahub.authorization.AuthUtil.isAPIOperationsAuthorized;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -135,7 +137,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
                   systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                           ACTION_GET_ES_TASK_STATUS), _authorizer, auth, true);
 
-          if (!isAPIAuthorized(
+          if (!isAPIOperationsAuthorized(
                   opContext,
                   PoliciesConfig.GET_ES_TASK_STATUS_PRIVILEGE)) {
             throw new RestLiServiceException(
@@ -198,7 +200,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
                   systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                           ACTION_GET_INDEX_SIZES, List.of()), _authorizer, auth, true);
 
-          if (!isAPIAuthorized(
+          if (!isAPIOperationsAuthorized(
                   opContext,
                   PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE)) {
             throw new RestLiServiceException(
@@ -242,8 +244,8 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
 
     List<Criterion> criteria = new ArrayList<>();
     criteria.add(
-        QueryUtils.newCriterion(
-            "timestampMillis", String.valueOf(endTimeMillis), Condition.LESS_THAN_OR_EQUAL_TO));
+        buildCriterion(
+            "timestampMillis", Condition.LESS_THAN_OR_EQUAL_TO, String.valueOf(endTimeMillis)));
 
     final Filter filter = QueryUtils.getFilterFromCriteria(criteria);
     long numToDelete = _timeseriesAspectService.countByFilter(opContext, entityType, aspectName, filter);
@@ -285,8 +287,8 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
         // count
         List<Criterion> reindexCriteria = new ArrayList<>();
         reindexCriteria.add(
-            QueryUtils.newCriterion(
-                "timestampMillis", String.valueOf(endTimeMillis), Condition.GREATER_THAN));
+            buildCriterion(
+                "timestampMillis", Condition.GREATER_THAN, String.valueOf(endTimeMillis)));
 
         final Filter reindexFilter = QueryUtils.getFilterFromCriteria(reindexCriteria);
         String taskId =

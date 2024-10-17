@@ -6,7 +6,6 @@ import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSyste
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -22,6 +21,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.test.definition.TestDefinition;
 import com.linkedin.metadata.test.exception.SelectionTooLargeException;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -104,20 +104,15 @@ public class TestUtils {
     final Filter result = new Filter();
     final String fieldNameWithSuffix = ESUtils.toKeywordField(fieldName, false, aspectRetriever);
     final Criterion urnCriterion =
-        new Criterion()
-            .setNegated(false)
-            .setField(fieldNameWithSuffix)
-            .setValues(new StringArray(ImmutableList.of(testUrn.toString())))
-            .setValue(testUrn.toString()) // :-(
-            .setCondition(Condition.EQUAL);
+        CriterionUtils.buildCriterion(fieldNameWithSuffix, Condition.EQUAL, testUrn.toString());
     final Criterion md5Criterion =
         testDefinitionMd5 == null
             ? null
-            : new Criterion()
-                .setNegated(false)
-                .setField(ESUtils.toKeywordField(md5FieldName, false, aspectRetriever))
-                .setValue(testDefinitionMd5) // :-(
-                .setCondition(Condition.EQUAL);
+            : CriterionUtils.buildCriterion(
+                ESUtils.toKeywordField(md5FieldName, false, aspectRetriever),
+                Condition.EQUAL,
+                testDefinitionMd5);
+
     CriterionArray criterionArray = new CriterionArray(urnCriterion);
     if (md5Criterion != null) {
       criterionArray.add(md5Criterion);

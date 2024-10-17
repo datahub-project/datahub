@@ -113,17 +113,19 @@ const SocialMedia = ({}) => {
     <div className={styles.container}>
         <div className={styles.containerBG} style={{ backgroundImage: `url(${useBaseUrl('/img/home-social-media/section-background.svg')})` }} />
 
-        <div className={styles.upperBox}>
+        {/* <div className={styles.upperBox}>
           <div>
             Built <strong>for</strong> Data Practitioners,<br/><strong>by</strong>{" "}
             Data Practitioners.
           </div>
-        </div>
+        </div> */}
       <div className={styles.mainBox}>
         <div className={styles.socialMediaSection}>
           <div className={styles.socialSubText}>
-            Born at LinkedIn, driven by Acryl <br />
-            and 500+ community contributors.
+            Built <strong>for</strong> Data Practitioners,<br/><strong>by</strong>{" "}
+            Data Practitioners.
+            {/* Born at LinkedIn, driven by Acryl <br />
+            and 500+ community contributors. */}
           </div>
           <div className={styles.socialStats}>
             <Link className={styles.statItem} to="https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w">

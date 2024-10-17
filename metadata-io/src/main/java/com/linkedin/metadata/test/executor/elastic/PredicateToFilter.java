@@ -2,7 +2,6 @@ package com.linkedin.metadata.test.executor.elastic;
 
 import static com.linkedin.metadata.search.utils.ESPredicateUtils.*;
 
-import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -14,6 +13,7 @@ import com.linkedin.metadata.test.definition.expression.Query;
 import com.linkedin.metadata.test.definition.operator.Operand;
 import com.linkedin.metadata.test.definition.operator.OperatorType;
 import com.linkedin.metadata.test.definition.operator.Predicate;
+import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.Map;
@@ -153,7 +153,7 @@ public class PredicateToFilter {
               throw new UnsupportedOperationException(
                   "Unsupported field in query: " + query.getQuery().getQuery());
             }
-            return new Criterion().setField(fieldName).setCondition(Condition.EXISTS);
+            return CriterionUtils.buildExistsCriterion(fieldName);
           }
         }
       case ANY_EQUALS:
@@ -169,11 +169,7 @@ public class PredicateToFilter {
             }
             StringArray values =
                 getSearchValueField(valueOperand.getExpression(), fieldName, opContext);
-            return new Criterion()
-                .setField(fieldName)
-                .setValue(values.get(0), SetMode.IGNORE_NULL)
-                .setValues(values)
-                .setCondition(Condition.EQUAL);
+            return CriterionUtils.buildCriterion(fieldName, Condition.EQUAL, values);
           }
         }
         break;
@@ -187,14 +183,13 @@ public class PredicateToFilter {
               throw new UnsupportedOperationException(
                   "Unsupported field in query: " + query.getQuery().getQuery());
             }
-            Criterion containsCriterion =
-                new Criterion().setField(fieldName).setCondition(Condition.IN);
+
             // single value
             Operand valueOperand = predicate.getOperands().get(1);
             StringArray values =
                 getSearchValueField(valueOperand.getExpression(), fieldName, opContext);
-            containsCriterion.setValue(values.get(0)).setValues(values, SetMode.IGNORE_NULL);
-            return containsCriterion;
+
+            return CriterionUtils.buildCriterion(fieldName, Condition.IN, values);
           }
         }
         break;
@@ -211,11 +206,7 @@ public class PredicateToFilter {
             }
             StringArray values =
                 getSearchValueField(valueOperand.getExpression(), fieldName, opContext);
-            return new Criterion()
-                .setField(fieldName)
-                .setValue(values.get(0), SetMode.IGNORE_NULL)
-                .setValues(values)
-                .setCondition(Condition.START_WITH);
+            return CriterionUtils.buildCriterion(fieldName, Condition.START_WITH, values);
           }
         }
         break;
@@ -232,11 +223,7 @@ public class PredicateToFilter {
             }
             StringArray values =
                 getSearchValueField(valueOperand.getExpression(), fieldName, opContext);
-            return new Criterion()
-                .setField(fieldName)
-                .setValue(values.get(0), SetMode.IGNORE_NULL)
-                .setValues(values)
-                .setCondition(Condition.LESS_THAN);
+            CriterionUtils.buildCriterion(fieldName, Condition.LESS_THAN, values);
           }
         }
         break;
@@ -253,11 +240,8 @@ public class PredicateToFilter {
             }
             StringArray values =
                 getSearchValueField(valueOperand.getExpression(), fieldName, opContext);
-            return new Criterion()
-                .setField(fieldName)
-                .setValue(values.get(0), SetMode.IGNORE_NULL)
-                .setValues(values)
-                .setCondition(Condition.GREATER_THAN);
+
+            return CriterionUtils.buildCriterion(fieldName, Condition.GREATER_THAN, values);
           }
         }
         break;
@@ -274,11 +258,7 @@ public class PredicateToFilter {
             }
             StringArray values =
                 getSearchValueField(valueOperand.getExpression(), fieldName, opContext);
-            return new Criterion()
-                .setField(fieldName)
-                .setValue(values.get(0), SetMode.IGNORE_NULL)
-                .setValues(values)
-                .setCondition(Condition.CONTAIN);
+            return CriterionUtils.buildCriterion(fieldName, Condition.CONTAIN, values);
           }
         }
         break;

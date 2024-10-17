@@ -18,7 +18,6 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -29,6 +28,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -165,13 +165,10 @@ public class OwnershipTypesStep implements UpgradeStep {
 
   private Filter backfillOwnershipTypesFilter() {
     // Condition: has `owners` AND does NOT have `ownershipTypes`
-    Criterion hasOwners = new Criterion();
-    hasOwners.setCondition(Condition.EXISTS);
-    hasOwners.setField("owners");
+    Criterion hasOwners = CriterionUtils.buildExistsCriterion("owners");
+
     // Excludes entities with ownershipTypes
-    Criterion missingOwnershipTypes = new Criterion();
-    missingOwnershipTypes.setCondition(Condition.IS_NULL);
-    missingOwnershipTypes.setField("ownershipTypes");
+    Criterion missingOwnershipTypes = CriterionUtils.buildIsNullCriterion("ownershipTypes");
 
     CriterionArray criterionArray = new CriterionArray();
     criterionArray.add(hasOwners);
@@ -190,9 +187,7 @@ public class OwnershipTypesStep implements UpgradeStep {
 
   private Filter backfillDefaultOwnershipTypesFilter() {
     // Condition: has `owners`
-    Criterion hasOwners = new Criterion();
-    hasOwners.setCondition(Condition.EXISTS);
-    hasOwners.setField("owners");
+    Criterion hasOwners = CriterionUtils.buildExistsCriterion("owners");
 
     CriterionArray criterionArray = new CriterionArray();
     criterionArray.add(hasOwners);

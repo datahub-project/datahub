@@ -3,8 +3,8 @@ baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 
 # App Layer
 authentication:
-  # Enable if you want all requests to the Metadata Service to be authenticated. Disabled by default.
-  enabled: ${METADATA_SERVICE_AUTH_ENABLED:false}
+  # Enable if you want all requests to the Metadata Service to be authenticated.
+  enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
 
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
@@ -47,8 +47,8 @@ authorization:
     enabled: ${AUTH_POLICIES_ENABLED:true}
     cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
     cachePolicyFetchSize: ${POLICY_CACHE_FETCH_SIZE:1000}
-  # Enables authorization of reads, writes, and deletes on REST APIs. Defaults to false for backwards compatibility, but should become true down the road
-  restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:false}
+  # Enables authorization of reads, writes, and deletes on REST APIs.
+  restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:true}
   view:
     enabled: ${VIEW_AUTHORIZATION_ENABLED:false}
     recommendations:
@@ -203,8 +203,8 @@ cassandra:
 elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}
   port: ${ELASTICSEARCH_PORT:9200}
-  threadCount: ${ELASTICSEARCH_THREAD_COUNT:1}
-  connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:0}
+  threadCount: ${ELASTICSEARCH_THREAD_COUNT:2}
+  connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:5000}
   username: ${ELASTICSEARCH_USERNAME:#{null}}
   password: ${ELASTICSEARCH_PASSWORD:#{null}}
   pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:#{null}}
@@ -243,6 +243,7 @@ elasticsearch:
     mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
     enableMappingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX:false}
     enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
+    maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:0} # <= 0 - no timeout
     settingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES:#{null}}
     entitySettingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES:#{null}}
     docIds:
@@ -566,6 +567,7 @@ featureFlags:
   schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
   schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:false} # If turned on, schema field lineage will always fetch ghost entities and present them as real
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
+  editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
   hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
   showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false} # If turned on, the bulk form by question view will be shown by default from the task center
   showDatasetFeaturesSearchSortOptions: ${SHOW_DATASET_FEATURES_SEARCH_SORT_OPTIONS:false} # Enables showing sort by row count, query count, update count, size in bytes.

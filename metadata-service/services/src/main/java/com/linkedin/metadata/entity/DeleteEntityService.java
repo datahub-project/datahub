@@ -24,6 +24,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
@@ -32,6 +33,7 @@ import com.linkedin.metadata.run.RelatedAspectArray;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
@@ -709,7 +711,9 @@ public class DeleteEntityService {
 
     int subscriptionsCount = 0;
     String scrollId = null;
-    Filter filter = newFilter(newCriterion("entityUrn", deletedUrn.toString()));
+    Filter filter =
+        newFilter(
+            CriterionUtils.buildCriterion("entityUrn", Condition.EQUAL, deletedUrn.toString()));
 
     while (true) {
       ScrollResult scrollResult =

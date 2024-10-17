@@ -16,6 +16,7 @@ record Share {
       "fieldName": "shareDestinations",
       "fieldType": "URN",
       "hasValuesFieldName": "hasShareDestinations",
+      "queryByDefault": false,
     }
   }
   lastShareResults: array[ShareResult]

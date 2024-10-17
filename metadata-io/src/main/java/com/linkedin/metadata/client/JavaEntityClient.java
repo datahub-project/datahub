@@ -793,17 +793,17 @@ public class JavaEntityClient implements EntityClient {
     // Preserve ordering
     return batch.getItems().stream()
         .map(
-            requestItem -> {
-              if (resultMap.containsKey(requestItem)) {
-                List<IngestResult> results = resultMap.get(requestItem);
-                return results.stream()
-                    .filter(r -> r.getUrn() != null)
+            requestItem ->
+                resultMap.entrySet().stream()
+                    .filter(entry -> requestItem.entityAspectMatch(entry.getKey()))
                     .findFirst()
-                    .map(r -> r.getUrn().toString())
-                    .orElse(null);
-              }
-              return null;
-            })
+                    .stream()
+                    .flatMap(entry -> entry.getValue().stream())
+                    .map(IngestResult::getUrn)
+                    .map(Urn::toString)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null))
         .collect(Collectors.toList());
   }
 

@@ -101,6 +101,26 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   datasetEdges: optional array[Edge]
 
   /**
+   * Dashboards included by this dashboard.
+   * Some dashboard entities (e.g. PowerBI Apps) can contain other dashboards.
+   *
+   * The Edge's sourceUrn should never be set, as it will always be the base dashboard.
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "DashboardContainsDashboard",
+      "entityTypes": [ "dashboard" ],
+      "isLineage": true,
+      "createdOn": "datasetEdges/*/created/time"
+      "createdActor": "datasetEdges/*/created/actor"
+      "updatedOn": "datasetEdges/*/lastModified/time"
+      "updatedActor": "datasetEdges/*/lastModified/actor"
+      "properties": "datasetEdges/*/properties"
+    }
+  }
+  dashboards: array[Edge] = [ ]
+
+  /**
    * Captures information about who created/last modified/deleted this dashboard and when
    */
   @Searchable = {
@@ -132,12 +152,16 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   /**
    * The time when this dashboard last refreshed
    */
-  @Searchable = {}
+  @Searchable = {
+    "queryByDefault": false,
+  }
   lastRefreshed: optional Time
 
   /**
    * The actor who last refreshed this dashboard
    */
-  @Searchable = {}
+  @Searchable = {
+    "queryByDefault": false,
+  }
   lastRefreshedBy: optional Urn
 }

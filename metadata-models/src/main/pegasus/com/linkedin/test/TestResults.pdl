@@ -7,47 +7,51 @@ namespace com.linkedin.test
  "name": "testResults"
 }
 record TestResults {
-  /**
-   * Results that are failing
-   */
-  @Searchable = {
-    "/*/test": {
-      "fieldType": "URN",
-      "fieldName": "failingTests"
-      "hasValuesFieldName": "hasFailingTests",
-    },
-    "/*/testDefinitionMd5": {
-      "fieldType": "KEYWORD",
-      "fieldName": "failingTestDefinitionMd5"
+    /**
+     * Results that are failing
+     */
+    @Searchable = {
+      "/*/test": {
+        "fieldType": "URN",
+        "fieldName": "failingTests"
+        "hasValuesFieldName": "hasFailingTests",
+        "queryByDefault": false,
+      },
+      "/*/testDefinitionMd5": {
+        "fieldType": "KEYWORD",
+        "fieldName": "failingTestDefinitionMd5",
+        "queryByDefault": false,
+      }
     }
-  }
-  @Relationship = {
-    "/*/test": {
-      "name": "IsFailing",
-      "entityTypes": [ "test" ]
+    @Relationship = {
+      "/*/test": {
+        "name": "IsFailing",
+        "entityTypes": [ "test" ]
+      }
     }
-  }
-  failing: array[TestResult]
+    failing: array[TestResult]
 
-  /**
-   * Results that are passing
-   */
-  @Searchable = {
-    "/*/test": {
-      "fieldType": "URN",
-      "fieldName": "passingTests",
-      "hasValuesFieldName": "hasPassingTests",
-    },
-    "/*/testDefinitionMd5": {
-      "fieldType": "KEYWORD",
-      "fieldName": "passingTestDefinitionMd5"
+    /**
+     * Results that are passing
+     */
+    @Searchable = {
+      "/*/test": {
+        "fieldType": "URN",
+        "fieldName": "passingTests",
+        "hasValuesFieldName": "hasPassingTests",
+        "queryByDefault": false,
+      },
+      "/*/testDefinitionMd5": {
+        "fieldType": "KEYWORD",
+        "fieldName": "passingTestDefinitionMd5",
+        "queryByDefault": false,
+      }
     }
-  }
-  @Relationship = {
-    "/*/test": {
-      "name": "IsPassing",
-      "entityTypes": [ "test" ]
+    @Relationship = {
+      "/*/test": {
+        "name": "IsPassing",
+        "entityTypes": [ "test" ]
+      }
     }
-  }
-  passing: array[TestResult]
+    passing: array[TestResult]
 }

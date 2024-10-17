@@ -2,7 +2,6 @@ import uuid
 
 from datahub.emitter.mce_builder import make_data_job_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobInputOutputClass,
@@ -30,25 +29,30 @@ def _make_test_datajob_urn(
 
 # Common Aspect Patch Tests
 # Ownership
-def test_datajob_ownership_patch(wait_for_healthchecks):
+def test_datajob_ownership_patch(graph_client):
     datajob_urn = _make_test_datajob_urn()
-    helper_test_ownership_patch(datajob_urn, DataJobPatchBuilder)
+    helper_test_ownership_patch(graph_client, datajob_urn, DataJobPatchBuilder)
 
 
 # Tags
-def test_datajob_tags_patch(wait_for_healthchecks):
-    helper_test_dataset_tags_patch(_make_test_datajob_urn(), DataJobPatchBuilder)
+def test_datajob_tags_patch(graph_client):
+    helper_test_dataset_tags_patch(
+        graph_client, _make_test_datajob_urn(), DataJobPatchBuilder
+    )
 
 
 # Terms
-def test_dataset_terms_patch(wait_for_healthchecks):
-    helper_test_entity_terms_patch(_make_test_datajob_urn(), DataJobPatchBuilder)
+def test_dataset_terms_patch(graph_client):
+    helper_test_entity_terms_patch(
+        graph_client, _make_test_datajob_urn(), DataJobPatchBuilder
+    )
 
 
 # Custom Properties
-def test_custom_properties_patch(wait_for_healthchecks):
+def test_custom_properties_patch(graph_client):
     orig_datajob_info = DataJobInfoClass(name="test_name", type="TestJobType")
     helper_test_custom_properties_patch(
+        graph_client,
         test_entity_urn=_make_test_datajob_urn(),
         patch_builder_class=DataJobPatchBuilder,
         custom_properties_aspect_class=DataJobInfoClass,
@@ -58,7 +62,7 @@ def test_custom_properties_patch(wait_for_healthchecks):
 
 # Specific Aspect Patch Tests
 # Input/Output
-def test_datajob_inputoutput_dataset_patch(wait_for_healthchecks):
+def test_datajob_inputoutput_dataset_patch(graph_client):
     datajob_urn = _make_test_datajob_urn()
 
     other_dataset_urn = make_dataset_urn(
@@ -79,59 +83,56 @@ def test_datajob_inputoutput_dataset_patch(wait_for_healthchecks):
         entityUrn=datajob_urn, aspect=inputoutput_lineage
     )
 
-    with DataHubGraph(DataHubGraphConfig()) as graph:
-        graph.emit_mcp(mcpw)
-        inputoutput_lineage_read = graph.get_aspect(
-            entity_urn=datajob_urn,
-            aspect_type=DataJobInputOutputClass,
-        )
-        assert inputoutput_lineage_read is not None
-        assert inputoutput_lineage_read.inputDatasetEdges is not None
-        assert (
-            inputoutput_lineage_read.inputDatasetEdges[0].destinationUrn
-            == other_dataset_urn
-        )
+    graph_client.emit_mcp(mcpw)
+    inputoutput_lineage_read = graph_client.get_aspect(
+        entity_urn=datajob_urn,
+        aspect_type=DataJobInputOutputClass,
+    )
+    assert inputoutput_lineage_read is not None
+    assert inputoutput_lineage_read.inputDatasetEdges is not None
+    assert (
+        inputoutput_lineage_read.inputDatasetEdges[0].destinationUrn
+        == other_dataset_urn
+    )
 
-        for patch_mcp in (
-            DataJobPatchBuilder(datajob_urn)
-            .add_input_dataset(dataset_input_lineage_to_add)
-            .build()
-        ):
-            graph.emit_mcp(patch_mcp)
-            pass
+    for patch_mcp in (
+        DataJobPatchBuilder(datajob_urn)
+        .add_input_dataset(dataset_input_lineage_to_add)
+        .build()
+    ):
+        graph_client.emit_mcp(patch_mcp)
+        pass
 
-        inputoutput_lineage_read = graph.get_aspect(
-            entity_urn=datajob_urn,
-            aspect_type=DataJobInputOutputClass,
-        )
-        assert inputoutput_lineage_read is not None
-        assert inputoutput_lineage_read.inputDatasetEdges is not None
-        assert len(inputoutput_lineage_read.inputDatasetEdges) == 2
-        assert (
-            inputoutput_lineage_read.inputDatasetEdges[0].destinationUrn
-            == other_dataset_urn
-        )
-        assert (
-            inputoutput_lineage_read.inputDatasetEdges[1].destinationUrn
-            == patch_dataset_urn
-        )
+    inputoutput_lineage_read = graph_client.get_aspect(
+        entity_urn=datajob_urn,
+        aspect_type=DataJobInputOutputClass,
+    )
+    assert inputoutput_lineage_read is not None
+    assert inputoutput_lineage_read.inputDatasetEdges is not None
+    assert len(inputoutput_lineage_read.inputDatasetEdges) == 2
+    assert (
+        inputoutput_lineage_read.inputDatasetEdges[0].destinationUrn
+        == other_dataset_urn
+    )
+    assert (
+        inputoutput_lineage_read.inputDatasetEdges[1].destinationUrn
+        == patch_dataset_urn
+    )
 
-        for patch_mcp in (
-            DataJobPatchBuilder(datajob_urn)
-            .remove_input_dataset(patch_dataset_urn)
-            .build()
-        ):
-            graph.emit_mcp(patch_mcp)
-            pass
+    for patch_mcp in (
+        DataJobPatchBuilder(datajob_urn).remove_input_dataset(patch_dataset_urn).build()
+    ):
+        graph_client.emit_mcp(patch_mcp)
+        pass
 
-        inputoutput_lineage_read = graph.get_aspect(
-            entity_urn=datajob_urn,
-            aspect_type=DataJobInputOutputClass,
-        )
-        assert inputoutput_lineage_read is not None
-        assert inputoutput_lineage_read.inputDatasetEdges is not None
-        assert len(inputoutput_lineage_read.inputDatasetEdges) == 1
-        assert (
-            inputoutput_lineage_read.inputDatasetEdges[0].destinationUrn
-            == other_dataset_urn
-        )
+    inputoutput_lineage_read = graph_client.get_aspect(
+        entity_urn=datajob_urn,
+        aspect_type=DataJobInputOutputClass,
+    )
+    assert inputoutput_lineage_read is not None
+    assert inputoutput_lineage_read.inputDatasetEdges is not None
+    assert len(inputoutput_lineage_read.inputDatasetEdges) == 1
+    assert (
+        inputoutput_lineage_read.inputDatasetEdges[0].destinationUrn
+        == other_dataset_urn
+    )

@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.BatchRemoveOwnersInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -24,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -72,7 +74,7 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
           "Malformed input provided: owners cannot be removed from subresources.");
     }
 
-    OwnerUtils.validateAuthorizedToUpdateOwners(context, resourceUrn);
+    OwnerUtils.validateAuthorizedToUpdateOwners(context, resourceUrn, _entityClient);
     LabelUtils.validateResource(
         context.getOperationContext(),
         resourceUrn,

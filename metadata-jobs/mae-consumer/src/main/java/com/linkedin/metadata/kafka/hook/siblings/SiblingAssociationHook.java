@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.hook.siblings;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -425,10 +426,9 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
     final CriterionArray andCriterion = new CriterionArray();
 
-    final Criterion urnCriterion = new Criterion();
-    urnCriterion.setField("siblings.keyword");
-    urnCriterion.setValue(entityUrn.toString());
-    urnCriterion.setCondition(Condition.EQUAL);
+    final Criterion urnCriterion =
+        buildCriterion("siblings.keyword", Condition.EQUAL, entityUrn.toString());
+
     andCriterion.add(urnCriterion);
 
     conjunction.setAnd(andCriterion);

@@ -313,11 +313,21 @@ class TableauConfig(
     # Tableau project pattern
     project_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Filter for specific Tableau projects. For example, use 'My Project' to ingest a root-level Project with name 'My Project', or 'My Project/Nested Project' to ingest a nested Project with name 'Nested Project'. "
+        description="[deprecated] Use project_path_pattern instead. Filter for specific Tableau projects. For example, use 'My Project' to ingest a root-level Project with name 'My Project', or 'My Project/Nested Project' to ingest a nested Project with name 'Nested Project'. "
         "By default, all Projects nested inside a matching Project will be included in ingestion. "
         "You can both allow and deny projects based on their name using their name, or a Regex pattern. "
         "Deny patterns always take precedence over allow patterns. "
         "By default, all projects will be ingested.",
+    )
+    _deprecate_projects_pattern = pydantic_field_deprecated("project_pattern")
+
+    project_path_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Filters Tableau projects by their full path. For instance, 'My Project/Nested Project' targets a specific nested project named 'Nested Project'."
+        " This is also useful when you need to exclude all nested projects under a particular project."
+        " You can allow or deny projects by specifying their path or a regular expression pattern."
+        " Deny patterns always override allow patterns."
+        " By default, all projects are ingested.",
     )
 
     project_path_separator: str = Field(
@@ -454,17 +464,23 @@ class TableauConfig(
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
         projects = values.get("projects")
         project_pattern = values.get("project_pattern")
-        if project_pattern is None and projects:
+        project_path_pattern = values.get("project_path_pattern")
+        if project_pattern is None and project_path_pattern is None and projects:
             logger.warning(
-                "project_pattern is not set but projects is set. projects is deprecated, please use "
-                "project_pattern instead."
+                "projects is deprecated, please use " "project_path_pattern instead."
             )
             logger.info("Initializing project_pattern from projects")
             values["project_pattern"] = AllowDenyPattern(
                 allow=[f"^{prj}$" for prj in projects]
             )
-        elif project_pattern != AllowDenyPattern.allow_all() and projects:
-            raise ValueError("projects is deprecated. Please use project_pattern only.")
+        elif (project_pattern or project_path_pattern) and projects:
+            raise ValueError(
+                "projects is deprecated. Please use project_path_pattern only."
+            )
+        elif project_path_pattern and project_pattern:
+            raise ValueError(
+                "project_pattern is deprecated. Please use project_path_pattern only."
+            )
 
         return values
 
@@ -850,12 +866,13 @@ class TableauSiteSource:
 
     def _is_allowed_project(self, project: TableauProject) -> bool:
         # Either project name or project path should exist in allow
-        is_allowed: bool = self.config.project_pattern.allowed(
-            project.name
-        ) or self.config.project_pattern.allowed(self._get_project_path(project))
+        is_allowed: bool = (
+            self.config.project_pattern.allowed(project.name)
+            or self.config.project_pattern.allowed(self._get_project_path(project))
+        ) and self.config.project_path_pattern.allowed(self._get_project_path(project))
         if is_allowed is False:
             logger.info(
-                f"project({project.name}) is not allowed as per project_pattern"
+                f"Project ({project.name}) is not allowed as per project_pattern or project_path_pattern"
             )
         return is_allowed
 
@@ -887,28 +904,29 @@ class TableauSiteSource:
             logger.debug(f"Project {project.name} is added in project registry")
             projects_to_ingest[project.id] = project
 
-        # We rely on automatic browse paths (v2) when creating containers. That's why we need to sort the projects here.
-        # Otherwise, nested projects will not have the correct browse paths if not created in correct order / hierarchy.
-        self.tableau_project_registry = OrderedDict(
-            sorted(projects_to_ingest.items(), key=lambda item: len(item[1].path))
-        )
-
         if self.config.extract_project_hierarchy is False:
             logger.debug(
                 "Skipping project hierarchy processing as configuration extract_project_hierarchy is "
                 "disabled"
             )
-            return
+        else:
+            logger.debug(
+                "Reevaluating projects as extract_project_hierarchy is enabled"
+            )
 
-        logger.debug("Reevaluating projects as extract_project_hierarchy is enabled")
+            for project in list_of_skip_projects:
+                if (
+                    project.parent_id in projects_to_ingest
+                    and self._is_denied_project(project) is False
+                ):
+                    logger.debug(f"Project {project.name} is added in project registry")
+                    projects_to_ingest[project.id] = project
 
-        for project in list_of_skip_projects:
-            if (
-                project.parent_id in self.tableau_project_registry
-                and self._is_denied_project(project) is False
-            ):
-                logger.debug(f"Project {project.name} is added in project registry")
-                self.tableau_project_registry[project.id] = project
+        # We rely on automatic browse paths (v2) when creating containers. That's why we need to sort the projects here.
+        # Otherwise, nested projects will not have the correct browse paths if not created in correct order / hierarchy.
+        self.tableau_project_registry = OrderedDict(
+            sorted(projects_to_ingest.items(), key=lambda item: len(item[1].path))
+        )
 
     def _init_datasource_registry(self) -> None:
         if self.server is None:

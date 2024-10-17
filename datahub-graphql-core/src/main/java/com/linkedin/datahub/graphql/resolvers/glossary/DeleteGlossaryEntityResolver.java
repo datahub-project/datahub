@@ -29,11 +29,10 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
       throws Exception {
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(environment.getArgument("urn"));
-    final Urn parentNodeUrn = GlossaryUtils.getParentUrn(entityUrn, context, _entityClient);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)) {
+          if (GlossaryUtils.canUpdateGlossaryEntity(entityUrn, context, _entityClient)) {
             if (!_entityService.exists(context.getOperationContext(), entityUrn, true)) {
               throw new RuntimeException(String.format("This urn does not exist: %s", entityUrn));
             }

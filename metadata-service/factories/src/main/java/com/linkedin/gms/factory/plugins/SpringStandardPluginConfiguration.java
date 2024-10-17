@@ -95,17 +95,25 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   @ConditionalOnProperty(
-      name = "metadataChangeProposal.validation.extensions.enabled",
+      name = "metadataChangeProposal.sideEffects.dataProductUnset.enabled",
       havingValue = "true")
-  public MutationHook extendedModelStructuredPropertyMutator(
-      ConfigurationProvider configurationProvider) throws Exception {
-    ExtendedModelValidationConfiguration config =
-        configurationProvider
-            .getMetadataChangeProposal()
-            .getValidation()
-            .getExtensions()
-            .resolve(new YAMLMapper());
-    return new ExtendedModelStructuredPropertyMutator(config, extensionsEnabled);
+  public MCPSideEffect dataProductUnsetSideEffect() {
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .enabled(true)
+            .className(DataProductUnsetSideEffect.class.getName())
+            .supportedOperations(
+                List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE", "DELETE", "PATCH"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DATA_PRODUCT_ENTITY_NAME)
+                        .aspectName(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
+                        .build()))
+            .build();
+
+    log.info("Initialized {}", SchemaFieldSideEffect.class.getName());
+    return new DataProductUnsetSideEffect().setConfig(config);
   }
 
   @Bean
@@ -149,24 +157,16 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   @ConditionalOnProperty(
-      name = "metadataChangeProposal.sideEffects.dataProductUnset.enabled",
+      name = "metadataChangeProposal.validation.extensions.enabled",
       havingValue = "true")
-  public MCPSideEffect dataProductUnsetSideEffect() {
-    AspectPluginConfig config =
-        AspectPluginConfig.builder()
-            .enabled(true)
-            .className(DataProductUnsetSideEffect.class.getName())
-            .supportedOperations(
-                List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE", "DELETE", "PATCH"))
-            .supportedEntityAspectNames(
-                List.of(
-                    AspectPluginConfig.EntityAspectName.builder()
-                        .entityName(Constants.DATA_PRODUCT_ENTITY_NAME)
-                        .aspectName(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
-                        .build()))
-            .build();
-
-    log.info("Initialized {}", SchemaFieldSideEffect.class.getName());
-    return new DataProductUnsetSideEffect().setConfig(config);
+  public MutationHook extendedModelStructuredPropertyMutator(
+      ConfigurationProvider configurationProvider) throws Exception {
+    ExtendedModelValidationConfiguration config =
+        configurationProvider
+            .getMetadataChangeProposal()
+            .getValidation()
+            .getExtensions()
+            .resolve(new YAMLMapper());
+    return new ExtendedModelStructuredPropertyMutator(config, extensionsEnabled);
   }
 }

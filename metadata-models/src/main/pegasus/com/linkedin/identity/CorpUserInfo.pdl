@@ -62,7 +62,7 @@ record CorpUserInfo includes CustomProperties {
   @Searchable = {
     "fieldName": "managerLdap",
     "fieldType": "URN",
-    "queryByDefault": true
+    "queryByDefault": false,
   }
   managerUrn: optional CorpuserUrn
 

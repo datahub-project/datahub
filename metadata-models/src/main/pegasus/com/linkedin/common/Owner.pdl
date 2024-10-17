@@ -39,7 +39,8 @@ record Owner {
   }
   @Searchable = {
     "fieldName": "ownershipTypeUrn",
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "queryByDefault": false,
   }
   typeUrn: optional Urn
 

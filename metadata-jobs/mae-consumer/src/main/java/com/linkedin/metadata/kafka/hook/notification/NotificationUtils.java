@@ -19,6 +19,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.pegasus2avro.subscription.SubscriptionType;
 import com.linkedin.subscription.EntityChangeType;
@@ -112,46 +113,29 @@ public class NotificationUtils {
 
   @Nonnull
   private static Criterion buildEntityCriterion(@Nonnull final Urn entityUrn) {
-    final Criterion entityCriterion = new Criterion();
-    entityCriterion.setField(ENTITY_URN_FIELD_NAME);
-    entityCriterion.setValue(entityUrn.toString());
-    entityCriterion.setCondition(Condition.EQUAL);
-
-    return entityCriterion;
+    return CriterionUtils.buildCriterion(
+        ENTITY_URN_FIELD_NAME, Condition.EQUAL, entityUrn.toString());
   }
 
   @Nonnull
   private static Criterion buildEntitiesCriterion(@Nonnull final Set<Urn> entityUrns) {
     final StringArray entityUrnsArray =
         entityUrns.stream().map(Urn::toString).collect(Collectors.toCollection(StringArray::new));
-    final Criterion entityCriterion = new Criterion();
-    entityCriterion.setField(ENTITY_URN_FIELD_NAME);
-    entityCriterion.setValues(entityUrnsArray);
-    entityCriterion.setCondition(Condition.EQUAL);
-
-    return entityCriterion;
+    return CriterionUtils.buildCriterion(ENTITY_URN_FIELD_NAME, Condition.EQUAL, entityUrnsArray);
   }
 
   @Nonnull
   private static Criterion buildChangeTypeCriterion(@Nonnull final EntityChangeType changeType) {
-    final Criterion changeTypeCriterion = new Criterion();
-    changeTypeCriterion.setField(ENTITY_CHANGE_TYPES_FIELD_NAME);
-    changeTypeCriterion.setValue(changeType.toString());
-    changeTypeCriterion.setValues(new StringArray(changeType.toString()));
-    changeTypeCriterion.setCondition(Condition.EQUAL);
-
-    return changeTypeCriterion;
+    return CriterionUtils.buildCriterion(
+        ENTITY_CHANGE_TYPES_FIELD_NAME, Condition.EQUAL, changeType.toString());
   }
 
   @Nonnull
   private static Criterion buildUpstreamCriterion() {
-    final Criterion entityCriterion = new Criterion();
-    entityCriterion.setField(SUBSCRIPTION_TYPES_FIELD_NAME);
-    entityCriterion.setValues(new StringArray(SubscriptionType.UPSTREAM_ENTITY_CHANGE.toString()));
-    entityCriterion.setValue(SubscriptionType.UPSTREAM_ENTITY_CHANGE.toString());
-    entityCriterion.setCondition(Condition.EQUAL);
-
-    return entityCriterion;
+    return CriterionUtils.buildCriterion(
+        SUBSCRIPTION_TYPES_FIELD_NAME,
+        Condition.EQUAL,
+        SubscriptionType.UPSTREAM_ENTITY_CHANGE.toString());
   }
 
   /**

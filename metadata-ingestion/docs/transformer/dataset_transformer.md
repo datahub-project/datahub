@@ -197,8 +197,11 @@ transformers:
 | `ownership_type`   |          | string               | "DATAOWNER" | ownership type of the owners (either as enum or ownership type urn)                     |
 | `replace_existing` |          | boolean              | `false`     | Whether to remove owners from entity sent by ingestion source.                          |
 | `semantics`        |          | enum                 | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                        |
+| `is_container`     |          | bool    | `false`    | Whether to also consider a container or not. If true, then ownership will be attached to both the dataset and its container. |
 
 let’s suppose we’d like to append a series of users who we know to own a different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework.  This will match the pattern to `urn` of the dataset and assign the respective owners.
+
+If the is_container field is set to true, the module will not only attach the ownerships to the matching datasets but will also find and attach containers associated with those datasets. This means that both the datasets and their containers will be associated with the specified owners.
 
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 
@@ -251,6 +254,35 @@ The config, which we’d append to our ingestion recipe YAML, would look like th
               ".*example2.*": ["urn:li:corpuser:username2"]
           ownership_type: "PRODUCER"
     ```
+- Add owner to dataset and its containers
+  ```yaml
+  transformers:
+    - type: "pattern_add_dataset_ownership"
+      config:
+        is_container: true
+        replace_existing: true  # false is default behaviour
+        semantics: PATCH / OVERWRITE # Based on user 
+        owner_pattern:
+          rules:
+            ".*example1.*": ["urn:li:corpuser:username1"]
+            ".*example2.*": ["urn:li:corpuser:username2"]
+        ownership_type: "PRODUCER"
+  ```
+⚠️ Warning:
+When working with two datasets in the same container but with different owners, all owners will be added for that dataset containers.
+
+For example:
+```yaml
+transformers:
+  - type: "pattern_add_dataset_ownership"
+    config:
+      is_container: true
+      owner_pattern:
+        rules:
+          ".*example1.*": ["urn:li:corpuser:username1"]
+          ".*example2.*": ["urn:li:corpuser:username2"]
+```
+If example1 and example2 are in the same container, then both urns urn:li:corpuser:username1 and urn:li:corpuser:username2 will be added for respective dataset containers.
 
 ## Simple Remove Dataset ownership
 If we wanted to clear existing owners sent by ingestion source we can use the `simple_remove_dataset_ownership` transformer which removes all owners sent by the ingestion source.
@@ -1074,9 +1106,12 @@ transformers:
 | `domain_pattern`           | ✅         | map[regx, list[union[urn, str]] |                 | dataset urn with regular expression and list of simple domain name or domain urn need to be apply on matching dataset urn. |
 | `replace_existing`         |           | boolean                         | `false`         | Whether to remove domains from entity sent by ingestion source.                                                             |
 | `semantics`                |           | enum                            | `OVERWRITE`     | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                                                           |
+| `is_container`     |          | bool    | `false`    | Whether to also consider a container or not. If true, then domains will be attached to both the dataset and its container. |
 
 Let’s suppose we’d like to append a series of domain to specific datasets. To do so, we can use the pattern_add_dataset_domain transformer that’s included in the ingestion framework. 
 This will match the regex pattern to urn of the dataset and assign the respective domain urns given in the array.
+
+If the is_container field is set to true, the module will not only attach the domains to the matching datasets but will also find and attach containers associated with those datasets. This means that both the datasets and their containers will be associated with the specified owners.
 
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 Here we can set domain list to either urn (i.e. urn:li:domain:hr) or simple domain name (i.e. hr) 
@@ -1129,6 +1164,33 @@ in both of the cases domain should be provisioned on DataHub GMS
               'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"] 
     ```
 
+- Add domains to dataset and its containers
+  ```yaml
+  transformers:
+    - type: "pattern_add_dataset_domain"
+      config:
+        is_container: true
+        semantics: PATCH / OVERWRITE # Based on user
+        domain_pattern:
+          rules:
+            'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
+            'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"]
+  ```
+⚠️ Warning:
+When working with two datasets in the same container but with different domains, all domains will be added for that dataset containers.
+
+For example:
+```yaml
+transformers:
+  - type: "pattern_add_dataset_domain"
+    config:
+      is_container: true
+      domain_pattern:
+        rules:
+          ".*example1.*": ["hr"]
+          ".*example2.*": ["urn:li:domain:finance"]
+```
+If example1 and example2 are in the same container, then both domains hr and finance will be added for respective dataset containers.
 
 
 ## Domain Mapping Based on Tags

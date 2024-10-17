@@ -123,6 +123,18 @@ public class ESAccessControlUtilTest {
   private static final Urn RESTRICTED_RESULT_URN =
       UrnUtils.getUrn("urn:li:restricted:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
 
+  private static final String PREFIX_MATCH =
+      "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.human";
+  private static final Urn PREFIX_MATCH_URN =
+      UrnUtils.getUrn(
+          "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.humans,PROD)");
+  private static final Urn PREFIX_NO_MATCH_URN =
+      UrnUtils.getUrn(
+          "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.meta_humans,PROD)");
+  private static final Urn RESTRICTED_PREFIX_NO_MATCH_URN =
+      UrnUtils.getUrn(
+          "urn:li:restricted:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.meta_humans,PROD)");
+
   /** Comprehensive list of policy variations */
   private static final Map<String, DataHubPolicyInfo> TEST_POLICIES =
       ImmutableMap.<String, DataHubPolicyInfo>builder()
@@ -268,6 +280,30 @@ public class ESAccessControlUtilTest {
                                                   .setValues(
                                                       new StringArray(
                                                           List.of(DOMAIN_A.toString())))))))))
+          .put(
+              "urnPrefixAllUsers",
+              new DataHubPolicyInfo()
+                  .setDisplayName("")
+                  .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                  .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                  .setActors(
+                      new DataHubActorFilter()
+                          .setAllUsers(true)
+                          .setGroups(new UrnArray())
+                          .setUsers(new UrnArray()))
+                  .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+                  .setResources(
+                      new DataHubResourceFilter()
+                          .setFilter(
+                              new PolicyMatchFilter()
+                                  .setCriteria(
+                                      new PolicyMatchCriterionArray(
+                                          List.of(
+                                              new PolicyMatchCriterion()
+                                                  .setField("URN")
+                                                  .setCondition(PolicyMatchCondition.STARTS_WITH)
+                                                  .setValues(
+                                                      new StringArray(List.of(PREFIX_MATCH)))))))))
           .build();
 
   /** User A is a technical owner of the result User B has no ownership */
@@ -501,6 +537,28 @@ public class ESAccessControlUtilTest {
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
   }
 
+  @Test
+  public void testPrefixRestrictions() throws RemoteInvocationException, URISyntaxException {
+
+    // USER A
+    OperationContext userAContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("urnPrefixAllUsers")));
+
+    SearchResult result = mockPrefixSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(result.getEntities().size(), 2);
+    assertEquals(result.getEntities().get(0).getEntity(), PREFIX_MATCH_URN);
+    assertEquals(result.getEntities().get(1).getEntity(), RESTRICTED_PREFIX_NO_MATCH_URN);
+
+    result = mockPrefixSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    assertEquals(result.getEntities().size(), 2);
+    assertEquals(result.getEntities().get(0).getEntity(), PREFIX_MATCH_URN);
+    assertEquals(result.getEntities().get(1).getEntity(), PREFIX_NO_MATCH_URN);
+  }
+
   private static RestrictedService mockRestrictedService() {
     RestrictedService mockRestrictedService = mock(RestrictedService.class);
     when(mockRestrictedService.encryptRestrictedUrn(any()))
@@ -510,6 +568,23 @@ public class ESAccessControlUtilTest {
               return UrnUtils.getUrn(urn.toString().replace("urn:li:dataset", "urn:li:restricted"));
             });
     return mockRestrictedService;
+  }
+
+  private static SearchResult mockPrefixSearchResult() {
+    SearchResult result = new SearchResult();
+    result.setFrom(0);
+    result.setPageSize(10);
+    result.setNumEntities(1);
+    result.setEntities(
+        new SearchEntityArray(
+            new SearchEntity()
+                .setEntity(PREFIX_MATCH_URN)
+                .setMatchedFields(new MatchedFieldArray()),
+            new SearchEntity()
+                .setEntity(PREFIX_NO_MATCH_URN)
+                .setMatchedFields(new MatchedFieldArray())));
+    result.setMetadata(mock(SearchResultMetadata.class));
+    return result;
   }
 
   private static SearchResult mockSearchResult() {
@@ -951,6 +1026,37 @@ public class ESAccessControlUtilTest {
                             QueryBuilders.termsQuery(
                                 "domains.keyword",
                                 List.of(DOMAIN_A.toString(), DOMAIN_B.toString()))))
+                .minimumShouldMatch(1)));
+  }
+
+  @Test
+  public void testPrefixMatchFilter() throws RemoteInvocationException, URISyntaxException {
+    GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
+    OperationContext mockGraphUserAContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("urnPrefixAllUsers"))).toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .graphRetriever(mockGraphRetriever)
+                    .searchRetriever(mock(SearchRetriever.class))
+                    .build())
+            .build(USER_A_AUTH);
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(mockGraphUserAContext);
+    assertEquals(
+        filter,
+        Optional.of(
+            QueryBuilders.boolQuery()
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery("urn", List.of(TEST_USER_A.toString()))))
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(
+                            QueryBuilders.boolQuery()
+                                .minimumShouldMatch(1)
+                                .should(QueryBuilders.prefixQuery("urn", PREFIX_MATCH))))
                 .minimumShouldMatch(1)));
   }
 }

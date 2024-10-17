@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.jobs;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -12,7 +14,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -116,14 +117,10 @@ public class DataJobRunsResolver
     CriterionArray array =
         new CriterionArray(
             ImmutableList.of(
-                new Criterion()
-                    .setField(PARENT_TEMPLATE_URN_SEARCH_INDEX_FIELD_NAME)
-                    .setCondition(Condition.EQUAL)
-                    .setValue(entityUrn),
-                new Criterion()
-                    .setField(HAS_RUN_EVENTS_FIELD_NAME)
-                    .setCondition(Condition.EQUAL)
-                    .setValue(Boolean.TRUE.toString())));
+                buildCriterion(
+                    PARENT_TEMPLATE_URN_SEARCH_INDEX_FIELD_NAME, Condition.EQUAL, entityUrn),
+                buildCriterion(
+                    HAS_RUN_EVENTS_FIELD_NAME, Condition.EQUAL, Boolean.TRUE.toString())));
 
     final Filter filter = new Filter();
     filter.setOr(

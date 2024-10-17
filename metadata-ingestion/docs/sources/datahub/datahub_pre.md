@@ -71,3 +71,27 @@ and [mce-consumer](../../../../metadata-jobs/mce-consumer-job/README.md))
 - Increase the number of gms pods to add redundancy and increase resilience to node evictions
   * If you are migrating large amounts of data, consider increasing elasticsearch's
   thread count via the `ELASTICSEARCH_THREAD_COUNT` environment variable.
+
+#### Exclusions
+You will likely want to exclude some urn types from your ingestion, as they contain instance-specific
+metadata, such as settings, roles, policies, ingestion sources, and ingestion runs. For example, you 
+will likely want to start with this:
+
+```yaml
+source:
+  config:
+    urn_pattern: # URN pattern to ignore/include in the ingestion
+      deny:
+        # Ignores all datahub metadata where the urn matches the regex
+        - ^urn:li:role.*                    # Only exclude if you do not want to ingest roles
+        - ^urn:li:dataHubRole.*             # Only exclude if you do not want to ingest roles
+        - ^urn:li:dataHubPolicy.*           # Only exclude if you do not want to ingest policies
+        - ^urn:li:dataHubIngestionSource.*  # Only exclude if you do not want to ingest ingestion sources
+        - ^urn:li:dataHubSecret.*
+        - ^urn:li:dataHubExecutionRequest.*
+        - ^urn:li:dataHubAccessToken.*
+        - ^urn:li:dataHubUpgrade.*
+        - ^urn:li:inviteToken.*
+        - ^urn:li:globalSettings.*
+        - ^urn:li:dataHubStepState.*
+```

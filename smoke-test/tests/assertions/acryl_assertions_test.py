@@ -1,16 +1,10 @@
 import pytest
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.metadata.schema_classes import StatusClass
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import (
-    delete_urn,
-    get_frontend_url,
-    get_sleep_info,
-    wait_for_healthcheck_util,
-)
+from tests.utils import delete_urn, get_sleep_info
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -20,31 +14,17 @@ sleep_sec, sleep_times = get_sleep_info()
 TEST_DATASET_URN = make_dataset_urn(platform="postgres", name="foo")
 
 
-@pytest.fixture(scope="session")
-def wait_for_healthchecks():
-    wait_for_healthcheck_util()
+@pytest.fixture(scope="session", autouse=True)
+def ingest_cleanup_data(graph_client):
     mcpw = MetadataChangeProposalWrapper(
         entityUrn=TEST_DATASET_URN, aspect=StatusClass(removed=False)
     )
-    with DataHubGraph(DataHubGraphConfig()) as graph:
-        graph.emit(mcpw)
+    graph_client.emit(mcpw)
     yield
-    delete_urn(TEST_DATASET_URN)
+    delete_urn(graph_client, TEST_DATASET_URN)
 
 
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
-
-
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_update_delete_dataset_assertion(frontend_session):
-    pass
-
-
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_delete_freshness_assertion(frontend_session):
+def test_create_delete_freshness_assertion(auth_session):
     json = {
         "query": """mutation createFreshnessAssertion($input: CreateFreshnessAssertionInput!) {\n
             createFreshnessAssertion(input: $input) {\n
@@ -67,7 +47,9 @@ def test_create_delete_freshness_assertion(frontend_session):
         },
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -85,7 +67,9 @@ def test_create_delete_freshness_assertion(frontend_session):
         "variables": {"urn": assertion_urn},
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -94,8 +78,7 @@ def test_create_delete_freshness_assertion(frontend_session):
     assert res_data["data"]["deleteAssertion"] is True
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_update_delete_dataset_freshness_assertion_monitor(frontend_session):
+def test_create_update_delete_dataset_freshness_assertion_monitor(auth_session):
     # Create the assertion
     json = {
         "query": """mutation upsertDatasetFreshnessAssertionMonitor($input: UpsertDatasetFreshnessAssertionMonitorInput!) {\n
@@ -127,7 +110,9 @@ def test_create_update_delete_dataset_freshness_assertion_monitor(frontend_sessi
         },
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -180,7 +165,9 @@ def test_create_update_delete_dataset_freshness_assertion_monitor(frontend_sessi
         },
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -204,7 +191,9 @@ def test_create_update_delete_dataset_freshness_assertion_monitor(frontend_sessi
         "variables": {"urn": assertion_urn},
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -220,7 +209,9 @@ def test_create_update_delete_dataset_freshness_assertion_monitor(frontend_sessi
         "variables": {"urn": monitor_urn},
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -229,8 +220,7 @@ def test_create_update_delete_dataset_freshness_assertion_monitor(frontend_sessi
     assert res_data["data"]["deleteMonitor"] is True
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_update_delete_dataset_volume_assertion_monitor(frontend_session):
+def test_create_update_delete_dataset_volume_assertion_monitor(auth_session):
     # Create the assertion
     json = {
         "query": """mutation upsertDatasetVolumeAssertionMonitor($input: UpsertDatasetVolumeAssertionMonitorInput!) {\n
@@ -261,7 +251,9 @@ def test_create_update_delete_dataset_volume_assertion_monitor(frontend_session)
         },
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -312,7 +304,9 @@ def test_create_update_delete_dataset_volume_assertion_monitor(frontend_session)
         },
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -335,7 +329,9 @@ def test_create_update_delete_dataset_volume_assertion_monitor(frontend_session)
         "variables": {"urn": assertion_urn},
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -351,7 +347,9 @@ def test_create_update_delete_dataset_volume_assertion_monitor(frontend_session)
         "variables": {"urn": monitor_urn},
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -360,8 +358,7 @@ def test_create_update_delete_dataset_volume_assertion_monitor(frontend_session)
     assert res_data["data"]["deleteMonitor"] is True
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_update_delete_dataset_sql_assertion_monitor(frontend_session):
+def test_create_update_delete_dataset_sql_assertion_monitor(auth_session):
     # Create the assertion
     json = {
         "query": """mutation upsertDatasetSqlAssertionMonitor($input: UpsertDatasetSqlAssertionMonitorInput!) {\n
@@ -390,7 +387,9 @@ def test_create_update_delete_dataset_sql_assertion_monitor(frontend_session):
         },
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -441,7 +440,9 @@ def test_create_update_delete_dataset_sql_assertion_monitor(frontend_session):
         },
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -462,7 +463,9 @@ def test_create_update_delete_dataset_sql_assertion_monitor(frontend_session):
         "variables": {"urn": assertion_urn},
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -478,7 +481,9 @@ def test_create_update_delete_dataset_sql_assertion_monitor(frontend_session):
         "variables": {"urn": monitor_urn},
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -487,8 +492,7 @@ def test_create_update_delete_dataset_sql_assertion_monitor(frontend_session):
     assert res_data["data"]["deleteMonitor"] is True
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_update_delete_dataset_field_assertion_monitor(frontend_session):
+def test_create_update_delete_dataset_field_assertion_monitor(auth_session):
     # Create the assertion
     json = {
         "query": """mutation upsertDatasetFieldAssertionMonitor($input: UpsertDatasetFieldAssertionMonitorInput!) {\n
@@ -521,7 +525,9 @@ def test_create_update_delete_dataset_field_assertion_monitor(frontend_session):
         },
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -574,7 +580,9 @@ def test_create_update_delete_dataset_field_assertion_monitor(frontend_session):
         },
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -597,7 +605,9 @@ def test_create_update_delete_dataset_field_assertion_monitor(frontend_session):
         "variables": {"urn": assertion_urn},
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -613,7 +623,9 @@ def test_create_update_delete_dataset_field_assertion_monitor(frontend_session):
         "variables": {"urn": monitor_urn},
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 

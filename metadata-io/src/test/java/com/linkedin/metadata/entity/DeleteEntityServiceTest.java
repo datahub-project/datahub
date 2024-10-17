@@ -2,7 +2,9 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static org.mockito.Mockito.*;
-import static org.testng.AssertJUnit.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -23,12 +25,14 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.search.*;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
@@ -100,7 +104,10 @@ public class DeleteEntityServiceTest {
                 Mockito.any(OperationContext.class),
                 Mockito.eq(ImmutableList.of("subscription")),
                 Mockito.eq("*"),
-                Mockito.eq(newFilter(newCriterion("entityUrn", container.toString()))),
+                Mockito.eq(
+                    newFilter(
+                        CriterionUtils.buildCriterion(
+                            "entityUrn", Condition.EQUAL, container.toString()))),
                 Mockito.eq(null),
                 Mockito.isNull(),
                 Mockito.any(),
@@ -229,7 +236,10 @@ public class DeleteEntityServiceTest {
                 Mockito.any(OperationContext.class),
                 Mockito.eq(ImmutableList.of("subscription")),
                 Mockito.eq("*"),
-                Mockito.eq(newFilter(newCriterion("entityUrn", form.toString()))),
+                Mockito.eq(
+                    newFilter(
+                        CriterionUtils.buildCriterion(
+                            "entityUrn", Condition.EQUAL, form.toString()))),
                 Mockito.eq(null),
                 Mockito.isNull(),
                 Mockito.any(),
@@ -296,7 +306,10 @@ public class DeleteEntityServiceTest {
                 Mockito.any(OperationContext.class),
                 Mockito.eq(ImmutableList.of("subscription")),
                 Mockito.eq("*"),
-                Mockito.eq(newFilter(newCriterion("entityUrn", form.toString()))),
+                Mockito.eq(
+                    newFilter(
+                        CriterionUtils.buildCriterion(
+                            "entityUrn", Condition.EQUAL, form.toString()))),
                 Mockito.eq(null),
                 Mockito.isNull(),
                 Mockito.any(),
@@ -368,7 +381,10 @@ public class DeleteEntityServiceTest {
                 Mockito.any(OperationContext.class),
                 Mockito.eq(ImmutableList.of("subscription")),
                 Mockito.eq("*"),
-                Mockito.eq(newFilter(newCriterion("entityUrn", form.toString()))),
+                Mockito.eq(
+                    newFilter(
+                        CriterionUtils.buildCriterion(
+                            "entityUrn", Condition.EQUAL, form.toString()))),
                 Mockito.eq(null),
                 Mockito.isNull(),
                 Mockito.any(),
@@ -412,7 +428,10 @@ public class DeleteEntityServiceTest {
                 Mockito.any(OperationContext.class),
                 Mockito.eq(ImmutableList.of("subscription")),
                 Mockito.eq("*"),
-                Mockito.eq(newFilter(newCriterion("entityUrn", deletedUrn.toString()))),
+                Mockito.eq(
+                    newFilter(
+                        CriterionUtils.buildCriterion(
+                            "entityUrn", Condition.EQUAL, deletedUrn.toString()))),
                 Mockito.isNull(),
                 Mockito.isNull(),
                 Mockito.any(),
@@ -481,7 +500,10 @@ public class DeleteEntityServiceTest {
                 Mockito.any(OperationContext.class),
                 Mockito.eq(ImmutableList.of("subscription")),
                 Mockito.eq("*"),
-                Mockito.eq(newFilter(newCriterion("entityUrn", deletedUrn.toString()))),
+                Mockito.eq(
+                    newFilter(
+                        CriterionUtils.buildCriterion(
+                            "entityUrn", Condition.EQUAL, deletedUrn.toString()))),
                 Mockito.isNull(),
                 Mockito.isNull(),
                 Mockito.any(),
@@ -493,7 +515,10 @@ public class DeleteEntityServiceTest {
                 Mockito.any(OperationContext.class),
                 Mockito.eq(ImmutableList.of("subscription")),
                 Mockito.eq("*"),
-                Mockito.eq(newFilter(newCriterion("entityUrn", deletedUrn.toString()))),
+                Mockito.eq(
+                    newFilter(
+                        CriterionUtils.buildCriterion(
+                            "entityUrn", Condition.EQUAL, deletedUrn.toString()))),
                 Mockito.isNull(),
                 Mockito.eq("scrollIdValue"),
                 Mockito.any(),
@@ -546,7 +571,10 @@ public class DeleteEntityServiceTest {
                 Mockito.any(OperationContext.class),
                 Mockito.eq(ImmutableList.of("subscription")),
                 Mockito.eq("*"),
-                Mockito.eq(newFilter(newCriterion("entityUrn", deletedUrn.toString()))),
+                Mockito.eq(
+                    newFilter(
+                        CriterionUtils.buildCriterion(
+                            "entityUrn", Condition.EQUAL, deletedUrn.toString()))),
                 Mockito.isNull(),
                 Mockito.isNull(),
                 Mockito.any(),
@@ -601,7 +629,10 @@ public class DeleteEntityServiceTest {
                 Mockito.any(OperationContext.class),
                 Mockito.eq(ImmutableList.of("subscription")),
                 Mockito.eq("*"),
-                Mockito.eq(newFilter(newCriterion("entityUrn", deletedUrn.toString()))),
+                Mockito.eq(
+                    newFilter(
+                        CriterionUtils.buildCriterion(
+                            "entityUrn", Condition.EQUAL, deletedUrn.toString()))),
                 Mockito.isNull(),
                 Mockito.isNull(),
                 Mockito.any(),

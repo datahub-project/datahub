@@ -132,7 +132,7 @@ conn_id = datahub_rest_default  # or datahub_kafka_default
 ```
 
 | Name                       | Default value        | Description                                                                                                                                                                            |
-| -------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|----------------------------|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | enabled                    | true                 | If the plugin should be enabled.                                                                                                                                                       |
 | conn_id                    | datahub_rest_default | The name of the datahub connection you set in step 1.                                                                                                                                  |
 | cluster                    | prod                 | name of the airflow cluster                                                                                                                                                            |
@@ -141,9 +141,11 @@ conn_id = datahub_rest_default  # or datahub_kafka_default
 | capture_tags_info          | true                 | If true, the tags field of the DAG will be captured as DataHub tags.                                                                                                                   |
 | capture_executions         | true                 | If true, we'll capture task runs in DataHub in addition to DAG definitions.                                                                                                            |
 | materialize_iolets         | true                 | Create or un-soft-delete all entities referenced in lineage.                                                                                                                           |
+| render_templates           | true                 | If true, jinja-templated fields will be automatically rendered to improve the accuracy of SQL statement extraction.                                                                    |
 | datajob_url_link           | taskinstance         | If taskinstance, the datajob url will be taskinstance link on airflow. It can also be grid.                                                                                            |
 |                            |
 | graceful_exceptions        | true                 | If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions. |
+| dag_filter_str             | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                                                                         |
 
 #### Validate that the plugin is working
 

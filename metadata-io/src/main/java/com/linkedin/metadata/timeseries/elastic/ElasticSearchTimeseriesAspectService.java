@@ -1,6 +1,7 @@
 package com.linkedin.metadata.timeseries.elastic;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
@@ -339,20 +340,21 @@ public class ElasticSearchTimeseriesAspectService
     filterQueryBuilder.mustNot(QueryBuilders.termQuery(MappingsBuilder.IS_EXPLODED_FIELD, true));
     if (startTimeMillis != null) {
       Criterion startTimeCriterion =
-          new Criterion()
-              .setField(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)
-              .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-              .setValue(startTimeMillis.toString());
+          buildCriterion(
+              MappingsBuilder.TIMESTAMP_MILLIS_FIELD,
+              Condition.GREATER_THAN_OR_EQUAL_TO,
+              startTimeMillis.toString());
       filterQueryBuilder.must(
           ESUtils.getQueryBuilderFromCriterion(
               startTimeCriterion, true, searchableFieldTypes, opContext, queryFilterRewriteChain));
     }
     if (endTimeMillis != null) {
       Criterion endTimeCriterion =
-          new Criterion()
-              .setField(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)
-              .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-              .setValue(endTimeMillis.toString());
+          buildCriterion(
+              MappingsBuilder.TIMESTAMP_MILLIS_FIELD,
+              Condition.LESS_THAN_OR_EQUAL_TO,
+              endTimeMillis.toString());
+
       filterQueryBuilder.must(
           ESUtils.getQueryBuilderFromCriterion(
               endTimeCriterion, true, searchableFieldTypes, opContext, queryFilterRewriteChain));
@@ -575,20 +577,21 @@ public class ElasticSearchTimeseriesAspectService
 
     if (startTimeMillis != null) {
       Criterion startTimeCriterion =
-          new Criterion()
-              .setField(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)
-              .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-              .setValue(startTimeMillis.toString());
+          buildCriterion(
+              MappingsBuilder.TIMESTAMP_MILLIS_FIELD,
+              Condition.GREATER_THAN_OR_EQUAL_TO,
+              startTimeMillis.toString());
+
       filterQueryBuilder.filter(
           ESUtils.getQueryBuilderFromCriterion(
               startTimeCriterion, true, searchableFieldTypes, opContext, queryFilterRewriteChain));
     }
     if (endTimeMillis != null) {
       Criterion endTimeCriterion =
-          new Criterion()
-              .setField(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)
-              .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-              .setValue(endTimeMillis.toString());
+          buildCriterion(
+              MappingsBuilder.TIMESTAMP_MILLIS_FIELD,
+              Condition.LESS_THAN_OR_EQUAL_TO,
+              endTimeMillis.toString());
       filterQueryBuilder.filter(
           ESUtils.getQueryBuilderFromCriterion(
               endTimeCriterion, true, searchableFieldTypes, opContext, queryFilterRewriteChain));
