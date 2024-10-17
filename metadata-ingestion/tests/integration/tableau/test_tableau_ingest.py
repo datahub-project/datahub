@@ -19,6 +19,7 @@ from tableauserverclient.models import (
 
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.tableau.tableau import (
     TableauConfig,
@@ -37,7 +38,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageUpstreamType,
     UpstreamLineage,
 )
-from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
+from datahub.metadata.schema_classes import UpstreamClass
 from tests.test_helpers import mce_helpers, test_connection_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
@@ -939,11 +940,12 @@ def test_tableau_unsupported_csql():
         database_override_map={"production database": "prod"}
     )
 
-    def test_lineage_metadata(
+    def check_lineage_metadata(
         lineage, expected_entity_urn, expected_upstream_table, expected_cll
     ):
-        mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)
-        assert mcp.aspect == UpstreamLineage(
+        mcp = cast(MetadataChangeProposalWrapper, list(lineage)[0].metadata)
+
+        expected = UpstreamLineage(
             upstreams=[
                 UpstreamClass(
                     dataset=expected_upstream_table,
@@ -965,6 +967,9 @@ def test_tableau_unsupported_csql():
             ],
         )
         assert mcp.entityUrn == expected_entity_urn
+
+        actual_aspect = mcp.aspect
+        assert actual_aspect == expected
 
     csql_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
     expected_upstream_table = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.UserDetail,PROD)"
@@ -996,7 +1001,7 @@ def test_tableau_unsupported_csql():
         },
         out_columns=[],
     )
-    test_lineage_metadata(
+    check_lineage_metadata(
         lineage=lineage,
         expected_entity_urn=csql_urn,
         expected_upstream_table=expected_upstream_table,
@@ -1014,7 +1019,7 @@ def test_tableau_unsupported_csql():
         },
         out_columns=[],
     )
-    test_lineage_metadata(
+    check_lineage_metadata(
         lineage=lineage,
         expected_entity_urn=csql_urn,
         expected_upstream_table=expected_upstream_table,
