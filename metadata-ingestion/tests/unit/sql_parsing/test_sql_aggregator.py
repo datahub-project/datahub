@@ -13,6 +13,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     QueryLogSetting,
     SqlParsingAggregator,
+    TableSwap,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -518,6 +519,15 @@ def test_table_rename(pytestconfig: pytest.Config) -> None:
         generate_operations=False,
     )
 
+    # Add the query that created the staging table.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo_staging as select a, b from foo_dep_old",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
     # Register that foo_staging is renamed to foo.
     aggregator.add_table_rename(
         original_urn=DatasetUrn("redshift", "dev.public.foo_staging").urn(),
@@ -542,12 +552,205 @@ def test_table_rename(pytestconfig: pytest.Config) -> None:
         )
     )
 
+    # Add the query that created the downstream from foo_staging table.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo_downstream as select a, b from foo_staging",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
     mcps = list(aggregator.gen_metadata())
 
     mce_helpers.check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_table_rename.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_table_rename_with_temp(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        is_temp_table=lambda x: "staging" in x.lower(),
+    )
+
+    # Add the query that created the staging table.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo_staging as select a, b from foo_dep_old",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    # Register that foo_staging is renamed to foo.
+    aggregator.add_table_rename(
+        original_urn=DatasetUrn("redshift", "dev.public.foo_staging").urn(),
+        new_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+    )
+
+    # Add an unrelated query.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table bar as select a, b from baz",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    # Add the query that created the staging table.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo_staging as select a, b from foo_dep",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    # Add the query that created the downstream from foo_staging table.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo_downstream as select a, b from foo_staging",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_table_rename_with_temp.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_table_swap(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    # Add an unrelated query.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table bar as select a, b from baz",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    # Add the query that created the foo table initially.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo as select * from foo_original_dep",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    # Add the query that created the staging table.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo_staging as select f.a, d.b from foo f join foo_dep d using c",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    aggregator.add_table_swap(
+        TableSwap(
+            urn1=DatasetUrn("snowflake", "dev.public.foo").urn(),
+            urn2=DatasetUrn("snowflake", "dev.public.foo_staging").urn(),
+        )
+    )
+
+    # Add the query that is created from foo_staging table.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo_backup as select * from foo_staging",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_table_swap.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        is_temp_table=lambda x: "staging" in x.lower(),
+    )
+
+    # Add an unrelated query.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table bar as select a, b from baz",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    # Add the query that created the foo table initially.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo as select * from foo_original_dep",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    # Add the query that created the staging table.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo_staging as select f.a, d.b from foo f join foo_dep d using c",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    aggregator.add_table_swap(
+        TableSwap(
+            urn1=DatasetUrn("snowflake", "dev.public.foo").urn(),
+            urn2=DatasetUrn("snowflake", "dev.public.foo_staging").urn(),
+        )
+    )
+
+    # Add the query that is created from foo_staging table.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo_backup as select * from foo_staging",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_table_swap_with_temp.json",
     )
 
 
@@ -660,4 +863,17 @@ def test_basic_usage(pytestconfig: pytest.Config) -> None:
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_basic_usage.json",
+    )
+
+
+def test_table_swap_id() -> None:
+    assert (
+        TableSwap(
+            urn1=DatasetUrn("snowflake", "dev.public.foo").urn(),
+            urn2=DatasetUrn("snowflake", "dev.public.foo_staging").urn(),
+        ).id()
+        == TableSwap(
+            urn1=DatasetUrn("snowflake", "dev.public.foo_staging").urn(),
+            urn2=DatasetUrn("snowflake", "dev.public.foo").urn(),
+        ).id()
     )
