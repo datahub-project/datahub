@@ -65,9 +65,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 # We can't use close as it is not called if the ingestion is not successful
 def cleanup(config: BigQueryV2Config) -> None:
     if config._credentials_path is not None:
-        logger.debug(
-            f"Deleting temporary credential file at {config._credentials_path}"
-        )
         os.unlink(config._credentials_path)
 
 
@@ -188,6 +185,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.sql_parser_schema_resolver,
             self.profiler,
             self.identifiers,
+            self.ctx.graph,
         )
 
         self.add_config_to_report()
