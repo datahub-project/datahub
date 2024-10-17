@@ -571,12 +571,6 @@ entities:
       - testResults
       - schemaFieldProfile
       - lineageFeatures
-  - name: globalSettings
-    doc: Global settings for an the platform
-    category: internal
-    keyAspect: globalSettingsKey
-    aspects:
-      - constraintInfo
   ## Not in OSS
   - name: constraint
     keyAspect: constraintKey
