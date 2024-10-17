@@ -13,6 +13,8 @@ class ThreadPoolExecutorWithQueueSizeLimit:
         self.semaphore = BoundedSemaphore(max_workers)
         self.shutdown_flag = False
         self.name = name
+        self.active_threads = 0
+
         STATS_THREAD_POOL_MAX_WORKERS.labels(name).set(max_workers)
 
     def submit(self, fn, *args, **kwargs):  # type: ignore
@@ -21,11 +23,13 @@ class ThreadPoolExecutorWithQueueSizeLimit:
 
         def sem_release(future: Future) -> None:
             self.semaphore.release()
-            STATS_THREAD_POOL_ACTIVE_WORKERS.labels(self.name).dec()
+            self.active_threads -= 1
+            STATS_THREAD_POOL_ACTIVE_WORKERS.labels(self.name).set(self.active_threads)
             return
 
         self.semaphore.acquire()
-        STATS_THREAD_POOL_ACTIVE_WORKERS.labels(self.name).inc()
+        self.active_threads += 1
+        STATS_THREAD_POOL_ACTIVE_WORKERS.labels(self.name).set(self.active_threads)
 
         try:
             future = self.executor.submit(fn, *args, **kwargs)
@@ -35,6 +39,9 @@ class ThreadPoolExecutorWithQueueSizeLimit:
         else:
             future.add_done_callback(sem_release)
             return future
+
+    def get_active_thread_count(self) -> int:
+        return self.active_threads
 
     def shutdown(self, wait=True):  # type: ignore
         self.shutdown_flag = True

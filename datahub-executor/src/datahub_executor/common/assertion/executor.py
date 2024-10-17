@@ -35,6 +35,9 @@ class AssertionExecutor:
             name="assertions",
         )
 
+    def get_active_thread_count(self) -> int:
+        return self.tp.get_active_thread_count()
+
     def execute(self, request: ExecutionRequest) -> None:
         # submit will block if queue size > max_workers
         self.tp.submit(self.worker, request)

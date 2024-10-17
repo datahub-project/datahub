@@ -1,8 +1,11 @@
 import logging
+import time
 import typing
+from pathlib import Path
+from threading import Thread
 
 from acryl.executor.request.execution_request import ExecutionRequest
-from celery.signals import celeryd_init, heartbeat_sent
+from celery.signals import celeryd_init, heartbeat_sent, worker_shutting_down
 from datahub.metadata.schema_classes import MetadataChangeLogClass
 from kombu.transport.SQS import Channel
 
@@ -24,11 +27,13 @@ from datahub_executor.common.monitoring.metrics import (
 from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
+    DATAHUB_EXECUTOR_LIVENESS_HEARTBEAT_FILE,
+    DATAHUB_EXECUTOR_READINESS_HEARTBEAT_FILE,
     DATAHUB_EXECUTOR_WORKER_ID,
+    DATAHUB_EXECUTOR_WORKER_MONITOR_INTERVAL,
 )
 
 from .config import update_celery_credentials
-from .health import kube_health_check
 from .init import app
 from .kombu_patch import patched_handle_sts_session
 
@@ -43,15 +48,83 @@ Channel._handle_sts_session = patched_handle_sts_session
 update_celery_credentials(app, True, "")
 
 tp = None
+monitor = None
 ingestion_executor = None
 assertion_executor = None
 graph = None
+
+# Health check status
+celery_liveness = 0
+celery_readiness = False
+celery_shutdown = False
+
+
+def touch_heartbeat_file(path: str) -> None:
+    try:
+        Path(path).touch()
+    except Exception as e:
+        logger.error(f"Failed to update heartbeat file {path}: {e}")
+
+
+def monitor_thread() -> None:
+    global graph
+    global ingestion_executor, assertion_executor
+    global celery_liveness, celery_readiness, celery_shutdown
+
+    max_allowed_staleness = DATAHUB_EXECUTOR_WORKER_MONITOR_INTERVAL * 3
+    warning_last_logged = 0
+    failure_last_logged = 0
+    log_frequency = 60
+
+    while not celery_shutdown:
+        ingestions_running = False
+        assertions_running = False
+
+        # check for any signal requests on running tasks
+        if ingestion_executor is not None:
+            ingestions_running = handle_ingestion_signal_requests(
+                graph, ingestion_executor
+            )
+        if assertion_executor is not None:
+            assertions_running = handle_assertions_signal_requests(
+                graph, assertion_executor
+            )
+
+        # Update readiness file if worker is up
+        if celery_readiness:
+            touch_heartbeat_file(DATAHUB_EXECUTOR_READINESS_HEARTBEAT_FILE)
+
+        now = int(time.time())
+        staleness = now - celery_liveness
+
+        # Update readiness file if celery heartbeat is getting updated or GMS communication is ok
+        if staleness <= max_allowed_staleness:
+            touch_heartbeat_file(DATAHUB_EXECUTOR_LIVENESS_HEARTBEAT_FILE)
+            if warning_last_logged > 0 or failure_last_logged > 0:
+                logger.warning("monitor: celery liveness check recovered.")
+                warning_last_logged = 0
+                failure_last_logged = 0
+        elif ingestions_running or assertions_running:
+            touch_heartbeat_file(DATAHUB_EXECUTOR_LIVENESS_HEARTBEAT_FILE)
+            if (now - warning_last_logged) > log_frequency:
+                logger.warning(
+                    "monitor: celery liveness check is blocked, using other signals"
+                )
+                warning_last_logged = now
+        else:
+            if (now - failure_last_logged) > log_frequency:
+                logger.warning(
+                    f"monitor: celery liveness check failed: last updated {staleness} seconds ago."
+                )
+                failure_last_logged = now
+
+        time.sleep(DATAHUB_EXECUTOR_WORKER_MONITOR_INTERVAL)
 
 
 @typing.no_type_check
 @celeryd_init.connect
 def worker_startup(*args, **kwargs):
-    global graph
+    global graph, monitor
     graph = create_datahub_graph()
 
     global ingestion_executor
@@ -59,6 +132,10 @@ def worker_startup(*args, **kwargs):
 
     global assertion_executor
     assertion_executor = AssertionExecutor()
+
+    # Start monitoring thread
+    monitor = Thread(target=monitor_thread)
+    monitor.start()
 
     global tp
     tp = ThreadPoolExecutorWithQueueSizeLimit(
@@ -103,17 +180,25 @@ def ingestion_request(event: MetadataChangeLogClass) -> None:
 
 @typing.no_type_check
 @heartbeat_sent.connect
-def poll_signals(**kwargs):
-    global graph
-    global ingestion_executor
-    global assertion_executor
+def heartbeat(**kwargs):
+    global celery_liveness, celery_readiness
 
-    # update health check file
-    kube_health_check()
+    celery_readiness = True
+    celery_liveness = int(time.time())
 
-    # check for any signal requests on running tasks
-    if ingestion_executor is not None:
-        handle_ingestion_signal_requests(graph, ingestion_executor)
 
+@typing.no_type_check
+@worker_shutting_down.connect
+def shutdown(**kwargs):
+    global celery_shutdown, celery_readiness
+    global tp, monitor, assertion_executor
+
+    celery_shutdown = True
+    celery_readiness = False
+
+    if monitor is not None:
+        monitor.join()
+    if tp is not None:
+        tp.shutdown()
     if assertion_executor is not None:
-        handle_assertions_signal_requests(graph, assertion_executor)
+        assertion_executor.shutdown()

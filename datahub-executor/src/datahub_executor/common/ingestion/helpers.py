@@ -209,7 +209,7 @@ def fetch_execution_requests(
 def handle_ingestion_signal_requests(
     graph: DataHubGraph,
     ingestion_executor: ReportingExecutor,
-) -> None:
+) -> bool:
     ingestion_exec_ids = []
     if ingestion_executor.task_futures:
         for exec_id in ingestion_executor.task_futures.keys():
@@ -245,10 +245,11 @@ def handle_ingestion_signal_requests(
 
                 STATS_INGESTION_HANDLER_CANCEL_REQUESTS.inc()
                 logger.info(f"Got {signal.signal} signal for task {exec_id}")
+            return True
         except Exception as e:
             STATS_EXECUTION_FETCH_SIGNAL_ERRORS.labels("Exception").inc()
             logger.error(f"Failed to fetch signal requests: {e}")
-            return
+    return False
 
 
 def emit_execution_request_input(input: ExecutionRequestInputClass) -> bool:
