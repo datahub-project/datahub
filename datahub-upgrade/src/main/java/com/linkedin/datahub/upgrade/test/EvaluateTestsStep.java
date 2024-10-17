@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.test;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -43,6 +44,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -55,7 +57,7 @@ public class EvaluateTestsStep implements UpgradeStep {
   private final EntityClient entityClient;
   private final EntitySearchService _entitySearchService;
   private final TestEngine testEngine;
-  private final ExecutorService executorService;
+  @VisibleForTesting @Getter private final ExecutorService executorService;
   private final TestEngine.EvaluationMode evaluationMode;
   private final String runId;
 
