@@ -929,7 +929,6 @@ class LookerExplore:
         reporter: SourceReport,
         source_config: LookerDashboardSourceConfig,
     ) -> Optional["LookerExplore"]:  # noqa: C901
-        from datahub.ingestion.source.looker.lookml_source import _BASE_PROJECT_NAME
 
         try:
             explore = client.lookml_model_explore(model, explore_name)
@@ -1194,7 +1193,6 @@ class LookerExplore:
     ) -> Optional[List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]]:
         # We only generate MCE-s for explores that contain from clauses and do NOT contain joins
         # All other explores (passthrough explores and joins) end in correct resolution of lineage, and don't need additional nodes in the graph.
-        from datahub.ingestion.source.looker.lookml_source import _BASE_PROJECT_NAME
 
         dataset_snapshot = DatasetSnapshot(
             urn=self.get_explore_urn(config),
