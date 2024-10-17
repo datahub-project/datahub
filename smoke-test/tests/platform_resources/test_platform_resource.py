@@ -142,7 +142,6 @@ def test_platform_resource_urn_secondary_key(graph_client, test_id):
 
 
 def test_platform_resource_listing_by_resource_type(graph_client, test_id):
-    breakpoint()
     # Generate two resources with the same resource type
     key1 = PlatformResourceKey(
         platform=f"test_platform_{test_id}",
