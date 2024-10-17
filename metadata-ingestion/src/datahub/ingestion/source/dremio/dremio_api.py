@@ -300,6 +300,7 @@ class DremioAPIOperations:
         dataset_list = []
         column_dictionary: Dict[str, List[Dict]] = defaultdict(list)
 
+        ordinal_position = 0
         for record in tables_and_columns:
             if not record.get("COLUMN_NAME"):
                 continue
@@ -311,12 +312,16 @@ class DremioAPIOperations:
             column_dictionary[table_full_path].append(
                 {
                     "name": record["COLUMN_NAME"],
-                    "ordinal_position": record["ORDINAL_POSITION"],
+                    "ordinal_position": record.get(
+                        "ORDINAL_POSITION", ordinal_position
+                    ),
                     "is_nullable": record["IS_NULLABLE"],
                     "data_type": record["DATA_TYPE"],
                     "column_size": record["COLUMN_SIZE"],
                 }
             )
+
+            ordinal_position += 1
 
             if record.get("TABLE_SCHEMA") not in schema_list:
                 schema_list.append(record.get("TABLE_SCHEMA"))
@@ -412,6 +417,7 @@ class DremioAPIOperations:
         all_tables_and_columns = []
 
         for schema in containers:
+            formatted_query = ""
             try:
                 formatted_query = query_template.format(
                     schema_pattern=schema_condition,
@@ -428,7 +434,7 @@ class DremioAPIOperations:
                 )
             except Exception as exc:
                 logger.warning(
-                    f"{schema.subclass} {schema.container_name} had no tables or views"
+                    f"{schema.subclass} {schema.container_name} had no tables or views {formatted_query}"
                 )
                 logger.debug(exc)
 

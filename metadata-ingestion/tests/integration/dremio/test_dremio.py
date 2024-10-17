@@ -226,7 +226,7 @@ def add_datasets_to_space(dremio_token):
 
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     assert response.status_code == 200, f"Failed to create view: {response.text}"
-    time.sleep(5)
+    time.sleep(10)
     url = f"{DREMIO_HOST}/apiv2/dataset/tmp.UNTITLED/version/{sql_version_number}/save?as=%22my_space%22.%22my_folder%22.raw"
     response = requests.post(url, headers=headers)
     assert response.status_code == 200, f"Failed to add view in folder: {response.text}"
