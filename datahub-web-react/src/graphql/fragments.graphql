@@ -1096,6 +1096,16 @@ fragment browsePathV2Fields on BrowsePathV2 {
                     name
                 }
             }
+            ... on Dashboard {
+                properties {
+                    name
+                }
+            }
+            ... on Chart {
+                properties {
+                    name
+                }
+            }
         }
     }
 }
