@@ -10,16 +10,17 @@
 
 ## Concept mapping 
 
-| PowerBI              | Datahub                 |                                                                                               
-|-----------------------|---------------------|
-| `Dashboard`           | `Dashboard`         |
-| `Dataset's Table`     | `Dataset`           |
-| `Tile`                | `Chart`             |
-| `Report.webUrl`       | `Chart.externalUrl` |
-| `Workspace`           | `Container`         |
-| `Report`              | `Dashboard`         |
-| `PaginatedReport`     | `Dashboard`         |
-| `Page`                | `Chart`             |
+| PowerBI           | Datahub             |                                                                                               
+|-------------------|---------------------|
+| `Dashboard`       | `Dashboard`         |
+| `Dataset's Table` | `Dataset`           |
+| `Tile`            | `Chart`             |
+| `Report.webUrl`   | `Chart.externalUrl` |
+| `Workspace`       | `Container`         |
+| `Report`          | `Dashboard`         |
+| `PaginatedReport` | `Dashboard`         |
+| `Page`            | `Chart`             |
+| `App`             | `Dashboard`         |
 
 - If `Tile` is created from report then `Chart.externalUrl` is set to Report.webUrl.
 - The `Page` is unavailable for PowerBI PaginatedReport.

@@ -70,6 +70,7 @@ class BIAssetSubTypes(StrEnum):
     # PowerBI
     POWERBI_TILE = "PowerBI Tile"
     POWERBI_PAGE = "PowerBI Page"
+    POWERBI_APP = "App"
 
     # Mode
     MODE_REPORT = "Report"
