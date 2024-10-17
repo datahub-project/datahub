@@ -1,9 +1,10 @@
 import * as React from 'react';
 import { PicCenterOutlined } from '@ant-design/icons';
-import { EntityType, SchemaFieldEntity, SearchResult } from '../../../types.generated';
+import { Dataset, EntityNameProperties, EntityType, SchemaFieldEntity, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { Preview } from './preview/Preview';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
 export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
     type: EntityType = EntityType.SchemaField;
@@ -33,9 +34,24 @@ export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
     // Currently unused.
     renderProfile = (_: string) => <></>;
 
-    renderPreview = (previewType: PreviewType, data: SchemaFieldEntity) => (
-        <Preview previewType={previewType} datasetUrn={data.parent.urn} name={data.fieldPath} />
-    );
+    renderPreview = (previewType: PreviewType, data: SchemaFieldEntity) => {
+        const parent = data.parent as Dataset;
+        const properties = parent.properties as EntityNameProperties;
+        return (
+            <Preview
+                previewType={previewType}
+                datasetUrn={data.parent.urn}
+                name={data.fieldPath}
+                parentContainers={parent?.parentContainers}
+                platformName={
+                    parent?.platform?.properties?.displayName || capitalizeFirstLetterOnly(parent?.platform?.name)
+                }
+                platformLogo={parent?.platform?.properties?.logoUrl || ''}
+                platformInstanceId={parent?.dataPlatformInstance?.instanceId}
+                parentDatasetProperties={properties}
+            />
+        );
+    };
 
     renderSearch = (result: SearchResult) => this.renderPreview(PreviewType.SEARCH, result.entity as SchemaFieldEntity);
 
