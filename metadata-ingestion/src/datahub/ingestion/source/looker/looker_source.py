@@ -866,6 +866,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         if not self.source_config.emit_used_explores_only:
             explores_to_fetch = list(self.list_all_explores())
         else:
+            # We don't keep track of project names for each explore right now.
+            # Because project names are just used for a custom property, it's
+            # fine to set them to None.
+            # TODO: Track project names for each explore.
             explores_to_fetch = [
                 (None, model, explore)
                 for (model, explore) in self.reachable_explores.keys()
