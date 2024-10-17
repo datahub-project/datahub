@@ -35,7 +35,7 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 from tests.test_helpers.type_helpers import PytestConfig
-from tests.unit.test_glue_source_stubs import (
+from tests.unit.glue.test_glue_source_stubs import (
     databases_1,
     databases_2,
     get_bucket_tagging,
@@ -70,6 +70,8 @@ from tests.unit.test_glue_source_stubs import (
 FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
+
+test_resources_dir = Path(__file__).parent
 
 
 def glue_source(
@@ -247,7 +249,6 @@ def test_glue_ingest(
             write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_file,
@@ -312,8 +313,6 @@ def test_config_without_platform():
 
 @freeze_time(FROZEN_TIME)
 def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
-
     deleted_actor_golden_mcs = "{}/glue_deleted_actor_mces_golden.json".format(
         test_resources_dir
     )
@@ -438,7 +437,6 @@ def test_glue_with_delta_schema_ingest(
         write_metadata_file(tmp_path / "glue_delta_mces.json", mce_objects)
 
     # Verify the output.
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "glue_delta_mces.json",
@@ -475,7 +473,6 @@ def test_glue_with_malformed_delta_schema_ingest(
         write_metadata_file(tmp_path / "glue_malformed_delta_mces.json", mce_objects)
 
     # Verify the output.
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "glue_malformed_delta_mces.json",
@@ -571,7 +568,6 @@ def test_glue_ingest_include_table_lineage(
             write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_file,
@@ -678,7 +674,6 @@ def test_glue_ingest_include_column_lineage(
         write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_file,
@@ -716,7 +711,6 @@ def test_glue_ingest_with_profiling(
         write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_file,
