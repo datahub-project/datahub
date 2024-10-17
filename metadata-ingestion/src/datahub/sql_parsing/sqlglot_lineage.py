@@ -656,7 +656,9 @@ def _get_direct_raw_col_upstreams(
             # Parse the column name out of the node name.
             # Sqlglot calls .sql(), so we have to do the inverse.
             normalized_col = sqlglot.parse_one(node.name).this.name
-            if node.subfield:
+            if hasattr(node, "subfield") and node.subfield:
+                # The hasattr check is necessary, since it lets us be compatible with
+                # sqlglot versions that don't have the subfield attribute.
                 normalized_col = f"{normalized_col}.{node.subfield}"
 
             direct_raw_col_upstreams.add(
