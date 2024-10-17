@@ -64,13 +64,29 @@ SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
 SQL_LINEAGE_TIMEOUT_SECONDS = 10
 
 
+# These rules are a subset of the rules in sqlglot.optimizer.optimizer.RULES.
+# If there's a change in their rules, we probably need to re-evaluate our list as well.
+assert len(sqlglot.optimizer.optimizer.RULES) == 14
+
 _OPTIMIZE_RULES = (
-    sqlglot.optimizer.qualify.qualify,
+    sqlglot.optimizer.optimizer.qualify,
     # We need to enable this in order for annotate types to work.
-    sqlglot.optimizer.unnest_subqueries.unnest_subqueries,
-    sqlglot.optimizer.qualify_columns.quote_identifiers,
-    # TODO: If annotate types becomes more stable, we can add it here directly.
+    sqlglot.optimizer.optimizer.pushdown_projections,
+    # sqlglot.optimizer.optimizer.normalize,  # causes perf issues
+    sqlglot.optimizer.optimizer.unnest_subqueries,
+    # sqlglot.optimizer.optimizer.pushdown_predicates,  # causes perf issues
+    # sqlglot.optimizer.optimizer.optimize_joins,
+    # sqlglot.optimizer.optimizer.eliminate_subqueries,
+    # sqlglot.optimizer.optimizer.merge_subqueries,
+    # sqlglot.optimizer.optimizer.eliminate_joins,
+    # sqlglot.optimizer.optimizer.eliminate_ctes,
+    sqlglot.optimizer.optimizer.quote_identifiers,
+    # These three are run separately or not run at all.
+    # sqlglot.optimizer.optimizer.annotate_types,
+    # sqlglot.optimizer.canonicalize.canonicalize,
+    # sqlglot.optimizer.simplify.simplify,
 )
+
 _DEBUG_TYPE_ANNOTATIONS = False
 
 
