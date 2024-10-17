@@ -139,3 +139,51 @@ def test_platform_resource_urn_secondary_key(graph_client, test_id):
     ]
     assert len(read_platform_resources) == 1
     assert read_platform_resources[0] == platform_resource
+
+
+def test_platform_resource_listing_by_resource_type(graph_client, test_id):
+    breakpoint()
+    # Generate two resources with the same resource type
+    key1 = PlatformResourceKey(
+        platform=f"test_platform_{test_id}",
+        resource_type=f"test_resource_type_{test_id}",
+        primary_key=f"test_primary_key_1_{test_id}",
+    )
+    platform_resource1 = PlatformResource.create(
+        key=key1,
+        value={"test_key": f"test_value_1_{test_id}"},
+    )
+    platform_resource1.to_datahub(graph_client)
+
+    key2 = PlatformResourceKey(
+        platform=f"test_platform_{test_id}",
+        resource_type=f"test_resource_type_{test_id}",
+        primary_key=f"test_primary_key_2_{test_id}",
+    )
+    platform_resource2 = PlatformResource.create(
+        key=key2,
+        value={"test_key": f"test_value_2_{test_id}"},
+    )
+    platform_resource2.to_datahub(graph_client)
+
+    wait_for_writes_to_sync()
+
+    search_results = [
+        r
+        for r in PlatformResource.search_by_filters(
+            graph_client,
+            and_filters=[
+                {
+                    "field": "resourceType",
+                    "condition": "EQUAL",
+                    "value": key1.resource_type,
+                }
+            ],
+        )
+    ]
+    assert len(search_results) == 2
+
+    read_platform_resource_1 = next(r for r in search_results if r.id == key1.id)
+    read_platform_resource_2 = next(r for r in search_results if r.id == key2.id)
+    assert read_platform_resource_1 == platform_resource1
+    assert read_platform_resource_2 == platform_resource2
