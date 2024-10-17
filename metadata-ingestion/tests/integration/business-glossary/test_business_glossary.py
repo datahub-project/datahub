@@ -3,7 +3,6 @@ from typing import Any, Dict
 import pytest
 from freezegun import freeze_time
 
-from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.metadata import business_glossary
 from tests.test_helpers import mce_helpers
@@ -41,7 +40,12 @@ def get_default_recipe(
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_glossary_ingest(
-    mock_datahub_graph, pytestconfig, tmp_path, mock_time, enable_auto_id, golden_file
+    mock_datahub_graph_instance,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    enable_auto_id,
+    golden_file,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"
 
@@ -55,9 +59,7 @@ def test_glossary_ingest(
             enable_auto_id=enable_auto_id,
         )
     )
-    pipeline.ctx.graph = mock_datahub_graph(
-        DatahubClientConfig()
-    )  # Mock to resolve domain
+    pipeline.ctx.graph = mock_datahub_graph_instance
     pipeline.run()
     pipeline.raise_from_status()
 
