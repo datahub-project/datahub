@@ -1074,8 +1074,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             for upstream in all_nodes_map[dbt_name].upstream_nodes:
                 schema_nodes.add(upstream)
 
-                upstream_node = all_nodes_map[upstream]
-                if upstream_node.is_ephemeral_model():
+                upstream_node = all_nodes_map.get(upstream)
+                if upstream_node and upstream_node.is_ephemeral_model():
                     add_node_to_cll_list(upstream)
 
             cll_nodes.add(dbt_name)
