@@ -32,6 +32,8 @@ import { LOOKER_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
+import { useAppConfig } from '../../useAppConfig';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -79,6 +81,8 @@ export class DashboardEntity implements Entity<Dashboard> {
     getCollectionName = () => 'Dashboards';
 
     useEntityQuery = useGetDashboardQuery;
+
+    appconfig = useAppConfig;
 
     getSidebarSections = () => [
         {
@@ -161,6 +165,18 @@ export class DashboardEntity implements Entity<Dashboard> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
+                },
+                {
+                    name: 'Access Management',
+                    component: AccessManagement,
+                    display: {
+                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
+                        enabled: (_, dashboard: GetDashboardQuery) => {
+                            const accessAspect = dashboard?.dashboard?.access;
+                            const rolesList = accessAspect?.roles;
+                            return !!accessAspect && !!rolesList && rolesList.length > 0;
+                        },
+                    },
                 },
                 {
                     name: 'Incidents',
