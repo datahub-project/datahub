@@ -1,0 +1,21 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  background: #fafafa;
+  width: 80vw;
+  min-width: 900px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+// Responsiveness
+@media (max-width: 800px) {
+
+  .container {
+    flex-direction: column;
+    width: 90vw;
+    min-width: 0;
+    margin: 4rem auto;
+  }
+}
+
