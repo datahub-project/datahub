@@ -224,13 +224,14 @@ class DremioDataset:
         else:
             self.dataset_type = DremioDatasetType.TABLE
 
+        self.owner = dataset_details.get("OWNER")
+        self.owner_type = dataset_details.get("OWNER_TYPE")
+
         if api_operations.edition in (
             DremioEdition.ENTERPRISE,
             DremioEdition.CLOUD,
         ):
             self.created = dataset_details.get("CREATED", "")
-            self.owner = dataset_details.get("OWNER")
-            self.owner_type = dataset_details.get("OWNER_TYPE")
             self.format_type = dataset_details.get("FORMAT_TYPE")
 
         self.description = api_operations.get_description_for_resource(

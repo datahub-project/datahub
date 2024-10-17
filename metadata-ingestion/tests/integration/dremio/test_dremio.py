@@ -1,8 +1,6 @@
 import json
 import os
-import random
 import subprocess
-import time
 
 import boto3
 import pytest
@@ -36,15 +34,11 @@ def is_minio_up(container_name: str) -> bool:
     return ret.returncode == 0
 
 
-def create_spaces_and_folders(dremio_token):
+def create_spaces_and_folders(headers):
     """
     Create spaces and folders in Dremio
     """
     url = f"{DREMIO_HOST}/api/v3/catalog"
-    headers = {
-        "Authorization": f"_dremio{dremio_token}",
-        "Content-Type": "application/json",
-    }
 
     # Create Space
     payload = {"entityType": "space", "name": "my_space"}
@@ -57,12 +51,8 @@ def create_spaces_and_folders(dremio_token):
     assert response.status_code == 200, f"Failed to create folder: {response.text}"
 
 
-def create_sample_source(dremio_token):
+def create_sample_source(headers):
     url = f"{DREMIO_HOST}/apiv2/source/Samples"
-    headers = {
-        "Authorization": f"_dremio{dremio_token}",
-        "Content-Type": "application/json",
-    }
 
     payload = {
         "config": {
@@ -86,12 +76,8 @@ def create_sample_source(dremio_token):
     assert response.status_code == 200, f"Failed to add dataset: {response.text}"
 
 
-def create_s3_source(dremio_token):
+def create_s3_source(headers):
     url = f"{DREMIO_HOST}/apiv2/source/s3"
-    headers = {
-        "Authorization": f"_dremio{dremio_token}",
-        "Content-Type": "application/json",
-    }
 
     payload = {
         "name": "s3",
@@ -144,12 +130,7 @@ def create_s3_source(dremio_token):
     assert response.status_code == 200, f"Failed to add s3 datasource: {response.text}"
 
 
-def upload_dataset(dremio_token):
-
-    headers = {
-        "Authorization": f"_dremio{dremio_token}",
-        "Content-Type": "application/json",
-    }
+def upload_dataset(headers):
 
     url = f"{DREMIO_HOST}/apiv2/source/s3/file_format/warehouse/sample.parquet"
     payload = {"ignoreOtherFileFormats": False, "type": "Parquet"}
@@ -205,56 +186,19 @@ def upload_dataset(dremio_token):
     assert response.status_code == 200, f"Failed to add dataset: {response.text}"
 
 
-def add_datasets_to_space(dremio_token):
-    headers = {
-        "Authorization": f"_dremio{dremio_token}",
-        "Content-Type": "application/json",
-    }
-
-    base_url = "{}/apiv2/{}"
-
-    sql_version_number = "".join([str(random.randint(0, 9)) for _ in range(16)])
-    url = base_url.format(
-        DREMIO_HOST,
-        f"datasets/new_tmp_untitled_sql?newVersion={sql_version_number}&limit=0",
-    )
+def create_view(headers):
+    url = f"{DREMIO_HOST}/api/v3/catalog"
     payload = {
-        "context": [],
+        "entityType": "dataset",
+        "type": "VIRTUAL_DATASET",
+        "path": ["my_space", "my_folder", "raw"],
         "sql": 'SELECT * FROM s3.warehouse."sample.parquet"',
-        "references": {},
     }
-
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     assert response.status_code == 200, f"Failed to create view: {response.text}"
-    time.sleep(5)
-    url = f"{DREMIO_HOST}/apiv2/dataset/tmp.UNTITLED/version/{sql_version_number}/save?as=%22my_space%22.%22my_folder%22.raw"
-    response = requests.post(url, headers=headers)
-    assert response.status_code == 200, f"Failed to add view in folder: {response.text}"
 
 
-def execute_sql_query(token, query):
-    url = f"{DREMIO_HOST}/api/v3/sql"
-    headers = {"Content-Type": "application/json", "Authorization": f"_dremio{token}"}
-    data = json.dumps({"sql": query})
-
-    response = requests.post(url, headers=headers, data=data)
-
-    assert (
-        response.status_code == 200
-    ), f"Failed to execute SQL query: {response.status_code}, {response.text}"
-
-
-@pytest.fixture(scope="module")
-def dremio_setup():
-    token = dremio_token()
-    create_sample_source(token)
-    create_s3_source(token)
-    create_spaces_and_folders(token)
-    upload_dataset(token)
-    add_datasets_to_space(token)
-
-
-def dremio_token():
+def dremio_header():
     """
     Get Dremio authentication token
     """
@@ -264,7 +208,22 @@ def dremio_token():
 
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     response.raise_for_status()  # Raise exception if request failed
-    return response.json()["token"]
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"_dremio{response.json()['token']}",
+    }
+    return headers
+
+
+@pytest.fixture(scope="module")
+def dremio_setup():
+    headers = dremio_header()
+    create_sample_source(headers)
+    create_s3_source(headers)
+    create_spaces_and_folders(headers)
+    upload_dataset(headers)
+    create_view(headers)
 
 
 @pytest.fixture(scope="module")
