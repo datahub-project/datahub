@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Divider, Typography, Switch, Card, message } from 'antd';
 
+import { useTranslation } from 'react-i18next';
 import { useUpdateUserSettingMutation } from '../../graphql/me.generated';
 import { UserSetting } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -53,6 +54,7 @@ const SettingText = styled(Typography.Text)`
 
 export const Preferences = () => {
     // Current User Urn
+    const { t } = useTranslation();
     const { user, refetchUser } = useUserContext();
 
     const showSimplifiedHomepage = !!user?.settings?.appearance?.showSimplifiedHomepage;
@@ -63,20 +65,19 @@ export const Preferences = () => {
             <SourceContainer>
                 <TokensContainer>
                     <TokensHeaderContainer>
-                        <TokensTitle level={2}>Appearance</TokensTitle>
-                        <Typography.Paragraph type="secondary">Manage your appearance settings.</Typography.Paragraph>
+                        <TokensTitle level={2}>{t('common.appearance')}</TokensTitle>
+                        <Typography.Paragraph type="secondary">
+                            {t('settings.manageYourAppearanceSettings')}
+                        </Typography.Paragraph>
                     </TokensHeaderContainer>
                 </TokensContainer>
                 <Divider />
                 <Card>
                     <UserSettingRow>
                         <span>
-                            <SettingText>Show simplified homepage </SettingText>
+                            <SettingText>{t('settings.showSimplifiedHomepage')}</SettingText>
                             <div>
-                                <DescriptionText>
-                                    Limits entity browse cards on homepage to Domains, Charts, Datasets, Dashboards and
-                                    Glossary Terms
-                                </DescriptionText>
+                                <DescriptionText>{t('settings.showSimplifiedHomepageDescription')}</DescriptionText>
                             </div>
                         </span>
                         <Switch
@@ -95,7 +96,7 @@ export const Preferences = () => {
                                         ? EventType.ShowStandardHomepageEvent
                                         : EventType.ShowSimplifiedHomepageEvent,
                                 });
-                                message.success({ content: 'Setting updated!', duration: 2 });
+                                message.success({ content: t('common.settingUpdated'), duration: 2 });
                                 refetchUser?.();
                             }}
                         />
