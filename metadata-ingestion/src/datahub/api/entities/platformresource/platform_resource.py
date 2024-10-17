@@ -95,7 +95,7 @@ class OpenAPIGraphClient:
 
         count = 1000
         query = " OR ".join(
-            [f"{filter['field']}:{filter['value']}" for filter in extra_or_filters]
+            [f"{filter['field']}:\"{filter['value']}\"" for filter in extra_or_filters]
         )
         scroll_id = None
         while True:

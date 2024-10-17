@@ -112,3 +112,30 @@ def test_platform_resource_non_existent(graph_client, test_id):
         graph_client=graph_client,
     )
     assert platform_resource is None
+
+
+def test_platform_resource_urn_secondary_key(graph_client, test_id):
+    key = PlatformResourceKey(
+        platform=f"test_platform_{test_id}",
+        resource_type=f"test_resource_type_{test_id}",
+        primary_key=f"test_primary_key_{test_id}",
+    )
+    dataset_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:test,test_secondary_key_{test_id},PROD)"
+    )
+    platform_resource = PlatformResource.create(
+        key=key,
+        value={"test_key": f"test_value_{test_id}"},
+        secondary_keys=[dataset_urn],
+    )
+    platform_resource.to_datahub(graph_client)
+    wait_for_writes_to_sync()
+
+    read_platform_resources = [
+        r
+        for r in PlatformResource.search_by_key(
+            graph_client, dataset_urn, primary=False
+        )
+    ]
+    assert len(read_platform_resources) == 1
+    assert read_platform_resources[0] == platform_resource
