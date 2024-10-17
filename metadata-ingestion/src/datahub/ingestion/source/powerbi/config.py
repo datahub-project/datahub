@@ -331,8 +331,8 @@ class PowerBiDashboardSourceConfig(
     )
     workspace_id_as_urn_part: bool = pydantic.Field(
         default=False,
-        description="Highly recommend changing this to True, as you can have the same workspace name"
-        "To maintain backward compatability, this is set to False which uses workspace name",
+        description="It is recommended to set this to True only if you have legacy workspaces based on Office 365 groups, as those workspaces can have identical names."
+        "To maintain backward compatibility, this is set to False which uses workspace name",
     )
     # Enable/Disable extracting ownership information of Dashboard
     extract_ownership: bool = pydantic.Field(
@@ -464,6 +464,13 @@ class PowerBiDashboardSourceConfig(
         default=["Workspace"],
         description="Ingest the metadata of the workspace where the workspace type corresponds to the specified workspace_type_filter."
         " Note: This field works in conjunction with 'workspace_id_pattern'. Both must be matched for a workspace to be processed.",
+    )
+
+    include_workspace_name_in_dataset_urn: bool = pydantic.Field(
+        default=False,
+        description="It is recommended to set this to true, as it helps prevent the overwriting of datasets."
+        "Read section #11560 at https://datahubproject.io/docs/how/updating-datahub/ before enabling this option."
+        "To maintain backward compatibility, this is set to False.",
     )
 
     @root_validator(skip_on_failure=True)

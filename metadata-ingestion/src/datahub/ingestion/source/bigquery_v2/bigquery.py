@@ -188,6 +188,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.sql_parser_schema_resolver,
             self.profiler,
             self.identifiers,
+            self.ctx.graph,
         )
 
         self.add_config_to_report()
