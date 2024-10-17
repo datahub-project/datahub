@@ -18,6 +18,7 @@ from datahub.configuration.common import ConfigModel, ConfigurationError, MetaEr
 from datahub.configuration.connection_resolver import auto_connection_resolver
 from datahub.configuration.oauth import OAuthConfiguration, OAuthIdentityProvider
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
@@ -364,7 +365,7 @@ class SnowflakeConnectionConfig(ConfigModel):
             ) from e
 
 
-class SnowflakeConnection:
+class SnowflakeConnection(Closeable):
     _connection: NativeSnowflakeConnection
 
     def __init__(self, connection: NativeSnowflakeConnection):

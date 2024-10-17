@@ -1,3 +1,4 @@
+import contextlib
 import dataclasses
 import functools
 import json
@@ -17,6 +18,7 @@ from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
 )
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import Source, SourceReport
@@ -121,7 +123,7 @@ class SnowflakeQueriesSourceReport(SourceReport):
     queries_extractor: Optional[SnowflakeQueriesExtractorReport] = None
 
 
-class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
+class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
     def __init__(
         self,
         connection: SnowflakeConnection,
@@ -143,28 +145,33 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
 
         self._structured_report = structured_report
 
-        self.aggregator = SqlParsingAggregator(
-            platform=self.identifiers.platform,
-            platform_instance=self.identifiers.identifier_config.platform_instance,
-            env=self.identifiers.identifier_config.env,
-            schema_resolver=schema_resolver,
-            graph=graph,
-            eager_graph_load=False,
-            generate_lineage=self.config.include_lineage,
-            generate_queries=self.config.include_queries,
-            generate_usage_statistics=self.config.include_usage_statistics,
-            generate_query_usage_statistics=self.config.include_query_usage_statistics,
-            usage_config=BaseUsageConfig(
-                bucket_duration=self.config.window.bucket_duration,
-                start_time=self.config.window.start_time,
-                end_time=self.config.window.end_time,
-                user_email_pattern=self.config.user_email_pattern,
-                # TODO make the rest of the fields configurable
-            ),
-            generate_operations=self.config.include_operations,
-            is_temp_table=self.is_temp_table,
-            is_allowed_table=self.is_allowed_table,
-            format_queries=False,
+        # The exit stack helps ensure that we close all the resources we open.
+        self._exit_stack = contextlib.ExitStack()
+
+        self.aggregator: SqlParsingAggregator = self._exit_stack.enter_context(
+            SqlParsingAggregator(
+                platform=self.identifiers.platform,
+                platform_instance=self.identifiers.identifier_config.platform_instance,
+                env=self.identifiers.identifier_config.env,
+                schema_resolver=schema_resolver,
+                graph=graph,
+                eager_graph_load=False,
+                generate_lineage=self.config.include_lineage,
+                generate_queries=self.config.include_queries,
+                generate_usage_statistics=self.config.include_usage_statistics,
+                generate_query_usage_statistics=self.config.include_query_usage_statistics,
+                usage_config=BaseUsageConfig(
+                    bucket_duration=self.config.window.bucket_duration,
+                    start_time=self.config.window.start_time,
+                    end_time=self.config.window.end_time,
+                    user_email_pattern=self.config.user_email_pattern,
+                    # TODO make the rest of the fields configurable
+                ),
+                generate_operations=self.config.include_operations,
+                is_temp_table=self.is_temp_table,
+                is_allowed_table=self.is_allowed_table,
+                format_queries=False,
+            )
         )
         self.report.sql_aggregator = self.aggregator.report
 
@@ -248,6 +255,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                 self.aggregator.add(query)
 
         yield from auto_workunit(self.aggregator.gen_metadata())
+        if not use_cached_audit_log:
+            queries.close()
+            shared_connection.close()
+            audit_log_file.unlink(missing_ok=True)
 
     def fetch_copy_history(self) -> Iterable[KnownLineageMapping]:
         # Derived from _populate_external_lineage_from_copy_history.
@@ -426,6 +437,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
         )
         return entry
 
+    def close(self) -> None:
+        self._exit_stack.close()
+
 
 class SnowflakeQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: SnowflakeQueriesSourceConfig):
@@ -467,6 +481,10 @@ class SnowflakeQueriesSource(Source):
 
     def get_report(self) -> SnowflakeQueriesSourceReport:
         return self.report
+
+    def close(self) -> None:
+        self.connection.close()
+        self.queries_extractor.close()
 
 
 # Make sure we don't try to generate too much info for a single query.
