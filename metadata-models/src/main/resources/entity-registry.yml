@@ -248,6 +248,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - access
   - name: tag
     category: core
     keyAspect: tagKey
