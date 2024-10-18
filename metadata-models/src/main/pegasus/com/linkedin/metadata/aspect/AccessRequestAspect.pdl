@@ -1,0 +1,18 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.AccessRequestKey
+import com.linkedin.accessrequest.AccessRequestAccessList
+import com.linkedin.accessrequest.AccessRequestParties
+import com.linkedin.accessrequest.AccessRequestProperties
+import com.linkedin.accessrequest.AccessRequestStatusInfo
+
+/**
+ * A union of all supported metadata aspects for a source access request
+ */
+typeref AccessRequestAspect = union[
+  AccessRequestKey,
+  AccessRequestAccessList,
+  AccessRequestParties,
+  AccessRequestProperties,
+  AccessRequestStatusInfo
+]

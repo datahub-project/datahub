@@ -1,0 +1,30 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.DataPlatformPrincipalUrn
+import com.linkedin.common.DatasetUrn
+
+/**
+ * Key for a DataAccess
+ */
+@Aspect = {
+  "name": "dataAccessKey"
+}
+record DataAccessKey {
+  /**
+   * The source dataset which will be accessed
+   */
+  @Relationship = {
+    "name": "RequestedOn",
+    "entityTypes": [ "dataset" ]
+  }
+  dataset: DatasetUrn
+
+  /**
+   * The principal who will be accessing the dataset
+   */
+  @Relationship = {
+    "name": "RequestedFor",
+    "entityTypes": [ "dataPlatformPrincipal" ]
+  }
+  principal: DataPlatformPrincipalUrn
+}
