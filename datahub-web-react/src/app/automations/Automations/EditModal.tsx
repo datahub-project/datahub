@@ -10,6 +10,7 @@ import { getYaml } from '../utils';
 import { useAutomationContext } from './AutomationProvider';
 
 import { AutomationsModalHeader, AutomationModalFooter, AutomationsDescription, AutomationLogo } from './components';
+import { useIsFormDisabled } from './hooks';
 
 type AutomationEditModalProps = {
     isOpen: boolean;
@@ -21,7 +22,7 @@ export const AutomationEditModal = ({ isOpen, setIsOpen }: AutomationEditModalPr
     const [showYaml, setShowYaml] = useState(false);
 
     // Check if the form is disabled
-    const isDisabled = false;
+    const isDisabled = useIsFormDisabled(recipe);
 
     // Close the modal util
     const closeModal = () => {

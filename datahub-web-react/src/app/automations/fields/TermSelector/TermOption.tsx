@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Radio } from 'antd';
 import styled from 'styled-components';
-
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { sharedStyles } from '@app/automations/sharedComponents';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import GlossaryTermsSelector from '@src/app/govern/Dashboard/Forms/questionTypes/GlossaryTermsSelector';
-
+import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
+import { isResolutionRequired } from '@src/app/entityV2/view/builder/utils';
+import { LoadingOutlined } from '@ant-design/icons';
 import { EntityType } from '@src/types.generated';
+import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import type { SelectDropdownProps, RadioValue } from './types';
 import { SelectDropdown } from './SelectDropdown';
+import { useGlossaryOptionsBuilder } from '../hooks';
+import { getEntitiesByTagORTerm } from './utils';
 
 const Wrapper = styled.div`
     display: grid;
@@ -76,54 +79,133 @@ type Props = {
     typeName: string;
     selects: SelectDropdownProps[];
     radio: {
-        allowedRadios: string[];
-        preselectedValue: RadioValue;
+        allowedRadios: string[]; // Allowed radio button options (e.g., "all", "some", "none")
+        preselectedValue: RadioValue; // Default radio value
     };
-    onChange: (value: any, entity: EntityType) => void;
+    onChange: (value: any, entities: EntityType[]) => void;
+    isEdit?: boolean;
+    shouldUseGlossaryTermComponent?: boolean;
 };
 
+// Type for selected options
 type SelectedOptionType = {
-    GLOSSARY_NODE: string[];
-    GLOSSARY_TERM: string[];
+    GLOSSARY_NODE: string[]; // Selected glossary nodes
+    GLOSSARY_TERM: string[]; // Selected glossary terms
 };
 
-const INITIAL_SELECTED_VALUE = {
-    GLOSSARY_TERM: [],
-    GLOSSARY_NODE: [],
+const checkShouldRenderTermsSelector = ({
+    isEdit,
+    resolvedEntitiesData,
+    initialOptions,
+}: {
+    isEdit?: boolean;
+    resolvedEntitiesData: any[];
+    initialOptions: any[];
+}) => {
+    if (!isEdit) return true; // If not in edit mode, return true (show selector)
+    if (resolvedEntitiesData && initialOptions.length) return true; // Show if entities are resolved and options are ready
+    return false; // Otherwise, hide
 };
 
-export const TermOption = ({ type, typeName, selects, radio, onChange }: Props) => {
-    const { allowedRadios, preselectedValue } = radio;
-
-    // Internal state for selected options
-    const [selectedOptions, setSelectedOptions] = useState<SelectedOptionType>(() => {
-        const initialSelected = {};
-        selects.forEach((select) => {
-            initialSelected[select.type] = select.preselectedOptions || [];
+const GlossaryTermDropdownSwitcher = ({
+    shouldUseGlossaryTermComponent,
+    loading,
+    onUpdate,
+    initialOptions,
+    selects,
+    handleTermsChange,
+    isEdit,
+    resolvedEntitiesData,
+}: {
+    shouldUseGlossaryTermComponent?: boolean;
+    loading: boolean;
+    onUpdate: (values: SelectOption[]) => void;
+    initialOptions: any[];
+    selects: SelectDropdownProps[]; // Dropdown options for selection
+    handleTermsChange: (values: any, entity: EntityType) => void;
+    isEdit?: boolean;
+    resolvedEntitiesData: any;
+}): JSX.Element => {
+    if (shouldUseGlossaryTermComponent) {
+        const shouldRenderTermsSelector = checkShouldRenderTermsSelector({
+            isEdit,
+            resolvedEntitiesData,
+            initialOptions,
         });
-        return initialSelected as SelectedOptionType;
+        if (loading) {
+            // If loading, show loading spinner
+            return <LoadingOutlined style={{ fontSize: 24, margin: 20 }} spin />;
+        }
+        if (shouldRenderTermsSelector) {
+            return <GlossaryTermsSelector onUpdate={onUpdate} initialOptions={initialOptions} areNodeSelectable />;
+        } // Render glossary selector if conditions are met
+        return <></>;
+    }
+    return (
+        <>
+            {selects.map((select) => (
+                <SelectDropdown
+                    key={select.type}
+                    placeholder={`Select ${select.label}...`}
+                    onChange={(value) => handleTermsChange(value, select.type)}
+                    {...select}
+                />
+            ))}
+        </>
+    );
+};
+
+// Main TermOption component
+export const TermOption = ({
+    type,
+    typeName,
+    selects,
+    radio,
+    onChange,
+    isEdit,
+    shouldUseGlossaryTermComponent,
+}: Props) => {
+    const { allowedRadios, preselectedValue } = radio;
+    const [isUrnDataFetched, setIsUrnDataFetched] = useState<boolean>(false); // Flag to track URN data fetching
+    const [selectedOptions, setSelectedOptions] = useState<SelectedOptionType>(() => {
+        // State to track selected options
+        const initialSelected = {}; // Initialize selection
+        selects.forEach((select) => {
+            initialSelected[select.type] = select.preselectedOptions || []; // Set preselected options
+        });
+        return initialSelected as SelectedOptionType; // Return initial selected options
     });
+    const [urnsToFetch, setUrnsToFetch] = useState<string[]>([]); // List of URNs to fetch
+    const [radioValue, setRadioValue] = useState<RadioValue>(preselectedValue); // Track current radio button value
 
-    // Internal state for radio value
-    const [radioValue, setRadioValue] = useState<RadioValue>(preselectedValue);
+    const [getEntities, { data: resolvedEntitiesData, loading }] = useGetEntitiesLazyQuery(); // Lazy query to fetch entities
 
-    // Handle the change of the selected terms
+    const { entityCache, initialOptions } = useGlossaryOptionsBuilder(resolvedEntitiesData);
+
+    useEffect(() => {
+        if (isResolutionRequired(urnsToFetch, entityCache)) {
+            // Check if more URNs need to be fetched
+            getEntities({ variables: { urns: urnsToFetch } }); // Fetch entities based on URNs
+        }
+    }, [urnsToFetch, entityCache, getEntities]);
+
+    // Effect to fetch URNs if in edit mode and data has not been fetched yet
+    useEffect(() => {
+        const urns = selects.flatMap((select) => select.preselectedOptions || []); // Get preselected options' URNs
+        if (isEdit && !isUrnDataFetched && urns.length) {
+            // If editing and URNs haven't been fetched
+            setIsUrnDataFetched(true);
+            setUrnsToFetch(urns); // Set URNs to fetch
+        }
+    }, [selects, isEdit, isUrnDataFetched]);
+
+    // Handle change in terms selection
     const handleTermsChange = (values: any, entity: EntityType) => {
-        const newSelectedOptions = {
-            ...selectedOptions,
-            ...values,
-        };
+        const newSelectedOptions = { ...selectedOptions, ...values };
         setSelectedOptions(newSelectedOptions);
-        onChange(
-            {
-                selectionType: radioValue,
-                selected: newSelectedOptions,
-            },
-            entity,
-        );
+        onChange({ selectionType: radioValue, selected: newSelectedOptions }, getEntitiesByTagORTerm(entity));
     };
 
-    // Handle the change of the radio value
     const handleRadioChange = (value: RadioValue) => {
         setRadioValue(value);
         onChange(
@@ -131,71 +213,45 @@ export const TermOption = ({ type, typeName, selects, radio, onChange }: Props) 
                 selectionType: value,
                 selected: selectedOptions,
             },
-            type,
+            getEntitiesByTagORTerm(type),
         );
     };
 
-    // Update the radio value when the preselectedValue prop changes
+    // Effect to reset radio value when preselectedValue changes
     useEffect(() => {
-        setRadioValue(preselectedValue);
+        setRadioValue(preselectedValue); // Reset radio value to preselected value
     }, [preselectedValue]);
 
-    // Set the selected options based on the preselected options
-    useEffect(() => {
-        const updatedSelectedOptions = INITIAL_SELECTED_VALUE;
-        selects.forEach((select) => {
-            updatedSelectedOptions[select.type] = select.preselectedOptions || [];
-        });
-        setSelectedOptions(updatedSelectedOptions);
-    }, [selects]);
-
-    // Configurable options
-    const options: { label: string; value: string }[] = [];
-    if (allowedRadios.includes('all')) {
-        options.push({ label: `All ${typeName}`, value: 'all' });
-    }
-    if (allowedRadios.includes('some')) {
-        options.push({ label: `${capitalizeFirstLetterOnly(typeName)} in a specific set`, value: 'some' });
-    }
-    if (allowedRadios.includes('none')) {
-        options.push({ label: 'None', value: 'none' });
-    }
+    // Handle updates from glossary terms selector
     const onUpdate = (values: SelectOption[]) => {
-        const newSelectedOptions: SelectedOptionType = {
-            GLOSSARY_NODE: [],
-            GLOSSARY_TERM: [],
-        };
-
-        values?.forEach((glossary) => {
-            const node = (glossary?.isParent && glossary?.value) || '';
-            const term = (!glossary?.isParent && glossary?.value) || '';
-            if (node && !newSelectedOptions.GLOSSARY_NODE.includes(node)) {
-                newSelectedOptions.GLOSSARY_NODE.push(node);
-            }
-            if (term && !newSelectedOptions.GLOSSARY_TERM.includes(term)) {
-                newSelectedOptions.GLOSSARY_TERM.push(term);
-            }
-        });
+        const newSelectedOptions = values.reduce<SelectedOptionType>(
+            (acc, glossary) => {
+                const { isParent, value } = glossary;
+                if (isParent) acc.GLOSSARY_NODE.push(value); // If parent node, add to GLOSSARY_NODE
+                else acc.GLOSSARY_TERM.push(value); // If glossary term, add to GLOSSARY_TERM
+                return acc;
+            },
+            { GLOSSARY_NODE: [], GLOSSARY_TERM: [] }, // Initialize selection types
+        );
         setSelectedOptions(newSelectedOptions);
         onChange(
             {
                 selectionType: radioValue,
                 selected: newSelectedOptions,
             },
-            type,
+            getEntitiesByTagORTerm(type),
         );
     };
 
-    const initialOptions = selectedOptions?.GLOSSARY_TERM?.map((urn) => ({ value: urn })) || [];
+    // Build radio button options
+    const options = allowedRadios.map((item) => ({
+        label: item === 'all' ? `All ${typeName}` : capitalizeFirstLetterOnly(`${typeName} in a specific set`),
+        value: item,
+    }));
 
     return (
-        <Wrapper
-            className={
-                options.length === 1 && type === EntityType.GlossaryTerm ? 'termOptionSingleContainer' : undefined
-            }
-        >
-            {/* Radio for selection type */}
-            {options.length > 1 && (
+        <Wrapper className={shouldUseGlossaryTermComponent ? 'termOptionSingleContainer' : undefined}>
+            {!shouldUseGlossaryTermComponent && (
                 <div>
                     <Label>Allowed {typeName}</Label>
                     <StyledRadioGroup
@@ -206,31 +262,22 @@ export const TermOption = ({ type, typeName, selects, radio, onChange }: Props) 
                 </div>
             )}
 
-            {/* Select dropdown for selecting options */}
-            <ContentWrapper
-                className={options.length === 1 && type === EntityType.GlossaryTerm ? 'termSelector' : undefined}
-            >
+            <ContentWrapper className={shouldUseGlossaryTermComponent ? 'termSelector' : undefined}>
                 {radioValue === 'all' && (
                     <Label className="heading">All {typeName.toLowerCase()} will be propagated.</Label>
                 )}
                 {radioValue === 'some' && (
                     <DropdownsWrapper>
-                        {type === EntityType.GlossaryTerm && options.length === 1 ? (
-                            <GlossaryTermsSelector
-                                onUpdate={onUpdate}
-                                initialOptions={initialOptions}
-                                areNodeSelectable
-                            />
-                        ) : (
-                            selects.map((select) => (
-                                <SelectDropdown
-                                    key={select.type}
-                                    placeholder={`Select ${select.label}…`}
-                                    onChange={(value) => handleTermsChange(value, select.type)}
-                                    {...select}
-                                />
-                            ))
-                        )}
+                        <GlossaryTermDropdownSwitcher
+                            handleTermsChange={handleTermsChange}
+                            initialOptions={initialOptions}
+                            isEdit={isEdit}
+                            loading={loading}
+                            onUpdate={onUpdate}
+                            resolvedEntitiesData={resolvedEntitiesData}
+                            selects={selects}
+                            shouldUseGlossaryTermComponent={shouldUseGlossaryTermComponent}
+                        />
                     </DropdownsWrapper>
                 )}
                 {radioValue === 'none' && (

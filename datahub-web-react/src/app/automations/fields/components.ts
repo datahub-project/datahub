@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { sharedStyles } from '../sharedComponents';
 
 export const Step = styled.div`
-    margin-bottom: 24px;
+    margin-bottom: 20px;
     font-family: ${sharedStyles.fontFamily};
 `;
 

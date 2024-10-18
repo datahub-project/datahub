@@ -104,7 +104,7 @@ export interface SelectProps {
     height?: number;
     placeholder?: string;
     searchPlaceholder?: string;
-    alwaysReloadParentData?: boolean;
+    isLoadingParentChildList?: boolean;
 }
 
 export const selectDefaults: SelectProps = {
@@ -137,7 +137,7 @@ export const NestedSelect = ({
     placeholder,
     searchPlaceholder,
     height = selectDefaults.height,
-    alwaysReloadParentData = false,
+    isLoadingParentChildList = false,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -285,7 +285,7 @@ export const NestedSelect = ({
                                 loadData={loadData}
                                 isMultiSelect={isMultiSelect}
                                 areParentsSelectable={areParentsSelectable}
-                                alwaysReloadParentData={alwaysReloadParentData}
+                                isLoadingParentChildList={isLoadingParentChildList}
                             />
                         ))}
                     </OptionList>

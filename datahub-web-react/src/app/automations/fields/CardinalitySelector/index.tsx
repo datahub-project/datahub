@@ -3,7 +3,8 @@ import styled from 'styled-components';
 
 import type { ComponentBaseProps } from '@app/automations/types';
 import { CardinalityType, CARDINALITY_TYPE_OPTIONS } from '@app/automations/constants';
-import { Checkbox } from 'antd';
+import { Checkbox, Tooltip } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
 
 const RadiosContainer = styled.div`
     display: grid;
@@ -13,24 +14,13 @@ const RadiosContainer = styled.div`
 const RadioWrapper = styled.div`
     margin-bottom: 10px;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: flex-start;
     gap: 10px;
     padding-right: 14px;
-
-    & input[type='radio'] {
-        flex: 0;
-        margin-top: 5px;
-    }
-
+    cursor: pointer;
     & label {
         font-size: 14px;
-    }
-
-    &:hover,
-    & input[type='radio']:hover,
-    & label:hover {
-        cursor: pointer;
     }
 `;
 
@@ -38,7 +28,7 @@ export type CardinalitySelectorStateType = {
     cardinality: CardinalityType;
 };
 
-export const CardinalitySelector = ({ state, passStateToParent }: ComponentBaseProps) => {
+export const CardinalitySelector = ({ state, passStateToParent, props }: ComponentBaseProps) => {
     // Defined in @app/automations/fields/index
     const { cardinality } = state as CardinalitySelectorStateType;
     const handleRadioChange = (event) => {
@@ -52,20 +42,19 @@ export const CardinalitySelector = ({ state, passStateToParent }: ComponentBaseP
     return (
         <RadiosContainer>
             <RadioWrapper>
-                <div>
-                    <Checkbox
-                        id={multipleCardinality.name}
-                        name="applyType"
-                        value={multipleCardinality.name}
-                        checked={checked}
-                        onChange={handleRadioChange}
-                    />
-                </div>
-                <div>
-                    <label htmlFor={multipleCardinality.name} aria-checked={checked}>
-                        {multipleCardinality.displayName}
-                    </label>
-                </div>
+                <Checkbox
+                    id={multipleCardinality.name}
+                    name="applyType"
+                    value={multipleCardinality.name}
+                    checked={checked}
+                    onChange={handleRadioChange}
+                />
+                <label htmlFor={multipleCardinality.name} aria-checked={checked}>
+                    {multipleCardinality.displayName}
+                </label>
+                <Tooltip showArrow={false} placement="right" title={props.description}>
+                    <InfoCircleOutlined />
+                </Tooltip>
             </RadioWrapper>
         </RadiosContainer>
     );

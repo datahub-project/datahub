@@ -164,8 +164,8 @@ const traversalSelector: Field = {
 // Apply Type Selector
 // This field allows the user to select the apply type of the automation
 const applyTypeSelector: Field = {
-    title: 'Apply Type',
-    description: "When unchecked, we'll save suggestions directly on the assets without a human review.",
+    title: '',
+    description: '',
     fields: [
         {
             // The component that's rendered for this field
@@ -174,7 +174,9 @@ const applyTypeSelector: Field = {
 
             // Available Component Props to customize the component
             // You can set default values for the props here
-            props: {},
+            props: {
+                description: "When unchecked, we'll save suggestions directly on the assets without a human review.",
+            },
 
             // State mapping to connect form data to the component's state
             // You can set default values for the state here
@@ -188,8 +190,8 @@ const applyTypeSelector: Field = {
 // Cardinality Selector
 // This field allows the user to select the cardinality of the automation
 const cardinalitySelector: Field = {
-    title: 'Select Cardinality',
-    description: 'Cardinality of the automation.',
+    title: '',
+    description: '',
     fields: [
         {
             // The component that's rendered for this field
@@ -198,7 +200,9 @@ const cardinalitySelector: Field = {
 
             // Available Component Props to customize the component
             // You can set default values for the props here
-            props: {},
+            props: {
+                description: 'When unchecked, limit to one term suggestion per dataset/column.',
+            },
 
             // State mapping to connect form data to the component's state
             // You can set default values for the state here

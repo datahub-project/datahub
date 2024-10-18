@@ -167,7 +167,7 @@ classificationConfig:
   automations:
     # support enabling/disabling individual automation types
     snowflake: ${CLASSIFICATION_AUTOMATIONS_SNOWFLAKE_ENABLED:false}
-    aiTermClassification: ${AI_TERM_CLASSIFICATION_ENABLED:false}
+    aiTermClassification: ${AI_TERM_CLASSIFICATION_ENABLED:true}
 
 # Storage Layer
 

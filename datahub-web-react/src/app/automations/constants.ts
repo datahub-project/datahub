@@ -151,3 +151,7 @@ export const commonFieldsMapping = {
     category: 'category',
     executorId: 'executorId',
 };
+
+export const ACTION_TYPES_MAP = {
+    ai_term_suggestion: 'ai_term_suggestion',
+};

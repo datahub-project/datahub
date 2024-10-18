@@ -46,7 +46,7 @@ const GlossaryTermsSelector = ({
     const [seenNodeUrns] = useState<Set<string>>(new Set());
     const [childOptions, setChildOptions] = useState<SelectOption[]>([]);
 
-    const [getNode] = useGetGlossaryNodeLazyQuery({
+    const [getNode, { loading }] = useGetGlossaryNodeLazyQuery({
         onCompleted: (nodeData) => {
             const childOptionsToAdd: SelectOption[] = [];
             const alreadyPresentOptionUrns = childOptions.map((option) => option.value);
@@ -144,7 +144,7 @@ const GlossaryTermsSelector = ({
                 width="full"
                 isMultiSelect
                 showSearch
-                alwaysReloadParentData
+                isLoadingParentChildList={loading}
             />
         </Wrapper>
     );

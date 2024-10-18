@@ -83,7 +83,7 @@ interface OptionProps {
     removeOptions: (nodes: SelectOption[]) => void;
     loadData?: (node: SelectOption) => void;
     isMultiSelect?: boolean;
-    alwaysReloadParentData?: boolean;
+    isLoadingParentChildList?: boolean;
 }
 
 export const NestedOption = ({
@@ -94,11 +94,12 @@ export const NestedOption = ({
     addOptions,
     removeOptions,
     loadData,
-    alwaysReloadParentData,
     isMultiSelect,
     areParentsSelectable,
+    isLoadingParentChildList,
 }: OptionProps) => {
     const [autoSelectChildren, setAutoSelectChildren] = useState(false);
+    const [loadingParentUrns, setLoadingParentUrns] = useState<string[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const directChildren = useMemo(
         () => parentValueToOptions[option.value] || [],
@@ -188,13 +189,22 @@ export const NestedOption = ({
         }
     };
 
+    // one loader variable for fetching data for expanded parents and their respective child nodes
+    useEffect(() => {
+        // once loading has been done just remove all the parent node urn
+        if (!isLoadingParentChildList) {
+            setLoadingParentUrns([]);
+        }
+    }, [isLoadingParentChildList]);
+
     return (
         <div>
             <ParentOption>
                 <OptionLabel
                     key={option.value}
                     onClick={(e) => {
-                        if (isParentMissingChildren || alwaysReloadParentData) {
+                        if (isParentMissingChildren) {
+                            setLoadingParentUrns((previousIds) => [...previousIds, option.value]);
                             loadData?.(option);
                         }
                         if (option.isParent) {
@@ -205,7 +215,8 @@ export const NestedOption = ({
                         e.preventDefault();
                     }}
                     isSelected={!isMultiSelect && isSelected}
-                    style={{ width: '100%' }}
+                    // added hack to show cursor in wait untill we get the inline spinner
+                    style={{ width: '100%', cursor: loadingParentUrns.includes(option.value) ? 'wait' : 'pointer' }}
                 >
                     {option.isParent && <strong>{option.label}</strong>}
                     {!option.isParent && <>{option.label}</>}
@@ -215,7 +226,8 @@ export const NestedOption = ({
                                 e.stopPropagation();
                                 e.preventDefault();
                                 setIsOpen(!isOpen);
-                                if (!isOpen && (isParentMissingChildren || alwaysReloadParentData)) {
+                                if (!isOpen && isParentMissingChildren) {
+                                    setLoadingParentUrns((previousIds) => [...previousIds, option.value]);
                                     loadData?.(option);
                                 }
                             }}
@@ -232,7 +244,7 @@ export const NestedOption = ({
                         onClick={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
-                            if (isParentMissingChildren || alwaysReloadParentData) {
+                            if (isParentMissingChildren) {
                                 loadData?.(option);
                                 setAutoSelectChildren(true);
                             }

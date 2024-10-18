@@ -148,7 +148,11 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
                                     allowedRadios,
                                     preselectedValue: selected.terms.selectionType,
                                 }}
-                                onChange={(values, entity: EntityType) => handleTermsChange(values, [entity], 'terms')}
+                                onChange={(values, entities: EntityType[]) =>
+                                    handleTermsChange(values, entities, 'terms')
+                                }
+                                isEdit={props.isEdit}
+                                shouldUseGlossaryTermComponent={allowedRadios.length === 1}
                             />
                         );
                     }
@@ -170,7 +174,9 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
                                     allowedRadios,
                                     preselectedValue: selected.tags.selectionType,
                                 }}
-                                onChange={(values, entity: EntityType) => handleTermsChange(values, [entity], 'tags')}
+                                onChange={(values, entities: EntityType[]) =>
+                                    handleTermsChange(values, entities, 'tags')
+                                }
                             />
                         );
                     }
