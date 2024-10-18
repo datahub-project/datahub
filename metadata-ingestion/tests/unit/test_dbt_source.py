@@ -1,6 +1,6 @@
 import doctest
 from datetime import timedelta
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Union
 from unittest import mock
 
 import pytest
@@ -21,7 +21,6 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
-    UpstreamLineageClass,
 )
 
 
