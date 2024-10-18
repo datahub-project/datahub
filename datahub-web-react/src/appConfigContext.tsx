@@ -94,6 +94,7 @@ export const DEFAULT_APP_CONFIG = {
         schemaFieldLineageIgnoreStatus: false,
         showDatasetFeaturesSearchSortOptions: false,
         showManageStructuredProperties: false,
+        showNavBarRedesign: false,
     },
     chromeExtensionConfig: {
         enabled: false,
