@@ -1,6 +1,5 @@
 import dataclasses
 import functools
-import itertools
 import logging
 import traceback
 from collections import defaultdict
@@ -14,6 +13,8 @@ import sqlglot.optimizer
 import sqlglot.optimizer.annotate_types
 import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
+import sqlglot.optimizer.qualify_columns
+import sqlglot.optimizer.unnest_subqueries
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.ingestion.graph.client import DataHubGraph
@@ -63,24 +64,30 @@ SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
 SQL_LINEAGE_TIMEOUT_SECONDS = 10
 
 
-RULES_BEFORE_TYPE_ANNOTATION: tuple = tuple(
-    filter(
-        lambda func: func.__name__
-        not in {
-            # Skip pushdown_predicates because it sometimes throws exceptions, and we
-            # don't actually need it for anything.
-            "pushdown_predicates",
-            # Skip normalize because it can sometimes be expensive.
-            "normalize",
-        },
-        itertools.takewhile(
-            lambda func: func != sqlglot.optimizer.annotate_types.annotate_types,
-            sqlglot.optimizer.optimizer.RULES,
-        ),
-    )
+# These rules are a subset of the rules in sqlglot.optimizer.optimizer.RULES.
+# If there's a change in their rules, we probably need to re-evaluate our list as well.
+assert len(sqlglot.optimizer.optimizer.RULES) == 14
+
+_OPTIMIZE_RULES = (
+    sqlglot.optimizer.optimizer.qualify,
+    # We need to enable this in order for annotate types to work.
+    sqlglot.optimizer.optimizer.pushdown_projections,
+    # sqlglot.optimizer.optimizer.normalize,  # causes perf issues
+    sqlglot.optimizer.optimizer.unnest_subqueries,
+    # sqlglot.optimizer.optimizer.pushdown_predicates,  # causes perf issues
+    # sqlglot.optimizer.optimizer.optimize_joins,
+    # sqlglot.optimizer.optimizer.eliminate_subqueries,
+    # sqlglot.optimizer.optimizer.merge_subqueries,
+    # sqlglot.optimizer.optimizer.eliminate_joins,
+    # sqlglot.optimizer.optimizer.eliminate_ctes,
+    sqlglot.optimizer.optimizer.quote_identifiers,
+    # These three are run separately or not run at all.
+    # sqlglot.optimizer.optimizer.annotate_types,
+    # sqlglot.optimizer.canonicalize.canonicalize,
+    # sqlglot.optimizer.simplify.simplify,
 )
-# Quick check that the rules were loaded correctly.
-assert 0 < len(RULES_BEFORE_TYPE_ANNOTATION) < len(sqlglot.optimizer.optimizer.RULES)
+
+_DEBUG_TYPE_ANNOTATIONS = False
 
 
 class _ColumnRef(_FrozenModel):
@@ -385,11 +392,12 @@ def _prepare_query_columns(
                 schema=sqlglot_db_schema,
                 qualify_columns=True,
                 validate_qualify_columns=False,
+                allow_partial_qualification=True,
                 identify=True,
                 # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
                 catalog=default_db,
                 db=default_schema,
-                rules=RULES_BEFORE_TYPE_ANNOTATION,
+                rules=_OPTIMIZE_RULES,
             )
         except (sqlglot.errors.OptimizeError, ValueError) as e:
             raise SqlUnderstandingError(
@@ -408,6 +416,10 @@ def _prepare_query_columns(
         except (sqlglot.errors.OptimizeError, sqlglot.errors.ParseError) as e:
             # This is not a fatal error, so we can continue.
             logger.debug("sqlglot failed to annotate or parse types: %s", e)
+        if _DEBUG_TYPE_ANNOTATIONS and logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Type annotated sql %s", statement.sql(pretty=True, dialect=dialect)
+            )
 
     return statement, _ColumnResolver(
         sqlglot_db_schema=sqlglot_db_schema,
@@ -907,6 +919,7 @@ def _sqlglot_lineage_inner(
         # At this stage we only want to qualify the table names. The columns will be dealt with later.
         qualify_columns=False,
         validate_qualify_columns=False,
+        allow_partial_qualification=True,
         # Only insert quotes where necessary.
         identify=False,
     )
