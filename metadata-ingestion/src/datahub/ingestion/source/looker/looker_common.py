@@ -1205,15 +1205,19 @@ class LookerExplore:
         dataset_snapshot.aspects.append(browse_paths)
         dataset_snapshot.aspects.append(StatusClass(removed=False))
 
-        custom_properties = {}
-        if self.label is not None:
-            custom_properties["looker.explore.label"] = str(self.label)
-        if self.source_file is not None:
-            custom_properties["looker.explore.file"] = str(self.source_file)
+        custom_properties = {
+            "project": self.project_name,
+            "model": self.model_name,
+            "looker.explore.label": self.label,
+            "looker.explore.name": self.name,
+            "looker.explore.file": self.source_file,
+        }
         dataset_props = DatasetPropertiesClass(
             name=str(self.label) if self.label else LookerUtil._display_name(self.name),
             description=self.description,
-            customProperties=custom_properties,
+            customProperties={
+                k: str(v) for k, v in custom_properties.items() if v is not None
+            },
         )
         dataset_props.externalUrl = self._get_url(base_url)
 
