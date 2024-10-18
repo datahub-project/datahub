@@ -348,7 +348,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
             with self.structured_reporter.report_exc(
                 "Error fetching ddl lineage from Snowflake"
             ):
-                ddl_entry = self.parse_ddl_query(object_modified_by_ddl)
+                ddl_entry = self.parse_ddl_query(
+                    res["query_text"], object_modified_by_ddl
+                )
             return ddl_entry
 
         upstreams = []
@@ -447,7 +449,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
         return entry
 
     def parse_ddl_query(
-        self, object_modified_by_ddl: dict
+        self, query: str, object_modified_by_ddl: dict
     ) -> Optional[Union[TableRename, TableSwap]]:
         if object_modified_by_ddl[
             "operationType"
@@ -464,7 +466,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                 )
             )
 
-            return TableSwap(urn1, urn2)
+            return TableSwap(urn1, urn2, query)
         elif object_modified_by_ddl[
             "operationType"
         ] == "RENAME_TABLE" and object_modified_by_ddl["properties"].get("objectName"):
@@ -480,7 +482,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                 )
             )
 
-            return TableRename(original_un, new_urn)
+            return TableRename(original_un, new_urn, query)
         else:
             self.report.num_ddl_queries_dropped += 1
             return None
@@ -632,9 +634,6 @@ fingerprinted_queries as (
         a.object_modified_by_ddl
     FROM deduplicated_queries q
     JOIN filtered_access_history a USING (query_id)
-    -- This qualify ignores more than 1 rows from same query, such as for ddl swap
-    QUALIFY
-        ROW_NUMBER() OVER (PARTITION BY query_id ORDER BY start_time DESC) = 1
 )
 SELECT * FROM query_access_history
 """

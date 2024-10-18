@@ -178,12 +178,16 @@ class KnownLineageMapping:
 class TableRename:
     original_urn: UrnStr
     new_urn: UrnStr
+    query: Optional[str] = None
+    session_id: str = _MISSING_SESSION_ID
 
 
 @dataclasses.dataclass
 class TableSwap:
     urn1: UrnStr
     urn2: UrnStr
+    query: Optional[str] = None
+    session_id: str = _MISSING_SESSION_ID
 
     def id(self) -> str:
         # TableSwap(A,B) is same as TableSwap(B,A)
@@ -566,7 +570,7 @@ class SqlParsingAggregator(Closeable):
         elif isinstance(item, ObservedQuery):
             self.add_observed_query(item)
         elif isinstance(item, TableRename):
-            self.add_table_rename(item.original_urn, item.new_urn)
+            self.add_table_rename(item)
         elif isinstance(item, TableSwap):
             self.add_table_swap(item)
         else:
@@ -654,19 +658,11 @@ class SqlParsingAggregator(Closeable):
         query_id = self._known_lineage_query_id()
 
         # Generate CLL if schema of downstream is known
-        column_lineage: List[ColumnLineageInfo] = []
-        if self._schema_resolver.has_urn(downstream_urn):
-            schema = self._schema_resolver._resolve_schema_info(downstream_urn)
-            if schema:
-                column_lineage = [
-                    ColumnLineageInfo(
-                        downstream=DownstreamColumnRef(
-                            table=downstream_urn, column=field_path
-                        ),
-                        upstreams=[ColumnRef(table=upstream_urn, column=field_path)],
-                    )
-                    for field_path in schema
-                ]
+        column_lineage: List[
+            ColumnLineageInfo
+        ] = self._generate_identity_column_lineage(
+            upstream_urn=upstream_urn, downstream_urn=downstream_urn
+        )
 
         # Register the query.
         self._add_to_query_map(
@@ -687,6 +683,25 @@ class SqlParsingAggregator(Closeable):
 
         # Register the lineage.
         self._lineage_map.for_mutation(downstream_urn, OrderedSet()).add(query_id)
+
+    def _generate_identity_column_lineage(
+        self, *, upstream_urn: UrnStr, downstream_urn: UrnStr
+    ) -> List[ColumnLineageInfo]:
+        column_lineage: List[ColumnLineageInfo] = []
+        if self._schema_resolver.has_urn(downstream_urn):
+            schema = self._schema_resolver._resolve_schema_info(downstream_urn)
+            if schema:
+                column_lineage = [
+                    ColumnLineageInfo(
+                        downstream=DownstreamColumnRef(
+                            table=downstream_urn, column=field_path
+                        ),
+                        upstreams=[ColumnRef(table=upstream_urn, column=field_path)],
+                    )
+                    for field_path in schema
+                ]
+
+        return column_lineage
 
     def add_view_definition(
         self,
@@ -874,12 +889,6 @@ class SqlParsingAggregator(Closeable):
             return
         out_table = parsed.downstream
 
-        # Handle table renames.
-        is_renamed_table = False
-        if out_table in self._table_renames:
-            out_table = self._table_renames[out_table]
-            is_renamed_table = True
-
         # Register the query's lineage.
         if (
             is_known_temp_table
@@ -888,13 +897,10 @@ class SqlParsingAggregator(Closeable):
                 and parsed.query_type_props.get("temporary")
             )
             or (
-                not is_renamed_table
-                and (
-                    self.is_temp_table(out_table)
-                    or (
-                        require_out_table_schema
-                        and not self._schema_resolver.has_urn(out_table)
-                    )
+                self.is_temp_table(out_table)
+                or (
+                    require_out_table_schema
+                    and not self._schema_resolver.has_urn(out_table)
                 )
             )
         ):
@@ -921,26 +927,35 @@ class SqlParsingAggregator(Closeable):
 
     def add_table_rename(
         self,
-        original_urn: UrnStr,
-        new_urn: UrnStr,
+        table_rename: TableRename,
     ) -> None:
         """Add a table rename to the aggregator.
 
         This will make all observed queries that reference the original urn
         will instead generate lineage for the new urn.
-
-        Args:
-            original_urn: The original dataset URN.
-            new_urn: The new dataset URN.
         """
 
         self.report.num_table_renames += 1
 
-        if original_urn in self._lineage_map:
-            self._lineage_map[new_urn] = self._lineage_map.pop(original_urn)
-
         # This will not work if the table is renamed multiple times.
-        self._table_renames[original_urn] = new_urn
+        self._table_renames[table_rename.original_urn] = table_rename.new_urn
+
+        original_table = self._name_from_urn(table_rename.original_urn)
+        new_table = self._name_from_urn(table_rename.new_urn)
+
+        self.add_known_query_lineage(
+            KnownQueryLineageInfo(
+                query_text=table_rename.query
+                or f"--Datahub generated query text--\n"
+                f"alter table {original_table} rename to {new_table}",
+                upstreams=[table_rename.original_urn],
+                downstream=table_rename.new_urn,
+                column_lineage=self._generate_identity_column_lineage(
+                    downstream_urn=table_rename.new_urn,
+                    upstream_urn=table_rename.original_urn,
+                ),
+            )
+        )
 
     def add_table_swap(self, table_swap: TableSwap) -> None:
         """Add a table swap to the aggregator.
@@ -955,24 +970,28 @@ class SqlParsingAggregator(Closeable):
 
         self.report.num_table_swaps += 1
         self._table_swaps[table_swap.id()] = table_swap
+        table1 = self._name_from_urn(table_swap.urn1)
+        table2 = self._name_from_urn(table_swap.urn2)
 
-        urn1_lineage: Optional[OrderedSet[QueryId]] = None
-        urn2_lineage: Optional[OrderedSet[QueryId]] = None
+        self.add_known_query_lineage(
+            KnownQueryLineageInfo(
+                query_text=table_swap.query
+                or f"--Datahub generated query text--"
+                f"\nalter table {table1} swap with {table2}",
+                upstreams=[table_swap.urn1],
+                downstream=table_swap.urn2,
+            )
+        )
 
-        if table_swap.urn1 in self._lineage_map:
-            urn1_lineage = self._lineage_map.pop(table_swap.urn1)
-
-        if table_swap.urn2 in self._lineage_map:
-            urn2_lineage = self._lineage_map.pop(table_swap.urn2)
-
-        if urn1_lineage:
-            self._lineage_map[table_swap.urn2] = urn1_lineage
-
-        if urn2_lineage:
-            self._lineage_map[table_swap.urn1] = urn2_lineage
-
-        self._table_renames[table_swap.urn1] = table_swap.urn2
-        self._table_renames[table_swap.urn2] = table_swap.urn1
+        self.add_known_query_lineage(
+            KnownQueryLineageInfo(
+                query_text=table_swap.query
+                or f"--Datahub generated query text--\n"
+                f"alter table {table2} swap with {table1}",
+                upstreams=[table_swap.urn2],
+                downstream=table_swap.urn1,
+            )
+        )
 
     def _make_schema_resolver_for_session(
         self, session_id: str

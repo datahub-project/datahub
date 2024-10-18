@@ -116,6 +116,57 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_original_dep,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:cbb029e2b8617593670a5a2d4e5cb614adaad41ce9477dc27c3ccb63c6610609"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:composite_b81cdd6711c1617e01e7565db533f52513e09ea2e25c2038e1cb11b7dc0d6045"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_dep,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:composite_b81cdd6711c1617e01e7565db533f52513e09ea2e25c2038e1cb11b7dc0d6045"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_backup,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
@@ -180,6 +231,29 @@
 },
 {
     "entityType": "query",
+    "entityUrn": "urn:li:query:cbb029e2b8617593670a5a2d4e5cb614adaad41ce9477dc27c3ccb63c6610609",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "statement": {
+                "value": "CREATE TABLE foo AS\nSELECT\n  *\nFROM foo_original_dep",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 1707182625000,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    }
+},
+{
+    "entityType": "query",
     "entityUrn": "urn:li:query:composite_4d5c4eb337c2cfd3f538794297115259dfff9f3745ccf9c59ad8d2f1d537dfe4",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
@@ -198,6 +272,65 @@
                 "time": 1707182625000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:composite_b81cdd6711c1617e01e7565db533f52513e09ea2e25c2038e1cb11b7dc0d6045",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "statement": {
+                "value": "CREATE TABLE foo_staging AS\nSELECT\n  f.a,\n  d.b\nFROM foo AS f\nJOIN foo_dep AS d\n  USING (c);\n\nALTER TABLE dev.public.foo_staging SWAP WITH dev.public.foo",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 1707182625000,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:cbb029e2b8617593670a5a2d4e5cb614adaad41ce9477dc27c3ccb63c6610609",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_original_dep,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo,PROD)"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:composite_b81cdd6711c1617e01e7565db533f52513e09ea2e25c2038e1cb11b7dc0d6045",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_dep,PROD)"
+                }
+            ]
         }
     }
 },
@@ -225,6 +358,28 @@
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_backup,PROD),b)"
                 }
             ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:composite_b81cdd6711c1617e01e7565db533f52513e09ea2e25c2038e1cb11b7dc0d6045",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:cbb029e2b8617593670a5a2d4e5cb614adaad41ce9477dc27c3ccb63c6610609",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
         }
     }
 },

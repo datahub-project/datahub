@@ -13,6 +13,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     QueryLogSetting,
     SqlParsingAggregator,
+    TableRename,
     TableSwap,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
@@ -519,19 +520,12 @@ def test_table_rename(pytestconfig: pytest.Config) -> None:
         generate_operations=False,
     )
 
-    # Add the query that created the staging table.
-    aggregator.add_observed_query(
-        ObservedQuery(
-            query="create table foo_staging as select a, b from foo_dep_old",
-            default_db="dev",
-            default_schema="public",
-        )
-    )
-
     # Register that foo_staging is renamed to foo.
     aggregator.add_table_rename(
-        original_urn=DatasetUrn("redshift", "dev.public.foo_staging").urn(),
-        new_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+        TableRename(
+            original_urn=DatasetUrn("redshift", "dev.public.foo_staging").urn(),
+            new_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+        )
     )
 
     # Add an unrelated query.
@@ -580,19 +574,13 @@ def test_table_rename_with_temp(pytestconfig: pytest.Config) -> None:
         is_temp_table=lambda x: "staging" in x.lower(),
     )
 
-    # Add the query that created the staging table.
-    aggregator.add_observed_query(
-        ObservedQuery(
-            query="create table foo_staging as select a, b from foo_dep_old",
-            default_db="dev",
-            default_schema="public",
-        )
-    )
-
     # Register that foo_staging is renamed to foo.
     aggregator.add_table_rename(
-        original_urn=DatasetUrn("redshift", "dev.public.foo_staging").urn(),
-        new_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+        TableRename(
+            original_urn=DatasetUrn("redshift", "dev.public.foo_staging").urn(),
+            new_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+            query="alter table dev.public.foo_staging rename to dev.public.foo",
+        )
     )
 
     # Add an unrelated query.
