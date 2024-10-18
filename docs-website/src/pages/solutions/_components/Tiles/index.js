@@ -17,12 +17,12 @@ const Tiles = ({ tilesContent }) => {
           <div className={styles.ecosystem_section_lower_content}>
             <div className={styles.itemWrappers}>
               <div className={styles.ecosystem_section_upper_content}>
-                <div className={styles.ecosystem_section_heading}>{title}</div>
+                <div className={styles.ecosystem_section_heading} dangerouslySetInnerHTML={{ __html: title }}></div>
               </div>
               {tileItems.map((item, index) => (
                 <div
                   key={index}
-                  className={clsx("row", styles.itemWrapper, {
+                  className={clsx(styles.itemWrapper, {
                     [styles.alternate]: index % 2 === 0,
                   })}
                 >
@@ -32,13 +32,13 @@ const Tiles = ({ tilesContent }) => {
                         className={clsx(
                           styles.diagramItem,
                           diagramItemThemeClass,
-                          "col col--5"
+                      
                         )}
                       >
                         <img className={styles.diagramItem__img} src={useBaseUrl(item.imgSrc)} alt={item.title} />
                       </div>
                       <div
-                        className={clsx(styles.item, styles.evenItem, "col col--5", itemThemeClass)}
+                        className={clsx(styles.item, styles.evenItem, itemThemeClass)}
                       >
                         <div className={styles.item_content}>
                           <div className={styles.item__title}>{item.title}</div>
@@ -49,7 +49,7 @@ const Tiles = ({ tilesContent }) => {
                   ) : (
                     <>
                       <div
-                        className={clsx(styles.item, styles.oddItem, "col col--5", itemThemeClass)}
+                        className={clsx(styles.item, styles.oddItem, itemThemeClass)}
                       >
                         <div className={clsx(styles.item_content)}>
                           <div className={styles.item__title}>{item.title}</div>
@@ -60,7 +60,7 @@ const Tiles = ({ tilesContent }) => {
                         className={clsx(
                           styles.diagramItem,
                           diagramItemThemeClass,
-                          "col col--5"
+                      
                         )}
                       >
                         <img className={styles.diagramItem__img} src={useBaseUrl(item.imgSrc)} alt={item.title} />

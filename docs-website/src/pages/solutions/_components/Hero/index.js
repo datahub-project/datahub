@@ -16,7 +16,7 @@ const Hero = ({ onOpenTourModal, heroContent }) => {
         <p className={styles.hero__description}>{description}</p>
         <div className={styles.hero__cta}>
           <Link className={styles.cta__primary} to="/cloud">
-            DataHub Cloud →
+            Book a Demo
           </Link>
           <a
             className={styles.cta__secondary}
@@ -25,14 +25,16 @@ const Hero = ({ onOpenTourModal, heroContent }) => {
             Product Tour
           </a>
         </div>
+        <Link className={styles.cta__tertiary} to="/docs">
+            Get started with Core →
+        </Link>
+        {/* push image to bottom */}
+        <div style={{ flexGrow: 1 }} />
         <img
           src={imgSrc}
           alt="DataHub Platform Preview"
           className={styles.hero__img}
         />
-        <div
-          className={styles.hero__background}
-        ></div>
       </div>
     </div>
   );

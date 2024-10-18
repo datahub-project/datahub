@@ -1,5 +1,5 @@
 const testimonialsData = {
-  title: "Enter end-to-end Data Governance.",
+  title: "Enter end-to-end Data Discovery.",
   feature1: "Data Observability",
   feature1Link: "/solutions/observability",
   feature2: "Governance",

@@ -1,6 +1,7 @@
 const tilesContent = [
   {
-      title: "Enable self-service \n\n data discovery.",
+      title: "Enable self-service <br/> data discovery.",
+      theme: "dark",
       tileItems: [
         {
           title: "Your role, your view: discover data that matters to you.",
@@ -20,7 +21,7 @@ const tilesContent = [
       ]
     },
     {
-      title: "Unlock the full potential of \n\n automated data lineage.",
+      title: "Unlock the full potential of<br/>automated data lineage.",
       theme: "light",
       tileItems: [
         {
@@ -41,7 +42,7 @@ const tilesContent = [
       ]
     },
     {
-      title: "Build trust in the relevance and \n\n accuracy of your data.",
+      title: "Build trust in the relevance<br/>and accuracy of your data.",
       theme: "dark",
       tileItems: [
         {

@@ -10,11 +10,11 @@
         padding: 4.5rem 0;
   
         .testimonials__card {
-          margin: 2rem 4rem;
+          margin: 0rem 4rem;
           display: flex;
   
           .testimonials__logo {
-            min-width: 200px;
+            min-width: 100px;
             margin: 2rem auto;
             img {
               max-width: 100%;
@@ -22,7 +22,7 @@
           }
   
           .testimonials__text {
-            max-width: 90%;
+            width: 94%;
             padding-left: 2rem;
             color: #2e2e38;
 
@@ -39,8 +39,8 @@
             .testimonials__quote_description {
               font-size: 1.8rem;
               margin-top: 0.5rem;
-              color: #98A2B3;
-              font-weight: 400;
+              color: #656c77;
+              font-weight: 300;
               line-height: normal;
             }
 

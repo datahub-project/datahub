@@ -53,12 +53,14 @@
       flex-direction: column;
       align-items: center; 
       border-radius: var(--number-scales-2s-32, 32px);
-      border: 2px solid var(--semantics-bg-bg-white, #FFF);
-      background: var(--primitives-grays-1, #F3F3F6);
+      border: 1px solid var(--semantics-bg-bg-white, #99999930);
+      background: var(--primitives-grays-1, #9999991a);
 
+      transition: all .3s ease-in-out;
       &:hover {
-        box-shadow: 0px 0px 4px 0px #0000001C;
-        opacity: 0.9;
+        box-shadow: 0px 1px 4px 1px #0000001C;
+        border-color: #33333340;
+        background: var(--primitives-grays-1, #dddddd1a);
       }
     
       .card_image {

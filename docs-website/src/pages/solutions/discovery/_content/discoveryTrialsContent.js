@@ -1,21 +1,21 @@
 const trialsContent = {
-  title: "Start measuring and minimizing your compliance risk today.",
+  title: "Make data democratization a reality today.",
   trialsCardItems: [
     {
-      title: "Protect your mission-critical tables, reports, services, and more.",
+      title: "Unlock self-service data discovery.",
       imgSrc: "/img/solutions/trial-icon-lock.svg",
       
     },
     {
-      title: "Know first, not last. Get notified where you work when things go wrong.",
+      title: "Stop breaking changes before they happen.",
       imgSrc: "/img/solutions/trial-icon-alert.svg",
     },
     {
-      title: "Let AI detect the blindspots in your data quality checks.",
+      title: "Build trust in the relevance and accuracy of your data.",
       imgSrc: "/img/solutions/trial-icon-star.svg",
     },
     {
-      title: "Share documentation, compliance and health for any data asset with one link.",
+      title: "Unify Discovery, Observability and Governance in one tool.",
       imgSrc: "/img/solutions/trial-icon-link.svg",
     }
   ]

@@ -89,12 +89,12 @@ module.exports = {
               label: "Discovery",
             },
             {
-              to: "/solutions/governance",
-              label: "Governance",
-            },
-            {
               to: "/solutions/observability",
               label: "Observability",
+            },
+            {
+              to: "/solutions/governance",
+              label: "Governance",
             },
           ]
         },

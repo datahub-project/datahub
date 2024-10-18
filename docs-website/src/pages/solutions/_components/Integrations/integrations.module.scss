@@ -6,11 +6,11 @@
     color: var(--primitives-text-tex-subtext, #777E99);
     text-align: center;
     font-family: "Helvetica Neue";
-    font-size: 24px;
+    font-size: 1.5rem;
     font-style: normal;
-    font-weight: 500;
+    font-weight: 400;
     line-height: normal;
-    letter-spacing: 0.24px;
+    letter-spacing: 0.5px;
 
     margin-bottom: 2rem;
     position: relative;
@@ -20,8 +20,8 @@
 
     &:before, &:after {
       content: " ";
-      height: 2px;
-      width: calc((100vw - 640px)/2);
+      height: 1px;
+      width: calc((100vw - 48rem)/2);
       background: #D9DBE4;
       display: block;
       position: absolute;
@@ -80,8 +80,8 @@
 }
 
 .slide {
-  width: 72px;
-  height: 72px;
+  width: 100px;
+  height: 100px;
   margin-left: 52px;
   display: flex;
   justify-content: space-between;
