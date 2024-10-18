@@ -220,7 +220,7 @@ class FivetranLogAPI:
             return None
         return self._get_users().get(user_id)
 
-    def _fill_connectors_table_lineage(self, connectors: List[Connector]) -> None:
+    def _fill_connectors_lineage(self, connectors: List[Connector]) -> None:
         table_lineage_metadata = self._get_table_lineage_metadata()
         column_lineage_metadata = self._get_column_lineage_metadata()
         for connector in connectors:
@@ -265,12 +265,18 @@ class FivetranLogAPI:
                         sync_frequency=connector[Constant.SYNC_FREQUENCY],
                         destination_id=connector[Constant.DESTINATION_ID],
                         user_id=connector[Constant.CONNECTING_USER_ID],
-                        lineage=[],
-                        jobs=[],
+                        lineage=[],  # filled later
+                        jobs=[],  # filled later
                     )
                 )
+
+        if not connectors:
+            # Some of our queries don't work well when there's no connectors, since
+            # we push down connector id filters.
+            return []
+
         with report.metadata_extraction_perf.connectors_lineage_extraction_sec:
-            self._fill_connectors_table_lineage(connectors)
+            self._fill_connectors_lineage(connectors)
         with report.metadata_extraction_perf.connectors_jobs_extraction_sec:
             self._fill_connectors_jobs(connectors, syncs_interval)
         return connectors
