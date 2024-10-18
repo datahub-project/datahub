@@ -725,22 +725,10 @@ class RegularAPIResolver(DataResolverBase):
         self,
         app_id: str,
     ) -> Optional[Dict]:
+        # [Date: 2024/10/18] As per API doc, the service principal approach is not supported for regular API
+        # https://learn.microsoft.com/en-us/rest/api/power-bi/apps/get-app
 
-        app_endpoint = self.API_ENDPOINTS[Constant.GET_WORKSPACE_APP].format(
-            MY_ORG_URL=DataResolverBase.MY_ORG_URL,
-            APP_ID=app_id,
-        )
-        # Hit PowerBi
-        logger.debug(f"Request to app URL={app_endpoint}")
-
-        response = self._request_session.get(
-            url=app_endpoint,
-            headers=self.get_authorization_header(),
-        )
-
-        response.raise_for_status()
-
-        return response.json()
+        return None
 
 
 class AdminAPIResolver(DataResolverBase):

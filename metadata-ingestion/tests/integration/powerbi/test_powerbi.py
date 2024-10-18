@@ -1607,7 +1607,7 @@ def test_powerbi_app_ingest_info_message(
     is_entry_present: bool = False
     # Printing INFO entries
     for key, entry in info_entries.items():
-        if entry.title == "App Ingestion Disabled":
+        if entry.title == "App Ingestion Is Disabled":
             is_entry_present = True
             break
 

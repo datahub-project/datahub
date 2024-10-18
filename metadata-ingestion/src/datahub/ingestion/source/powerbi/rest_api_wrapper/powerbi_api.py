@@ -431,7 +431,7 @@ class PowerBiAPI:
         self,
         app_id: str,
     ) -> Optional[App]:
-        return self._get_resolver().get_app(
+        return self.__admin_api_resolver.get_app(
             app_id=app_id,
         )
 
@@ -444,7 +444,6 @@ class PowerBiAPI:
         # The duplicate entries for a report contain key `originalReportObjectId` referencing to
         # an actual report id of workspace. The duplicate entries for a dashboard contain `displayName` where
         # displayName is generated from displayName of original dashboard with prefix "App"
-
         app_id: Optional[str] = None
         app_reports: List[AppReport] = []
         # Filter app reports

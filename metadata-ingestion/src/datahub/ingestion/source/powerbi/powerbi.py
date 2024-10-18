@@ -1319,7 +1319,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         if not self.source_config.extract_app:
             self.reporter.info(
-                title="App Ingestion Disabled",
+                title="App Ingestion Is Disabled",
                 message="You are missing workspace app metadata. Please set flag `extract_app` to `true` in recipe to ingest workspace app.",
                 context=f"workspace-name={workspace.name}, app-name = {workspace.app.name}",
             )
