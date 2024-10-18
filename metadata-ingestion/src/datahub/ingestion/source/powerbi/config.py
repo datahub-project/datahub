@@ -473,6 +473,11 @@ class PowerBiDashboardSourceConfig(
         "To maintain backward compatibility, this is set to False.",
     )
 
+    extract_app: bool = pydantic.Field(
+        default=False,
+        description="Whether to ingest workspace app. Default to false",
+    )
+
     @root_validator(skip_on_failure=True)
     def validate_extract_column_level_lineage(cls, values: Dict) -> Dict:
         flags = [
