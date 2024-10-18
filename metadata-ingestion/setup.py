@@ -101,7 +101,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==25.20.2.dev6",
+    "acryl-sqlglot[rs]==25.25.2.dev9",
 }
 
 classification_lib = {
@@ -321,6 +321,13 @@ sac = {
     "Authlib",
 }
 
+superset_common = {
+    "requests",
+    "sqlalchemy",
+    "great_expectations",
+    "greenlet",
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -462,12 +469,8 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib,
     "slack": slack,
-    "superset": {
-        "requests",
-        "sqlalchemy",
-        "great_expectations",
-        "greenlet",
-    },
+    "superset": superset_common,
+    "preset": superset_common,
     # FIXME: I don't think tableau uses sqllineage anymore so we should be able
     # to remove that dependency.
     "tableau": {"tableauserverclient>=0.24.0"} | sqllineage_lib | sqlglot_lib,

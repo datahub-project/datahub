@@ -65,9 +65,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 # We can't use close as it is not called if the ingestion is not successful
 def cleanup(config: BigQueryV2Config) -> None:
     if config._credentials_path is not None:
-        logger.debug(
-            f"Deleting temporary credential file at {config._credentials_path}"
-        )
         os.unlink(config._credentials_path)
 
 
@@ -188,6 +185,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.sql_parser_schema_resolver,
             self.profiler,
             self.identifiers,
+            self.ctx.graph,
         )
 
         self.add_config_to_report()
@@ -274,7 +272,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             self.report.set_ingestion_stage("*", QUERIES_EXTRACTION)
 
-            queries_extractor = BigQueryQueriesExtractor(
+            with BigQueryQueriesExtractor(
                 connection=self.config.get_bigquery_client(),
                 schema_api=self.bq_schema_extractor.schema_api,
                 config=BigQueryQueriesExtractorConfig(
@@ -290,9 +288,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 identifiers=self.identifiers,
                 schema_resolver=self.sql_parser_schema_resolver,
                 discovered_tables=self.bq_schema_extractor.table_refs,
-            )
-            self.report.queries_extractor = queries_extractor.report
-            yield from queries_extractor.get_workunits_internal()
+            ) as queries_extractor:
+                self.report.queries_extractor = queries_extractor.report
+                yield from queries_extractor.get_workunits_internal()
+
         else:
             if self.config.include_usage_statistics:
                 yield from self.usage_extractor.get_usage_workunits(
