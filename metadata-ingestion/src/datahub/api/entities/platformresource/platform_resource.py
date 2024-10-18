@@ -85,6 +85,7 @@ class OpenAPIGraphClient:
         self,
         entity_type: str,
         extra_or_filters: List[Dict[str, str]],
+        extra_and_filters: List[Dict[str, str]] = [],
     ) -> Iterable[str]:
         """
         Scroll through all urns that match the given filters
@@ -92,10 +93,26 @@ class OpenAPIGraphClient:
 
         key_aspect = self.ENTITY_KEY_ASPECT_MAP.get(entity_type)
         assert key_aspect, f"No key aspect found for entity type {entity_type}"
+        if extra_or_filters and extra_and_filters:
+            raise ValueError(
+                "Only one of extra_or_filters and extra_and_filters should be provided"
+            )
 
         count = 1000
-        query = " OR ".join(
-            [f"{filter['field']}:{filter['value']}" for filter in extra_or_filters]
+        query = (
+            " OR ".join(
+                [
+                    f"{filter['field']}:\"{filter['value']}\""
+                    for filter in extra_or_filters
+                ]
+            )
+            if extra_or_filters
+            else " AND ".join(
+                [
+                    f"{filter['field']}:\"{filter['value']}\""
+                    for filter in extra_and_filters
+                ]
+            )
         )
         scroll_id = None
         while True:
@@ -252,3 +269,23 @@ class PlatformResource(BaseModel):
 
     def delete(self, graph_client: DataHubGraph, hard: bool = True) -> None:
         graph_client.delete_entity(str(PlatformResourceUrn(self.id)), hard=hard)
+
+    @staticmethod
+    def search_by_filters(
+        graph_client: DataHubGraph,
+        and_filters: List[Dict[str, str]] = [],
+        or_filters: List[Dict[str, str]] = [],
+    ) -> Iterable["PlatformResource"]:
+        if and_filters and or_filters:
+            raise ValueError(
+                "Only one of and_filters and or_filters should be provided"
+            )
+        openapi_client = OpenAPIGraphClient(graph_client)
+        for urn in openapi_client.scroll_urns_by_filter(
+            entity_type="platformResource",
+            extra_or_filters=or_filters if or_filters else [],
+            extra_and_filters=and_filters if and_filters else [],
+        ):
+            platform_resource = PlatformResource.from_datahub(graph_client, urn)
+            if platform_resource:
+                yield platform_resource

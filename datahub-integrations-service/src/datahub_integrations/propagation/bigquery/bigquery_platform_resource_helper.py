@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import List, Optional
 
 from datahub.api.entities.platformresource.platform_resource import (
     PlatformResource,
@@ -63,7 +63,7 @@ class ExtendedBigQueryPlatformResourceHelper(BigQueryPlatformResourceHelper):
     def __init__(
         self,
         bq_project: Optional[str],
-        graph: Optional[DataHubGraph],
+        graph: DataHubGraph,
     ):
         super().__init__(bq_project, graph)
 
@@ -123,3 +123,64 @@ class ExtendedBigQueryPlatformResourceHelper(BigQueryPlatformResourceHelper):
         )
 
         return new_platform_resource.platform_resource()
+
+    def get_primary_keys(
+        self, secondary_key: str, resource_type: str = "BigQueryPolicyTagInfo"
+    ) -> List[str]:
+        """
+        Scroll through all urns that match the given filters
+        """
+        assert self.graph is not None, "graph is required"
+        logger.info(f"Searching for primary keys with secondary key: {secondary_key}")
+        result = [
+            r.resource_info.primary_key
+            for r in PlatformResource.search_by_filters(
+                self.graph,
+                and_filters=[
+                    {
+                        "field": "resourceType",
+                        "condition": "EQUAL",
+                        "value": resource_type,
+                    },
+                    {
+                        "field": "secondaryKeys",
+                        "condition": "EQUAL",
+                        "value": secondary_key,
+                    },
+                ],
+            )
+            if r.resource_info
+        ]
+
+        logger.info(f"Found primary keys: {result}")
+        return result
+
+    def get_policy_tag_id_by_glossary_term_urn(
+        self, glossary_term_urn: GlossaryTermUrn, taxonomy_path: str
+    ) -> Optional[str]:
+
+        # Check if the policy tag is already in the cache
+        for pr in self.platform_resource_cache.values():
+            if pr.resource_info and pr.resource_info.value:
+                try:
+                    policy_tag_info: Optional[BigQueryPolicyTagInfo] = pr.resource_info.value.as_pydantic_object(BigQueryPolicyTagInfo)  # type: ignore
+                except ValidationError as e:
+                    logger.error(
+                        f"Error converting existing value to BigQueryLabelInfo: {e}. Creating new one. Maybe this is because of a non backward compatible schema change."
+                    )
+                    policy_tag_info = None
+                    continue
+
+                if (
+                    policy_tag_info
+                    and policy_tag_info.datahub_urn == glossary_term_urn.urn()
+                ):
+                    return pr.resource_info.primary_key
+
+        for primary_key in self.get_primary_keys(glossary_term_urn.urn()):
+            logger.debug(f"Primary Key: {primary_key}")
+            if primary_key.startswith(taxonomy_path):
+                logger.debug(f"Matched ID: {primary_key}")
+                return primary_key
+
+        return None

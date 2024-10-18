@@ -11,14 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import hashlib
 import logging
 import os
 import re
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Deque, Dict, List, Optional, Tuple, Union
+from typing import Deque, Dict, List, Optional, Tuple
 
 import cachetools
 from datahub.ingestion.api.closeable import Closeable
@@ -31,7 +31,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.glossary import (
     GlossaryTermInfo,
 )
 from datahub.metadata.schema_classes import GlossaryTermInfoClass
-from datahub.metadata.urns import DatasetUrn, GlossaryTermUrn, SchemaFieldUrn, TagUrn
+from datahub.metadata.urns import (
+    DatasetUrn,
+    GlossaryNodeUrn,
+    GlossaryTermUrn,
+    SchemaFieldUrn,
+    TagUrn,
+)
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from datahub.utilities.urns.urn import Urn
 from datahub_actions.api.action_graph import AcrylDataHubGraph
@@ -117,14 +123,20 @@ class BigqueryTagHelper(Closeable):
 
         logger.info("BigqueryTagHelper initialized.")
 
+    def warm_policy_tag_cache(self) -> None:
+        assert (
+            self.taxonomy_path is not None
+        ), "Taxonomy is not available. Maybe Taxonomy was not initialized?"
+        self.policy_tags = {
+            tag.name: tag for tag in self.list_policy_tags(self.taxonomy_path)
+        }
+
     def create_taxonomy(self) -> None:
         if self.config.taxonomy:
             t = self._create_taxonomy(self.config.taxonomy, "DataHub Taxonomy")
             self.taxonomy_path = t.name
-            self.policy_tags = {
-                tag.display_name: tag
-                for tag in self.list_policy_tags(self.taxonomy_path)
-            }
+
+            self.warm_policy_tag_cache()
 
     def get_glossary_nodes(self, glossary_node_urn: str) -> List[DataHubGlossaryNode]:
         node_info = self.graph.graph.get_aspect(glossary_node_urn, GlossaryNodeInfo)
@@ -351,13 +363,12 @@ class BigqueryTagHelper(Closeable):
 
         table = self.bq_client.get_table(dataset_urn.name)
         if isinstance(parsed_entity_urn, DatasetUrn):
-            logger.info(f"Applying tag {tag_or_term_urn} to entity {entity_urn}")
-
             tag_urn = Urn.from_string(tag_or_term_urn)
             if not isinstance(tag_urn, TagUrn):
-                raise ValueError(
-                    f"Invalid tag urn {tag_or_term_urn}, can only handle Tag urns."
-                )
+                return
+
+            logger.info(f"Applying tag {tag_or_term_urn} to entity {entity_urn}")
+
             bigquery_label = self.convert_tag_to_bigquery_label(tag_urn)
 
             logger.info(
@@ -512,125 +523,179 @@ class BigqueryTagHelper(Closeable):
     def list_policy_tags(self, parent: str) -> List[PolicyTag]:
         return list(self.ptm_client.list_policy_tags(parent=parent))
 
-    def glossary_entity_to_policy_tag_id(
-        self, glossary_entity: Union[DataHubGlossaryTerm, DataHubGlossaryNode]
+    @staticmethod
+    def generate_hash(input_string: str) -> str:
+        # Create a SHA256 hash of the input string and return the first 10 characters
+        # This is a very simple hash function that is deterministic and repeatable
+        sha256_hash = hashlib.sha256(input_string.encode()).hexdigest()
+
+        # Use the first 10 characters of the SHA256 hash to index into our character set
+        return sha256_hash[:10]
+
+    @staticmethod
+    def truncate_policy_tag_name(policy_tag_name: str, max_length: int = 200) -> str:
+        if max_length <= 12:
+            raise ValueError("max_length should be greater than 12 characters")
+
+        if len(policy_tag_name) <= max_length:
+            return policy_tag_name
+
+        parts = policy_tag_name.split("__")
+        truncated_parts: List[str] = []
+
+        # Start from the end and add parts until the length exceeds max_length
+        # 12 is the length ot __ plus the length of the hash we will add to the end
+        while (
+            parts and len("__".join(truncated_parts + [parts[-1]])) <= max_length - 12
+        ):
+            truncated_parts.insert(0, parts.pop())
+        truncated_tag = "__".join(truncated_parts)
+        return f"{truncated_tag[:max_length-12]}__{BigqueryTagHelper.generate_hash(truncated_tag)}"
+
+    def generate_policy_tag_display_name(
+        self, glossary_entity: DataHubGlossaryTerm, parents: List[DataHubGlossaryNode]
     ) -> str:
-        return BigqueryTagHelper.str_to_bq_value(glossary_entity.urn)
+        parent_names = []
+        parent_id: Optional[str] = None
+        parent_names = [
+            (
+                parent.node.name
+                if parent.node.name
+                else GlossaryNodeUrn.from_string(parent.urn).name
+            )
+            for parent in parents
+        ]
+
+        if parent_names:
+            parent_id = "__".join(parent_names) if parent_names else None
+
+        policy_tag_name = (
+            glossary_entity.term.name
+            if glossary_entity.term.name
+            else GlossaryTermUrn.from_string(glossary_entity.urn).name
+        )
+        if parent_id:
+            policy_tag_name = f"{parent_id}__{policy_tag_name}"
+
+        if len(policy_tag_name) > 200:
+            # Bigquery policy tag name has a limit of 200 characters
+            # If the generated name is too long, we will fallback to using the urn
+            policy_tag_name = BigqueryTagHelper.truncate_policy_tag_name(
+                policy_tag_name
+            )
+
+        return BigqueryTagHelper.str_to_bq_value(policy_tag_name)
+
+    def find_policy_tag_by_display_name(
+        self, display_name: str, warm_cache: bool = False
+    ) -> Optional[PolicyTag]:
+        if warm_cache:
+            self.warm_policy_tag_cache()
+        for tag in self.policy_tags.values():
+            if display_name == tag.display_name:
+                return tag
+        logging.warning(
+            f"Tag {display_name} already exists but we couldn't resolve it from our chache. Trying to update our cache and try again."
+        )
+        # If we couldn't find the tag in our cache, we will try to update our cache and try again.
+        if not warm_cache:
+            return self.find_policy_tag_by_display_name(display_name, warm_cache=True)
+
+        return None
 
     def _create_tag(
         self,
         glossaryTerm: DataHubGlossaryTerm,
         parents: List[DataHubGlossaryNode],
     ) -> PolicyTag:
+        assert (
+            self.taxonomy_path is not None
+        ), "Taxonomy is not available. Maybe Taxonomy was not initialized?"
         # Parents tags in the order of left to right
         created_tag: PolicyTag
-        parent_tag: Optional[PolicyTag] = None
-        parent_id: Optional[str] = None
         logger.info(f"Creating tag {glossaryTerm.term.name} with parents {parents}")
-        for idx, parent in enumerate(parents):
-            # parent_names = [self.datahub_label_to_bigquery_label(parent.name) for parent in parents[: idx]]
-            # parent_names.append(parent.name)
-            # parent_id = "_".join(parent_names)
-            parent_id = self.glossary_entity_to_policy_tag_id(parent)
-            if parent_id not in self.policy_tags:
-                logging.info(f"Creating parent tag {parent_id}")
-                pt = PolicyTag(
-                    display_name=parent_id,
-                    description=parent.node.definition,
+
+        tag_display_name = self.generate_policy_tag_display_name(glossaryTerm, parents)
+
+        tag_id = self.bigquery_platform_resource_helper.get_policy_tag_id_by_glossary_term_urn(
+            GlossaryTermUrn.from_string(glossaryTerm.urn), self.taxonomy_path
+        )
+
+        if tag_id:
+            logger.info(f"Tag {tag_id} already exists in BigQuery. Skipping creation.")
+
+        if tag_id and tag_id in self.policy_tags:
+            if (
+                glossaryTerm.term.definition != self.policy_tags[tag_id].description
+                or tag_display_name != self.policy_tags[tag_id].display_name
+            ):
+                logger.info(
+                    f"Policy Tag {tag_id} already exists but with different description or display name. Updating."
                 )
-
-                if parent_tag:
-                    pt.parent_policy_tag = parent_tag.name
-
-                created_tag = self.ptm_client.create_policy_tag(
-                    parent=self.taxonomy_path,
-                    policy_tag=pt,
-                )
-
-                self.policy_tags[created_tag.display_name] = created_tag
-            else:
-                if parent.node.definition != self.policy_tags[parent_id].description:
-                    self.policy_tags[parent_id].description = parent.node.definition
-                    request = UpdatePolicyTagRequest(
-                        {
-                            "policy_tag": self.policy_tags[parent_id],
-                            # "description":glossaryTerm.definition,
-                            "update_mask": {"paths": ["description"]},
-                        }
-                    )
-
-                    created_tag = self.ptm_client.update_policy_tag(request)
-
-                    logger.debug(
-                        f"Policy Tag {created_tag.display_name} updated description in taxonomy {self.taxonomy_path}"
-                    )
-                else:
-                    created_tag = self.policy_tags[parent_id]
-
-            parent_tag = created_tag
-
-        # if parent_id:
-        #    tag_id = "_".join([parent_id, glossaryTerm.name])
-        # else:
-        #    tag_id = glossaryTerm.name
-        tag_id = self.glossary_entity_to_policy_tag_id(glossaryTerm)
-
-        if tag_id in self.policy_tags:
-            if glossaryTerm.term.definition != self.policy_tags[tag_id].description:
                 self.policy_tags[tag_id].description = glossaryTerm.term.definition
+                self.policy_tags[tag_id].display_name = tag_display_name
+
                 request = UpdatePolicyTagRequest(
                     {
                         "policy_tag": self.policy_tags[tag_id],
-                        "update_mask": {"paths": ["description"]},
+                        "update_mask": {"paths": ["description", "display_name"]},
                     }
                 )
-                created_tag = self.ptm_client.update_policy_tag(request)
+                updated_tag = self.ptm_client.update_policy_tag(request)
                 platform_resource = self.bigquery_platform_resource_helper.generate_policy_tag_platform_resource(
-                    created_tag, GlossaryTermUrn.from_string(glossaryTerm.urn)
+                    updated_tag, GlossaryTermUrn.from_string(glossaryTerm.urn)
                 )
                 platform_resource.to_datahub(self.graph.graph)
                 logger.info(f"Platform Resource Modified: {platform_resource}")
                 logger.info(
-                    f"Policy Tag {created_tag.name} updated in taxonomy {self.taxonomy_path}"
+                    f"Policy Tag {updated_tag.name} updated in taxonomy {self.taxonomy_path}"
                 )
+                return updated_tag
             else:
-                logger.debug(f"Policy Tag {glossaryTerm.term.name} already exists")
+                logger.debug(f"Policy Tag {tag_id} already exists")
 
                 platform_resource = self.bigquery_platform_resource_helper.generate_policy_tag_platform_resource(
                     self.policy_tags[tag_id],
                     GlossaryTermUrn.from_string(glossaryTerm.urn),
                 )
                 platform_resource.to_datahub(self.graph.graph)
-                logger.info(f"Platform Resource: {platform_resource}")
+                logger.info(f"Sending platform resource: {platform_resource}")
                 return self.policy_tags[tag_id]
-        try:
+        else:
+            try:
+                logger.info(
+                    f"Tag {tag_display_name} doesn't exists and needs to be created"
+                )
+                try:
+                    created_tag = self.ptm_client.create_policy_tag(
+                        parent=self.taxonomy_path,
+                        policy_tag=PolicyTag(
+                            display_name=tag_display_name,
+                            description=glossaryTerm.term.definition,
+                        ),
+                    )
+                except google_exceptions.AlreadyExists:
+                    logging.warning(
+                        f"Tag  {tag_display_name} already exists which means we have a missing platform resource. Most probably somebody added this Policy Tag to BigQuery manually. Trying to resolve it."
+                    )
+                    tag = self.find_policy_tag_by_display_name(tag_display_name)
+                    if not tag:
+                        raise RuntimeError(
+                            f"Tag {tag_display_name} already exists but we couldn't resolve it. This should not happen."
+                        )
+                    created_tag = tag
 
-            logger.info(f"Creating tag {tag_id}")
-            created_tag = self.ptm_client.create_policy_tag(
-                parent=self.taxonomy_path,
-                policy_tag=PolicyTag(
-                    display_name=tag_id,
-                    description=glossaryTerm.term.definition,
-                    parent_policy_tag=parent_tag.name if parent_tag else None,
-                ),
-            )
-
-            platform_resource = self.bigquery_platform_resource_helper.generate_policy_tag_platform_resource(
-                created_tag, GlossaryTermUrn.from_string(glossaryTerm.urn)
-            )
-            logger.info(f"Platform Resource Created: {platform_resource}")
-        except ValueError as e:
-            logger.error(
-                f"Error creating platform resource for glossary term {glossaryTerm.urn} and policy tag {tag_id}: {e} due to conflict. Ignoring platform resource creation."
-            )
-            raise e
-
-        self.policy_tags[tag_id] = created_tag
-
-        logger.info(
-            f"Policy Tag {created_tag.name} created in taxonomy {self.taxonomy_path}"
-        )
-        return created_tag
+                platform_resource = self.bigquery_platform_resource_helper.generate_policy_tag_platform_resource(
+                    created_tag, GlossaryTermUrn.from_string(glossaryTerm.urn)
+                )
+                platform_resource.to_datahub(self.graph.graph)
+                self.policy_tags[created_tag.name] = created_tag
+                return created_tag
+            except ValueError as e:
+                logger.error(
+                    f"Error creating platform resource for glossary term {glossaryTerm.urn} and policy tag {tag_display_name}: {e} due to conflict. Ignoring platform resource creation."
+                )
+                raise e
 
     def _cleanup_old_errors(self) -> None:
         one_hour_ago = datetime.now() - timedelta(hours=1)

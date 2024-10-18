@@ -42,7 +42,7 @@ class BigQueryLabelPlatformResource:
         return PlatformResourceKey(
             platform="bigquery",
             resource_type="BigQueryLabelInfo",
-            platform_instance=self.project,
+            platform_instance=None,
             primary_key=self.label.primary_key(),
         )
 
