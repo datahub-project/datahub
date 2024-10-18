@@ -22,6 +22,7 @@ import UnifiedTabs from "../_components/UnifiedTabs";
 import unifiedTabsData from "./_content/observeUnifiedTabsContent";
 import trialsContent from "./_content/observeTrialsContent";
 import Trials from "../_components/Trials";
+import SlidingTabs from "../_components/SlidingTabs";
 
 function Home() {
   const context = useDocusaurusContext();
@@ -78,6 +79,7 @@ function Home() {
         ))}
       </div>
       <CaseStudy caseStudyContent= {caseStudyContent}/>
+      <SlidingTabs />
       <Trials onOpenTourModal={onOpenTourModal} trialsContent={trialsContent} />
       <div className={styles.resource_container}>
       <div className={styles.resource}>

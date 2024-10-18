@@ -22,7 +22,7 @@ const Trials = ({ onOpenTourModal, trialsContent }) => {
               Get started with Core →
             </Link>
           </div>
-        </div>å
+        </div>
         <div className={styles.trial_right}>
           <div className={styles.right_content}>
             <div className={styles.gradientTop} />

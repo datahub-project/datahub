@@ -1,46 +1,37 @@
 import React, { useState } from 'react';
-import { CaretUpFilled } from '@ant-design/icons';
 import styles from './styles.module.scss';
 import clsx from 'clsx';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
-const TabbedComponent = ({unifiedTabsData}) => {
-  const [activeTab, setActiveTab] = useState(0); 
+const TabbedComponent = ({ unifiedTabsData }) => {
+  const [activeTab, setActiveTab] = useState(0);
 
   return (
     <div className={clsx(styles.tabbedComponent)}>
-      <div className={clsx(styles.container, 'shadow--lw')}>
+      <div className={clsx(styles.tabsContainer)}>
         <div className={clsx(styles.tabs)}>
           {unifiedTabsData.map((tab, index) => (
-            <React.Fragment key={index}>
-              <div className={clsx(styles.tab, { [styles.activeTab]: activeTab === index })}>
-                <button 
-                  className={clsx(styles.tabButton, { [styles.active]: activeTab === index })}
-                  onClick={() => setActiveTab(index)}
-                >
-                  <div className={clsx(styles.tabTitle)}>{tab.tabName}</div>
-                  <div className={clsx(styles.arrow, { [styles.upsideDown]: activeTab === index })}><CaretUpFilled/></div>
-                </button>
-                {activeTab === index && (
-                  <div className={clsx(styles.dropdown)}>
-                    <div className={styles.tabTitle}>{tab.title}</div>
-                    <div className={styles.tabDescription}>{tab.description}</div>
-                    <a className={clsx(styles.learnMore)} href={tab.link} target='_blank'>Learn More →</a>
-                  </div>
-                )}
+            <button
+              key={index}
+              className={clsx(styles.tabButton, { [styles.active]: activeTab === index })}
+              onClick={() => setActiveTab(index)}
+            >
+              <div className={clsx(styles.tabButtonText, { [styles.activeTab]: activeTab === index })}>
+                {tab.tabName}
               </div>
-              {activeTab === index && (
-                <div className={clsx(styles.imageContainer, styles.mobileImageContainer)}>
-                  <div className={clsx(styles.tabImage)}>
-                    <video playsInline src={tab.image} controls={false} autoPlay muted loop />
-                  </div>
-                </div>
-              )}
-            </React.Fragment>
+            </button>
           ))}
         </div>
-        <div className={clsx(styles.imageContainer, styles.webImageContainer)}>
+      </div>
+      <div className={clsx(styles.container)}>
+        <div className={clsx(styles.tabContent)}>
+          <div className={styles.tabTitle}>{unifiedTabsData[activeTab].title}</div>
+          <div className={styles.tabDescription}>{unifiedTabsData[activeTab].description}</div>
+        </div>
+
+        <div className={clsx(styles.imageContainer)}>
           <div className={clsx(styles.tabImage)}>
-            <video src={unifiedTabsData[activeTab].image} controls={false} autoPlay muted loop />
+            <img src={unifiedTabsData[activeTab].image} alt={unifiedTabsData[activeTab].imagetabName} />
           </div>
         </div>
       </div>
