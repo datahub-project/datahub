@@ -44,15 +44,6 @@
         display: block;
     }
 
-    // @keyframes progress {
-    //   0% {
-    //     height: 0;
-    //   }
-    //   100% {
-    //     height: 100%;
-    //   }
-    // }
-
     .quickstart__container {
       position: relative;
     }
@@ -143,8 +134,7 @@
 
     @media only screen and (max-width: 800px) {
       .quickstart__bar {
-        width: 4px;
-        left: -4px;
+        display: none;
       }
       .quickstart__header {
         width: 95%;
@@ -153,18 +143,15 @@
         .quickstart__title {
           font-size: 2rem;
         }
-        .quickstart__subtitle {
-          font-size: 1.25rem;
-        }
       }
 
       .quickstart__content {
-        flex-direction: column;
+        display: flex;
 
         .quickstart__text {
           min-width: 0;
           width: 100%;
-          padding-left: 20px;
+          padding-left: 40px;
           padding-right: 0;
 
           div {
@@ -183,8 +170,8 @@
           }
         }
         .quickstart__img {
-          min-width: 0;
-          width: 100%;
+          display: flex;
+          min-width: 50px;
         }
       }
     }

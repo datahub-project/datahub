@@ -15,11 +15,11 @@
   .hero__topQuote {
     color: var(--primitives-text-tex-subtext, #777E99);
     font-family: Manrope;
-    font-size: 21.441px;
+    font-size: 1.3rem;
     font-style: normal;
     font-weight: 700;
     line-height: normal;
-    letter-spacing: 0.429px;
+    letter-spacing: 0.02rem;
     text-transform: uppercase;
     margin-top: 7rem;
   }
@@ -30,7 +30,7 @@
     font-size: 4.8rem;
     font-style: normal;
     font-weight: 300;
-    line-height: 85.763px; /* 110.345% */
+    line-height: 110%;
     max-width: 900px;
     text-align: center;
   }
@@ -39,10 +39,10 @@
     color: var(--primitives-text-text-heading, #373A47);
     text-align: center;
     font-family: Manrope;
-    font-size: 20.547px;
+    font-size: 1.3rem;
     font-style: normal;
     font-weight: 400;
-    line-height: 33.948px; /* 165.217% */
+    line-height: 165%;
     max-width: 900px;
   }
 

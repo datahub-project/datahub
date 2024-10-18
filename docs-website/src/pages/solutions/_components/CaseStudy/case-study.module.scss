@@ -120,35 +120,49 @@
     .case_study_heading {
       text-align: center;
       font-family: "Manrope";
-        width: 80%;
-        margin: auto;
-        font-size: 2rem;
-        line-height: normal;
-        font-weight: 400;
+      width: 80%;
+      margin: auto;
+      font-size: 1.5rem;
+      line-height: normal;
+      font-weight: 400;
     }
 
     .card_row {
-      margin-top: 24px;
+      margin-top: 16px;
+      display: flex;
+      justify-content: center;
 
       .card_row_wrapper {
-        padding: 0 5vw;
+        padding: 0 2vw;
+      }
+
+      .card {
+        min-width: 240px;
+        padding: 0.8rem;
+        margin: 0.5rem;
+        display: flex;
+
+        .card_image {
+          width: 50px;
+          height: 50px;
+          margin: 16px auto;
+        }
+
+        .card_heading_div {
+          text-align: left;
+          padding: 8px;
+
+          .card_heading {
+            font-size: 1rem;
+            line-height: 1.2rem;
+          }
+        }
       }
     }
 
     .bottom_line {
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #12b0fb;
-      font-size: 1.1rem;
-      font-weight: 500;
-      margin-top: 50px;
-      margin-bottom: 10px;
-
-      span {
-        font-size: 1.5rem;
-      }
+      font-size: 1rem;
+      margin-top: 40px;
     }
   }
 }

@@ -60,13 +60,15 @@ function Home() {
       <div className={clsx("testimonials", styles.testimonials)}>
       <div className="testimonials__content">
         <div className="testimonials__card">
-          <div className="testimonials__logo">
-            <img src={useBaseUrl("/img/solutions/logo-depop.png")} />
-          </div>
-          <div className="testimonials__company">
-            <div className="testimonials__company_title">Depop</div>
-            <div className="testimonials__author_title">Olivier Tatard <br />Engineering Manager</div>
-          </div>
+          <div className="testimonials__meta">
+            <div className="testimonials__logo">
+              <img src={useBaseUrl("/img/solutions/logo-depop.png")} />
+            </div>
+            <div className="testimonials__company">
+              <div className="testimonials__company_title">Depop</div>
+              <div className="testimonials__author_title">Olivier Tatard <br />Engineering Manager</div>
+            </div>
+            </div>
           <div className="testimonials__text">
             "We chose Acryl because we see the value of having both a data catalog and observability capabilities in one tool. Having data owners, maintainers, and consumers in one place streamlines incident management and allows for faster time to resolution."
           </div>

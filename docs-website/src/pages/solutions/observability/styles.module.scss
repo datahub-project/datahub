@@ -68,17 +68,27 @@
       .testimonials__content {
         width: 100vw;
         padding: 20px 0;
+
         .testimonials__card {
           flex-direction: column;
           margin: 2rem 3rem;
 
+          .testimonials__meta {
+            display: flex;
+          }
+
           .testimonials__logo {
             max-width: 40px;
-            margin-bottom: 16px;
+            margin: auto 1rem;
           }
 
           .testimonials__company {
             font-size: 1rem;
+            display: flex;
+
+            .testimonials__author_title {
+              padding-left: 1rem;
+            }
           }
 
           .testimonials__text {
