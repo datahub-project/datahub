@@ -28,7 +28,10 @@ from datahub.ingestion.source.fivetran.config import (
 )
 from datahub.ingestion.source.fivetran.data_classes import Connector, Job
 from datahub.ingestion.source.fivetran.fivetran_log_api import FivetranLogAPI
-from datahub.ingestion.source.fivetran.fivetran_query import MAX_JOBS_PER_CONNECTOR
+from datahub.ingestion.source.fivetran.fivetran_query import (
+    MAX_JOBS_PER_CONNECTOR,
+    MAX_TABLE_LINEAGE_PER_CONNECTOR,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -102,6 +105,14 @@ class FivetranSource(StatefulIngestionSourceBase):
             source_platform = connector.connector_type
             logger.info(
                 f"Fivetran connector source type: {connector.connector_type} is not supported to mapped with Datahub dataset entity."
+            )
+
+        if len(connector.lineage) >= MAX_TABLE_LINEAGE_PER_CONNECTOR:
+            self.report.warning(
+                title="Table lineage truncated",
+                message=f"The connector had more than {MAX_TABLE_LINEAGE_PER_CONNECTOR} table lineage entries. "
+                f"Only the most recent {MAX_TABLE_LINEAGE_PER_CONNECTOR} entries were ingested.",
+                context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
             )
 
         for lineage in connector.lineage:

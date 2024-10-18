@@ -88,16 +88,19 @@ class FivetranLogAPI:
         resp = self.engine.execute(query)
         return [row for row in resp]
 
-    def _get_column_lineage_metadata(self) -> Dict[str, List]:
+    def _get_column_lineage_metadata(self) -> Dict[Tuple[str, str], List]:
         """
-        Returns dict of column lineage metadata with key as '<SOURCE_TABLE_ID>-<DESTINATION_TABLE_ID>'
+        Returns dict of column lineage metadata with key as (<SOURCE_TABLE_ID>, <DESTINATION_TABLE_ID>)
         """
         all_column_lineage = defaultdict(list)
         column_lineage_result = self._query(
             self.fivetran_log_query.get_column_lineage_query()
         )
         for column_lineage in column_lineage_result:
-            key = f"{column_lineage[Constant.SOURCE_TABLE_ID]}-{column_lineage[Constant.DESTINATION_TABLE_ID]}"
+            key = (
+                column_lineage[Constant.SOURCE_TABLE_ID],
+                column_lineage[Constant.DESTINATION_TABLE_ID],
+            )
             all_column_lineage[key].append(column_lineage)
         return dict(all_column_lineage)
 
@@ -117,15 +120,19 @@ class FivetranLogAPI:
 
     def _extract_connector_lineage(
         self,
-        column_lineage_metadata: Dict[str, List],
         table_lineage_result: Optional[List],
+        column_lineage_metadata: Dict[Tuple[str, str], List],
     ) -> List[TableLineage]:
         table_lineage_list: List[TableLineage] = []
         if table_lineage_result is None:
             return table_lineage_list
         for table_lineage in table_lineage_result:
+            # Join the column lineage into the table lineage.
             column_lineage_result = column_lineage_metadata.get(
-                f"{table_lineage[Constant.SOURCE_TABLE_ID]}-{table_lineage[Constant.DESTINATION_TABLE_ID]}"
+                (
+                    table_lineage[Constant.SOURCE_TABLE_ID],
+                    table_lineage[Constant.DESTINATION_TABLE_ID],
+                )
             )
             column_lineage_list: List[ColumnLineage] = []
             if column_lineage_result:
@@ -138,6 +145,7 @@ class FivetranLogAPI:
                     )
                     for column_lineage in column_lineage_result
                 ]
+
             table_lineage_list.append(
                 TableLineage(
                     source_table=f"{table_lineage[Constant.SOURCE_SCHEMA_NAME]}.{table_lineage[Constant.SOURCE_TABLE_NAME]}",
@@ -220,8 +228,8 @@ class FivetranLogAPI:
         column_lineage_metadata = self._get_column_lineage_metadata()
         for connector in connectors:
             connector.lineage = self._extract_connector_lineage(
-                column_lineage_metadata=column_lineage_metadata,
                 table_lineage_result=table_lineage_metadata.get(connector.connector_id),
+                column_lineage_metadata=column_lineage_metadata,
             )
 
     def _fill_connectors_jobs(
