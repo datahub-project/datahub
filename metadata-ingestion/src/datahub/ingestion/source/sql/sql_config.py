@@ -29,6 +29,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+from datahub.utilities.cachetools_keys import self_methodkey
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -122,7 +123,7 @@ class SQLCommonConfig(
     # TODO: This decorator should be moved to the is_profiling_enabled(operation_config) method.
     @cachetools.cached(
         cache=cachetools.LRUCache(maxsize=1),
-        key=cachetools.keys.methodkey,
+        key=self_methodkey,
     )
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
