@@ -243,6 +243,8 @@ class SupersetSource(StatefulIngestionSourceBase):
             return "athena"
         if platform_name == "clickhousedb":
             return "clickhouse"
+        if platform_name == "postgresql":
+            return "postgres"
         return platform_name
 
     @lru_cache(maxsize=None)

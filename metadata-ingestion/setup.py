@@ -101,7 +101,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==25.20.2.dev6",
+    "acryl-sqlglot[rs]==25.25.2.dev9",
 }
 
 classification_lib = {
@@ -321,7 +321,12 @@ sac = {
     "Authlib",
 }
 
-neo4j = {"neo4j", "pandas"}
+superset_common = {
+    "requests",
+    "sqlalchemy",
+    "great_expectations",
+    "greenlet",
+}
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
@@ -464,12 +469,8 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib,
     "slack": slack,
-    "superset": {
-        "requests",
-        "sqlalchemy",
-        "great_expectations",
-        "greenlet",
-    },
+    "superset": superset_common,
+    "preset": superset_common,
     # FIXME: I don't think tableau uses sqllineage anymore so we should be able
     # to remove that dependency.
     "tableau": {"tableauserverclient>=0.24.0"} | sqllineage_lib | sqlglot_lib,
@@ -490,7 +491,6 @@ plugins: Dict[str, Set[str]] = {
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
     "sac": sac,
-    "neo4j": neo4j
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -633,7 +633,6 @@ base_dev_requirements = {
             "qlik-sense",
             "sigma",
             "sac",
-            "neo4j"
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -751,7 +750,6 @@ entry_points = {
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
         "sac = datahub.ingestion.source.sac.sac:SACSource",
-        "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
