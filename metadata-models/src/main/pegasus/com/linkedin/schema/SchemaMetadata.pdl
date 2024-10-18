@@ -16,7 +16,25 @@ record SchemaMetadata includes SchemaMetadataKey, ChangeAuditStamps {
   /**
    * Dataset this schema metadata is associated with.
    */
+  @Relationship = {
+    "name": "SchemaFor",
+    "entityTypes": [ "dataset" ]
+  }
+  @deprecated = "Use datasets instead to encode 1:N schema -> dataset"
   dataset: optional DatasetUrn
+
+  /**
+   * Datasets this schema metadata is associated with. 
+   * Use this field instead of `dataset`.
+   */
+  @Relationship = {
+    "/*": {
+    "name": "SchemaFor",
+    "entityTypes": [ "dataset" ]
+    }
+  }
+  datasets: optional array[Urn]
+
 
   /**
    * The cluster this schema metadata resides from
