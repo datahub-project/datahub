@@ -1,0 +1,102 @@
+.tabbedComponent {
+  text-align: left;
+  padding: 20px;
+  padding-top: 48px;
+  padding-bottom: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tabsContainer {
+  width: 100%; // Ensure full width
+  max-width: 1200px; // Limit to the same max-width as content
+  margin-bottom: 1rem; 
+  display: flex;
+}
+
+.tabs {
+  display: flex;
+  justify-content: space-between; // Space out tabs across the container
+  width: 100%; // Ensure tabs take full width
+}
+
+.tabButton {
+  flex: 1; // Ensure each tab is distributed equally
+  padding: 0.8rem 1.5rem; // More padding to make tabs prominent
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: #777e99;
+  transition: color 0.2s, border-bottom 0.2s;
+  text-align: center;
+}
+
+.tabButton:hover, .active {
+  color: #1890ff;
+  border-bottom: 3px solid #1890ff;
+}
+
+.container {
+  display: flex;
+  flex-direction: row;
+  background: white;
+  max-width: 1200px; // Same max-width as tabs
+  width: 100%; // Full width to align with tabs
+  overflow: hidden;
+}
+
+.tabContent {
+  flex: 1;
+  padding: 2rem;
+}
+
+.tabTitle {
+  font-size: 2.5rem;
+  font-weight: 500;
+  color: #373A47;
+  line-height: 120%;
+  margin-bottom: 1rem;
+}
+
+.tabTitle.active {
+  color: #1890ff;
+  text-decoration: underline;
+}
+
+.tabDescription {
+  font-size: 1.6875rem;
+  color: #777e99;
+  line-height: 2.75rem;
+}
+
+.imageContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 1rem 0;
+  width: 30rem;
+}
+
+.tabImage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 2.2rem;
+}
+
+@media (min-width: 768px) {
+  .container {
+    flex-direction: row;
+    padding: 40px 32px;
+  }
+
+  .imageContainer {
+    margin: 1rem;
+  }
+}
