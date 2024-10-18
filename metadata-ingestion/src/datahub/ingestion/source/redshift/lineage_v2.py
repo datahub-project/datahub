@@ -56,6 +56,8 @@ class RedshiftSqlLineageV2:
         self.context = context
 
         self.database = database
+        self.known_urns: Set[str] = set()  # will be set later
+
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
@@ -66,6 +68,7 @@ class RedshiftSqlLineageV2:
             generate_operations=False,
             usage_config=self.config,
             graph=self.context.graph,
+            is_temp_table=self._is_temp_table,
         )
         self.report.sql_aggregator = self.aggregator.report
 
@@ -85,7 +88,16 @@ class RedshiftSqlLineageV2:
             self.report.lineage_end_time,
         ) = self._lineage_v1.get_time_window()
 
-        self.known_urns: Set[str] = set()  # will be set later
+    def _is_temp_table(self, name: str) -> bool:
+        return (
+            DatasetUrn.create_from_ids(
+                self.platform,
+                name,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+            ).urn()
+            not in self.known_urns
+        )
 
     def build(
         self,
@@ -105,15 +117,6 @@ class RedshiftSqlLineageV2:
             for schema, tables in schemas.items()
             for table in tables
         }
-        self.aggregator._is_temp_table = (
-            lambda name: DatasetUrn.create_from_ids(
-                self.platform,
-                name,
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-            ).urn()
-            not in self.known_urns
-        )
 
         # Handle all the temp tables up front.
         if self.config.resolve_temp_table_in_lineage:
