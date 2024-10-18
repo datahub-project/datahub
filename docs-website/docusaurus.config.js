@@ -99,6 +99,12 @@ module.exports = {
           ]
         },
         {
+          to: "/cloud",
+          activeBasePath: "cloud",
+          label: "Cloud",
+          position: "right",
+        },
+        {
           to: "docs/",
           activeBasePath: "docs",
           label: "Docs",
