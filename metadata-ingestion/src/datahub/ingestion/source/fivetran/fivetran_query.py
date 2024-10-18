@@ -1,3 +1,6 @@
+from typing import List
+
+
 class FivetranLogQuery:
     # Note: All queries are written in Snowflake SQL.
     # They will be transpiled to the target database's SQL dialect at runtime.
@@ -35,8 +38,16 @@ WHERE
         email
         FROM {self.db_clause}user"""
 
-    def get_sync_logs_query(self) -> str:
-        return """
+    def get_sync_logs_query(
+        self,
+        syncs_interval: int,
+        connector_ids: List[str],
+        max_jobs_per_connector: int,
+    ) -> str:
+        # Format connector_ids as a comma-separated string of quoted IDs
+        formatted_connector_ids = ", ".join(f"'{id}'" for id in connector_ids)
+
+        return f"""
         WITH ranked_syncs AS (
             SELECT
                 connector_id,
@@ -45,10 +56,10 @@ WHERE
                 MAX(CASE WHEN message_event = 'sync_end' THEN time_stamp END) as end_time,
                 MAX(CASE WHEN message_event = 'sync_end' THEN message_data END) as end_message_data,
                 ROW_NUMBER() OVER (PARTITION BY connector_id ORDER BY MAX(time_stamp) DESC) as rn
-            FROM {db_clause}log
+            FROM {self.db_clause}log
             WHERE message_event in ('sync_start', 'sync_end')
             AND time_stamp > CURRENT_TIMESTAMP - INTERVAL '{syncs_interval} days'
-            AND connector_id IN ({connector_ids})
+            AND connector_id IN ({formatted_connector_ids})
             GROUP BY connector_id, sync_id
         )
         SELECT

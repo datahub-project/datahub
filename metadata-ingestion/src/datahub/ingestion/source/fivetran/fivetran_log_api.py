@@ -1,6 +1,7 @@
 import functools
 import json
 import logging
+from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
 import sqlglot
@@ -93,41 +94,30 @@ class FivetranLogAPI:
 
     def _get_column_lineage_metadata(self) -> Dict[str, List]:
         """
-        Return's dict of column lineage metadata with key as '<SOURCE_TABLE_ID>-<DESTINATION_TABLE_ID>'
+        Returns dict of column lineage metadata with key as '<SOURCE_TABLE_ID>-<DESTINATION_TABLE_ID>'
         """
-        all_column_lineage: Dict[str, List] = {}
+        all_column_lineage = defaultdict(list)
         column_lineage_result = self._query(
             self.fivetran_log_query.get_column_lineage_query()
         )
         for column_lineage in column_lineage_result:
             key = f"{column_lineage[Constant.SOURCE_TABLE_ID]}-{column_lineage[Constant.DESTINATION_TABLE_ID]}"
-            if key not in all_column_lineage:
-                all_column_lineage[key] = [column_lineage]
-            else:
-                all_column_lineage[key].append(column_lineage)
-        return all_column_lineage
+            all_column_lineage[key].append(column_lineage)
+        return dict(all_column_lineage)
 
     def _get_connectors_table_lineage_metadata(self) -> Dict[str, List]:
         """
-        Return's dict of table lineage metadata with key as 'CONNECTOR_ID'
+        Returns dict of table lineage metadata with key as 'CONNECTOR_ID'
         """
-        connectors_table_lineage_metadata: Dict[str, List] = {}
+        connectors_table_lineage_metadata = defaultdict(list)
         table_lineage_result = self._query(
             self.fivetran_log_query.get_table_lineage_query()
         )
         for table_lineage in table_lineage_result:
-            if (
+            connectors_table_lineage_metadata[
                 table_lineage[Constant.CONNECTOR_ID]
-                not in connectors_table_lineage_metadata
-            ):
-                connectors_table_lineage_metadata[
-                    table_lineage[Constant.CONNECTOR_ID]
-                ] = [table_lineage]
-            else:
-                connectors_table_lineage_metadata[
-                    table_lineage[Constant.CONNECTOR_ID]
-                ].append(table_lineage)
-        return connectors_table_lineage_metadata
+            ].append(table_lineage)
+        return dict(connectors_table_lineage_metadata)
 
     def _get_table_lineage(
         self,
@@ -167,14 +157,10 @@ class FivetranLogAPI:
     ) -> Dict[str, Dict[str, Dict[str, Tuple[float, Optional[str]]]]]:
         sync_logs: Dict[str, Dict[str, Dict[str, Tuple[float, Optional[str]]]]] = {}
 
-        # Format connector_ids as a comma-separated string of quoted IDs
-        formatted_connector_ids = ", ".join(f"'{id}'" for id in connector_ids)
-
-        query = self.fivetran_log_query.get_sync_logs_query().format(
-            db_clause=self.fivetran_log_query.db_clause,
+        query = self.fivetran_log_query.get_sync_logs_query(
             syncs_interval=syncs_interval,
+            connector_ids=connector_ids,
             max_jobs_per_connector=MAX_JOBS_PER_CONNECTOR,
-            connector_ids=formatted_connector_ids,
         )
 
         for row in self._query(query):
