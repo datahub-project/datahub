@@ -604,7 +604,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _create_platform_instance_aspect(
         self,
     ) -> DataPlatformInstance:
-
         assert (
             self.source_config.platform_name
         ), "Platform name is not set in the configuration."
@@ -999,7 +998,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _make_dashboard_and_chart_mces(
         self, looker_dashboard: LookerDashboard
     ) -> Iterable[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
-
         # Step 1: Emit metadata for each Chart inside the Dashboard.
         chart_events = []
         for element in looker_dashboard.dashboard_elements:

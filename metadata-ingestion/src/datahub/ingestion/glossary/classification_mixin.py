@@ -33,7 +33,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @dataclass
 class ClassificationReportMixin:
-
     num_tables_fetch_sample_values_failed: int = 0
 
     num_tables_classification_attempted: int = 0
@@ -112,7 +111,6 @@ class ClassificationHandler:
         schema_metadata: SchemaMetadata,
         sample_data: Union[Dict[str, list], Callable[[], Dict[str, list]]],
     ) -> None:
-
         if not isinstance(sample_data, Dict):
             try:
                 # TODO: In future, sample_data fetcher can be lazily called if classification

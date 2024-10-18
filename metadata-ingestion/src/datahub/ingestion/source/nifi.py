@@ -464,7 +464,6 @@ class NifiSourceReport(SourceReport):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.LINEAGE_COARSE, "Supported. See docs for limitations")
 class NifiSource(Source):
-
     config: NifiSourceConfig
     report: NifiSourceReport
 

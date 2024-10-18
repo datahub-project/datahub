@@ -464,7 +464,6 @@ def test_scan_all_workspaces(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
@@ -514,7 +513,6 @@ def test_extract_reports(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -1215,7 +1213,6 @@ def test_independent_datasets_extraction(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(
@@ -1319,7 +1316,6 @@ def test_cll_extraction(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(
@@ -1376,7 +1372,6 @@ def test_cll_extraction_flags(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     register_mock_api(
         pytestconfig=pytestconfig,
         request_mock=requests_mock,
@@ -1388,7 +1383,6 @@ def test_cll_extraction_flags(
     )
 
     with pytest.raises(Exception, match=pattern):
-
         Pipeline.create(
             {
                 "run_id": "powerbi-test",

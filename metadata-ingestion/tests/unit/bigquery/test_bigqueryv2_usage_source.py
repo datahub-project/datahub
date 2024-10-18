@@ -184,7 +184,6 @@ def test_bigquery_table_sanitasitation():
 
 
 def test_unquote_and_decode_unicode_escape_seq():
-
     # Test with a string that starts and ends with quotes and has Unicode escape sequences
     input_string = '"Hello \\u003cWorld\\u003e"'
     expected_output = "Hello <World>"

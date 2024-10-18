@@ -33,7 +33,6 @@ class MockViewDefinition:
 
 @dataclass
 class MockConstraints:
-
     constraint_name: str = "mock constraint name"
     constraint_type: str = "P"
     local_column: str = "mock column name"
