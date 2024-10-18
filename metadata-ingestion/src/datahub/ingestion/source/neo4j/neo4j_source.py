@@ -7,7 +7,7 @@ import pandas as pd
 from neo4j import GraphDatabase
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn,
@@ -56,11 +56,10 @@ _type_mapping: Dict[Union[Type, str], Type] = {
 }
 
 
-class Neo4jConfig(ConfigModel):
+class Neo4jConfig(EnvConfigMixin):
     username: str = Field(default=None, description="Neo4j Username")
     password: str = Field(default=None, description="Neo4j Password")
     uri: str = Field(default=None, description="The URI for the Neo4j server")
-    gms_server: str = Field(default=None, description="Address for the gms server")
     environment: str = Field(default=None, description="Neo4j env")
     node_tag: str = Field(
         default="Node",
@@ -79,7 +78,7 @@ class Neo4jSourceReport(SourceReport):
     obj_created: int = 0
 
 
-@platform_name("Neo4j",id="neo4j")
+@platform_name("Neo4j", id="neo4j")
 @config_class(Neo4jConfig)
 @support_status(SupportStatus.CERTIFIED)
 class Neo4jSource(Source):
@@ -168,7 +167,7 @@ class Neo4jSource(Source):
     def add_tag_to_dataset(
         self, table_name: str, tag_name: str
     ) -> MetadataChangeProposalWrapper:
-        graph = DataHubGraph(DatahubClientConfig(server=self.config.gms_server))
+        graph = DataHubGraph(DatahubClientConfig())
         dataset_urn = make_dataset_urn(
             platform=self.config.platform, name=table_name, env=self.config.environment
         )
