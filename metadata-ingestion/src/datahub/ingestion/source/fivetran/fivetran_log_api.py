@@ -105,7 +105,7 @@ class FivetranLogAPI:
             all_column_lineage[key].append(column_lineage)
         return dict(all_column_lineage)
 
-    def _get_connectors_table_lineage_metadata(self) -> Dict[str, List]:
+    def _get_table_lineage_metadata(self) -> Dict[str, List]:
         """
         Returns dict of table lineage metadata with key as 'CONNECTOR_ID'
         """
@@ -119,7 +119,7 @@ class FivetranLogAPI:
             ].append(table_lineage)
         return dict(connectors_table_lineage_metadata)
 
-    def _get_table_lineage(
+    def _extract_connector_lineage(
         self,
         column_lineage_metadata: Dict[str, List],
         table_lineage_result: Optional[List],
@@ -221,10 +221,10 @@ class FivetranLogAPI:
         return self._get_users().get(user_id)
 
     def _fill_connectors_table_lineage(self, connectors: List[Connector]) -> None:
-        table_lineage_metadata = self._get_connectors_table_lineage_metadata()
+        table_lineage_metadata = self._get_table_lineage_metadata()
         column_lineage_metadata = self._get_column_lineage_metadata()
         for connector in connectors:
-            connector.table_lineage = self._get_table_lineage(
+            connector.lineage = self._extract_connector_lineage(
                 column_lineage_metadata=column_lineage_metadata,
                 table_lineage_result=table_lineage_metadata.get(connector.connector_id),
             )
@@ -265,7 +265,7 @@ class FivetranLogAPI:
                         sync_frequency=connector[Constant.SYNC_FREQUENCY],
                         destination_id=connector[Constant.DESTINATION_ID],
                         user_id=connector[Constant.CONNECTING_USER_ID],
-                        table_lineage=[],
+                        lineage=[],
                         jobs=[],
                     )
                 )

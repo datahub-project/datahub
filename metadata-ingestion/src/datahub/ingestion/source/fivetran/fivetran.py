@@ -106,13 +106,13 @@ class FivetranSource(StatefulIngestionSourceBase):
                 f"Fivetran connector source type: {connector.connector_type} is not supported to mapped with Datahub dataset entity."
             )
 
-        for table_lineage in connector.table_lineage:
+        for lineage in connector.lineage:
             input_dataset_urn = DatasetUrn.create_from_ids(
                 platform_id=source_platform,
                 table_name=(
-                    f"{source_database.lower()}.{table_lineage.source_table}"
+                    f"{source_database.lower()}.{lineage.source_table}"
                     if source_database
-                    else table_lineage.source_table
+                    else lineage.source_table
                 ),
                 env=source_platform_detail.env,
                 platform_instance=source_platform_detail.platform_instance,
@@ -121,14 +121,14 @@ class FivetranSource(StatefulIngestionSourceBase):
 
             output_dataset_urn = DatasetUrn.create_from_ids(
                 platform_id=self.config.fivetran_log_config.destination_platform,
-                table_name=f"{self.audit_log.fivetran_log_database.lower()}.{table_lineage.destination_table}",
+                table_name=f"{self.audit_log.fivetran_log_database.lower()}.{lineage.destination_table}",
                 env=destination_platform_detail.env,
                 platform_instance=destination_platform_detail.platform_instance,
             )
             output_dataset_urn_list.append(output_dataset_urn)
 
             if self.config.include_column_lineage:
-                for column_lineage in table_lineage.column_lineage:
+                for column_lineage in lineage.column_lineage:
                     fine_grained_lineage.append(
                         FineGrainedLineage(
                             upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
