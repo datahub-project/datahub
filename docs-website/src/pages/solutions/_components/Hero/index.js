@@ -32,7 +32,6 @@ const Hero = ({ onOpenTourModal, heroContent }) => {
         />
         <div
           className={styles.hero__background}
-          style={{ backgroundImage: 'url("/_next/static/media/HeroBackground.d36a9bb1.jpg")' }}
         ></div>
       </div>
     </div>
