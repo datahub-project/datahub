@@ -23,10 +23,6 @@ from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# We don't want to generate a massive number of dataProcesses for a single connector.
-# This is primarily used as a safeguard to prevent performance issues.
-MAX_JOBS_PER_CONNECTOR = 1000
-
 
 class FivetranLogAPI:
     def __init__(self, fivetran_log_config: FivetranLogConfig) -> None:
@@ -160,7 +156,6 @@ class FivetranLogAPI:
         query = self.fivetran_log_query.get_sync_logs_query(
             syncs_interval=syncs_interval,
             connector_ids=connector_ids,
-            max_jobs_per_connector=MAX_JOBS_PER_CONNECTOR,
         )
 
         for row in self._query(query):

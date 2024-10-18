@@ -1,5 +1,9 @@
 from typing import List
 
+# We don't want to generate a massive number of dataProcesses for a single connector.
+# This is primarily used as a safeguard to prevent performance issues.
+MAX_JOBS_PER_CONNECTOR = 1000
+
 
 class FivetranLogQuery:
     # Note: All queries are written in Snowflake SQL.
@@ -43,7 +47,6 @@ FROM {self.db_clause}user
         self,
         syncs_interval: int,
         connector_ids: List[str],
-        max_jobs_per_connector: int,
     ) -> str:
         # Format connector_ids as a comma-separated string of quoted IDs
         formatted_connector_ids = ", ".join(f"'{id}'" for id in connector_ids)
@@ -70,7 +73,7 @@ SELECT
     end_time,
     end_message_data
 FROM ranked_syncs
-WHERE rn <= {max_jobs_per_connector}
+WHERE rn <= {MAX_JOBS_PER_CONNECTOR}
     AND start_time IS NOT NULL
     AND end_time IS NOT NULL
 ORDER BY connector_id, end_time DESC

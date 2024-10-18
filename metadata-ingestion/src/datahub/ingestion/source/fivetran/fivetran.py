@@ -27,10 +27,8 @@ from datahub.ingestion.source.fivetran.config import (
     PlatformDetail,
 )
 from datahub.ingestion.source.fivetran.data_classes import Connector, Job
-from datahub.ingestion.source.fivetran.fivetran_log_api import (
-    MAX_JOBS_PER_CONNECTOR,
-    FivetranLogAPI,
-)
+from datahub.ingestion.source.fivetran.fivetran_log_api import FivetranLogAPI
+from datahub.ingestion.source.fivetran.fivetran_query import MAX_JOBS_PER_CONNECTOR
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )

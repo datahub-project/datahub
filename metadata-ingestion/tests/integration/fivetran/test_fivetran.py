@@ -103,7 +103,6 @@ def default_query_results(
     elif query == fivetran_log_query.get_sync_logs_query(
         syncs_interval=7,
         connector_ids=["calendar_elected"],
-        max_jobs_per_connector=1000,
     ):
         return [
             {
