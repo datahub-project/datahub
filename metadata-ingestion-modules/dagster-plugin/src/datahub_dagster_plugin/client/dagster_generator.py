@@ -14,7 +14,7 @@ from dagster import (
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot, StepEventStatus
 
 try:
-    from dagster._core.snap import JobSnapshot # type: ignore[attr-defined]
+    from dagster._core.snap import JobSnapshot  # type: ignore[attr-defined]
 except ImportError:
     # Import changed since Dagster 1.8.12  to this -> https://github.com/dagster-io/dagster/commit/29a37d1f0260cfd112849633d1096ffc916d6c95
     from dagster._core.snap import JobSnap as JobSnapshot
