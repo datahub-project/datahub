@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.container.mappers;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.common.Access;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Forms;
@@ -30,6 +31,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtil
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
+import com.linkedin.datahub.graphql.types.rolemetadata.mappers.AccessMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
@@ -103,6 +105,11 @@ public class ContainerMapper {
       result.setGlossaryTerms(
           GlossaryTermsMapper.map(
               context, new GlossaryTerms(envelopedTerms.getValue().data()), entityUrn));
+    }
+
+    final EnvelopedAspect accessAspect = aspects.get(ACCESS_ASPECT_NAME);
+    if (accessAspect != null) {
+      result.setAccess(AccessMapper.map(new Access(accessAspect.getValue().data()), entityUrn));
     }
 
     final EnvelopedAspect envelopedInstitutionalMemory =

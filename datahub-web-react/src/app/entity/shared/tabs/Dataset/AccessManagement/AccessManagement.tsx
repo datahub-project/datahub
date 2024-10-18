@@ -3,8 +3,8 @@ import styled from 'styled-components';
 import { Button, Table } from 'antd';
 import { SpinProps } from 'antd/es/spin';
 import { LoadingOutlined } from '@ant-design/icons';
-import { useBaseEntity } from '../../../EntityContext';
-import { GetDatasetQuery, useGetExternalRolesQuery } from '../../../../../../graphql/dataset.generated';
+import { useEntityData } from '../../../EntityContext';
+import { useGetExternalRolesQuery } from '../../../../../../graphql/dataset.generated';
 import { handleAccessRoles } from './utils';
 import AccessManagerDescription from './AccessManagerDescription';
 
@@ -60,11 +60,12 @@ const AccessButton = styled(Button)`
 `;
 
 export default function AccessManagement() {
-    const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const { entityData } = useEntityData();
+    const entityUrn = (entityData as any)?.urn;
 
     const { data: externalRoles, loading: isLoading } = useGetExternalRolesQuery({
-        variables: { urn: baseEntity?.dataset?.urn as string },
-        skip: !baseEntity?.dataset?.urn,
+        variables: { urn: entityUrn as string },
+        skip: !entityUrn,
     });
 
     const columns = [
