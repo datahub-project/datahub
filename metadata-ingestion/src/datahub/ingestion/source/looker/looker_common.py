@@ -1218,7 +1218,7 @@ class LookerExplore:
             name=str(self.label) if self.label else LookerUtil._display_name(self.name),
             description=self.description,
             customProperties={
-                k: v for k, v in custom_properties.items() if v is not None
+                k: str(v) for k, v in custom_properties.items() if v is not None
             },
         )
         dataset_props.externalUrl = self._get_url(base_url)
