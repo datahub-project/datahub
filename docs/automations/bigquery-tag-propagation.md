@@ -30,22 +30,22 @@ BigQuery Propagation is an automation that allows you to sync DataHub Tags, Tabl
 
 1. **Navigate to Automations**: Click on 'Govern' > 'Automations' in the navigation bar.
 
-<p align="left">
-  <img width="20%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automations-nav-link.png"/>
-</p>
+  <p align="left">
+    <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automations-nav-link.png"/>
+  </p>
 
 2. **Create An Automation**: Click on 'Create' and select 'BigQuery Tag Propagation'.
 
-<p align="left">
-  <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/automation-type.png"/>
-</p>
+  <p align="left">
+    <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/automation-type.png"/>
+  </p>
 
 3. **Configure Automation**:
 
     1. **Select a Propagation Action**
 
     <p align="left">
-      <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/automation-form.png"/>
+      <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/automation-form.png"/>
     </p>
 
     | Propagation Type | DataHub Entity | BigQuery Entity | Note |
@@ -63,14 +63,15 @@ BigQuery Propagation is an automation that allows you to sync DataHub Tags, Tabl
 
     :::note
 
-    You can only have one Policy Tag on a table field in BigQuery. Therefore, the last set Glossary Term will be the policy tag on a field.
+    - BigQuery supports only one Policy Tag per table field. Consequently, the most recently assigned Glossary Term will be set as the Policy Tag for that field.
+    - Policy Tags cannot be applied to fields in External tables. Therefore, if a Glossary Term is assigned to a field in an External table, it will not be applied.
 
     :::
 
     2. **Fill in the required fields to connect to BigQuery, along with the name, description, and category**
 
     <p align="left">
-      <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/connection_config.png"/>
+      <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/connection_config.png"/>
     </p>
 
     3. **Finally, click 'Save and Run' to start the automation**
@@ -85,20 +86,20 @@ To do so, follow these steps:
 2. Click the 3-dot "More" menu
 
 <p align="left">
-  <img width="15%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-more-menu.png"/>
+  <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-more-menu.png"/>
 </p>
 
 3. Click "Initialize"
 
 <p align="left">
-  <img width="15%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-initialize.png"/>
+  <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-initialize.png"/>
 </p>
 
 This one-time step will kick off the back-filling process for existing descriptions. If you only want to begin propagating descriptions going forward, you can skip this step.
 
 ## Viewing Propagated Tags
 
-You can view propagated Tags (and corresponding DataHub URNs) inside the BigQuery UI to confirm the automation is working as expected.
+You can view propagated Tags inside the BigQuery UI to confirm the automation is working as expected.
 
 <p align="left">
   <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/labels.png"/>
@@ -115,7 +116,7 @@ A: The following metadata elements support bi-directional syncing:
 
 ### Q: Are policy tags bi-directionally synced?
 
-A: No, policy tags are currently only propagated from DataHub to BigQuery, not the other way around.
+A: No, policy tags are only propagated from DataHub to BigQuery, not vice versa. It is recommended not to enable `extract_policy_tags_from_catalog` during ingestion, as this will ingest policy tags as BigQuery labels. Our sync process propagates Glossary Term assignments to BigQuery as Policy Tags.
 
 ### Q: What happens during ingestion?
 
