@@ -6,7 +6,7 @@ const Hero = ({ onOpenTourModal, heroContent }) => {
   const { topQuote, title, description, imgSrc } = heroContent
   return (
     <div className={styles.hero}>
-      <div className={styles.hero__container}>
+      <div className={styles.hero__container} style={{ backgroundImage: `url(/img/solutions/hero-background.png)` }}>
         <div className={styles.hero__topQuote}>
           {topQuote}
         </div>
