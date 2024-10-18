@@ -347,7 +347,8 @@ public class SubscriptionService extends BaseService {
       @Nonnull final Integer numMaxSubscriptions) {
     try {
       if (!this.entityClient.exists(systemOpContext, entityUrn, false)) {
-        throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
+        log.warn("Entity {} does not exist", entityUrn);
+        return Collections.emptyMap();
       }
 
       final Filter filter = buildGetSubscriptionsForAssertionFilter(entityUrn, assertionUrn);
