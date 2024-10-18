@@ -1989,6 +1989,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 time=mce_builder.get_sys_time(),
                 actor=_DEFAULT_ACTOR,
             )
+            sibling_urn = node.get_urn(
+                self.config.target_platform,
+                self.config.env,
+                self.config.target_platform_instance,
+            )
             return UpstreamLineageClass(
                 upstreams=[
                     UpstreamClass(
@@ -1997,6 +2002,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         auditStamp=auditStamp,
                     )
                     for upstream in upstream_urns
+                    if not (node.node_type == "model" and upstream == sibling_urn)
                 ],
                 fineGrainedLineages=(
                     (cll or None) if self.config.include_column_lineage else None
