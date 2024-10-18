@@ -100,11 +100,9 @@ def default_query_results(
                 "email": "abc.xyz@email.com",
             }
         ]
-    elif query == fivetran_log_query.get_sync_logs_query().format(
-        db_clause=fivetran_log_query.db_clause,
+    elif query == fivetran_log_query.get_sync_logs_query(
         syncs_interval=7,
-        max_jobs_per_connector=1000,
-        connector_ids="'calendar_elected'",
+        connector_ids=["calendar_elected"],
     ):
         return [
             {

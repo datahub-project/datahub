@@ -27,9 +27,10 @@ from datahub.ingestion.source.fivetran.config import (
     PlatformDetail,
 )
 from datahub.ingestion.source.fivetran.data_classes import Connector, Job
-from datahub.ingestion.source.fivetran.fivetran_log_api import (
+from datahub.ingestion.source.fivetran.fivetran_log_api import FivetranLogAPI
+from datahub.ingestion.source.fivetran.fivetran_query import (
     MAX_JOBS_PER_CONNECTOR,
-    FivetranLogAPI,
+    MAX_TABLE_LINEAGE_PER_CONNECTOR,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -106,13 +107,21 @@ class FivetranSource(StatefulIngestionSourceBase):
                 f"Fivetran connector source type: {connector.connector_type} is not supported to mapped with Datahub dataset entity."
             )
 
-        for table_lineage in connector.table_lineage:
+        if len(connector.lineage) >= MAX_TABLE_LINEAGE_PER_CONNECTOR:
+            self.report.warning(
+                title="Table lineage truncated",
+                message=f"The connector had more than {MAX_TABLE_LINEAGE_PER_CONNECTOR} table lineage entries. "
+                f"Only the most recent {MAX_TABLE_LINEAGE_PER_CONNECTOR} entries were ingested.",
+                context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+            )
+
+        for lineage in connector.lineage:
             input_dataset_urn = DatasetUrn.create_from_ids(
                 platform_id=source_platform,
                 table_name=(
-                    f"{source_database.lower()}.{table_lineage.source_table}"
+                    f"{source_database.lower()}.{lineage.source_table}"
                     if source_database
-                    else table_lineage.source_table
+                    else lineage.source_table
                 ),
                 env=source_platform_detail.env,
                 platform_instance=source_platform_detail.platform_instance,
@@ -121,14 +130,14 @@ class FivetranSource(StatefulIngestionSourceBase):
 
             output_dataset_urn = DatasetUrn.create_from_ids(
                 platform_id=self.config.fivetran_log_config.destination_platform,
-                table_name=f"{self.audit_log.fivetran_log_database.lower()}.{table_lineage.destination_table}",
+                table_name=f"{self.audit_log.fivetran_log_database.lower()}.{lineage.destination_table}",
                 env=destination_platform_detail.env,
                 platform_instance=destination_platform_detail.platform_instance,
             )
             output_dataset_urn_list.append(output_dataset_urn)
 
             if self.config.include_column_lineage:
-                for column_lineage in table_lineage.column_lineage:
+                for column_lineage in lineage.column_lineage:
                     fine_grained_lineage.append(
                         FineGrainedLineage(
                             upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
