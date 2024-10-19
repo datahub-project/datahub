@@ -56,6 +56,7 @@ from datahub.ingestion.transformer.base_transformer import (
 from datahub.ingestion.transformer.dataset_domain import (
     PatternAddDatasetDomain,
     SimpleAddDatasetDomain,
+    TransformerOnConflict,
 )
 from datahub.ingestion.transformer.dataset_domain_based_on_tags import (
     DatasetTagDomainMapper,
@@ -2496,6 +2497,81 @@ def test_simple_add_dataset_domain_semantics_patch(
     assert datahub_domain in transformed_aspect.domains
     assert acryl_domain in transformed_aspect.domains
     assert server_domain in transformed_aspect.domains
+
+
+def test_simple_add_dataset_domain_on_conflict_do_nothing(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph_instance
+):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
+    server_domain = builder.make_domain_urn("test.io")
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_domain(entity_urn: str) -> models.DomainsClass:
+        return models.DomainsClass(domains=[server_domain])
+
+    pipeline_context.graph.get_domain = fake_get_domain  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[datahub_domain]),
+        config={
+            "replace_existing": False,
+            "semantics": TransformerSemantics.PATCH,
+            "domains": [acryl_domain],
+            "on_conflict": TransformerOnConflict.DO_NOTHING,
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 1
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, EndOfStream)
+
+
+def test_simple_add_dataset_domain_on_conflict_do_nothing_no_conflict(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph_instance
+):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
+    irrelevant_domain = builder.make_domain_urn("test.io")
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_domain(entity_urn: str) -> models.DomainsClass:
+        return models.DomainsClass(domains=[])
+
+    pipeline_context.graph.get_domain = fake_get_domain  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[datahub_domain]),
+        config={
+            "replace_existing": False,
+            "semantics": TransformerSemantics.PATCH,
+            "domains": [acryl_domain],
+            "on_conflict": TransformerOnConflict.DO_NOTHING,
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 2
+    assert datahub_domain in transformed_aspect.domains
+    assert acryl_domain in transformed_aspect.domains
+    assert irrelevant_domain not in transformed_aspect.domains
 
 
 def test_pattern_add_dataset_domain_aspect_name(mock_datahub_graph_instance):
