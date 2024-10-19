@@ -3,8 +3,10 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from datahub.api.entities.platformresource.platform_resource import (
+    ElasticPlatformResourceQuery,
     PlatformResource,
     PlatformResourceKey,
+    PlatformResourceSearchFields,
 )
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper import (
@@ -136,18 +138,16 @@ class ExtendedBigQueryPlatformResourceHelper(BigQueryPlatformResourceHelper):
             r.resource_info.primary_key
             for r in PlatformResource.search_by_filters(
                 self.graph,
-                and_filters=[
-                    {
-                        "field": "resourceType",
-                        "condition": "EQUAL",
-                        "value": resource_type,
-                    },
-                    {
-                        "field": "secondaryKeys",
-                        "condition": "EQUAL",
-                        "value": secondary_key,
-                    },
-                ],
+                query=ElasticPlatformResourceQuery.create_from(
+                    (
+                        PlatformResourceSearchFields.SECONDARY_KEYS,
+                        secondary_key,
+                    ),
+                    (
+                        PlatformResourceSearchFields.RESOURCE_TYPE,
+                        resource_type,
+                    ),
+                ),
             )
             if r.resource_info
         ]

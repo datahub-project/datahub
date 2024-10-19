@@ -90,6 +90,7 @@ SMOKE_TEST_NUMBER_OF_TABLES = 2
 pytestmark = pytest.mark.integration("integration")
 pytest.skip("bigquery sync tests are disabled", allow_module_level=True)
 
+
 def generate_bigquery_credentials() -> BigQueryCredential:
     project_id = os.getenv("BIGQUERY_PROJECT_ID")
     client_email = os.getenv("BIGQUERY_CLIENT_EMAIL")
