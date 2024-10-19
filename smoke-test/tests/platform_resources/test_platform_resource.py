@@ -5,8 +5,10 @@ from typing import List
 
 import pytest
 from datahub.api.entities.platformresource.platform_resource import (
+    ElasticPlatformResourceQuery,
     PlatformResource,
     PlatformResourceKey,
+    PlatformResourceSearchFields,
 )
 from datahub.ingestion.graph.client import get_default_graph
 
@@ -42,7 +44,12 @@ def cleanup_resources(graph_client):
             logger.warning(f"Failed to delete resource: {e}")
 
     # Additional cleanup for any resources that might have been missed
-    for resource in PlatformResource.search_by_key(graph_client, "test_"):
+    for resource in PlatformResource.search_by_filters(
+        graph_client,
+        ElasticPlatformResourceQuery.create_from().add_wildcard(
+            PlatformResourceSearchFields.PRIMARY_KEY, "test_*"
+        ),
+    ):
         try:
             resource.delete(graph_client)
         except Exception as e:
@@ -118,7 +125,7 @@ def test_platform_resource_non_existent(graph_client, test_id):
     assert platform_resource is None
 
 
-def test_platform_resource_urn_secondary_key(graph_client, test_id):
+def test_platform_resource_urn_secondary_key(graph_client, test_id, cleanup_resources):
     key = PlatformResourceKey(
         platform=f"test_platform_{test_id}",
         resource_type=f"test_resource_type_{test_id}",
@@ -133,6 +140,7 @@ def test_platform_resource_urn_secondary_key(graph_client, test_id):
         secondary_keys=[dataset_urn],
     )
     platform_resource.to_datahub(graph_client)
+    cleanup_resources.append(platform_resource)
     wait_for_writes_to_sync()
 
     read_platform_resources = [
@@ -145,7 +153,9 @@ def test_platform_resource_urn_secondary_key(graph_client, test_id):
     assert read_platform_resources[0] == platform_resource
 
 
-def test_platform_resource_listing_by_resource_type(graph_client, test_id):
+def test_platform_resource_listing_by_resource_type(
+    graph_client, test_id, cleanup_resources
+):
     # Generate two resources with the same resource type
     key1 = PlatformResourceKey(
         platform=f"test_platform_{test_id}",
@@ -175,13 +185,9 @@ def test_platform_resource_listing_by_resource_type(graph_client, test_id):
         r
         for r in PlatformResource.search_by_filters(
             graph_client,
-            and_filters=[
-                {
-                    "field": "resourceType",
-                    "condition": "EQUAL",
-                    "value": key1.resource_type,
-                }
-            ],
+            query=ElasticPlatformResourceQuery.create_from(
+                (PlatformResourceSearchFields.RESOURCE_TYPE, key1.resource_type)
+            ),
         )
     ]
     assert len(search_results) == 2
@@ -190,3 +196,55 @@ def test_platform_resource_listing_by_resource_type(graph_client, test_id):
     read_platform_resource_2 = next(r for r in search_results if r.id == key2.id)
     assert read_platform_resource_1 == platform_resource1
     assert read_platform_resource_2 == platform_resource2
+
+
+def test_platform_resource_listing_complex_queries(graph_client, test_id):
+    # Generate two resources with the same resource type
+    key1 = PlatformResourceKey(
+        platform=f"test_platform1_{test_id}",
+        resource_type=f"test_resource_type_{test_id}",
+        primary_key=f"test_primary_key_1_{test_id}",
+    )
+    platform_resource1 = PlatformResource.create(
+        key=key1,
+        value={"test_key": f"test_value_1_{test_id}"},
+    )
+    platform_resource1.to_datahub(graph_client)
+
+    key2 = PlatformResourceKey(
+        platform=f"test_platform2_{test_id}",
+        resource_type=f"test_resource_type_{test_id}",
+        primary_key=f"test_primary_key_2_{test_id}",
+    )
+    platform_resource2 = PlatformResource.create(
+        key=key2,
+        value={"test_key": f"test_value_2_{test_id}"},
+    )
+    platform_resource2.to_datahub(graph_client)
+
+    wait_for_writes_to_sync()
+    from datahub.api.entities.platformresource.platform_resource import (
+        ElasticPlatformResourceQuery,
+        LogicalOperator,
+        PlatformResourceSearchFields,
+    )
+
+    query = (
+        ElasticPlatformResourceQuery.create_from()
+        .group(LogicalOperator.AND)
+        .add_field_match(PlatformResourceSearchFields.RESOURCE_TYPE, key1.resource_type)
+        .add_field_not_match(PlatformResourceSearchFields.PLATFORM, key1.platform)
+        .end()
+    )
+
+    search_results = [
+        r
+        for r in PlatformResource.search_by_filters(
+            graph_client,
+            query=query,
+        )
+    ]
+    assert len(search_results) == 1
+
+    read_platform_resource = search_results[0]
+    assert read_platform_resource == platform_resource2
