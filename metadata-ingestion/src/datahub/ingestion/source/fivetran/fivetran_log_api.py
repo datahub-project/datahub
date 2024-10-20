@@ -251,6 +251,7 @@ class FivetranLogAPI:
     ) -> List[Connector]:
         connectors: List[Connector] = []
         with report.metadata_extraction_perf.connectors_metadata_extraction_sec:
+            logger.info("Fetching connector list")
             connector_list = self._query(self.fivetran_log_query.get_connectors_query())
             for connector in connector_list:
                 if not connector_patterns.allowed(connector[Constant.CONNECTOR_NAME]):
@@ -279,7 +280,9 @@ class FivetranLogAPI:
             return []
 
         with report.metadata_extraction_perf.connectors_lineage_extraction_sec:
+            logger.info("Fetching connector lineage")
             self._fill_connectors_lineage(connectors)
         with report.metadata_extraction_perf.connectors_jobs_extraction_sec:
+            logger.info("Fetching connector job run history")
             self._fill_connectors_jobs(connectors, syncs_interval)
         return connectors
