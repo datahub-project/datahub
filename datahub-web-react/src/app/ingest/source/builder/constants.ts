@@ -35,7 +35,7 @@ import csvLogo from '../../../../images/csv-logo.png';
 import qlikLogo from '../../../../images/qliklogo.png';
 import sigmaLogo from '../../../../images/sigmalogo.png';
 import sacLogo from '../../../../images/saclogo.svg';
-import datahubLogo from '../../../../images/datahublogo.svg';
+import datahubLogo from '../../../../images/datahublogo.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
