@@ -101,6 +101,7 @@ module.exports = {
         {
           label: "Automations",
           type: "category",
+          collapsed: false,
           items: [
             {
               label: "Documentation Propagation",
@@ -108,9 +109,9 @@ module.exports = {
               id: "docs/automations/docs-propagation",
             },
             {
-              label: "BigQuery Sync",
+              label: "BigQuery Metadata Sync",
               type: "doc",
-              id: "docs/automations/bigquery-tag-propagation",
+              id: "docs/automations/bigquery-metadata-sync",
               className: "saasOnly",
             },
             {
