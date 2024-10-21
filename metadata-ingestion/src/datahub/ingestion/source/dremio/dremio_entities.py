@@ -4,7 +4,7 @@ import logging
 import re
 import uuid
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any, Deque, Dict, List, Optional
@@ -81,7 +81,7 @@ class DremioContainerResponse:
     source_type: Optional[str] = None
     root_path: Optional[str] = None
     database_name: Optional[str] = None
-    
+
 
 class DremioDatasetType(Enum):
     VIEW = "View"
