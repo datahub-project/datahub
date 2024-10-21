@@ -1,10 +1,19 @@
 from dataclasses import dataclass, field
 from typing import Optional, Tuple
 
-from datahub.ingestion.api.report import EntityFilterReport
+from datahub.ingestion.api.report import EntityFilterReport, Report
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.perf_timer import PerfTimer
+
+
+@dataclass
+class UnityCatalogUsagePerfReport(Report):
+    get_queries_timer: PerfTimer = field(default_factory=PerfTimer)
+    sql_parsing_timer: PerfTimer = field(default_factory=PerfTimer)
+    aggregator_add_event_timer: PerfTimer = field(default_factory=PerfTimer)
+    gen_operation_timer: PerfTimer = field(default_factory=PerfTimer)
 
 
 @dataclass
@@ -27,6 +36,9 @@ class UnityCatalogReport(IngestionStageReport, ProfilingSqlReport):
     num_queries_missing_table: int = 0  # Can be due to pattern filter
     num_queries_duplicate_table: int = 0
     num_queries_parsed_by_spark_plan: int = 0
+    usage_perf_report: UnityCatalogUsagePerfReport = field(
+        default_factory=UnityCatalogUsagePerfReport
+    )
 
     # Distinguish from Operations emitted for created / updated timestamps
     num_operational_stats_workunits_emitted: int = 0

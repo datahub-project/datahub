@@ -1,0 +1,76 @@
+{
+    "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": [
+                {
+                    "id": "90E9E256-3D6D-4D38-86C8-6CCCBD8C170C",
+                    "isReadOnly": true,
+                    "name": "Jane Smith Workspace",
+                    "type": "PersonalGroup",
+                    "state": "Active"
+                },
+                {
+                    "id": "C6B5DBBC-7580-406C-A6BE-72628C28801C",
+                    "isReadOnly": true,
+                    "name": "Sales",
+                    "type": "Workspace",
+                    "state": "Active"
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": []
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/4278EDC0-85AA-4BF2-B96A-2BC6C82B73C3": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "workspaces": [
+                {
+                    "id": "90E9E256-3D6D-4D38-86C8-6CCCBD8C170C",
+                    "name": "Jane Smith Workspace",
+                    "type": "PersonalGroup",
+                    "state": "Active",
+                    "datasets": []
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/90E9E256-3D6D-4D38-86C8-6CCCBD8C170C/dashboards": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": [
+                {
+                    "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
+                    "isReadOnly": true,
+                    "displayName": "test_dashboard",
+                    "description": "Description of test dashboard",
+                    "embedUrl": "https://localhost/dashboards/embed/1",
+                    "webUrl": "https://localhost/dashboards/web/1"
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/4278EDC0-85AA-4BF2-B96A-2BC6C82B73C3": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "status": "SUCCEEDED"
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/90E9E256-3D6D-4D38-86C8-6CCCBD8C170C/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": []
+            }
+    }
+}

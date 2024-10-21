@@ -3,8 +3,8 @@ baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 
 # App Layer
 authentication:
-  # Enable if you want all requests to the Metadata Service to be authenticated. Disabled by default.
-  enabled: ${METADATA_SERVICE_AUTH_ENABLED:false}
+  # Enable if you want all requests to the Metadata Service to be authenticated.
+  enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
 
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
@@ -43,8 +43,8 @@ authorization:
     enabled: ${AUTH_POLICIES_ENABLED:true}
     cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
     cachePolicyFetchSize: ${POLICY_CACHE_FETCH_SIZE:1000}
-  # Enables authorization of reads, writes, and deletes on REST APIs. Defaults to false for backwards compatibility, but should become true down the road
-  restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:false}
+  # Enables authorization of reads, writes, and deletes on REST APIs.
+  restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:true}
   view:
     enabled: ${VIEW_AUTHORIZATION_ENABLED:false}
     recommendations:
@@ -176,8 +176,8 @@ cassandra:
 elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}
   port: ${ELASTICSEARCH_PORT:9200}
-  threadCount: ${ELASTICSEARCH_THREAD_COUNT:1}
-  connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:0}
+  threadCount: ${ELASTICSEARCH_THREAD_COUNT:2}
+  connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:5000}
   username: ${ELASTICSEARCH_USERNAME:#{null}}
   password: ${ELASTICSEARCH_PASSWORD:#{null}}
   pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:#{null}}
@@ -343,18 +343,10 @@ incidents:
     consumerGroupSuffix: ${INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 bootstrap:
-  upgradeDefaultBrowsePaths:
-    enabled: ${UPGRADE_DEFAULT_BROWSE_PATHS_ENABLED:false} # enable to run the upgrade to migrate legacy default browse paths to new ones
-  backfillBrowsePathsV2:
-    enabled: ${BACKFILL_BROWSE_PATHS_V2:false} # Enables running the backfill of browsePathsV2 upgrade step. There are concerns about the load of this step so hiding it behind a flag. Deprecating in favor of running through SystemUpdate
-  reprocessDefaultBrowsePathsV2:
-    enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false} # reprocess V2 browse paths which were set to the default: {"path":[{"id":"Default"}]}
   policies:
     file: ${BOOTSTRAP_POLICIES_FILE:classpath:boot/policies.json}
     # eg for local file
     # file: "file:///datahub/datahub-gms/resources/custom-policies.json"
-  ownershipTypes:
-    file: ${BOOTSTRAP_OWNERSHIP_TYPES_FILE:classpath:boot/ownership_types.json}
   servlets:
     waitTimeout: ${BOOTSTRAP_SERVLETS_WAITTIMEOUT:60} # Total waiting time in seconds for servlets to initialize
 
@@ -363,6 +355,8 @@ systemUpdate:
   maxBackOffs: ${BOOTSTRAP_SYSTEM_UPDATE_MAX_BACK_OFFS:50}
   backOffFactor: ${BOOTSTRAP_SYSTEM_UPDATE_BACK_OFF_FACTOR:2} # Multiplicative factor for back off, default values will result in waiting 5min 15s
   waitForSystemUpdate: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:true}
+  bootstrap:
+    mcpConfig: ${SYSTEM_UPDATE_BOOTSTRAP_MCP_CONFIG:bootstrap_mcps.yaml}
   dataJobNodeCLL:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_ENABLED:false}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_BATCH_SIZE:1000}
@@ -442,6 +436,7 @@ featureFlags:
   businessAttributeEntityEnabled: ${BUSINESS_ATTRIBUTE_ENTITY_ENABLED:false} # Enables business attribute entity which can be associated with field of dataset
   dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:true} # Enables the Data Contracts feature (Tab) in the UI
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
+  editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -547,6 +542,8 @@ metadataChangeProposal:
   sideEffects:
     schemaField:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}
+    dataProductUnset:
+      enabled: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_UNSET_ENABLED:true}
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 

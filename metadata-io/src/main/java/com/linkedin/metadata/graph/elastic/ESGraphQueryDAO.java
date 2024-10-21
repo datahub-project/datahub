@@ -123,10 +123,13 @@ public class ESGraphQueryDAO {
       criterionArray.forEach(
           criterion ->
               andQuery.filter(
-                  QueryBuilders.termQuery(
+                  QueryBuilders.termsQuery(
                       (node == null ? "" : node + ".") + criterion.getField(),
-                      criterion.getValue())));
+                      criterion.getValues())));
       orQuery.should(andQuery);
+    }
+    if (!orQuery.should().isEmpty()) {
+      orQuery.minimumShouldMatch(1);
     }
     rootQuery.filter(orQuery);
   }
@@ -177,21 +180,26 @@ public class ESGraphQueryDAO {
     // directions for lineage
     // set up filters for each relationship type in the correct direction to limit buckets
     BoolQueryBuilder sourceFilterQuery = QueryBuilders.boolQuery();
-    sourceFilterQuery.minimumShouldMatch(1);
+
     validEdges.stream()
         .filter(pair -> RelationshipDirection.OUTGOING.equals(pair.getValue().getDirection()))
         .forEach(
             pair ->
                 sourceFilterQuery.should(
                     getAggregationFilter(pair, RelationshipDirection.OUTGOING)));
+    if (!sourceFilterQuery.should().isEmpty()) {
+      sourceFilterQuery.minimumShouldMatch(1);
+    }
 
     BoolQueryBuilder destFilterQuery = QueryBuilders.boolQuery();
-    destFilterQuery.minimumShouldMatch(1);
     validEdges.stream()
         .filter(pair -> RelationshipDirection.INCOMING.equals(pair.getValue().getDirection()))
         .forEach(
             pair ->
                 destFilterQuery.should(getAggregationFilter(pair, RelationshipDirection.INCOMING)));
+    if (!destFilterQuery.should().isEmpty()) {
+      destFilterQuery.minimumShouldMatch(1);
+    }
 
     FilterAggregationBuilder sourceRelationshipTypeFilters =
         AggregationBuilders.filter(FILTER_BY_SOURCE_RELATIONSHIP, sourceFilterQuery);
@@ -347,6 +355,9 @@ public class ESGraphQueryDAO {
           relationshipType ->
               relationshipQuery.should(
                   QueryBuilders.termQuery(RELATIONSHIP_TYPE, relationshipType)));
+      if (!relationshipQuery.should().isEmpty()) {
+        relationshipQuery.minimumShouldMatch(1);
+      }
       finalQuery.filter(relationshipQuery);
     }
 
@@ -697,6 +708,9 @@ public class ESGraphQueryDAO {
                     urns, edgesPerEntityType.get(entityType), graphFilters));
           }
         });
+    if (!entityTypeQueries.should().isEmpty()) {
+      entityTypeQueries.minimumShouldMatch(1);
+    }
 
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
 
@@ -739,6 +753,10 @@ public class ESGraphQueryDAO {
         edgesByDirection.getOrDefault(RelationshipDirection.INCOMING, Collections.emptyList());
     if (!incomingEdges.isEmpty()) {
       query.should(getIncomingEdgeQuery(urns, incomingEdges, graphFilters));
+    }
+
+    if (!query.should().isEmpty()) {
+      query.minimumShouldMatch(1);
     }
 
     return query;

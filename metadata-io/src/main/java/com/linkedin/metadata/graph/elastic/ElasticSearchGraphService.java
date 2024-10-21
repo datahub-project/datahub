@@ -3,12 +3,12 @@ package com.linkedin.metadata.graph.elastic;
 import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 import static com.linkedin.metadata.graph.elastic.GraphFilterUtils.getUrnStatusFieldName;
 import static com.linkedin.metadata.graph.elastic.GraphFilterUtils.getUrnStatusQuery;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
@@ -229,11 +229,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   private static Filter createUrnFilter(@Nonnull final Urn urn) {
     Filter filter = new Filter();
     CriterionArray criterionArray = new CriterionArray();
-    Criterion criterion = new Criterion();
-    criterion.setCondition(Condition.EQUAL);
-    criterion.setField("urn");
-    criterion.setValue(urn.toString());
-    criterion.setValues(new StringArray(urn.toString()));
+    Criterion criterion = buildCriterion("urn", Condition.EQUAL, urn.toString());
     criterionArray.add(criterion);
     filter.setOr(
         new ConjunctiveCriterionArray(

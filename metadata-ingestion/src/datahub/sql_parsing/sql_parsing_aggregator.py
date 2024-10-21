@@ -32,7 +32,11 @@ from datahub.metadata.urns import (
     QueryUrn,
     SchemaFieldUrn,
 )
-from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverInterface
+from datahub.sql_parsing.schema_resolver import (
+    SchemaResolver,
+    SchemaResolverInterface,
+    _SchemaResolverWithExtras,
+)
 from datahub.sql_parsing.sql_parsing_common import QueryType, QueryTypeProps
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
@@ -271,6 +275,8 @@ class SqlAggregatorReport(Report):
     tool_meta_report: Optional[ToolMetaExtractorReport] = None
 
     def compute_stats(self) -> None:
+        if self._aggregator._closed:
+            return
         self.schema_resolver_count = self._aggregator._schema_resolver.schema_count()
         self.num_unique_query_fingerprints = len(self._aggregator._query_map)
 
@@ -341,6 +347,7 @@ class SqlParsingAggregator(Closeable):
 
         # The exit stack helps ensure that we close all the resources we open.
         self._exit_stack = contextlib.ExitStack()
+        self._closed: bool = False
 
         # Set up the schema resolver.
         self._schema_resolver: SchemaResolver
@@ -367,6 +374,11 @@ class SqlParsingAggregator(Closeable):
                     graph=graph,
                 )
             )
+        # Schema resolver for special case (_MISSING_SESSION_ID)
+        # This is particularly useful for via temp table lineage if session id is not available.
+        self._missing_session_schema_resolver = _SchemaResolverWithExtras(
+            base_resolver=self._schema_resolver, extra_schemas={}
+        )
 
         # Initialize internal data structures.
         # This leans pretty heavily on the our query fingerprinting capabilities.
@@ -447,12 +459,16 @@ class SqlParsingAggregator(Closeable):
                 shared_connection=self._shared_connection,
                 tablename="query_usage_counts",
             )
+            self._exit_stack.push(self._query_usage_counts)
 
         # Tool Extractor
         self._tool_meta_extractor = ToolMetaExtractor()
         self.report.tool_meta_report = self._tool_meta_extractor.report
 
     def close(self) -> None:
+        # Compute stats once before closing connections
+        self.report.compute_stats()
+        self._closed = True
         self._exit_stack.close()
 
     @property
@@ -604,7 +620,9 @@ class SqlParsingAggregator(Closeable):
             upstream_urn: The upstream dataset URN.
             downstream_urn: The downstream dataset URN.
         """
-
+        logger.debug(
+            f"Adding lineage to the map, downstream: {downstream_urn}, upstream: {upstream_urn}"
+        )
         self.report.num_known_mapping_lineage += 1
 
         # We generate a fake "query" object to hold the lineage.
@@ -864,6 +882,12 @@ class SqlParsingAggregator(Closeable):
                 out_table
             ] = query_fingerprint
 
+            # Also update schema resolver for missing session id
+            if parsed.session_id == _MISSING_SESSION_ID and parsed.inferred_schema:
+                self._missing_session_schema_resolver.add_temp_tables(
+                    {out_table: parsed.inferred_schema}
+                )
+
         else:
             # Non-temp tables immediately generate lineage.
             self._lineage_map.for_mutation(out_table, OrderedSet()).add(
@@ -897,7 +921,9 @@ class SqlParsingAggregator(Closeable):
         self, session_id: str
     ) -> SchemaResolverInterface:
         schema_resolver: SchemaResolverInterface = self._schema_resolver
-        if session_id in self._temp_lineage_map:
+        if session_id == _MISSING_SESSION_ID:
+            schema_resolver = self._missing_session_schema_resolver
+        elif session_id in self._temp_lineage_map:
             temp_table_schemas: Dict[str, Optional[List[models.SchemaFieldClass]]] = {}
             for temp_table_urn, query_id in self._temp_lineage_map[session_id].items():
                 temp_table_schemas[temp_table_urn] = self._inferred_temp_schemas.get(

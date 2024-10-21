@@ -2,8 +2,8 @@ package com.linkedin.metadata.search.query.filter;
 
 import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
-import static com.linkedin.metadata.search.utils.QueryUtils.newCriterion;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -114,7 +114,9 @@ public class ContainerExpansionRewriterTest {
     // Setup nested
     when(mockGraphRetriever.scrollRelatedEntities(
             eq(List.of(CONTAINER_ENTITY_NAME)),
-            eq(QueryUtils.newDisjunctiveFilter(newCriterion("urn", List.of(childUrn)))),
+            eq(
+                QueryUtils.newDisjunctiveFilter(
+                    buildCriterion("urn", Condition.EQUAL, List.of(childUrn)))),
             eq(List.of(CONTAINER_ENTITY_NAME)),
             eq(EMPTY_FILTER),
             eq(List.of("IsPartOf")),
@@ -161,7 +163,9 @@ public class ContainerExpansionRewriterTest {
     // Page 1
     when(mockGraphRetriever.scrollRelatedEntities(
             eq(List.of(CONTAINER_ENTITY_NAME)),
-            eq(QueryUtils.newDisjunctiveFilter(newCriterion("urn", List.of(childUrn)))),
+            eq(
+                QueryUtils.newDisjunctiveFilter(
+                    buildCriterion("urn", Condition.EQUAL, List.of(childUrn)))),
             eq(List.of(CONTAINER_ENTITY_NAME)),
             eq(EMPTY_FILTER),
             eq(List.of("IsPartOf")),
@@ -183,7 +187,9 @@ public class ContainerExpansionRewriterTest {
     // Page 2
     when(mockGraphRetriever.scrollRelatedEntities(
             eq(List.of(CONTAINER_ENTITY_NAME)),
-            eq(QueryUtils.newDisjunctiveFilter(newCriterion("urn", List.of(childUrn)))),
+            eq(
+                QueryUtils.newDisjunctiveFilter(
+                    buildCriterion("urn", Condition.EQUAL, List.of(childUrn)))),
             eq(List.of(CONTAINER_ENTITY_NAME)),
             eq(EMPTY_FILTER),
             eq(List.of("IsPartOf")),
@@ -206,7 +212,7 @@ public class ContainerExpansionRewriterTest {
             eq(List.of(CONTAINER_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
-                    newCriterion("urn", List.of(parentUrn2, parentUrn)))),
+                    buildCriterion("urn", Condition.EQUAL, List.of(parentUrn2, parentUrn)))),
             eq(List.of(CONTAINER_ENTITY_NAME)),
             eq(EMPTY_FILTER),
             eq(List.of("IsPartOf")),
@@ -233,7 +239,7 @@ public class ContainerExpansionRewriterTest {
             eq(List.of(CONTAINER_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
-                    newCriterion("urn", List.of(parentUrn2, parentUrn)))),
+                    buildCriterion("urn", Condition.EQUAL, List.of(parentUrn2, parentUrn)))),
             eq(List.of(CONTAINER_ENTITY_NAME)),
             eq(EMPTY_FILTER),
             eq(List.of("IsPartOf")),
@@ -284,7 +290,9 @@ public class ContainerExpansionRewriterTest {
     // Setup nested container
     when(mockGraphRetriever.scrollRelatedEntities(
             eq(List.of(CONTAINER_ENTITY_NAME)),
-            eq(QueryUtils.newDisjunctiveFilter(newCriterion("urn", List.of(childUrn)))),
+            eq(
+                QueryUtils.newDisjunctiveFilter(
+                    buildCriterion("urn", Condition.EQUAL, List.of(childUrn)))),
             eq(List.of(CONTAINER_ENTITY_NAME)),
             eq(EMPTY_FILTER),
             eq(List.of("IsPartOf")),
@@ -303,7 +311,7 @@ public class ContainerExpansionRewriterTest {
                     new RelatedEntities(
                         "IsPartOf", childUrn, parentUrn, RelationshipDirection.OUTGOING, null))));
 
-    BoolQueryBuilder testQuery = QueryBuilders.boolQuery();
+    BoolQueryBuilder testQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
     testQuery.filter(
         QueryBuilders.boolQuery()
             .filter(
@@ -311,8 +319,11 @@ public class ContainerExpansionRewriterTest {
     testQuery.filter(QueryBuilders.existsQuery("someField"));
     testQuery.should(
         QueryBuilders.boolQuery()
+            .minimumShouldMatch(1)
             .should(
-                QueryBuilders.boolQuery().should(QueryBuilders.termsQuery(FIELD_NAME, childUrn))));
+                QueryBuilders.boolQuery()
+                    .minimumShouldMatch(1)
+                    .should(QueryBuilders.termsQuery(FIELD_NAME, childUrn))));
     testQuery.should(QueryBuilders.existsQuery("someField"));
     testQuery.must(
         QueryBuilders.boolQuery()
@@ -324,7 +335,7 @@ public class ContainerExpansionRewriterTest {
                 QueryBuilders.boolQuery().mustNot(QueryBuilders.termsQuery(FIELD_NAME, childUrn))));
     testQuery.mustNot(QueryBuilders.existsQuery("someField"));
 
-    BoolQueryBuilder expectedRewrite = QueryBuilders.boolQuery();
+    BoolQueryBuilder expectedRewrite = QueryBuilders.boolQuery().minimumShouldMatch(1);
     expectedRewrite.filter(
         QueryBuilders.boolQuery()
             .filter(
@@ -333,8 +344,10 @@ public class ContainerExpansionRewriterTest {
     expectedRewrite.filter(QueryBuilders.existsQuery("someField"));
     expectedRewrite.should(
         QueryBuilders.boolQuery()
+            .minimumShouldMatch(1)
             .should(
                 QueryBuilders.boolQuery()
+                    .minimumShouldMatch(1)
                     .should(QueryBuilders.termsQuery(FIELD_NAME, childUrn, parentUrn))));
     expectedRewrite.should(QueryBuilders.existsQuery("someField"));
     expectedRewrite.must(

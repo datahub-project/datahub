@@ -59,10 +59,14 @@ def get_upstream_tables(
 ) -> List[resolver.Lineage]:
 
     if table.expression is None:
-        logger.debug(f"Expression is none for table {table.full_name}")
+        logger.debug(f"There is no M-Query expression in table {table.full_name}")
         return []
 
     parameters = parameters or {}
+
+    logger.debug(
+        f"Processing {table.full_name} m-query expression for lineage extraction. Expression = {table.expression}"
+    )
 
     try:
         parse_tree: Tree = _parse_expression(table.expression)
@@ -73,23 +77,31 @@ def get_upstream_tables(
         if valid is False:
             assert message is not None
             logger.debug(f"Validation failed: {message}")
-            reporter.report_warning(table.full_name, message)
+            reporter.info(
+                title="Unsupported M-Query",
+                message="DataAccess function is not present in M-Query expression",
+                context=f"table-full-name={table.full_name}, expression={table.expression}, message={message}",
+            )
             return []
     except (
         BaseException
     ) as e:  # TODO: Debug why BaseException is needed here and below.
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
-            message = "Unsupported m-query expression"
+            title = "Unexpected Character Found"
         else:
-            message = "Failed to parse m-query expression"
+            title = "Unknown Parsing Error"
 
-        reporter.report_warning(table.full_name, message)
-        logger.info(f"{message} for table {table.full_name}")
-        logger.debug(f"Stack trace for {table.full_name}:", exc_info=e)
+        reporter.warning(
+            title=title,
+            message="Unknown parsing error",
+            context=f"table-full-name={table.full_name}, expression={table.expression}",
+            exc=e,
+        )
         return []
 
+    lineage: List[resolver.Lineage] = []
     try:
-        return resolver.MQueryResolver(
+        lineage = resolver.MQueryResolver(
             table=table,
             parse_tree=parse_tree,
             reporter=reporter,
@@ -101,10 +113,13 @@ def get_upstream_tables(
         )
 
     except BaseException as e:
-        reporter.report_warning(table.full_name, "Failed to process m-query expression")
-        logger.info(
-            f"Failed to process m-query expression for table {table.full_name}: {str(e)}"
+        reporter.warning(
+            title="Unknown M-Query Pattern",
+            message="Encountered a unknown M-Query Expression",
+            context=f"table-full-name={table.full_name}, expression={table.expression}, message={e}",
+            exc=e,
         )
+
         logger.debug(f"Stack trace for {table.full_name}:", exc_info=e)
 
-    return []
+    return lineage

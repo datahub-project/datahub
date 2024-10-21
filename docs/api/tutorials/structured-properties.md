@@ -532,6 +532,50 @@ Or you can run the following command to view the properties associated with the 
 datahub dataset get --urn {urn}
 ```
 
+## Read Structured Properties From a Dataset
+
+For reading all structured properties from a dataset:
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```graphql
+query getDataset {
+  dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.customer,PROD)") {
+    structuredProperties {
+      properties {
+        structuredProperty {
+          urn
+          type
+          definition {
+            displayName
+            description
+            allowedValues {
+              description
+            }
+          }
+        }
+        values {
+          ... on StringValue {
+            stringValue
+          }
+          ... on NumberValue {
+            numberValue
+          }
+        }
+        valueEntities {
+          urn
+          type
+        }
+      }
+    }
+  }
+}
+```
+
+</TabItem>  
+</Tabs>
+
 ## Remove Structured Properties From a Dataset
 
 For removing a structured property or list of structured properties from a dataset:
