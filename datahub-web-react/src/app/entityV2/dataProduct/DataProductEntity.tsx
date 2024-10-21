@@ -131,10 +131,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             component: SidebarEntityHeader,
         },
         {
-            component: StatusSection,
-        },
-        {
-            component: SharingAssetSection,
+            component: SidebarAboutSection,
         },
         {
             component: SidebarOwnerSection,
@@ -145,9 +142,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 updateOnly: true,
             },
         },
-        {
-            component: SidebarAboutSection,
-        },
+        // TODO: Is someone actually using the below code?
         {
             component: SidebarViewDefinitionSection,
             display: {
@@ -156,10 +151,16 @@ export class DataProductEntity implements Entity<DataProduct> {
             },
         },
         {
+            component: SidebarTagsSection,
+        },
+        {
             component: SidebarGlossaryTermsSection,
         },
         {
-            component: SidebarTagsSection,
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
         },
     ];
 

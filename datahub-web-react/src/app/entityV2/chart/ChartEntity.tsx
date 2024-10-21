@@ -209,10 +209,10 @@ export class ChartEntity implements Entity<Chart> {
             component: SidebarChartHeaderSection,
         },
         {
-            component: StatusSection,
+            component: SidebarAboutSection,
         },
         {
-            component: SharingAssetSection,
+            component: SidebarLineageSection,
         },
         {
             component: SidebarOwnerSection,
@@ -224,16 +224,16 @@ export class ChartEntity implements Entity<Chart> {
             component: DataProductSection,
         },
         {
-            component: SidebarAboutSection,
-        },
-        {
-            component: SidebarLineageSection,
+            component: SidebarTagsSection,
         },
         {
             component: SidebarGlossaryTermsSection,
         },
         {
-            component: SidebarTagsSection,
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
         },
     ];
 

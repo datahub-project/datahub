@@ -207,10 +207,10 @@ export class DashboardEntity implements Entity<Dashboard> {
             component: SidebarDashboardHeaderSection,
         },
         {
-            component: StatusSection,
+            component: SidebarAboutSection,
         },
         {
-            component: SharingAssetSection,
+            component: SidebarLineageSection,
         },
         {
             component: SidebarOwnerSection,
@@ -222,16 +222,16 @@ export class DashboardEntity implements Entity<Dashboard> {
             component: DataProductSection,
         },
         {
-            component: SidebarAboutSection,
-        },
-        {
-            component: SidebarLineageSection,
-        },
-        {
             component: SidebarGlossaryTermsSection,
         },
         {
             component: SidebarTagsSection,
+        },
+        {
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
         },
     ];
 

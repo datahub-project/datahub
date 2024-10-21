@@ -11,34 +11,11 @@ import SyncedOrShared from './SyncedOrShared';
 import { Entity } from '../../../../../Entity';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { ACRYL_PLATFORM, ActionType } from './utils';
-import DeprecatedIcon from '../../../../../../../images/deprecated-status.svg?react';
+import { SidebarSection } from '../SidebarSection';
 
 const SyncedAssetContainer = styled.div`
     display: flex;
     flex-direction: column;
-`;
-
-const SectionHeader = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 6px;
-    color: #8c7ee0;
-    svg {
-        font-size: 20px;
-    }
-`;
-
-const Title = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 14px;
-    font-weight: 700;
-    color: ${REDESIGN_COLORS.DARK_GREY};
-    svg {
-        font-size: 18px;
-    }
 `;
 
 export const StyledCollapse = styled(Collapse)`
@@ -120,74 +97,76 @@ const StatusSection = () => {
     if (!hasTimeProperties) return null;
 
     return (
-        <SyncedAssetContainer>
-            <SectionHeader>
-                {isDeprecated && <DeprecatedIcon />}
-                <Title>Status</Title>
-            </SectionHeader>
-
-            {!!created && <TimeProperty labelText="Created:" time={created} />}
-            {(entityType === EntityType.Dashboard || entityType === EntityType.Chart) && (
-                <>
-                    {!!lastModified && <TimeProperty labelText="Last Modified:" time={lastModified} />}
-                    {!!lastRefreshed && <TimeProperty labelText="Data Last Refreshed:" time={lastRefreshed} />}
-                </>
-            )}
-            {!!lastUpdated && entityType === EntityType.Dataset && (
-                <TimeProperty
-                    labelText="Last Updated:"
-                    time={lastUpdated}
-                    titleTip={`Time when the asset was last modified ${
-                        baseEntityPlatformName ? `in ${baseEntityPlatformName}` : null
-                    }`}
-                />
-            )}
-            {isDeprecated && (
-                <StyledCollapse
-                    defaultActiveKey=""
-                    ghost
-                    expandIcon={({ isActive }) => (
-                        <StyledIcon>{isActive ? <KeyboardArrowDown /> : <KeyboardArrowRight />} </StyledIcon>
+        <SidebarSection
+            title="Status"
+            content={
+                <SyncedAssetContainer>
+                    {!!created && <TimeProperty labelText="Created:" time={created} />}
+                    {(entityType === EntityType.Dashboard || entityType === EntityType.Chart) && (
+                        <>
+                            {!!lastModified && <TimeProperty labelText="Last Modified:" time={lastModified} />}
+                            {!!lastRefreshed && <TimeProperty labelText="Data Last Refreshed:" time={lastRefreshed} />}
+                        </>
                     )}
-                >
-                    <Collapse.Panel
-                        header={
-                            <TimeProperty
-                                labelText={`Deprecated${!!deprecatedByEntityName && `: by ${deprecatedByEntityName}`}`}
-                            />
-                        }
-                        key={1}
-                    >
-                        {decommissionTime ? (
-                            <TimeProperty
-                                labelText="Scheduled Decommission:"
-                                time={entityData.deprecation?.decommissionTime}
-                            />
-                        ) : (
-                            <EmptyText>No additional information</EmptyText>
-                        )}
-                    </Collapse.Panel>
-                </StyledCollapse>
-            )}
-            {!sourceInstance && !!lastIngested && (
-                <SyncedOrShared
-                    labelText="Synced:"
-                    time={lastIngested}
-                    platformName={rootSiblingPlatformName}
-                    platform={platform}
-                    type={ActionType.SYNC}
-                />
-            )}
-            {!!sourceInstance && (
-                <SyncedOrShared
-                    labelText="Shared:"
-                    time={sharedTime}
-                    platformName={ACRYL_PLATFORM}
-                    instanceName={instanceName}
-                    type={ActionType.SHARE}
-                />
-            )}
-        </SyncedAssetContainer>
+                    {!!lastUpdated && entityType === EntityType.Dataset && (
+                        <TimeProperty
+                            labelText="Last Updated:"
+                            time={lastUpdated}
+                            titleTip={`Time when the asset was last modified ${
+                                baseEntityPlatformName ? `in ${baseEntityPlatformName}` : null
+                            }`}
+                        />
+                    )}
+                    {isDeprecated && (
+                        <StyledCollapse
+                            defaultActiveKey=""
+                            ghost
+                            expandIcon={({ isActive }) => (
+                                <StyledIcon>{isActive ? <KeyboardArrowDown /> : <KeyboardArrowRight />} </StyledIcon>
+                            )}
+                        >
+                            <Collapse.Panel
+                                header={
+                                    <TimeProperty
+                                        labelText={`Deprecated${
+                                            !!deprecatedByEntityName && `: by ${deprecatedByEntityName}`
+                                        }`}
+                                    />
+                                }
+                                key={1}
+                            >
+                                {decommissionTime ? (
+                                    <TimeProperty
+                                        labelText="Scheduled Decommission:"
+                                        time={entityData.deprecation?.decommissionTime}
+                                    />
+                                ) : (
+                                    <EmptyText>No additional information</EmptyText>
+                                )}
+                            </Collapse.Panel>
+                        </StyledCollapse>
+                    )}
+                    {!sourceInstance && !!lastIngested && (
+                        <SyncedOrShared
+                            labelText="Synced:"
+                            time={lastIngested}
+                            platformName={rootSiblingPlatformName}
+                            platform={platform}
+                            type={ActionType.SYNC}
+                        />
+                    )}
+                    {!!sourceInstance && (
+                        <SyncedOrShared
+                            labelText="Shared:"
+                            time={sharedTime}
+                            platformName={ACRYL_PLATFORM}
+                            instanceName={instanceName}
+                            type={ActionType.SHARE}
+                        />
+                    )}
+                </SyncedAssetContainer>
+            }
+        />
     );
 };
 

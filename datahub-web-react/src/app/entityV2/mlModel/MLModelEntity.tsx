@@ -23,6 +23,7 @@ import { isOutputPort } from '../shared/utils';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 
 const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.UPDATE_DEPRECATION]);
 
@@ -118,29 +119,28 @@ export class MLModelEntity implements Entity<MlModel> {
             component: SidebarEntityHeader,
         },
         {
-            component: StatusSection,
-        },
-        {
-            component: SharingAssetSection,
-        },
-        {
-            component: SidebarOwnerSection,
-        },
-        {
             component: SidebarAboutSection,
         },
         {
-            component: SidebarTagsSection,
-            properties: {
-                hasTags: true,
-                hasTerms: true,
-            },
+            component: SidebarOwnerSection,
         },
         {
             component: SidebarDomainSection,
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarTagsSection,
+        },
+        {
+            component: SidebarGlossaryTermsSection,
+        },
+        {
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
         },
     ];
 

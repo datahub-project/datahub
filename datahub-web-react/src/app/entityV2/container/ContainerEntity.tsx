@@ -124,10 +124,10 @@ export class ContainerEntity implements Entity<Container> {
             component: SidebarEntityHeader,
         },
         {
-            component: StatusSection,
+            component: SidebarAboutSection,
         },
         {
-            component: SharingAssetSection,
+            component: SidebarContentsSection,
         },
         {
             component: SidebarOwnerSection,
@@ -139,16 +139,16 @@ export class ContainerEntity implements Entity<Container> {
             component: DataProductSection,
         },
         {
-            component: SidebarAboutSection,
-        },
-        {
-            component: SidebarContentsSection,
+            component: SidebarTagsSection,
         },
         {
             component: SidebarGlossaryTermsSection,
         },
         {
-            component: SidebarTagsSection,
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
         },
         // TODO: Add back once entity-level recommendations are complete.
         // {
