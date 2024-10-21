@@ -81,29 +81,7 @@ class DremioContainerResponse:
     source_type: Optional[str] = None
     root_path: Optional[str] = None
     database_name: Optional[str] = None
-
-@dataclass
-class DremioDatasetResponse:
-    resource_id: str
-    table_name: str
-    table_schema: str
-    full_table_path: str
-    view_definition: Optional[str] = None
-    columns: List[Dict[str, Any]] = field(default_factory=list)
-    owner: Optional[str] = None
-    owner_type: Optional[str] = None
-    location_id: Optional[str] = None
-    format_type: Optional[str] = None
-    created: Optional[str] = None
-
-@dataclass
-class DremioQueryResponse:
-    job_id: str
-    user_name: str
-    submitted_ts: str
-    query: str
-    queried_datasets: str
-    affected_datasets: Optional[str] = None
+    
 
 class DremioDatasetType(Enum):
     VIEW = "View"
