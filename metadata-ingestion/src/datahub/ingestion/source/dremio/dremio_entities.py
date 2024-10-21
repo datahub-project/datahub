@@ -4,7 +4,7 @@ import logging
 import re
 import uuid
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Deque, Dict, List, Optional
@@ -72,6 +72,38 @@ QUERY_TYPES = {
     "DATA_MANIPULATION": ["INSERT INTO", "MERGE INTO", "CREATE TABLE"],
 }
 
+@dataclass
+class DremioContainerResponse:
+    container_type: str
+    name: str
+    id: str
+    path: Optional[List[str]] = None
+    source_type: Optional[str] = None
+    root_path: Optional[str] = None
+    database_name: Optional[str] = None
+
+@dataclass
+class DremioDatasetResponse:
+    resource_id: str
+    table_name: str
+    table_schema: str
+    full_table_path: str
+    view_definition: Optional[str] = None
+    columns: List[Dict[str, Any]] = field(default_factory=list)
+    owner: Optional[str] = None
+    owner_type: Optional[str] = None
+    location_id: Optional[str] = None
+    format_type: Optional[str] = None
+    created: Optional[str] = None
+
+@dataclass
+class DremioQueryResponse:
+    job_id: str
+    user_name: str
+    submitted_ts: str
+    query: str
+    queried_datasets: str
+    affected_datasets: Optional[str] = None
 
 class DremioDatasetType(Enum):
     VIEW = "View"

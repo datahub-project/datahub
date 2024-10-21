@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
-import datahub.sql_parsing.sqlglot_utils
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -127,6 +126,7 @@ class DremioSource(StatefulIngestionSourceBase):
 
     def __init__(self, config: DremioSourceConfig, ctx: Any):
         super().__init__(config, ctx)
+        self.default_db = "dremio"
         self.config = config
         self.report = DremioSourceReport()
         self.source_map: Dict[str, DremioSourceMapping] = defaultdict()
@@ -373,7 +373,7 @@ class DremioSource(StatefulIngestionSourceBase):
                 self.sql_parsing_aggregator.add_view_definition(
                     view_urn=dataset_urn,
                     view_definition=dataset_info.sql_definition,
-                    default_db="dremio",
+                    default_db=self.default_db,
                 )
 
         elif dataset_info.dataset_type == DremioDatasetType.TABLE:
@@ -508,7 +508,8 @@ class DremioSource(StatefulIngestionSourceBase):
                     query_text=query.query,
                     upstreams=upstream_urns,
                     downstream=downstream_urn,
-                )
+                ),
+                merge_lineage=True,
             )
 
         # Add observed query
@@ -517,7 +518,7 @@ class DremioSource(StatefulIngestionSourceBase):
                 query=query.query,
                 timestamp=query.submitted_ts,
                 user=CorpUserUrn(username=query.username),
-                default_db="dremio",
+                default_db=self.default_db,
             )
         )
 
