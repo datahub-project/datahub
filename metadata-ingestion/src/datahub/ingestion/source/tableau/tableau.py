@@ -2835,7 +2835,10 @@ class TableauSiteSource:
             )
 
         custom_props = None
-        if self.config.permission_ingestion and self.config.permission_ingestion.enable_workbooks:
+        if (
+            self.config.permission_ingestion
+            and self.config.permission_ingestion.enable_workbooks
+        ):
             logger.debug(f"Ingest access roles of workbook-id='{workbook.get(c.LUID)}'")
             workbook_instance = self.server.workbooks.get_by_id(workbook.get(c.LUID))
             self.server.workbooks.populate_permissions(workbook_instance)
@@ -3213,7 +3216,7 @@ class TableauSiteSource:
         for group in TSC.Pager(self.server.groups):
             self.group_map[group.id] = group
 
-    def _get_allowed_capabilities(self, capabilities) -> List[str]:
+    def _get_allowed_capabilities(self, capabilities: Dict[str, str]) -> List[str]:
         if not self.config.permission_ingestion:
             return []
 
@@ -3244,8 +3247,7 @@ class TableauSiteSource:
                     continue
 
                 capabilities = self._get_allowed_capabilities(rule.capabilities)
-                group = { 'group': group.name, 'capabilities': capabilities }
-                groups.append(group)
+                groups.append({"group": group.name, "capabilities": capabilities})
 
         return {"permissions": json.dumps(groups)} if len(groups) > 0 else None
 
