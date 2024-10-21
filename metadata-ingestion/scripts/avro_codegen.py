@@ -361,9 +361,6 @@ deprecated = functools.partial(_sphinx_deprecated, version="0.12.0.2")
 
     for aspect in key_aspects:
         entity_type = aspect["Aspect"]["keyForEntity"]
-        if aspect["Aspect"]["entityCategory"] == "internal":
-            continue
-
         code += generate_urn_class(entity_type, aspect)
 
     (urn_dir / "urn_defs.py").write_text(code)
