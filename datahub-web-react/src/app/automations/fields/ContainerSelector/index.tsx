@@ -54,16 +54,15 @@ export const ContainerSelector = ({ state, props, passStateToParent }: Component
     }, []);
 
     useEffect(() => {
-        // Initialize an empty array to hold selected containers
-        let selectedContainers: Container[] = [];
-
-        if (
+        const shouldPresetSelectedContainers =
             containers?.length && // Ensure it is edit mode as we will have containers in edit mode only
             data?.searchAcrossEntities?.searchResults?.length && // check whether we have loaded initial list
-            resolvedEntitiesData?.entities?.length // check selected containers details has been present or not
-        ) {
-            selectedContainers = resolvedEntitiesData?.entities as Container[];
-        }
+            resolvedEntitiesData?.entities?.length; // check selected containers details has been present or not
+
+        // Initialize an empty array to hold selected containers
+        let selectedContainers: Container[] = shouldPresetSelectedContainers
+            ? (resolvedEntitiesData?.entities as Container[])
+            : [];
 
         // Extract entities from search results, filtering out any without an entity
         const initialAssets =

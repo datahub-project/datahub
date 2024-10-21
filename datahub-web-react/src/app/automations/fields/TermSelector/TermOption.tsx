@@ -180,7 +180,11 @@ export const TermOption = ({
 
     const [getEntities, { data: resolvedEntitiesData, loading }] = useGetEntitiesLazyQuery(); // Lazy query to fetch entities
 
-    const { entityCache, initialOptions } = useGlossaryOptionsBuilder(resolvedEntitiesData);
+    const { entityCache, initialOptions } = useGlossaryOptionsBuilder(
+        resolvedEntitiesData,
+        urnsToFetch,
+        setUrnsToFetch,
+    );
 
     useEffect(() => {
         if (isResolutionRequired(urnsToFetch, entityCache)) {

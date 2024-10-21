@@ -13,9 +13,14 @@ type Option = {
     entity: GlossaryTerm | GlossaryNode;
 };
 
-export const useGlossaryOptionsBuilder = (resolvedEntitiesData: any) => {
+export const useGlossaryOptionsBuilder = (
+    resolvedEntitiesData: any,
+    urnsToFetch: string[],
+    setUrnsToFetch: React.Dispatch<React.SetStateAction<string[]>>,
+) => {
     const [initialOptions, setInitialOptions] = useState<Option[]>([]);
     const [entityCache, setEntityCache] = useState<Map<string, Entity>>(new Map());
+    const [isInitialValueConfigured, setIsInitialValueConfigured] = useState<boolean>(false);
     const entityRegistry = useEntityRegistryV2();
 
     // Helper to create option object from entity
@@ -33,16 +38,22 @@ export const useGlossaryOptionsBuilder = (resolvedEntitiesData: any) => {
     const processGlossaryNodeEntities = (entities: Array<GlossaryTerm | GlossaryNode>) => {
         const nodeEntities: GlossaryNode[] = [];
         const alreadyAddedUrns: string[] = [];
+        const newNodeUrnsToFetch: string[] = []; // parent node URNs which have not selected but the child selected to fetch
         const options: Option[] = entities.map((entity) => {
             const parentNodeUrn = entity.parentNodes?.nodes?.[0]?.urn;
             alreadyAddedUrns.push(entity.urn);
-
+            if (parentNodeUrn && !urnsToFetch.includes(parentNodeUrn)) {
+                // Fetch parent node URN if not already fetched
+                newNodeUrnsToFetch.push(parentNodeUrn);
+            }
             if (entity.type === EntityType.GlossaryNode) {
                 nodeEntities.push(entity as GlossaryNode);
             }
 
             return createOption(entity, parentNodeUrn);
         });
+        // Set parent node URNs which have not selected but the child selected
+        setUrnsToFetch(newNodeUrnsToFetch);
 
         return { options, nodeEntities, alreadyAddedUrns };
     };
@@ -67,11 +78,16 @@ export const useGlossaryOptionsBuilder = (resolvedEntitiesData: any) => {
     // Helper to build options and cache from resolved entities
     const buildOptionsAndCache = (entities: Array<GlossaryTerm | GlossaryNode>) => {
         const { options, nodeEntities, alreadyAddedUrns } = processGlossaryNodeEntities(entities);
-        setInitialOptions(options);
 
         const childOptions = buildChildTermOptions(nodeEntities, alreadyAddedUrns);
 
         const allOptions = [...options, ...childOptions];
+        if (!isInitialValueConfigured) {
+            setIsInitialValueConfigured(true);
+            setInitialOptions(options);
+        } else {
+            setInitialOptions(allOptions);
+        }
         setEntityCache(buildEntityCache(entities)); // Assuming `buildEntityCache` is a utility function
     };
 
