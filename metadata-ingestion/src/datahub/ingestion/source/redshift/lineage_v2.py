@@ -146,10 +146,8 @@ class RedshiftSqlLineageV2(Closeable):
                     lambda: collections.defaultdict(set)
                 ),
             )
-            for new_urn, original_urn in table_renames.items():
-                self.aggregator.add_table_rename(
-                    original_urn=original_urn, new_urn=new_urn
-                )
+            for entry in table_renames.values():
+                self.aggregator.add_table_rename(entry)
 
         if self.config.table_lineage_mode in {
             LineageMode.SQL_BASED,
