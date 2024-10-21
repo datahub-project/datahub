@@ -72,6 +72,7 @@ class DremioContainerKey(ContainerKey):
 
 
 class SchemaFieldTypeMapper:
+    # From https://docs.dremio.com/cloud/reference/sql/data-types/
 
     FIELD_TYPE_MAPPING: Dict[str, Type] = {
         # Bool
