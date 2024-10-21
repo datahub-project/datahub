@@ -88,7 +88,26 @@ module.exports = {
       },
       items: [
         {
-          to: "cloud/",
+          type: "dropdown",
+          label: "Solutions",
+          position: "right",
+          items: [
+            {
+              to: "/solutions/discovery",
+              label: "Discovery",
+            },
+            {
+              to: "/solutions/observability",
+              label: "Observability",
+            },
+            {
+              to: "/solutions/governance",
+              label: "Governance",
+            },
+          ]
+        },
+        {
+          to: "/cloud",
           activeBasePath: "cloud",
           label: "Cloud",
           position: "right",

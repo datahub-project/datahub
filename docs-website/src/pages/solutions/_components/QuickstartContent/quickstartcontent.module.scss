@@ -5,7 +5,6 @@
 }
 .quickstart {
   width: 80vw;
-  min-height: 100vh;
   margin: 12rem auto;
   display: flex;
   flex-direction: column;
@@ -45,15 +44,6 @@
         display: block;
     }
 
-    // @keyframes progress {
-    //   0% {
-    //     height: 0;
-    //   }
-    //   100% {
-    //     height: 100%;
-    //   }
-    // }
-
     .quickstart__container {
       position: relative;
     }
@@ -66,13 +56,13 @@
       .quickstart__text {
         width: 60%;
         min-width: 600px;
-        padding-right: 40px;
+        padding-right: 2rem;
         display: flex;
         justify-content: center;
         flex-direction: column;
         
         div {
-          padding-left: 10%;
+          padding-left: 1rem;
         }
 
         .quickstart__text__label {
@@ -135,8 +125,8 @@
         width: 20%;
 
         img {
-          width: 30%;
-          min-width: 110px;
+          width: 2rem;
+          min-width: 100px;
         }
       }
     }
@@ -144,8 +134,7 @@
 
     @media only screen and (max-width: 800px) {
       .quickstart__bar {
-        width: 4px;
-        left: -4px;
+        display: none;
       }
       .quickstart__header {
         width: 95%;
@@ -154,18 +143,15 @@
         .quickstart__title {
           font-size: 2rem;
         }
-        .quickstart__subtitle {
-          font-size: 1.25rem;
-        }
       }
 
       .quickstart__content {
-        flex-direction: column;
+        display: flex;
 
         .quickstart__text {
           min-width: 0;
           width: 100%;
-          padding-left: 20px;
+          padding-left: 40px;
           padding-right: 0;
 
           div {
@@ -184,8 +170,8 @@
           }
         }
         .quickstart__img {
-          min-width: 0;
-          width: 100%;
+          display: flex;
+          min-width: 50px;
         }
       }
     }
