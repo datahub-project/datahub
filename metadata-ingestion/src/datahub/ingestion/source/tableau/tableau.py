@@ -2131,7 +2131,7 @@ class TableauSiteSource:
 
         fine_grained_lineages: List[FineGrainedLineage] = []
         if self.config.extract_column_level_lineage:
-            logger.info("Extracting CLL from custom sql")
+            logger.debug("Extracting CLL from custom sql")
             fine_grained_lineages = make_fine_grained_lineage_class(
                 parsed_result, csql_urn, out_columns
             )
