@@ -3615,6 +3615,33 @@
   },
   {
       "entityType": "post",
+      "entityUrn": "urn:li:post:f3a68539-f7e4-4c41-a4fd-9e57c085d8de",
+      "changeType": "UPSERT",
+      "aspectName": "postInfo",
+      "aspect": {
+          "json": {
+              "type": "HOME_PAGE_ANNOUNCEMENT",
+              "content": {
+                  "title": "Join Metadata & AI Summit 2024",
+                  "type": "LINK",
+                  "link": "http://www.acryldata.io/conference?utm_source=datahub_quickstart&utm_medium=metadata_ai_2024&utm_campaign=pinned_announcement",
+                  "media": {
+                      "type": "IMAGE",
+                      "location": "https://formulatedby.com/wp-content/uploads/2024/07/0193320a6d93e7508d1598f7b24662f75a87e92f-352x456-1.svg"
+                  }
+              },
+              "created": 1712547125049,
+              "lastModified": 1712547125049
+          }
+      },
+      "systemMetadata": {
+          "lastObserved": 1712548844816,
+          "runId": "datahub-2024_04_08-13_00_44",
+          "lastRunId": "no-run-id-provided"
+      }
+  },
+  {
+      "entityType": "post",
       "entityUrn": "urn:li:post:f3a68539-f7e4-4c41-a4fd-9e57c085d8dd",
       "changeType": "UPSERT",
       "aspectName": "postInfo",

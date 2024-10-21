@@ -559,8 +559,10 @@ class DataHubGraph(DatahubRestEmitter):
             post_json_obj = post_json_transform(aspect_json)
             aspect_value = aspect_type.from_obj(post_json_obj["value"])
 
-            system_metadata_raw = post_json_obj["systemMetadata"]
-            system_metadata = SystemMetadataClass.from_obj(system_metadata_raw)
+            system_metadata_raw = post_json_obj.get("systemMetadata")
+            system_metadata = None
+            if system_metadata_raw:
+                system_metadata = SystemMetadataClass.from_obj(system_metadata_raw)
 
             mcpw = MetadataChangeProposalWrapper(
                 entityUrn=entity_urn,
@@ -590,7 +592,7 @@ class DataHubGraph(DatahubRestEmitter):
             not be present in the dictionary. The entity's key aspect will always be present.
         """
 
-        mcps = self.get_entity_as_mcps(entity_urn, aspects)
+        mcps = self.get_entity_as_mcps(entity_urn, aspects=aspects)
 
         result: AspectBag = {}
         for mcp in mcps:

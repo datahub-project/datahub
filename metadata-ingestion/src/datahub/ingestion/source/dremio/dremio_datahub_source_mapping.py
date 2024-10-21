@@ -3,6 +3,9 @@
 """
 
 
+from typing import Optional
+
+
 class DremioToDataHubSourceTypeMapping:
     """
     Dremio source type to the Datahub source type mapping.
@@ -84,7 +87,12 @@ class DremioToDataHubSourceTypeMapping:
             return "file_object_storage"
         return "unknown"
 
-    def add_mapping(self, dremio_source_type, datahub_source_type, category=None):
+    def add_mapping(
+        self,
+        dremio_source_type: str,
+        datahub_source_type: str,
+        category: Optional[str] = None,
+    ) -> None:
         """
         Add new source type if not in map (e.g. Dremio ARP)
         """
