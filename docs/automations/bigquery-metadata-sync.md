@@ -1,22 +1,20 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# BigQuery Metadata Sync
+# BigQuery Metadata Sync Automation
 
 <FeatureAvailability saasOnly />
 
 ## Introduction
 
-BigQuery Metadata Sync is an automation that synchronizes (via propagation)
-DataHub Tags, Table and Column descriptions, and Column Glossary Terms with
+BigQuery Metadata Sync is an automation that synchronizes DataHub Tags, Table and Column descriptions, and Column Glossary Terms with
 BigQuery. This automation is exclusively available in DataHub Cloud (Acryl).
 
 ## Use-Cases
 
 - Maintain consistent metadata across DataHub and BigQuery
-- Improve data discovery by propagating rich descriptions to BigQuery
+- Improve data discovery by propagating rich descriptions back to BigQuery
 - Enhance data governance by applying Policy Tags based on DataHub Glossary Terms
 - Streamline data classification by syncing DataHub Tags to BigQuery Labels
-- Ensure up-to-date metadata in BigQuery as changes occur in DataHub
 - Facilitate compliance efforts by automatically tagging sensitive data columns
 - Support data lineage tracking by keeping metadata aligned across platforms
 
@@ -25,11 +23,11 @@ BigQuery. This automation is exclusively available in DataHub Cloud (Acryl).
 - Automatically add DataHub Tags as BigQuery Labels to tables
 - Automatically add DataHub Table descriptions to BigQuery Tables
 - Automatically add DataHub Column descriptions to BigQuery Columns
-- Automatically add DataHub Glossary Terms as Policy Tags to BigQuery Columns
+- Automatically add DataHub Glossary Terms as Policy Tags to BigQuery Columns (under a **DataHub** taxonomy created in BigQuery)
 - Automatically remove Policy Tags/Table Labels when removed in DataHub
 
 
-## Bigquery Permissions needed
+## Required Bigquery Permissions 
 
 | Action | Required Permission(s) |
 |--------|------------------------|
@@ -39,7 +37,7 @@ BigQuery. This automation is exclusively available in DataHub Cloud (Acryl).
 | Edit column description | `bigquery.tables.update` |
 | Assign/remove labels from tables | `bigquery.tables.update` |
 
-## Enabling BigQuery Sync
+## Enabling BigQuery Sync Automation
 
 1. **Navigate to Automations**: Click on 'Govern' > 'Automations' in the navigation bar.
 
@@ -124,31 +122,33 @@ You can view propagated Tags inside the BigQuery UI to confirm the automation is
 
 A: The following metadata elements support bi-directional syncing:
 
-- Tags: Changes made in either DataHub or BigQuery will be reflected in the other system.
+- Tags (via BigQuery Labels): Changes made in either DataHub Table Tags or BigQuery Table Labels will be reflected in the other system.
 - Descriptions: Both table and column descriptions are synced bi-directionally.
 
-### Q: Are policy tags bi-directionally synced?
+### Q: Are Policy Tags bi-directionally synced?
 
-A: No, policy tags are only propagated from DataHub to BigQuery, not vice versa.
-It is recommended not to enable `extract_policy_tags_from_catalog` during
+A: No, BigQuery Policy Tags are only propagated from DataHub to BigQuery, not vice versa. This means that Policy Tags should be mastered in DataHub using the [Business Glossary](https://datahubproject.io/docs/glossary/business-glossary/).
+
+It is recommended to avoid enabling `extract_policy_tags_from_catalog` during
 ingestion, as this will ingest policy tags as BigQuery labels. Our sync process
-propagates Glossary Term assignments to BigQuery as Policy Tags. In a future
-release, we will remove this restriction to support full bi-directional syncing.
+propagates Glossary Term assignments to BigQuery as Policy Tags. 
 
-### Q: What happens during ingestion?
+In a future release, we plan to remove this restriction to support full bi-directional syncing.
 
-A: During ingestion:
+### Q: What metadata is synced from BigQuery to DataHub during ingestion?
+
+A: During ingestion from BigQuery:
 
 - Tags and descriptions from BigQuery will be ingested into DataHub.
-- Existing policy tags in BigQuery will not overwrite or create glossary terms in DataHub. It only syncs assigned column Glossary Terms from DataHub to BigQuery.
+- Existing Policy Tags in BigQuery will not overwrite or create Business Glossary Terms in DataHub. It only syncs assigned column Glossary Terms from DataHub to BigQuery.
 
-### Q: Where should I manage the glossary?
+### Q: Where should I manage my Business Glossary?
 
 A: The expectation is that you author and manage the glossary in DataHub. Policy tags in BigQuery should be treated as a reflection of the DataHub glossary, not as the primary source of truth.
 
-### Q: Are there any limitations with policy tags in BigQuery?
+### Q: Are there any limitations with Policy Tags in BigQuery?
 
-A: Yes, BigQuery only supports one policy tag per column. If multiple glossary
+A: Yes, BigQuery only supports one Policy Tag per column. If multiple glossary
 terms are assigned to a column in DataHub, only the most recently assigned term
 will be set as the policy tag in BigQuery. To reduce the scope of conflicts, you
 can set up filters in the BigQuery Metadata Sync to only synchronize terms from
@@ -157,8 +157,9 @@ a specific area of the Business Glossary.
 ### Q: How frequently are changes synced between DataHub and BigQuery?
 
 A: From DataHub to BigQuery, the sync happens instantly (within a few seconds)
-when the change occurs in DataHub. From BigQuery to DataHub, changes are synced when
-ingestion occurs, and the frequency depends on how often you run ingestion.
+when the change occurs in DataHub.
+
+From BigQuery to DataHub, changes are synced when ingestion occurs, and the frequency depends on your custom ingestion schedule. (Visible on the **Integrations** page) 
 
 ### Q: What happens if there's a conflict between DataHub and BigQuery metadata?
 
