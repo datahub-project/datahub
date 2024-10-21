@@ -17,7 +17,7 @@ const ChildOptions = styled.div`
     padding-left: 20px;
 `;
 
-const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate: boolean }>`
+const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: boolean }>`
     .ant-checkbox-inner {
         border: 1px solid ${colors.gray[300]} !important;
         border-radius: 3px;
@@ -84,6 +84,7 @@ interface OptionProps {
     loadData?: (node: SelectOption) => void;
     isMultiSelect?: boolean;
     isLoadingParentChildList?: boolean;
+    setSelectedOptions: React.Dispatch<React.SetStateAction<SelectOption[]>>;
 }
 
 export const NestedOption = ({
@@ -97,6 +98,7 @@ export const NestedOption = ({
     isMultiSelect,
     areParentsSelectable,
     isLoadingParentChildList,
+    setSelectedOptions,
 }: OptionProps) => {
     const [autoSelectChildren, setAutoSelectChildren] = useState(false);
     const [loadingParentUrns, setLoadingParentUrns] = useState<string[]>([]);
@@ -158,6 +160,12 @@ export const NestedOption = ({
         ],
     );
 
+    const isImplicitlySelected = useMemo(
+        () => !option.isParent && !!selectedOptions.find((o) => o.value === option.parentValue),
+        [selectedOptions],
+    );
+    const isNotSelected = !isSelected && !isImplicitlySelected;
+
     const isParentMissingChildren = useMemo(() => !!option.isParent && !children.length, [children, option.isParent]);
 
     const isPartialSelected = useMemo(
@@ -178,9 +186,20 @@ export const NestedOption = ({
     );
 
     const selectOption = () => {
-        if (isPartialSelected || (!isSelected && !areAnyChildrenSelected)) {
-            const optionsToAdd =
-                option.isParent && !areParentsSelectable ? selectableChildren : [option, ...selectableChildren];
+        if (areParentsSelectable && option.isParent) {
+            const existingSelectedOptions = new Set(selectedOptions.map((option) => option.value));
+            const existingChildSelectedOptions =
+                selectedOptions.filter((opt) => opt.parentValue === option.value) || [];
+            if (existingSelectedOptions.has(option.value)) {
+                removeOptions([option]);
+            } else {
+                const newValues = selectedOptions.filter(
+                    (selectedOption) => !existingChildSelectedOptions.find((o) => o.value === selectedOption.value),
+                );
+                setSelectedOptions([...newValues, option]);
+            }
+        } else if (isPartialSelected || (!isSelected && !areAnyChildrenSelected)) {
+            const optionsToAdd = option.isParent && !areParentsSelectable ? selectableChildren : [option];
             addOptions(optionsToAdd);
         } else if (areAllChildrenSelected) {
             removeOptions([option, ...selectableChildren]);
@@ -203,6 +222,10 @@ export const NestedOption = ({
                 <OptionLabel
                     key={option.value}
                     onClick={(e) => {
+                        if (isImplicitlySelected) {
+                            e.preventDefault();
+                            return;
+                        }
                         if (isParentMissingChildren) {
                             setLoadingParentUrns((previousIds) => [...previousIds, option.value]);
                             loadData?.(option);
@@ -239,17 +262,22 @@ export const NestedOption = ({
                         />
                     )}
                     <StyledCheckbox
-                        checked={isSelected}
-                        indeterminate={isPartialSelected}
+                        checked={isImplicitlySelected || isSelected}
+                        indeterminate={areParentsSelectable && option.isParent ? undefined : isPartialSelected}
                         onClick={(e) => {
+                            if (isImplicitlySelected) {
+                                e.preventDefault();
+                                return;
+                            }
                             e.stopPropagation();
                             e.preventDefault();
                             if (isParentMissingChildren) {
                                 loadData?.(option);
-                                setAutoSelectChildren(true);
+                                // setAutoSelectChildren(true);
                             }
                             selectOption();
                         }}
+                        disabled={isImplicitlySelected}
                     />
                 </OptionLabel>
             </ParentOption>
@@ -267,6 +295,7 @@ export const NestedOption = ({
                             removeOptions={removeOptions}
                             isMultiSelect={isMultiSelect}
                             areParentsSelectable={areParentsSelectable}
+                            setSelectedOptions={setSelectedOptions}
                         />
                     ))}
                 </ChildOptions>

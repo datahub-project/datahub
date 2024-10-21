@@ -195,9 +195,13 @@ export const NestedSelect = ({
 
     const addOptions = useCallback(
         (optionsToAdd: SelectOption[]) => {
-            const newSelectedOptions = Array.from(new Set([...selectedOptions, ...optionsToAdd]));
-            setSelectedOptions(newSelectedOptions);
-            onUpdate?.(newSelectedOptions);
+            const existingValues = new Set(selectedOptions.map((option) => option.value));
+            const filteredOptionsToAdd = optionsToAdd.filter((option) => !existingValues.has(option.value));
+            if (filteredOptionsToAdd.length) {
+                const newSelectedOptions = [...selectedOptions, ...filteredOptionsToAdd];
+                setSelectedOptions(newSelectedOptions);
+                onUpdate?.(newSelectedOptions);
+            }
         },
         [onUpdate, selectedOptions],
     );
@@ -284,6 +288,7 @@ export const NestedSelect = ({
                                 removeOptions={removeOptions}
                                 loadData={loadData}
                                 isMultiSelect={isMultiSelect}
+                                setSelectedOptions={setSelectedOptions}
                                 areParentsSelectable={areParentsSelectable}
                                 isLoadingParentChildList={isLoadingParentChildList}
                             />

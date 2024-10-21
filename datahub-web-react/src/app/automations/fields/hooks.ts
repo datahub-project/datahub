@@ -67,12 +67,11 @@ export const useGlossaryOptionsBuilder = (resolvedEntitiesData: any) => {
     // Helper to build options and cache from resolved entities
     const buildOptionsAndCache = (entities: Array<GlossaryTerm | GlossaryNode>) => {
         const { options, nodeEntities, alreadyAddedUrns } = processGlossaryNodeEntities(entities);
+        setInitialOptions(options);
 
         const childOptions = buildChildTermOptions(nodeEntities, alreadyAddedUrns);
 
         const allOptions = [...options, ...childOptions];
-
-        setInitialOptions(allOptions);
         setEntityCache(buildEntityCache(entities)); // Assuming `buildEntityCache` is a utility function
     };
 
