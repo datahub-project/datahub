@@ -31,6 +31,16 @@ query getBrowseResultsV2($input: BrowseV2Input!) {
                         name
                     }
                 }
+                ... on Dashboard {
+                    properties {
+                        name
+                    }
+                }
+                ... on Chart {
+                    properties {
+                        name
+                    }
+                }
             }
         }
         start
