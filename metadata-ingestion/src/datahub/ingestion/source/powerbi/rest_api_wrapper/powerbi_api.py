@@ -267,7 +267,7 @@ class PowerBiAPI:
                 dashboard_endorsements={},
                 scan_result={},
                 independent_datasets=[],
-                app=None,  # It is getting set later from scan-result
+                app=None,  # It will be populated in _fill_metadata_from_scan_result method
             )
             for workspace in groups
         ]
@@ -435,7 +435,9 @@ class PowerBiAPI:
             app_id=app_id,
         )
 
-    def _set_app(self, workspace: Workspace, workspace_metadata: Dict) -> None:
+    def _populate_app_details(
+        self, workspace: Workspace, workspace_metadata: Dict
+    ) -> None:
         # App_id is not present at the root level of workspace_metadata.
         # It can be found in the workspace_metadata.dashboards or workspace_metadata.reports lists.
 
@@ -482,7 +484,7 @@ class PowerBiAPI:
             return
 
         # Map to find out which dashboards belongs to the App
-        dashboard_map: Dict[str, Dict] = {
+        workspace_dashboard_map: Dict[str, Dict] = {
             raw_dashboard[Constant.DISPLAY_NAME]: raw_dashboard
             for raw_dashboard in raw_app_dashboards
         }
@@ -491,11 +493,13 @@ class PowerBiAPI:
         for dashboard in workspace_metadata.get(Constant.DASHBOARDS) or []:
             app_dashboard_display_name = f"[App] {dashboard[Constant.DISPLAY_NAME]}"  # A Dashboard is considered part of an App if the workspace_metadata contains a Dashboard with a label formatted as "[App] <DashboardName>".
             if (
-                app_dashboard_display_name in dashboard_map
+                app_dashboard_display_name in workspace_dashboard_map
             ):  # This dashboard is part of the App
                 app_dashboards.append(
                     AppDashboard(
-                        id=dashboard_map[app_dashboard_display_name][Constant.ID],
+                        id=workspace_dashboard_map[app_dashboard_display_name][
+                            Constant.ID
+                        ],
                         original_dashboard_id=dashboard[Constant.ID],
                     )
                 )
@@ -564,7 +568,7 @@ class PowerBiAPI:
                     "false "
                 )
 
-            self._set_app(
+            self._populate_app_details(
                 workspace=cur_workspace,
                 workspace_metadata=workspace_metadata,
             )
@@ -633,25 +637,6 @@ class PowerBiAPI:
         fill_dashboard_tags()
         self._fill_independent_datasets(workspace=workspace)
 
-    def _set_app_reference(self, workspace: Workspace) -> None:
-        if workspace.app is None:
-            return
-
-        included_app_dashboards: List[str] = [
-            dashboard.original_dashboard_id for dashboard in workspace.app.dashboards
-        ]
-        included_app_reports: List[str] = [
-            report.original_report_id for report in workspace.app.reports
-        ]
-
-        for dashboard in workspace.dashboards:
-            if dashboard.id in included_app_dashboards:
-                dashboard.app_reference = workspace.app
-
-        for report in workspace.reports:
-            if report.id in included_app_reports:
-                report.app_reference = workspace.app
-
     # flake8: noqa: C901
     def fill_workspaces(
         self, workspaces: List[Workspace], reporter: PowerBiDashboardSourceReport
@@ -661,5 +646,4 @@ class PowerBiAPI:
         # First try to fill the admin detail as some regular metadata contains lineage to admin metadata
         for workspace in workspaces:
             self._fill_regular_metadata_detail(workspace=workspace)
-            self._set_app_reference(workspace=workspace)
         return workspaces

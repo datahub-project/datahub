@@ -1313,7 +1313,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def emit_app(
         self, workspace: powerbi_data_classes.Workspace
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         if workspace.app is None:
             return
 
@@ -1323,8 +1323,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 message="You are missing workspace app metadata. Please set flag `extract_app` to `true` in recipe to ingest workspace app.",
                 context=f"workspace-name={workspace.name}, app-name = {workspace.app.name}",
             )
+            return
 
-        edges: List[EdgeClass] = [
+        assets_within_app: List[EdgeClass] = [
             EdgeClass(
                 destinationUrn=builder.make_dashboard_urn(
                     platform=self.source_config.platform_name,
@@ -1337,7 +1338,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             for app_dashboard in workspace.app.dashboards
         ]
 
-        edges.extend(
+        assets_within_app.extend(
             [
                 EdgeClass(
                     destinationUrn=builder.make_dashboard_urn(
@@ -1352,10 +1353,17 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             ]
         )
 
-        if edges:
+        if assets_within_app:
             logger.debug(
                 f"Emitting metadata-workunits for app {workspace.app.name}({workspace.app.id})"
             )
+
+            app_urn: str = builder.make_dashboard_urn(
+                platform=self.source_config.platform_name,
+                platform_instance=self.source_config.platform_instance,
+                name=powerbi_data_classes.App.get_urn_part_by_id(workspace.app.id),
+            )
+
             dashboard_info: DashboardInfoClass = DashboardInfoClass(
                 title=workspace.app.name,
                 description=workspace.app.description
@@ -1374,13 +1382,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     if workspace.app.last_update
                     else None
                 ),
-                dashboards=edges,
-            )
-
-            dashboard_urn: str = builder.make_dashboard_urn(
-                platform=self.source_config.platform_name,
-                platform_instance=self.source_config.platform_instance,
-                name=powerbi_data_classes.App.get_urn_part_by_id(workspace.app.id),
+                dashboards=assets_within_app,
             )
 
             # Browse path
@@ -1388,24 +1390,15 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 paths=[f"/powerbi/{workspace.name}"]
             )
 
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dashboard_urn,
-                aspect=dashboard_info,
-            ).as_workunit()
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dashboard_urn,
-                aspect=browse_path,
-            ).as_workunit()
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dashboard_urn, aspect=StatusClass(removed=False)
-            ).as_workunit()
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dashboard_urn,
-                aspect=SubTypesClass(typeNames=[BIAssetSubTypes.POWERBI_APP]),
-            ).as_workunit()
+            yield from MetadataChangeProposalWrapper.construct_many(
+                entityUrn=app_urn,
+                aspects=(
+                    dashboard_info,
+                    browse_path,
+                    StatusClass(removed=False),
+                    SubTypesClass(typeNames=[BIAssetSubTypes.POWERBI_APP]),
+                ),
+            )
 
     def get_workspace_workunit(
         self, workspace: powerbi_data_classes.Workspace
@@ -1419,7 +1412,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 # Return workunit to a Datahub Ingestion framework
                 yield workunit
 
-        yield from self.emit_app(workspace=workspace)
+        yield from auto_workunit(self.emit_app(workspace=workspace))
 
         for dashboard in workspace.dashboards:
             try:

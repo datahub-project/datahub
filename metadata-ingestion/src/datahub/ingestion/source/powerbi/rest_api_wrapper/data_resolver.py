@@ -229,7 +229,6 @@ class DataResolverBase(ABC):
                 tiles=[],
                 users=[],
                 tags=[],
-                app_reference=None,  # It is getting set later from scan_result
             )
             for instance in dashboards_dict
             if (
@@ -291,7 +290,6 @@ class DataResolverBase(ABC):
                 dataset_id=raw_instance.get(Constant.DATASET_ID),
                 users=[],  # It will be fetched using Admin Fetcher based on condition
                 tags=[],  # It will be fetched using Admin Fetcher based on condition
-                app_reference=None,  # It is getting set later from scan-result
                 dataset=None,  # It will come from dataset_registry defined in powerbi_api.py
             )
             for raw_instance in fetch_reports()

@@ -263,7 +263,6 @@ class Report:
     pages: List["Page"]
     users: List["User"]
     tags: List[str]
-    app_reference: Optional["App"]
 
     def get_urn_part(self):
         return Report.get_urn_part_by_id(self.id)
@@ -306,7 +305,6 @@ class Dashboard:
     users: List["User"]
     tags: List[str]
     webUrl: Optional[str]
-    app_reference: Optional["App"]
 
     def get_urn_part(self):
         return Dashboard.get_urn_part_by_id(self.id)
