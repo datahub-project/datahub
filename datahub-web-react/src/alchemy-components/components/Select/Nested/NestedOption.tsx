@@ -85,7 +85,6 @@ interface OptionProps {
     isMultiSelect?: boolean;
     isLoadingParentChildList?: boolean;
     setSelectedOptions: React.Dispatch<React.SetStateAction<SelectOption[]>>;
-    onUpdate?: (selectedValues: SelectOption[]) => void;
 }
 
 export const NestedOption = ({
@@ -100,7 +99,6 @@ export const NestedOption = ({
     areParentsSelectable,
     isLoadingParentChildList,
     setSelectedOptions,
-    onUpdate,
 }: OptionProps) => {
     const [autoSelectChildren, setAutoSelectChildren] = useState(false);
     const [loadingParentUrns, setLoadingParentUrns] = useState<string[]>([]);
@@ -201,8 +199,6 @@ export const NestedOption = ({
                 const newSelectedOptions = [...filteredOptions, option];
 
                 setSelectedOptions(newSelectedOptions);
-                // call onUpdate to update the parent selection as we are selecting parent and deselecting its child value
-                onUpdate?.(newSelectedOptions);
             }
         } else if (isPartialSelected || (!isSelected && !areAnyChildrenSelected)) {
             const optionsToAdd = option.isParent && !areParentsSelectable ? selectableChildren : [option];

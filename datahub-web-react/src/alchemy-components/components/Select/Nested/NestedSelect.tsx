@@ -174,6 +174,12 @@ export const NestedSelect = ({
         [onSearch],
     );
 
+    useEffect(() => {
+        if (onUpdate) {
+            onUpdate(selectedOptions);
+        }
+    }, [onUpdate, selectedOptions]);
+
     const handleOptionChange = useCallback(
         (option: SelectOption) => {
             let newSelectedOptions: SelectOption[];
@@ -186,11 +192,8 @@ export const NestedSelect = ({
             if (!isMultiSelect) {
                 setIsOpen(false);
             }
-            if (onUpdate) {
-                onUpdate(newSelectedOptions);
-            }
         },
-        [onUpdate, selectedOptions, isMultiSelect],
+        [selectedOptions, isMultiSelect],
     );
 
     const addOptions = useCallback(
@@ -200,10 +203,9 @@ export const NestedSelect = ({
             if (filteredOptionsToAdd.length) {
                 const newSelectedOptions = [...selectedOptions, ...filteredOptionsToAdd];
                 setSelectedOptions(newSelectedOptions);
-                onUpdate?.(newSelectedOptions);
             }
         },
-        [onUpdate, selectedOptions],
+        [selectedOptions],
     );
 
     const removeOptions = useCallback(
@@ -212,9 +214,8 @@ export const NestedSelect = ({
                 (selectedOption) => !optionsToRemove.find((o) => o.value === selectedOption.value),
             );
             setSelectedOptions(newValues);
-            onUpdate?.(newValues);
         },
-        [onUpdate, selectedOptions],
+        [selectedOptions],
     );
 
     const handleClearSelection = useCallback(() => {
@@ -291,7 +292,6 @@ export const NestedSelect = ({
                                 setSelectedOptions={setSelectedOptions}
                                 areParentsSelectable={areParentsSelectable}
                                 isLoadingParentChildList={isLoadingParentChildList}
-                                onUpdate={onUpdate}
                             />
                         ))}
                     </OptionList>
