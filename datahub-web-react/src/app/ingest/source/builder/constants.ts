@@ -36,6 +36,7 @@ import csvLogo from '../../../../images/csv-logo.png';
 import qlikLogo from '../../../../images/qliklogo.png';
 import sigmaLogo from '../../../../images/sigmalogo.png';
 import sacLogo from '../../../../images/saclogo.svg';
+import datahubLogo from '../../../../images/datahublogo.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -128,6 +129,11 @@ export const SIGMA = 'sigma';
 export const SIGMA_URN = `urn:li:dataPlatform:${SIGMA}`;
 export const SAC = 'sac';
 export const SAC_URN = `urn:li:dataPlatform:${SAC}`;
+export const DATAHUB = 'datahub';
+export const DATAHUB_GC = 'datahub-gc';
+export const DATAHUB_LINEAGE_FILE = 'datahub-lineage-file';
+export const DATAHUB_BUSINESS_GLOSSARY = 'datahub-business-glossary';
+export const DATAHUB_URN = `urn:li:dataPlatform:${DATAHUB}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -169,6 +175,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [QLIK_SENSE_URN]: qlikLogo,
     [SIGMA_URN]: sigmaLogo,
     [SAC_URN]: sacLogo,
+    [DATAHUB_URN]: datahubLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {
@@ -182,5 +189,7 @@ export const SOURCE_TO_PLATFORM_URN = {
     [SNOWFLAKE_USAGE]: SNOWFLAKE_URN,
     [STARBURST_TRINO_USAGE]: TRINO_URN,
     [DBT_CLOUD]: DBT_URN,
-    [VERTICA]: VERTICA_URN,
+    [DATAHUB_GC]: DATAHUB_URN,
+    [DATAHUB_LINEAGE_FILE]: DATAHUB_URN,
+    [DATAHUB_BUSINESS_GLOSSARY]: DATAHUB_URN,
 };
