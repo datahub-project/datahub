@@ -7,6 +7,7 @@ from time import time
 from typing import Any, Dict, Iterable, List, Optional
 
 from pyiceberg.catalog import Catalog
+from pyiceberg.exceptions import NoSuchIcebergTableError, NoSuchPropertyException
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
 from pyiceberg.typedef import Identifier
@@ -78,7 +79,6 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
-from pyiceberg.exceptions import NoSuchPropertyException, NoSuchIcebergTableError
 
 LOGGER = logging.getLogger(__name__)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
@@ -136,8 +136,18 @@ class IcebergSource(StatefulIngestionSourceBase):
         ]
 
     def _get_datasets(self, catalog: Catalog) -> Iterable[Identifier]:
-        for namespace in catalog.list_namespaces():
-            yield from catalog.list_tables(namespace)
+        namespaces = catalog.list_namespaces()
+        LOGGER.debug(
+            f"Retrieved {len(namespaces)} namespaces, first 10: {namespaces[:10]}"
+        )
+        tables_count = 0
+        for namespace in namespaces:
+            tables = catalog.list_tables(namespace)
+            tables_count += len(tables)
+            LOGGER.debug(
+                f"Retrieved {len(tables)} for namespace: {namespace}, in total retrieved {tables_count}, first 10: {tables[:10]}"
+            )
+            yield from tables
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         thread_local = threading.local()
@@ -166,12 +176,18 @@ class IcebergSource(StatefulIngestionSourceBase):
                 # sleep(0.1)
                 return [*self._create_iceberg_workunit(dataset_name, table)]
             except NoSuchPropertyException as e:
-                self.report.report_warning("table-property-missing", f"Failed to create workunit for {dataset_name}. {e}")
+                self.report.report_warning(
+                    "table-property-missing",
+                    f"Failed to create workunit for {dataset_name}. {e}",
+                )
                 LOGGER.warning(
                     f"NoSuchPropertyException while processing table {dataset_path}, skipping it.",
                 )
             except NoSuchIcebergTableError as e:
-                self.report.report_warning("no-iceberg-table", f"Failed to create workunit for {dataset_name}. {e}")
+                self.report.report_warning(
+                    "no-iceberg-table",
+                    f"Failed to create workunit for {dataset_name}. {e}",
+                )
                 LOGGER.warning(
                     f"NoSuchIcebergTableError while processing table {dataset_path}, skipping it.",
                 )
