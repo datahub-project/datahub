@@ -113,7 +113,6 @@ class SnowflakeQueriesSourceConfig(
 @dataclass
 class SnowflakeQueriesExtractorReport(Report):
     copy_history_fetch_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
-    table_renames_fetch_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     query_log_fetch_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
     audit_log_load_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)

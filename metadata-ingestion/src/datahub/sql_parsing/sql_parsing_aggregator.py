@@ -984,7 +984,7 @@ class SqlParsingAggregator(Closeable):
         # NOTE: Both queries are different on purpose. Currently, we can not
         # store (A->B) and (B->A) lineage against same query.
 
-        # NOTE: we do not store upstreams for temp table, as that would
+        # NOTE: we do not store upstreams for temp table on purpose, as that would
         # otherwise overwrite original upstream query of temp table because
         # currently a temporay table can have only one upstream query.
 
