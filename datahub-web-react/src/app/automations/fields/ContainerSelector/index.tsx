@@ -9,8 +9,8 @@ import {
     useGetAutoCompleteMultipleResultsQuery,
     useGetSearchResultsForMultipleQuery,
 } from '@src/graphql/search.generated';
-import { PLATFORM_FILTER_NAME } from '../../../searchV2/utils/constants';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
+import { PLATFORM_FILTER_NAME } from '../../../searchV2/utils/constants';
 
 export type ContainerSelectorStateType = {
     containers: string[];
@@ -50,6 +50,7 @@ export const ContainerSelector = ({ state, props, passStateToParent }: Component
         if (containers?.length) {
             getEntities({ variables: { urns: containers } }); // Fetch entities based on URNs
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {

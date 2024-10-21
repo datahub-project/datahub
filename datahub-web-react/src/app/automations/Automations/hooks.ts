@@ -6,6 +6,7 @@ export const useIsFormDisabled = (recipe) => {
         const type = recipe?.action?.type || '';
         // Check if the action is for AI term suggestion
         if (type === ACTION_TYPES_MAP.ai_term_suggestion) {
+            debugger;
             const glossaryNodeUrns = recipe?.action?.config?.glossary_node_urns || [];
             const glossaryTermUrns = recipe?.action?.config?.glossary_term_urns || [];
             // Disable if both glossaryNodeUrns and glossaryTermUrns are empty

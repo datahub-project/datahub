@@ -85,6 +85,7 @@ interface OptionProps {
     isMultiSelect?: boolean;
     isLoadingParentChildList?: boolean;
     setSelectedOptions: React.Dispatch<React.SetStateAction<SelectOption[]>>;
+    onUpdate?: (selectedValues: SelectOption[]) => void;
 }
 
 export const NestedOption = ({
@@ -99,6 +100,7 @@ export const NestedOption = ({
     areParentsSelectable,
     isLoadingParentChildList,
     setSelectedOptions,
+    onUpdate,
 }: OptionProps) => {
     const [autoSelectChildren, setAutoSelectChildren] = useState(false);
     const [loadingParentUrns, setLoadingParentUrns] = useState<string[]>([]);
@@ -162,9 +164,8 @@ export const NestedOption = ({
 
     const isImplicitlySelected = useMemo(
         () => !option.isParent && !!selectedOptions.find((o) => o.value === option.parentValue),
-        [selectedOptions],
+        [selectedOptions, option.isParent],
     );
-    const isNotSelected = !isSelected && !isImplicitlySelected;
 
     const isParentMissingChildren = useMemo(() => !!option.isParent && !children.length, [children, option.isParent]);
 
@@ -187,16 +188,21 @@ export const NestedOption = ({
 
     const selectOption = () => {
         if (areParentsSelectable && option.isParent) {
-            const existingSelectedOptions = new Set(selectedOptions.map((option) => option.value));
+            const existingSelectedOptions = new Set(selectedOptions.map((opt) => opt.value));
             const existingChildSelectedOptions =
                 selectedOptions.filter((opt) => opt.parentValue === option.value) || [];
             if (existingSelectedOptions.has(option.value)) {
                 removeOptions([option]);
             } else {
-                const newValues = selectedOptions.filter(
+                //filter out the childrens of parent selection as we are allowing implicitly selection
+                const filteredOptions = selectedOptions.filter(
                     (selectedOption) => !existingChildSelectedOptions.find((o) => o.value === selectedOption.value),
                 );
-                setSelectedOptions([...newValues, option]);
+                const newSelectedOptions = [...filteredOptions, option];
+
+                setSelectedOptions(newSelectedOptions);
+                // call onUpdate to update the parent selection as we are selecting parent and deselecting its child value
+                onUpdate?.(newSelectedOptions);
             }
         } else if (isPartialSelected || (!isSelected && !areAnyChildrenSelected)) {
             const optionsToAdd = option.isParent && !areParentsSelectable ? selectableChildren : [option];

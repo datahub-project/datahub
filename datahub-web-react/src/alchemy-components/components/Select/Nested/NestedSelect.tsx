@@ -291,6 +291,7 @@ export const NestedSelect = ({
                                 setSelectedOptions={setSelectedOptions}
                                 areParentsSelectable={areParentsSelectable}
                                 isLoadingParentChildList={isLoadingParentChildList}
+                                onUpdate={onUpdate}
                             />
                         ))}
                     </OptionList>
