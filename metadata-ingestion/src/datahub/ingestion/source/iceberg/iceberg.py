@@ -78,6 +78,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
+from pyiceberg.exceptions import NoSuchPropertyException, NoSuchIcebergTableError
 
 LOGGER = logging.getLogger(__name__)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
@@ -164,12 +165,22 @@ class IcebergSource(StatefulIngestionSourceBase):
                 LOGGER.debug("Loaded table: %s", table)
                 # sleep(0.1)
                 return [*self._create_iceberg_workunit(dataset_name, table)]
+            except NoSuchPropertyException as e:
+                self.report.report_warning("table-property-missing", f"Failed to create workunit for {dataset_name}. {e}")
+                LOGGER.warning(
+                    f"NoSuchPropertyException while processing table {dataset_path}, skipping it.",
+                )
+            except NoSuchIcebergTableError as e:
+                self.report.report_warning("no-iceberg-table", f"Failed to create workunit for {dataset_name}. {e}")
+                LOGGER.warning(
+                    f"NoSuchIcebergTableError while processing table {dataset_path}, skipping it.",
+                )
             except Exception as e:
                 self.report.report_failure("general", f"Failed to create workunit: {e}")
                 LOGGER.exception(
                     f"Exception while processing table {dataset_path}, skipping it.",
                 )
-                return []
+            return []
 
         try:
             start = time()
