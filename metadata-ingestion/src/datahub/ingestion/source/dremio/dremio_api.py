@@ -613,42 +613,6 @@ class DremioAPIOperations:
             )
         return None
 
-    def get_source_type(
-        self,
-        dremio_source_type: str,
-        datahub_source_type: Optional[str],
-    ) -> Optional[str]:
-        """
-        Get Dremio wiki entry for a given resource_id.
-        """
-
-        lookup_datahub_source_type = (
-            self.dremio_to_datahub_source_mapper.get_datahub_source_type(
-                dremio_source_type=dremio_source_type,
-            )
-        )
-
-        if lookup_datahub_source_type:
-            return lookup_datahub_source_type
-
-        self.dremio_to_datahub_source_mapper.add_mapping(
-            dremio_source_type=dremio_source_type,
-            datahub_source_type=datahub_source_type,
-        )
-        return datahub_source_type
-
-    def get_source_category(
-        self,
-        dremio_source_type: str,
-    ) -> Optional[str]:
-        """
-        Get Dremio wiki entry for a given resource_id.
-        """
-
-        return self.dremio_to_datahub_source_mapper.get_category(
-            source_type=dremio_source_type,
-        )
-
     def get_containers_for_location(
         self, resource_id: str, path: List[str]
     ) -> List[Dict[str, str]]:

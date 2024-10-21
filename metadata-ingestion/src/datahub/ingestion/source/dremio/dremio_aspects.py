@@ -41,7 +41,6 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DateTypeClass,
     DomainsClass,
-    FabricTypeClass,
     GlossaryTermAssociationClass,
     GlossaryTermInfoClass,
     GlossaryTermsClass,
@@ -147,9 +146,9 @@ class DremioAspects:
         platform: str,
         profiler: DremioProfiler,
         base_url: str,
+        env: str,
         domain: Optional[str] = None,
         platform_instance: Optional[str] = None,
-        env: Optional[Union[FabricTypeClass, str]] = FabricTypeClass.PROD,
         profiling_enabled: bool = False,
     ):
         self.platform = platform

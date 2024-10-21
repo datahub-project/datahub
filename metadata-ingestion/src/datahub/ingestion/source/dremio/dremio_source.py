@@ -20,7 +20,11 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceCapability, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    SourceReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dremio.dremio_api import (
     DremioAPIOperations,
@@ -46,7 +50,6 @@ from datahub.ingestion.source.dremio.dremio_profiling import (
     DremioProfiler,
     ProfileConfig,
 )
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -54,7 +57,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     UpstreamClass,
@@ -94,11 +96,30 @@ class DremioSourceReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class DremioSource(StatefulIngestionSourceBase):
     """
-    This plugin extracts the following:
-    - Metadata for databases, schemas, views and tables
-    - Column types associated with each table
-    - Table, row, and column statistics via optional SQL profiling
-    - Lineage information for views and datasets
+    This plugin integrates with Dremio to extract and ingest metadata into DataHub.
+    The following types of metadata are extracted:
+
+    - Metadata for Spaces, Folders, Sources, and Datasets:
+        - Includes physical and virtual datasets, with detailed information about each dataset.
+        - Extracts metadata about Dremio's organizational hierarchy: Spaces (top-level), Folders (sub-level), and Sources (external data connections).
+
+    - Schema and Column Information:
+        - Column types and schema metadata associated with each physical and virtual dataset.
+        - Extracts column-level metadata, such as names, data types, and descriptions, if available.
+
+    - Lineage Information:
+        - Dataset-level and column-level lineage tracking:
+            - Dataset-level lineage shows dependencies and relationships between physical and virtual datasets.
+            - Column-level lineage tracks transformations applied to individual columns across datasets.
+        - Lineage information helps trace the flow of data and transformations within Dremio.
+
+    - Ownership and Glossary Terms:
+        - Metadata related to ownership of datasets, extracted from Dremio’s ownership model.
+        - Glossary terms and business metadata associated with datasets, providing additional context to the data.
+
+    - Optional SQL Profiling (if enabled):
+        - Table, row, and column statistics can be profiled and ingested via optional SQL queries.
+        - Extracts statistics about tables and columns, such as row counts and data distribution, for better insight into the dataset structure.
     """
 
     config: DremioSourceConfig
@@ -133,15 +154,6 @@ class DremioSource(StatefulIngestionSourceBase):
         self.reference_source_mapping = DremioToDataHubSourceTypeMapping()
         self.max_workers = config.max_workers
 
-        # Handle stale entity removal
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
         self.sql_parsing_aggregator = SqlParsingAggregator(
             platform=make_data_platform_urn(self.get_platform()),
             platform_instance=self.config.platform_instance,
@@ -149,7 +161,7 @@ class DremioSource(StatefulIngestionSourceBase):
             graph=self.ctx.graph,
             generate_usage_statistics=True,
             generate_operations=True,
-            usage_config=BaseUsageConfig(),
+            usage_config=self.config.usage,
         )
 
     @classmethod
@@ -239,69 +251,51 @@ class DremioSource(StatefulIngestionSourceBase):
 
         return source_map
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """
-        Generate workunits for Dremio metadata.
-        """
-
-        self.source_map = self._build_source_map()
-
-        for wu in self.get_workunits_internal():
-            self.report.report_workunit(wu)
-            yield wu
-
-        # Emit the stale entity removal workunits
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Internal method to generate workunits for Dremio metadata.
         """
 
+        self.source_map = self._build_source_map()
+
         # Process Containers
         containers = self.dremio_catalog.get_containers()
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_container = {
-                executor.submit(self.process_container, container): container
-                for container in containers
-            }
-
-            for future in as_completed(future_to_container):
-                container_info = future_to_container[future]
-                try:
-                    yield from future.result()
-                    logger.info(
-                        f"Dremio container {container_info.container_name} emitted successfully"
-                    )
-                except Exception as exc:
-                    self.report.num_containers_failed = +1
-                    self.report.report_failure(
-                        "Failed to process Dremio container",
-                        f"Failed to process container {'.'.join(container_info.path)}.{container_info.resource_name}: {exc}",
-                    )
+        for container in containers:
+            try:
+                yield from self.process_container(container)
+                logger.info(
+                    f"Dremio container {container.container_name} emitted successfully"
+                )
+            except Exception as exc:
+                self.report.num_containers_failed += 1  # Increment failed containers
+                self.report.report_failure(
+                    "Failed to process Dremio container",
+                    f"Failed to process container {'.'.join(container.path)}.{container.resource_name}: {exc}",
+                )
 
         # Process Datasets
         datasets = self.dremio_catalog.get_datasets()
 
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_dataset = {
-                executor.submit(self.process_dataset, dataset): dataset
-                for dataset in datasets
-            }
-
-            for future in as_completed(future_to_dataset):
-                dataset_info = future_to_dataset[future]
-                try:
-                    yield from future.result()
-                    logger.info(
-                        f"Dremio dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name} emitted successfully"
-                    )
-                except Exception as exc:
-                    self.report.num_datasets_failed = +1
-                    self.report.report_failure(
-                        "Failed to process Dremio dataset",
-                        f"Failed to process dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name}: {exc}",
-                    )
+        for dataset_info in datasets:
+            try:
+                yield from self.process_dataset(dataset_info)
+                logger.info(
+                    f"Dremio dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name} emitted successfully"
+                )
+            except Exception as exc:
+                self.report.num_datasets_failed += 1  # Increment failed containers
+                self.report.report_failure(
+                    "Failed to process Dremio dataset",
+                    f"Failed to process dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name}: {exc}",
+                )
 
         # Optionally Process Query Lineage
         if self.config.include_query_lineage:
@@ -310,23 +304,14 @@ class DremioSource(StatefulIngestionSourceBase):
         # Process Glossary Terms
         glossary_terms = self.dremio_catalog.get_glossary_terms()
 
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_glossary_term = {
-                executor.submit(
-                    self.process_glossary_term, glossary_term
-                ): glossary_term
-                for glossary_term in glossary_terms
-            }
-
-            for future in as_completed(future_to_glossary_term):
-                glossary_term_info = future_to_glossary_term[future]
-                try:
-                    yield from future.result()
-                except Exception as exc:
-                    self.report.report_failure(
-                        "Failed to process Glossary terms",
-                        f"Failed to process glossary term {glossary_term_info.glossary_term}: {exc}",
-                    )
+        for glossary_term in glossary_terms:
+            try:
+                yield from self.process_glossary_term(glossary_term)
+            except Exception as exc:
+                self.report.report_failure(
+                    "Failed to process Glossary terms",
+                    f"Failed to process glossary term {glossary_term.glossary_term}: {exc}",
+                )
 
         # Generate workunit for aggregated SQL parsing results
         for mcp in self.sql_parsing_aggregator.gen_metadata():
@@ -342,9 +327,7 @@ class DremioSource(StatefulIngestionSourceBase):
         container_urn = self.dremio_aspects.get_container_urn(
             path=container_info.path, name=container_info.container_name
         )
-        self.stale_entity_removal_handler.add_entity_to_state(
-            type="container", urn=container_urn
-        )
+
         yield from self.dremio_aspects.populate_container_mcp(
             container_urn, container_info
         )
@@ -363,12 +346,6 @@ class DremioSource(StatefulIngestionSourceBase):
             name=f"dremio.{schema_str}.{dataset_info.resource_name}".lower(),
             env=self.config.env,
             platform_instance=self.config.platform_instance,
-        )
-
-        # Mark the entity as scanned
-        self.stale_entity_removal_handler.add_entity_to_state(
-            type="dataset",
-            urn=dataset_urn,
         )
 
         for dremio_mcp in self.dremio_aspects.populate_dataset_mcp(
@@ -435,12 +412,6 @@ class DremioSource(StatefulIngestionSourceBase):
         """
         Process a Dremio container and generate metadata workunits.
         """
-
-        glossary_term_urn = glossary_term_info.urn
-
-        self.stale_entity_removal_handler.add_entity_to_state(
-            type="glossaryTerm", urn=glossary_term_urn
-        )
 
         yield from self.dremio_aspects.populate_glossary_term_mcp(glossary_term_info)
 
@@ -610,7 +581,7 @@ class DremioSource(StatefulIngestionSourceBase):
 
 
 def _sql_dialect(platform: str) -> str:
-    return "trino"
+    return "drill"
 
 
 datahub.sql_parsing.sqlglot_utils._get_dialect_str = _sql_dialect

@@ -5,67 +5,18 @@ import certifi
 from pydantic import Field, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-from datahub.metadata.schema_classes import FabricTypeClass
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 
-class ProfileConfig(GEProfilingConfig):
-    partition_profiling_enabled: bool = Field(
-        default=False,
-        description="Partition profiling disabled for Dremio.",
-    )
-    include_field_median_value: bool = Field(
-        default=False,
-        description="Median causes a number of issues in Dremio.",
-    )
-    query_timeout: int = Field(
-        default=300, description="Time before cancelling Dremio profiling query"
-    )
-
-    row_count: bool = True
-    column_count: bool = True
-    sample_values: bool = True
-
-
-class DremioSourceMapping(ConfigModel):
-    platform: Optional[str] = Field(
-        default=None,
-        description="Source connection made by Dremio (e.g. S3, Snowflake)",
-    )
-    platform_name: Optional[str] = Field(
-        default=None,
-        description="Alias of platform in Dremio connection",
-    )
-    platform_instance: Optional[str] = Field(
-        default=None,
-        description="Platform instance of source connection in Datahub",
-    )
-    dremio_source_type: Optional[str] = Field(
-        default=None,
-        description="Source connection made by Dremio (e.g. S3, Snowflake)",
-    )
-    env: Optional[str] = Field(
-        default=FabricTypeClass.PROD,
-        description="ENV in Datahub of source connection made by Dremio (e.g. PROD)",
-    )
-    root_path: Optional[str] = Field(
-        default=None,
-        description="Root path of source - Extracted from Dremio API",
-        hidden_from_docs=True,
-    )
-    database_name: Optional[str] = Field(
-        default=None,
-        description="Database of source - Extracted from Dremio API",
-        hidden_from_docs=True,
-    )
-
-
-class DremioSourceConfig(ConfigModel, StatefulIngestionConfigBase):
-
-    # Dremio Connection Details
+class DremioConnectionConfig(ConfigModel):
     hostname: Optional[str] = Field(
         default=None,
         description="Hostname or IP Address of the Dremio server",
@@ -106,33 +57,94 @@ class DremioSourceConfig(ConfigModel, StatefulIngestionConfigBase):
         description="Path to SSL certificates",
     )
 
-    # Dremio Cloud specific configs
     is_dremio_cloud: Optional[bool] = Field(
         default=False,
         description="Whether this is a Dremio Cloud instance",
     )
+
     dremio_cloud_region: Literal["US", "EMEA"] = Field(
         default="US",
         description="Dremio Cloud region ('US' or 'EMEA')",
     )
 
-    # DataHub Environment details
-    env: str = Field(
-        default=FabricTypeClass.PROD,
-        description="Environment to use in namespace when constructing URNs.",
+    @validator("authentication_method")
+    def validate_auth_method(cls, value):
+        allowed_methods = ["password", "PAT"]
+        if value not in allowed_methods:
+            raise ValueError(
+                f"authentication_method must be one of {allowed_methods}",
+            )
+        return value
+
+    @validator("password")
+    def validate_password(cls, value, values):
+        if values.get("authentication_method") == "PAT" and not value:
+            raise ValueError(
+                "Password (Personal Access Token) is required when using PAT authentication",
+            )
+        return value
+
+
+class ProfileConfig(GEProfilingConfig):
+    partition_profiling_enabled: bool = Field(
+        default=False,
+        description="Partition profiling disabled for Dremio.",
+    )
+    include_field_median_value: bool = Field(
+        default=False,
+        description="Median causes a number of issues in Dremio.",
+    )
+    query_timeout: int = Field(
+        default=300, description="Time before cancelling Dremio profiling query"
     )
 
+    row_count: bool = True
+    column_count: bool = True
+    sample_values: bool = True
+
+
+class DremioSourceMapping(EnvConfigMixin, ConfigModel):
+    platform: Optional[str] = Field(
+        default=None,
+        description="Source connection made by Dremio (e.g. S3, Snowflake)",
+    )
+    platform_name: Optional[str] = Field(
+        default=None,
+        description="Alias of platform in Dremio connection",
+    )
     platform_instance: Optional[str] = Field(
         default=None,
-        description="The instance of the platform that all assets produced by this recipe belong to. "
-        "This should be unique within the platform. "
-        "See https://datahubproject.io/docs/platform-instances/ for more details.",
+        description="Platform instance of source connection in Datahub",
     )
+    dremio_source_type: Optional[str] = Field(
+        default=None,
+        description="Source connection made by Dremio (e.g. S3, Snowflake)",
+    )
+
+    root_path: Optional[str] = Field(
+        default=None,
+        description="Root path of source - Extracted from Dremio API",
+        hidden_from_docs=True,
+    )
+    database_name: Optional[str] = Field(
+        default=None,
+        description="Database of source - Extracted from Dremio API",
+        hidden_from_docs=True,
+    )
+
+
+class DremioSourceConfig(
+    DremioConnectionConfig,
+    StatefulIngestionConfigBase,
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+):
 
     domain: Optional[str] = Field(
         default=None,
         description="Domain for all source objects.",
     )
+
     source_mappings: Optional[List[DremioSourceMapping]] = Field(
         default=None,
         description="Mappings from Dremio sources to DataHub platforms and datasets.",
@@ -146,6 +158,11 @@ class DremioSourceConfig(ConfigModel, StatefulIngestionConfigBase):
     dataset_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for schemas to filter",
+    )
+
+    usage: BaseUsageConfig = Field(
+        description="The usage config to use when generating usage statistics",
+        default=BaseUsageConfig(),
     )
 
     # Profiling
@@ -178,20 +195,3 @@ class DremioSourceConfig(ConfigModel, StatefulIngestionConfigBase):
         default=True,
         description="Whether to include copy lineage",
     )
-
-    @validator("authentication_method")
-    def validate_auth_method(cls, value):
-        allowed_methods = ["password", "PAT"]
-        if value not in allowed_methods:
-            raise ValueError(
-                f"authentication_method must be one of {allowed_methods}",
-            )
-        return value
-
-    @validator("password")
-    def validate_password(cls, value, values):
-        if values.get("authentication_method") == "PAT" and not value:
-            raise ValueError(
-                "Password (Personal Access Token) is required when using PAT authentication",
-            )
-        return value
