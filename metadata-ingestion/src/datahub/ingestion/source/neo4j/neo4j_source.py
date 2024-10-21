@@ -167,7 +167,9 @@ class Neo4jSource(Source):
     def add_tag_to_dataset(
         self, table_name: str, tag_name: str
     ) -> MetadataChangeProposalWrapper:
-        graph = DataHubGraph(DatahubClientConfig())
+        graph = DataHubGraph(
+            DatahubClientConfig(server=self.ctx.pipeline_config.sink.config["server"])
+        )
         dataset_urn = make_dataset_urn(
             platform=self.config.platform, name=table_name, env=self.config.environment
         )
@@ -316,7 +318,6 @@ class Neo4jSource(Source):
                 yield MetadataWorkUnit(
                     id=row["key"],
                     mcp_raw=self.generate_neo4j_object(
-                        # mcp=self.generate_neo4j_object(
                         columns=row["property_data_types"],
                         dataset=row["key"],
                         platform=self.config.platform,
