@@ -116,7 +116,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -131,22 +131,9 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_original_dep,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_swap,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:cbb029e2b8617593670a5a2d4e5cb614adaad41ce9477dc27c3ccb63c6610609"
-                },
-                {
-                    "auditStamp": {
-                        "time": 1707182625000,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "created": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_staging,PROD)",
-                    "type": "TRANSFORMED",
-                    "query": "urn:li:query:9ba7be854f955903210f30f63b3d629d419870f2c36227d7a0f2b942b8bed5f5"
+                    "query": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500"
                 }
             ]
         }
@@ -154,13 +141,31 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:436c86f2bb9bd26e463ea3d788a8e5bd9129fc29bad537969875f7d190977c60",
+    "entityUrn": "urn:li:query:6f71602f39d01a39b3f8bd411c74c5ac08dc4b90bc3d49b257089acb19fa8559",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_swap,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_backup,PROD)"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
             "statement": {
-                "value": "CREATE TABLE foo_staging AS\nSELECT\n  f.a,\n  d.b\nFROM foo AS f\nJOIN foo_dep AS d\n  USING (c)",
+                "value": "ALTER TABLE dev.public.person_info_swap SWAP WITH dev.public.person_info",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -177,64 +182,144 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:6a36b0c60f59b6f3bb912d5150a607f89154a3f85bfb02cbca02b0a02e49dc2b",
-    "changeType": "UPSERT",
-    "aspectName": "querySubjects",
-    "aspect": {
-        "json": {
-            "subjects": [
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_staging,PROD)"
-                },
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_backup,PROD)"
-                }
-            ]
-        }
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:436c86f2bb9bd26e463ea3d788a8e5bd9129fc29bad537969875f7d190977c60",
-    "changeType": "UPSERT",
-    "aspectName": "querySubjects",
-    "aspect": {
-        "json": {
-            "subjects": [
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo,PROD)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo,PROD),a)"
-                },
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_dep,PROD)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_dep,PROD),b)"
-                },
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_staging,PROD)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_staging,PROD),a)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_staging,PROD),b)"
-                }
-            ]
-        }
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:9ba7be854f955903210f30f63b3d629d419870f2c36227d7a0f2b942b8bed5f5",
+    "entityUrn": "urn:li:query:6f71602f39d01a39b3f8bd411c74c5ac08dc4b90bc3d49b257089acb19fa8559",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
             "statement": {
-                "value": "ALTER TABLE dev.public.foo_staging SWAP WITH dev.public.foo",
+                "value": "CREATE TABLE person_info_backup AS\nSELECT\n  *\nFROM person_info_swap",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 1707182625000,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_backup,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_swap,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:6f71602f39d01a39b3f8bd411c74c5ac08dc4b90bc3d49b257089acb19fa8559"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_swap,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD)"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:6f71602f39d01a39b3f8bd411c74c5ac08dc4b90bc3d49b257089acb19fa8559",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_incremental,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_dep,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:4b1fad909083e1ed5c47c146bd01247ed4d6295d175c34f9065b8fc6000fc7ae"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:481d0392ffeffdafd198d94e0a9f778dd722b60daa47083a32800b99ea21f86f",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_incremental,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_swap,PROD)"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:4b1fad909083e1ed5c47c146bd01247ed4d6295d175c34f9065b8fc6000fc7ae",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "statement": {
+                "value": "CREATE TABLE person_info_incremental AS\nSELECT\n  *\nFROM person_info_dep",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -251,7 +336,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_backup,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_swap,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -266,9 +351,22 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_staging,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:6a36b0c60f59b6f3bb912d5150a607f89154a3f85bfb02cbca02b0a02e49dc2b"
+                    "query": "urn:li:query:d29a1c8ed6d4d77efb290260234e5eee56f98311a5631d0a12213798077d1a68"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_incremental,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:481d0392ffeffdafd198d94e0a9f778dd722b60daa47083a32800b99ea21f86f"
                 }
             ]
         }
@@ -276,17 +374,17 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:9ba7be854f955903210f30f63b3d629d419870f2c36227d7a0f2b942b8bed5f5",
+    "entityUrn": "urn:li:query:4b1fad909083e1ed5c47c146bd01247ed4d6295d175c34f9065b8fc6000fc7ae",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
         "json": {
             "subjects": [
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_staging,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_dep,PROD)"
                 },
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_incremental,PROD)"
                 }
             ]
         }
@@ -294,46 +392,13 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:436c86f2bb9bd26e463ea3d788a8e5bd9129fc29bad537969875f7d190977c60",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:snowflake"
-        }
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:9ba7be854f955903210f30f63b3d629d419870f2c36227d7a0f2b942b8bed5f5",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:snowflake"
-        }
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:6a36b0c60f59b6f3bb912d5150a607f89154a3f85bfb02cbca02b0a02e49dc2b",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:snowflake"
-        }
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:6a36b0c60f59b6f3bb912d5150a607f89154a3f85bfb02cbca02b0a02e49dc2b",
+    "entityUrn": "urn:li:query:481d0392ffeffdafd198d94e0a9f778dd722b60daa47083a32800b99ea21f86f",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
             "statement": {
-                "value": "CREATE TABLE foo_backup AS\nSELECT\n  *\nFROM foo_staging",
+                "value": "INSERT INTO person_info_swap\nSELECT\n  *\nFROM person_info_incremental",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -350,25 +415,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:cbb029e2b8617593670a5a2d4e5cb614adaad41ce9477dc27c3ccb63c6610609",
-    "changeType": "UPSERT",
-    "aspectName": "querySubjects",
-    "aspect": {
-        "json": {
-            "subjects": [
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_original_dep,PROD)"
-                },
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo,PROD)"
-                }
-            ]
-        }
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:cbb029e2b8617593670a5a2d4e5cb614adaad41ce9477dc27c3ccb63c6610609",
+    "entityUrn": "urn:li:query:4b1fad909083e1ed5c47c146bd01247ed4d6295d175c34f9065b8fc6000fc7ae",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -379,13 +426,13 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:cbb029e2b8617593670a5a2d4e5cb614adaad41ce9477dc27c3ccb63c6610609",
+    "entityUrn": "urn:li:query:d29a1c8ed6d4d77efb290260234e5eee56f98311a5631d0a12213798077d1a68",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
             "statement": {
-                "value": "CREATE TABLE foo AS\nSELECT\n  *\nFROM foo_original_dep",
+                "value": "ALTER TABLE dev.public.person_info SWAP WITH dev.public.person_info_swap",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -401,64 +448,40 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_staging,PROD)",
+    "entityType": "query",
+    "entityUrn": "urn:li:query:481d0392ffeffdafd198d94e0a9f778dd722b60daa47083a32800b99ea21f86f",
     "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "upstreams": [
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:d29a1c8ed6d4d77efb290260234e5eee56f98311a5631d0a12213798077d1a68",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:d29a1c8ed6d4d77efb290260234e5eee56f98311a5631d0a12213798077d1a68",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
                 {
-                    "auditStamp": {
-                        "time": 1707182625000,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "created": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo,PROD)",
-                    "type": "TRANSFORMED",
-                    "query": "urn:li:query:436c86f2bb9bd26e463ea3d788a8e5bd9129fc29bad537969875f7d190977c60"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD)"
                 },
                 {
-                    "auditStamp": {
-                        "time": 1707182625000,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "created": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_dep,PROD)",
-                    "type": "TRANSFORMED",
-                    "query": "urn:li:query:436c86f2bb9bd26e463ea3d788a8e5bd9129fc29bad537969875f7d190977c60"
-                }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo,PROD),a)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_staging,PROD),a)"
-                    ],
-                    "confidenceScore": 0.2,
-                    "query": "urn:li:query:436c86f2bb9bd26e463ea3d788a8e5bd9129fc29bad537969875f7d190977c60"
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_dep,PROD),b)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.foo_staging,PROD),b)"
-                    ],
-                    "confidenceScore": 0.2,
-                    "query": "urn:li:query:436c86f2bb9bd26e463ea3d788a8e5bd9129fc29bad537969875f7d190977c60"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_swap,PROD)"
                 }
             ]
         }

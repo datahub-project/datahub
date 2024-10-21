@@ -943,8 +943,9 @@ class SqlParsingAggregator(Closeable):
         original_table = self._name_from_urn(table_rename.original_urn)
         new_table = self._name_from_urn(table_rename.new_urn)
 
-        self.add_known_query_lineage(
-            KnownQueryLineageInfo(
+        self.add_preparsed_query(
+            PreparsedQuery(
+                query_id=None,
                 query_text=table_rename.query
                 or f"--Datahub generated query text--\n"
                 f"alter table {original_table} rename to {new_table}",
@@ -973,25 +974,34 @@ class SqlParsingAggregator(Closeable):
         table1 = self._name_from_urn(table_swap.urn1)
         table2 = self._name_from_urn(table_swap.urn2)
 
-        self.add_known_query_lineage(
-            KnownQueryLineageInfo(
-                query_text=table_swap.query
-                or f"--Datahub generated query text--"
-                f"\nalter table {table1} swap with {table2}",
-                upstreams=[table_swap.urn1],
-                downstream=table_swap.urn2,
-            )
-        )
+        # NOTE: Both queries are different on purpose. Currently, we can not
+        # store (A->B) and (B->A) lineage against same query.
 
-        self.add_known_query_lineage(
-            KnownQueryLineageInfo(
-                query_text=table_swap.query
-                or f"--Datahub generated query text--\n"
-                f"alter table {table2} swap with {table1}",
-                upstreams=[table_swap.urn2],
-                downstream=table_swap.urn1,
+        # NOTE: we do not store upstreams for temp table, as that would
+        # otherwise overwrite original upstream query of temp table because
+        # currently a temporay table can have only one upstream query.
+
+        if not self.is_temp_table(table_swap.urn2):
+            self.add_preparsed_query(
+                PreparsedQuery(
+                    query_id=None,
+                    query_text=f"--Datahub generated query text--"
+                    f"\nalter table {table1} swap with {table2}",
+                    upstreams=[table_swap.urn1],
+                    downstream=table_swap.urn2,
+                )
             )
-        )
+
+        if not self.is_temp_table(table_swap.urn1):
+            self.add_preparsed_query(
+                PreparsedQuery(
+                    query_id=None,
+                    query_text=f"--Datahub generated query text--\n"
+                    f"alter table {table2} swap with {table1}",
+                    upstreams=[table_swap.urn2],
+                    downstream=table_swap.urn1,
+                )
+            )
 
     def _make_schema_resolver_for_session(
         self, session_id: str
