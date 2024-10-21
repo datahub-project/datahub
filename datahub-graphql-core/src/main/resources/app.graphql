@@ -54,6 +54,12 @@ extend type Mutation {
   Requires the 'Manage Global Settings' Platform Privilege.
   """
   updateHelpLink(input: UpdateHelpLinkInput!): Boolean!
+
+  """
+  Update the Organization Display Preferences in the UI.
+  Requires the 'Manage Organization Display Preferences' Platform Privilege.
+  """
+  updateOrganizationDisplayPreferences(input: UpdateOrganizationDisplayPreferencesInput!): Boolean!
 }
 
 """
@@ -205,6 +211,11 @@ type PlatformPrivileges {
   Whether the user can view the manage structured properties page.
   """
   viewStructuredPropertiesPage: Boolean!
+
+  """
+  Whether the user can manage Organization Display Preferences
+  """
+  manageOrganizationDisplayPreferences: Boolean!
 }
 
 """
@@ -826,6 +837,16 @@ type GlobalVisualSettings {
   The configurable help button shown in the UI
   """
   helpLink: HelpLink
+
+  """
+  The Url for a custom logo to display in the UI
+  """
+  customLogoUrl: String
+
+  """
+  A customized name for organization display preferences
+  """
+  customOrgName: String
 }
 
 """
@@ -1348,4 +1369,19 @@ input UpdateHelpLinkInput {
   The url or mailto link that this button links to
   """
   link: String
+}
+
+"""
+Input required to update the help link displayed in the UI
+"""
+input UpdateOrganizationDisplayPreferencesInput {
+  """
+  The customized organization name
+  """
+  customOrgName: String
+
+  """
+  The url of the customized logo url
+  """
+  customLogoUrl: String
 }

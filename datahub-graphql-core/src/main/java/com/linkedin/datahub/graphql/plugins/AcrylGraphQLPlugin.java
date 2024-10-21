@@ -104,6 +104,7 @@ import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.GlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateGlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateHelpLinkResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.UpdateOrganizationDisplayPreferencesResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.group.GetGroupNotificationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.group.UpdateGroupNotificationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.GetUserNotificationSettingsResolver;
@@ -435,6 +436,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "batchVerifyForm",
                     new BatchVerifyFormResolver(this.formService, this.groupService))
                 .dataFetcher("updateHelpLink", new UpdateHelpLinkResolver(this.settingsService))
+                .dataFetcher(
+                    "updateOrganizationDisplayPreferences",
+                    new UpdateOrganizationDisplayPreferencesResolver(this.settingsService))
                 .dataFetcher(
                     "updateIncident",
                     new UpdateIncidentResolver(this.entityClient, this.entityService))

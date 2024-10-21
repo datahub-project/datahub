@@ -207,6 +207,12 @@ public class PoliciesConfig {
           "Manage Monitors",
           "Create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care.");
 
+  public static final Privilege MANAGE_ORGANIZATION_DISPLAY_PREFERENCES =
+      Privilege.of(
+          "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES",
+          "Manage Organization Display Preferences",
+          "Create, update, and delete organization display preferences.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -241,7 +247,8 @@ public class PoliciesConfig {
           MANAGE_FEATURES_PRIVILEGE,
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
           MANAGE_GLOBAL_SETTINGS,
-          MANAGE_MONITORS);
+          MANAGE_MONITORS,
+          MANAGE_ORGANIZATION_DISPLAY_PREFERENCES);
 
   // Resource Privileges //
 

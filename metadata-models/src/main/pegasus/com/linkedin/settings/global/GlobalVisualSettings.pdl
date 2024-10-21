@@ -8,4 +8,14 @@ record GlobalVisualSettings {
    * The configurable help link shown in the UI
    */
    helpLink: optional HelpLink
+
+   /**
+   * The Url for a custom logo to display in the UI
+   */
+   customLogoUrl: optional string
+
+   /**
+   * A customized name for organization display preferences
+   */
+   customOrgName: optional string
 }

@@ -73,6 +73,8 @@ query getGlobalSettings {
                 label
                 link
             }
+            customLogoUrl
+            customOrgName
         }
     }
 }

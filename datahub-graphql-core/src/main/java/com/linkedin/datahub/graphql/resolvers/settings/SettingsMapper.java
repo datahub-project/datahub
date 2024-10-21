@@ -172,6 +172,13 @@ public class SettingsMapper {
       helpLink.setLink((gmsGlobalVisualSettings.getHelpLink().getLink()));
       result.setHelpLink(helpLink);
     }
+
+    if (gmsGlobalVisualSettings.hasCustomLogoUrl()) {
+      result.setCustomLogoUrl(gmsGlobalVisualSettings.getCustomLogoUrl());
+    }
+    if (gmsGlobalVisualSettings.hasCustomOrgName()) {
+      result.setCustomOrgName(gmsGlobalVisualSettings.getCustomOrgName());
+    }
     return result;
   }
 

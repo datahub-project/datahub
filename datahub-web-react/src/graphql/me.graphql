@@ -79,6 +79,7 @@ query getMe {
             viewDocumentationFormsPage
             manageStructuredProperties
             viewStructuredPropertiesPage
+            manageOrganizationDisplayPreferences
         }
     }
 }

@@ -47,7 +47,8 @@
         "MANAGE_CONNECTIONS",
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_MONITORS",
-        "GET_ENTITY_CHANGE_EVENTS"
+        "GET_ENTITY_CHANGE_EVENTS",
+        "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -248,7 +249,8 @@
         "VIEW_DOCUMENTATION_FORMS_PAGE",
         "MANAGE_FEATURES",
         "MANAGE_CONNECTIONS",
-        "MANAGE_MONITORS"
+        "MANAGE_MONITORS",
+        "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",
