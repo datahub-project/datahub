@@ -101,11 +101,18 @@ module.exports = {
         {
           label: "Automations",
           type: "category",
+          collapsed: false,
           items: [
             {
               label: "Documentation Propagation",
               type: "doc",
               id: "docs/automations/docs-propagation",
+            },
+            {
+              label: "BigQuery Metadata Sync",
+              type: "doc",
+              id: "docs/automations/bigquery-metadata-sync",
+              className: "saasOnly",
             },
             {
               label: "Snowflake Tag Sync",
