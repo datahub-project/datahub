@@ -87,7 +87,7 @@ class DremioAPIOperations:
         """Setup the session for retries and connection handling."""
         retry_strategy = Retry(
             total=self._retry_count,
-            status_forcelist=[429, 500, 502, 503, 504],
+            status_forcelist=[429, 502, 503, 504],
             method_whitelist=["HEAD", "GET", "OPTIONS", "POST"],
             backoff_factor=1,
         )
@@ -185,7 +185,6 @@ class DremioAPIOperations:
             verify=self._verify,
             timeout=self._timeout,
         )
-        print("url", self.base_url + url, self.session.headers, response.text)
         return response.json()
 
     def execute_query(self, query: str, timeout: int = 300) -> List[Dict[str, Any]]:

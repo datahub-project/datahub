@@ -72,6 +72,7 @@ QUERY_TYPES = {
     "DATA_MANIPULATION": ["INSERT INTO", "MERGE INTO", "CREATE TABLE"],
 }
 
+
 @dataclass
 class DremioContainerResponse:
     container_type: str
