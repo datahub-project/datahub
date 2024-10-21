@@ -5,7 +5,7 @@ from typing import Any, Dict
 from botocore.response import StreamingBody
 
 resource_link_database = {
-    "Name": "test-database",
+    "Name": "resource-link-test-database",
     "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
     "CreateTableDefaultPermissions": [],
     "TargetDatabase": {"CatalogId": "432143214321", "DatabaseName": "test-database"},
