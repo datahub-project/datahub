@@ -307,7 +307,7 @@
         "urn": "urn:li:dataPlatform:dremio",
         "name": "dremio",
         "displayName": "Dremio",
-        "description": "Import Tables, Databases, Schemas, and statistics from Dremio.",
+        "description": "Import Spaces, Sources, Tables and statistics from Dremio.",
         "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
         "recipe": "source:\n    type: dremio\n    config:\n        # Coordinates\n        hostname: null\n        port: null\n        # Credentials\n        authentication_method: password\n        username: null\n        password: null\n        stateful_ingestion:\n            enabled: true"
     }
