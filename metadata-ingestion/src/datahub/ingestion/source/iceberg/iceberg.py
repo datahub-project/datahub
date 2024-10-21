@@ -1,9 +1,12 @@
 import faulthandler
 import json
 import logging
+import sys
 import threading
+import traceback
 import uuid
-from time import time
+from collections import defaultdict
+from time import sleep, time
 from typing import Any, Dict, Iterable, List, Optional
 
 from pyiceberg.catalog import Catalog
@@ -88,6 +91,39 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 faulthandler.enable()
 
 
+def thread_dump():
+    """Function purely for testing purposes"""
+    # deduplicate threads with same stack trace
+    stack_traces = defaultdict(list)
+    frames = sys._current_frames()  # pylint: disable=protected-access
+
+    for t in threading.enumerate():
+        try:
+            assert t.ident is not None
+            stack_trace = "".join(traceback.format_stack(frames[t.ident]))
+        except KeyError:
+            # the thread may have been destroyed already while enumerating, in such
+            # case, skip to next thread.
+            continue
+        thread_ident_name = (t.ident, t.name)
+        stack_traces[stack_trace].append(thread_ident_name)
+
+    all_traces = ["=" * 10 + " THREAD DUMP " + "=" * 10]
+    for stack, identity in stack_traces.items():
+        ident, name = identity[0]
+        trace = "--- Thread #%s name: %s %s---\n" % (
+            ident,
+            name,
+            "and other %d threads" % (len(identity) - 1) if len(identity) > 1 else "",
+        )
+        if len(identity) > 1:
+            trace += "threads: %s\n" % identity
+        trace += stack
+        all_traces.append(trace)
+    all_traces.append("=" * 30)
+    return "\n".join(all_traces)
+
+
 @platform_name("Iceberg")
 @support_status(SupportStatus.TESTING)
 @config_class(IcebergSourceConfig)
@@ -152,6 +188,15 @@ class IcebergSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         thread_local = threading.local()
 
+        def threaded_function():
+            while True:
+                threaddump = thread_dump()
+                LOGGER.debug(threaddump)
+                sleep(60)
+
+        thread = threading.Thread(target=threaded_function, daemon=True)
+        thread.start()
+
         def _process_dataset(dataset_path):
             LOGGER.debug("Processing dataset for path %s", dataset_path)
             dataset_name = ".".join(dataset_path)
@@ -173,7 +218,6 @@ class IcebergSource(StatefulIngestionSourceBase):
                 # table = self.config.get_catalog().load_table(dataset_path)
                 self.report.report_table_load_time(time() - start_ts)
                 LOGGER.debug("Loaded table: %s", table)
-                # sleep(0.1)
                 return [*self._create_iceberg_workunit(dataset_name, table)]
             except NoSuchPropertyException as e:
                 self.report.report_warning(
