@@ -57,7 +57,7 @@ class DremioConnectionConfig(ConfigModel):
         description="Path to SSL certificates",
     )
 
-    is_dremio_cloud: Optional[bool] = Field(
+    is_dremio_cloud: bool = Field(
         default=False,
         description="Whether this is a Dremio Cloud instance",
     )

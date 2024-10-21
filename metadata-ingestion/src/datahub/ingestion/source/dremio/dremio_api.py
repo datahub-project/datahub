@@ -10,6 +10,8 @@ from typing import Any, Deque, Dict, List, Optional, Union
 from urllib.parse import quote
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
 from urllib3.exceptions import InsecureRequestWarning
 
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
@@ -41,122 +43,135 @@ class DremioAPIOperations:
         self.allow_dataset_pattern: List[str] = connection_args.dataset_pattern.allow
         self.deny_schema_pattern: List[str] = connection_args.schema_pattern.deny
         self.deny_dataset_pattern: List[str] = connection_args.dataset_pattern.deny
-        self._password: Optional[str] = connection_args.password
         self._max_workers: int = connection_args.max_workers
-        # Initialize headers after setting credentials
-        self.headers: Dict[str, str] = {}
-
+        self.is_dremio_cloud = connection_args.is_dremio_cloud
+        self.session = requests.Session()
         if connection_args.is_dremio_cloud:
-            self.is_dremio_cloud = True
-            self._is_PAT = True
-            self._verify = True
-            self.edition = DremioEdition.CLOUD
-
-            cloud_region = connection_args.dremio_cloud_region
-            self.base_url = "https://api.dremio.cloud:443/v0"
-            if cloud_region != "US":
-                self.base_url = (
-                    f"https://api.{cloud_region.lower()}.dremio.cloud:443/v0"
-                )
+            self.base_url = self._get_cloud_base_url(
+                connection_args.dremio_cloud_region
+            )
         else:
-            host = connection_args.hostname
-            port = connection_args.port
-            tls = connection_args.tls
+            self.base_url = self._get_on_prem_base_url(connection_args)
 
-            self.username: Optional[str] = connection_args.username
+        self.authenticate(connection_args)
+        self.edition = self.get_dremio_edition()
 
-            if not host:
-                raise ValueError(
-                    "Hostname must be provided for on-premises Dremio instances."
+    def get_dremio_edition(self):
+        if self.is_dremio_cloud:
+            return DremioEdition.CLOUD
+        else:
+            return (
+                DremioEdition.ENTERPRISE
+                if self.test_for_enterprise_edition()
+                else DremioEdition.COMMUNITY
+            )
+
+    def _get_cloud_base_url(self, cloud_region: str) -> str:
+        """Return the base URL for Dremio Cloud."""
+        if cloud_region == "US":
+            return "https://api.dremio.cloud:443/v0"
+        return f"https://api.{cloud_region.lower()}.dremio.cloud:443/v0"
+
+    def _get_on_prem_base_url(self, connection_args: "DremioSourceConfig") -> str:
+        """Return the base URL for on-prem Dremio."""
+        host = connection_args.hostname
+        port = connection_args.port
+        protocol = "https" if connection_args.tls else "http"
+        if not host:
+            raise ValueError(
+                "Hostname must be provided for on-premises Dremio instances."
+            )
+        return f"{protocol}://{host}:{port}/api/v3"
+
+    def _setup_session(self) -> None:
+        """Setup the session for retries and connection handling."""
+        retry_strategy = Retry(
+            total=self._retry_count,
+            status_forcelist=[429, 500, 502, 503, 504],
+            method_whitelist=["HEAD", "GET", "OPTIONS", "POST"],
+            backoff_factor=1,
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("https://", adapter)
+        self.session.mount("http://", adapter)
+        self.session.headers.update({"Content-Type": "application/json"})
+
+    def authenticate(self, connection_args: "DremioSourceConfig") -> None:
+        """Authenticate the session for Dremio, handling both cloud and on-prem cases."""
+        self._setup_session()
+
+        self._verify = (
+            True
+            if connection_args.is_dremio_cloud
+            else (
+                connection_args.tls
+                and not connection_args.disable_certificate_verification
+            )
+        )
+        if not self._verify:
+            warnings.simplefilter("ignore", InsecureRequestWarning)
+
+        # Cloud Dremio authentication using PAT
+        if self.is_dremio_cloud:
+            if not connection_args.password:
+                raise DremioAPIException(
+                    "Personal Access Token (PAT) is missing for cloud authentication."
                 )
-
-            protocol = "https" if tls else "http"
-            self.base_url = f"{protocol}://{host}:{port}/api/v3"
-
-            self.is_dremio_cloud = False
-            self._is_PAT = connection_args.authentication_method == "PAT"
-
-            self.set_connection_details(host=host, port=port, tls=tls)
-
-            self._verify = tls and not connection_args.disable_certificate_verification
-
-            if not self._verify:
-                warnings.simplefilter("ignore", InsecureRequestWarning)
-
-            self.set_credentials()
-
-            if self.test_for_enterprise_edition():
-                self.edition = DremioEdition.ENTERPRISE
-            else:
-                self.edition = DremioEdition.COMMUNITY
-
-    def set_connection_details(self, host: str, port: int, tls: bool) -> None:
-        protocol = "https" if tls else "http"
-        self.dremio_url = f"{protocol}://{host}:{port}"
-
-    def set_credentials(self) -> None:
-        if self.is_dremio_cloud and self.base_url.endswith("dremio.cloud:443/v0"):
-            # Cloud instances handle authentication differently, possibly via PAT
+            self.session.headers.update(
+                {"Authorization": f"Bearer {connection_args.password}"}
+            )
             return
 
+        # On-prem Dremio authentication (PAT or Basic Auth)
         for retry in range(1, self._retry_count + 1):
-            logger.info(f"Dremio login attempt #{retry}")
             try:
-                if self.__get_sticky_headers():
-                    logger.info("Dremio login successful.")
+                if connection_args.authentication_method == "PAT":
+                    self.session.headers.update(
+                        {
+                            "Authorization": f"Bearer {connection_args.password}",
+                        }
+                    )
                     return
+                else:
+                    assert (
+                        connection_args.username and connection_args.password
+                    ), "Username and password are required for authentication"
+                    host = connection_args.hostname
+                    port = connection_args.port
+                    protocol = "https" if connection_args.tls else "http"
+                    response = self.session.post(
+                        url=f"{protocol}://{host}:{port}/apiv2/login",
+                        data=json.dumps(
+                            {
+                                "userName": connection_args.username,
+                                "password": connection_args.password,
+                            }
+                        ),
+                        verify=self._verify,
+                        timeout=self._timeout,
+                    )
+                    response.raise_for_status()
+                    token = response.json().get("token")
+                    if token:
+                        self.session.headers.update(
+                            {"Authorization": f"_dremio{token}"}
+                        )
 
+                        return
+                    else:
+                        raise DremioAPIException("Failed to authenticate with Dremio")
             except Exception as e:
                 logger.error(f"Dremio login failed on attempt #{retry}: {e}")
-                sleep(1)  # Optional: exponential backoff can be implemented here
+                sleep(1)  # Optional: exponential backoff
 
         raise DremioAPIException(
             "Credentials cannot be refreshed. Please check your username and password."
         )
 
-    def __get_sticky_headers(self) -> bool:
-        """
-        Get authentication token and set headers.
-        Returns True if headers are set successfully, False otherwise.
-        """
-        if self._is_PAT:
-            if not self._password:
-                logger.error("Personal Access Token is missing.")
-                return False
-            self.headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self._password}",
-            }
-            return True
-        else:
-            if not self.username or not self._password:
-                logger.error("Username and password are required for authentication.")
-                return False
-            try:
-                response = self._login(
-                    headers={"Content-Type": "application/json"},
-                    data=json.dumps(
-                        {"userName": self.username, "password": self._password}
-                    ),
-                )
-                token = response.get("token")
-                if not token:
-                    logger.error("Authentication token not found in the response.")
-                    return False
-                self.headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": f"_dremio{token}",
-                }
-                return True
-            except Exception as e:
-                logger.error(f"Failed to obtain authentication headers: {e}")
-                return False
-
     def get(self, url: str) -> Dict:
         """execute a get request on dremio"""
-        response = requests.get(
+        response = self.session.get(
             url=(self.base_url + url),
-            headers=self.headers,
             verify=self._verify,
             timeout=self._timeout,
         )
@@ -164,25 +179,13 @@ class DremioAPIOperations:
 
     def post(self, url: str, data: str) -> Dict:
         """execute a get request on dremio"""
-        response = requests.post(
+        response = self.session.post(
             url=(self.base_url + url),
-            headers=self.headers,
             data=data,
             verify=self._verify,
             timeout=self._timeout,
         )
-        return response.json()
-
-    def _login(self, headers: Dict, data: str) -> Dict:
-        """execute a get request on dremio"""
-        response = requests.post(
-            url=f"{self.dremio_url}/apiv2/login",
-            headers=headers,
-            data=data,
-            verify=self._verify,
-            timeout=self._timeout,
-        )
-        response.raise_for_status()
+        print("url", self.base_url + url, self.session.headers, response.text)
         return response.json()
 
     def execute_query(self, query: str, timeout: int = 300) -> List[Dict[str, Any]]:
@@ -513,9 +516,8 @@ class DremioAPIOperations:
         return {"original_path": schema, "formatted_path": [schema]}
 
     def test_for_enterprise_edition(self):
-        response = requests.get(
+        response = self.session.get(
             url=f"{self.base_url}/catalog/privileges",
-            headers=self.headers,
             verify=self._verify,
             timeout=self._timeout,
         )
