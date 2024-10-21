@@ -4,9 +4,12 @@ from pydantic import BaseModel
 
 import datahub.metadata.schema_classes as models
 from datahub.api.entities.platformresource.platform_resource import (
+    ElasticPlatformResourceQuery,
     PlatformResource,
     PlatformResourceKey,
+    PlatformResourceSearchFields,
 )
+from datahub.utilities.search_utils import LogicalOperator
 
 
 def test_platform_resource_dict():
@@ -179,3 +182,15 @@ def test_platform_resource_base_model():
     ).encode("utf-8")
     assert platform_resource_info_mcp.aspect.value.schemaType == "JSON"
     assert platform_resource_info_mcp.aspect.value.schemaRef == TestModel.__name__
+
+
+def test_platform_resource_filters():
+
+    query = (
+        ElasticPlatformResourceQuery.create_from()
+        .group(LogicalOperator.AND)
+        .add_field_match(PlatformResourceSearchFields.PRIMARY_KEY, "test_1")
+        .add_field_match(PlatformResourceSearchFields.RESOURCE_TYPE, "server")
+        .end()
+    )
+    assert query.build() == '(primaryKey:"test_1" AND resourceType:"server")'

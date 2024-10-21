@@ -928,7 +928,6 @@ class LookerExplore:
         reporter: SourceReport,
         source_config: LookerDashboardSourceConfig,
     ) -> Optional["LookerExplore"]:  # noqa: C901
-        from datahub.ingestion.source.looker.lookml_source import _BASE_PROJECT_NAME
 
         try:
             explore = client.lookml_model_explore(model, explore_name)
@@ -1190,7 +1189,6 @@ class LookerExplore:
     ) -> Optional[List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]]:
         # We only generate MCE-s for explores that contain from clauses and do NOT contain joins
         # All other explores (passthrough explores and joins) end in correct resolution of lineage, and don't need additional nodes in the graph.
-        from datahub.ingestion.source.looker.lookml_source import _BASE_PROJECT_NAME
 
         dataset_snapshot = DatasetSnapshot(
             urn=self.get_explore_urn(config),
@@ -1203,15 +1201,19 @@ class LookerExplore:
         dataset_snapshot.aspects.append(browse_paths)
         dataset_snapshot.aspects.append(StatusClass(removed=False))
 
-        custom_properties = {}
-        if self.label is not None:
-            custom_properties["looker.explore.label"] = str(self.label)
-        if self.source_file is not None:
-            custom_properties["looker.explore.file"] = str(self.source_file)
+        custom_properties = {
+            "project": self.project_name,
+            "model": self.model_name,
+            "looker.explore.label": self.label,
+            "looker.explore.name": self.name,
+            "looker.explore.file": self.source_file,
+        }
         dataset_props = DatasetPropertiesClass(
             name=str(self.label) if self.label else LookerUtil._display_name(self.name),
             description=self.description,
-            customProperties=custom_properties,
+            customProperties={
+                k: str(v) for k, v in custom_properties.items() if v is not None
+            },
         )
         dataset_props.externalUrl = self._get_url(base_url)
 
