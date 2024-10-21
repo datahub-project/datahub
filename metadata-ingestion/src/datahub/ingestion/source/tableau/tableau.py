@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import time
@@ -304,26 +305,20 @@ class TableauConnectionConfig(ConfigModel):
             ) from e
 
 
-class GroupIngestionConfig(ConfigModel):
+class PermissionIngestionConfig(ConfigModel):
     enable_workbooks: bool = Field(
         default=True,
-        description="Whether or not to enable group ingestion for workbooks. "
+        description="Whether or not to enable group permission ingestion for workbooks. "
         "Default: True",
     )
 
     group_name_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Filter for Tableau group names when ingesting groups. "
+        description="Filter for Tableau group names when ingesting group permissions. "
         "For example, you could filter for groups that include the term 'Consumer' in their name by adding '^.*Consumer$' to the allow list."
         "By default, all groups will be ingested. "
         "You can both allow and deny groups based on their name using their name, or a Regex pattern. "
         "Deny patterns always take precedence over allow patterns. ",
-    )
-
-    displayed_capabilities: Optional[List[str]] = Field(
-        default=None,
-        description="List of Tableau permission capabilities (e.g. Read, Write, Delete) that will be displayed for each role in the custom property. "
-        "If omitted, all allowed capabilities of the group will be displayed.",
     )
 
 
@@ -488,9 +483,9 @@ class TableauConfig(
         description="When enabled, sites are added as containers and therefore visible in the folder structure within Datahub.",
     )
 
-    group_ingestion: Optional[GroupIngestionConfig] = Field(
+    permission_ingestion: Optional[PermissionIngestionConfig] = Field(
         default=None,
-        description="Configuration settings for ingesting Tableau groups as custom properties.",
+        description="Configuration settings for ingesting Tableau groups and their capabilities as custom properties.",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -2840,7 +2835,7 @@ class TableauSiteSource:
             )
 
         custom_props = None
-        if self.config.group_ingestion and self.config.group_ingestion.enable_workbooks:
+        if self.config.permission_ingestion and self.config.permission_ingestion.enable_workbooks:
             logger.debug(f"Ingest access roles of workbook-id='{workbook.get(c.LUID)}'")
             workbook_instance = self.server.workbooks.get_by_id(workbook.get(c.LUID))
             self.server.workbooks.populate_permissions(workbook_instance)
@@ -3218,25 +3213,19 @@ class TableauSiteSource:
         for group in TSC.Pager(self.server.groups):
             self.group_map[group.id] = group
 
-    def _filter_capabilities(self, capabilities):
-        if not self.config.group_ingestion:
-            return ""
+    def _get_allowed_capabilities(self, capabilities) -> List[str]:
+        if not self.config.permission_ingestion:
+            return []
 
         allowed_capabilities = [
             key for key, value in capabilities.items() if value == "Allow"
         ]
-        if self.config.group_ingestion.displayed_capabilities:
-            allowed_capabilities = [
-                value
-                for value in allowed_capabilities
-                if value in self.config.group_ingestion.displayed_capabilities
-            ]
-        return ", ".join(allowed_capabilities)
+        return allowed_capabilities
 
     def _create_workbook_properties(
         self, permissions: List[PermissionsRule]
     ) -> Optional[Dict[str, str]]:
-        if not self.config.group_ingestion:
+        if not self.config.permission_ingestion:
             return None
 
         groups = []
@@ -3246,7 +3235,7 @@ class TableauSiteSource:
                 if not group or not group.name:
                     logger.debug(f"Group {rule.grantee.id} not found in group map.")
                     continue
-                if not self.config.group_ingestion.group_name_pattern.allowed(
+                if not self.config.permission_ingestion.group_name_pattern.allowed(
                     group.name
                 ):
                     logger.info(
@@ -3254,21 +3243,18 @@ class TableauSiteSource:
                     )
                     continue
 
-                capabilities = (
-                    f" ({self._filter_capabilities(rule.capabilities)})"
-                    if self._filter_capabilities(rule.capabilities)
-                    else ""
-                )
-                groups.append(f"{group.name}{capabilities}")
+                capabilities = self._get_allowed_capabilities(rule.capabilities)
+                group = { 'group': group.name, 'capabilities': capabilities }
+                groups.append(group)
 
-        return {"groups": ", ".join(groups)} if len(groups) > 0 else None
+        return {"permissions": json.dumps(groups)} if len(groups) > 0 else None
 
     def ingest_tableau_site(self):
         # Initialise the dictionary to later look-up for chart and dashboard stat
         if self.config.extract_usage_stats:
             self._populate_usage_stat_registry()
 
-        if self.config.group_ingestion:
+        if self.config.permission_ingestion:
             self._fetch_groups()
 
         # Populate the map of database names and database hostnames to be used later to map

@@ -57,7 +57,6 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | User                        | [User (a.k.a CorpUser)](../../metamodel/entities/corpuser.md) | Optionally Extracted              |
 | Workbook                    | [Container](../../metamodel/entities/container.md)            | SubType `"Workbook"`              |
 | Tag                         | [Tag](../../metamodel/entities/tag.md)                        | Optionally Extracted              |
-| Permissions (Groups)        | [Role](../../metamodel/entities/role)                         | Optionally Extracted              |
 
 #### Lineage
 
