@@ -441,7 +441,6 @@ def default_query_results(  # noqa: C901
             include_column_lineage=True,
         ),
     ):
-
         return [
             {
                 "DOWNSTREAM_TABLE_NAME": f"TEST_DB.TEST_SCHEMA.TABLE_{op_idx}",

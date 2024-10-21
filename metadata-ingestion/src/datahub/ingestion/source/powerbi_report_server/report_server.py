@@ -126,7 +126,6 @@ def log_http_error(e: BaseException, message: str) -> Any:
 
 
 def get_response_dict(response: requests.Response, error_message: str) -> dict:
-
     result_dict: dict = {}
     try:
         response.raise_for_status()

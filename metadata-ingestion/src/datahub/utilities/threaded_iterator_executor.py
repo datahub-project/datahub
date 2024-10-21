@@ -19,7 +19,6 @@ class ThreadedIteratorExecutor:
         args_list: Iterable[Tuple[Any, ...]],
         max_workers: int,
     ) -> Generator[T, None, None]:
-
         out_q: queue.Queue[T] = queue.Queue()
 
         def _worker_wrapper(

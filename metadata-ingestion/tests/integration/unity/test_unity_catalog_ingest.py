@@ -282,7 +282,6 @@ ViewEntry = namedtuple(
 
 
 def mock_hive_sql(query):
-
     if query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` betStatusId":
         return [
             ("col_name", "betStatusId"),

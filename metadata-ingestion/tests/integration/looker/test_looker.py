@@ -1047,7 +1047,6 @@ def test_independent_soft_deleted_looks(
     mocked_client = mock.MagicMock()
 
     with mock.patch("looker_sdk.init40") as mock_sdk:
-
         mock_sdk.return_value = mocked_client
         setup_mock_look(mocked_client)
         setup_mock_soft_deleted_look(mocked_client)

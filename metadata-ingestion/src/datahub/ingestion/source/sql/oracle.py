@@ -173,7 +173,6 @@ class OracleInspectorObjectWrapper:
         ]
 
     def get_view_names(self, schema: Optional[str] = None) -> List[str]:
-
         schema = self._inspector_instance.dialect.denormalize_name(
             schema or self.default_schema_name
         )
@@ -195,7 +194,6 @@ class OracleInspectorObjectWrapper:
     def get_columns(
         self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> List[dict]:
-
         denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
             table_name
         )
@@ -339,7 +337,6 @@ class OracleInspectorObjectWrapper:
         return columns
 
     def get_table_comment(self, table_name: str, schema: Optional[str] = None) -> Dict:
-
         denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
             table_name
         )
@@ -411,7 +408,6 @@ class OracleInspectorObjectWrapper:
     def get_pk_constraint(
         self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> Dict:
-
         denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
             table_name
         )
@@ -453,7 +449,6 @@ class OracleInspectorObjectWrapper:
     def get_foreign_keys(
         self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> List:
-
         denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
             table_name
         )
@@ -535,7 +530,6 @@ class OracleInspectorObjectWrapper:
     def get_view_definition(
         self, view_name: str, schema: Optional[str] = None
     ) -> Union[str, None]:
-
         denormalized_view_name = self._inspector_instance.dialect.denormalize_name(
             view_name
         )
