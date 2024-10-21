@@ -120,6 +120,18 @@ module.exports = {
               id: "docs/automations/snowflake-tag-propagation",
               className: "saasOnly",
             },
+            {
+              label: "AI Classification",
+              type: "doc",
+              id: "docs/automations/ai-term-suggestion",
+              className: "saasOnly",
+            },
+            {
+              label: "AI Documentation",
+              type: "doc",
+              id: "docs/automations/ai-docs",
+              className: "saasOnly",
+            },
           ],
         },
         {
@@ -314,6 +326,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_6",
             "docs/managed-datahub/release-notes/v_0_3_5",
             "docs/managed-datahub/release-notes/v_0_3_4",
             "docs/managed-datahub/release-notes/v_0_3_3",
@@ -642,6 +655,7 @@ module.exports = {
         "docs/advanced/browse-paths-upgrade",
         "docs/browseV2/browse-paths-v2",
         "docs/plugins",
+        "docs/advanced/bootstrap-mcps",
       ],
     },
     {

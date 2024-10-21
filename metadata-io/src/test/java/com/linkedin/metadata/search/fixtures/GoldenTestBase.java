@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static io.datahubproject.test.search.SearchTestUtils.searchAcrossEntities;
 import static org.testng.Assert.*;
-import static org.testng.AssertJUnit.assertNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;

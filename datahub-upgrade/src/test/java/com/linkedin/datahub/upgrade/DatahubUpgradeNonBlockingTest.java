@@ -5,10 +5,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertNotNull;
 
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
+import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCPStep;
 import com.linkedin.datahub.upgrade.system.graph.vianodes.ReindexDataJobViaNodesCLL;
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateDeserializer;
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateSerializer;
@@ -22,6 +25,7 @@ import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.inject.Named;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -41,7 +45,7 @@ import org.testng.annotations.Test;
     args = {"-u", "SystemUpdateNonBlocking"})
 public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTests {
 
-  @Autowired(required = false)
+  @Autowired
   @Named("systemUpdateNonBlocking")
   private SystemUpdateNonBlocking systemUpdateNonBlocking;
 
@@ -84,8 +88,7 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
 
     ReindexDataJobViaNodesCLL cllUpgrade =
         new ReindexDataJobViaNodesCLL(opContext, mockService, mockAspectDao, true, 10, 0, 0);
-    SystemUpdateNonBlocking upgrade =
-        new SystemUpdateNonBlocking(List.of(), List.of(cllUpgrade), null);
+    SystemUpdateNonBlocking upgrade = new SystemUpdateNonBlocking(List.of(cllUpgrade), null);
     DefaultUpgradeManager manager = new DefaultUpgradeManager();
     manager.register(upgrade);
     manager.execute(
@@ -100,5 +103,24 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
                     .limit(0)
                     .aspectName("dataJobInputOutput")
                     .urnLike("urn:li:dataJob:%")));
+  }
+
+  @Test
+  public void testNonBlockingBootstrapMCP() {
+    List<BootstrapMCPStep> mcpTemplate =
+        systemUpdateNonBlocking.steps().stream()
+            .filter(update -> update instanceof BootstrapMCPStep)
+            .map(update -> (BootstrapMCPStep) update)
+            .toList();
+
+    assertFalse(mcpTemplate.isEmpty());
+    assertTrue(
+        mcpTemplate.stream().noneMatch(update -> update.getMcpTemplate().isBlocking()),
+        String.format(
+            "Found blocking step: %s (expected non-blocking only)",
+            mcpTemplate.stream()
+                .filter(update -> update.getMcpTemplate().isBlocking())
+                .map(update -> update.getMcpTemplate().getName())
+                .collect(Collectors.toSet())));
   }
 }

@@ -171,7 +171,7 @@ export const CompanyLogos = () => (
       className={clsx("mySwiper", styles.companyWrapper)}
     >
       {companies
-        .filter((company) => company.imageUrl) // Filter companies with imageUrl
+        .filter((company) => company.imageUrl && company.link) // Filter companies with imageUrl and link
         .map((company, idx) => (
           <SwiperSlide key={idx}>
             {company.link ? (

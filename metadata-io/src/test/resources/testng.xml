@@ -9,6 +9,7 @@ parallel followed by everything else.
 <suite name="metadata-io-testcontainers">
 <suite-files>
     <suite-file path="testng-search.xml"/>
+    <suite-file path="testng-cassandra.xml"/>
     <suite-file path="testng-other.xml"/>
 </suite-files>
 </suite>
