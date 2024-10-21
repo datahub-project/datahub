@@ -475,7 +475,7 @@ class PowerBiDashboardSourceConfig(
 
     extract_app: bool = pydantic.Field(
         default=False,
-        description="Whether to ingest workspace app. Default to false",
+        description="Whether to ingest workspace app. Requires DataHub server 0.14.2+.",
     )
 
     @root_validator(skip_on_failure=True)
