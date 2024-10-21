@@ -7,7 +7,7 @@
 
 Here's a table for **Concept Mapping** between Dremio and DataHub to provide a clear overview of how entities and concepts in Dremio are mapped to corresponding entities in DataHub:
 
-| **Dremio Concept** | **DataHub Entity/Aspect** | **Description** |  |
+| Source Concept | DataHub Concept | Notes |
 | --- | --- | --- | --- |
 | **Physical Dataset** | `Dataset` | A dataset directly queried from an external source without modifications. |  |
 | **Virtual Dataset** | `Dataset` | A dataset built from SQL-based transformations on other datasets. |  |
