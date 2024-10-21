@@ -162,7 +162,7 @@ export const NestedOption = ({
 
     const isImplicitlySelected = useMemo(
         () => !option.isParent && !!selectedOptions.find((o) => o.value === option.parentValue),
-        [selectedOptions, option.isParent],
+        [selectedOptions, option.isParent, option.parentValue],
     );
 
     const isParentMissingChildren = useMemo(() => !!option.isParent && !children.length, [children, option.isParent]);
@@ -192,7 +192,7 @@ export const NestedOption = ({
             if (existingSelectedOptions.has(option.value)) {
                 removeOptions([option]);
             } else {
-                //filter out the childrens of parent selection as we are allowing implicitly selection
+                // filter out the childrens of parent selection as we are allowing implicitly selection
                 const filteredOptions = selectedOptions.filter(
                     (selectedOption) => !existingChildSelectedOptions.find((o) => o.value === selectedOption.value),
                 );

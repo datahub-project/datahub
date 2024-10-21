@@ -60,7 +60,7 @@ export const ContainerSelector = ({ state, props, passStateToParent }: Component
             resolvedEntitiesData?.entities?.length; // check selected containers details has been present or not
 
         // Initialize an empty array to hold selected containers
-        let selectedContainers: Container[] = shouldPresetSelectedContainers
+        const selectedContainers: Container[] = shouldPresetSelectedContainers
             ? (resolvedEntitiesData?.entities as Container[])
             : [];
 
@@ -72,7 +72,7 @@ export const ContainerSelector = ({ state, props, passStateToParent }: Component
 
         // Update the container options by combining the initial assets and selected containers
         setContainerOptions([...initialAssets, ...selectedContainers]);
-    }, [resolvedEntitiesData, data]);
+    }, [resolvedEntitiesData, data, containers]);
 
     // Autocomplete (Search) query
     const { data: autocompleteData, loading: autoCompleteLoading } = useGetAutoCompleteMultipleResultsQuery({
