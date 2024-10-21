@@ -312,7 +312,7 @@ public class DomainExpansionRewriterTest {
                     new RelatedEntities(
                         "IsPartOf", childUrn, parentUrn, RelationshipDirection.INCOMING, null))));
 
-    BoolQueryBuilder testQuery = QueryBuilders.boolQuery();
+    BoolQueryBuilder testQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
     testQuery.filter(
         QueryBuilders.boolQuery()
             .filter(
@@ -320,9 +320,15 @@ public class DomainExpansionRewriterTest {
     testQuery.filter(QueryBuilders.boolQuery().filter(QueryBuilders.existsQuery("someField")));
     testQuery.should(
         QueryBuilders.boolQuery()
+            .minimumShouldMatch(1)
             .should(
-                QueryBuilders.boolQuery().should(QueryBuilders.termsQuery(FIELD_NAME, parentUrn))));
-    testQuery.should(QueryBuilders.boolQuery().should(QueryBuilders.existsQuery("someField")));
+                QueryBuilders.boolQuery()
+                    .minimumShouldMatch(1)
+                    .should(QueryBuilders.termsQuery(FIELD_NAME, parentUrn))));
+    testQuery.should(
+        QueryBuilders.boolQuery()
+            .minimumShouldMatch(1)
+            .should(QueryBuilders.existsQuery("someField")));
     testQuery.must(
         QueryBuilders.boolQuery()
             .must(QueryBuilders.boolQuery().must(QueryBuilders.termsQuery(FIELD_NAME, parentUrn))));
@@ -334,7 +340,7 @@ public class DomainExpansionRewriterTest {
                     .mustNot(QueryBuilders.termsQuery(FIELD_NAME, parentUrn))));
     testQuery.mustNot(QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery("someField")));
 
-    BoolQueryBuilder expectedRewrite = QueryBuilders.boolQuery();
+    BoolQueryBuilder expectedRewrite = QueryBuilders.boolQuery().minimumShouldMatch(1);
     expectedRewrite.filter(
         QueryBuilders.boolQuery()
             .filter(
@@ -344,11 +350,15 @@ public class DomainExpansionRewriterTest {
         QueryBuilders.boolQuery().filter(QueryBuilders.existsQuery("someField")));
     expectedRewrite.should(
         QueryBuilders.boolQuery()
+            .minimumShouldMatch(1)
             .should(
                 QueryBuilders.boolQuery()
+                    .minimumShouldMatch(1)
                     .should(QueryBuilders.termsQuery(FIELD_NAME, childUrn, parentUrn))));
     expectedRewrite.should(
-        QueryBuilders.boolQuery().should(QueryBuilders.existsQuery("someField")));
+        QueryBuilders.boolQuery()
+            .minimumShouldMatch(1)
+            .should(QueryBuilders.existsQuery("someField")));
     expectedRewrite.must(
         QueryBuilders.boolQuery()
             .must(

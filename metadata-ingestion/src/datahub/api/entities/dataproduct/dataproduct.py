@@ -117,7 +117,7 @@ class DataProduct(ConfigModel):
     @pydantic.validator("assets", each_item=True)
     def assets_must_be_urns(cls, v: str) -> str:
         try:
-            Urn.create_from_string(v)
+            Urn.from_string(v)
         except Exception as e:
             raise ValueError(f"asset {v} is not an urn: {e}") from e
 

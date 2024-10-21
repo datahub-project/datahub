@@ -2,7 +2,7 @@ package com.linkedin.metadata.structuredproperties.validators;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
