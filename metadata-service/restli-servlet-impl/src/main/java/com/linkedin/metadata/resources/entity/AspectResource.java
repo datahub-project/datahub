@@ -306,7 +306,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                 .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext().get())
                 .build();
 
-        Set<IngestResult> results =
+        List<IngestResult> results =
                 _entityService.ingestProposal(opContext, batch, asyncBool);
 
             for (IngestResult result : results) {

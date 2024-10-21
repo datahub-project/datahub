@@ -281,7 +281,7 @@ public class EntityController
 
   @Override
   protected List<GenericEntityV3> buildEntityList(
-      Set<IngestResult> ingestResults, boolean withSystemMetadata) {
+      Collection<IngestResult> ingestResults, boolean withSystemMetadata) {
     List<GenericEntityV3> responseList = new LinkedList<>();
 
     Map<Urn, List<IngestResult>> entityMap =

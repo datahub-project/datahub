@@ -796,7 +796,7 @@ class Scenario(BaseModel):
                             expectation.impacted_entities[impacted_entity]
                         ), f"Expected impacted entity paths to be {expectation.impacted_entities[impacted_entity]}, found {impacted_entity_paths}"
                     except Exception:
-                        breakpoint()
+                        # breakpoint()
                         raise
                     # for i in range(len(impacted_entity_paths)):
                     #     assert impacted_entity_paths[i].path == expectation.impacted_entities[impacted_entity][i].path, f"Expected impacted entity paths to be {expectation.impacted_entities[impacted_entity][i].path}, found {impacted_entity_paths[i].path}"

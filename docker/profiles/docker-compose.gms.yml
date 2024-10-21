@@ -101,6 +101,7 @@ x-datahub-gms-service: &datahub-gms-service
   environment: &datahub-gms-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
     ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:-search_config.yaml}
+    ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
   healthcheck:
     test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
     start_period: 90s
@@ -182,6 +183,7 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
     - ${DATAHUB_LOCAL_MCE_ENV:-empty2.env}
   environment: &datahub-mce-consumer-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
+    ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
 
 x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
   <<: *datahub-mce-consumer-service

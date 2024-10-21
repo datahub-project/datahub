@@ -1173,15 +1173,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * @return an {@link IngestResult} containing the results
    */
   @Override
-  public Set<IngestResult> ingestProposal(
+  public List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
     Stream<IngestResult> timeseriesIngestResults =
         ingestTimeseriesProposal(opContext, aspectsBatch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
         async ? ingestProposalAsync(aspectsBatch) : ingestProposalSync(opContext, aspectsBatch);
 
-    return Stream.concat(timeseriesIngestResults, nonTimeseriesIngestResults)
-        .collect(Collectors.toSet());
+    return Stream.concat(nonTimeseriesIngestResults, timeseriesIngestResults)
+        .collect(Collectors.toList());
   }
 
   /**
