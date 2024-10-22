@@ -12,7 +12,13 @@ from dagster import (
     TableSchemaMetadataValue,
 )
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot, StepEventStatus
-from dagster._core.snap import JobSnapshot
+
+try:
+    from dagster._core.snap import JobSnapshot  # type: ignore[attr-defined]
+except ImportError:
+    # Import changed since Dagster 1.8.12  to this -> https://github.com/dagster-io/dagster/commit/29a37d1f0260cfd112849633d1096ffc916d6c95
+    from dagster._core.snap import JobSnap as JobSnapshot
+
 from dagster._core.snap.node import OpDefSnap
 from dagster._core.storage.dagster_run import DagsterRun, DagsterRunStatsSnapshot
 from datahub.api.entities.datajob import DataFlow, DataJob
