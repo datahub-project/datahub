@@ -1,5 +1,6 @@
 import json
 import urllib
+from random import randint
 
 import pytest
 import tenacity
@@ -33,7 +34,9 @@ sleep_sec, sleep_times = get_sleep_info()
 
 
 TEST_ASSERTION_URN = "urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b"
-TEST_DATASET_URN = make_dataset_urn(platform="postgres", name="foo")
+TEST_DATASET_URN = make_dataset_urn(
+    platform="postgres", name=f"foo_{randint(10, 10000)}"
+)
 RUN_EVENT_TIMESTAMPS = [
     1643794280350,
     1643794280352,
@@ -234,6 +237,7 @@ def generate_test_data(graph_client, tmp_path_factory):
     yield str(file_name)
     print("removing assertions test data")
     delete_urns_from_file(graph_client, str(file_name))
+    graph_client.delete_entity(TEST_DATASET_URN, hard=True)
 
 
 @pytest.fixture(scope="module")
@@ -245,8 +249,6 @@ def test_run_ingestion(auth_session, generate_test_data):
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
 def _gms_get_latest_assertions_results_by_partition(auth_session):
-    urn = make_dataset_urn("postgres", "foo")
-
     # Query
     # Given the dataset
     # show me latest assertion run events grouped-by date, partition, assertionId
@@ -260,7 +262,7 @@ def _gms_get_latest_assertions_results_by_partition(auth_session):
                         "and": [
                             {
                                 "field": "asserteeUrn",
-                                "value": urn,
+                                "value": TEST_DATASET_URN,
                                 "condition": "EQUAL",
                             }
                         ]
@@ -303,7 +305,7 @@ def _gms_get_latest_assertions_results_by_partition(auth_session):
         data["value"]["table"]["rows"][0][
             data["value"]["table"]["columnNames"].index("asserteeUrn")
         ]
-        == urn
+        == TEST_DATASET_URN
     )
 
 
@@ -315,9 +317,8 @@ def test_gms_get_latest_assertions_results_by_partition(
 
 def test_gms_get_assertions_on_dataset(auth_session, test_run_ingestion):
     """lists all assertion urns including those which may not have executed"""
-    urn = make_dataset_urn("postgres", "foo")
     response = auth_session.get(
-        f"{auth_session.gms_url()}/relationships?direction=INCOMING&urn={urllib.parse.quote(urn)}&types=Asserts"
+        f"{auth_session.gms_url()}/relationships?direction=INCOMING&urn={urllib.parse.quote(TEST_DATASET_URN)}&types=Asserts"
     )
 
     response.raise_for_status()
@@ -327,8 +328,7 @@ def test_gms_get_assertions_on_dataset(auth_session, test_run_ingestion):
 
 def test_gms_get_assertions_on_dataset_field(auth_session, test_run_ingestion):
     """lists all assertion urns including those which may not have executed"""
-    dataset_urn = make_dataset_urn("postgres", "foo")
-    field_urn = make_schema_field_urn(dataset_urn, "col1")
+    field_urn = make_schema_field_urn(TEST_DATASET_URN, "col1")
     response = auth_session.get(
         f"{auth_session.gms_url()}/relationships?direction=INCOMING&urn={urllib.parse.quote(field_urn)}&types=Asserts"
     )
