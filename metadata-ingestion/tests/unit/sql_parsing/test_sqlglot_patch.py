@@ -5,6 +5,7 @@ import time
 import pytest
 import sqlglot
 import sqlglot.errors
+import sqlglot.lineage
 import sqlglot.optimizer
 
 from datahub.utilities.cooperative_timeout import (
@@ -16,18 +17,19 @@ from datahub.utilities.perf_timer import PerfTimer
 assert SQLGLOT_PATCHED
 
 
-def test_cooperative_timeout():
+def test_cooperative_timeout_sql() -> None:
     statement = sqlglot.parse_one("SELECT pg_sleep(3)", dialect="postgres")
     with pytest.raises(
         CooperativeTimeoutError
     ), PerfTimer() as timer, cooperative_timeout(timeout=0.6):
         while True:
-            assert statement.copy() is not None
+            # sql() implicitly calls copy(), which is where we check for the timeout.
+            assert statement.sql() is not None
             time.sleep(0.0001)
     assert 0.6 <= timer.elapsed_seconds() <= 1.0
 
 
-def test_scope_circular_dependency():
+def test_scope_circular_dependency() -> None:
     scope = sqlglot.optimizer.build_scope(
         sqlglot.parse_one("WITH w AS (SELECT * FROM q) SELECT * FROM w")
     )
@@ -38,3 +40,9 @@ def test_scope_circular_dependency():
 
     with pytest.raises(sqlglot.errors.OptimizeError, match="circular scope dependency"):
         list(scope.traverse())
+
+
+def test_lineage_node_subfield() -> None:
+    expression = sqlglot.parse_one("SELECT 1 AS test")
+    node = sqlglot.lineage.Node("test", expression, expression, subfield="subfield")  # type: ignore
+    assert node.subfield == "subfield"  # type: ignore
