@@ -178,7 +178,9 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                     actionType: EntityActionType.ResolvedIncident,
                 });
                 message.success({ content: 'Incident updated! .', duration: 2 });
-                refetchEntity?.();
+                setTimeout(() => {
+                    refetchEntity?.();
+                }, 3000);
                 refetch?.();
                 setIsResolvedModalVisible(false);
             })
