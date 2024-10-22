@@ -5,12 +5,10 @@ import sqlglot
 import sqlglot.expressions
 import sqlglot.lineage
 import sqlglot.optimizer.scope
+import sqlglot.optimizer.unnest_subqueries
 
 # This injects a few patches into sqlglot to add features and mitigate
 # some bugs and performance issues.
-
-assert sqlglot is not None
-
 # The diffs in this file should match the diffs declared in our fork.
 # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main
 # For a diff-formatted view, see:
@@ -68,6 +66,39 @@ def _patch_scope_traverse() -> None:
          result.append(scope)
          stack.extend(
              itertools.chain(
+""",
+    )
+
+
+def _patch_unnest_subqueries() -> None:
+    patchy.patch(
+        sqlglot.optimizer.unnest_subqueries.decorrelate,
+        """\
+@@ -261,16 +261,19 @@ def remove_aggs(node):
+         if key in group_by:
+             key.replace(nested)
+         elif isinstance(predicate, exp.EQ):
+-            parent_predicate = _replace(
+-                parent_predicate,
+-                f"({parent_predicate} AND ARRAY_CONTAINS({nested}, {column}))",
+-            )
++            if parent_predicate:
++                parent_predicate = _replace(
++                    parent_predicate,
++                    f"({parent_predicate} AND ARRAY_CONTAINS({nested}, {column}))",
++                )
+         else:
+             key.replace(exp.to_identifier("_x"))
+-            parent_predicate = _replace(
+-                parent_predicate,
+-                f"({parent_predicate} AND ARRAY_ANY({nested}, _x -> {predicate}))",
+-            )
++
++            if parent_predicate:
++                parent_predicate = _replace(
++                    parent_predicate,
++                    f"({parent_predicate} AND ARRAY_ANY({nested}, _x -> {predicate}))",
++                )
 """,
     )
 
@@ -155,6 +186,7 @@ def _patch_lineage() -> None:
 
 _patch_deepcopy()
 _patch_scope_traverse()
+_patch_unnest_subqueries()
 _patch_lineage()
 
 SQLGLOT_PATCHED = True
