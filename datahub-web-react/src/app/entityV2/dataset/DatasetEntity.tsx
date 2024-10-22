@@ -32,7 +32,6 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import SidebarLineageSection from '../shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SidebarQueryOperationsSection from '../shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
-import { SidebarCompactSchemaSection } from '../shared/containers/profile/sidebar/SidebarCompactSchemaSection';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarDatasetViewDefinitionSection } from '../shared/containers/profile/sidebar/SidebarLogicSection';
@@ -55,7 +54,6 @@ import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { TabContextType } from '../shared/types';
 import { SidebarTitleActionType, getDataProduct, getDatasetLastUpdatedMs, isOutputPort } from '../shared/utils';
 import { Preview } from './preview/Preview';
 import { OperationsTab } from './profile/OperationsTab';
@@ -275,31 +273,24 @@ export class DatasetEntity implements Entity<Dataset> {
     getSidebarSections = () => [
         { component: SidebarEntityHeader },
         { component: SidebarDatasetHeaderSection },
-        { component: StatusSection },
-        { component: SharingAssetSection },
-        { component: SidebarQueryOperationsSection },
+        { component: SidebarAboutSection },
         { component: SidebarNotesSection },
+        { component: SidebarLineageSection },
         { component: SidebarOwnerSection },
         { component: SidebarDomainSection },
         { component: DataProductSection },
-        { component: SidebarAboutSection },
-        { component: SidebarDatasetViewDefinitionSection },
-        { component: SidebarLineageSection },
+        { component: SidebarTagsSection },
+        { component: SidebarGlossaryTermsSection },
         {
             component: SidebarSiblingsSection,
             display: {
                 visible: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.siblingsSearch?.total,
             },
         },
-        { component: SidebarTagsSection },
-        { component: SidebarGlossaryTermsSection },
-        {
-            component: SidebarCompactSchemaSection,
-            display: {
-                visible: (_, contextType) =>
-                    contextType === TabContextType.SEARCH_SIDEBAR || contextType === TabContextType.LINEAGE_SIDEBAR,
-            },
-        }, // TODO: Add back once entity-level recommendations are complete.
+        { component: SidebarDatasetViewDefinitionSection },
+        { component: SidebarQueryOperationsSection },
+        { component: StatusSection },
+        { component: SharingAssetSection },
         // {
         //    component: SidebarRecommendationsSection,
         // },

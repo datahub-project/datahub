@@ -132,10 +132,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             component: SidebarEntityHeader,
         },
         {
-            component: StatusSection,
-        },
-        {
-            component: SharingAssetSection,
+            component: SidebarAboutSection,
         },
         {
             component: SidebarOwnerSection,
@@ -147,13 +144,16 @@ export class DataFlowEntity implements Entity<DataFlow> {
             component: DataProductSection,
         },
         {
-            component: SidebarAboutSection,
-        },
-        {
             component: SidebarGlossaryTermsSection,
         },
         {
             component: SidebarTagsSection,
+        },
+        {
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
         },
     ];
 

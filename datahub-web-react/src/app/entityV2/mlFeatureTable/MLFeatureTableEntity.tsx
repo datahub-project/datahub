@@ -113,10 +113,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             component: SidebarEntityHeader,
         },
         {
-            component: StatusSection,
-        },
-        {
-            component: SharingAssetSection,
+            component: SidebarAboutSection,
         },
         {
             component: SidebarOwnerSection,
@@ -128,13 +125,16 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             component: DataProductSection,
         },
         {
-            component: SidebarAboutSection,
+            component: SidebarTagsSection,
         },
         {
             component: SidebarGlossaryTermsSection,
         },
         {
-            component: SidebarTagsSection,
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
         },
     ];
 

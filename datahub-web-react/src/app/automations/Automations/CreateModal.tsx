@@ -17,6 +17,7 @@ import {
 } from './components';
 
 import { automationType as aiTermClassificationActionType } from '../recipes/glossaryTerm/glossaryTermAI';
+import { useIsFormDisabled } from './hooks';
 
 const SelectAutomationType = ({ setAutomation }: any) => {
     const {
@@ -56,6 +57,9 @@ type AutomationCreateModalProps = {
 export const AutomationCreateModal = ({ isOpen, setIsOpen }: AutomationCreateModalProps) => {
     const { type, typeTemplate, recipe, setAutomationType, setFormState, createAutomation } = useAutomationContext();
     const [showYaml, setShowYaml] = useState(false);
+
+    // Check if the form is disabled
+    const isDisabled = useIsFormDisabled(recipe);
 
     // Close the modal util
     const closeModal = () => {
@@ -112,10 +116,12 @@ export const AutomationCreateModal = ({ isOpen, setIsOpen }: AutomationCreateMod
                     <div>
                         {showForm || (showYaml && <Button onClick={goBack}>Back</Button>)}
                         <Button onClick={closeModal}>Cancel</Button>
-                        <Button type="primary" onClick={formInfo.submitFn}>
+                    </div>
+                    {type ? (
+                        <Button type="primary" onClick={formInfo.submitFn} disabled={isDisabled}>
                             {formInfo.submitContent}
                         </Button>
-                    </div>
+                    ) : null}
                 </AutomationModalFooter>
             }
             onCancel={closeModal}

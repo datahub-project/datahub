@@ -48,4 +48,5 @@ public class FeatureFlags {
   private boolean schemaFieldLineageIgnoreStatus = false;
   private boolean showDatasetFeaturesSearchSortOptions = false;
   private boolean showManageStructuredProperties = false;
+  private boolean showNavBarRedesign = false;
 }

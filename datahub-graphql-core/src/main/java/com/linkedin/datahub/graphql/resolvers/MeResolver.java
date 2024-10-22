@@ -101,6 +101,8 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
                 AuthorizationUtils.canManageStructuredProperties(context));
             platformPrivileges.setViewStructuredPropertiesPage(
                 AuthorizationUtils.canViewStructuredPropertiesPage(context));
+            platformPrivileges.setManageOrganizationDisplayPreferences(
+                AuthorizationUtils.canManageOrganizationDisplayPreferences(context));
 
             // Settings not in OSS (yet)
             platformPrivileges.setManageGlobalSettings(

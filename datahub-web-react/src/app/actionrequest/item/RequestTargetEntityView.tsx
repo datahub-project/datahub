@@ -1,5 +1,6 @@
 import { Typography } from 'antd';
 import React from 'react';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { Link } from 'react-router-dom';
 import { ActionRequest } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -19,7 +20,10 @@ function RequestTargetEntityView({ actionRequest }: Props) {
 
     return (
         <>
-            <Link to={`/${entityRegistry.getPathName(requestTargetEntityType)}/${actionRequest.entity?.urn}`}>
+            <Link
+                to={`/${entityRegistry.getPathName(requestTargetEntityType)}/${actionRequest.entity?.urn}`}
+                style={{ color: REDESIGN_COLORS.TITLE_PURPLE }}
+            >
                 {requestTargetDisplayName}
             </Link>
             {!!actionRequest.subResource && (

@@ -3,7 +3,8 @@ import styled from 'styled-components';
 
 import type { ComponentBaseProps } from '@app/automations/types';
 import { AutomationApplyType, APPLICATION_TYPE_OPTIONS } from '@app/automations/constants';
-import { Checkbox } from 'antd';
+import { Checkbox, Tooltip } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
 
 const RadiosContainer = styled.div`
     display: grid;
@@ -39,7 +40,7 @@ export type ApplyTypeSelectorStateType = {
     applyType: AutomationApplyType;
 };
 
-export const ApplyTypeSelector = ({ state, passStateToParent }: ComponentBaseProps) => {
+export const ApplyTypeSelector = ({ state, passStateToParent, props }: ComponentBaseProps) => {
     // Defined in @app/automations/fields/index
     const { applyType } = state as ApplyTypeSelectorStateType;
     const handleRadioChange = (event) => {
@@ -52,20 +53,19 @@ export const ApplyTypeSelector = ({ state, passStateToParent }: ComponentBasePro
     return (
         <RadiosContainer>
             <RadioWrapper>
-                <div>
-                    <Checkbox
-                        id={propose.name}
-                        name="applyType"
-                        value={propose.name}
-                        checked={checked}
-                        onChange={handleRadioChange}
-                    />
-                </div>
-                <div>
-                    <label htmlFor={propose.name} aria-checked={checked}>
-                        {propose.displayName}
-                    </label>
-                </div>
+                <Checkbox
+                    id={propose.name}
+                    name="applyType"
+                    value={propose.name}
+                    checked={checked}
+                    onChange={handleRadioChange}
+                />
+                <label htmlFor={propose.name} aria-checked={checked}>
+                    {propose.displayName}
+                </label>
+                <Tooltip showArrow={false} placement="right" title={props.description}>
+                    <InfoCircleOutlined />
+                </Tooltip>
             </RadioWrapper>
         </RadiosContainer>
     );

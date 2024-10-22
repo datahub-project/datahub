@@ -146,19 +146,19 @@ export class DomainEntity implements Entity<Domain> {
             component: SidebarEntityHeader,
         },
         {
-            component: StatusSection,
+            component: SidebarAboutSection,
         },
         {
-            component: SharingAssetSection,
+            component: SidebarEntitiesSection,
         },
         {
             component: SidebarOwnerSection,
         },
         {
-            component: SidebarAboutSection,
+            component: StatusSection,
         },
         {
-            component: SidebarEntitiesSection,
+            component: SharingAssetSection,
         },
     ];
 

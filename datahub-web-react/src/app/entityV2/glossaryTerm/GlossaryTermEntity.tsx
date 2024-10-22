@@ -158,10 +158,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             component: SidebarEntityHeader,
         },
         {
-            component: StatusSection,
-        },
-        {
-            component: SharingAssetSection,
+            component: SidebarAboutSection,
         },
         {
             component: SidebarOwnerSection,
@@ -173,7 +170,10 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             },
         },
         {
-            component: SidebarAboutSection,
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
         },
     ];
 

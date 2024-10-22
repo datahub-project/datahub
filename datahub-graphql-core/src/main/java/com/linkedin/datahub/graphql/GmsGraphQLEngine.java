@@ -92,6 +92,7 @@ import com.linkedin.datahub.graphql.generated.ListGroupsResult;
 import com.linkedin.datahub.graphql.generated.ListOwnershipTypesResult;
 import com.linkedin.datahub.graphql.generated.ListQueriesResult;
 import com.linkedin.datahub.graphql.generated.ListTestsResult;
+import com.linkedin.datahub.graphql.generated.ListUsersResult;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
@@ -1928,22 +1929,35 @@ public class GmsGraphQLEngine {
                 new LoadableTypeResolver<>(
                     corpUserType,
                     (env) -> ((CorpUserInfo) env.getSource()).getManager().getUrn())));
-    builder.type(
-        "CorpUserEditableProperties",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "platforms",
-                new LoadableTypeBatchResolver<>(
-                    dataPlatformType,
-                    (env) -> {
-                      CorpUserEditableProperties properties = env.getSource();
-                      if (properties.getPlatforms() == null) {
-                        return Collections.emptyList();
-                      }
-                      return properties.getPlatforms().stream()
-                          .map(DataPlatform::getUrn)
-                          .collect(Collectors.toList());
-                    })));
+    builder
+        .type(
+            "CorpUserEditableProperties",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "platforms",
+                    new LoadableTypeBatchResolver<>(
+                        dataPlatformType,
+                        (env) -> {
+                          CorpUserEditableProperties properties = env.getSource();
+                          if (properties.getPlatforms() == null) {
+                            return Collections.emptyList();
+                          }
+                          return properties.getPlatforms().stream()
+                              .map(DataPlatform::getUrn)
+                              .collect(Collectors.toList());
+                        })))
+        .type(
+            "ListUsersResult",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "users",
+                    new LoadableTypeBatchResolver<>(
+                        corpUserType,
+                        (env) ->
+                            ((ListUsersResult) env.getSource())
+                                .getUsers().stream()
+                                    .map(CorpUser::getUrn)
+                                    .collect(Collectors.toList()))));
   }
 
   /**

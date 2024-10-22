@@ -10,7 +10,7 @@ from datahub.ingestion.graph.client import get_default_graph
 @click.option(
     "--operation",
     type=click.Choice(
-        ["create", "stop", "rollback", "start", "status"], case_sensitive=False
+        ["create", "stop", "stop-hard", "rollback", "start", "status"], case_sensitive=False
     ),
     help="The operation to perform",
     default="create",
@@ -27,6 +27,8 @@ def main(file: str, operation: str) -> None:
         if not action_pipeline_name.startswith("urn:li:dataHubAction:")
         else action_pipeline_name
     )
+
+    graph = get_default_graph()
 
     if operation == "create":
         remove_keys = ["source", "datahub"]
@@ -51,8 +53,14 @@ def main(file: str, operation: str) -> None:
                 },
             },
         }
-    elif operation == "stop":
-        print("Stopping the pipeline")
+    elif operation in {"stop", "stop-hard"}:
+        if operation == 'stop':
+            print("Stopping the pipeline")
+            pass
+        else:
+            print("Hard stopping the pipeline")
+            graph.delete(action_pipeline_urn, soft=False)
+
         query = """
         mutation stop_pipeline($urn: String!) {
           stopActionPipeline(urn: $urn)
@@ -95,9 +103,9 @@ def main(file: str, operation: str) -> None:
         }
     else:
         print("Invalid operation {}".format(operation))
-    with get_default_graph() as graph:
-        result = graph.execute_graphql(query=query, variables=variables)
-        print(result)
+
+    result = graph.execute_graphql(query=query, variables=variables)
+    print(result)
 
 
 if __name__ == "__main__":

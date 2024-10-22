@@ -96,7 +96,7 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
                         </CardEntityTitle>
                     </Tooltip>
                 ) : (
-                    <EntityTitle onClick={onClick} $titleSizePx={titleSizePx} data-testid="entity-title">
+                    <EntityTitle title={name} onClick={onClick} $titleSizePx={titleSizePx} data-testid="entity-title">
                         <SearchTextHighlighter field="name" text={name || ''} />
                     </EntityTitle>
                 )}

@@ -107,10 +107,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             component: SidebarEntityHeader,
         },
         {
-            component: StatusSection,
-        },
-        {
-            component: SharingAssetSection,
+            component: SidebarAboutSection,
         },
         {
             component: SidebarOwnerSection,
@@ -122,13 +119,16 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             component: DataProductSection,
         },
         {
-            component: SidebarAboutSection,
+            component: SidebarTagsSection,
         },
         {
             component: SidebarGlossaryTermsSection,
         },
         {
-            component: SidebarTagsSection,
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
         },
     ];
 

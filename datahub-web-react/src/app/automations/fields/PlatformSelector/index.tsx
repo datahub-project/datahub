@@ -62,10 +62,10 @@ export const PlatformSelector = ({ state, props, passStateToParent }: ComponentB
                                     preview={false}
                                     src={platform.properties?.logoUrl}
                                     placeholder
-                                    alt={platform?.name}
+                                    alt={platform?.properties?.displayName || platform?.name}
                                 />
                             ) : null}
-                            <span>{platform.name}</span>
+                            <span>{platform?.properties?.displayName || platform?.name}</span>
                         </StyledOption>
                     </Select.Option>
                 ))}
@@ -86,7 +86,7 @@ export const PlatformSelector = ({ state, props, passStateToParent }: ComponentB
             )}
             <Alert
                 type="warning"
-                message="A maximum of 10k assets can be classified using a single automation. Use optional filters to narrow down your selection set!"
+                message="Currently, a maximum of 10k assets can be classified using a single automation. Use filters to narrow down your selection set!"
                 style={{ marginTop: '0.5em' }}
             />
         </>

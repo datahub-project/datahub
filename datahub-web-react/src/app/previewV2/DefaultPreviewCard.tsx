@@ -300,6 +300,7 @@ export default function DefaultPreviewCard({
                                         <CloseOutlined size={5} /> {removeButtonText}
                                     </TransparentButton>
                                 )}
+                                <ViewInPlatform urn={urn} searchEntity={searchEntity} />
                                 {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
                                     <MoreOptionsMenuAction
                                         menuItems={headerDropdownItems}
@@ -310,7 +311,6 @@ export default function DefaultPreviewCard({
                                         actions={actions}
                                     />
                                 )}
-                                <ViewInPlatform urn={urn} searchEntity={searchEntity} />
                             </ActionsSection>
                         </ActionsAndStatusSection>
                     </RowContainer>

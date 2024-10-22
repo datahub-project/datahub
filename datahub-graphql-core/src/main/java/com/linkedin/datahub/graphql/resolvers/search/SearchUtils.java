@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FormFilter;
 import com.linkedin.datahub.graphql.generated.ScrollResults;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.generated.SearchSortInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.FormUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
@@ -441,5 +442,26 @@ public class SearchUtils {
         },
         className,
         "scrollAcrossEntities");
+  }
+
+  public static List<SortCriterion> getSortCriteria(@Nullable final SearchSortInput sortInput) {
+    List<SortCriterion> sortCriteria;
+    if (sortInput != null) {
+      if (sortInput.getSortCriteria() != null) {
+        sortCriteria =
+            sortInput.getSortCriteria().stream()
+                .map(SearchUtils::mapSortCriterion)
+                .collect(Collectors.toList());
+      } else {
+        sortCriteria =
+            sortInput.getSortCriterion() != null
+                ? Collections.singletonList(mapSortCriterion(sortInput.getSortCriterion()))
+                : new ArrayList<>();
+      }
+    } else {
+      sortCriteria = new ArrayList<>();
+    }
+
+    return sortCriteria;
   }
 }

@@ -406,6 +406,11 @@ public class AuthorizationUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_FEATURES_PRIVILEGE);
   }
 
+  public static boolean canManageOrganizationDisplayPreferences(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_ORGANIZATION_DISPLAY_PREFERENCES);
+  }
+
   public static boolean isAuthorized(
       @Nonnull QueryContext context,
       @Nonnull String resourceType,

@@ -14,7 +14,7 @@ fragment ActionInfo on ActionPipeline {
 }
 
 query listActions {
-  listActionPipelines(input: {}) {
+  listActionPipelines(input: {count: 100}) {
     start
     count
     total

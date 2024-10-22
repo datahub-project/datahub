@@ -3805,6 +3805,7 @@ export const mocks = [
                         viewDocumentationFormsPage: true,
                         manageStructuredProperties: true,
                         viewStructuredPropertiesPage: true,
+                        manageOrganizationDisplayPreferences: true,
                     },
                 },
             },
@@ -4094,6 +4095,7 @@ export const platformPrivileges: PlatformPrivileges = {
     viewDocumentationFormsPage: true,
     manageStructuredProperties: true,
     viewStructuredPropertiesPage: true,
+    manageOrganizationDisplayPreferences: true,
 };
 
 export const DomainMock1 = {

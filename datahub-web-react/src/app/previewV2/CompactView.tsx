@@ -55,7 +55,6 @@ export const HeaderContainer = styled.div`
 const HeaderContainerV2 = styled.div`
     display: flex;
     flex-direction: column;
-    align-items: start;
     width: 70%;
     flex: 1 1 auto;
     ${StyledLink} {

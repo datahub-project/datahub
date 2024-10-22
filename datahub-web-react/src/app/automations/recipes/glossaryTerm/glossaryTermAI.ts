@@ -81,8 +81,6 @@ const fields = [
         fields: [],
     }),
     getField('select_cardinality', {
-        title: 'Allowed Term Count',
-        description: 'When unchecked, limit to one term suggestion per dataset/column.',
         fields: [],
     }),
     getField('select_platforms', {

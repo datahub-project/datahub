@@ -4,6 +4,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
 import { ActionRequest, ActionRequestStatus, EntityType } from '../../../types.generated';
 import { CustomAvatar } from '../../shared/avatar';
@@ -172,7 +173,7 @@ export default function MetadataAssociationRequestItem({
     } else {
         actionResultView = (
             <>
-                <Button type="primary" onClick={acceptRequest}>
+                <Button type="primary" style={{ background: REDESIGN_COLORS.TITLE_PURPLE }} onClick={acceptRequest}>
                     <CheckOutlined />
                     Approve
                 </Button>

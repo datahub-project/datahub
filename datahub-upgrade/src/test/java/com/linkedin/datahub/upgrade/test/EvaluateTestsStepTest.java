@@ -23,11 +23,14 @@ import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.test.TestResults;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,7 +58,7 @@ public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testExecutable() {
+  public void testExecutable() throws NoSuchFieldException, IllegalAccessException {
     final EntitySearchService entitySearchService = mock(EntitySearchService.class);
     final TestEngine testEngine = mock(TestEngine.class);
     configureTestEngineMock(testEngine);
@@ -66,8 +69,13 @@ public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
         TestOperationContexts.userContextNoSearchAuthorization(
             Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
 
+    System.setProperty(EvaluateTests.EXECUTOR_QUEUE_SIZE, "1");
     EvaluateTestsStep testStep =
         new EvaluateTestsStep(opContext, entityClient, entitySearchService, testEngine);
+    ExecutorService executorSpy = spy(testStep.getExecutorService());
+    Field executorField = testStep.getClass().getDeclaredField("executorService");
+    executorField.setAccessible(true);
+    executorField.set(testStep, executorSpy);
     Function<UpgradeContext, UpgradeStepResult> fun = testStep.executable();
     final UpgradeContext upgradeContext = mock(UpgradeContext.class);
     UpgradeReport report = new DefaultUpgradeReport();
@@ -107,6 +115,7 @@ public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
     // make sure fetched two batches of charts
     assertTrue(report.lines().contains("Fetching batch 1 of chart entities"));
     assertTrue(report.lines().contains("Fetching batch 2 of chart entities"));
+    verify(executorSpy, times(3)).submit(any(Callable.class));
   }
 
   private static void configureTestEngineMock(final TestEngine mockTestEngine) {
