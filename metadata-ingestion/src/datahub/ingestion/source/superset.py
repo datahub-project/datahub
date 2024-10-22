@@ -696,6 +696,17 @@ class SupersetSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
     
+    def check_if_term_exists(self, term_urn):
+        graph = DataHubGraph(DatahubClientConfig(server=self.sink_config.get("server", ""), token=self.sink_config.get("token", "")))
+        # Query multiple aspects from entity
+        result = graph.get_entity_semityped(
+            entity_urn=term_urn,
+            aspects=["glossaryTermInfo"],
+        )
+
+        if result.get("glossaryTermInfo"):
+            return True
+        return False
 ## Ingestion for Preset Dataset
     def construct_dataset_from_dataset_data(self, dataset_data):
         dataset_response = self.get_dataset_info(dataset_data.get("id"))
@@ -750,22 +761,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     term_urn = make_term_urn(metric_name)
 
 
-                    ## TODO Turn into function
-                    def check_if_term_exists(term_urn):
-                        graph = DataHubGraph(DatahubClientConfig(server=self.sink_config.get("server", ""), token=self.sink_config.get("token", "")))
-                        # Query multiple aspects from entity
-                        result = graph.get_entity_semityped(
-                            entity_urn=term_urn,
-                            aspects=["glossaryTermInfo"],
-                        )
-
-                        print(result)
-                        if result.get("glossaryTermInfo"):
-                            #Entity exists, skip to next step
-                            return True
-                        return False
-
-                    if check_if_term_exists(term_urn):
+                    if self.check_if_term_exists(term_urn):
                         logger.info(f"Term {term_urn} already exists")
                         glossary_term_urns.append(GlossaryTermAssociationClass(urn=term_urn))
                         continue
@@ -865,7 +861,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             urn=datasource_urn,
             aspects=[self.gen_schema_metadata(datasource_urn, dataset_response), dataset_info, glossary_terms, upstream_lineage, global_tags],
         )
-        import pdb; pdb.set_trace()
         return dataset_snapshot
 
     def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
