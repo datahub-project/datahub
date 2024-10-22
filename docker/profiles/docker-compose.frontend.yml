@@ -16,7 +16,7 @@ x-datahub-frontend-service: &datahub-frontend-service
 
 x-datahub-frontend-service-dev: &datahub-frontend-service-dev
   <<: *datahub-frontend-service
-  image: ${DATAHUB_FRONTEND_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-frontend-react}:debug
+  image: ${DATAHUB_FRONTEND_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-frontend-react}:${DATAHUB_VERSION:-debug}
   ports:
     - ${DATAHUB_MAPPED_FRONTEND_DEBUG_PORT:-5002}:5002
     - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002

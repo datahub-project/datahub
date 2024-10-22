@@ -67,7 +67,9 @@ public class SearchLineageFixtureConfiguration {
 
   @Autowired private SearchConfiguration searchConfiguration;
 
-  @Autowired private CustomSearchConfiguration customSearchConfiguration;
+  @Autowired
+  @Qualifier("fixtureCustomSearchConfig")
+  private CustomSearchConfiguration customSearchConfiguration;
 
   @Bean(name = "searchLineagePrefix")
   protected String indexPrefix() {
@@ -141,7 +143,7 @@ public class SearchLineageFixtureConfiguration {
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             searchConfiguration,
-            null,
+            customSearchConfiguration,
             queryFilterRewriteChain);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(

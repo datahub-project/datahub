@@ -36,6 +36,21 @@ public class GlossaryUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
   }
 
+  // Returns whether this is a glossary entity and whether you can edit this glossary entity with
+  // the
+  // Manage all children or Manage direct children privileges
+  public static boolean canUpdateGlossaryEntity(
+      Urn targetUrn, QueryContext context, EntityClient entityClient) {
+    final boolean isGlossaryEntity =
+        targetUrn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)
+            || targetUrn.getEntityType().equals(Constants.GLOSSARY_NODE_ENTITY_NAME);
+    if (!isGlossaryEntity) {
+      return false;
+    }
+    final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, entityClient);
+    return GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, entityClient);
+  }
+
   /**
    * Returns true if the current user is able to create, delete, or move Glossary Terms and Nodes
    * under a parent Node. They can do this with either the global MANAGE_GLOSSARIES privilege, or if

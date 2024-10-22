@@ -32,12 +32,12 @@ def extract():
     ins={
         "data": In(
             dagster_type=PythonObjectDagsterType(list),
-            metadata={"datahub.inputs": [DatasetUrn("snowflake", "tableA").urn]},
+            metadata={"datahub.inputs": [DatasetUrn("snowflake", "tableA").urn()]},
         )
     },
     out={
         "result": Out(
-            metadata={"datahub.outputs": [DatasetUrn("snowflake", "tableB").urn]}
+            metadata={"datahub.outputs": [DatasetUrn("snowflake", "tableB").urn()]}
         )
     },
 )
@@ -101,6 +101,5 @@ config = DatahubDagsterSourceConfig(
     dagster_url="http://localhost:3000",
     asset_lineage_extractor=asset_lineage_extractor,
 )
-
 datahub_sensor = make_datahub_sensor(config=config)
 defs = Definitions(jobs=[do_stuff], sensors=[datahub_sensor])

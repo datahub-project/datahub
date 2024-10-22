@@ -1173,15 +1173,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * @return an {@link IngestResult} containing the results
    */
   @Override
-  public Set<IngestResult> ingestProposal(
+  public List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
     Stream<IngestResult> timeseriesIngestResults =
         ingestTimeseriesProposal(opContext, aspectsBatch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
         async ? ingestProposalAsync(aspectsBatch) : ingestProposalSync(opContext, aspectsBatch);
 
-    return Stream.concat(timeseriesIngestResults, nonTimeseriesIngestResults)
-        .collect(Collectors.toSet());
+    return Stream.concat(nonTimeseriesIngestResults, timeseriesIngestResults)
+        .collect(Collectors.toList());
   }
 
   /**
@@ -1192,11 +1192,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    */
   private Stream<IngestResult> ingestTimeseriesProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
+
     List<? extends BatchItem> unsupported =
         aspectsBatch.getItems().stream()
             .filter(
                 item ->
-                    item.getAspectSpec().isTimeseries()
+                    item.getAspectSpec() != null
+                        && item.getAspectSpec().isTimeseries()
                         && item.getChangeType() != ChangeType.UPSERT)
             .collect(Collectors.toList());
     if (!unsupported.isEmpty()) {
@@ -1212,7 +1214,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       // Create default non-timeseries aspects for timeseries aspects
       List<MCPItem> timeseriesKeyAspects =
           aspectsBatch.getMCPItems().stream()
-              .filter(item -> item.getAspectSpec().isTimeseries())
+              .filter(item -> item.getAspectSpec() != null && item.getAspectSpec().isTimeseries())
               .map(
                   item ->
                       ChangeItemImpl.builder()
@@ -1238,10 +1240,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     // Emit timeseries MCLs
-    List<Pair<ChangeItemImpl, Optional<Pair<Future<?>, Boolean>>>> timeseriesResults =
+    List<Pair<MCPItem, Optional<Pair<Future<?>, Boolean>>>> timeseriesResults =
         aspectsBatch.getItems().stream()
-            .filter(item -> item.getAspectSpec().isTimeseries())
-            .map(item -> (ChangeItemImpl) item)
+            .filter(item -> item.getAspectSpec() != null && item.getAspectSpec().isTimeseries())
+            .map(item -> (MCPItem) item)
             .map(
                 item ->
                     Pair.of(
@@ -1272,7 +1274,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     }
                   });
 
-              ChangeItemImpl request = result.getFirst();
+              MCPItem request = result.getFirst();
               return IngestResult.builder()
                   .urn(request.getUrn())
                   .request(request)
@@ -1292,7 +1294,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private Stream<IngestResult> ingestProposalAsync(AspectsBatch aspectsBatch) {
     List<? extends MCPItem> nonTimeseries =
         aspectsBatch.getMCPItems().stream()
-            .filter(item -> !item.getAspectSpec().isTimeseries())
+            .filter(item -> item.getAspectSpec() == null || !item.getAspectSpec().isTimeseries())
             .collect(Collectors.toList());
 
     List<Future<?>> futures =
@@ -1328,6 +1330,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private Stream<IngestResult> ingestProposalSync(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch) {
+
     AspectsBatchImpl nonTimeseries =
         AspectsBatchImpl.builder()
             .retrieverContext(aspectsBatch.getRetrieverContext())
@@ -1357,6 +1360,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               return IngestResult.builder()
                   .urn(item.getUrn())
                   .request(item)
+                  .result(result)
                   .publishedMCL(result.getMclFuture() != null)
                   .sqlCommitted(true)
                   .isUpdate(result.getOldValue() != null)

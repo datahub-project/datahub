@@ -26,6 +26,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     AbstractIdentifierAccessor,
     DataAccessFunctionDetail,
     IdentifierAccessor,
+    ReferencedTable,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
@@ -157,15 +158,46 @@ class AbstractDataPlatformTableCreator(ABC):
         return arguments[0], arguments[1]
 
     @staticmethod
-    def get_tokens(
+    def create_reference_table(
         arg_list: Tree,
-    ) -> List[str]:
+        table_detail: Dict[str, str],
+    ) -> Optional[ReferencedTable]:
+
         arguments: List[str] = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(arg_list)
             ),
         )
-        return arguments
+
+        logger.debug(f"Processing arguments {arguments}")
+
+        if (
+            len(arguments)
+            >= 4  # [0] is warehouse FQDN.
+            # [1] is endpoint, we are not using it.
+            # [2] is "Catalog" key
+            # [3] is catalog's value
+        ):
+            return ReferencedTable(
+                warehouse=arguments[0],
+                catalog=arguments[3],
+                # As per my observation, database and catalog names are same in M-Query
+                database=table_detail["Database"]
+                if table_detail.get("Database")
+                else arguments[3],
+                schema=table_detail["Schema"],
+                table=table_detail.get("Table") or table_detail["View"],
+            )
+        elif len(arguments) == 2:
+            return ReferencedTable(
+                warehouse=arguments[0],
+                database=table_detail["Database"],
+                schema=table_detail["Schema"],
+                table=table_detail.get("Table") or table_detail["View"],
+                catalog=None,
+            )
+
+        return None
 
     def parse_custom_sql(
         self, query: str, server: str, database: Optional[str], schema: Optional[str]
@@ -774,32 +806,22 @@ class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
 class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
     def form_qualified_table_name(
         self,
-        value_dict: Dict[Any, Any],
-        catalog_name: str,
+        table_reference: ReferencedTable,
         data_platform_pair: DataPlatformPair,
-        server: str,
     ) -> str:
-        # database and catalog names are same in M-Query
-        db_name: str = (
-            catalog_name if "Database" not in value_dict else value_dict["Database"]
-        )
-
-        schema_name: str = value_dict["Schema"]
-
-        table_name: str = value_dict["Table"]
 
         platform_detail: PlatformDetail = (
             self.platform_instance_resolver.get_platform_instance(
                 PowerBIPlatformDetail(
                     data_platform_pair=data_platform_pair,
-                    data_platform_server=server,
+                    data_platform_server=table_reference.warehouse,
                 )
             )
         )
 
         metastore: Optional[str] = None
 
-        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+        qualified_table_name: str = f"{table_reference.database}.{table_reference.schema}.{table_reference.table}"
 
         if isinstance(platform_detail, DataBricksPlatformDetail):
             metastore = platform_detail.metastore
@@ -815,7 +837,7 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         logger.debug(
             f"Processing Databrick data-access function detail {data_access_func_detail}"
         )
-        value_dict: Dict[str, str] = {}
+        table_detail: Dict[str, str] = {}
         temp_accessor: Optional[
             Union[IdentifierAccessor, AbstractIdentifierAccessor]
         ] = data_access_func_detail.identifier_accessor
@@ -823,15 +845,15 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         while temp_accessor:
             if isinstance(temp_accessor, IdentifierAccessor):
                 # Condition to handle databricks M-query pattern where table, schema and database all are present in
-                # same invoke statement
+                # the same invoke statement
                 if all(
                     element in temp_accessor.items
                     for element in ["Item", "Schema", "Catalog"]
                 ):
-                    value_dict["Schema"] = temp_accessor.items["Schema"]
-                    value_dict["Table"] = temp_accessor.items["Item"]
+                    table_detail["Schema"] = temp_accessor.items["Schema"]
+                    table_detail["Table"] = temp_accessor.items["Item"]
                 else:
-                    value_dict[temp_accessor.items["Kind"]] = temp_accessor.items[
+                    table_detail[temp_accessor.items["Kind"]] = temp_accessor.items[
                         "Name"
                     ]
 
@@ -845,42 +867,36 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
                 )
                 return Lineage.empty()
 
-        arguments = self.get_tokens(data_access_func_detail.arg_list)
-        if len(arguments) < 4:
-            logger.info(
-                f"Databricks workspace and catalog information in arguments({arguments}). "
-                f"Skipping upstream table"
+        table_reference = self.create_reference_table(
+            arg_list=data_access_func_detail.arg_list,
+            table_detail=table_detail,
+        )
+
+        if table_reference:
+            qualified_table_name: str = self.form_qualified_table_name(
+                table_reference=table_reference,
+                data_platform_pair=self.get_platform_pair(),
             )
-            return Lineage.empty()
 
-        workspace_fqdn: str = arguments[0]
+            urn = urn_creator(
+                config=self.config,
+                platform_instance_resolver=self.platform_instance_resolver,
+                data_platform_pair=self.get_platform_pair(),
+                server=table_reference.warehouse,
+                qualified_table_name=qualified_table_name,
+            )
 
-        catalog_name: str = arguments[3]
+            return Lineage(
+                upstreams=[
+                    DataPlatformTable(
+                        data_platform_pair=self.get_platform_pair(),
+                        urn=urn,
+                    )
+                ],
+                column_lineage=[],
+            )
 
-        qualified_table_name: str = self.form_qualified_table_name(
-            value_dict=value_dict,
-            catalog_name=catalog_name,
-            data_platform_pair=self.get_platform_pair(),
-            server=workspace_fqdn,
-        )
-
-        urn = urn_creator(
-            config=self.config,
-            platform_instance_resolver=self.platform_instance_resolver,
-            data_platform_pair=self.get_platform_pair(),
-            server=workspace_fqdn,
-            qualified_table_name=qualified_table_name,
-        )
-
-        return Lineage(
-            upstreams=[
-                DataPlatformTable(
-                    data_platform_pair=self.get_platform_pair(),
-                    urn=urn,
-                )
-            ],
-            column_lineage=[],
-        )
+        return Lineage.empty()
 
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.DATABRICK_SQL.value

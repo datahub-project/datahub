@@ -19,6 +19,7 @@ import com.linkedin.metadata.utils.SearchUtil;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -42,7 +43,7 @@ public class SearchUtils {
    * @return a request map
    */
   @Nonnull
-  public static Map<String, String> getRequestMap(@Nullable Filter requestParams) {
+  public static Map<String, List<String>> getRequestMap(@Nullable Filter requestParams) {
     if (requestParams == null) {
       return Collections.emptyMap();
     }
@@ -67,7 +68,7 @@ public class SearchUtils {
         });
 
     return criterionArray.stream()
-        .collect(Collectors.toMap(Criterion::getField, Criterion::getValue));
+        .collect(Collectors.toMap(Criterion::getField, Criterion::getValues));
   }
 
   public static boolean isUrn(@Nonnull String value) {

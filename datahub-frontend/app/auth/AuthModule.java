@@ -21,6 +21,7 @@ import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.util.Configuration;
 import config.ConfigurationProvider;
 import controllers.SsoCallbackController;
+import io.datahubproject.metadata.context.ValidationContext;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 
@@ -187,6 +188,7 @@ public class AuthModule extends AbstractModule {
             .authorizationContext(AuthorizationContext.builder().authorizer(Authorizer.EMPTY).build())
             .searchContext(SearchContext.EMPTY)
             .entityRegistryContext(EntityRegistryContext.builder().build(EmptyEntityRegistry.EMPTY))
+            .validationContext(ValidationContext.builder().alternateValidation(false).build())
             .build(systemAuthentication);
   }
 
