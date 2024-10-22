@@ -1153,7 +1153,7 @@ class BigQuerySchemaGenerator:
             platformSchema=MySqlDDL(tableSchema=""),
             # fields=[],
             fields=self.gen_schema_fields(columns, constraints),
-            foreignKeys=foreign_keys,
+            foreignKeys=foreign_keys if foreign_keys else None,
         )
 
         if self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser:
