@@ -1,5 +1,5 @@
 // General types
-export type SizeOptions = 'sm' | 'md' | 'lg' | 'xl';
+export type SizeOptions = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
 // Color types
 export interface Color {
