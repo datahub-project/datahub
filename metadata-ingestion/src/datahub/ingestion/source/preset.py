@@ -87,14 +87,13 @@ class PresetSource(SupersetSource):
         self.report = StaleEntityRemovalSourceReport()
 
     def login(self):
-        try:
-            login_response = requests.post(
-                f"{self.config.manager_uri}/v1/auth/",
-                json={"name": self.config.api_key, "secret": self.config.api_secret},
-            )
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to authenticate with Preset: {e}")
-            raise e
+        
+        logger.info(f"self.config is #TODO Change this to not include secrets")
+
+        login_response = requests.post(
+            f"{self.config.manager_uri}/v1/auth/",
+            json={"name": self.config.api_key, "secret": self.config.api_secret},
+        )
 
         self.access_token = login_response.json()["payload"]["access_token"]
         logger.debug("Got access token from Preset")
