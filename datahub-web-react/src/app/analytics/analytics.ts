@@ -7,17 +7,45 @@ import { loadThemeV2FromLocalStorage } from '../useIsThemeV2';
 import { Event, EventType } from './event';
 import plugins from './plugin';
 import { loadUserTitleFromLocalStorage } from '../identity/user/useUserTitle';
+import { fetchTrackingSettings } from './fetchTrackingSettings';
+import { createPluginsFromSettings } from './plugin/utils';
 
 const appName = 'datahub-react';
 
 export const THIRD_PARTY_LOGGING_KEY = 'enableThirdPartyLogging';
-
-const analytics = Analytics({
-    app: appName,
-    plugins: plugins.filter((plugin) => plugin.isEnabled).map((plugin) => plugin.plugin),
-});
-
 const { NODE_ENV } = import.meta.env;
+
+let analytics: any = null; // Global variable for analytics. Uninitialized at the start
+
+/**
+ * Fetch the tracking settings from the backend, dynamically instantiate the plugins,
+ * and initialize the Analytics instance.
+ */
+async function initializeAnalytics() {
+    const settings = await fetchTrackingSettings(); // Hypothetical GraphQL call to fetch settings
+
+    const dynamicPlugins = settings ? createPluginsFromSettings(settings) : [];
+
+    // Here we merge analytics plugins, with dynamic plugins taking precedence.
+    const allPlugins: any[] = [...plugins, ...dynamicPlugins];
+
+    const enabledPlugins = allPlugins.filter((plugin) => plugin.isEnabled).map((plugin) => plugin.plugin);
+
+    return Analytics({
+        app: appName,
+        plugins: enabledPlugins,
+    });
+}
+
+/**
+ * Ensure that the Analytics instance is initialized before using it.
+ */
+async function getAnalyticsInstance() {
+    if (!analytics) {
+        analytics = await initializeAnalytics(); // Initialize if not already done
+    }
+    return analytics;
+}
 
 export function getMergedTrackingOptions(options?: any) {
     const isThirdPartyLoggingEnabled = JSON.parse(localStorage.getItem(THIRD_PARTY_LOGGING_KEY) || 'false');
@@ -32,7 +60,10 @@ export function getMergedTrackingOptions(options?: any) {
 }
 
 export default {
-    page: (data?: PageData, options?: any, callback?: (...params: any[]) => any) => {
+    /**
+     * Track a page view event
+     */
+    page: async (data?: PageData, options?: any, callback?: (...params: any[]) => any) => {
         const isThemeV2Enabled = loadThemeV2FromLocalStorage();
         const userPersona = loadUserPersonaFromLocalStorage();
         const userTitle = loadUserTitleFromLocalStorage();
@@ -50,13 +81,20 @@ export default {
             userPersona: userPersona || undefined,
             userTitle: userTitle || undefined,
         };
+
         if (NODE_ENV === 'test' || !actorUrn) {
             return null;
         }
+
         const trackingOptions = getMergedTrackingOptions(options);
-        return analytics.page(modifiedData, trackingOptions, callback);
+        const analyticsInstance = await getAnalyticsInstance();
+        return analyticsInstance.page(modifiedData, trackingOptions, callback);
     },
-    event: (event: Event, options?: any, callback?: (...params: any[]) => any): Promise<any> => {
+
+    /**
+     * Track a custom event
+     */
+    event: async (event: Event, options?: any, callback?: (...params: any[]) => any): Promise<any> => {
         const isThemeV2Enabled = loadThemeV2FromLocalStorage();
         const userPersona = loadUserPersonaFromLocalStorage();
         const userTitle = loadUserTitleFromLocalStorage();
@@ -74,14 +112,27 @@ export default {
             userPersona: userPersona || undefined,
             userTitle: userTitle || undefined,
         };
+
         if (NODE_ENV === 'test') {
             return Promise.resolve();
         }
+
         const trackingOptions = getMergedTrackingOptions(options);
-        return analytics.track(eventTypeName, modifiedEvent, trackingOptions, callback);
+        const analyticsInstance = await getAnalyticsInstance();
+        return analyticsInstance.track(eventTypeName, modifiedEvent, trackingOptions, callback);
     },
-    identify: (userId: string, traits?: any, options?: any, callback?: ((...params: any[]) => any) | undefined) => {
+
+    /**
+     * Identify a user
+     */
+    identify: async (
+        userId: string,
+        traits?: any,
+        options?: any,
+        callback?: ((...params: any[]) => any) | undefined,
+    ) => {
         const trackingOptions = getMergedTrackingOptions(options);
-        return analytics.identify(userId, traits, trackingOptions, callback);
+        const analyticsInstance = await getAnalyticsInstance();
+        return analyticsInstance.identify(userId, traits, trackingOptions, callback);
     },
 };
