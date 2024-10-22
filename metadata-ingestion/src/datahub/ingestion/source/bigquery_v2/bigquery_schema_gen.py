@@ -495,9 +495,10 @@ class BigQuerySchemaGenerator:
                 report=self.report,
                 rate_limiter=rate_limiter,
             )
-            constraints = self.schema_api.get_table_constraints_for_dataset(
-                project_id=project_id, dataset_name=dataset_name, report=self.report
-            )
+            if self.config.include_table_constraints:
+                constraints = self.schema_api.get_table_constraints_for_dataset(
+                    project_id=project_id, dataset_name=dataset_name, report=self.report
+                )
         elif self.store_table_refs:
             # Need table_refs to calculate lineage and usage
             for table_item in self.schema_api.list_tables(dataset_name, project_id):
@@ -747,9 +748,9 @@ class BigQuerySchemaGenerator:
         project_id: str,
     ) -> Iterable[ForeignKeyConstraint]:
         table_id = f"{project_id}.{dataset_name}.{table.name}"
-        foreign_keys: List[BigqueryTableConstraint] = list(filter(
-            lambda x: x.type == "FOREIGN KEY", table_constraints
-        ))
+        foreign_keys: List[BigqueryTableConstraint] = list(
+            filter(lambda x: x.type == "FOREIGN KEY", table_constraints)
+        )
         for key, group in groupby(
             foreign_keys,
             lambda x: f"{x.referenced_project_id}.{x.referenced_dataset}.{x.referenced_table_name}",
