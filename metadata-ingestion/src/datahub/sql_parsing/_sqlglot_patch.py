@@ -7,6 +7,9 @@ import sqlglot.lineage
 import sqlglot.optimizer.scope
 import sqlglot.optimizer.unnest_subqueries
 
+from datahub.utilities.is_pytest import is_pytest_running
+from datahub.utilities.unified_diff import apply_diff
+
 # This injects a few patches into sqlglot to add features and mitigate
 # some bugs and performance issues.
 # The diffs in this file should match the diffs declared in our fork.
@@ -14,17 +17,29 @@ import sqlglot.optimizer.unnest_subqueries
 # For a diff-formatted view, see:
 # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main.diff
 
+_DEBUG_PATCHER = is_pytest_running()
 
-"""
+_apply_diff_subprocess = patchy.api._apply_patch
+
+
 def _new_apply_patch(source: str, patch_text: str, forwards: bool, name: str) -> str:
-    assert forwards
+    assert forwards, "Only forward patches are supported"
 
-    # TODO: Implement the patch
-    raise NotImplementedError
+    result = apply_diff(source, patch_text)
+
+    # TODO: When in testing mode, still run the subprocess and check that the
+    # results line up.
+    if _DEBUG_PATCHER:
+        result_subprocess = _apply_diff_subprocess(source, patch_text, forwards, name)
+        if result_subprocess != result:
+            raise ValueError(
+                f"Results from subprocess and _apply_diff do not match:\n{result_subprocess}\n{result}"
+            )
+
+    return result
 
 
 patchy.api._apply_patch = _new_apply_patch
-"""
 
 
 def _patch_deepcopy() -> None:
