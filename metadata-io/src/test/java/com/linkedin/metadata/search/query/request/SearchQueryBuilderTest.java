@@ -61,6 +61,10 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   @Qualifier("queryOperationContext")
   private OperationContext operationContext;
 
+  @Autowired
+  @Qualifier("defaultTestCustomSearchConfig")
+  private CustomSearchConfiguration customSearchConfiguration;
+
   public static SearchConfiguration testQueryConfig;
 
   static {

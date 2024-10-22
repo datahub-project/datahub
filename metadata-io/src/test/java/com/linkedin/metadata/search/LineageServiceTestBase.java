@@ -35,7 +35,6 @@ import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -102,9 +101,6 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
   @Nonnull
   protected abstract SearchConfiguration getSearchConfiguration();
-
-  @Nonnull
-  protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
 
   private SettingsBuilder settingsBuilder;
   private ElasticSearchService elasticSearchService;
@@ -211,10 +207,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             QueryFilterRewriteChain.EMPTY);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            searchClientSpy,
-            getSearchConfiguration(),
-            getCustomSearchConfiguration(),
-            QueryFilterRewriteChain.EMPTY);
+            searchClientSpy, getSearchConfiguration(), null, QueryFilterRewriteChain.EMPTY);
     ESWriteDAO writeDAO = new ESWriteDAO(searchClientSpy, getBulkProcessor(), 1);
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }

@@ -59,6 +59,18 @@ public class PoliciesConfig {
           "Manage Users & Groups",
           "Create, remove, and update users and groups on DataHub.");
 
+  static final Privilege CREATE_USERS_AND_GROUPS_PRIVILEGE =
+      Privilege.of(
+          "CREATE_USERS_AND_GROUPS",
+          "Create Users & Groups",
+          "Create users and groups on DataHub.");
+
+  static final Privilege UPDATE_USERS_AND_GROUPS_PRIVILEGE =
+      Privilege.of(
+          "UPDATE_USERS_AND_GROUPS",
+          "Update Users & Groups",
+          "Update users and groups on DataHub.");
+
   private static final Privilege VIEW_ANALYTICS_PRIVILEGE =
       Privilege.of("VIEW_ANALYTICS", "View Analytics", "View the DataHub analytics dashboard.");
 
@@ -171,12 +183,14 @@ public class PoliciesConfig {
       Privilege.of(
           "MANAGE_SYSTEM_OPERATIONS",
           "Manage System Operations",
-          "Allow access to system operations APIs and controls.");
+          "Allow access to all system operations/management APIs and controls.");
 
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
           MANAGE_USERS_AND_GROUPS_PRIVILEGE,
+          CREATE_USERS_AND_GROUPS_PRIVILEGE,
+          UPDATE_USERS_AND_GROUPS_PRIVILEGE,
           VIEW_ANALYTICS_PRIVILEGE,
           GET_ANALYTICS_PRIVILEGE,
           MANAGE_DOMAINS_PRIVILEGE,
@@ -863,13 +877,19 @@ public class PoliciesConfig {
                       .put(ApiOperation.CREATE, DENY_ACCESS)
                       .put(
                           ApiOperation.READ,
-                          Disjunctive.disjoint(VIEW_ANALYTICS_PRIVILEGE, GET_ANALYTICS_PRIVILEGE))
+                          Disjunctive.disjoint(
+                              VIEW_ANALYTICS_PRIVILEGE,
+                              GET_ANALYTICS_PRIVILEGE,
+                              MANAGE_SYSTEM_OPERATIONS_PRIVILEGE))
                       .put(ApiOperation.UPDATE, DENY_ACCESS)
                       .put(ApiOperation.DELETE, DENY_ACCESS)
                       .put(
                           ApiOperation.EXISTS,
                           Disjunctive.disjoint(
-                              VIEW_ANALYTICS_PRIVILEGE, GET_ANALYTICS_PRIVILEGE, SEARCH_PRIVILEGE))
+                              VIEW_ANALYTICS_PRIVILEGE,
+                              GET_ANALYTICS_PRIVILEGE,
+                              SEARCH_PRIVILEGE,
+                              MANAGE_SYSTEM_OPERATIONS_PRIVILEGE))
                       .build())
               .put(
                   ApiGroup.TIMESERIES,
@@ -926,13 +946,15 @@ public class PoliciesConfig {
                   ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
                       .put(
                           ApiOperation.CREATE,
-                          Disjunctive.disjoint(MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                          Disjunctive.disjoint(
+                              CREATE_USERS_AND_GROUPS_PRIVILEGE, MANAGE_USERS_AND_GROUPS_PRIVILEGE))
                       .put(
                           ApiOperation.READ,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
                       .put(
                           ApiOperation.UPDATE,
-                          Disjunctive.disjoint(MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                          Disjunctive.disjoint(
+                              UPDATE_USERS_AND_GROUPS_PRIVILEGE, MANAGE_USERS_AND_GROUPS_PRIVILEGE))
                       .put(
                           ApiOperation.DELETE,
                           Disjunctive.disjoint(MANAGE_USERS_AND_GROUPS_PRIVILEGE))
@@ -945,13 +967,15 @@ public class PoliciesConfig {
                   ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
                       .put(
                           ApiOperation.CREATE,
-                          Disjunctive.disjoint(MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                          Disjunctive.disjoint(
+                              CREATE_USERS_AND_GROUPS_PRIVILEGE, MANAGE_USERS_AND_GROUPS_PRIVILEGE))
                       .put(
                           ApiOperation.READ,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
                       .put(
                           ApiOperation.UPDATE,
-                          Disjunctive.disjoint(MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                          Disjunctive.disjoint(
+                              UPDATE_USERS_AND_GROUPS_PRIVILEGE, MANAGE_USERS_AND_GROUPS_PRIVILEGE))
                       .put(
                           ApiOperation.DELETE,
                           Disjunctive.disjoint(MANAGE_USERS_AND_GROUPS_PRIVILEGE))

@@ -1074,8 +1074,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             for upstream in all_nodes_map[dbt_name].upstream_nodes:
                 schema_nodes.add(upstream)
 
-                upstream_node = all_nodes_map[upstream]
-                if upstream_node.is_ephemeral_model():
+                upstream_node = all_nodes_map.get(upstream)
+                if upstream_node and upstream_node.is_ephemeral_model():
                     add_node_to_cll_list(upstream)
 
             cll_nodes.add(dbt_name)
@@ -1989,6 +1989,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 time=mce_builder.get_sys_time(),
                 actor=_DEFAULT_ACTOR,
             )
+            sibling_urn = node.get_urn(
+                self.config.target_platform,
+                self.config.env,
+                self.config.target_platform_instance,
+            )
             return UpstreamLineageClass(
                 upstreams=[
                     UpstreamClass(
@@ -1997,6 +2002,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         auditStamp=auditStamp,
                     )
                     for upstream in upstream_urns
+                    if not (node.node_type == "model" and upstream == sibling_urn)
                 ],
                 fineGrainedLineages=(
                     (cll or None) if self.config.include_column_lineage else None

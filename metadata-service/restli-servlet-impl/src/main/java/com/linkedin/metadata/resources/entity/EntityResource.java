@@ -1058,7 +1058,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "setWriteable"), authorizer, auth, true);
 
-    if (!isAPIAuthorized(
+    if (!isAPIOperationsAuthorized(
             opContext,
             PoliciesConfig.SET_WRITEABLE_PRIVILEGE)) {
       throw new RestLiServiceException(
@@ -1168,7 +1168,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_APPLY_RETENTION, resourceSpec.getType()), authorizer, auth, true);
 
-    if (!isAPIAuthorized(
+    if (!isAPIOperationsAuthorized(
             opContext,
             PoliciesConfig.APPLY_RETENTION_PRIVILEGE,
             resourceSpec)) {

@@ -11,15 +11,10 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
 import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
-import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
-import com.linkedin.metadata.boot.steps.IngestDataTypesStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
 import com.linkedin.metadata.boot.steps.IngestEntityTypesStep;
-import com.linkedin.metadata.boot.steps.IngestOwnershipTypesStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
-import com.linkedin.metadata.boot.steps.IngestRolesStep;
-import com.linkedin.metadata.boot.steps.IngestRootUserStep;
 import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
 import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
@@ -90,21 +85,14 @@ public class BootstrapManagerFactory {
   @Value("${bootstrap.policies.file}")
   private Resource _policiesResource;
 
-  @Value("${bootstrap.ownershipTypes.file}")
-  private Resource _ownershipTypesResource;
-
   @Bean(name = "bootstrapManager")
   @Scope("singleton")
   @Nonnull
   protected BootstrapManager createInstance(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
-    final IngestRootUserStep ingestRootUserStep = new IngestRootUserStep(_entityService);
     final IngestPoliciesStep ingestPoliciesStep =
         new IngestPoliciesStep(
             _entityService, _entitySearchService, _searchDocumentTransformer, _policiesResource);
-    final IngestRolesStep ingestRolesStep = new IngestRolesStep(_entityService, _entityRegistry);
-    final IngestDataPlatformsStep ingestDataPlatformsStep =
-        new IngestDataPlatformsStep(_entityService);
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
         new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
     final RestoreGlossaryIndices restoreGlossaryIndicesStep =
@@ -121,29 +109,21 @@ public class BootstrapManagerFactory {
         new IngestDefaultGlobalSettingsStep(_entityService);
     final WaitForSystemUpdateStep waitForSystemUpdateStep =
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
-    final IngestOwnershipTypesStep ingestOwnershipTypesStep =
-        new IngestOwnershipTypesStep(_entityService, _ownershipTypesResource);
-    final IngestDataTypesStep ingestDataTypesStep = new IngestDataTypesStep(_entityService);
     final IngestEntityTypesStep ingestEntityTypesStep = new IngestEntityTypesStep(_entityService);
 
     final List<BootstrapStep> finalSteps =
         new ArrayList<>(
             ImmutableList.of(
                 waitForSystemUpdateStep,
-                ingestRootUserStep,
                 ingestPoliciesStep,
-                ingestRolesStep,
-                ingestDataPlatformsStep,
                 ingestDataPlatformInstancesStep,
                 _ingestRetentionPoliciesStep,
-                ingestOwnershipTypesStep,
                 ingestSettingsStep,
                 restoreGlossaryIndicesStep,
                 removeClientIdAspectStep,
                 restoreDbtSiblingsIndices,
                 indexDataPlatformsStep,
                 restoreColumnLineageIndices,
-                ingestDataTypesStep,
                 ingestEntityTypesStep));
 
     return new BootstrapManager(finalSteps);
