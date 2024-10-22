@@ -2,13 +2,18 @@ import logging
 import re
 from base64 import b32decode
 from collections import defaultdict
+from itertools import groupby
 from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 
 from google.cloud.bigquery.table import TableListItem
 
 from datahub.api.entities.platformresource.platform_resource import PlatformResource
 from datahub.configuration.pattern_utils import is_schema_allowed, is_tag_allowed
-from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
+    make_tag_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import BigQueryDatasetKey, ContainerKey, ProjectIdKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -39,6 +44,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryProject,
     BigQuerySchemaApi,
     BigqueryTable,
+    BigqueryTableConstraint,
     BigqueryTableSnapshot,
     BigqueryView,
 )
@@ -76,6 +82,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BooleanType,
     BytesType,
     DateType,
+    ForeignKeyConstraint,
     MySqlDDL,
     NullType,
     NumberType,
@@ -470,6 +477,7 @@ class BigQuerySchemaGenerator:
             )
 
         columns = None
+        constraints: Optional[Dict[str, List[BigqueryTableConstraint]]] = None
 
         rate_limiter: Optional[RateLimiter] = None
         if self.config.rate_limit:
@@ -486,6 +494,9 @@ class BigQuerySchemaGenerator:
                 extract_policy_tags_from_catalog=self.config.extract_policy_tags_from_catalog,
                 report=self.report,
                 rate_limiter=rate_limiter,
+            )
+            constraints = self.schema_api.get_table_constraints_for_dataset(
+                project_id=project_id, dataset_name=dataset_name, report=self.report
             )
         elif self.store_table_refs:
             # Need table_refs to calculate lineage and usage
@@ -516,9 +527,13 @@ class BigQuerySchemaGenerator:
 
             for table in db_tables[dataset_name]:
                 table_columns = columns.get(table.name, []) if columns else []
+                table_constraints = (
+                    constraints.get(table.name, []) if constraints else []
+                )
                 table_wu_generator = self._process_table(
                     table=table,
                     columns=table_columns,
+                    constraints=table_constraints,
                     project_id=project_id,
                     dataset_name=dataset_name,
                 )
@@ -592,6 +607,7 @@ class BigQuerySchemaGenerator:
         self,
         table: BigqueryTable,
         columns: List[BigqueryColumn],
+        constraints: List[BigqueryTableConstraint],
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
@@ -634,7 +650,7 @@ class BigQuerySchemaGenerator:
                 None,
             )
         yield from self.gen_table_dataset_workunits(
-            table, columns, project_id, dataset_name
+            table, columns, constraints, project_id, dataset_name
         )
 
     def _process_view(
@@ -722,10 +738,64 @@ class BigQuerySchemaGenerator:
         else:
             return make_tag_urn(key)
 
+    # New method to generate ForeignKeyConstraint aspects
+    def gen_foreign_keys(
+        self,
+        table: BigqueryTable,
+        table_constraints: List[BigqueryTableConstraint],
+        dataset_name: str,
+        project_id: str,
+    ) -> Iterable[ForeignKeyConstraint]:
+        table_id = f"{project_id}.{dataset_name}.{table.name}"
+        foreign_keys: List[BigqueryTableConstraint] = list(filter(
+            lambda x: x.type == "FOREIGN KEY", table_constraints
+        ))
+        for key, group in groupby(
+            foreign_keys,
+            lambda x: f"{x.referenced_project_id}.{x.referenced_dataset}.{x.referenced_table_name}",
+        ):
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                platform="bigquery",
+                name=table_id,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            foreign_dataset = make_dataset_urn_with_platform_instance(
+                platform="bigquery",
+                name=key,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+            source_fields: List[str] = list()
+            referenced_fields: List[str] = list()
+
+            for item in group:
+                source_field = make_schema_field_urn(
+                    parent_urn=dataset_urn, field_path=item.field_path
+                )
+                assert item.referenced_column_name
+                referenced_field = make_schema_field_urn(
+                    parent_urn=foreign_dataset, field_path=item.referenced_column_name
+                )
+
+                source_fields.append(source_field)
+                referenced_fields.append(referenced_field)
+
+            foreign_key_aspect = ForeignKeyConstraint(
+                name=key,
+                foreignFields=referenced_fields,
+                sourceFields=source_fields,
+                foreignDataset=foreign_dataset,
+            )
+
+            yield foreign_key_aspect
+
     def gen_table_dataset_workunits(
         self,
         table: BigqueryTable,
         columns: List[BigqueryColumn],
+        table_constraints: List[BigqueryTableConstraint],
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
@@ -789,6 +859,7 @@ class BigQuerySchemaGenerator:
         yield from self.gen_dataset_workunits(
             table=table,
             columns=columns,
+            table_constraints=table_constraints,
             project_id=project_id,
             dataset_name=dataset_name,
             sub_types=sub_types,
@@ -829,6 +900,7 @@ class BigQuerySchemaGenerator:
         yield from self.gen_dataset_workunits(
             table=table,
             columns=columns,
+            table_constraints=[],
             project_id=project_id,
             dataset_name=dataset_name,
             tags_to_add=tags_to_add,
@@ -868,6 +940,7 @@ class BigQuerySchemaGenerator:
         yield from self.gen_dataset_workunits(
             table=table,
             columns=columns,
+            table_constraints=[],
             project_id=project_id,
             dataset_name=dataset_name,
             sub_types=[DatasetSubTypes.BIGQUERY_TABLE_SNAPSHOT],
@@ -878,6 +951,7 @@ class BigQuerySchemaGenerator:
         self,
         table: Union[BigqueryTable, BigqueryView, BigqueryTableSnapshot],
         columns: List[BigqueryColumn],
+        table_constraints: List[BigqueryTableConstraint],
         project_id: str,
         dataset_name: str,
         sub_types: List[str],
@@ -898,7 +972,7 @@ class BigQuerySchemaGenerator:
         )
 
         yield self.gen_schema_metadata(
-            dataset_urn, table, columns, datahub_dataset_name
+            dataset_urn, table, columns, table_constraints, datahub_dataset_name
         )
 
         dataset_properties = DatasetProperties(
@@ -968,7 +1042,17 @@ class BigQuerySchemaGenerator:
             entityUrn=dataset_urn, aspect=tags
         ).as_workunit()
 
-    def gen_schema_fields(self, columns: List[BigqueryColumn]) -> List[SchemaField]:
+    def is_primary_key(
+        self, field_path: str, constraints: List[BigqueryTableConstraint]
+    ) -> bool:
+        for constraint in constraints:
+            if constraint.field_path == field_path and constraint.type == "PRIMARY KEY":
+                return True
+        return False
+
+    def gen_schema_fields(
+        self, columns: List[BigqueryColumn], constraints: List[BigqueryTableConstraint]
+    ) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
 
         # Below line affects HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR in global scope
@@ -1029,6 +1113,7 @@ class BigQuerySchemaGenerator:
                         self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
                     isPartitioningKey=col.is_partition_column,
+                    isPartOfKey=self.is_primary_key(col.field_path, constraints),
                     nativeDataType=col.data_type,
                     description=col.comment,
                     nullable=col.is_nullable,
@@ -1046,8 +1131,19 @@ class BigQuerySchemaGenerator:
         dataset_urn: str,
         table: Union[BigqueryTable, BigqueryView, BigqueryTableSnapshot],
         columns: List[BigqueryColumn],
+        constraints: List[BigqueryTableConstraint],
         dataset_name: BigqueryTableIdentifier,
     ) -> MetadataWorkUnit:
+
+        foreign_keys: List[ForeignKeyConstraint] = []
+        # Foreign keys only make sense for tables
+        if isinstance(table, BigqueryTable):
+            foreign_keys = list(
+                self.gen_foreign_keys(
+                    table, constraints, dataset_name.dataset, dataset_name.project_id
+                )
+            )
+
         schema_metadata = SchemaMetadata(
             schemaName=str(dataset_name),
             platform=self.identifiers.make_data_platform_urn(),
@@ -1055,7 +1151,8 @@ class BigQuerySchemaGenerator:
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
             # fields=[],
-            fields=self.gen_schema_fields(columns),
+            fields=self.gen_schema_fields(columns, constraints),
+            foreignKeys=foreign_keys,
         )
 
         if self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser:
