@@ -93,6 +93,7 @@ class UnityCatalogUsageExtractor:
                                 query.query_text, "databricks", fast=True
                             )
                         )
+                        self.report.num_unique_queries = len(query_hashes)
                     table_info = self._parse_query(query, table_map)
                     if table_info is not None:
                         if self.config.include_operational_stats:
@@ -108,7 +109,6 @@ class UnityCatalogUsageExtractor:
                                     user=query.user_name,
                                     fields=[],
                                 )
-            self.report.num_unique_queries = len(query_hashes)
 
         if not self.report.num_queries:
             logger.warning("No queries found in the given time range.")
