@@ -47,7 +47,6 @@ from datahub.ingestion.source.dremio.dremio_entities import (
 )
 from datahub.ingestion.source.dremio.dremio_profiling import (
     DremioProfiler,
-    ProfileConfig,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -138,7 +137,7 @@ class DremioSource(StatefulIngestionSourceBase):
         self.dremio_catalog = DremioCatalog(dremio_api)
 
         # Initialize profiler
-        profile_config = ProfileConfig()
+        profile_config = self.config.profiling
         self.profiler = DremioProfiler(dremio_api, profile_config)
 
         # Initialize aspects

@@ -33,7 +33,7 @@ class DremioConnectionConfig(ConfigModel):
     )
 
     authentication_method: Optional[str] = Field(
-        default="password",
+        default="PAT",
         description="Authentication method: 'password' or 'PAT' (Personal Access Token)",
     )
 

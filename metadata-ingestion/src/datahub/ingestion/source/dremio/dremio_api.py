@@ -374,6 +374,26 @@ class DremioAPIOperations:
 
         return dataset_list
 
+    def get_pattern_condition(
+        self, patterns: Union[str, List[str]], field: str, allow: bool = True
+    ) -> str:
+        if not patterns:
+            return ""
+
+        if isinstance(patterns, str):
+            patterns = [patterns.upper()]
+
+        if ".*" in patterns and allow:
+            return ""
+
+        patterns = [p.upper() for p in patterns if p != ".*"]
+        if not patterns:
+            return ""
+
+        operator = "REGEXP_LIKE" if allow else "NOT REGEXP_LIKE"
+        pattern_str = "|".join(f"({p})" for p in patterns)
+        return f"AND {operator}({field}, '{pattern_str}')"
+
     def get_all_tables_and_columns(self, containers: Deque) -> List[Dict]:
         if self.edition == DremioEdition.ENTERPRISE:
             query_template = DremioSQLQueries.QUERY_DATASETS_EE
@@ -382,37 +402,19 @@ class DremioAPIOperations:
         else:
             query_template = DremioSQLQueries.QUERY_DATASETS_CE
 
-        def get_pattern_condition(
-            patterns: Union[str, List[str]], field: str, allow: bool = True
-        ) -> str:
-            if not patterns:
-                return ""
-
-            if isinstance(patterns, str):
-                patterns = [patterns.upper()]
-
-            if ".*" in patterns and allow:
-                return ""
-
-            patterns = [p.upper() for p in patterns if p != ".*"]
-            if not patterns:
-                return ""
-
-            operator = "REGEXP_LIKE" if allow else "NOT REGEXP_LIKE"
-            pattern_str = "|".join(f"({p})" for p in patterns)
-            return f"AND {operator}({field}, '{pattern_str}')"
-
         schema_field = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
         table_field = "UPPER(TABLE_NAME)"
 
-        schema_condition = get_pattern_condition(
+        schema_condition = self.get_pattern_condition(
             self.allow_schema_pattern, schema_field
         )
-        table_condition = get_pattern_condition(self.allow_dataset_pattern, table_field)
-        deny_schema_condition = get_pattern_condition(
+        table_condition = self.get_pattern_condition(
+            self.allow_dataset_pattern, table_field
+        )
+        deny_schema_condition = self.get_pattern_condition(
             self.deny_schema_pattern, schema_field, allow=False
         )
-        deny_table_condition = get_pattern_condition(
+        deny_table_condition = self.get_pattern_condition(
             self.deny_dataset_pattern, table_field, allow=False
         )
 
