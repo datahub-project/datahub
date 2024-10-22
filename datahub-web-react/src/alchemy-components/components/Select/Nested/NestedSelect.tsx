@@ -178,7 +178,7 @@ export const NestedSelect = ({
         if (onUpdate) {
             onUpdate(selectedOptions);
         }
-    }, [onUpdate, selectedOptions]);
+    }, [selectedOptions]);
 
     const handleOptionChange = useCallback(
         (option: SelectOption) => {

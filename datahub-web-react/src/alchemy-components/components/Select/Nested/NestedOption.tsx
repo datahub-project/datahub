@@ -265,7 +265,9 @@ export const NestedOption = ({
                     )}
                     <StyledCheckbox
                         checked={isImplicitlySelected || isSelected}
-                        indeterminate={areParentsSelectable && option.isParent ? undefined : isPartialSelected}
+                        indeterminate={
+                            areParentsSelectable && option.isParent ? areAnyChildrenSelected : isPartialSelected
+                        }
                         onClick={(e) => {
                             if (isImplicitlySelected) {
                                 e.preventDefault();
@@ -275,7 +277,9 @@ export const NestedOption = ({
                             e.preventDefault();
                             if (isParentMissingChildren) {
                                 loadData?.(option);
-                                // setAutoSelectChildren(true);
+                                if (!areParentsSelectable) {
+                                    setAutoSelectChildren(true);
+                                }
                             }
                             selectOption();
                         }}
