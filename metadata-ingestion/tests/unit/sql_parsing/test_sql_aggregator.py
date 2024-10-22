@@ -1,5 +1,7 @@
+import os
 import pathlib
 from datetime import datetime, timezone
+from unittest.mock import patch
 
 import pytest
 from freezegun import freeze_time
@@ -661,3 +663,23 @@ def test_basic_usage(pytestconfig: pytest.Config) -> None:
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_basic_usage.json",
     )
+
+
+def test_sql_aggreator_close_cleans_tmp(tmp_path):
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    with patch("tempfile.tempdir", str(tmp_path)):
+        aggregator = SqlParsingAggregator(
+            platform="redshift",
+            generate_lineage=False,
+            generate_usage_statistics=True,
+            generate_operations=False,
+            usage_config=BaseUsageConfig(
+                start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+                end_time=frozen_timestamp,
+            ),
+            generate_queries=True,
+            generate_query_usage_statistics=True,
+        )
+        assert len(os.listdir(tmp_path)) > 0
+        aggregator.close()
+        assert len(os.listdir(tmp_path)) == 0

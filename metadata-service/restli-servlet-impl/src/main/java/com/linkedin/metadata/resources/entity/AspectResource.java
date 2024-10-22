@@ -249,6 +249,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             .getValue().asString(StandardCharsets.UTF_8);
     String proposedValue = java.util.Optional.ofNullable(metadataChangeProposal.getAspect()).orElse(new GenericAspect())
         .getValue().asString(StandardCharsets.UTF_8);
+
     log.info("Ingest content: urn: {} value: {}", urn, proposedValue);
     final boolean asyncBool;
     if (UNSET.equals(async)) {
@@ -320,7 +321,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
         batch.getMCPItems().forEach(item ->
             log.info(
-                    "Ingestion proposal urn: {}, async: {}, value: {}",
+                    "INGEST PROPOSAL content: urn: {}, async: {}, value: {}",
                     item.getUrn(),
                     asyncBool,
                     StringUtils.abbreviate(java.util.Optional.ofNullable(item.getMetadataChangeProposal())

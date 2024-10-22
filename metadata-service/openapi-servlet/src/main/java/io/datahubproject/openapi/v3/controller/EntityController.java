@@ -13,6 +13,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
+import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -285,7 +287,9 @@ public class EntityController
 
   @Override
   protected List<GenericEntityV3> buildEntityList(
-      Collection<IngestResult> ingestResults, boolean withSystemMetadata) {
+      Collection<IngestResult> ingestResults,
+      boolean withSystemMetadata,
+      boolean isAsyncAlternateValidation) {
     List<GenericEntityV3> responseList = new LinkedList<>();
 
     Map<Urn, List<IngestResult>> entityMap =
@@ -308,7 +312,8 @@ public class EntityController
                               .build()))
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       responseList.add(
-          GenericEntityV3.builder().build(objectMapper, urnAspects.getKey(), aspectsMap));
+          GenericEntityV3.builder()
+              .build(objectMapper, urnAspects.getKey(), aspectsMap, isAsyncAlternateValidation));
     }
     return responseList;
   }
@@ -446,6 +451,19 @@ public class EntityController
           }
 
           AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).orElse(null);
+          SystemMetadata systemMetadata = null;
+          if (aspect.getValue().has("systemMetadata")) {
+            systemMetadata =
+                EntityApiUtils.parseSystemMetadata(
+                    objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata")));
+            ((ObjectNode) aspect.getValue()).remove("systemMetadata");
+          }
+          Map<String, String> headers = null;
+          if (aspect.getValue().has("headers")) {
+            headers =
+                objectMapper.convertValue(
+                    aspect.getValue().get("headers"), new TypeReference<>() {});
+          }
 
           if (opContext.getValidationContext().isAlternateValidation()) {
             ProposedItem.ProposedItemBuilder builder =
@@ -455,8 +473,12 @@ public class EntityController
                             .setEntityUrn(entityUrn)
                             .setAspectName(aspect.getKey())
                             .setEntityType(entityUrn.getEntityType())
+                            .setChangeType(ChangeType.UPSERT)
                             .setAspect(GenericRecordUtils.serializeAspect(aspect.getValue()))
-                            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata()))
+                            .setHeaders(
+                                headers != null ? new StringMap(headers) : null,
+                                SetMode.IGNORE_NULL)
+                            .setSystemMetadata(systemMetadata, SetMode.IGNORE_NULL))
                     .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
                     .entitySpec(
                         opContext
@@ -465,21 +487,6 @@ public class EntityController
                             .getEntitySpec(entityUrn.getEntityType()));
             items.add(builder.build());
           } else if (aspectSpec != null) {
-
-            SystemMetadata systemMetadata = null;
-            if (aspect.getValue().has("systemMetadata")) {
-              systemMetadata =
-                  EntityApiUtils.parseSystemMetadata(
-                      objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata")));
-              ((ObjectNode) aspect.getValue()).remove("systemMetadata");
-            }
-            Map<String, String> headers = null;
-            if (aspect.getValue().has("headers")) {
-              headers =
-                  objectMapper.convertValue(
-                      aspect.getValue().get("headers"), new TypeReference<>() {});
-            }
-
             ChangeItemImpl.ChangeItemImplBuilder builder =
                 ChangeItemImpl.builder()
                     .urn(entityUrn)

@@ -11,7 +11,7 @@ from datahub.metadata.schema_classes import CorpUserEditableInfoClass
 @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
 def test_get_aspect(mock_test_connection):
     mock_test_connection.return_value = {}
-    graph = DataHubGraph(DatahubClientConfig())
+    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
     user_urn = "urn:li:corpuser:foo"
     with patch("requests.Session.get") as mock_get:
         mock_response = Mock()

@@ -14,7 +14,7 @@ from datahub.ingestion.source.aws.sagemaker_processors.jobs import (
     job_types,
 )
 from tests.test_helpers import mce_helpers
-from tests.unit.test_sagemaker_source_stubs import (
+from tests.unit.sagemaker.test_sagemaker_source_stubs import (
     describe_endpoint_response_1,
     describe_endpoint_response_2,
     describe_feature_group_response_1,

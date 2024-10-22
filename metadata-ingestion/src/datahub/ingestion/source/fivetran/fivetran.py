@@ -28,6 +28,10 @@ from datahub.ingestion.source.fivetran.config import (
 )
 from datahub.ingestion.source.fivetran.data_classes import Connector, Job
 from datahub.ingestion.source.fivetran.fivetran_log_api import FivetranLogAPI
+from datahub.ingestion.source.fivetran.fivetran_query import (
+    MAX_JOBS_PER_CONNECTOR,
+    MAX_TABLE_LINEAGE_PER_CONNECTOR,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -72,11 +76,6 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         self.audit_log = FivetranLogAPI(self.config.fivetran_log_config)
 
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, self.ctx
-        )
-
     def _extend_lineage(self, connector: Connector, datajob: DataJob) -> None:
         input_dataset_urn_list: List[DatasetUrn] = []
         output_dataset_urn_list: List[DatasetUrn] = []
@@ -108,13 +107,21 @@ class FivetranSource(StatefulIngestionSourceBase):
                 f"Fivetran connector source type: {connector.connector_type} is not supported to mapped with Datahub dataset entity."
             )
 
-        for table_lineage in connector.table_lineage:
+        if len(connector.lineage) >= MAX_TABLE_LINEAGE_PER_CONNECTOR:
+            self.report.warning(
+                title="Table lineage truncated",
+                message=f"The connector had more than {MAX_TABLE_LINEAGE_PER_CONNECTOR} table lineage entries. "
+                f"Only the most recent {MAX_TABLE_LINEAGE_PER_CONNECTOR} entries were ingested.",
+                context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+            )
+
+        for lineage in connector.lineage:
             input_dataset_urn = DatasetUrn.create_from_ids(
                 platform_id=source_platform,
                 table_name=(
-                    f"{source_database.lower()}.{table_lineage.source_table}"
+                    f"{source_database.lower()}.{lineage.source_table}"
                     if source_database
-                    else table_lineage.source_table
+                    else lineage.source_table
                 ),
                 env=source_platform_detail.env,
                 platform_instance=source_platform_detail.platform_instance,
@@ -123,14 +130,14 @@ class FivetranSource(StatefulIngestionSourceBase):
 
             output_dataset_urn = DatasetUrn.create_from_ids(
                 platform_id=self.config.fivetran_log_config.destination_platform,
-                table_name=f"{self.audit_log.fivetran_log_database.lower()}.{table_lineage.destination_table}",
+                table_name=f"{self.audit_log.fivetran_log_database.lower()}.{lineage.destination_table}",
                 env=destination_platform_detail.env,
                 platform_instance=destination_platform_detail.platform_instance,
             )
             output_dataset_urn_list.append(output_dataset_urn)
 
             if self.config.include_column_lineage:
-                for column_lineage in table_lineage.column_lineage:
+                for column_lineage in lineage.column_lineage:
                     fine_grained_lineage.append(
                         FineGrainedLineage(
                             upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
@@ -267,6 +274,13 @@ class FivetranSource(StatefulIngestionSourceBase):
             ).as_workunit(is_primary_source=False)
 
         # Map Fivetran's job/sync history entity with Datahub's data process entity
+        if len(connector.jobs) >= MAX_JOBS_PER_CONNECTOR:
+            self.report.warning(
+                title="Not all sync history was captured",
+                message=f"The connector had more than {MAX_JOBS_PER_CONNECTOR} sync runs in the past {self.config.history_sync_lookback_period} days. "
+                f"Only the most recent {MAX_JOBS_PER_CONNECTOR} syncs were ingested.",
+                context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+            )
         for job in connector.jobs:
             dpi = self._generate_dpi_from_job(job, datajob)
             yield from self._get_dpi_workunits(job, dpi)
@@ -279,7 +293,9 @@ class FivetranSource(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

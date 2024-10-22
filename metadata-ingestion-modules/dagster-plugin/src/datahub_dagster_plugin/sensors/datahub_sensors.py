@@ -1,5 +1,6 @@
 import os
 import traceback
+import warnings
 from collections import defaultdict
 from types import ModuleType
 from typing import Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
@@ -38,7 +39,7 @@ from dagster._core.definitions.unresolved_asset_job_definition import (
 from dagster._core.events import DagsterEventType, HandledOutputData, LoadedInputData
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import SubTypesClass
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
@@ -47,6 +48,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 from datahub_dagster_plugin.client.dagster_generator import (
+    Constant,
     DagsterEnvironment,
     DagsterGenerator,
     DatahubDagsterSourceConfig,
@@ -182,7 +184,17 @@ class DatahubSensors:
         if config:
             self.config = config
         else:
-            self.config = DatahubDagsterSourceConfig()
+            # This is a temporary warning for backwards compatibility. Eventually, we'll remove this
+            # branch and make the config required.
+            warnings.warn(
+                "Using the default DataHub client config is deprecated. Pass in a config object explicitly.",
+                stacklevel=2,
+            )
+            self.config = DatahubDagsterSourceConfig(
+                datahub_client_config=DatahubClientConfig(
+                    server=Constant.DEFAULT_DATAHUB_REST_URL
+                )
+            )
         self.graph = DataHubGraph(
             self.config.datahub_client_config,
         )

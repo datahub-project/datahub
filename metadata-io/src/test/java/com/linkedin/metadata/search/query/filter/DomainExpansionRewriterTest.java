@@ -39,7 +39,8 @@ import org.opensearch.index.query.TermsQueryBuilder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class DomainExpansionRewriterTest {
+public class DomainExpansionRewriterTest
+    extends BaseQueryFilterRewriterTest<DomainExpansionRewriter> {
   private static final String FIELD_NAME = "domains.keyword";
   private final String grandParentUrn = "urn:li:domain:grand";
   private final String parentUrn = "urn:li:domain:foo";
@@ -78,12 +79,36 @@ public class DomainExpansionRewriterTest {
             null);
   }
 
+  @Override
+  OperationContext getOpContext() {
+    return opContext;
+  }
+
+  @Override
+  DomainExpansionRewriter getTestRewriter() {
+    return DomainExpansionRewriter.builder()
+        .config(QueryFilterRewriterConfiguration.ExpansionRewriterConfiguration.DEFAULT)
+        .build();
+  }
+
+  @Override
+  String getTargetField() {
+    return FIELD_NAME;
+  }
+
+  @Override
+  String getTargetFieldValue() {
+    return parentUrn;
+  }
+
+  @Override
+  Condition getTargetCondition() {
+    return Condition.DESCENDANTS_INCL;
+  }
+
   @Test
   public void testTermsQueryRewrite() {
-    DomainExpansionRewriter test =
-        DomainExpansionRewriter.builder()
-            .config(QueryFilterRewriterConfiguration.ExpansionRewriterConfiguration.DEFAULT)
-            .build();
+    DomainExpansionRewriter test = getTestRewriter();
 
     TermsQueryBuilder notTheFieldQuery = QueryBuilders.termsQuery("notTheField", parentUrn);
     assertEquals(

@@ -132,7 +132,7 @@ conn_id = datahub_rest_default  # or datahub_kafka_default
 ```
 
 | Name                       | Default value        | Description                                                                                                                                                                            |
-|----------------------------|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| -------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | enabled                    | true                 | If the plugin should be enabled.                                                                                                                                                       |
 | conn_id                    | datahub_rest_default | The name of the datahub connection you set in step 1.                                                                                                                                  |
 | cluster                    | prod                 | name of the airflow cluster                                                                                                                                                            |
@@ -190,6 +190,10 @@ These operators are supported by OpenLineage, but we haven't tested them yet:
 
 There's also a few operators (e.g. BashOperator, PythonOperator) that have custom extractors, but those extractors don't generate lineage.
 -->
+
+Known limitations:
+
+- We do not fully support operators that run multiple SQL statements at once. In these cases, we'll only capture lineage from the first SQL statement.
 
 ## Manual Lineage Annotation
 

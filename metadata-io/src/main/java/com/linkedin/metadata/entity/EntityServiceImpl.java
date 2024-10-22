@@ -1192,8 +1192,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    */
   private Stream<IngestResult> ingestTimeseriesProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
-    // TODO: Assuming custom unvalidated aspects are non-timeseries.
-    //  Might need better handling with mutator occurring before this
+
     List<? extends BatchItem> unsupported =
         aspectsBatch.getItems().stream()
             .filter(
@@ -1338,7 +1337,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private Stream<IngestResult> ingestProposalSync(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch) {
 
-    // TODO: Apply mutations for unvalidated aspects
     AspectsBatchImpl nonTimeseries =
         AspectsBatchImpl.builder()
             .retrieverContext(aspectsBatch.getRetrieverContext())

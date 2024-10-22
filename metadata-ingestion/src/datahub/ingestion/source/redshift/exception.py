@@ -40,25 +40,25 @@ def report_redshift_failure(
     error_message = str(e).lower()
     if "permission denied" in error_message:
         if "svv_table_info" in error_message:
-            report.report_failure(
+            report.failure(
                 title="Permission denied",
                 message="Failed to extract metadata due to insufficient permission to access 'svv_table_info' table. Please ensure the provided database user has access.",
                 exc=e,
             )
         elif "svl_user_info" in error_message:
-            report.report_failure(
+            report.failure(
                 title="Permission denied",
                 message="Failed to extract metadata due to insufficient permission to access 'svl_user_info' table. Please ensure the provided database user has access.",
                 exc=e,
             )
         else:
-            report.report_failure(
+            report.failure(
                 title="Permission denied",
                 message="Failed to extract metadata due to insufficient permissions.",
                 exc=e,
             )
     else:
-        report.report_failure(
+        report.failure(
             title="Failed to extract some metadata",
             message="Failed to extract some metadata from Redshift.",
             exc=e,

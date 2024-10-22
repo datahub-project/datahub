@@ -46,7 +46,7 @@ class SqlLineageSQLParser(SQLParser):
     def __init__(
         self,
         sql_query: str,
-        use_external_process: bool = True,
+        use_external_process: bool = False,
         use_raw_names: bool = False,
     ) -> None:
         super().__init__(sql_query, use_external_process)

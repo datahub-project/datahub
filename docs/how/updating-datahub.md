@@ -40,7 +40,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #11484 - Rest API authorization enabled by default
 - #10472 - `SANDBOX` added as a FabricType. No rollbacks allowed once metadata with this fabric type is added without manual cleanups in databases.
 - #11619 - schema field/column paths can no longer be empty strings
-- #11619 - schema field/column paths can no longer be duplicated within the schema 
+- #11619 - schema field/column paths can no longer be duplicated within the schema
+- #11570 - The `DatahubClientConfig`'s server field no longer defaults to `http://localhost:8080`. Be sure to explicitly set this.
+- #11570 - If a `datahub_api` is explicitly passed to a stateful ingestion config provider, it will be used. We previously ignored it if the pipeline context also had a graph object.
 
 ### Potential Downtime
 

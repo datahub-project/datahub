@@ -26,7 +26,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingDebugInfo,
     SqlParsingResult,
 )
-from tests.unit.redshift_query_mocker import mock_cursor
+from tests.unit.redshift.redshift_query_mocker import mock_cursor
 
 
 def test_get_sources_from_query():

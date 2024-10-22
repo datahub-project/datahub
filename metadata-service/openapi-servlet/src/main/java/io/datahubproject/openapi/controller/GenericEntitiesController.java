@@ -163,7 +163,9 @@ public abstract class GenericEntitiesController<
       throws URISyntaxException;
 
   protected abstract List<E> buildEntityList(
-      Collection<IngestResult> ingestResults, boolean withSystemMetadata);
+      Collection<IngestResult> ingestResults,
+      boolean withSystemMetadata,
+      boolean isAsyncAlternateValidation);
 
   protected abstract E buildGenericEntity(
       @Nonnull String aspectName,
@@ -514,9 +516,11 @@ public abstract class GenericEntitiesController<
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {
-      return ResponseEntity.ok(buildEntityList(results, withSystemMetadata));
+      return ResponseEntity.ok(buildEntityList(results, withSystemMetadata, false));
     } else {
-      return ResponseEntity.accepted().body(buildEntityList(results, withSystemMetadata));
+      boolean isAsyncAlternateValidation = opContext.getValidationContext().isAlternateValidation();
+      return ResponseEntity.accepted()
+          .body(buildEntityList(results, withSystemMetadata, isAsyncAlternateValidation));
     }
   }
 

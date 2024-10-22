@@ -451,24 +451,23 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         if self.config.use_lineage_v2:
-            lineage_extractor = RedshiftSqlLineageV2(
+            with RedshiftSqlLineageV2(
                 config=self.config,
                 report=self.report,
                 context=self.ctx,
                 database=database,
                 redundant_run_skip_handler=self.redundant_lineage_run_skip_handler,
-            )
+            ) as lineage_extractor:
+                yield from lineage_extractor.aggregator.register_schemas_from_stream(
+                    self.process_schemas(connection, database)
+                )
 
-            yield from lineage_extractor.aggregator.register_schemas_from_stream(
-                self.process_schemas(connection, database)
-            )
-
-            self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
-            yield from self.extract_lineage_v2(
-                connection=connection,
-                database=database,
-                lineage_extractor=lineage_extractor,
-            )
+                self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
+                yield from self.extract_lineage_v2(
+                    connection=connection,
+                    database=database,
+                    lineage_extractor=lineage_extractor,
+                )
 
             all_tables = self.get_all_tables()
         else:

@@ -172,6 +172,7 @@ public class EntityController
                             .setEntityUrn(entityUrn)
                             .setAspectName(aspect.getKey())
                             .setEntityType(entityUrn.getEntityType())
+                            .setChangeType(ChangeType.UPSERT)
                             .setAspect(GenericRecordUtils.serializeAspect(aspect.getValue()))
                             .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata()))
                     .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
@@ -283,7 +284,9 @@ public class EntityController
 
   @Override
   protected List<GenericEntityV2> buildEntityList(
-      Collection<IngestResult> ingestResults, boolean withSystemMetadata) {
+      Collection<IngestResult> ingestResults,
+      boolean withSystemMetadata,
+      boolean isAsyncAlternateValidation) {
     List<GenericEntityV2> responseList = new LinkedList<>();
 
     Map<Urn, List<IngestResult>> entityMap =
@@ -302,7 +305,7 @@ public class EntityController
       responseList.add(
           GenericEntityV2.builder()
               .urn(urnAspects.getKey().toString())
-              .build(objectMapper, aspectsMap));
+              .build(objectMapper, aspectsMap, isAsyncAlternateValidation));
     }
     return responseList;
   }

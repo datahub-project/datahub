@@ -224,9 +224,9 @@ class TestPipeline:
     def test_run_including_fake_transformation(self):
         pipeline = Pipeline.create(
             {
-                "source": {"type": "tests.unit.test_pipeline.FakeSource"},
+                "source": {"type": "tests.unit.api.test_pipeline.FakeSource"},
                 "transformers": [
-                    {"type": "tests.unit.test_pipeline.AddStatusRemovedTransformer"}
+                    {"type": "tests.unit.api.test_pipeline.AddStatusRemovedTransformer"}
                 ],
                 "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},
                 "run_id": "pipeline_test",
@@ -253,7 +253,7 @@ class TestPipeline:
 
         pipeline = Pipeline.create(
             {
-                "source": {"type": "tests.unit.test_pipeline.FakeSource"},
+                "source": {"type": "tests.unit.api.test_pipeline.FakeSource"},
                 "transformers": [
                     {
                         "type": "simple_add_dataset_ownership",
@@ -297,7 +297,7 @@ class TestPipeline:
 ---
 run_id: pipeline_test
 source:
-    type: tests.unit.test_pipeline.{source}
+    type: tests.unit.api.test_pipeline.{source}
     config: {{}}
 sink:
     type: console
@@ -379,7 +379,7 @@ sink:
     def test_pipeline_process_commits(self, commit_policy, source, should_commit):
         pipeline = Pipeline.create(
             {
-                "source": {"type": f"tests.unit.test_pipeline.{source}"},
+                "source": {"type": f"tests.unit.api.test_pipeline.{source}"},
                 "sink": {"type": "console"},
                 "run_id": "pipeline_test",
             }

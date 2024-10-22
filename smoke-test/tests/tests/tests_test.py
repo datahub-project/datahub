@@ -36,7 +36,7 @@ test_definition_json = (
 )
 
 
-def create_test(auth_session, test_id):
+def create_test(auth_session, test_id="test id"):
     test_id = f"{test_id}_{int(time.time())}"
     TEST_URNS.extend([f"urn:li:test:{test_id}"])
 

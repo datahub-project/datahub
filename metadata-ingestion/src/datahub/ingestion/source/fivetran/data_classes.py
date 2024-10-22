@@ -24,7 +24,7 @@ class Connector:
     sync_frequency: int
     destination_id: str
     user_id: str
-    table_lineage: List[TableLineage]
+    lineage: List[TableLineage]
     jobs: List["Job"]
 
 
