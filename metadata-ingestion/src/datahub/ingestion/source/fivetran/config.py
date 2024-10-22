@@ -1,6 +1,6 @@
+import dataclasses
 import logging
-from dataclasses import dataclass, field as dataclass_field
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import pydantic
 from pydantic import Field, root_validator
@@ -23,6 +23,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -114,24 +115,24 @@ class FivetranLogConfig(ConfigModel):
         return values
 
 
-@dataclass
+@dataclasses.dataclass
 class MetadataExtractionPerfReport(Report):
-    connectors_metadata_extraction_sec: PerfTimer = dataclass_field(
+    connectors_metadata_extraction_sec: PerfTimer = dataclasses.field(
         default_factory=PerfTimer
     )
-    connectors_lineage_extraction_sec: PerfTimer = dataclass_field(
+    connectors_lineage_extraction_sec: PerfTimer = dataclasses.field(
         default_factory=PerfTimer
     )
-    connectors_jobs_extraction_sec: PerfTimer = dataclass_field(
+    connectors_jobs_extraction_sec: PerfTimer = dataclasses.field(
         default_factory=PerfTimer
     )
 
 
-@dataclass
+@dataclasses.dataclass
 class FivetranSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
-    filtered_connectors: List[str] = dataclass_field(default_factory=list)
-    metadata_extraction_perf: MetadataExtractionPerfReport = dataclass_field(
+    filtered_connectors: LossyList[str] = dataclasses.field(default_factory=LossyList)
+    metadata_extraction_perf: MetadataExtractionPerfReport = dataclasses.field(
         default_factory=MetadataExtractionPerfReport
     )
 
