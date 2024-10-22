@@ -310,7 +310,7 @@ class BigQuerySchemaGenerator:
                         logger.warning(
                             f"Failed to generate platform resource for label {k}:{v}: {e}"
                         )
-                    tags_joined.append(tag_urn.urn())
+                    tags_joined.append(tag_urn.name)
 
         database_container_key = self.gen_project_id_key(database=project_id)
 
