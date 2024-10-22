@@ -1432,6 +1432,7 @@ fragment entityPrivileges on EntityPrivileges {
     canManageEntity
     canManageChildren
     canEditProperties
+    canEditIncidents
 }
 
 fragment businessAttribute on BusinessAttributeAssociation {

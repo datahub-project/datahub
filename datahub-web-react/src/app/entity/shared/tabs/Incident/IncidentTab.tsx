@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Empty, List, Select, Typography } from 'antd';
+import { Button, Empty, List, Select, Tooltip, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useGetEntityIncidentsQuery } from '../../../../../graphql/incident.generated';
 import TabToolbar from '../../components/styled/TabToolbar';
@@ -78,18 +78,30 @@ export const IncidentTab = () => {
         title: incident?.title,
     }));
 
+    const canEditIncidents = (data?.entity as any)?.privileges?.canEditIncidents || false;
+
     return (
         <>
             <Header>
                 <TabToolbar>
-                    <Button icon={<PlusOutlined />} onClick={() => setIsRaiseIncidentModalVisible(true)} type="text">
-                        Raise Incident
-                    </Button>
-                    <AddIncidentModal
-                        refetch={refetch}
-                        open={isRaiseIncidentModalVisible}
-                        onClose={() => setIsRaiseIncidentModalVisible(false)}
-                    />
+                    <Tooltip
+                        showArrow={false}
+                        title={!canEditIncidents && 'You do not have permission to create an incidents for this asset'}
+                    >
+                        <Button
+                            icon={<PlusOutlined />}
+                            onClick={() => canEditIncidents && setIsRaiseIncidentModalVisible(true)}
+                            type="text"
+                            disabled={!canEditIncidents}
+                        >
+                            Raise Incident
+                        </Button>
+                        <AddIncidentModal
+                            refetch={refetch}
+                            open={isRaiseIncidentModalVisible}
+                            onClose={() => setIsRaiseIncidentModalVisible(false)}
+                        />
+                    </Tooltip>
                 </TabToolbar>
                 <Summary>
                     <IncidentSummary summary={getIncidentsStatusSummary(allIncidents)} />
