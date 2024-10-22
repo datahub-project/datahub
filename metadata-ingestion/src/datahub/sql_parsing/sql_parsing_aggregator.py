@@ -25,25 +25,37 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig, UsageAggregator
 from datahub.metadata.urns import (
+    CorpGroupUrn,
     CorpUserUrn,
     DataPlatformUrn,
     DatasetUrn,
     QueryUrn,
     SchemaFieldUrn,
 )
-from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverInterface
+from datahub.sql_parsing.schema_resolver import (
+    SchemaResolver,
+    SchemaResolverInterface,
+    _SchemaResolverWithExtras,
+)
 from datahub.sql_parsing.sql_parsing_common import QueryType, QueryTypeProps
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
+    DownstreamColumnRef,
     SqlParsingResult,
+    _sqlglot_lineage_cached,
     infer_output_schema,
     sqlglot_lineage,
 )
 from datahub.sql_parsing.sqlglot_utils import (
+    _parse_statement,
     generate_hash,
     get_query_fingerprint,
     try_format_query,
+)
+from datahub.sql_parsing.tool_meta_extractor import (
+    ToolMetaExtractor,
+    ToolMetaExtractorReport,
 )
 from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
 from datahub.utilities.file_backed_collections import (
@@ -71,6 +83,8 @@ _MISSING_SESSION_ID = "__MISSING_SESSION_ID"
 _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
     os.getenv("DATAHUB_SQL_AGG_QUERY_LOG") or QueryLogSetting.DISABLED.name
 ]
+MAX_UPSTREAM_TABLES_COUNT = 300
+MAX_FINEGRAINEDLINEAGE_COUNT = 2000
 
 
 @dataclasses.dataclass
@@ -81,6 +95,21 @@ class LoggedQuery:
     user: Optional[UrnStr]
     default_db: Optional[str]
     default_schema: Optional[str]
+
+
+@dataclasses.dataclass
+class ObservedQuery:
+    query: str
+    session_id: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None
+    default_db: Optional[str] = None
+    default_schema: Optional[str] = None
+    query_hash: Optional[str] = None
+    usage_multiplier: int = 1
+
+    # Use this to store addtitional key-value information about query for debugging
+    extra_info: Optional[dict] = None
 
 
 @dataclasses.dataclass
@@ -101,7 +130,7 @@ class QueryMetadata:
     query_type: QueryType
     lineage_type: str  # from models.DatasetLineageTypeClass
     latest_timestamp: Optional[datetime]
-    actor: Optional[CorpUserUrn]
+    actor: Optional[Union[CorpUserUrn, CorpGroupUrn]]
 
     upstreams: List[UrnStr]  # this is direct upstreams, which may be temp tables
     column_lineage: List[ColumnLineageInfo]
@@ -160,13 +189,15 @@ class PreparsedQuery:
     confidence_score: float = 1.0
 
     query_count: int = 1
-    user: Optional[CorpUserUrn] = None
+    user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None
     timestamp: Optional[datetime] = None
     session_id: str = _MISSING_SESSION_ID
     query_type: QueryType = QueryType.UNKNOWN
     query_type_props: QueryTypeProps = dataclasses.field(
         default_factory=lambda: QueryTypeProps()
     )
+    # Use this to store addtitional key-value information about query for debugging
+    extra_info: Optional[dict] = None
 
 
 @dataclasses.dataclass
@@ -197,6 +228,9 @@ class SqlAggregatorReport(Report):
     sql_parsing_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_fingerprinting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_formatting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    sql_parsing_cache_stats: Optional[dict] = dataclasses.field(default=None)
+    parse_statement_cache_stats: Optional[dict] = dataclasses.field(default=None)
+    format_query_cache_stats: Optional[dict] = dataclasses.field(default=None)
 
     # Other lineage loading metrics.
     num_known_query_lineage: int = 0
@@ -214,12 +248,15 @@ class SqlAggregatorReport(Report):
     queries_with_non_authoritative_session: LossyList[QueryId] = dataclasses.field(
         default_factory=LossyList
     )
+    make_schema_resolver_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
     # Lineage-related.
     schema_resolver_count: Optional[int] = None
     num_unique_query_fingerprints: Optional[int] = None
     num_urns_with_lineage: Optional[int] = None
     num_lineage_skipped_due_to_filters: int = 0
+    num_table_lineage_trimmed_due_to_large_size: int = 0
+    num_column_lineage_trimmed_due_to_large_size: int = 0
 
     # Queries.
     num_queries_entities_generated: int = 0
@@ -228,10 +265,14 @@ class SqlAggregatorReport(Report):
     # Usage-related.
     usage_skipped_missing_timestamp: int = 0
     num_query_usage_stats_generated: int = 0
+    num_query_usage_stats_outside_window: int = 0
 
     # Operation-related.
     num_operations_generated: int = 0
     num_operations_skipped_due_to_filters: int = 0
+
+    # Tool Metadata Extraction
+    tool_meta_report: Optional[ToolMetaExtractorReport] = None
 
     def compute_stats(self) -> None:
         self.schema_resolver_count = self._aggregator._schema_resolver.schema_count()
@@ -240,6 +281,10 @@ class SqlAggregatorReport(Report):
         self.num_urns_with_lineage = len(self._aggregator._lineage_map)
         self.num_temp_sessions = len(self._aggregator._temp_lineage_map)
         self.num_inferred_temp_schemas = len(self._aggregator._inferred_temp_schemas)
+
+        self.sql_parsing_cache_stats = _sqlglot_lineage_cached.cache_info()._asdict()
+        self.parse_statement_cache_stats = _parse_statement.cache_info()._asdict()
+        self.format_query_cache_stats = try_format_query.cache_info()._asdict()
 
         return super().compute_stats()
 
@@ -326,6 +371,11 @@ class SqlParsingAggregator(Closeable):
                     graph=graph,
                 )
             )
+        # Schema resolver for special case (_MISSING_SESSION_ID)
+        # This is particularly useful for via temp table lineage if session id is not available.
+        self._missing_session_schema_resolver = _SchemaResolverWithExtras(
+            base_resolver=self._schema_resolver, extra_schemas={}
+        )
 
         # Initialize internal data structures.
         # This leans pretty heavily on the our query fingerprinting capabilities.
@@ -407,6 +457,10 @@ class SqlParsingAggregator(Closeable):
                 tablename="query_usage_counts",
             )
 
+        # Tool Extractor
+        self._tool_meta_extractor = ToolMetaExtractor()
+        self.report.tool_meta_report = self._tool_meta_extractor.report
+
     def close(self) -> None:
         self._exit_stack.close()
 
@@ -418,6 +472,7 @@ class SqlParsingAggregator(Closeable):
             or self.generate_usage_statistics
             or self.generate_queries
             or self.generate_operations
+            or self.generate_query_usage_statistics
         )
 
     def register_schema(
@@ -469,7 +524,10 @@ class SqlParsingAggregator(Closeable):
         return self._is_allowed_table(self._name_from_urn(urn))
 
     def add(
-        self, item: Union[KnownQueryLineageInfo, KnownLineageMapping, PreparsedQuery]
+        self,
+        item: Union[
+            KnownQueryLineageInfo, KnownLineageMapping, PreparsedQuery, ObservedQuery
+        ],
     ) -> None:
         if isinstance(item, KnownQueryLineageInfo):
             self.add_known_query_lineage(item)
@@ -477,6 +535,8 @@ class SqlParsingAggregator(Closeable):
             self.add_known_lineage_mapping(item.upstream_urn, item.downstream_urn)
         elif isinstance(item, PreparsedQuery):
             self.add_preparsed_query(item)
+        elif isinstance(item, ObservedQuery):
+            self.add_observed_query(item)
         else:
             raise ValueError(f"Cannot add unknown item type: {type(item)}")
 
@@ -547,9 +607,6 @@ class SqlParsingAggregator(Closeable):
         Because this method takes in urns, it does not require that the urns
         are part of the platform that the aggregator is configured for.
 
-        TODO: In the future, this method will also generate CLL if we have
-        schemas for either the upstream or downstream.
-
         The known lineage mapping does not contribute to usage statistics or operations.
 
         Args:
@@ -562,6 +619,21 @@ class SqlParsingAggregator(Closeable):
         # We generate a fake "query" object to hold the lineage.
         query_id = self._known_lineage_query_id()
 
+        # Generate CLL if schema of downstream is known
+        column_lineage: List[ColumnLineageInfo] = []
+        if self._schema_resolver.has_urn(downstream_urn):
+            schema = self._schema_resolver._resolve_schema_info(downstream_urn)
+            if schema:
+                column_lineage = [
+                    ColumnLineageInfo(
+                        downstream=DownstreamColumnRef(
+                            table=downstream_urn, column=field_path
+                        ),
+                        upstreams=[ColumnRef(table=upstream_urn, column=field_path)],
+                    )
+                    for field_path in schema
+                ]
+
         # Register the query.
         self._add_to_query_map(
             QueryMetadata(
@@ -573,7 +645,7 @@ class SqlParsingAggregator(Closeable):
                 latest_timestamp=None,
                 actor=None,
                 upstreams=[upstream_urn],
-                column_lineage=[],
+                column_lineage=column_lineage,
                 column_usage={},
                 confidence_score=1.0,
             )
@@ -608,15 +680,7 @@ class SqlParsingAggregator(Closeable):
 
     def add_observed_query(
         self,
-        query: str,
-        default_db: Optional[str] = None,
-        default_schema: Optional[str] = None,
-        query_timestamp: Optional[datetime] = None,
-        user: Optional[CorpUserUrn] = None,
-        session_id: Optional[
-            str
-        ] = None,  # can only see temp tables with the same session
-        usage_multiplier: int = 1,
+        observed: ObservedQuery,
         is_known_temp_table: bool = False,
         require_out_table_schema: bool = False,
     ) -> None:
@@ -632,27 +696,28 @@ class SqlParsingAggregator(Closeable):
         self.report.num_observed_queries += 1
 
         # All queries with no session ID are assumed to be part of the same session.
-        session_id = session_id or _MISSING_SESSION_ID
+        session_id = observed.session_id or _MISSING_SESSION_ID
 
-        # Load in the temp tables for this session.
-        schema_resolver: SchemaResolverInterface = (
-            self._make_schema_resolver_for_session(session_id)
-        )
-        session_has_temp_tables = schema_resolver.includes_temp_tables()
+        with self.report.make_schema_resolver_timer:
+            # Load in the temp tables for this session.
+            schema_resolver: SchemaResolverInterface = (
+                self._make_schema_resolver_for_session(session_id)
+            )
+            session_has_temp_tables = schema_resolver.includes_temp_tables()
 
         # Run the SQL parser.
         parsed = self._run_sql_parser(
-            query,
-            default_db=default_db,
-            default_schema=default_schema,
+            observed.query,
+            default_db=observed.default_db,
+            default_schema=observed.default_schema,
             schema_resolver=schema_resolver,
             session_id=session_id,
-            timestamp=query_timestamp,
-            user=user,
+            timestamp=observed.timestamp,
+            user=observed.user,
         )
         if parsed.debug_info.error:
             self.report.observed_query_parse_failures.append(
-                f"{parsed.debug_info.error} on query: {query[:100]}"
+                f"{parsed.debug_info.error} on query: {observed.query[:100]}"
             )
         if parsed.debug_info.table_error:
             self.report.num_observed_queries_failed += 1
@@ -662,15 +727,14 @@ class SqlParsingAggregator(Closeable):
             if isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
                 self.report.num_observed_queries_column_timeout += 1
 
-        query_fingerprint = parsed.query_fingerprint
-
+        query_fingerprint = observed.query_hash or parsed.query_fingerprint
         self.add_preparsed_query(
             PreparsedQuery(
                 query_id=query_fingerprint,
-                query_text=query,
-                query_count=usage_multiplier,
-                timestamp=query_timestamp,
-                user=user,
+                query_text=observed.query,
+                query_count=observed.usage_multiplier,
+                timestamp=observed.timestamp,
+                user=observed.user,
                 session_id=session_id,
                 query_type=parsed.query_type,
                 query_type_props=parsed.query_type_props,
@@ -681,6 +745,7 @@ class SqlParsingAggregator(Closeable):
                 column_usage=compute_upstream_fields(parsed),
                 inferred_schema=infer_output_schema(parsed),
                 confidence_score=parsed.debug_info.confidence,
+                extra_info=observed.extra_info,
             ),
             is_known_temp_table=is_known_temp_table,
             require_out_table_schema=require_out_table_schema,
@@ -696,6 +761,12 @@ class SqlParsingAggregator(Closeable):
         session_has_temp_tables: bool = True,
         _is_internal: bool = False,
     ) -> None:
+
+        # Adding tool specific metadata extraction here allows it
+        # to work for both ObservedQuery and PreparsedQuery as
+        # add_preparsed_query it used within add_observed_query.
+        self._tool_meta_extractor.extract_bi_metadata(parsed)
+
         if not _is_internal:
             self.report.num_preparsed_queries += 1
 
@@ -802,6 +873,12 @@ class SqlParsingAggregator(Closeable):
                 out_table
             ] = query_fingerprint
 
+            # Also update schema resolver for missing session id
+            if parsed.session_id == _MISSING_SESSION_ID and parsed.inferred_schema:
+                self._missing_session_schema_resolver.add_temp_tables(
+                    {out_table: parsed.inferred_schema}
+                )
+
         else:
             # Non-temp tables immediately generate lineage.
             self._lineage_map.for_mutation(out_table, OrderedSet()).add(
@@ -835,7 +912,9 @@ class SqlParsingAggregator(Closeable):
         self, session_id: str
     ) -> SchemaResolverInterface:
         schema_resolver: SchemaResolverInterface = self._schema_resolver
-        if session_id in self._temp_lineage_map:
+        if session_id == _MISSING_SESSION_ID:
+            schema_resolver = self._missing_session_schema_resolver
+        elif session_id in self._temp_lineage_map:
             temp_table_schemas: Dict[str, Optional[List[models.SchemaFieldClass]]] = {}
             for temp_table_urn, query_id in self._temp_lineage_map[session_id].items():
                 temp_table_schemas[temp_table_urn] = self._inferred_temp_schemas.get(
@@ -909,7 +988,7 @@ class SqlParsingAggregator(Closeable):
         schema_resolver: SchemaResolverInterface,
         session_id: str = _MISSING_SESSION_ID,
         timestamp: Optional[datetime] = None,
-        user: Optional[CorpUserUrn] = None,
+        user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None,
     ) -> SqlParsingResult:
         with self.report.sql_parsing_timer:
             parsed = sqlglot_lineage(
@@ -993,9 +1072,9 @@ class SqlParsingAggregator(Closeable):
         queries_generated: Set[QueryId] = set()
 
         yield from self._gen_lineage_mcps(queries_generated)
-        yield from self._gen_remaining_queries(queries_generated)
         yield from self._gen_usage_statistics_mcps()
-        yield from self._gen_operation_mcps()
+        yield from self._gen_operation_mcps(queries_generated)
+        yield from self._gen_remaining_queries(queries_generated)
 
     def _gen_lineage_mcps(
         self, queries_generated: Set[QueryId]
@@ -1131,9 +1210,32 @@ class SqlParsingAggregator(Closeable):
                         confidenceScore=queries_map[query_id].confidence_score,
                     )
                 )
+
+        if len(upstream_aspect.upstreams) > MAX_UPSTREAM_TABLES_COUNT:
+            logger.warning(
+                f"Too many upstream tables for {downstream_urn}: {len(upstream_aspect.upstreams)}"
+                f"Keeping only {MAX_UPSTREAM_TABLES_COUNT} table level upstreams/"
+            )
+            upstream_aspect.upstreams = upstream_aspect.upstreams[
+                :MAX_UPSTREAM_TABLES_COUNT
+            ]
+            self.report.num_table_lineage_trimmed_due_to_large_size += 1
+        if len(upstream_aspect.fineGrainedLineages) > MAX_FINEGRAINEDLINEAGE_COUNT:
+            logger.warning(
+                f"Too many upstream columns for {downstream_urn}: {len(upstream_aspect.fineGrainedLineages)}"
+                f"Keeping only {MAX_FINEGRAINEDLINEAGE_COUNT} column level upstreams/"
+            )
+            upstream_aspect.fineGrainedLineages = upstream_aspect.fineGrainedLineages[
+                :MAX_FINEGRAINEDLINEAGE_COUNT
+            ]
+            self.report.num_column_lineage_trimmed_due_to_large_size += 1
+
         upstream_aspect.fineGrainedLineages = (
             upstream_aspect.fineGrainedLineages or None
         )
+
+        if not upstream_aspect.upstreams and not upstream_aspect.fineGrainedLineages:
+            return
 
         yield MetadataChangeProposalWrapper(
             entityUrn=downstream_urn,
@@ -1259,9 +1361,15 @@ class SqlParsingAggregator(Closeable):
             query_counter = self._query_usage_counts.get(query_id)
             if not query_counter:
                 return
-            for bucket in self.usage_config.buckets():
-                count = query_counter.get(bucket)
-                if not count:
+
+            all_buckets = self.usage_config.buckets()
+
+            for bucket, count in query_counter.items():
+                if bucket not in all_buckets:
+                    # What happens if we get a query with a timestamp that's outside our configured window?
+                    # Theoretically this should never happen, since the audit logs are also fetched
+                    # for the window. However, it's useful to have reporting for it, just in case.
+                    self.report.num_query_usage_stats_outside_window += 1
                     continue
 
                 yield MetadataChangeProposalWrapper(
@@ -1432,13 +1540,21 @@ class SqlParsingAggregator(Closeable):
             # TODO: We should change the usage aggregator to return MCPWs directly.
             yield cast(MetadataChangeProposalWrapper, wu.metadata)
 
-    def _gen_operation_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
+    def _gen_operation_mcps(
+        self, queries_generated: Set[QueryId]
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         if not self.generate_operations:
             return
 
         for downstream_urn, query_ids in self._lineage_map.items():
             for query_id in query_ids:
                 yield from self._gen_operation_for_downstream(downstream_urn, query_id)
+
+                # Avoid generating the same query twice.
+                if query_id in queries_generated:
+                    continue
+                queries_generated.add(query_id)
+                yield from self._gen_query(self._query_map[query_id], downstream_urn)
 
     def _gen_operation_for_downstream(
         self, downstream_urn: UrnStr, query_id: QueryId

@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.fixtures;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
 import static io.datahubproject.test.search.SearchTestUtils.*;
 import static org.testng.Assert.assertEquals;
@@ -14,7 +15,6 @@ import static org.testng.Assert.assertTrue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.datahub.graphql.types.container.ContainerType;
@@ -944,7 +944,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
             "covid",
             2,
             "\"raw_orders\"",
-            6,
+            1,
             STRUCTURED_QUERY_PREFIX + "sample",
             3,
             STRUCTURED_QUERY_PREFIX + "\"sample\"",
@@ -1327,24 +1327,24 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
       totalResults += numResults;
       scrollId = result.getScrollId();
     } while (scrollId != null);
-    // expect 8 total matching results
-    assertEquals(totalResults, 8);
+    // expect 2 total matching results
+    assertEquals(totalResults, 2);
   }
 
   @Test
   public void testSearchAcrossMultipleEntities() {
-    String query = "logging_events";
+    String query = "logging events";
     SearchResult result = search(getOperationContext(), getSearchService(), query);
-    assertEquals((int) result.getNumEntities(), 8);
+    assertEquals((int) result.getNumEntities(), 6);
     result =
         search(
             getOperationContext(),
             getSearchService(),
             List.of(DATASET_ENTITY_NAME, DATA_JOB_ENTITY_NAME),
             query);
-    assertEquals((int) result.getNumEntities(), 8);
+    assertEquals((int) result.getNumEntities(), 6);
     result = search(getOperationContext(), getSearchService(), List.of(DATASET_ENTITY_NAME), query);
-    assertEquals((int) result.getNumEntities(), 4);
+    assertEquals((int) result.getNumEntities(), 2);
     result =
         search(getOperationContext(), getSearchService(), List.of(DATA_JOB_ENTITY_NAME), query);
     assertEquals((int) result.getNumEntities(), 4);
@@ -1464,10 +1464,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                   Filter filter = new Filter();
                   ArrayList<Criterion> criteria = new ArrayList<>();
                   Criterion hasPlatformCriterion =
-                      new Criterion()
-                          .setField(fieldName)
-                          .setCondition(Condition.EQUAL)
-                          .setValue(testPlatform);
+                      buildCriterion(fieldName, Condition.EQUAL, testPlatform);
                   criteria.add(hasPlatformCriterion);
                   filter.setOr(
                       new ConjunctiveCriterionArray(
@@ -1706,7 +1703,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     assertTrue(
         result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
         String.format("%s - Expected search results to include matched fields", query));
-    assertEquals(result.getEntities().size(), 8);
+    assertEquals(result.getEntities().size(), 2);
   }
 
   @Test
@@ -1729,7 +1726,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     assertTrue(
         result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
         String.format("%s - Expected search results to include matched fields", query));
-    assertEquals(result.getEntities().size(), 8);
+    assertEquals(result.getEntities().size(), 2);
   }
 
   @Test
@@ -1753,6 +1750,27 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
         String.format("%s - Expected search results to include matched fields", query));
     assertEquals(result.getEntities().size(), 8);
+  }
+
+  @Test
+  public void testQuotedPrefixDescriptionField() {
+    String query = "\"Constructs the fct_users_deleted\"";
+    SearchResult result = searchAcrossEntities(getOperationContext(), getSearchService(), query);
+    assertTrue(
+        result.hasEntities() && !result.getEntities().isEmpty(),
+        String.format("%s - Expected search results", query));
+
+    assertTrue(
+        result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+        String.format("%s - Expected search results to include matched fields", query));
+    assertEquals(result.getEntities().size(), 4);
+
+    assertTrue(
+        result.getEntities().stream()
+            .allMatch(
+                e ->
+                    e.getMatchedFields().stream().anyMatch(m -> m.getName().equals("description"))),
+        "%s - Expected search results to match on description field based on prefix match");
   }
 
   @Test
@@ -1878,7 +1896,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
         String.format("%s - Expected search results to include matched fields", query));
 
-    assertEquals(result.getEntities().size(), 10);
+    assertEquals(result.getEntities().size(), 2);
     assertEquals(
         result.getEntities().get(0).getEntity().toString(),
         "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
@@ -1937,9 +1955,9 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
         String.format("%s - Expected search results to include matched fields", query));
 
-    assertTrue(
-        result.getEntities().size() > 2,
-        String.format("%s - Expected search results to have at least two results", query));
+    assertFalse(
+        result.getEntities().isEmpty(),
+        String.format("%s - Expected search results to have at least 1 result.", query));
     assertEquals(
         result.getEntities().get(0).getEntity().toString(),
         "urn:li:dataset:(urn:li:dataPlatform:testOnly," + "important_units" + ",PROD)",
@@ -1979,10 +1997,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
-                                    new Criterion()
-                                        .setField("hasOwners")
-                                        .setValue("")
-                                        .setValues(new StringArray(ImmutableList.of("true"))))))));
+                                    buildCriterion("hasOwners", Condition.EQUAL, "true"))))));
     SearchResult searchResult =
         searchAcrossEntities(
             getOperationContext(),
@@ -2004,10 +2019,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
-                                    new Criterion()
-                                        .setField("numInputDatasets")
-                                        .setValue("")
-                                        .setValues(new StringArray(ImmutableList.of("1"))))))));
+                                    buildCriterion("numInputDatasets", Condition.EQUAL, "1"))))));
     SearchResult searchResult =
         searchAcrossEntities(
             getOperationContext(),

@@ -73,6 +73,17 @@ public class OnBootApplicationListener {
         event);
     String schemaRegistryType = provider.getKafka().getSchemaRegistry().getType();
     if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())) {
+
+      // Handle race condition, if ebean code is executed while waiting/bootstrapping (i.e.
+      // AuthenticationFilter)
+      try {
+        Class.forName("io.ebean.XServiceProvider");
+      } catch (ClassNotFoundException e) {
+        log.error(
+            "Failure to initialize required class `io.ebean.XServiceProvider` during initialization.");
+        throw new RuntimeException(e);
+      }
+
       if (InternalSchemaRegistryFactory.TYPE.equals(schemaRegistryType)) {
         executorService.submit(isSchemaRegistryAPIServletReady());
       } else {

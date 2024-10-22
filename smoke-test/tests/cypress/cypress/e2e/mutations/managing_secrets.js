@@ -1,4 +1,4 @@
-const number = Math.floor(Math.random() * 100000);
+const number = crypto.getRandomValues(new Uint32Array(1))[0];
 const accound_id = `account${number}`;
 const warehouse_id = `warehouse${number}`;
 const username = `user${number}`;
@@ -30,7 +30,7 @@ describe("managing secrets for ingestion creation", () => {
     cy.goToIngestionPage();
     cy.clickOptionWithId('[data-node-key="Sources"]');
     cy.get("#ingestion-create-source").click();
-    cy.clickOptionWithText("Snowflake");
+    cy.clickOptionWithTextToScrollintoView("Snowflake");
     cy.waitTextVisible("Snowflake Details");
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);
@@ -69,7 +69,7 @@ describe("managing secrets for ingestion creation", () => {
 
     // Verify secret is not present during ingestion source creation for password dropdown
     cy.clickOptionWithText("Create new source");
-    cy.clickOptionWithText("Snowflake");
+    cy.clickOptionWithTextToScrollintoView("Snowflake");
     cy.waitTextVisible("Snowflake Details");
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);

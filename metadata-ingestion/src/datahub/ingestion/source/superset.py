@@ -8,7 +8,6 @@ import requests
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -23,10 +22,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
 )
-from datahub.emitter.mcp_builder import (
-    add_domain_to_entity_wu
-)
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -347,9 +343,14 @@ class SupersetSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
-        self.login()
+        if self.config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[domain_id for domain_id in self.config.domain],
+                graph=self.ctx.graph,
+            )
+        self.session = self.login()
 
-    def login(self):
+    def login(self) -> requests.Session:
         login_response = requests.post(
             f"{self.config.connect_uri}/api/v1/security/login",
             json={
@@ -363,8 +364,8 @@ class SupersetSource(StatefulIngestionSourceBase):
         self.access_token = login_response.json()["access_token"]
         logger.debug("Got access token from superset")
 
-        self.session = requests.Session()
-        self.session.headers.update(
+        requests_session = requests.Session()
+        requests_session.headers.update(
             {
                 "Authorization": f"Bearer {self.access_token}",
                 "Content-Type": "application/json",
@@ -372,17 +373,14 @@ class SupersetSource(StatefulIngestionSourceBase):
             }
         )
 
-        if self.config.domain:
-            self.domain_registry = DomainRegistry(
-                cached_domains=[domain_id for domain_id in self.config.domain],
-                graph=self.ctx.graph,
-            )
-
         # Test the connection
-        test_response = self.session.get(f"{self.config.connect_uri}/api/v1/dashboard/")
+        test_response = requests_session.get(
+            f"{self.config.connect_uri}/api/v1/dashboard/"
+        )
         if test_response.status_code == 200:
             pass
             # TODO(Gabe): how should we message about this error?
+        return requests_session
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
@@ -403,6 +401,8 @@ class SupersetSource(StatefulIngestionSourceBase):
             platform_name = get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
         if platform_name == "awsathena":
             return "athena"
+        if platform_name == "clickhousedb":
+            return "clickhouse"
         return platform_name
     
     @lru_cache(maxsize=None)

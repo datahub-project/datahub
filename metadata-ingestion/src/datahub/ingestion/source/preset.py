@@ -5,8 +5,6 @@ import requests
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
-
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -17,25 +15,21 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
-from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
-)
-
-from datahub.utilities import config_clean\
-
-from datahub.ingestion.source.superset import SupersetSource
+from datahub.ingestion.source.superset import SupersetConfig, SupersetSource
+from datahub.utilities import config_clean
 
 logger = logging.getLogger(__name__)
-class PresetConfig(StatefulIngestionConfigBase, ConfigModel):
+
+
+class PresetConfig(SupersetConfig):
     manager_uri: str = Field(
         default="https://api.app.preset.io", description="Preset.io API URL"
     )
-    connect_uri: str = Field(default=None, description="Preset workspace URL.")
+    connect_uri: str = Field(default="", description="Preset workspace URL.")
     display_uri: Optional[str] = Field(
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
@@ -91,7 +85,6 @@ class PresetSource(SupersetSource):
         super().__init__(ctx, config)
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
-        self.login()
 
     def login(self):
         
@@ -105,16 +98,16 @@ class PresetSource(SupersetSource):
         self.access_token = login_response.json()["payload"]["access_token"]
         logger.debug("Got access token from Preset")
 
-        self.session = requests.Session()
-        self.session.headers.update(
+        requests_session = requests.Session()
+        requests_session.headers.update(
             {
                 "Authorization": f"Bearer {self.access_token}",
                 "Content-Type": "application/json",
                 "Accept": "*/*",
             }
         )
-
         # Test the connection
-        test_response = self.session.get(f"{self.config.connect_uri}/version")
+        test_response = requests_session.get(f"{self.config.connect_uri}/version")
         if not test_response.ok:
             logger.error("Unable to connect to workspace")
+        return requests_session

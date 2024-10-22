@@ -22,6 +22,10 @@ JSON_RESPONSE_MAP = {
     "https://app.mode.com/api/acryl/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts": "charts.json",
     "https://app.mode.com/api/acryl/data_sources": "data_sources.json",
     "https://app.mode.com/api/acryl/definitions": "definitions.json",
+    "https://app.mode.com/api/acryl/spaces/157933cc1168/datasets": "datasets_157933cc1168.json",
+    "https://app.mode.com/api/acryl/spaces/75737b70402e/datasets": "datasets_75737b70402e.json",
+    "https://app.mode.com/api/acryl/reports/24f66e1701b6": "dataset_24f66e1701b6.json",
+    "https://app.mode.com/api/acryl/reports/24f66e1701b6/queries": "dataset_queries_24f66e1701b6.json",
 }
 
 RESPONSE_ERROR_LIST = ["https://app.mode.com/api/acryl/spaces/75737b70402e/reports"]
@@ -41,8 +45,12 @@ class MockResponse:
     def json(self):
         return self.json_data
 
-    def get(self, url):
+    def mount(self, prefix, adaptor):
+        return self
+
+    def get(self, url, timeout=40):
         self.url = url
+        self.timeout = timeout
         response_json_path = f"{test_resources_dir}/setup/{JSON_RESPONSE_MAP.get(url)}"
         with open(response_json_path) as file:
             data = json.loads(file.read())
@@ -70,7 +78,7 @@ def mocked_requests_failure(*args, **kwargs):
 @freeze_time(FROZEN_TIME)
 def test_mode_ingest_success(pytestconfig, tmp_path):
     with patch(
-        "datahub.ingestion.source.mode.requests.session",
+        "datahub.ingestion.source.mode.requests.Session",
         side_effect=mocked_requests_sucess,
     ):
         pipeline = Pipeline.create(
@@ -107,7 +115,7 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
 @freeze_time(FROZEN_TIME)
 def test_mode_ingest_failure(pytestconfig, tmp_path):
     with patch(
-        "datahub.ingestion.source.mode.requests.session",
+        "datahub.ingestion.source.mode.requests.Session",
         side_effect=mocked_requests_failure,
     ):
         global test_resources_dir

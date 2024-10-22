@@ -18,8 +18,8 @@ import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -108,13 +108,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull String entityName,
       @Nonnull Urn urn,
       @Nullable String runId) {
-    final Optional<String> maybeDocId = SearchUtils.getDocId(urn);
-    if (!maybeDocId.isPresent()) {
-      log.warn(
-          String.format("Failed to append run id, could not generate a doc id for urn %s", urn));
-      return;
-    }
-    final String docId = maybeDocId.get();
+    final String docId = indexBuilders.getIndexConvention().getEntityDocumentId(urn);
+
     log.info(
         "Appending run id for entity name: {}, doc id: {}, run id: {}", entityName, docId, runId);
     esWriteDAO.applyScriptUpdate(
@@ -262,7 +257,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
             entityName, path, filters, from, size));
     return esBrowseDAO.browse(
         opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            flags ->
+                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
         entityName,
         path,
         filters,
@@ -283,7 +280,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     return esBrowseDAO.browseV2(
         opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            flags ->
+                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
         entityName,
         path,
         filter,
@@ -305,7 +304,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     return esBrowseDAO.browseV2(
         opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            flags ->
+                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
         entityNames,
         path,
         filter,
@@ -418,5 +419,10 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         keepAlive,
         size,
         facets);
+  }
+
+  @Override
+  public IndexConvention getIndexConvention() {
+    return indexBuilders.getIndexConvention();
   }
 }

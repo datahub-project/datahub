@@ -1,10 +1,12 @@
 import json
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union, cast
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, cast
 from unittest import mock
 
 import pytest
+from _pytest.config import Config
 from freezegun import freeze_time
 from looker_sdk.rtl import transport
 from looker_sdk.rtl.transport import TransportOptions
@@ -12,6 +14,7 @@ from looker_sdk.sdk.api40.models import (
     Category,
     Dashboard,
     DashboardElement,
+    Folder,
     FolderBase,
     Look,
     LookmlModelExplore,
@@ -320,21 +323,47 @@ def setup_mock_look(mocked_client):
             description="I am not part of any Dashboard",
             query_id="1",
             folder=FolderBase(name="Shared", id="shared-folder-id"),
-        )
+        ),
+        Look(
+            id="2",
+            title="Personal Look",
+            description="I am not part of any Dashboard and in personal folder",
+            query_id="2",
+            folder=FolderBase(
+                name="Personal",
+                id="personal-folder-id",
+                is_personal=True,
+                is_personal_descendant=True,
+            ),
+        ),
     ]
 
-    mocked_client.look.return_value = LookWithQuery(
-        query=Query(
-            id="1",
-            view="sales_explore",
-            model="sales_model",
-            fields=[
-                "sales.profit",
-            ],
-            dynamic_fields=None,
-            filters=None,
-        )
-    )
+    mocked_client.look.side_effect = [
+        LookWithQuery(
+            query=Query(
+                id="1",
+                view="sales_explore",
+                model="sales_model",
+                fields=[
+                    "sales.profit",
+                ],
+                dynamic_fields=None,
+                filters=None,
+            )
+        ),
+        LookWithQuery(
+            query=Query(
+                id="2",
+                view="order_explore",
+                model="order_model",
+                fields=[
+                    "order.placed_date",
+                ],
+                dynamic_fields=None,
+                filters=None,
+            )
+        ),
+    ]
 
 
 def setup_mock_soft_deleted_look(mocked_client):
@@ -874,7 +903,7 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
 @freeze_time(FROZEN_TIME)
 def test_independent_look_ingestion_config(pytestconfig, tmp_path, mock_time):
     """
-    if extract_independent_looks is enabled then stateful_ingestion.enabled should also be enabled
+    if extract_independent_looks is enabled, then stateful_ingestion.enabled should also be enabled
     """
     new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/output")
     new_recipe["source"]["config"]["extract_independent_looks"] = True
@@ -887,13 +916,18 @@ def test_independent_look_ingestion_config(pytestconfig, tmp_path, mock_time):
         Pipeline.create(new_recipe)
 
 
-@freeze_time(FROZEN_TIME)
-def test_independent_looks_ingest(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
-):
+def ingest_independent_looks(
+    pytestconfig: Config,
+    tmp_path: Path,
+    mock_time: float,
+    mock_datahub_graph: mock.MagicMock,
+    skip_personal_folders: bool,
+    golden_file_name: str,
+) -> None:
     mocked_client = mock.MagicMock()
     new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/looker_mces.json")
     new_recipe["source"]["config"]["extract_independent_looks"] = True
+    new_recipe["source"]["config"]["skip_personal_folders"] = skip_personal_folders
     new_recipe["source"]["config"]["stateful_ingestion"] = {
         "enabled": True,
         "state_provider": {
@@ -919,13 +953,40 @@ def test_independent_looks_ingest(
         pipeline = Pipeline.create(new_recipe)
         pipeline.run()
         pipeline.raise_from_status()
-        mce_out_file = "golden_test_independent_look_ingest.json"
 
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
-            golden_path=f"{test_resources_dir}/{mce_out_file}",
+            golden_path=f"{test_resources_dir}/{golden_file_name}",
         )
+
+
+@freeze_time(FROZEN_TIME)
+def test_independent_looks_ingest_with_personal_folder(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    ingest_independent_looks(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        mock_time=mock_time,
+        mock_datahub_graph=mock_datahub_graph,
+        skip_personal_folders=False,
+        golden_file_name="golden_test_independent_look_ingest.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_independent_looks_ingest_without_personal_folder(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    ingest_independent_looks(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        mock_time=mock_time,
+        mock_datahub_graph=mock_datahub_graph,
+        skip_personal_folders=True,
+        golden_file_name="golden_test_non_personal_independent_look.json",
+    )
 
 
 @freeze_time(FROZEN_TIME)
@@ -1002,9 +1063,10 @@ def test_independent_soft_deleted_looks(
             soft_deleted=True,
         )
 
-        assert len(looks) == 2
+        assert len(looks) == 3
         assert looks[0].title == "Outer Look"
-        assert looks[1].title == "Soft Deleted"
+        assert looks[1].title == "Personal Look"
+        assert looks[2].title == "Soft Deleted"
 
 
 @freeze_time(FROZEN_TIME)
@@ -1133,3 +1195,147 @@ def test_explore_tags(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                             ]
 
         assert expected_tag_urns == actual_tag_urns
+
+
+def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Dashboard:
+    assert kwargs["dashboard_id"] in ["1", "2", "3"], "Invalid dashboard id"
+
+    if kwargs["dashboard_id"] == "1":
+        return Dashboard(
+            id=kwargs["dashboard_id"],
+            title="first dashboard",
+            created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
+            description="first",
+            folder=FolderBase(name="A", id="a"),
+            dashboard_elements=[
+                DashboardElement(
+                    id="2",
+                    type="",
+                    subtitle_text="Some text",
+                    query=Query(
+                        model="data",
+                        view="my_view",
+                        fields=["dim1"],
+                        dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
+                    ),
+                )
+            ],
+        )
+
+    if kwargs["dashboard_id"] == "2":
+        return Dashboard(
+            id=kwargs["dashboard_id"],
+            title="second dashboard",
+            created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
+            description="second",
+            folder=FolderBase(name="B", id="b"),
+            dashboard_elements=[
+                DashboardElement(
+                    id="2",
+                    type="",
+                    subtitle_text="Some text",
+                    query=Query(
+                        model="data",
+                        view="my_view",
+                        fields=["dim1"],
+                        dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
+                    ),
+                )
+            ],
+        )
+
+    if kwargs["dashboard_id"] == "3":
+        return Dashboard(
+            id=kwargs["dashboard_id"],
+            title="third dashboard",
+            created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
+            description="third",
+            folder=FolderBase(name="C", id="c"),
+            dashboard_elements=[
+                DashboardElement(
+                    id="2",
+                    type="",
+                    subtitle_text="Some text",
+                    query=Query(
+                        model="data",
+                        view="my_view",
+                        fields=["dim1"],
+                        dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
+                    ),
+                )
+            ],
+        )
+
+    # Default return to satisfy the linter
+    return Dashboard(
+        id="unknown",
+        title="unknown",
+        created_at=datetime.utcfromtimestamp(time.time()),
+        updated_at=datetime.utcfromtimestamp(time.time()),
+        description="unknown",
+        folder=FolderBase(name="Unknown", id="unknown"),
+        dashboard_elements=[],
+    )
+
+
+def side_effect_function_folder_ancestors(
+    *args: Tuple[Any], **kwargs: Any
+) -> Sequence[Folder]:
+    assert args[0] in ["a", "b", "c"], "Invalid folder id"
+
+    if args[0] == "a":
+        # No parent
+        return ()
+
+    if args[0] == "b":
+        return (Folder(id="a", name="A"),)
+
+    if args[0] == "c":
+        return Folder(id="a", name="A"), Folder(id="b", name="B")
+
+    # Default return to satisfy the linter
+    return (Folder(id="unknown", name="Unknown"),)
+
+
+def setup_mock_dashboard_with_folder(mocked_client):
+    mocked_client.all_dashboards.return_value = [
+        Dashboard(id="1"),
+        Dashboard(id="2"),
+        Dashboard(id="3"),
+    ]
+    mocked_client.dashboard.side_effect = side_effect_function_for_dashboards
+    mocked_client.folder_ancestors.side_effect = side_effect_function_folder_ancestors
+
+
+@freeze_time(FROZEN_TIME)
+def test_folder_path_pattern(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+    mocked_client = mock.MagicMock()
+    new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/looker_mces.json")
+    new_recipe["source"]["config"]["folder_path_pattern"] = {
+        "allow": ["A/B/C"],
+    }
+
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_sdk.return_value = mocked_client
+
+        setup_mock_dashboard_with_folder(mocked_client)
+
+        setup_mock_explore(mocked_client)
+
+        setup_mock_look(mocked_client)
+
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
+
+        pipeline = Pipeline.create(new_recipe)
+        pipeline.run()
+        pipeline.raise_from_status()
+        mce_out_file = "golden_test_folder_path_pattern_ingest.json"
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "looker_mces.json",
+            golden_path=f"{test_resources_dir}/{mce_out_file}",
+        )

@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest.mock import patch
 
 import pytest
@@ -17,22 +17,39 @@ GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 
-def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
+def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
+    if override_data is None:
+        override_data = {}
+
     api_vs_response = {
         "mock://mock-domain.preset.io/v1/auth/": {
             "method": "POST",
             "status_code": 200,
-            "json": {"payload": {
-                "access_token": "test_token",
-            }},
+            "json": {
+                "payload": {
+                    "access_token": "test_token",
+                }
+            },
         },
         "mock://mock-domain.preset.io/version": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                'ci': {'built_at': 'Tue Jul  10 00:00:00 UTC 2024', 'build_num': '1', 'triggered_by': 'Not triggered by a user'},
-                'git': {'branch': '4.0.1.6', 'sha': 'test_sha', 'sha_superset': 'test_sha_superset', 'release_name': 'test_release_name'},
-                'chart_version': '1.16.1', 'start_time': '2024-07-10 00:00:00', 'mt_deployment': True}
+                "ci": {
+                    "built_at": "Tue Jul  10 00:00:00 UTC 2024",
+                    "build_num": "1",
+                    "triggered_by": "Not triggered by a user",
+                },
+                "git": {
+                    "branch": "4.0.1.6",
+                    "sha": "test_sha",
+                    "sha_superset": "test_sha_superset",
+                    "release_name": "test_release_name",
+                },
+                "chart_version": "1.16.1",
+                "start_time": "2024-07-10 00:00:00",
+                "mt_deployment": True,
+            },
         },
         "mock://mock-domain.preset.io/api/v1/dashboard/": {
             "method": "GET",
@@ -168,7 +185,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
 
     api_vs_response.update(override_data)
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,

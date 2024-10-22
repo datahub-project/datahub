@@ -573,6 +573,8 @@ function copy_python_wheels(): void {
     "../metadata-ingestion/dist",
     "../metadata-ingestion-modules/airflow-plugin/dist",
     "../metadata-ingestion-modules/dagster-plugin/dist",
+    "../metadata-ingestion-modules/prefect-plugin/dist",
+    "../metadata-ingestion-modules/gx-plugin/dist",
   ];
 
   const wheel_output_directory = path.join(STATIC_DIRECTORY, "wheels");

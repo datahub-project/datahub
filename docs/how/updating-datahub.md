@@ -20,17 +20,53 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #11486 - Deprecated Criterion filters using `value`. Use `values` instead. This also deprecates the ability to use comma delimited string to represent multiple values using `value`.
+- #11484 - Metadata service authentication enabled by default
+- #11484 - Rest API authorization enabled by default
+
 ### Potential Downtime
 
 ### Deprecations
 
 ### Other Notable Changes
 
-## 0.14.0
+## 0.14.1
 
 ### Breaking Changes
 
-- Protobuf CLI will no longer create binary encoded protoc custom properties. Flag added `-protocProp` in case this 
+- #9857 (#10773) `lower` method was removed from `get_db_name` of `SQLAlchemySource` class. This change will affect the urns of all related to `SQLAlchemySource` entities.
+
+  Old `urn`, where `data_base_name` is `Some_Database`:
+
+  ```
+  - urn:li:dataJob:(urn:li:dataFlow:(mssql,demodata.Foo.stored_procedures,PROD),Proc.With.SpecialChar)
+  ```
+
+  New `urn`, where `data_base_name` is `Some_Database`:
+
+  ```
+  - urn:li:dataJob:(urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD),Proc.With.SpecialChar)
+  ```
+
+  Re-running with stateful ingestion should automatically clear up the entities with old URNS and add entities with new URNs, therefore not duplicating the containers or jobs.
+
+- #11313 - `datahub get` will no longer return a key aspect for entities that don't exist.
+- #11369 - The default datahub-rest sink mode has been changed to `ASYNC_BATCH`. This requires a server with version 0.14.0+.
+- #11214 Container properties aspect will produce an additional field that will require a corresponding upgrade of server. Otherwise server can reject the aspects.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+- Downgrade to previous version is not automatically supported.
+
+## 0.14.0.2
+
+### Breaking Changes
+
+- Protobuf CLI will no longer create binary encoded protoc custom properties. Flag added `-protocProp` in case this
   behavior is required.
 - #10814 Data flow info and data job info aspect will produce an additional field that will require a corresponding upgrade of server. Otherwise server can reject the aspects.
 - #10868 - OpenAPI V3 - Creation of aspects will need to be wrapped within a `value` key and the API is now symmetric with respect to input and outputs.
@@ -38,6 +74,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 Example Global Tags Aspect:
 
 Previous:
+
 ```json
 {
   "tags": [
@@ -65,34 +102,38 @@ New (optional fields `systemMetadata` and `headers`):
   "headers": {}
 }
 ```
+
 - #10858 Profiling configuration for Glue source has been updated.
 
-Previously, the configuration was:
-```yaml
-profiling: {}
-```
+  Previously, the configuration was:
 
-Now, it needs to be:
+  ```yaml
+  profiling: {}
+  ```
 
-```yaml
-profiling:
-  enabled: true
-```
+  Now, it needs to be:
+
+  ```yaml
+  profiling:
+    enabled: true
+  ```
 
 ### Potential Downtime
 
 ### Deprecations
 
-- OpenAPI v1: OpenAPI v1 is collectively defined as all endpoints which are not prefixed with `/v2` or `/v3`. The v1 endpoints 
+- OpenAPI v1: OpenAPI v1 is collectively defined as all endpoints which are not prefixed with `/v2` or `/v3`. The v1 endpoints
   will be deprecated in no less than 6 months. Endpoints will be replaced with equivalents in the `/v2` or `/v3` APIs.
   No loss of functionality expected unless explicitly mentioned in Breaking Changes.
 
 ### Other Notable Changes
+
 - #10498 - Tableau ingestion can now be configured to ingest multiple sites at once and add the sites as containers. The feature is currently only available for Tableau Server.
 - #10466 - Extends configuration in `~/.datahubenv` to match `DatahubClientConfig` object definition. See full configuration in https://datahubproject.io/docs/python-sdk/clients/. The CLI should now respect the updated configurations specified in `~/.datahubenv` across its functions and utilities. This means that for systems where ssl certification is disabled, setting `disable_ssl_verification: true` in `~./datahubenv` will apply to all CLI calls.
 - #11002 - We will not auto-generate a `~/.datahubenv` file. You must either run `datahub init` to create that file, or set environment variables so that the config is loaded.
 - #11023 - Added a new parameter to datahub's `put` cli command: `--run-id`. This parameter is useful to associate a given write to an ingestion process. A use-case can be mimick transformers when a transformer for aspect being written does not exist.
 - #11051 - Ingestion reports will now trim the summary text to a maximum of 800k characters to avoid generating `dataHubExecutionRequestResult` that are too large for GMS to handle.
+
 ## 0.13.3
 
 ### Breaking Changes

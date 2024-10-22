@@ -84,10 +84,11 @@ def assert_metadata_files_equal(
 
     diff = diff_metadata_json(output, golden, ignore_paths, ignore_order=ignore_order)
     if diff and update_golden:
-        if isinstance(diff, MCPDiff):
+        if isinstance(diff, MCPDiff) and diff.is_delta_valid:
             diff.apply_delta(golden)
             write_metadata_file(pathlib.Path(golden_path), golden)
         else:
+            # Fallback: just overwrite the golden file
             shutil.copyfile(str(output_path), str(golden_path))
         return
 

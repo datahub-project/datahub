@@ -46,8 +46,7 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          final Urn parentUrn = GlossaryUtils.getParentUrn(urn, context, _entityClient);
-          if (GlossaryUtils.canManageChildrenEntities(context, parentUrn, _entityClient)) {
+          if (GlossaryUtils.canUpdateGlossaryEntity(urn, context, _entityClient)) {
             try {
               final TermRelationshipType relationshipType = input.getRelationshipType();
               final List<Urn> termUrns =

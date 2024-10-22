@@ -2,6 +2,7 @@
   "type": "s3",
   "config": {
     "env": "UAT",
+    "sort_schema_fields": true,
     "path_specs": [{
       "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/*.*"
     }],

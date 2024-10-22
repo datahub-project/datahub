@@ -372,7 +372,7 @@ function Champion() {
           <div className="hero__content">
             <div>
               <HeroImage /> 
-              <h1>DataHub Champions</h1>
+              <div className="hero__title">DataHub Champions</div>
               <p className="hero__subtitle">
                 Recognizing community members who have made exceptional contributions to further the collective success of DataHub.              
               </p>
