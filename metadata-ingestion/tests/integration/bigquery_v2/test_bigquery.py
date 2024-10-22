@@ -70,6 +70,7 @@ def recipe(mcp_output_path: str, source_config_override: dict = {}) -> dict:
                 "include_table_lineage": True,
                 "include_data_platform_instance": True,
                 "capture_table_label_as_tag": True,
+                "capture_dataset_label_as_tag": True,
                 "classification": ClassificationConfig(
                     enabled=True,
                     classifiers=[
@@ -141,7 +142,8 @@ def test_bigquery_v2_ingest(
 
     get_platform_resource.side_effect = side_effect
     get_datasets_for_project_id.return_value = [
-        BigqueryDataset(name=dataset_name, location="US")
+        # BigqueryDataset(name=dataset_name, location="US")
+        BigqueryDataset(name=dataset_name, location="US", labels={"priority": "medium"})
     ]
 
     table_list_item = TableListItem(
