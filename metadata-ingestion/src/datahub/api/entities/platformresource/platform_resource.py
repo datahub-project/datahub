@@ -14,7 +14,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatahubKey
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.urns import DataPlatformUrn, PlatformResourceUrn, Urn
+from datahub.metadata.urns import (
+    DataPlatformInstanceUrn,
+    DataPlatformUrn,
+    PlatformResourceUrn,
+    Urn,
+)
 from datahub.utilities.openapi_utils import OpenAPIGraphClient
 from datahub.utilities.search_utils import (
     ElasticDocumentQuery,
@@ -76,21 +81,6 @@ class PlatformResourceInfo(BaseModel):
         )
 
 
-class DataPlatformInstanceUrn:
-    """
-    A simple implementation of a URN class for DataPlatformInstance.
-    Since this is not present in the URN registry, we need to implement it here.
-    """
-
-    @staticmethod
-    def create_from_id(platform_instance_urn: str) -> Urn:
-        if platform_instance_urn.startswith("urn:li:platformInstance:"):
-            string_urn = platform_instance_urn
-        else:
-            string_urn = f"urn:li:platformInstance:{platform_instance_urn}"
-        return Urn.from_string(string_urn)
-
-
 class UrnSearchField(SearchField):
     """
     A search field that supports URN values.
@@ -130,7 +120,7 @@ class PlatformResourceSearchFields:
     PLATFORM_INSTANCE = PlatformResourceSearchField.from_search_field(
         UrnSearchField(
             field_name="platformInstance.keyword",
-            urn_value_extractor=DataPlatformInstanceUrn.create_from_id,
+            urn_value_extractor=DataPlatformInstanceUrn.from_string,
         )
     )
 
