@@ -248,6 +248,15 @@ def auto_browse_path_v2(
         browse_path_v2: Optional[List[BrowsePathEntryClass]] = None
 
         for wu in batch:
+
+            # Skip generating BrowsePathsV2 from Container for mssql dataJob & dataFlow entities
+            if (
+                guess_entity_type(urn) == "dataJob"
+                or guess_entity_type(urn) == "dataFlow"
+            ):
+                yield wu
+                continue
+
             if not wu.is_primary_source:
                 yield wu
                 continue

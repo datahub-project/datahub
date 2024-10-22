@@ -617,21 +617,24 @@ class SQLServerSource(SQLAlchemySource):
         ).as_workunit()
         # TODO: Add SubType when it appear
 
+        # We want to keep original hierarchy here
         path = [
             BrowsePathEntryClass(id=data_job.entity.flow.env),
-            BrowsePathEntryClass(id=data_job.entity.flow.platform_instance or ""),
+            BrowsePathEntryClass(id=data_job.entity.flow.platform_instance)
+            if data_job.entity.flow.platform_instance
+            else None,
             BrowsePathEntryClass(id=data_job.entity.flow.db),
+            BrowsePathEntryClass(id=data_job.entity.flow.schema)
+            if data_job.entity.flow.schema
+            else None,
+            BrowsePathEntryClass(id=data_job.entity.flow.name),
         ]
 
-        if data_job.entity.flow.schema:
-            path.append(BrowsePathEntryClass(id=data_job.entity.flow.schema))
-
-        path.append(BrowsePathEntryClass(id=data_job.entity.flow.name))
+        path = [p for p in path if p]
 
         yield MetadataChangeProposalWrapper(
-            entityType=data_job.type,
             entityUrn=data_job.urn,
-            aspect=BrowsePathsV2Class(path=path),
+            aspect=BrowsePathsV2Class(path=path), # type: ignore[arg-type]
         ).as_workunit()
 
     def construct_flow_workunits(
@@ -644,18 +647,24 @@ class SQLServerSource(SQLAlchemySource):
         ).as_workunit()
         # TODO: Add SubType when it appear
 
+        # We want to keep original hierarchy here
         path = [
             BrowsePathEntryClass(id=data_flow.entity.env),
-            BrowsePathEntryClass(id=data_flow.entity.platform_instance or ""),
+            BrowsePathEntryClass(id=data_flow.entity.platform_instance)
+            if data_flow.entity.platform_instance
+            else None,
             BrowsePathEntryClass(id=data_flow.entity.db),
+            BrowsePathEntryClass(id=data_flow.entity.schema)
+            if data_flow.entity.schema
+            else None,
+            BrowsePathEntryClass(id=data_flow.entity.name),
         ]
-        if data_flow.entity.schema:
-            path.append(BrowsePathEntryClass(id=data_flow.entity.schema))
+
+        path = [p for p in path if p]
 
         yield MetadataChangeProposalWrapper(
-            entityType=data_flow.type,
             entityUrn=data_flow.urn,
-            aspect=BrowsePathsV2Class(path=path),
+            aspect=BrowsePathsV2Class(path=path), # type: ignore[arg-type]
         ).as_workunit()
 
     def get_inspectors(self) -> Iterable[Inspector]:

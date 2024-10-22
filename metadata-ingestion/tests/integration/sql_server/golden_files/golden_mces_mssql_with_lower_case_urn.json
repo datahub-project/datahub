@@ -116,10 +116,10 @@
                     "id": "PROD"
                 },
                 {
-                    "id": ""
+                    "id": "DemoData"
                 },
                 {
-                    "id": "DemoData"
+                    "id": "Weekly Demo Data Backup"
                 }
             ]
         }
@@ -138,11 +138,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "181e8184-0242-4a6c-8410-2d17b37b7e81",
+                "job_id": "2f4f6953-13bd-4839-84ab-6d4a4dd79463",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2024-09-04 09:15:49.913000",
-                "date_modified": "2024-09-04 09:15:50.100000",
+                "date_created": "2024-10-22 14:16:37.587000",
+                "date_modified": "2024-10-22 14:16:37.793000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
@@ -189,9 +189,6 @@
             "path": [
                 {
                     "id": "PROD"
-                },
-                {
-                    "id": ""
                 },
                 {
                     "id": "DemoData"
@@ -2015,13 +2012,13 @@
                     "id": "PROD"
                 },
                 {
-                    "id": ""
-                },
-                {
                     "id": "DemoData"
                 },
                 {
                     "id": "Foo"
+                },
+                {
+                    "id": "DemoData.Foo.stored_procedures"
                 }
             ]
         }
@@ -2045,8 +2042,8 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2024-09-04 09:15:49.830000",
-                "date_modified": "2024-09-04 09:15:49.830000"
+                "date_created": "2024-10-22 14:16:37.503000",
+                "date_modified": "2024-10-22 14:16:37.503000"
             },
             "externalUrl": "",
             "name": "DemoData.Foo.Proc.With.SpecialChar",
@@ -2089,9 +2086,6 @@
             "path": [
                 {
                     "id": "PROD"
-                },
-                {
-                    "id": ""
                 },
                 {
                     "id": "DemoData"
