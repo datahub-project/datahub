@@ -262,7 +262,7 @@ class SupersetConfig(
     api_key: Optional[str] = Field(default=None, description="Preset.io API key.")
     api_secret: Optional[str] = Field(default=None, description="Preset.io API secret.")
     manager_uri: str = Field(
-        default="https://api.app.preset.io/", description="Preset.io API URL"
+        default="https://api.app.preset.io", description="Preset.io API URL"
     )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -350,6 +350,13 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
         self.session = self.login()
 
+    def login(self) -> requests.Session:        if self.config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[domain_id for domain_id in self.config.domain],
+                graph=self.ctx.graph,
+            )
+        self.session = self.login()
+
     def login(self) -> requests.Session:
         login_response = requests.post(
             f"{self.config.connect_uri}/api/v1/security/login",
@@ -366,20 +373,27 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         requests_session = requests.Session()
         requests_session.headers.update(
+        requests_session = requests.Session()
+        requests_session.headers.update(
             {
                 "Authorization": f"Bearer {self.access_token}",
                 "Content-Type": "application/json",
                 "Accept": "*/*",
             }
         )
+        )
 
         # Test the connection
+        test_response = requests_session.get(
+            f"{self.config.connect_uri}/api/v1/dashboard/"
+        )
         test_response = requests_session.get(
             f"{self.config.connect_uri}/api/v1/dashboard/"
         )
         if test_response.status_code == 200:
             pass
             # TODO(Gabe): how should we message about this error?
+        return requests_session
         return requests_session
 
     @classmethod
@@ -403,6 +417,8 @@ class SupersetSource(StatefulIngestionSourceBase):
             return "athena"
         if platform_name == "clickhousedb":
             return "clickhouse"
+        if platform_name == "postgresql":
+            return "postgres"
         return platform_name
     
     @lru_cache(maxsize=None)

@@ -86,11 +86,22 @@
 @media screen and (max-width: 999px) {
   .bookButton, .productTourButton {
     display: block;
+    width: 100%;
   }
 
   .productTourButton {
     text-align: center!important;
   }
+
+
+  .hideOnMobile {
+    display: none;
+  }
+
+  .formContainer {
+    display: none; 
+  }
+
 }
 
 @media screen  and (min-width: 1000px){
