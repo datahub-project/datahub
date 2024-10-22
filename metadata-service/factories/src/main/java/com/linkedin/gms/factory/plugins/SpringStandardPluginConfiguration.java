@@ -45,7 +45,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(IgnoreUnknownMutator.class.getName())
                 .enabled(ignoreUnknownEnabled && !extensionsEnabled)
-                .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT"))
+                .supportedOperations(List.of("*"))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
