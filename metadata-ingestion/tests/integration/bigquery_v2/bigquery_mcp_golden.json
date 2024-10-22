@@ -121,7 +121,7 @@
         "json": {
             "tags": [
                 {
-                    "tag": "urn:li:tag:urn:li:tag:priority:medium"
+                    "tag": "urn:li:tag:urn:li:tag:priority:medium:test"
                 }
             ]
     }
@@ -279,18 +279,18 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:f420ca7ace87c5abc48b587e816ddafa",
+    "entityUrn": "urn:li:platformResource:7fbbf79fb726422dc2434222a8e30630",
     "changeType": "UPSERT",
     "aspectName": "platformResourceInfo",
     "aspect": {
         "json": {
             "resourceType": "BigQueryLabelInfo",
-            "primaryKey": "priority/medium",
+            "primaryKey": "priority/medium:test",
             "secondaryKeys": [
-                "urn:li:tag:priority:medium"
+                "urn:li:tag:priority:medium:test"
             ],
             "value": {
-                "blob": "{\"datahub_urn\": \"urn:li:tag:priority:medium\", \"managed_by_datahub\": false, \"key\": \"priority\", \"value\": \"medium\"}",
+                "blob": "{\"datahub_urn\": \"urn:li:tag:priority:medium:test\", \"managed_by_datahub\": false, \"key\": \"priority\", \"value\": \"medium:test\"}",
                 "contentType": "JSON",
                 "schemaType": "JSON",
                 "schemaRef": "BigQueryLabelInfo"
@@ -305,7 +305,7 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:f420ca7ace87c5abc48b587e816ddafa",
+    "entityUrn": "urn:li:platformResource:7fbbf79fb726422dc2434222a8e30630",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -321,7 +321,7 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:f420ca7ace87c5abc48b587e816ddafa",
+    "entityUrn": "urn:li:platformResource:7fbbf79fb726422dc2434222a8e30630",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1321,12 +1321,12 @@
 },
 {
     "entityType": "tag",
-    "entityUrn": "urn:li:tag:urn:li:tag:priority:medium",
+    "entityUrn": "urn:li:tag:urn:li:tag:priority:medium:test",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "name": "urn:li:tag:priority:medium"
+            "name": "urn:li:tag:priority:medium:test"
         }
     },
     "systemMetadata": {
