@@ -374,6 +374,8 @@ entities:
       - status
       - globalTags
       - lineageFeatures
+      - assertionSummary # Acryl-Only (Observe)
+      - assertionAnalyticsRunEvent # Acryl-Only (Observe)
       - assertionDryRunEvent # Acryl-Only (Observe)
       - assertionInferenceDetails # Acryl-Only (Observe)
   - name: dataHubRetention

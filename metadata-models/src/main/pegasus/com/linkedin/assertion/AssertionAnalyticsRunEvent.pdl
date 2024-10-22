@@ -7,21 +7,19 @@ import com.linkedin.common.Urn
 
 /**
  * An event representing the current status of evaluating an assertion on a batch.
- * AssertionRunEvent should be used for reporting the status of a run as an assertion evaluation progresses.
+ * This should be derrived from {@link AssertionRunEvent}.
+ *
+ * It represents the subset of data used for analytics, and hydrates extra fields for filtering
  */
 @Aspect = {
-  "name": "assertionRunEvent",
+  "name": "assertionAnalyticsRunEvent",
   "type": "timeseries",
 }
-record AssertionRunEvent {
+record AssertionAnalyticsRunEvent includes AssertionAnalyticsContext {
 
   /**
    * The event timestamp field as epoch at UTC in milliseconds.
    */
-  @Searchable = {
-    "fieldName": "lastCompletedTime",
-    "fieldType": "DATETIME"
-  }
   timestampMillis: long
 
   /**
@@ -34,6 +32,12 @@ record AssertionRunEvent {
   */
   @TimeseriesField = {}
   asserteeUrn: Urn
+
+  /*
+  * Urn of assertion which is evaluated
+  */
+  @TimeseriesField = {}
+  assertionUrn: Urn
 
   /**
   * The status of the assertion run as per this timeseries event.
@@ -56,12 +60,6 @@ record AssertionRunEvent {
   */
   batchSpec: optional BatchSpec
 
-  /*
-  * Urn of assertion which is evaluated
-  */
-  @TimeseriesField = {}
-  assertionUrn: Urn
-
   /**
    * Granularity of the event if applicable
    */
@@ -79,5 +77,6 @@ record AssertionRunEvent {
    * The optional messageId, if provided serves as a custom user-defined unique identifier for an aspect value.
    */
   messageId: optional string
+
 
 }

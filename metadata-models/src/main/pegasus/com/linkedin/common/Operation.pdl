@@ -38,7 +38,6 @@ record Operation includes TimeseriesAspectBase {
   /**
    * Which other datasets were affected by this operation.
    */
-  @TimeseriesFieldCollection = {"key":"datasetName"}
   affectedDatasets: optional array[Urn]
 
   /**
