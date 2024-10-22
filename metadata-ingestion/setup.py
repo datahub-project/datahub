@@ -122,6 +122,10 @@ dbt_common = {
     "more_itertools",
 }
 
+cachetools_lib = {
+    "cachetools",
+}
+
 sql_common = (
     {
         # Required for all SQL sources.
@@ -138,6 +142,7 @@ sql_common = (
         # https://github.com/ipython/traitlets/issues/741
         "traitlets<5.2.2",
         "greenlet",
+        *cachetools_lib,
     }
     | usage_common
     | sqlglot_lib
@@ -213,7 +218,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
-    "cachetools",
+    *cachetools_lib,
 } | classification_lib
 
 trino = {
@@ -457,7 +462,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
-    | {"cachetools"},
+    | cachetools_lib,
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "abs": {*abs_base, *data_lake_profiling},
