@@ -143,7 +143,9 @@ def test_bigquery_v2_ingest(
     get_platform_resource.side_effect = side_effect
     get_datasets_for_project_id.return_value = [
         # BigqueryDataset(name=dataset_name, location="US")
-        BigqueryDataset(name=dataset_name, location="US", labels={"priority": "medium:test"})
+        BigqueryDataset(
+            name=dataset_name, location="US", labels={"priority": "medium:test"}
+        )
     ]
 
     table_list_item = TableListItem(
