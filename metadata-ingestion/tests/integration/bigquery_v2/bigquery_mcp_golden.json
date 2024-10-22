@@ -121,7 +121,7 @@
         "json": {
             "tags": [
                 {
-                    "tag": "urn:li:tag:urn:li:tag:priority:medium:test"
+                    "tag": "urn:li:tag:priority:medium:test"
                 }
             ]
     }
@@ -1321,12 +1321,12 @@
 },
 {
     "entityType": "tag",
-    "entityUrn": "urn:li:tag:urn:li:tag:priority:medium:test",
+    "entityUrn": "urn:li:tag:priority:medium:test",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "name": "urn:li:tag:priority:medium:test"
+            "name": "priority:medium:test"
         }
     },
     "systemMetadata": {
