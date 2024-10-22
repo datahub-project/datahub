@@ -1,5 +1,6 @@
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
+import { ActionsAndStatusSection } from '@app/previewV2/shared';
 import { Button, Typography } from 'antd';
 import React, { ReactNode } from 'react';
 import { CloseOutlined } from '@ant-design/icons';
@@ -153,19 +154,6 @@ interface Props {
     browsePaths?: BrowsePathV2 | undefined;
 }
 
-const ActionsSection = styled.div`
-    display: flex;
-    flex-direction: row;
-    gap: 5px;
-    align-items: center;
-`;
-
-const ActionsAndStatusSection = styled.div`
-    display: flex;
-    flex-direction: row;
-    gap: 5px;
-`;
-
 const Documentation = styled.div`
     width: 90%;
     overflow: hidden;
@@ -175,12 +163,6 @@ const Documentation = styled.div`
     font-weight: 500;
     color: ${REDESIGN_COLORS.SUB_TEXT};
     margin-top: 8px;
-`;
-
-const LeftContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
 `;
 
 export default function DefaultPreviewCard({
@@ -266,55 +248,51 @@ export default function DefaultPreviewCard({
             {isFullViewCard ? (
                 <>
                     <RowContainer alignment="self-start">
-                        <LeftContainer>
-                            {isIconPresent ? (
-                                <ColoredBackgroundPlatformIconGroup
-                                    platformName={platform}
-                                    platformLogoUrl={logoUrl}
-                                    platformNames={platforms}
-                                    platformLogoUrls={logoUrls}
-                                    isOutputPort={isOutputPort}
-                                    icon={entityIcon}
-                                />
-                            ) : (
-                                <div />
-                            )}
-                            <EntityHeader
-                                name={name}
-                                onClick={onClick}
-                                previewType={previewType}
-                                titleSizePx={titleSizePx}
-                                url={url}
-                                urn={urn}
-                                deprecation={deprecation}
-                                health={health}
-                                degree={degree}
-                                connectionName={previewData?.name}
+                        {isIconPresent ? (
+                            <ColoredBackgroundPlatformIconGroup
+                                platformName={platform}
+                                platformLogoUrl={logoUrl}
+                                platformNames={platforms}
+                                platformLogoUrls={logoUrls}
+                                isOutputPort={isOutputPort}
+                                icon={entityIcon}
                             />
-                        </LeftContainer>
-
+                        ) : (
+                            <div />
+                        )}
                         <ActionsAndStatusSection>
-                            <ActionsSection>
-                                {removeButtonText && (
-                                    <TransparentButton size="small" onClick={removeRelationship}>
-                                        <CloseOutlined size={5} /> {removeButtonText}
-                                    </TransparentButton>
-                                )}
-                                <ViewInPlatform urn={urn} searchEntity={searchEntity} />
-                                {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
-                                    <MoreOptionsMenuAction
-                                        menuItems={headerDropdownItems}
-                                        urn={urn}
-                                        entityType={entityType}
-                                        entityData={previewData}
-                                        triggerType={['click']}
-                                        actions={actions}
-                                    />
-                                )}
-                            </ActionsSection>
+                            {removeButtonText && (
+                                <TransparentButton size="small" onClick={removeRelationship}>
+                                    <CloseOutlined size={5} /> {removeButtonText}
+                                </TransparentButton>
+                            )}
+                            <ViewInPlatform urn={urn} searchEntity={searchEntity} />
+                            {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
+                                <MoreOptionsMenuAction
+                                    menuItems={headerDropdownItems}
+                                    urn={urn}
+                                    entityType={entityType}
+                                    entityData={previewData}
+                                    triggerType={['click']}
+                                    actions={actions}
+                                />
+                            )}
                         </ActionsAndStatusSection>
                     </RowContainer>
-
+                    <RowContainer>
+                        <EntityHeader
+                            name={name}
+                            onClick={onClick}
+                            previewType={previewType}
+                            titleSizePx={titleSizePx}
+                            url={url}
+                            urn={urn}
+                            deprecation={deprecation}
+                            health={health}
+                            degree={degree}
+                            connectionName={previewData?.name}
+                        />
+                    </RowContainer>
                     {entityType === EntityType.GlossaryTerm && (
                         <RowContainer>
                             <Documentation>{description}</Documentation>

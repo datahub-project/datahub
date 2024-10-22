@@ -31,7 +31,7 @@ const IconWrapper = styled.span`
 
 const Links = styled.div`
     display: flex;
-    justify-content: center;
+    justify-content: end;
     gap: 10px;
     flex-wrap: wrap;
 `;

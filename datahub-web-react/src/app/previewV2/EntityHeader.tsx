@@ -16,11 +16,11 @@ const EntityTitleContainer = styled.div`
     align-items: center;
     gap: 0.5rem;
     font-size: 16px;
+    min-width: 15em;
 `;
 
 export const StyledLink = styled(Link)`
-    display: block;
-    max-width: 80%;
+    min-width: 0;
 `;
 
 const EntityTitle = styled.div<{ $titleSizePx?: number }>`
