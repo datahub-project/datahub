@@ -21,8 +21,9 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
+    make_term_urn,
 )
-from datahub.emitter.mcp_builder import add_domain_to_entity_wu
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu, MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -32,6 +33,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+
+
+# Imports for metadata model classes
+from datahub.metadata.schema_classes import GlossaryTermInfoClass
 
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
@@ -80,6 +88,9 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     TagAssociationClass,
+    GlossaryTermsClass,
+    AuditStampClass,
+    GlossaryTermAssociationClass,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -348,6 +359,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 cached_domains=[domain_id for domain_id in self.config.domain],
                 graph=self.ctx.graph,
             )
+        self.sink_config = ctx.pipeline_config.sink.config
         self.session = self.login()
 
     def login(self) -> requests.Session:
@@ -699,10 +711,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         upstream_warehouse_platform = self.get_platform_from_database_id(database_id)
         sql = dataset_response.get("result", {}).get("sql")
         # note: the API does not currently supply created_by usernames due to a bug
-        last_modified = ChangeAuditStamps(
-            created=None,
-            lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
-        )
+        last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
         dataset_url = f"{self.config.display_uri}{dataset_data.get('explore_url', '')}"
         metrics = [
             metric.get("metric_name")
@@ -718,7 +727,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             "Metrics": ", ".join(metrics),
             "Owners": ", ".join(owners),
         }
-
+        
         dataset_info = DatasetPropertiesClass(
             name=table_name,
             description="",
@@ -727,11 +736,63 @@ class SupersetSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
         )
 
-        ## Create Lineage:
+        metrics = dataset_response.get("result", {}).get("metrics", [])
+        glossary_term_urns = []
+        if metrics:
+            for metric in metrics:
+                ## We only sync in certified metrics
+                if "certified_by" in metric.get("extra", {}):
+                    
+                    expression = metric.get("expression", "")
+                    certification_details = metric.get("extra", "")
+                    metric_name = metric.get("metric_name", "")
+                    description = metric.get("description", "")
+                    term_urn = make_term_urn(metric_name)
+
+
+                    ## TODO Turn into function
+                    def check_if_term_exists(term_urn):
+                        graph = DataHubGraph(DatahubClientConfig(server=self.sink_config.get("server", ""), token=self.sink_config.get("token", "")))
+                        # Query multiple aspects from entity
+                        result = graph.get_entity_semityped(
+                            entity_urn=term_urn,
+                            aspects=["glossaryTermInfo"],
+                        )
+
+                        print(result)
+                        if result.get("glossaryTermInfo"):
+                            #Entity exists, skip to next step
+                            return True
+                        return False
+
+                    if check_if_term_exists(term_urn):
+                        logger.info(f"Term {term_urn} already exists")
+                        glossary_term_urns.append(GlossaryTermAssociationClass(urn=term_urn))
+                        continue
+
+                    term_properties_aspect = GlossaryTermInfoClass(
+                        definition=f"Description: {description} \nSql Expression: {expression} \nCertification details: {certification_details}",
+                        termSource="",
+                    )
+
+                    event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+                        entityUrn=term_urn,
+                        aspect=term_properties_aspect,
+                    )
+
+                    # Create rest emitter
+                    rest_emitter = DatahubRestEmitter(gms_server=self.sink_config.get("server", ""), token=self.sink_config.get("token", ""))
+                    rest_emitter.emit(event)
+                    logger.info(f"Created Glossary term {term_urn}")
+                    glossary_term_urns.append(GlossaryTermAssociationClass(urn=term_urn))
+
+        
+        glossary_terms = GlossaryTermsClass(terms=glossary_term_urns, auditStamp=last_modified)
+        # Create Lineage:
         db_platform_instance = self.get_platform_from_database_id(database_id)
 
         if sql:
-            #To Account for virtual datasets
+            # To Account for virtual datasets
             tag_urn = f"urn:li:tag:{self.platform}:virtual"
             parsed_query_object = create_lineage_sql_parsed_result(
                 query=sql,
@@ -798,11 +859,13 @@ class SupersetSource(StatefulIngestionSourceBase):
                     )
                 ]
             )
+        global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
-            aspects=[self.gen_schema_metadata(datasource_urn, dataset_response), dataset_info, upstream_lineage, GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])],
+            aspects=[self.gen_schema_metadata(datasource_urn, dataset_response), dataset_info, glossary_terms, upstream_lineage, global_tags],
         )
+        import pdb; pdb.set_trace()
         return dataset_snapshot
 
     def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
@@ -824,6 +887,8 @@ class SupersetSource(StatefulIngestionSourceBase):
             payload = full_dataset_response.json()
             total_datasets = payload["count"]
             for dataset_data in payload["result"]:
+                if dataset_data.get("id") != 287:
+                    continue
                 dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
@@ -834,8 +899,8 @@ class SupersetSource(StatefulIngestionSourceBase):
 
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.emit_dashboard_mces()
-        yield from self.emit_chart_mces()
+        # yield from self.emit_dashboard_mces()
+        # yield from self.emit_chart_mces()
         yield from self.emit_dataset_mces()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
