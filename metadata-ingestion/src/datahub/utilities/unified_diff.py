@@ -7,6 +7,26 @@ logger.setLevel(logging.INFO)
 
 _LOOKAROUND_LINES = 300
 
+# The Python difflib library can generate unified diffs, but it cannot apply them.
+# There weren't any well-maintained and easy-to-use libraries for applying
+# unified diffs, so I wrote my own.
+#
+# My implementation is focused on ensuring correctness, and will throw
+# an exception whenever it detects an issue.
+#
+# Alternatives considered:
+# - diff-match-patch: This was the most promising since it's from Google.
+#       Unfortunately, they deprecated the library in Aug 2024. That may not have
+#       been a dealbreaker, since a somewhat greenfield community fork exists:
+#       https://github.com/dmsnell/diff-match-patch
+#       However, there's also a long-standing bug in the library around the
+#       handling of line breaks when parsing diffs. See:
+#       https://github.com/google/diff-match-patch/issues/157
+# - python-patch: Seems abandoned.
+# - patch-ng: Fork of python-patch, but mainly targeted at applying patches to trees.
+#       It did not have simple "apply patch to string" abstractions.
+# - unidiff: Parses diffs, but cannot apply them.
+
 
 class InvalidDiffError(Exception):
     pass
