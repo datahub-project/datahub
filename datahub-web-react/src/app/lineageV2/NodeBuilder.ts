@@ -59,6 +59,7 @@ interface NodeInformation {
     urn?: string;
     type: EntityType | typeof LINEAGE_FILTER_TYPE;
     direction?: LineageDirection;
+    inCycle?: boolean;
     layer?: Layer;
     positionalParents?: Set<string>;
     y?: number;
@@ -111,7 +112,12 @@ export default class NodeBuilder {
 
         this.isHomeTransformational = isTransformational({ urn: homeUrn, type: homeType });
         nodes.forEach((node) => {
-            this.nodeInformation[node.id] = { urn: node.urn, type: node.type, direction: node.direction };
+            this.nodeInformation[node.id] = {
+                urn: node.urn,
+                type: node.type,
+                direction: node.direction,
+                inCycle: node.inCycle,
+            };
             this.#getNodeList(node).push(node);
             this.topologicalNodes.push(node);
         });
@@ -178,7 +184,13 @@ export default class NodeBuilder {
             if (upstream in this.nodeInformation && downstream in this.nodeInformation) {
                 const upstreamDirection = this.nodeInformation[upstream].direction;
                 const downstreamDirection = this.nodeInformation[downstream].direction;
-                if (upstreamDirection && downstreamDirection && upstreamDirection !== downstreamDirection) {
+                if (
+                    !this.nodeInformation[upstream].inCycle &&
+                    !this.nodeInformation[downstream].inCycle &&
+                    upstreamDirection &&
+                    downstreamDirection &&
+                    upstreamDirection !== downstreamDirection
+                ) {
                     // Don't render edges between nodes upstream of home node and nodes downstream of home node
                     return;
                 }

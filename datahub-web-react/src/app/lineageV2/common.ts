@@ -41,6 +41,7 @@ export interface NodeBase {
     isExpanded: Record<LineageDirection, boolean>;
     direction?: LineageDirection; // Root node has no direction. One day can try to support cycles in the same way.
     dragged?: boolean;
+    inCycle?: boolean;
 }
 
 export interface LineageEntity extends NodeBase {

@@ -106,11 +106,7 @@ export default function useSearchAcrossLineage(
 
         data?.searchAcrossLineage?.searchResults.forEach((result) => {
             addedNode = addedNode || !nodes.has(result.entity.urn);
-            const node = setDefault(
-                nodes,
-                result.entity.urn,
-                entityNodeDefault(result.entity.urn, result.entity.type, direction),
-            );
+            const node = setEntityNodeDefault(result.entity.urn, result.entity.type, direction, nodes);
             if (result.explored || result.ignoredAsHop) {
                 node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.COMPLETE };
                 node.isExpanded = { ...node.isExpanded, [direction]: true };
@@ -250,6 +246,22 @@ function getNonTransformationalNeighbors(
         });
     }
     return neighbors;
+}
+
+export function setEntityNodeDefault(
+    urn: string,
+    type: EntityType,
+    direction: LineageDirection,
+    nodes: NodeContext['nodes'],
+): LineageEntity {
+    const node = setDefault(nodes, urn, entityNodeDefault(urn, type, direction));
+    if (node.direction && node.direction !== direction) {
+        // Node is both upstream and downstream; give it a deterministic direction.
+        // Have seen cycles between dbt models and their sibling, so this puts dbt model upstream.
+        node.inCycle = true;
+        node.direction = isTransformational(node) ? LineageDirection.Upstream : LineageDirection.Downstream;
+    }
+    return node;
 }
 
 export function entityNodeDefault(urn: string, type: EntityType, direction: LineageDirection): LineageEntity {
