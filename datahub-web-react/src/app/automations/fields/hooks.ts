@@ -85,6 +85,21 @@ export const useGlossaryOptionsBuilder = (
         if (!isInitialValueConfigured) {
             setIsInitialValueConfigured(true);
             setInitialOptions(options);
+
+            /**
+             *
+             * Temporary workaround to display the remaining options that share the same parent,
+             * without automatically selecting them. If we directly set the initial options now,
+             * it would select all the child options under the parent instead.
+             * We will assign the options correctly after 500 miliseconds, after initialization is complete.
+             */
+            const parentIds = new Set(options.map((item) => item.id));
+            const remaningChildNodesToBeAdded = childOptions.filter((item) => parentIds.has(item.parentId as string));
+            if (remaningChildNodesToBeAdded?.length) {
+                setTimeout(() => {
+                    setInitialOptions(childOptions);
+                }, 500);
+            }
         } else {
             setInitialOptions(allOptions);
         }
