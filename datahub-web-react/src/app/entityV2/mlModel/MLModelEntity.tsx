@@ -169,13 +169,23 @@ export class MLModelEntity implements Entity<MlModel> {
     ];
 
     renderPreview = (previewType: PreviewType, data: MlModel) => {
-        return <Preview model={data} headerDropdownItems={headerDropdownItems} previewType={previewType} />;
+        const genericProperties = this.getGenericEntityProperties(data);
+        return (
+            <Preview
+                data={genericProperties}
+                model={data}
+                headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
+            />
+        );
     };
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as MlModel;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
+                data={genericProperties}
                 model={data}
                 degree={(result as any).degree}
                 paths={(result as any).paths}

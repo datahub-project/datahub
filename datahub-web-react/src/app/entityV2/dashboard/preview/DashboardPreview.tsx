@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import {
     AccessLevel,
@@ -25,6 +26,7 @@ import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const DashboardPreview = ({
     urn,
+    data,
     platform,
     platformInstanceId,
     name,
@@ -56,6 +58,7 @@ export const DashboardPreview = ({
     browsePaths,
 }: {
     urn: string;
+    data: GenericEntityProperties | null;
     platform?: string;
     platformInstanceId?: string;
     name?: string;
@@ -94,6 +97,7 @@ export const DashboardPreview = ({
             url={entityRegistry.getEntityUrl(EntityType.Dashboard, urn)}
             name={name || ''}
             urn={urn}
+            data={data}
             description={description || ''}
             entityType={EntityType.Dashboard}
             type={subtype}

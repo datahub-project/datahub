@@ -142,13 +142,23 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     ];
 
     renderPreview = (previewType: PreviewType, data: MlModelGroup) => {
-        return <Preview group={data} headerDropdownItems={headerDropdownItems} previewType={previewType} />;
+        const genericProperties = this.getGenericEntityProperties(data);
+        return (
+            <Preview
+                data={genericProperties}
+                group={data}
+                headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
+            />
+        );
     };
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as MlModelGroup;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
+                data={genericProperties}
                 group={data}
                 degree={(result as any).degree}
                 paths={(result as any).paths}

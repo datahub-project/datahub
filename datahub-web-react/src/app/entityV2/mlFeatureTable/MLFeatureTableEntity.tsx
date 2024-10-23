@@ -152,6 +152,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.name || ''}
                 description={data.description}
                 owners={data.ownership?.owners}
@@ -170,6 +171,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.name || ''}
                 description={data.description || ''}
                 owners={data.ownership?.owners}

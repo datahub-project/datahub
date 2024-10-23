@@ -8,6 +8,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType, PreviewType } from '../../Entity';
 
 export const Preview = ({
+    data,
     datasetUrn,
     name,
     description,
@@ -15,6 +16,7 @@ export const Preview = ({
     previewType,
     parent,
 }: {
+    data: GenericEntityProperties | null;
     datasetUrn: string;
     name: string;
     description?: string | null;
@@ -30,6 +32,7 @@ export const Preview = ({
 
     return (
         <DefaultPreviewCard
+            data={data}
             entityType={EntityType.SchemaField}
             platform={parent?.platform?.properties?.displayName || capitalizeFirstLetterOnly(parent?.platform?.name)}
             logoUrl={parent?.platform?.properties?.logoUrl || ''}

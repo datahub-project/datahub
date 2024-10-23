@@ -58,6 +58,7 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
 
     renderPreview = (previewType: PreviewType, data: StructuredProperty) => (
         <DefaultPreviewCard
+            data={null}
             description={data.definition?.description || ''}
             name={this.displayName(data)}
             urn={data.urn}

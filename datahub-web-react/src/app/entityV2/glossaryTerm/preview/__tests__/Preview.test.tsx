@@ -12,6 +12,7 @@ describe('Preview', () => {
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <Preview
+                        data={null}
                         urn="urn:li:glossaryTerm:instruments.FinancialInstrument_v1"
                         name="custom_name"
                         description="definition"

@@ -3,7 +3,7 @@ import React from 'react';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 
 export default function ExternalUrlMenuAction() {
-    const { urn: entityUrn } = useEntityData();
+    const { urn: entityUrn, entityData } = useEntityData();
 
-    return <ViewInPlatform urn={entityUrn} />;
+    return <ViewInPlatform urn={entityUrn} data={entityData} />;
 }

@@ -170,6 +170,7 @@ export class ContainerEntity implements Entity<Container> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={this.displayName(data)}
                 platformName={data.platform.properties?.displayName || capitalizeFirstLetterOnly(data.platform.name)}
                 platformLogo={data.platform.properties?.logoUrl}
@@ -195,6 +196,7 @@ export class ContainerEntity implements Entity<Container> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={this.displayName(data)}
                 platformName={data.platform.properties?.displayName || capitalizeFirstLetterOnly(data.platform.name)}
                 platformLogo={data.platform.properties?.logoUrl}

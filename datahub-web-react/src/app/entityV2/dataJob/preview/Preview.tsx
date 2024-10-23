@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
@@ -27,6 +28,7 @@ const StatText = styled(Typography.Text)`
 
 export const Preview = ({
     urn,
+    data,
     name,
     subtype,
     description,
@@ -50,6 +52,7 @@ export const Preview = ({
     browsePaths,
 }: {
     urn: string;
+    data: GenericEntityProperties | null;
     name: string;
     subtype?: string | null;
     description?: string | null;
@@ -78,6 +81,7 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.DataJob, urn)}
             name={name}
             urn={urn}
+            data={data}
             description={description || ''}
             entityType={EntityType.DataJob}
             type={subtype}

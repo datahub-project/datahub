@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import { Domain, EntityType, Owner, SearchInsight } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
@@ -12,6 +13,7 @@ import { PreviewType } from '../../Entity';
 export const Preview = ({
     domain,
     urn,
+    data,
     name,
     description,
     owners,
@@ -23,6 +25,7 @@ export const Preview = ({
 }: {
     domain: Domain;
     urn: string;
+    data: GenericEntityProperties | null;
     name: string;
     description?: string | null;
     owners?: Array<Owner> | null;
@@ -38,6 +41,7 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.Domain, urn)}
             name={name || ''}
             urn={urn}
+            data={data}
             description={description || ''}
             entityType={EntityType.Domain}
             typeIcon={

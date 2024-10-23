@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import { DataPlatform, DataProduct, EntityPath, EntityType, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
@@ -7,6 +8,7 @@ import { IconStyleType, PreviewType } from '../../Entity';
 
 export const Preview = ({
     urn,
+    data,
     name,
     featureNamespace,
     description,
@@ -20,6 +22,7 @@ export const Preview = ({
     previewType,
 }: {
     urn: string;
+    data: GenericEntityProperties | null;
     name: string;
     featureNamespace: string;
     description?: string | null;
@@ -38,6 +41,7 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.MlprimaryKey, urn)}
             name={name}
             urn={urn}
+            data={data}
             description={description || ''}
             platform={
                 platform?.properties?.displayName || capitalizeFirstLetterOnly(platform?.name) || featureNamespace

@@ -172,10 +172,12 @@ export class DomainEntity implements Entity<Domain> {
     ];
 
     renderPreview = (previewType: PreviewType, data: Domain) => {
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 domain={data}
                 urn={data.urn}
+                data={genericProperties}
                 name={this.displayName(data)}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
@@ -189,10 +191,12 @@ export class DomainEntity implements Entity<Domain> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Domain;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 domain={data}
                 urn={data.urn}
+                data={genericProperties}
                 name={this.displayName(data)}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}

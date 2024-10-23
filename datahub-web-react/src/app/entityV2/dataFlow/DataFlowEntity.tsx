@@ -181,6 +181,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.properties?.name || ''}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
@@ -204,6 +205,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.properties?.name || ''}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description || ''}

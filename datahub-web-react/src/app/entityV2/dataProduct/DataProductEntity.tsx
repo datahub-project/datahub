@@ -174,9 +174,11 @@ export class DataProductEntity implements Entity<DataProduct> {
     ];
 
     renderPreview = (previewType: PreviewType, data: DataProduct, actions) => {
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.properties?.name || ''}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
@@ -194,9 +196,11 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as DataProduct;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.properties?.name || ''}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}

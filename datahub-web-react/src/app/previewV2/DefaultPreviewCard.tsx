@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
 import { ActionsAndStatusSection } from '@app/previewV2/shared';
@@ -21,7 +22,6 @@ import {
     Owner,
     SearchInsight,
     BrowsePathV2,
-    Dataset,
 } from '../../types.generated';
 import { EntityMenuActions, PreviewType } from '../entityV2/Entity';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
@@ -106,11 +106,11 @@ const InsightIconContainer = styled.span`
 interface Props {
     name: string;
     urn: string;
+    data: GenericEntityProperties | null;
     logoUrl?: string;
     logoComponent?: JSX.Element;
     url: string;
     entityType: EntityType;
-    searchEntity?: Dataset | null;
     type?: string | null;
     typeIcon?: JSX.Element;
     platform?: string;
@@ -144,6 +144,7 @@ interface Props {
     description?: string;
     // eslint-disable-next-line react/no-unused-prop-types
     qualifier?: string | null;
+    // eslint-disable-next-line react/no-unused-prop-types
     externalUrl?: string | null;
     tier?: PopularityTier;
     isOutputPort?: boolean;
@@ -168,11 +169,11 @@ const Documentation = styled.div`
 export default function DefaultPreviewCard({
     name,
     urn,
+    data,
     logoUrl, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     logoComponent,
     url,
     entityType,
-    searchEntity,
     type,
     typeIcon,
     platform,
@@ -201,7 +202,6 @@ export default function DefaultPreviewCard({
     previewType,
     health,
     lastUpdatedMs,
-    externalUrl,
     tier,
     isOutputPort,
     entityIcon,
@@ -266,7 +266,7 @@ export default function DefaultPreviewCard({
                                     <CloseOutlined size={5} /> {removeButtonText}
                                 </TransparentButton>
                             )}
-                            <ViewInPlatform urn={urn} searchEntity={searchEntity} />
+                            <ViewInPlatform urn={urn} data={data} />
                             {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
                                 <MoreOptionsMenuAction
                                     menuItems={headerDropdownItems}
@@ -314,6 +314,7 @@ export default function DefaultPreviewCard({
                 </>
             ) : (
                 <CompactView
+                    data={data}
                     name={name}
                     onClick={onClick}
                     titleSizePx={titleSizePx}
@@ -330,12 +331,10 @@ export default function DefaultPreviewCard({
                     logoUrls={logoUrls}
                     isOutputPort={isOutputPort}
                     entityIcon={entityIcon}
-                    externalUrl={externalUrl}
                     headerDropdownItems={headerDropdownItems}
                     previewType={previewType}
                     urn={urn}
                     entityType={entityType}
-                    searchEntity={searchEntity}
                     platformInstanceId={platformInstanceId}
                     typeIcon={typeIcon}
                     finalType={finalType}

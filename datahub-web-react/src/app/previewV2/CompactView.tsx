@@ -7,7 +7,7 @@ import ColoredBackgroundPlatformIconGroup, { PlatformContentWrapper } from './Co
 import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import EntityHeader from './EntityHeader';
 import { PreviewType } from '../entity/Entity';
-import { BrowsePathV2, Dataset, Deprecation, Entity, EntityType, Health } from '../../types.generated';
+import { BrowsePathV2, Deprecation, Entity, EntityType, Health } from '../../types.generated';
 import { EntityMenuActions } from '../entityV2/Entity';
 import { EntityMenuItems } from '../entityV2/shared/EntityDropdown/EntityMenuActions';
 import { GenericEntityProperties } from '../entity/shared/types';
@@ -43,10 +43,10 @@ const PlatformDivider = styled.div`
 interface Props {
     name: string;
     urn: string;
+    data: GenericEntityProperties | null;
     isIconPresent: boolean;
     url: string;
     entityType: EntityType;
-    searchEntity: Dataset | undefined | null;
     platform?: string;
     platforms?: Maybe<string | undefined>[];
     deprecation?: Deprecation | null;
@@ -61,8 +61,6 @@ interface Props {
     description?: string;
     // eslint-disable-next-line react/no-unused-prop-types
     qualifier?: string | null;
-    // eslint-disable-next-line react/no-unused-prop-types
-    externalUrl?: string | null;
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
     actions?: EntityMenuActions;
@@ -79,6 +77,7 @@ interface Props {
 }
 
 export const CompactView = ({
+    data,
     name,
     onClick,
     titleSizePx,
@@ -99,7 +98,6 @@ export const CompactView = ({
     previewType,
     urn,
     entityType,
-    searchEntity,
     platformInstanceId,
     typeIcon,
     finalType,
@@ -123,7 +121,7 @@ export const CompactView = ({
                     connectionName={previewData?.name}
                 />
                 <CompactActionsAndStatusSection>
-                    <ViewInPlatform searchEntity={searchEntity} urn={urn} />
+                    <ViewInPlatform data={data} urn={urn} />
                     {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
                         <MoreOptionsMenuAction
                             menuItems={headerDropdownItems}

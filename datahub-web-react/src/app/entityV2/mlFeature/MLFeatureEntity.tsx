@@ -176,6 +176,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.name || ''}
                 featureNamespace={data.featureNamespace || ''}
                 description={data.description}
@@ -197,6 +198,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.name || ''}
                 featureNamespace={data.featureNamespace || ''}
                 description={data.description || ''}
