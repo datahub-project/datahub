@@ -681,6 +681,11 @@ class BigQuerySchemaGenerator:
             return make_tag_urn(f"""{key}:{value}""")
         return self.modified_base32decode(value)
 
+    def make_container_tag_from_label(self, key: str, value: str) -> str:
+        if not value.startswith(ENCODED_TAG_PREFIX):
+            return f"""{key}:{value}"""
+        return self.modified_base32decode(value)
+
     def gen_table_dataset_workunits(
         self,
         table: BigqueryTable,
@@ -752,7 +757,7 @@ class BigQuerySchemaGenerator:
         tags_to_add = None
         if table.labels and self.config.capture_view_label_as_tag:
             tags_to_add = [
-                self.make_tag_from_label(k, v)
+                self.make_container_tag_from_label(k, v)
                 for k, v in table.labels.items()
                 if is_tag_allowed(self.config.capture_view_label_as_tag, k)
             ]
