@@ -3,7 +3,7 @@ topic_routes:
   mae: MetadataAuditEvent_v4
   mcl: MetadataChangeLog_Versioned_v1
 connection:
-  bootstrap: broker:9092
+  bootstrap: broker:29092
   schema_registry_url: http://datahub-gms:8080/schema-registry/api/
   consumer_config:
     group.id: datahub-executor-consumer-job-client
