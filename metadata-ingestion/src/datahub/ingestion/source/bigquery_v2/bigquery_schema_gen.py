@@ -267,7 +267,7 @@ class BigQuerySchemaGenerator:
         tags_joined: Optional[List[str]] = None
         if tags and self.config.capture_dataset_label_as_tag:
             tags_joined = [
-                self.make_tag_from_label(k, v)
+                self.make_container_tag_from_label(k, v)
                 for k, v in tags.items()
                 if is_tag_allowed(self.config.capture_dataset_label_as_tag, k)
             ]
@@ -757,7 +757,7 @@ class BigQuerySchemaGenerator:
         tags_to_add = None
         if table.labels and self.config.capture_view_label_as_tag:
             tags_to_add = [
-                self.make_container_tag_from_label(k, v)
+                self.make_tag_from_label(k, v)
                 for k, v in table.labels.items()
                 if is_tag_allowed(self.config.capture_view_label_as_tag, k)
             ]
