@@ -4,9 +4,9 @@ from datahub.utilities.unified_diff import (
     DiffApplyError,
     Hunk,
     InvalidDiffError,
-    _find_hunk_start,
     apply_diff,
     apply_hunk,
+    find_hunk_start,
     parse_patch,
 )
 
@@ -52,14 +52,14 @@ def test_parse_patch_bad_header():
 def test_find_hunk_start():
     source_lines = ["Line 1", "Line 2", "Line 3", "Line 4"]
     hunk = Hunk(2, 2, 2, 2, [(" ", "Line 2"), (" ", "Line 3")])
-    assert _find_hunk_start(source_lines, hunk) == 1
+    assert find_hunk_start(source_lines, hunk) == 1
 
 
 def test_find_hunk_start_not_found():
     source_lines = ["Line 1", "Line 2", "Line 3", "Line 4"]
     hunk = Hunk(2, 2, 2, 2, [(" ", "Line X"), (" ", "Line Y")])
     with pytest.raises(DiffApplyError, match="Could not find match for hunk context."):
-        _find_hunk_start(source_lines, hunk)
+        find_hunk_start(source_lines, hunk)
 
 
 def test_apply_hunk_success():

@@ -97,7 +97,7 @@ def parse_patch(patch_text: str) -> List[Hunk]:
     return hunks
 
 
-def _find_hunk_start(source_lines: List[str], hunk: Hunk) -> int:
+def find_hunk_start(source_lines: List[str], hunk: Hunk) -> int:
     """
     Finds the actual starting line of a hunk in the source lines.
 
@@ -160,7 +160,7 @@ def apply_hunk(result_lines: List[str], hunk: Hunk, hunk_index: int) -> None:
     Raises:
         DiffApplyError: If the hunk cannot be applied correctly
     """
-    current_line = _find_hunk_start(result_lines, hunk)
+    current_line = find_hunk_start(result_lines, hunk)
     logger.debug(f"Hunk {hunk_index + 1} start line: {current_line}")
 
     for line_index, (prefix, content) in enumerate(hunk.lines):
