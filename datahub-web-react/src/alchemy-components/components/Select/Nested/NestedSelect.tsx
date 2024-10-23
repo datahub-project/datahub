@@ -178,6 +178,7 @@ export const NestedSelect = ({
         if (onUpdate) {
             onUpdate(selectedOptions);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedOptions]);
 
     const handleOptionChange = useCallback(
