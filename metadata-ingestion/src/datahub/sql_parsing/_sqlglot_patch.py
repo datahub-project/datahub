@@ -1,4 +1,6 @@
 import dataclasses
+import difflib
+import logging
 
 import patchy.api
 import sqlglot
@@ -17,7 +19,8 @@ from datahub.utilities.unified_diff import apply_diff
 # For a diff-formatted view, see:
 # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main.diff
 
-_DEBUG_PATCHER = is_pytest_running()
+_DEBUG_PATCHER = is_pytest_running() or True
+logger = logging.getLogger(__name__)
 
 _apply_diff_subprocess = patchy.api._apply_patch
 
@@ -32,9 +35,14 @@ def _new_apply_patch(source: str, patch_text: str, forwards: bool, name: str) ->
     if _DEBUG_PATCHER:
         result_subprocess = _apply_diff_subprocess(source, patch_text, forwards, name)
         if result_subprocess != result:
-            raise ValueError(
-                f"Results from subprocess and _apply_diff do not match:\n{result_subprocess}\n{result}"
+            logger.info("Results from subprocess and _apply_diff do not match")
+            logger.debug(f"Subprocess result:\n{result_subprocess}")
+            logger.debug(f"Our result:\n{result}")
+            diff = difflib.unified_diff(
+                result_subprocess.splitlines(), result.splitlines()
             )
+            logger.debug("Diff:\n" + "\n".join(diff))
+            raise ValueError("Results from subprocess and _apply_diff do not match")
 
     return result
 
