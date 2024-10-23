@@ -138,7 +138,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
     };
 
     const onRemoveMember = (memberEntity: CorpUser) => {
-        const memberName = memberEntity?.properties?.displayName || undefined;
+        const memberName = entityRegistry.getDisplayName(EntityType.CorpUser, memberEntity);
         Modal.confirm({
             title: `Confirm Group Member Removal`,
             content: `Are you sure you want to remove ${memberName} user from the group?`,
