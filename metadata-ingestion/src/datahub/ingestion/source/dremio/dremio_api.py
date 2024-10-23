@@ -40,9 +40,7 @@ class DremioAPIOperations:
     def __init__(self, connection_args: "DremioSourceConfig") -> None:
         self.dremio_to_datahub_source_mapper = DremioToDataHubSourceTypeMapping()
         self.allow_schema_pattern: List[str] = connection_args.schema_pattern.allow
-        self.allow_dataset_pattern: List[str] = connection_args.dataset_pattern.allow
         self.deny_schema_pattern: List[str] = connection_args.schema_pattern.deny
-        self.deny_dataset_pattern: List[str] = connection_args.dataset_pattern.deny
         self._max_workers: int = connection_args.max_workers
         self.is_dremio_cloud = connection_args.is_dremio_cloud
         self.session = requests.Session()
@@ -88,7 +86,7 @@ class DremioAPIOperations:
         retry_strategy = Retry(
             total=self._retry_count,
             status_forcelist=[429, 502, 503, 504],
-            method_whitelist=["HEAD", "GET", "OPTIONS", "POST"],
+            allowed_methods=["HEAD", "GET", "OPTIONS", "POST"],
             backoff_factor=1,
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -403,19 +401,12 @@ class DremioAPIOperations:
             query_template = DremioSQLQueries.QUERY_DATASETS_CE
 
         schema_field = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
-        table_field = "UPPER(TABLE_NAME)"
 
         schema_condition = self.get_pattern_condition(
             self.allow_schema_pattern, schema_field
         )
-        table_condition = self.get_pattern_condition(
-            self.allow_dataset_pattern, table_field
-        )
         deny_schema_condition = self.get_pattern_condition(
             self.deny_schema_pattern, schema_field, allow=False
-        )
-        deny_table_condition = self.get_pattern_condition(
-            self.deny_dataset_pattern, table_field, allow=False
         )
 
         all_tables_and_columns = []
@@ -425,9 +416,7 @@ class DremioAPIOperations:
             try:
                 formatted_query = query_template.format(
                     schema_pattern=schema_condition,
-                    table_pattern=table_condition,
                     deny_schema_pattern=deny_schema_condition,
-                    deny_table_pattern=deny_table_condition,
                     container_name=schema.container_name.lower(),
                 )
 
@@ -438,7 +427,7 @@ class DremioAPIOperations:
                 )
             except Exception as exc:
                 logger.warning(
-                    f"{schema.subclass} {schema.container_name} had no tables or views {formatted_query}"
+                    f"{schema.subclass} {schema.container_name} had no tables or views"
                 )
                 logger.debug(exc)
 

@@ -45,9 +45,8 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioGlossaryTerm,
     DremioQuery,
 )
-from datahub.ingestion.source.dremio.dremio_profiling import (
-    DremioProfiler,
-)
+from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
+from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -72,7 +71,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class DremioSourceReport(StaleEntityRemovalSourceReport):
+class DremioSourceReport(ProfilingSqlReport, StaleEntityRemovalSourceReport):
     num_containers_failed: int = 0
     num_datasets_failed: int = 0
 
@@ -80,6 +79,19 @@ class DremioSourceReport(StaleEntityRemovalSourceReport):
         # recording total combined latency is not very useful, keeping this method as a placeholder
         # for future implementation of min / max / percentiles etc.
         pass
+
+    def report_entity_scanned(
+        self, name: str, ent_type: str = DremioDatasetType.VIEW.value
+    ) -> None:
+        """
+        Entity could be a view or a table
+        """
+        if ent_type == DremioDatasetType.TABLE.value:
+            self.tables_scanned += 1
+        elif ent_type == DremioDatasetType.VIEW.value:
+            self.views_scanned += 1
+        else:
+            raise KeyError(f"Unknown entity {ent_type}.")
 
 
 @platform_name("Dremio")
@@ -340,9 +352,16 @@ class DremioSource(StatefulIngestionSourceBase):
 
         schema_str = ".".join(dataset_info.path)
 
+        dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
+
+        self.report.report_entity_scanned(dataset_name, dataset_info.dataset_type.value)
+        if not self.config.dataset_pattern.allowed(dataset_name):
+            self.report.report_dropped(dataset_name)
+            return
+
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=make_data_platform_urn(self.get_platform()),
-            name=f"dremio.{schema_str}.{dataset_info.resource_name}".lower(),
+            name=f"dremio.{dataset_name}",
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )

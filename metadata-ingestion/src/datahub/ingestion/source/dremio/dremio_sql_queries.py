@@ -27,9 +27,7 @@ class DremioSQLQueries:
     )
     WHERE 1=1
         {schema_pattern}
-        {table_pattern}
         {deny_schema_pattern}
-        {deny_table_pattern}
     ORDER BY
         TABLE_SCHEMA ASC,
         TABLE_NAME ASC
@@ -130,9 +128,7 @@ class DremioSQLQueries:
         )
         WHERE 1=1
             {schema_pattern}
-            {table_pattern}
             {deny_schema_pattern}
-            {deny_table_pattern}
         ORDER BY
             TABLE_SCHEMA ASC,
             TABLE_NAME ASC
@@ -234,9 +230,7 @@ class DremioSQLQueries:
         )
         WHERE 1=1
             {schema_pattern}
-            {table_pattern}
             {deny_schema_pattern}
-            {deny_table_pattern}
         ORDER BY
             TABLE_SCHEMA ASC,
             TABLE_NAME ASC

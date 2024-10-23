@@ -155,9 +155,10 @@ class DremioSourceConfig(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for schemas to filter",
     )
+
     dataset_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for schemas to filter",
+        description="Regex patterns for tables and views to filter in ingestion. Specify regex to match the entire table name in dremio.schema.table format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'dremio.public.customer.*'",
     )
 
     usage: BaseUsageConfig = Field(
