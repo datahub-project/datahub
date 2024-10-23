@@ -1,4 +1,4 @@
-import { hexToRgb, hexToRgba } from '../colorUtils';
+import { hexToRgb, hexToRgba } from '@app/sharedV2/colors/colorUtils';
 
 describe('hexToRgba', () => {
     it('should convert hex to rgba with opacity 1', () => {

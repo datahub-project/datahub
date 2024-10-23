@@ -1,10 +1,9 @@
 import * as Muicon from '@mui/icons-material';
 import React from 'react';
 import styled from 'styled-components';
-
+import { hexToRgba } from '@app/sharedV2/colors/colorUtils';
 import { Domain } from '../../../../types.generated';
 import { generateColor } from '../components/styled/StyledTag';
-import { hexToRgba } from './colorUtils';
 import { REDESIGN_COLORS } from '../constants';
 
 const DomainIconContainer = styled.div<{ color: string; size: number }>`

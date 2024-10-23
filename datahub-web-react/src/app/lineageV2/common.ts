@@ -33,6 +33,7 @@ export interface Filters {
     display?: boolean; // undefined == display
     limit?: number; // undefined == no limit
     facetFilters: Map<string, Set<string>>;
+    searchUrns?: Set<string>;
 }
 
 export interface NodeBase {
