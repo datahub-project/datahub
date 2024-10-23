@@ -91,7 +91,7 @@ DataHub offers comprehensive features designed to tackle data freshness challeng
 </p>
 
 
-**Freshness Monitoring & Alerting:** Automatically detect and alert when data freshness issues occur, to ensure timely updates by proactively monitoring key datasets for updates. Check out [Assertions](https://datahubproject.io/docs/managed-datahub/observe/assertions) and [Freshness Assertions](https://datahubproject.io/docs/managed-datahub/observe/freshness-assertions), Available in **DataHub Cloud Only.**
+**Freshness Monitoring & Alerting:** Automatically detect and alert when data freshness issues occur, to ensure timely updates by proactively monitoring key datasets for updates. Check out [Assertions](https://datahubproject.io/docs/cloud/observe/assertions) and [Freshness Assertions](https://datahubproject.io/docs/cloud/observe/freshness-assertions), Available in **DataHub Cloud Only.**
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/freshness-assertions.png"/>
@@ -107,7 +107,7 @@ DataHub offers comprehensive features designed to tackle data freshness challeng
 </p>
 
 
-**[Incident Management](https://datahubproject.io/docs/incidents/incidents)** : Centralize data incident management and begin to effectively triage, prioritize, communicate and resolve data freshness issues to all relevant stakeholders. Check out [subscription & notification](https://datahubproject.io/docs/managed-datahub/subscription-and-notification) features as well.
+**[Incident Management](https://datahubproject.io/docs/incidents/incidents)** : Centralize data incident management and begin to effectively triage, prioritize, communicate and resolve data freshness issues to all relevant stakeholders. Check out [subscription & notification](https://datahubproject.io/docs/cloud/subscription-and-notification) features as well.
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/incidents.png"/>

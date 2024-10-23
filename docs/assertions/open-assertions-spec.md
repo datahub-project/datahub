@@ -24,11 +24,11 @@ Below, we'll look at how to define assertions in YAML, and then provide an usage
 
 The following assertion types are currently supported by the DataHub YAML Assertion spec:
 
-- [Freshness](/docs/managed-datahub/observe/freshness-assertions.md) 
-- [Volume](/docs/managed-datahub/observe/volume-assertions.md)
-- [Column](/docs/managed-datahub/observe/column-assertions.md)
-- [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions.md)
-- [Schema](/docs/managed-datahub/observe/schema-assertions.md)
+- [Freshness](/docs/cloud/observe/freshness-assertions.md) 
+- [Volume](/docs/cloud/observe/volume-assertions.md)
+- [Column](/docs/cloud/observe/column-assertions.md)
+- [Custom SQL](/docs/cloud/observe/custom-sql-assertions.md)
+- [Schema](/docs/cloud/observe/schema-assertions.md)
 
 Each assertion type aims to validate a different aspect of structured table (e.g. on a data warehouse or data lake), from
 structure to size to column integrity to custom metrics. 

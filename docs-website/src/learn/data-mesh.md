@@ -94,7 +94,7 @@ DataHub Cloud offers a comprehensive set of features designed to support the imp
 
 - **[Data Domains](https://datahubproject.io/docs/domains)**: Clearly define and manage data products within each business unit.
 - **[Data Products](https://datahubproject.io/docs/dataproducts):** Ensure each domain owns and manages its data products, promoting autonomy and agility.
-- **[Data Contracts](https://datahubproject.io/docs/managed-datahub/observe/data-contract)**: Establish clear agreements between domains to ensure consistency and reliability.
+- **[Data Contracts](https://datahubproject.io/docs/cloud/observe/data-contract)**: Establish clear agreements between domains to ensure consistency and reliability.
     
 
 <p align="center">
@@ -105,7 +105,7 @@ DataHub Cloud offers a comprehensive set of features designed to support the imp
 
 
 
-- **[Assertions](https://datahubproject.io/docs/managed-datahub/observe/assertions)** Monitor data quality using freshness, volume, column validity, schema, and custom SQL checks to get notified first when things go wrong
+- **[Assertions](https://datahubproject.io/docs/cloud/observe/assertions)** Monitor data quality using freshness, volume, column validity, schema, and custom SQL checks to get notified first when things go wrong
 
 
 <p align="center">

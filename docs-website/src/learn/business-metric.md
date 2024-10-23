@@ -71,7 +71,7 @@ DataHub Cloud offers comprehensive features designed to tackle the challenges of
   <i style={{color:"grey"}}>Approval Flows</i>
 </p>
 
-- **[Approval Flows](https://datahubproject.io/docs/managed-datahub/approval-workflows):** Structured workflows for approving changes to metric definitions, maintaining accuracy and reliability.
+- **[Approval Flows](https://datahubproject.io/docs/cloud/approval-workflows):** Structured workflows for approving changes to metric definitions, maintaining accuracy and reliability.
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/lineage.png"/>

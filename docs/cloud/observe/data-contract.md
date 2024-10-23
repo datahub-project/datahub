@@ -28,7 +28,7 @@ Below is a screenshot of the Data Contracts UI in DataHub.
 Another way to word our vision of data contracts is **A bundle of verifiable assertions on physical data assets representing a public producer commitment.** 
 These can be all the assertions on an asset or only the subset you want publicly promised to consumers. Data Contracts allow you to **promote a selected group of your assertions** as a public promise: if this subset of assertions is not met, the Data Contract is failing.
 
-See docs on [assertions](/docs/managed-datahub/observe/assertions.md) for more details on the types of assertions and how to create and run them.
+See docs on [assertions](/docs/cloud/observe/assertions.md) for more details on the types of assertions and how to create and run them.
 
 :::note Ownership 
 The owner of the physical data asset is also the owner of the contract and can accept proposed changes and make changes themselves to the contract.
