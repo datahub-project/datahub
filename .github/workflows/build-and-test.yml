@@ -71,6 +71,7 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
+        if: ${{  (matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true') || (matrix.command == 'integrations-service' && needs.setup.outputs.backend_change == 'true') || (matrix.command == 'executor' && needs.setup.outputs.backend_change == 'true') }}
         with:
           python-version: "3.10"
           cache: "pip"
