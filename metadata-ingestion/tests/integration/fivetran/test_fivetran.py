@@ -13,6 +13,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryCredent
 from datahub.ingestion.source.fivetran.config import (
     BigQueryDestinationConfig,
     FivetranSourceConfig,
+    PlatformDetail,
     SnowflakeDestinationConfig,
 )
 from datahub.ingestion.source.fivetran.fivetran import FivetranSource
@@ -180,11 +181,9 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
                                 "interval_unconstitutional",
                             ]
                         },
-                        "sources_to_database": {
-                            "calendar_elected": "postgres_db",
-                        },
                         "sources_to_platform_instance": {
                             "calendar_elected": {
+                                "database": "postgres_db",
                                 "env": "DEV",
                             }
                         },
@@ -271,12 +270,11 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                                 "interval_unconstitutional",
                             ]
                         },
-                        "sources_to_database": {
-                            "calendar_elected": "postgres_db",
-                        },
                         "sources_to_platform_instance": {
                             "calendar_elected": {
+                                "platform": "postgres",
                                 "env": "DEV",
+                                "database": "postgres_db",
                             }
                         },
                     },
@@ -374,3 +372,34 @@ def test_rename_destination_config():
         match="destination_config is deprecated, please use snowflake_destination_config instead.",
     ):
         FivetranSourceConfig.parse_obj(config_dict)
+
+
+def test_compat_sources_to_database() -> None:
+    config_dict = {
+        # We just need a valid fivetran_log_config to test the compat transformation.
+        "fivetran_log_config": {
+            "destination_platform": "snowflake",
+            "snowflake_destination_config": {
+                "account_id": "testid",
+                "warehouse": "test_wh",
+                "username": "test",
+                "password": "test@123",
+                "database": "test_database",
+                "role": "testrole",
+                "log_schema": "test",
+            },
+        },
+        "sources_to_database": {"calendar_elected": "my_db", "connector_2": "my_db_2"},
+        "sources_to_platform_instance": {"calendar_elected": {"env": "DEV"}},
+    }
+
+    with pytest.warns(
+        ConfigurationWarning,
+        match=r"sources_to_database.*deprecated",
+    ):
+        config = FivetranSourceConfig.parse_obj(config_dict)
+
+    assert config.sources_to_platform_instance == {
+        "calendar_elected": PlatformDetail(env="DEV", database="my_db"),
+        "connector_2": PlatformDetail(database="my_db_2"),
+    }
