@@ -20,7 +20,6 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fivetran.config import (
-    KNOWN_DATA_PLATFORM_MAPPING,
     Constant,
     FivetranSourceConfig,
     FivetranSourceReport,
@@ -95,13 +94,18 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Get database for connector source
         # TODO: Once Fivetran exposes this, we shouldn't ask for it via config.
-        source_database: Optional[str] = self.config.sources_to_database.get(
-            connector.connector_id
+        source_database: Optional[str] = (
+            source_platform_detail.database if source_platform_detail else None
         )
+        if not source_database:
+            source_database = (
+                self.config.sources_to_database.get(connector.connector_id)
+                if self.config.sources_to_database.get(connector.connector_id)
+                else None
+            )
 
-        if connector.connector_type in KNOWN_DATA_PLATFORM_MAPPING:
-            source_platform = KNOWN_DATA_PLATFORM_MAPPING[connector.connector_type]
-        else:
+        source_platform = source_platform_detail.platform_name
+        if not source_platform:
             source_platform = connector.connector_type
             logger.info(
                 f"Fivetran connector source type: {connector.connector_type} is not supported to mapped with Datahub dataset entity."
@@ -128,9 +132,14 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
             input_dataset_urn_list.append(input_dataset_urn)
 
+            output_database = (
+                self.audit_log.fivetran_log_database.lower()
+                if not destination_platform_detail.database
+                else destination_platform_detail.database
+            )
             output_dataset_urn = DatasetUrn.create_from_ids(
                 platform_id=self.config.fivetran_log_config.destination_platform,
-                table_name=f"{self.audit_log.fivetran_log_database.lower()}.{lineage.destination_table}",
+                table_name=f"{output_database}.{lineage.destination_table}",
                 env=destination_platform_detail.env,
                 platform_instance=destination_platform_detail.platform_instance,
             )

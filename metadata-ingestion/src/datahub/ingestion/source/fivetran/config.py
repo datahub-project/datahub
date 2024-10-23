@@ -144,6 +144,10 @@ class FivetranSourceReport(StaleEntityRemovalSourceReport):
 
 
 class PlatformDetail(ConfigModel):
+    platform_name: Optional[str] = pydantic.Field(
+        description="The name of the platform that all assets produced by this recipe belong to",
+    )
+
     platform_instance: Optional[str] = pydantic.Field(
         default=None,
         description="The instance of the platform that all assets produced by this recipe belong to",
@@ -151,6 +155,11 @@ class PlatformDetail(ConfigModel):
     env: str = pydantic.Field(
         default=DEFAULT_ENV,
         description="The environment that all assets produced by DataHub platform ingestion source belong to",
+    )
+
+    database: Optional[str] = pydantic.Field(
+        default=None,
+        description="The database this platform instance belongs to. This override only need to set if the source wrongly gets the database",
     )
 
 
@@ -170,9 +179,12 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         default=True,
         description="Populates table->table column lineage.",
     )
+
+    # Mapping of connector id to connector name
     sources_to_database: Dict[str, str] = pydantic.Field(
         default={},
-        description="A mapping of the connector's all sources to its database. Use connector id as key.",
+        deprecated=True,
+        description="A mapping of the connector's all sources to its database. Use connector id as key. Use sources_to_platform_instance instead.",
     )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
@@ -191,4 +203,9 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     history_sync_lookback_period: int = pydantic.Field(
         7,
         description="The number of days to look back when extracting connectors' sync history.",
+    )
+
+    platform_mapping: Dict[str, str] = pydantic.Field(
+        default=KNOWN_DATA_PLATFORM_MAPPING,
+        description="A mapping of the connector's platform to DataHub platform.",
     )
