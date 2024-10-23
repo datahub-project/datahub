@@ -26,9 +26,7 @@ from tests.utils import (
 )
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
-usage_sample_data = (
-    "./test_resources/bigquery_usages_golden.json"
-)
+usage_sample_data = "./test_resources/bigquery_usages_golden.json"
 bq_sample_data = "./sample_bq_data.json"
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
