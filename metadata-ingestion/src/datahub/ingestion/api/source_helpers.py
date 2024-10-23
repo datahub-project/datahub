@@ -250,7 +250,7 @@ def auto_browse_path_v2(
         for wu in batch:
 
             # Skip generating BrowsePathsV2 from Container for mssql dataJob & dataFlow entities
-            if (
+            if "mssql" in urn and (
                 guess_entity_type(urn) == "dataJob"
                 or guess_entity_type(urn) == "dataFlow"
             ):

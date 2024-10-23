@@ -634,7 +634,7 @@ class SQLServerSource(SQLAlchemySource):
 
         yield MetadataChangeProposalWrapper(
             entityUrn=data_job.urn,
-            aspect=BrowsePathsV2Class(path=path), # type: ignore[arg-type]
+            aspect=BrowsePathsV2Class(path=path),  # type: ignore[arg-type]
         ).as_workunit()
 
     def construct_flow_workunits(
@@ -664,7 +664,7 @@ class SQLServerSource(SQLAlchemySource):
 
         yield MetadataChangeProposalWrapper(
             entityUrn=data_flow.urn,
-            aspect=BrowsePathsV2Class(path=path), # type: ignore[arg-type]
+            aspect=BrowsePathsV2Class(path=path),  # type: ignore[arg-type]
         ).as_workunit()
 
     def get_inspectors(self) -> Iterable[Inspector]:
