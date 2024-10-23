@@ -1,0 +1,7 @@
+namespace com.linkedin.dataset
+
+record AutoApprovalRule {
+  fieldToEvaluate: string
+  condition: string
+  value: string
+}

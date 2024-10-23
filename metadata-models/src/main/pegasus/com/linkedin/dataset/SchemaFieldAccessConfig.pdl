@@ -1,0 +1,30 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.schema.SchemaFieldDataType
+
+record SchemaFieldAccessConfig {
+
+  /**
+   * Name or path of the field in dataset
+   */
+  fieldPath: SchemaFieldPath
+
+  /**
+   * Type of field
+   */
+  type: optional SchemaFieldDataType
+
+  /**
+   * Field values can be protected via masking or nullifying. See protection types.
+   */
+  accessProtectionType: SchemaFieldAccessProtectionType = "UNPROTECTED"
+
+  /**
+   * Values for row-level security options
+   */
+  rowAccessConfig: optional RowAccessConfig
+  /**
+   * Specifies if NDA has to be signed for accessing the field
+   */
+  ndaRequired: boolean = false
+}

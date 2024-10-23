@@ -1,0 +1,29 @@
+namespace com.linkedin.dataaccess
+
+import com.linkedin.common.DatasetUrn
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.CorpuserUrn
+
+/**
+ * Properties of data access request
+ */
+@Aspect = {
+  "name": "dataAccessProperties"
+}
+record DataAccessProperties {
+
+  /**
+   * The data view to be provisioned to view the dataset
+   */
+  target: optional DatasetUrn
+
+  purpose: optional string
+
+  details: optional string
+
+  fieldAccesses: optional array[SchemaFieldAccess]
+
+  fullAccessToAllFields: boolean = false
+
+  fullAccessToAllRows: boolean = false
+}

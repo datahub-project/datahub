@@ -1,0 +1,11 @@
+namespace com.linkedin.dataset
+
+@Aspect = {
+  "name": "dataAccessPolicySetting"
+}
+record DataAccessPolicySetting {
+  /**
+   * Configs of policy access to each individual field
+   */
+  fieldAccessConfig: array[SchemaFieldAccessConfig]
+}

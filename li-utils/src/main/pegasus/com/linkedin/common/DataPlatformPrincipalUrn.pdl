@@ -1,0 +1,27 @@
+namespace com.linkedin.common
+
+/**
+ * Principals in standardized data platforms
+ */
+@java.class = "com.linkedin.common.urn.DataPlatformPrincipalUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:wherehows",
+  "entityType" : "dataPlatformPrincipal",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "DataPlatformPrincipal",
+  "doc" : "Principals in standardized data platforms",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "type" : "com.linkedin.common.urn.DataPlatformUrn",
+    "name" : "platform",
+    "doc"  : "Standardized platform urn."
+  }, {
+    "type" : "string",
+    "name" : "name",
+    "doc"  : "Principal native name e.g. user:alpha@google.com, serviceAccount:billingAccount@google.com",
+  }],
+  "maxLength" : 1024
+}
+typeref DataPlatformPrincipalUrn = string

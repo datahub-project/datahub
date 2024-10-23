@@ -1,0 +1,9 @@
+namespace com.linkedin.dataset
+
+enum SchemaFieldAccessProtectionType {
+  UNPROTECTED
+  MASKED
+  NULLIFIED
+  OTHER
+  ROW_FILTER
+}

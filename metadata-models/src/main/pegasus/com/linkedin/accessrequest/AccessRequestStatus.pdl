@@ -1,0 +1,35 @@
+namespace com.linkedin.accessrequest
+
+/**
+ * Job statuses
+ */
+enum AccessRequestStatus {
+
+  PENDING
+
+  /**
+   * Approver requires requester to change requested access.
+   */
+  CHANGE_REQUIRED
+
+  CANCELED
+
+  APPROVED
+
+  PROVISIONED
+
+  PROVISIONING_FAILED
+
+  REJECTED
+
+  REVOKED
+
+  DEPROVISIONING_FAILED
+
+  DEPROVISIONED
+
+  EXPIRED
+  
+  UNKNOWN
+
+}

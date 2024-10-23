@@ -1,0 +1,22 @@
+namespace com.linkedin.dataaccess
+
+import com.linkedin.common.CorpuserUrn
+import com.linkedin.common.AuditStamp
+
+/**
+ * The status with information for data access request
+ */
+@Aspect = {
+  "name": "dataAccessStatusInfo"
+}
+record DataAccessStatusInfo {
+
+  status: DataAccessStatus
+
+  message: optional string
+
+  auditStamp: AuditStamp = {
+    "time": 0,
+    "actor": "urn:li:corpuser:unknown"
+  }
+}
