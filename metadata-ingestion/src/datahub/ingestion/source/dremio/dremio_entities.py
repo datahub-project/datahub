@@ -185,8 +185,12 @@ class DremioQuery:
         return ""
 
     def get_raw_query(self, sql_query: str) -> str:
-        parsed = parse_one(sql_query)
-        return parsed.sql(comments=False)
+        try:
+            parsed = parse_one(sql_query)
+            return parsed.sql(comments=False)
+        except Exception as e:
+            logger.warning(e)
+            return sql_query
 
 
 class DremioDataset:
