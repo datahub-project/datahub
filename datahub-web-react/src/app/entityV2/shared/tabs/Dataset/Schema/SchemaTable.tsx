@@ -144,6 +144,26 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
         white-space: nowrap;
         max-width: 400px;
     }
+
+    // this makes the table fill up height of parent
+    .ant-spin-nested-loading {
+        height: 100%;
+        .ant-spin-container {
+            height: 100%;
+            .ant-table {
+                height: 100%;
+                .ant-table-container {
+                    height: 100%;
+                    .ant-table-body {
+                        height: 100%;
+                    }
+                    .ant-table-body > div:first-child {
+                        height: 100%;
+                    }
+                }
+            }
+        }
+    }
 `;
 
 export type Props = {
