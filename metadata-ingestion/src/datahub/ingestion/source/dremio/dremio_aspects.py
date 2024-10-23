@@ -296,6 +296,15 @@ class DremioAspects:
             )
             yield mcp.as_workunit()
 
+        # View Definition
+        if dataset.dataset_type == DremioDatasetType.VIEW:
+            view_definition = self._create_view_properties(dataset)
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=view_definition,
+            )
+            yield mcp.as_workunit()
+
         # Glossary Terms
         if dataset.glossary_terms:
             glossary_terms = self._create_glossary_terms(dataset)
