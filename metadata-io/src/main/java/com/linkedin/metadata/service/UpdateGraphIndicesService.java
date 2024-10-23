@@ -34,6 +34,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -56,6 +57,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class UpdateGraphIndicesService implements SearchIndicesService {
   private static final String DOWNSTREAM_OF = "DownstreamOf";
+  private static final String GRAPH_DIFF_MODE_REMOVE_METRIC = "diff_remove_edge";
+  private static final String GRAPH_DIFF_MODE_ADD_METRIC = "diff_add_edge";
+  private static final String GRAPH_DIFF_MODE_UPDATE_METRIC = "diff_update_edge";
 
   public static UpdateGraphIndicesService withService(GraphService graphService) {
     return new UpdateGraphIndicesService(graphService);
@@ -382,20 +386,25 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     final List<Edge> mergedEdges = getMergedEdges(oldEdgeSet, newEdgeSet);
 
     // Remove any old edges that no longer exist first
-    if (subtractiveDifference.size() > 0) {
+    if (!subtractiveDifference.isEmpty()) {
       log.debug("Removing edges: {}", subtractiveDifference);
+      MetricUtils.counter(this.getClass(), GRAPH_DIFF_MODE_REMOVE_METRIC)
+          .inc(subtractiveDifference.size());
       subtractiveDifference.forEach(graphService::removeEdge);
     }
 
     // Then add new edges
-    if (additiveDifference.size() > 0) {
+    if (!additiveDifference.isEmpty()) {
       log.debug("Adding edges: {}", additiveDifference);
+      MetricUtils.counter(this.getClass(), GRAPH_DIFF_MODE_ADD_METRIC)
+          .inc(additiveDifference.size());
       additiveDifference.forEach(graphService::addEdge);
     }
 
     // Then update existing edges
-    if (mergedEdges.size() > 0) {
+    if (!mergedEdges.isEmpty()) {
       log.debug("Updating edges: {}", mergedEdges);
+      MetricUtils.counter(this.getClass(), GRAPH_DIFF_MODE_UPDATE_METRIC).inc(mergedEdges.size());
       mergedEdges.forEach(graphService::upsertEdge);
     }
   }
@@ -437,7 +446,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
 
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded =
         edgeAndRelationTypes.getSecond();
-    if (urnToRelationshipTypesBeingAdded.size() > 0) {
+    if (!urnToRelationshipTypesBeingAdded.isEmpty()) {
       for (Map.Entry<Urn, Set<String>> entry : urnToRelationshipTypesBeingAdded.entrySet()) {
         graphService.removeEdgesFromNode(
             opContext,
