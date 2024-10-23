@@ -84,17 +84,21 @@ class FivetranLogAPI:
             query = sqlglot.parse_one(query, dialect="snowflake").sql(
                 dialect=self.fivetran_log_config.destination_platform, pretty=True
             )
-        logger.debug(f"Query : {query}")
+        logger.info(f"Executing query: {query}")
         resp = self.engine.execute(query)
         return [row for row in resp]
 
-    def _get_column_lineage_metadata(self) -> Dict[Tuple[str, str], List]:
+    def _get_column_lineage_metadata(
+        self, connector_ids: List[str]
+    ) -> Dict[Tuple[str, str], List]:
         """
         Returns dict of column lineage metadata with key as (<SOURCE_TABLE_ID>, <DESTINATION_TABLE_ID>)
         """
         all_column_lineage = defaultdict(list)
         column_lineage_result = self._query(
-            self.fivetran_log_query.get_column_lineage_query()
+            self.fivetran_log_query.get_column_lineage_query(
+                connector_ids=connector_ids
+            )
         )
         for column_lineage in column_lineage_result:
             key = (
@@ -104,13 +108,13 @@ class FivetranLogAPI:
             all_column_lineage[key].append(column_lineage)
         return dict(all_column_lineage)
 
-    def _get_table_lineage_metadata(self) -> Dict[str, List]:
+    def _get_table_lineage_metadata(self, connector_ids: List[str]) -> Dict[str, List]:
         """
         Returns dict of table lineage metadata with key as 'CONNECTOR_ID'
         """
         connectors_table_lineage_metadata = defaultdict(list)
         table_lineage_result = self._query(
-            self.fivetran_log_query.get_table_lineage_query()
+            self.fivetran_log_query.get_table_lineage_query(connector_ids=connector_ids)
         )
         for table_lineage in table_lineage_result:
             connectors_table_lineage_metadata[
@@ -224,8 +228,9 @@ class FivetranLogAPI:
         return self._get_users().get(user_id)
 
     def _fill_connectors_lineage(self, connectors: List[Connector]) -> None:
-        table_lineage_metadata = self._get_table_lineage_metadata()
-        column_lineage_metadata = self._get_column_lineage_metadata()
+        connector_ids = [connector.connector_id for connector in connectors]
+        table_lineage_metadata = self._get_table_lineage_metadata(connector_ids)
+        column_lineage_metadata = self._get_column_lineage_metadata(connector_ids)
         for connector in connectors:
             connector.lineage = self._extract_connector_lineage(
                 table_lineage_result=table_lineage_metadata.get(connector.connector_id),
@@ -284,6 +289,7 @@ class FivetranLogAPI:
             # we push down connector id filters.
             logger.info("No allowed connectors found")
             return []
+        logger.info(f"Found {len(connectors)} allowed connectors")
 
         with report.metadata_extraction_perf.connectors_lineage_extraction_sec:
             logger.info("Fetching connector lineage")
