@@ -160,8 +160,7 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     )
     connector_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Filtering regex patterns for connector ids. "
-        "They're visible in the Fivetran UI under Connectors -> Setup -> Fivetran Connector ID.",
+        description="Filtering regex patterns for connector names.",
     )
     destination_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
