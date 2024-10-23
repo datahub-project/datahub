@@ -160,11 +160,14 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     )
     connector_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for connectors to filter in ingestion.",
+        description="Filtering regex patterns for connector ids. "
+        "They're visible in the Fivetran UI under Connectors -> Setup -> Fivetran Connector ID.",
     )
     destination_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for destinations to filter in ingestion.",
+        description="Regex patterns for destination ids to filter in ingestion. "
+        "Fivetran destination IDs are usually two word identifiers e.g. canyon_tolerable, and are not the same as the destination database name. "
+        "They're visible in the Fivetran UI under Destinations -> Overview -> Destination Group ID.",
     )
     include_column_lineage: bool = Field(
         default=True,

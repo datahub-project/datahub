@@ -277,6 +277,7 @@ class FivetranLogAPI:
         if not connectors:
             # Some of our queries don't work well when there's no connectors, since
             # we push down connector id filters.
+            logger.info("No allowed connectors found")
             return []
 
         with report.metadata_extraction_perf.connectors_lineage_extraction_sec:
