@@ -33,6 +33,7 @@ import com.linkedin.metadata.resources.operations.Utils;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
@@ -51,6 +52,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.Arrays;
 import java.util.List;
@@ -61,6 +63,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 /** Single unified resource for fetching, updating, searching, & browsing DataHub entities */
 @Slf4j
@@ -84,6 +87,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   private static final String UNSET = "unset";
 
   private final Clock _clock = Clock.systemUTC();
+
+  private static final int MAX_LOG_WIDTH = 512;
 
   @Inject
   @Named("entityService")
@@ -238,16 +243,20 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal,
       @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async)
       throws URISyntaxException {
-      log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
 
-      final boolean asyncBool;
-      if (UNSET.equals(async)) {
-          asyncBool = Boolean.parseBoolean(System.getenv(ASYNC_INGEST_DEFAULT_NAME));
-      } else {
-          asyncBool = Boolean.parseBoolean(async);
-      }
+      String urn = metadataChangeProposal.getEntityUrn() != null ? metadataChangeProposal.getEntityUrn().toString() :
+        java.util.Optional.ofNullable(metadataChangeProposal.getEntityKeyAspect()).orElse(new GenericAspect())
+            .getValue().asString(StandardCharsets.UTF_8);
+    String proposedValue = java.util.Optional.ofNullable(metadataChangeProposal.getAspect()).orElse(new GenericAspect())
+        .getValue().asString(StandardCharsets.UTF_8);
 
-      return ingestProposals(List.of(metadataChangeProposal), asyncBool);
+    final boolean asyncBool;
+    if (UNSET.equals(async)) {
+      asyncBool = Boolean.parseBoolean(System.getenv(ASYNC_INGEST_DEFAULT_NAME));
+    } else {
+      asyncBool = Boolean.parseBoolean(async);
+    }
+    return ingestProposals(List.of(metadataChangeProposal), asyncBool);
   }
 
   @Action(name = ACTION_INGEST_PROPOSAL_BATCH)
@@ -303,10 +312,21 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       log.debug("Proposals: {}", metadataChangeProposals);
       try {
         final AspectsBatch batch = AspectsBatchImpl.builder()
-                .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext().get())
+                .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext().get(),
+                    opContext.getValidationContext().isAlternateValidation())
                 .build();
 
-        Set<IngestResult> results =
+        batch.getMCPItems().forEach(item ->
+            log.info(
+                    "INGEST PROPOSAL content: urn: {}, async: {}, value: {}",
+                    item.getUrn(),
+                    asyncBool,
+                    StringUtils.abbreviate(java.util.Optional.ofNullable(item.getMetadataChangeProposal())
+                            .map(MetadataChangeProposal::getAspect)
+                            .orElse(new GenericAspect())
+                            .getValue().asString(StandardCharsets.UTF_8), MAX_LOG_WIDTH)));
+
+        List<IngestResult> results =
                 _entityService.ingestProposal(opContext, batch, asyncBool);
 
             for (IngestResult result : results) {

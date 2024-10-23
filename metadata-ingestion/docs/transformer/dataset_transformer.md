@@ -122,12 +122,13 @@ transformers:
 ```
 ## Simple Add Dataset ownership 
 ### Config Details
-| Field              | Required | Type         | Default     | Description                                                         |
-|--------------------|----------|--------------|-------------|---------------------------------------------------------------------|
-| `owner_urns`       | ✅        | list[string] |             | List of owner urns.                                                 |
-| `ownership_type`   |          | string       | "DATAOWNER" | ownership type of the owners (either as enum or ownership type urn) |
-| `replace_existing` |          | boolean      | `false`     | Whether to remove ownership from entity sent by ingestion source.      |
-| `semantics`        |          | enum         | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.    |
+| Field              | Required | Type         | Default     | Description                                                                                                |
+|--------------------|----------|--------------|-------------|------------------------------------------------------------------------------------------------------------|
+| `owner_urns`       | ✅        | list[string] |             | List of owner urns.                                                                                        |
+| `ownership_type`   |          | string       | "DATAOWNER" | ownership type of the owners (either as enum or ownership type urn)                                        |
+| `replace_existing` |          | boolean      | `false`     | Whether to remove ownership from entity sent by ingestion source.                                          |
+| `semantics`        |          | enum         | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                                           |
+| `on_conflict`      |          | enum         | `DO_UPDATE` | Whether to make changes if domains already exist. If set to DO_NOTHING, `semantics` setting is irrelevant. |
 
 For transformer behaviour on `replace_existing` and `semantics`, please refer section [Relationship Between replace_existing And semantics](#relationship-between-replace_existing-and-semantics).
 
@@ -191,13 +192,14 @@ transformers:
 
 ## Pattern Add Dataset ownership 
 ### Config Details
-| Field              | Required | Type                 | Default     | Description                                                                             |
-|--------------------|----------|----------------------|-------------|-----------------------------------------------------------------------------------------|
-| `owner_pattern`    | ✅        | map[regx, list[urn]] |             | entity urn with regular expression and list of owners urn apply to matching entity urn. |
-| `ownership_type`   |          | string               | "DATAOWNER" | ownership type of the owners (either as enum or ownership type urn)                     |
-| `replace_existing` |          | boolean              | `false`     | Whether to remove owners from entity sent by ingestion source.                          |
-| `semantics`        |          | enum                 | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                        |
-| `is_container`     |          | bool    | `false`    | Whether to also consider a container or not. If true, then ownership will be attached to both the dataset and its container. |
+| Field              | Required | Type                 | Default     | Description                                                                                                                  |
+|--------------------|----------|----------------------|-------------|------------------------------------------------------------------------------------------------------------------------------|
+| `owner_pattern`    | ✅        | map[regx, list[urn]] |             | entity urn with regular expression and list of owners urn apply to matching entity urn.                                      |
+| `ownership_type`   |          | string               | "DATAOWNER" | ownership type of the owners (either as enum or ownership type urn)                                                          |
+| `replace_existing` |          | boolean              | `false`     | Whether to remove owners from entity sent by ingestion source.                                                               |
+| `semantics`        |          | enum                 | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                                                             |
+| `is_container`     |          | bool                 | `false`     | Whether to also consider a container or not. If true, then ownership will be attached to both the dataset and its container. |
+| `on_conflict`      |          | enum                 | `DO_UPDATE` | Whether to make changes if domains already exist. If set to DO_NOTHING, `semantics` setting is irrelevant.                   |
 
 let’s suppose we’d like to append a series of users who we know to own a different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework.  This will match the pattern to `urn` of the dataset and assign the respective owners.
 
