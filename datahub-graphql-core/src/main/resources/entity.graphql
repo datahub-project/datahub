@@ -10362,6 +10362,35 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     Cached, potentially stale information about the entity's lineage.
     """
     lineageFeatures: LineageFeatures
+
+    """
+    Incidents associated with the ML Model
+    """
+    incidents(
+        """
+        Optional incident state to filter by, defaults to any state.
+        """
+        state: IncidentState,
+        """
+        Optional incident stage to filter by, defaults to any state.
+        """
+        stage: IncidentStage,
+        """
+        Optional incident priority to filter by, defaults to any state.
+        """
+        priority: IncidentPriority,
+        """
+        Optional assignee urns for an incident.
+        """
+        assigneeUrns: [String!],
+        """
+        Optional start offset, defaults to 0.
+        """
+        start: Int,
+        """
+        Optional start offset, defaults to 20.
+        """
+        count: Int): EntityIncidentsResult
 }
 
 """
@@ -10669,6 +10698,35 @@ type MLFeature implements EntityWithRelationships & Entity {
     Cached, potentially stale information about the entity's lineage.
     """
     lineageFeatures: LineageFeatures
+
+    """
+    Incidents associated with the ML Feature
+    """
+    incidents(
+        """
+        Optional incident state to filter by, defaults to any state.
+        """
+        state: IncidentState,
+        """
+        Optional incident stage to filter by, defaults to any state.
+        """
+        stage: IncidentStage,
+        """
+        Optional incident priority to filter by, defaults to any state.
+        """
+        priority: IncidentPriority,
+        """
+        Optional assignee urns for an incident.
+        """
+        assigneeUrns: [String!],
+        """
+        Optional start offset, defaults to 0.
+        """
+        start: Int,
+        """
+        Optional start offset, defaults to 20.
+        """
+        count: Int): EntityIncidentsResult
 }
 
 type MLHyperParam {

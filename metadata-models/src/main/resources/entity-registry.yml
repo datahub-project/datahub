@@ -427,6 +427,7 @@ entities:
       - origin
       - lineageFeatures
       - documentation
+      - incidentsSummary
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -509,6 +510,7 @@ entities:
       - origin
       - lineageFeatures
       - documentation
+      - incidentsSummary
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
