@@ -99,9 +99,11 @@ usage_common = {
 }
 
 sqlglot_lib = {
-    # Using an Acryl fork of sqlglot.
+    # We heavily monkeypatch sqlglot.
+    # Prior to the patching, we originally maintained an acryl-sqlglot fork:
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==25.25.2.dev9",
+    "sqlglot[rs]==25.26.0",
+    "patchy==2.8.0",
 }
 
 classification_lib = {
