@@ -52,6 +52,8 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     PreparsedQuery,
     SqlAggregatorReport,
     SqlParsingAggregator,
+    TableRename,
+    TableSwap,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -115,6 +117,8 @@ class SnowflakeQueriesExtractorReport(Report):
 
     audit_log_load_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_aggregator: Optional[SqlAggregatorReport] = None
+
+    num_ddl_queries_dropped: int = 0
 
 
 @dataclass
@@ -225,7 +229,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         audit_log_file = self.local_temp_path / "audit_log.sqlite"
         use_cached_audit_log = audit_log_file.exists()
 
-        queries: FileBackedList[Union[KnownLineageMapping, PreparsedQuery]]
+        queries: FileBackedList[
+            Union[KnownLineageMapping, PreparsedQuery, TableRename, TableSwap]
+        ]
         if use_cached_audit_log:
             logger.info("Using cached audit log")
             shared_connection = ConnectionWrapper(audit_log_file)
@@ -235,7 +241,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
             shared_connection = ConnectionWrapper(audit_log_file)
             queries = FileBackedList(shared_connection)
-            entry: Union[KnownLineageMapping, PreparsedQuery]
+            entry: Union[KnownLineageMapping, PreparsedQuery, TableRename, TableSwap]
 
             with self.report.copy_history_fetch_timer:
                 for entry in self.fetch_copy_history():
@@ -296,7 +302,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
     def fetch_query_log(
         self,
-    ) -> Iterable[PreparsedQuery]:
+    ) -> Iterable[Union[PreparsedQuery, TableRename, TableSwap]]:
         query_log_query = _build_enriched_query_log_query(
             start_time=self.config.window.start_time,
             end_time=self.config.window.end_time,
@@ -324,12 +330,16 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         exc=e,
                     )
                 else:
-                    yield entry
+                    if entry:
+                        yield entry
 
-    def _parse_audit_log_row(self, row: Dict[str, Any]) -> PreparsedQuery:
+    def _parse_audit_log_row(
+        self, row: Dict[str, Any]
+    ) -> Optional[Union[TableRename, TableSwap, PreparsedQuery]]:
         json_fields = {
             "DIRECT_OBJECTS_ACCESSED",
             "OBJECTS_MODIFIED",
+            "OBJECT_MODIFIED_BY_DDL",
         }
 
         res = {}
@@ -341,6 +351,17 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
         direct_objects_accessed = res["direct_objects_accessed"]
         objects_modified = res["objects_modified"]
+        object_modified_by_ddl = res["object_modified_by_ddl"]
+
+        if object_modified_by_ddl and not objects_modified:
+            ddl_entry: Optional[Union[TableRename, TableSwap]] = None
+            with self.structured_reporter.report_exc(
+                "Error fetching ddl lineage from Snowflake"
+            ):
+                ddl_entry = self.parse_ddl_query(
+                    res["query_text"], object_modified_by_ddl
+                )
+            return ddl_entry
 
         upstreams = []
         column_usage = {}
@@ -436,6 +457,45 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             query_type=query_type,
         )
         return entry
+
+    def parse_ddl_query(
+        self, query: str, object_modified_by_ddl: dict
+    ) -> Optional[Union[TableRename, TableSwap]]:
+        if object_modified_by_ddl[
+            "operationType"
+        ] == "ALTER" and object_modified_by_ddl["properties"].get("swapTargetName"):
+            urn1 = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    object_modified_by_ddl["objectName"]
+                )
+            )
+
+            urn2 = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    object_modified_by_ddl["properties"]["swapTargetName"]["value"]
+                )
+            )
+
+            return TableSwap(urn1, urn2, query)
+        elif object_modified_by_ddl[
+            "operationType"
+        ] == "RENAME_TABLE" and object_modified_by_ddl["properties"].get("objectName"):
+            original_un = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    object_modified_by_ddl["objectName"]
+                )
+            )
+
+            new_urn = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    object_modified_by_ddl["properties"]["objectName"]["value"]
+                )
+            )
+
+            return TableRename(original_un, new_urn, query)
+        else:
+            self.report.num_ddl_queries_dropped += 1
+            return None
 
     def close(self) -> None:
         self._exit_stack.close()
@@ -542,6 +602,7 @@ fingerprinted_queries as (
         user_name,
         direct_objects_accessed,
         objects_modified,
+        object_modified_by_ddl
     FROM
         snowflake.account_usage.access_history
     WHERE
@@ -563,8 +624,9 @@ fingerprinted_queries as (
         ) as direct_objects_accessed,
         -- TODO: Drop the columns.baseSources subfield.
         FILTER(objects_modified, o -> o:objectDomain IN {SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER}) as objects_modified,
+        case when object_modified_by_ddl:objectDomain IN {SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER} then object_modified_by_ddl else null end as object_modified_by_ddl
     FROM raw_access_history
-    WHERE ( array_size(direct_objects_accessed) > 0 or array_size(objects_modified) > 0 )
+    WHERE ( array_size(direct_objects_accessed) > 0 or array_size(objects_modified) > 0 or object_modified_by_ddl is not null )
 )
 , query_access_history AS (
     SELECT
@@ -586,6 +648,7 @@ fingerprinted_queries as (
         q.role_name AS "ROLE_NAME",
         a.direct_objects_accessed,
         a.objects_modified,
+        a.object_modified_by_ddl
     FROM deduplicated_queries q
     JOIN filtered_access_history a USING (query_id)
 )
