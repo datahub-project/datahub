@@ -21,6 +21,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
+import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -88,7 +89,8 @@ public class MCLSpringCommonTestConfiguration {
         entityRegistry,
         mock(ServicesRegistryContext.class),
         indexConvention,
-        mock(RetrieverContext.class));
+        mock(RetrieverContext.class),
+        mock(ValidationContext.class));
   }
 
   @MockBean SpringStandardPluginConfiguration springStandardPluginConfiguration;

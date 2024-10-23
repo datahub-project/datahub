@@ -1,6 +1,7 @@
 import doctest
 
 from datahub.utilities.delayed_iter import delayed_iter
+from datahub.utilities.is_pytest import is_pytest_running
 from datahub.utilities.sql_parser import SqlLineageSQLParser
 
 
@@ -295,3 +296,7 @@ def test_logging_name_extraction():
         ).attempted
         > 0
     )
+
+
+def test_is_pytest_running() -> None:
+    assert is_pytest_running()
