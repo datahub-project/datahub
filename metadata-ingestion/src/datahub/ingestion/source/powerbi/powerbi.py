@@ -792,6 +792,11 @@ class Mapper:
             container_key=self.workspace_key,
             name=workspace.name,
             sub_types=[workspace.type],
+            extra_properties={
+                "workspace_id": workspace.id,
+                "workspace_name": workspace.name,
+                "workspace_type": workspace.type,
+            },
         )
         return container_work_units
 
@@ -1251,20 +1256,28 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_allowed_workspaces(self) -> List[powerbi_data_classes.Workspace]:
         all_workspaces = self.powerbi_client.get_workspaces()
-
-        allowed_wrk = [
-            workspace
-            for workspace in all_workspaces
-            if self.source_config.workspace_id_pattern.allowed(workspace.id)
-            and workspace.type in self.source_config.workspace_type_filter
-        ]
-
         logger.info(f"Number of workspaces = {len(all_workspaces)}")
-        self.reporter.report_number_of_workspaces(len(all_workspaces))
-        logger.info(f"Number of allowed workspaces = {len(allowed_wrk)}")
+        self.reporter.all_workspace_count = len(all_workspaces)
         logger.debug(f"Workspaces = {all_workspaces}")
 
-        return allowed_wrk
+        allowed_workspaces = []
+        for workspace in all_workspaces:
+            if not self.source_config.workspace_id_pattern.allowed(workspace.id):
+                self.reporter.filtered_workspaces.append(
+                    f"{workspace.id} - {workspace.name} (not allowed by pattern)"
+                )
+                continue
+            elif workspace.type not in self.source_config.workspace_type_filter:
+                self.reporter.filtered_workspaces.append(
+                    f"{workspace.id} - {workspace.name} ({workspace.type} not allowed by type filter)"
+                )
+                continue
+            else:
+                allowed_workspaces.append(workspace)
+
+        logger.info(f"Number of allowed workspaces = {len(allowed_workspaces)}")
+
+        return allowed_workspaces
 
     def validate_dataset_type_mapping(self):
         powerbi_data_platforms: List[str] = [
