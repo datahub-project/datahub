@@ -1,17 +1,14 @@
-import { CaretDownOutlined, FileTextOutlined, TableOutlined } from '@ant-design/icons';
+import { FileTextOutlined, TableOutlined } from '@ant-design/icons';
+import VersionSelector from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
 import HistoryIcon from '@mui/icons-material/History';
-import { Button, Select, Tooltip, Typography } from 'antd';
+import { Button, Tooltip, Typography } from 'antd';
 import { debounce } from 'lodash';
 import React, { useState } from 'react';
-import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { SemanticVersionStruct } from '../../../../../../types.generated';
-import { toRelativeTimeString } from '../../../../../shared/time/timeUtils';
 import TabToolbar from '../../../../shared/components/styled/TabToolbar';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../shared/constants';
 import { SchemaFilterType } from '../../../../shared/tabs/Dataset/Schema/utils/filterSchemaRows';
-import { navigateToVersionedDatasetUrl } from '../../../../shared/tabs/Dataset/Schema/utils/navigateToVersionedDatasetUrl';
-import CustomPagination from './CustomPagination';
 import SchemaSearchInput from './SchemaSearchInput';
 
 const SchemaHeaderContainer = styled.div`
@@ -19,12 +16,6 @@ const SchemaHeaderContainer = styled.div`
     justify-content: space-between;
     width: 100%;
     padding-bottom: 3px;
-`;
-
-const ShowVersionButton = styled(Button)`
-    display: inline-block;
-    margin-right: 10px;
-    display: none;
 `;
 
 // Below styles are for buttons on the left side of the Schema Header
@@ -71,40 +62,20 @@ const KeyValueButtonGroup = styled.div`
 
 // Below styles are for buttons on the right side of the Schema Header
 const RightButtonsGroup = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: right;
+    gap: 15px;
+
     padding-left: 5px;
-
-    &&& {
-        display: flex;
-        justify-content: right;
-        align-items: center;
-        row-gap: 12px;
-    }
-`;
-
-const SchemaBlameSelector = styled(Select)`
-    &&& .ant-select-selector {
-        background: ${REDESIGN_COLORS.LIGHT_GREY};
-        font-size: 14px;
-        font-weight: 500;
-        line-height: 24px;
-        color: ${REDESIGN_COLORS.DARK_GREY};
-        min-width: 30px;
-        margin-right: 10px;
-        border-radius: 20px;
-    }
-`;
-
-const SchemaBlameSelectorOption = styled(Select.Option)`
-    &&& {
-        overflow: visible;
-        margin-top: 6px;
-    }
 `;
 
 const SchemaAuditButton = styled(Button)`
-    align-self: center;
-    margin-top: -5px;
+    display: flex;
+    align-items: center;
     background: ${REDESIGN_COLORS.WHITE};
+    padding: 0;
+    margin-right: 15px;
 
     svg {
         background: ${REDESIGN_COLORS.TITLE_PURPLE};
@@ -119,10 +90,6 @@ const SchemaAuditButton = styled(Button)`
 const MAX_ROWS_BEFORE_DEBOUNCE = 50;
 
 type Props = {
-    maxVersion?: number;
-    fetchVersions?: (version1: number, version2: number) => void;
-    editMode: boolean;
-    setEditMode?: (mode: boolean) => void;
     hasRaw: boolean;
     showRaw: boolean;
     setShowRaw: (show: boolean) => void;
@@ -144,10 +111,6 @@ type Props = {
 };
 
 export default function SchemaHeader({
-    maxVersion = 0,
-    fetchVersions,
-    editMode,
-    setEditMode,
     hasRaw,
     showRaw,
     setShowRaw,
@@ -167,40 +130,8 @@ export default function SchemaHeader({
     setHighlightedMatchIndex,
     schemaFilter,
 }: Props) {
-    const history = useHistory();
-    const location = useLocation();
     const [schemaFilterSelectOpen, setSchemaFilterSelectOpen] = useState(false);
 
-    const onVersionChange = (version1, version2) => {
-        if (version1 === null || version2 === null) {
-            return;
-        }
-        fetchVersions?.(version1 - maxVersion, version2 - maxVersion);
-    };
-
-    const semanticVersionDisplayString = (semanticVersion: SemanticVersionStruct) => {
-        const semanticVersionTimestampString =
-            (semanticVersion?.semanticVersionTimestamp &&
-                toRelativeTimeString(semanticVersion?.semanticVersionTimestamp)) ||
-            'unknown';
-        return `${semanticVersion.semanticVersion} - ${semanticVersionTimestampString}`;
-    };
-    const numVersions = versionList.length;
-
-    const renderOptions = () => {
-        return versionList.map(
-            (semanticVersionStruct) =>
-                semanticVersionStruct?.semanticVersion &&
-                semanticVersionStruct?.semanticVersionTimestamp && (
-                    <SchemaBlameSelectorOption
-                        value={semanticVersionStruct?.semanticVersion}
-                        data-testid={`sem-ver-select-button-${semanticVersionStruct?.semanticVersion}`}
-                    >
-                        {semanticVersionDisplayString(semanticVersionStruct)}
-                    </SchemaBlameSelectorOption>
-                ),
-        );
-    };
     const schemaAuditToggleText = showSchemaTimeline ? 'Close change history' : 'View change history';
 
     const debouncedSetFilterText = debounce(
@@ -211,7 +142,6 @@ export default function SchemaHeader({
     return (
         <TabToolbar>
             <SchemaHeaderContainer>
-                {maxVersion > 0 && !editMode && <CustomPagination onChange={onVersionChange} maxVersion={maxVersion} />}
                 <LeftButtonsGroup>
                     {hasRaw && (
                         <RawButton type="text" onClick={() => setShowRaw(!showRaw)}>
@@ -254,30 +184,13 @@ export default function SchemaHeader({
                     )}
                 </LeftButtonsGroup>
                 <RightButtonsGroup>
-                    {maxVersion > 0 &&
-                        (editMode ? (
-                            <ShowVersionButton onClick={() => setEditMode?.(false)}>Version Blame</ShowVersionButton>
-                        ) : (
-                            <ShowVersionButton onClick={() => setEditMode?.(true)}>Back</ShowVersionButton>
-                        ))}
-                    {numVersions > 1 && (
-                        <>
-                            <SchemaBlameSelector
-                                value={selectedVersion}
-                                onChange={(e) => {
-                                    const datasetVersion: string = e as string;
-                                    navigateToVersionedDatasetUrl({
-                                        location,
-                                        history,
-                                        datasetVersion,
-                                    });
-                                }}
-                                data-testid="schema-version-selector-dropdown"
-                                suffixIcon={<CaretDownOutlined />}
-                            >
-                                {renderOptions()}
-                            </SchemaBlameSelector>
-                        </>
+                    {versionList.length > 1 && (
+                        <VersionSelector
+                            versionList={versionList}
+                            selectedVersion={selectedVersion}
+                            isSibling={false}
+                            isPrimary
+                        />
                     )}
                     <Tooltip title={schemaAuditToggleText}>
                         <SchemaAuditButton

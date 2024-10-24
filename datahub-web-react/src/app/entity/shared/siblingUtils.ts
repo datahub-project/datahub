@@ -1,3 +1,4 @@
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import merge from 'deepmerge';
 import { keyBy, unionBy, values } from 'lodash';
 import * as QueryString from 'query-string';
@@ -411,6 +412,16 @@ const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
     return combinedBaseEntity;
 };
 
+export function combineEntityData<T>(entityValue: T, siblingValue: T, isPrimary: boolean) {
+    if (!entityValue) return siblingValue;
+    if (!siblingValue) return entityValue;
+
+    return merge(clean(isPrimary ? siblingValue : entityValue), clean(isPrimary ? entityValue : siblingValue), {
+        arrayMerge: combineMerge,
+        customMerge: customMerge.bind({}, isPrimary),
+    });
+}
+
 export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
     if (!baseEntity) {
         return baseEntity;
@@ -480,4 +491,17 @@ export function useIsSeparateSiblingsMode() {
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
 
     return showSeparateSiblings || params[SEPARATE_SIBLINGS_URL_PARAM] === 'true';
+}
+
+/**
+ * `siblingPlatforms` in GenericEntityProperties always puts the primary first.
+ * This method allows getting sibling platforms without considering the primary.
+ */
+export function useGetSiblingPlatforms() {
+    const { entityData } = useEntityData();
+    const isPrimary = entityData?.siblings?.isPrimary ?? false;
+    return {
+        entityPlatform: isPrimary ? entityData?.siblingPlatforms?.[0] : entityData?.siblingPlatforms?.[1],
+        siblingPlatform: isPrimary ? entityData?.siblingPlatforms?.[1] : entityData?.siblingPlatforms?.[0],
+    };
 }

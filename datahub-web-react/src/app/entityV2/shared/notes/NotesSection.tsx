@@ -1,3 +1,4 @@
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -30,6 +31,7 @@ interface Props {
 }
 
 export default function NotesSection({ urn, subResource, notes, refetch, showEmpty }: Props) {
+    const isSchemaEditable = React.useContext(SchemaEditableContext);
     const [showAddModal, setShowAddModal] = useState(false);
 
     const content = notes?.length ? (
@@ -55,13 +57,15 @@ export default function NotesSection({ urn, subResource, notes, refetch, showEmp
                 title="Notes"
                 content={content}
                 extra={
-                    <SectionActionButton
-                        button={<AddRoundedIcon />}
-                        onClick={(event) => {
-                            setShowAddModal(true);
-                            event.stopPropagation();
-                        }}
-                    />
+                    isSchemaEditable && (
+                        <SectionActionButton
+                            button={<AddRoundedIcon />}
+                            onClick={(event) => {
+                                setShowAddModal(true);
+                                event.stopPropagation();
+                            }}
+                        />
+                    )
                 }
             />
             {showAddModal && (
@@ -146,6 +150,7 @@ interface NoteProps {
 }
 
 function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps) {
+    const isSchemaEditable = React.useContext(SchemaEditableContext);
     const [showEditModal, setShowEditModal] = useState(false);
     const [deletePost] = useDeletePostMutation();
 
@@ -176,15 +181,19 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
                     </NoteDescriptionContainer>
                 )}
             </NoteContent>
-            <NoteEditWrapper>
-                <NoteEditIcons>
-                    <SectionActionButton button={<EditOutlinedIcon />} onClick={() => setShowEditModal(true)} />
-                    <SectionActionButton
-                        button={<DeleteOutlineOutlinedIcon />}
-                        onClick={() => onDeleteNote(() => deletePost({ variables: { urn: note.urn } }).then(refetch))}
-                    />
-                </NoteEditIcons>
-            </NoteEditWrapper>
+            {isSchemaEditable && (
+                <NoteEditWrapper>
+                    <NoteEditIcons>
+                        <SectionActionButton button={<EditOutlinedIcon />} onClick={() => setShowEditModal(true)} />
+                        <SectionActionButton
+                            button={<DeleteOutlineOutlinedIcon />}
+                            onClick={() =>
+                                onDeleteNote(() => deletePost({ variables: { urn: note.urn } }).then(refetch))
+                            }
+                        />
+                    </NoteEditIcons>
+                </NoteEditWrapper>
+            )}
             {showEditModal && (
                 <CreateEntityAnnouncementModal
                     urn={parentUrn}

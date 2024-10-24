@@ -1,17 +1,20 @@
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import React from 'react';
 import styled from 'styled-components';
-import { ChangeTransaction } from '../../../../../../../types.generated';
+import { ChangeTransaction, DataPlatform } from '../../../../../../../types.generated';
 import { formatTimestamp } from './historyUtils';
 import ChangeEventComponent from './ChangeEvent';
 import { REDESIGN_COLORS } from '../../../../constants';
 
-const ChangeTransactionTimestamp = styled.span`
+const TitleText = styled.span`
     color: ${REDESIGN_COLORS.TEXT_HEADING};
     font-size: 13px;
     font-style: normal;
     font-weight: 600;
     line-height: 16px; /* 160% */
-    margin-left: 15px;
+`;
+
+const ChangeTransactionTimestamp = styled(TitleText)`
     background: #eeecfa;
     border-radius: 20px;
     padding: 5px 15px;
@@ -37,6 +40,13 @@ const ChangeTransactionMainContent = styled.div`
     width: 100%;
     min-height: 100%;
     padding-bottom: 36px;
+`;
+
+const ChangeTransactionTitle = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 15px;
 `;
 
 const TransactionDateHeader = styled.div`
@@ -71,13 +81,13 @@ const ChangeEventVerticalLine = styled.div`
     background-color: #e8e6eb;
 `;
 
-interface ChangeTransactionProps {
-    changeTransaction: ChangeTransaction;
+export interface ChangeTransactionEntry {
+    transaction: ChangeTransaction;
+    semanticVersion?: string;
+    platform?: DataPlatform;
 }
 
-const ChangeTransactionComponent: React.FC<ChangeTransactionProps> = ({ changeTransaction }) => {
-    const changeVersion = changeTransaction.lastSemanticVersion.split('-computed')[0];
-
+export default function ChangeTransactionView({ transaction, platform, semanticVersion }: ChangeTransactionEntry) {
     return (
         <ChangeTransactionContainer>
             <ChangeTransactionSidebar>
@@ -88,18 +98,20 @@ const ChangeTransactionComponent: React.FC<ChangeTransactionProps> = ({ changeTr
                     <ChangeEventCircle>
                         <InnerEventCircle />
                     </ChangeEventCircle>
-                    <ChangeTransactionTimestamp>
-                        {changeVersion} - {formatTimestamp(changeTransaction.timestampMillis)}
-                    </ChangeTransactionTimestamp>
+                    <ChangeTransactionTitle>
+                        {platform && <PlatformIcon platform={platform} size={14} />}
+                        <ChangeTransactionTimestamp>
+                            {formatTimestamp(transaction.timestampMillis)}
+                        </ChangeTransactionTimestamp>
+                        {semanticVersion && <TitleText>{`(${semanticVersion})`}</TitleText>}
+                    </ChangeTransactionTitle>
                 </TransactionDateHeader>
                 <div>
-                    {changeTransaction?.changes?.map((change) => (
+                    {transaction?.changes?.map((change) => (
                         <ChangeEventComponent changeEvent={change} />
                     ))}
                 </div>
             </ChangeTransactionMainContent>
         </ChangeTransactionContainer>
     );
-};
-
-export default ChangeTransactionComponent;
+}
