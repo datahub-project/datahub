@@ -11,10 +11,12 @@ import org.opensearch.action.bulk.BulkProcessor;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.index.engine.DocumentMissingException;
 
 @Slf4j
 public class BulkListener implements BulkProcessor.Listener {
   private static final Map<WriteRequest.RefreshPolicy, BulkListener> INSTANCES = new HashMap<>();
+  private static final String DOCUMENT_MISSING = "document_missing";
 
   public static BulkListener getInstance() {
     return INSTANCES.computeIfAbsent(null, BulkListener::new);
@@ -84,19 +86,27 @@ public class BulkListener implements BulkProcessor.Listener {
 
   private static void incrementMetrics(BulkResponse response) {
     Arrays.stream(response.getItems())
-        .map(req -> buildMetricName(req.getOpType(), req.status().name()))
+        .map(
+            req ->
+                buildMetricName(req.getOpType(), req.status().name(), req.getFailure().getCause()))
         .forEach(metricName -> MetricUtils.counter(BulkListener.class, metricName).inc());
   }
 
   private static void incrementMetrics(BulkRequest request, Throwable failure) {
     request.requests().stream()
-        .map(req -> buildMetricName(req.opType(), "exception"))
+        .map(req -> buildMetricName(req.opType(), "exception", failure))
         .forEach(
             metricName -> MetricUtils.exceptionCounter(BulkListener.class, metricName, failure));
   }
 
-  private static String buildMetricName(DocWriteRequest.OpType opType, String status) {
-    return opType.getLowercase() + MetricUtils.DELIMITER + status.toLowerCase();
+  private static String buildMetricName(
+      DocWriteRequest.OpType opType, String status, Throwable cause) {
+    StringBuilder sb = new StringBuilder();
+    sb.append(opType.getLowercase()).append(MetricUtils.DELIMITER).append(status.toLowerCase());
+    if (cause instanceof DocumentMissingException) {
+      sb.append(MetricUtils.DELIMITER).append(DOCUMENT_MISSING);
+    }
+    return sb.toString();
   }
 
   public static String buildBulkRequestSummary(BulkRequest request) {
