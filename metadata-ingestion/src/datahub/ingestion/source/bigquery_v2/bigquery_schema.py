@@ -120,6 +120,7 @@ class BigqueryTable(BaseTable):
     partition_info: Optional[PartitionInfo] = None
     columns_ignore_from_profiling: List[str] = field(default_factory=list)
     external: bool = False
+    constraints: List[BigqueryTableConstraint] = field(default_factory=list)
 
 
 @dataclass

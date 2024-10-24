@@ -531,10 +531,11 @@ class BigQuerySchemaGenerator:
                 table_constraints = (
                     constraints.get(table.name, []) if constraints else []
                 )
+
+                table.constraints = table_constraints
                 table_wu_generator = self._process_table(
                     table=table,
                     columns=table_columns,
-                    constraints=table_constraints,
                     project_id=project_id,
                     dataset_name=dataset_name,
                 )
@@ -608,7 +609,6 @@ class BigQuerySchemaGenerator:
         self,
         table: BigqueryTable,
         columns: List[BigqueryColumn],
-        constraints: List[BigqueryTableConstraint],
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
@@ -651,7 +651,7 @@ class BigQuerySchemaGenerator:
                 None,
             )
         yield from self.gen_table_dataset_workunits(
-            table, columns, constraints, project_id, dataset_name
+            table, columns, project_id, dataset_name
         )
 
     def _process_view(
@@ -743,13 +743,12 @@ class BigQuerySchemaGenerator:
     def gen_foreign_keys(
         self,
         table: BigqueryTable,
-        table_constraints: List[BigqueryTableConstraint],
         dataset_name: str,
         project_id: str,
     ) -> Iterable[ForeignKeyConstraint]:
         table_id = f"{project_id}.{dataset_name}.{table.name}"
         foreign_keys: List[BigqueryTableConstraint] = list(
-            filter(lambda x: x.type == "FOREIGN KEY", table_constraints)
+            filter(lambda x: x.type == "FOREIGN KEY", table.constraints)
         )
         for key, group in groupby(
             foreign_keys,
@@ -796,7 +795,6 @@ class BigQuerySchemaGenerator:
         self,
         table: BigqueryTable,
         columns: List[BigqueryColumn],
-        table_constraints: List[BigqueryTableConstraint],
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
@@ -860,7 +858,6 @@ class BigQuerySchemaGenerator:
         yield from self.gen_dataset_workunits(
             table=table,
             columns=columns,
-            table_constraints=table_constraints,
             project_id=project_id,
             dataset_name=dataset_name,
             sub_types=sub_types,
@@ -901,7 +898,6 @@ class BigQuerySchemaGenerator:
         yield from self.gen_dataset_workunits(
             table=table,
             columns=columns,
-            table_constraints=[],
             project_id=project_id,
             dataset_name=dataset_name,
             tags_to_add=tags_to_add,
@@ -941,7 +937,6 @@ class BigQuerySchemaGenerator:
         yield from self.gen_dataset_workunits(
             table=table,
             columns=columns,
-            table_constraints=[],
             project_id=project_id,
             dataset_name=dataset_name,
             sub_types=[DatasetSubTypes.BIGQUERY_TABLE_SNAPSHOT],
@@ -952,7 +947,6 @@ class BigQuerySchemaGenerator:
         self,
         table: Union[BigqueryTable, BigqueryView, BigqueryTableSnapshot],
         columns: List[BigqueryColumn],
-        table_constraints: List[BigqueryTableConstraint],
         project_id: str,
         dataset_name: str,
         sub_types: List[str],
@@ -973,7 +967,7 @@ class BigQuerySchemaGenerator:
         )
 
         yield self.gen_schema_metadata(
-            dataset_urn, table, columns, table_constraints, datahub_dataset_name
+            dataset_urn, table, columns, datahub_dataset_name
         )
 
         dataset_properties = DatasetProperties(
@@ -1132,7 +1126,6 @@ class BigQuerySchemaGenerator:
         dataset_urn: str,
         table: Union[BigqueryTable, BigqueryView, BigqueryTableSnapshot],
         columns: List[BigqueryColumn],
-        constraints: List[BigqueryTableConstraint],
         dataset_name: BigqueryTableIdentifier,
     ) -> MetadataWorkUnit:
 
@@ -1141,7 +1134,7 @@ class BigQuerySchemaGenerator:
         if isinstance(table, BigqueryTable):
             foreign_keys = list(
                 self.gen_foreign_keys(
-                    table, constraints, dataset_name.dataset, dataset_name.project_id
+                    table, dataset_name.dataset, dataset_name.project_id
                 )
             )
 
@@ -1152,7 +1145,12 @@ class BigQuerySchemaGenerator:
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
             # fields=[],
-            fields=self.gen_schema_fields(columns, constraints),
+            fields=self.gen_schema_fields(
+                columns,
+                table.constraints
+                if (isinstance(table, BigqueryTable) and table.constraints)
+                else [],
+            ),
             foreignKeys=foreign_keys if foreign_keys else None,
         )
 

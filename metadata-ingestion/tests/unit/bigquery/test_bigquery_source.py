@@ -487,7 +487,7 @@ def test_gen_table_dataset_workunits(
     schema_gen = source.bq_schema_extractor
 
     gen = schema_gen.gen_table_dataset_workunits(
-        bigquery_table, [], [], project_id, dataset_name
+        bigquery_table, [], project_id, dataset_name
     )
     mcps = list(gen)
 
