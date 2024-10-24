@@ -13,6 +13,8 @@ type Option = {
     entity: GlossaryTerm | GlossaryNode;
 };
 
+const CHILD_OPTIONS_ASSIGNMENT_DELAY = 500;
+
 export const useGlossaryOptionsBuilder = (
     resolvedEntitiesData: any,
     urnsToFetch: string[],
@@ -98,7 +100,7 @@ export const useGlossaryOptionsBuilder = (
             if (remaningChildNodesToBeAdded?.length) {
                 setTimeout(() => {
                     setInitialOptions(childOptions);
-                }, 500);
+                }, CHILD_OPTIONS_ASSIGNMENT_DELAY);
             }
         } else {
             setInitialOptions(allOptions);

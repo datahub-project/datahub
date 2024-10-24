@@ -174,6 +174,8 @@ export const NestedSelect = ({
         [onSearch],
     );
 
+    // Instead of calling the update function individually whenever selectedOptions changes,
+    // we use the useEffect hook to trigger the onUpdate function automatically when selectedOptions is updated.
     useEffect(() => {
         if (onUpdate) {
             onUpdate(selectedOptions);
