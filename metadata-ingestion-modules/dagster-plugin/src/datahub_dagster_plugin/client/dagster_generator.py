@@ -384,7 +384,12 @@ class DagsterGenerator:
         if self.dagster_environment.is_cloud:
             id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{job_snapshot.name}"
         else:
-            id = f"{self.dagster_environment.module}/{job_snapshot.name}"
+            module_name = (
+                self.dagster_environment.module
+                if self.dagster_environment.module
+                else self.dagster_environment.branch
+            )
+            id = f"{module_name}/{job_snapshot.name}"
 
         flow_name = job_snapshot.name
         if remove_double_underscores and flow_name.split("__"):
@@ -443,8 +448,13 @@ class DagsterGenerator:
             flow_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{job_snapshot.name}"
             job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{op_def_snap.name}"
         else:
-            flow_id = f"{self.dagster_environment.module}/{job_snapshot.name}"
-            job_id = f"{self.dagster_environment.module}/{op_def_snap.name}"
+            module_name = (
+                self.dagster_environment.module
+                if self.dagster_environment.module
+                else self.dagster_environment.branch
+            )
+            flow_id = f"{module_name}/{job_snapshot.name}"
+            job_id = f"{module_name}/{op_def_snap.name}"
 
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=Constant.ORCHESTRATOR,
