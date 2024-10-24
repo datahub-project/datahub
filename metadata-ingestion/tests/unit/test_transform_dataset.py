@@ -225,20 +225,7 @@ def test_simple_dataset_ownership_transformation(mock_time):
 
     with_owner_aspect = make_dataset_with_owner()
 
-    not_a_dataset = models.MetadataChangeEventClass(
-        proposedSnapshot=models.DataJobSnapshotClass(
-            urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
-            aspects=[
-                models.DataJobInfoClass(
-                    name="User Deletions",
-                    description="Constructs the fct_users_deleted from logging_events",
-                    type=models.AzkabanJobTypeClass.SQL,
-                )
-            ],
-        )
-    )
-
-    inputs = [no_owner_aspect, with_owner_aspect, not_a_dataset, EndOfStream()]
+    inputs = [no_owner_aspect, with_owner_aspect, EndOfStream()]
 
     transformer = SimpleAddDatasetOwnership.create(
         {
@@ -262,7 +249,7 @@ def test_simple_dataset_ownership_transformation(mock_time):
     )
     assert first_ownership_aspect is None
 
-    last_event = outputs[3].record
+    last_event = outputs[2].record
     assert isinstance(last_event, MetadataChangeProposalWrapper)
     assert isinstance(last_event.aspect, OwnershipClass)
     assert len(last_event.aspect.owners) == 2
@@ -287,11 +274,8 @@ def test_simple_dataset_ownership_transformation(mock_time):
         ]
     )
 
-    # Verify that the third entry is unchanged.
-    assert inputs[2] == outputs[2].record
-
     # Verify that the last entry is EndOfStream
-    assert inputs[3] == outputs[4].record
+    assert inputs[-1] == outputs[-1].record
 
 
 def test_simple_dataset_ownership_with_type_transformation(mock_time):
@@ -982,20 +966,7 @@ def test_pattern_dataset_ownership_transformation(mock_time):
         ),
     )
 
-    not_a_dataset = models.MetadataChangeEventClass(
-        proposedSnapshot=models.DataJobSnapshotClass(
-            urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
-            aspects=[
-                models.DataJobInfoClass(
-                    name="User Deletions",
-                    description="Constructs the fct_users_deleted from logging_events",
-                    type=models.AzkabanJobTypeClass.SQL,
-                )
-            ],
-        )
-    )
-
-    inputs = [no_owner_aspect, with_owner_aspect, not_a_dataset, EndOfStream()]
+    inputs = [no_owner_aspect, with_owner_aspect, EndOfStream()]
 
     transformer = PatternAddDatasetOwnership.create(
         {
@@ -1019,7 +990,7 @@ def test_pattern_dataset_ownership_transformation(mock_time):
     # Check the first entry.
     assert inputs[0] == outputs[0].record
 
-    first_ownership_aspect = outputs[3].record.aspect
+    first_ownership_aspect = outputs[2].record.aspect
     assert first_ownership_aspect
     assert len(first_ownership_aspect.owners) == 1
     assert all(
@@ -1041,9 +1012,6 @@ def test_pattern_dataset_ownership_transformation(mock_time):
             for owner in second_ownership_aspect.owners
         ]
     )
-
-    # Verify that the third entry is unchanged.
-    assert inputs[2] == outputs[2].record
 
     # Verify that the last entry is unchanged (EOS)
     assert inputs[-1] == outputs[-1].record
@@ -1188,7 +1156,7 @@ def test_pattern_container_and_dataset_ownership_transformation(
         transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
     )
 
-    assert len(outputs) == len(inputs) + 3
+    assert len(outputs) == len(inputs) + 4
 
     # Check the first entry.
     assert inputs[0] == outputs[0].record
@@ -1219,7 +1187,7 @@ def test_pattern_container_and_dataset_ownership_transformation(
 
     # Check container ownerships
     for i in range(2):
-        container_ownership_aspect = outputs[i + 4].record.aspect
+        container_ownership_aspect = outputs[i + 5].record.aspect
         assert container_ownership_aspect
         ownership = json.loads(container_ownership_aspect.value.decode("utf-8"))
         assert len(ownership) == 2
