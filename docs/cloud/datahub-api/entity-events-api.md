@@ -14,7 +14,7 @@ The Events API allows you to integrate changes happening on the DataHub Metadata
 
 ### Supported Integrations
 
-* [AWS EventBridge](docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md)
+* [AWS EventBridge](docs/cloud/operator-guide/setting-up-events-api-on-aws-eventbridge.md)
 
 ### Use Cases
 

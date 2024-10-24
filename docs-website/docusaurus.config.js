@@ -326,14 +326,21 @@ module.exports = {
       {
         createRedirects(existingPath) {
           if (existingPath.includes('/docs')) {
-            return [
+            const redirects = [
               existingPath.replace('/docs', '/docs/next'),
               existingPath.replace('/docs', '/docs/0.13.0'),
               existingPath.replace('/docs', '/docs/0.12.1'),
               existingPath.replace('/docs', '/docs/0.11.0'),
               existingPath.replace('/docs', '/docs/0.10.5'),
             ];
+
+            if (existingPath.includes('/docs/managed-datahub')) {
+              redirects.push(existingPath.replace('/docs/managed-datahub', '/docs/cloud'));
+            }
+
+            return redirects;
           }
+
           return undefined; // Return a falsy value: no redirect created
         },
       },

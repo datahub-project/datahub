@@ -11,7 +11,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 ## Entity Events API
 
-* See the Entity Events API Docs [here](docs/managed-datahub/datahub-api/entity-events-api.md)
+* See the Entity Events API Docs [here](docs/cloud/datahub-api/entity-events-api.md)
 
 ## Event Structure
 

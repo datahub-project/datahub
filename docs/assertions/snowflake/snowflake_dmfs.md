@@ -87,10 +87,10 @@ grant application role SNOWFLAKE.DATA_QUALITY_MONITORING_VIEWER to role "<datahu
 
 The following assertion types are currently supported by the DataHub Snowflake DMF Assertion Compiler:
 
-- [Freshness](/docs/managed-datahub/observe/freshness-assertions.md)
-- [Volume](/docs/managed-datahub/observe/volume-assertions.md)
-- [Column](/docs/managed-datahub/observe/column-assertions.md)
-- [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions.md)
+- [Freshness](/docs/cloud/observe/freshness-assertions.md)
+- [Volume](/docs/cloud/observe/volume-assertions.md)
+- [Column](/docs/cloud/observe/column-assertions.md)
+- [Custom SQL](/docs/cloud/observe/custom-sql-assertions.md)
 
 Note that Schema Assertions are not currently supported.
 
