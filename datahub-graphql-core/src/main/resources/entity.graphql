@@ -1887,6 +1887,21 @@ type ParentContainersResult {
 }
 
 """
+Additional properties about EntityName
+"""
+type EntityNameProperties {
+    """
+    The name of the entity used in display
+    """
+    name: String!
+
+    """
+    Fully-qualified name of the Entity
+    """
+    qualifiedName: String
+}
+
+"""
 A Dataset entity, which encompasses Relational Tables, Document store collections, streaming topics, and other sets of data having an independent lifecycle
 """
 type VersionedDataset implements Entity {
