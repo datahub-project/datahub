@@ -205,7 +205,8 @@ public class ValidationUtils {
   public static EntityLineageResult validateEntityLineageResult(
       @Nonnull OperationContext opContext,
       @Nullable final EntityLineageResult entityLineageResult,
-      @Nonnull final EntityService<?> entityService) {
+      @Nonnull final EntityService<?> entityService,
+      boolean includeGhostEntities) {
     if (entityLineageResult == null) {
       return null;
     }
@@ -223,8 +224,8 @@ public class ValidationUtils {
                 entityLineageResult.getRelationships(),
                 LineageRelationship::getEntity,
                 entityService,
-                true,
-                false)
+                !includeGhostEntities,
+                includeGhostEntities)
             .collect(Collectors.toCollection(LineageRelationshipArray::new));
 
     validatedEntityLineageResult.setFiltered(
@@ -280,6 +281,8 @@ public class ValidationUtils {
       boolean includeSoftDeleted) {
 
     if (enforceSQLExistence) {
+      // TODO: Always set includeSoftDeleted to true once 0.3.7 OSS merge occurs, as soft deleted
+      //  results will be filtered by graph service
       Set<Urn> existingUrns =
           entityService.exists(
               opContext,

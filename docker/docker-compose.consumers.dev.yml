@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   datahub-mae-consumer:
     image: acryldata/datahub-mae-consumer:debug

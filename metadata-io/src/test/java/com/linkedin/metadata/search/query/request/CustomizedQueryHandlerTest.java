@@ -179,7 +179,7 @@ public class CustomizedQueryHandlerTest {
      */
     FunctionScoreQueryBuilder selectStarTest =
         CustomizedQueryHandler.functionScoreQueryBuilder(
-            new ObjectMapper(), test.lookupQueryConfig("*").get(), inputQuery);
+            new ObjectMapper(), test.lookupQueryConfig("*").get(), inputQuery, "*");
 
     FunctionScoreQueryBuilder.FilterFunctionBuilder[] expectedSelectStarScoreFunctions = {
       new FunctionScoreQueryBuilder.FilterFunctionBuilder(
@@ -203,7 +203,7 @@ public class CustomizedQueryHandlerTest {
      */
     FunctionScoreQueryBuilder defaultTest =
         CustomizedQueryHandler.functionScoreQueryBuilder(
-            new ObjectMapper(), test.lookupQueryConfig("foobar").get(), inputQuery);
+            new ObjectMapper(), test.lookupQueryConfig("foobar").get(), inputQuery, "foobar");
 
     FunctionScoreQueryBuilder.FilterFunctionBuilder[] expectedDefaultScoreFunctions = {
       new FunctionScoreQueryBuilder.FilterFunctionBuilder(

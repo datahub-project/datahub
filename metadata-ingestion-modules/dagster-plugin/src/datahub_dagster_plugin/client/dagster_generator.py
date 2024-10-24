@@ -13,7 +13,13 @@ from dagster import (
     TableSchemaMetadataValue,
 )
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot, StepEventStatus
-from dagster._core.snap import JobSnapshot
+
+try:
+    from dagster._core.snap import JobSnapshot  # type: ignore[attr-defined]
+except ImportError:
+    # Import changed since Dagster 1.8.12  to this -> https://github.com/dagster-io/dagster/commit/29a37d1f0260cfd112849633d1096ffc916d6c95
+    from dagster._core.snap import JobSnap as JobSnapshot
+
 from dagster._core.snap.node import OpDefSnap
 from dagster._core.storage.dagster_run import DagsterRun, DagsterRunStatsSnapshot
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -92,12 +98,6 @@ class Constant:
     # Default config constants
     DEFAULT_DATAHUB_REST_URL = "http://localhost:8080"
 
-    # Environment variable contants
-    DATAHUB_REST_URL = "DATAHUB_REST_URL"
-    DATAHUB_ENV = "DATAHUB_ENV"
-    DATAHUB_PLATFORM_INSTANCE = "DATAHUB_PLATFORM_INSTANCE"
-    DAGSTER_UI_URL = "DAGSTER_UI_URL"
-
     # Datahub inputs/outputs constant
     DATAHUB_INPUTS = "datahub.inputs"
     DATAHUB_OUTPUTS = "datahub.outputs"
@@ -168,7 +168,6 @@ class DatasetLineage(NamedTuple):
 
 class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
     datahub_client_config: DatahubClientConfig = pydantic.Field(
-        default=DatahubClientConfig(),
         description="Datahub client config",
     )
 

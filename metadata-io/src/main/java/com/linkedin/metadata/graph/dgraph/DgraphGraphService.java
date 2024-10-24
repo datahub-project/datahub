@@ -19,6 +19,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import io.datahubproject.metadata.context.OperationContext;
 import io.dgraph.DgraphClient;
 import io.dgraph.DgraphProto.Mutation;
 import io.dgraph.DgraphProto.NQuad;
@@ -366,7 +367,7 @@ public class DgraphGraphService implements GraphService {
                 filters.add(
                     String.format(
                         "%s as var(func: eq(<%s>, \"%s\"))",
-                        sourceFilterName, criterion.getField(), criterion.getValue()));
+                        sourceFilterName, criterion.getField(), criterion.getValues().get(0)));
               });
     }
 
@@ -383,7 +384,7 @@ public class DgraphGraphService implements GraphService {
                 filters.add(
                     String.format(
                         "%s as var(func: eq(<%s>, \"%s\"))",
-                        sourceFilterName, criterion.getField(), criterion.getValue()));
+                        sourceFilterName, criterion.getField(), criterion.getValues().get(0)));
               });
     }
 
@@ -453,6 +454,7 @@ public class DgraphGraphService implements GraphService {
   @Nonnull
   @Override
   public RelatedEntitiesResult findRelatedEntities(
+      @Nonnull final OperationContext opContext,
       @Nullable List<String> sourceTypes,
       @Nonnull Filter sourceEntityFilter,
       @Nullable List<String> destinationTypes,
@@ -662,7 +664,7 @@ public class DgraphGraphService implements GraphService {
   }
 
   @Override
-  public void removeNode(@Nonnull Urn urn) {
+  public void removeNode(@Nonnull final OperationContext opContext, @Nonnull Urn urn) {
     String query = String.format("query {\n" + " node as var(func: eq(urn, \"%s\"))\n" + "}", urn);
     String deletion = "uid(node) * * .";
 
@@ -679,6 +681,7 @@ public class DgraphGraphService implements GraphService {
 
   @Override
   public void removeEdgesFromNode(
+      @Nonnull final OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull List<String> relationshipTypes,
       @Nonnull RelationshipFilter relationshipFilter) {
@@ -782,6 +785,7 @@ public class DgraphGraphService implements GraphService {
   @Nonnull
   @Override
   public RelatedEntitiesScrollResult scrollRelatedEntities(
+      @Nonnull OperationContext opContext,
       @Nullable List<String> sourceTypes,
       @Nonnull Filter sourceEntityFilter,
       @Nullable List<String> destinationTypes,

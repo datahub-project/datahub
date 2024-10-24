@@ -28,12 +28,16 @@ from typing_extensions import LiteralString
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
+    auto_patch_last_modified,
+)
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source_helpers import (
     auto_browse_path_v2,
     auto_fix_duplicate_schema_field_paths,
+    auto_fix_empty_field_paths,
     auto_lowercase_urns,
     auto_materialize_referenced_tags_terms,
     auto_status_aspect,
@@ -441,8 +445,10 @@ class Source(Closeable, metaclass=ABCMeta):
             partial(
                 auto_fix_duplicate_schema_field_paths, platform=self._infer_platform()
             ),
+            partial(auto_fix_empty_field_paths, platform=self._infer_platform()),
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
+            auto_patch_last_modified,
         ]
 
     @staticmethod

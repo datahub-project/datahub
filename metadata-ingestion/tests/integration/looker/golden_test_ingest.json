@@ -12,7 +12,8 @@
                 "env": "PROD",
                 "folder_id": "shared-folder-id"
             },
-            "name": "Shared"
+            "name": "Shared",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -228,6 +229,7 @@
                             "urn:li:chart:(looker,ap-south-1.dashboard_elements.2)"
                         ],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1586847600000,
@@ -468,7 +470,8 @@
                 "env": "PROD",
                 "model_name": "data"
             },
-            "name": "data"
+            "name": "data",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -572,7 +575,10 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "project": "lkml_samples",
+                            "model": "data",
                             "looker.explore.label": "My Explore View",
+                            "looker.explore.name": "my_view",
                             "looker.explore.file": "test_source_file.lkml"
                         },
                         "externalUrl": "https://looker.company.com/explore/data/my_view",

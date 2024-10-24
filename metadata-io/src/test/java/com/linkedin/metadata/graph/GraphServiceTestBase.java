@@ -11,16 +11,16 @@ import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
-import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -47,7 +47,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.Assert;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -273,18 +272,14 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   /** Any source and destination type value. */
   protected static @Nullable List<String> anyType = null;
 
-  protected final GraphQueryConfiguration _graphQueryConfiguration = getGraphQueryConfiguration();
+  protected static final GraphQueryConfiguration _graphQueryConfiguration =
+      getGraphQueryConfiguration();
+  protected static final OperationContext operationContext =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   /** Timeout used to test concurrent ops in doTestConcurrentOp. */
   protected Duration getTestConcurrentOpTimeout() {
     return Duration.ofMinutes(1);
-  }
-
-  @BeforeMethod
-  public void disableAssert() {
-    PathSpecBasedSchemaAnnotationVisitor.class
-        .getClassLoader()
-        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
   }
 
   @Test
@@ -502,6 +497,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     RelatedEntitiesResult relatedOutgoing =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -514,6 +510,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     RelatedEntitiesResult relatedIncoming =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -531,6 +528,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     RelatedEntitiesResult relatedOutgoingEntitiesBeforeRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -549,6 +547,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             downstreamOfSchemaFieldTwoVia, downstreamOfSchemaFieldTwo));
     RelatedEntitiesResult relatedIncomingEntitiesBeforeRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -574,13 +573,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             downstreamOfSchemaFieldOne));
     EntityLineageResult viaNodeResult =
         service.getLineage(
+            operationContext,
             schemaFieldUrnOne,
             LineageDirection.UPSTREAM,
             new GraphFilters(List.of("schemaField")),
             0,
             1000,
-            100,
-            null);
+            100);
     // Multi-path enabled
     assertEquals(viaNodeResult.getRelationships().size(), 2);
     // First one is via node
@@ -589,13 +588,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     EntityLineageResult viaNodeResultNoMulti =
         getGraphService(false)
             .getLineage(
+                operationContext,
                 schemaFieldUrnOne,
                 LineageDirection.UPSTREAM,
                 new GraphFilters(List.of("schemaField")),
                 0,
                 1000,
-                100,
-                null);
+                100);
 
     // Multi-path disabled, still has two because via flow creates both edges in response
     assertEquals(viaNodeResultNoMulti.getRelationships().size(), 2);
@@ -612,12 +611,12 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     GraphService service = getLineagePopulatedGraphService();
 
     EntityLineageResult upstreamLineage =
-        service.getLineage(dataset1Urn, LineageDirection.UPSTREAM, 0, 1000, 1);
+        service.getLineage(operationContext, dataset1Urn, LineageDirection.UPSTREAM, 0, 1000, 1);
     assertEquals(upstreamLineage.getTotal().intValue(), 0);
     assertEquals(upstreamLineage.getRelationships().size(), 0);
 
     EntityLineageResult downstreamLineage =
-        service.getLineage(dataset1Urn, LineageDirection.DOWNSTREAM, 0, 1000, 1);
+        service.getLineage(operationContext, dataset1Urn, LineageDirection.DOWNSTREAM, 0, 1000, 1);
     assertEquals(downstreamLineage.getTotal().intValue(), 3);
     assertEquals(downstreamLineage.getRelationships().size(), 3);
     Map<Urn, LineageRelationship> relationships =
@@ -630,7 +629,8 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertTrue(relationships.containsKey(dataJobTwoUrn));
     assertEquals(relationships.get(dataJobTwoUrn).getType(), consumes);
 
-    upstreamLineage = service.getLineage(dataset3Urn, LineageDirection.UPSTREAM, 0, 1000, 1);
+    upstreamLineage =
+        service.getLineage(operationContext, dataset3Urn, LineageDirection.UPSTREAM, 0, 1000, 1);
     assertEquals(upstreamLineage.getTotal().intValue(), 2);
     assertEquals(upstreamLineage.getRelationships().size(), 2);
     relationships =
@@ -641,11 +641,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertTrue(relationships.containsKey(dataJobOneUrn));
     assertEquals(relationships.get(dataJobOneUrn).getType(), produces);
 
-    downstreamLineage = service.getLineage(dataset3Urn, LineageDirection.DOWNSTREAM, 0, 1000, 1);
+    downstreamLineage =
+        service.getLineage(operationContext, dataset3Urn, LineageDirection.DOWNSTREAM, 0, 1000, 1);
     assertEquals(downstreamLineage.getTotal().intValue(), 0);
     assertEquals(downstreamLineage.getRelationships().size(), 0);
 
-    upstreamLineage = service.getLineage(dataJobOneUrn, LineageDirection.UPSTREAM, 0, 1000, 1);
+    upstreamLineage =
+        service.getLineage(operationContext, dataJobOneUrn, LineageDirection.UPSTREAM, 0, 1000, 1);
     assertEquals(upstreamLineage.getTotal().intValue(), 2);
     assertEquals(upstreamLineage.getRelationships().size(), 2);
     relationships =
@@ -656,7 +658,9 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertTrue(relationships.containsKey(dataset2Urn));
     assertEquals(relationships.get(dataset2Urn).getType(), consumes);
 
-    downstreamLineage = service.getLineage(dataJobOneUrn, LineageDirection.DOWNSTREAM, 0, 1000, 1);
+    downstreamLineage =
+        service.getLineage(
+            operationContext, dataJobOneUrn, LineageDirection.DOWNSTREAM, 0, 1000, 1);
     assertEquals(downstreamLineage.getTotal().intValue(), 3);
     assertEquals(downstreamLineage.getRelationships().size(), 3);
     relationships =
@@ -834,6 +838,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     RelatedEntitiesResult relatedEntities =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             sourceEntityFilter,
             anyType,
@@ -1118,6 +1123,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     RelatedEntitiesResult relatedEntities =
         service.findRelatedEntities(
+            operationContext,
             sourceType,
             EMPTY_FILTER,
             destinationType,
@@ -1139,6 +1145,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
       @Nonnull RelatedEntity... expectedEntities) {
     RelatedEntitiesResult actualEntities =
         service.findRelatedEntities(
+            operationContext,
             sourceType,
             EMPTY_FILTER,
             destinationType,
@@ -1244,6 +1251,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     RelatedEntitiesResult allOutgoingRelatedEntities =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -1263,6 +1271,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     RelatedEntitiesResult allIncomingRelatedEntities =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -1289,6 +1298,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     RelatedEntitiesResult allUnknownRelationshipTypeRelatedEntities =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -1301,6 +1311,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     RelatedEntitiesResult someUnknownRelationshipTypeRelatedEntities =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -1325,6 +1336,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     RelatedEntitiesResult relatedEntities =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -1340,6 +1352,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // did not get any related urns?
     RelatedEntitiesResult relatedEntitiesAll =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -1358,6 +1371,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     RelatedEntitiesResult relatedEntities =
         service.findRelatedEntities(
+            operationContext,
             ImmutableList.of(datasetType),
             newFilter("urn", dataset1UrnString),
             ImmutableList.of(userType),
@@ -1371,6 +1385,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     relatedEntities =
         service.findRelatedEntities(
+            operationContext,
             ImmutableList.of(datasetType),
             newFilter("urn", dataset1UrnString),
             ImmutableList.of(userType),
@@ -1389,6 +1404,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     RelatedEntitiesResult relatedEntities =
         service.findRelatedEntities(
+            operationContext,
             ImmutableList.of(datasetType, userType),
             newFilter("urn", dataset1UrnString),
             ImmutableList.of(datasetType, userType),
@@ -1402,6 +1418,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     relatedEntities =
         service.findRelatedEntities(
+            operationContext,
             ImmutableList.of(datasetType, userType),
             newFilter("urn", dataset1UrnString),
             ImmutableList.of(datasetType, userType),
@@ -1421,6 +1438,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // populated graph asserted in testPopulatedGraphService
     RelatedEntitiesResult allRelatedEntities =
         service.findRelatedEntities(
+            operationContext,
             ImmutableList.of(datasetType),
             EMPTY_FILTER,
             anyType,
@@ -1436,6 +1454,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             idx ->
                 individualRelatedEntities.addAll(
                     service.findRelatedEntities(
+                            operationContext,
                             ImmutableList.of(datasetType),
                             EMPTY_FILTER,
                             anyType,
@@ -1540,6 +1559,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     RelatedEntitiesResult actualOutgoingRelatedUrnsBeforeRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             newFilter("urn", nodeToRemoveFrom.toString()),
             anyType,
@@ -1550,6 +1570,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             100);
     RelatedEntitiesResult actualIncomingRelatedUrnsBeforeRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             newFilter("urn", nodeToRemoveFrom.toString()),
             anyType,
@@ -1566,6 +1587,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // we expect these do not change
     RelatedEntitiesResult relatedEntitiesOfOtherOutgoingRelationTypesBeforeRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             newFilter("urn", nodeToRemoveFrom.toString()),
             anyType,
@@ -1576,6 +1598,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             100);
     RelatedEntitiesResult relatedEntitiesOfOtherIncomingRelationTypesBeforeRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             newFilter("urn", nodeToRemoveFrom.toString()),
             anyType,
@@ -1585,11 +1608,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             0,
             100);
 
-    service.removeEdgesFromNode(nodeToRemoveFrom, relationTypes, relationshipFilter);
+    service.removeEdgesFromNode(
+        operationContext, nodeToRemoveFrom, relationTypes, relationshipFilter);
     syncAfterWrite();
 
     RelatedEntitiesResult actualOutgoingRelatedUrnsAfterRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             newFilter("urn", nodeToRemoveFrom.toString()),
             anyType,
@@ -1600,6 +1625,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             100);
     RelatedEntitiesResult actualIncomingRelatedUrnsAfterRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             newFilter("urn", nodeToRemoveFrom.toString()),
             anyType,
@@ -1616,6 +1642,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // assert these did not change
     RelatedEntitiesResult relatedEntitiesOfOtherOutgoingRelationTypesAfterRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             newFilter("urn", nodeToRemoveFrom.toString()),
             anyType,
@@ -1626,6 +1653,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             100);
     RelatedEntitiesResult relatedEntitiesOfOtherIncomingRelationTypesAfterRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             newFilter("urn", nodeToRemoveFrom.toString()),
             anyType,
@@ -1650,6 +1678,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // populated graph asserted in testPopulatedGraphService
     RelatedEntitiesResult relatedOutgoingEntitiesBeforeRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             newFilter("urn", nodeToRemoveFrom.toString()),
             anyType,
@@ -1661,12 +1690,15 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     // can be replaced with a single removeEdgesFromNode and undirectedRelationships once supported
     // by all implementations
-    service.removeEdgesFromNode(nodeToRemoveFrom, Collections.emptyList(), outgoingRelationships);
-    service.removeEdgesFromNode(nodeToRemoveFrom, Collections.emptyList(), incomingRelationships);
+    service.removeEdgesFromNode(
+        operationContext, nodeToRemoveFrom, Collections.emptyList(), outgoingRelationships);
+    service.removeEdgesFromNode(
+        operationContext, nodeToRemoveFrom, Collections.emptyList(), incomingRelationships);
     syncAfterWrite();
 
     RelatedEntitiesResult relatedOutgoingEntitiesAfterRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             newFilter("urn", nodeToRemoveFrom.toString()),
             anyType,
@@ -1680,13 +1712,20 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // does the test actually test something? is the Collections.emptyList() the only reason why we
     // did not see changes?
     service.removeEdgesFromNode(
-        nodeToRemoveFrom, Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships);
+        operationContext,
+        nodeToRemoveFrom,
+        Arrays.asList(downstreamOf, hasOwner, knowsUser),
+        outgoingRelationships);
     service.removeEdgesFromNode(
-        nodeToRemoveFrom, Arrays.asList(downstreamOf, hasOwner, knowsUser), incomingRelationships);
+        operationContext,
+        nodeToRemoveFrom,
+        Arrays.asList(downstreamOf, hasOwner, knowsUser),
+        incomingRelationships);
     syncAfterWrite();
 
     RelatedEntitiesResult relatedOutgoingEntitiesAfterRemoveAll =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             newFilter("urn", nodeToRemoveFrom.toString()),
             anyType,
@@ -1706,6 +1745,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // populated graph asserted in testPopulatedGraphService
     RelatedEntitiesResult relatedOutgoingEntitiesBeforeRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -1718,13 +1758,20 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // can be replaced with a single removeEdgesFromNode and undirectedRelationships once supported
     // by all implementations
     service.removeEdgesFromNode(
-        nodeToRemoveFrom, Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships);
+        operationContext,
+        nodeToRemoveFrom,
+        Arrays.asList(downstreamOf, hasOwner, knowsUser),
+        outgoingRelationships);
     service.removeEdgesFromNode(
-        nodeToRemoveFrom, Arrays.asList(downstreamOf, hasOwner, knowsUser), incomingRelationships);
+        operationContext,
+        nodeToRemoveFrom,
+        Arrays.asList(downstreamOf, hasOwner, knowsUser),
+        incomingRelationships);
     syncAfterWrite();
 
     RelatedEntitiesResult relatedOutgoingEntitiesAfterRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -1740,13 +1787,14 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   public void testRemoveNode() throws Exception {
     GraphService service = getPopulatedGraphService();
 
-    service.removeNode(dataset2Urn);
+    service.removeNode(operationContext, dataset2Urn);
     syncAfterWrite();
 
     // assert the modified graph
     // All downstreamOf, hasOwner, knowsUser relationships minus datasetTwo's, outgoing
     assertEqualsAnyOrder(
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -1768,6 +1816,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // populated graph asserted in testPopulatedGraphService
     RelatedEntitiesResult entitiesBeforeRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -1777,11 +1826,12 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             0,
             100);
 
-    service.removeNode(unknownUrn);
+    service.removeNode(operationContext, unknownUrn);
     syncAfterWrite();
 
     RelatedEntitiesResult entitiesAfterRemove =
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             anyType,
@@ -1806,6 +1856,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // again
     assertEqualsAnyOrder(
         service.findRelatedEntities(
+            operationContext,
             ImmutableList.of(datasetType),
             EMPTY_FILTER,
             anyType,
@@ -1817,6 +1868,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         Collections.emptyList());
     assertEqualsAnyOrder(
         service.findRelatedEntities(
+            operationContext,
             ImmutableList.of(userType),
             EMPTY_FILTER,
             anyType,
@@ -1828,6 +1880,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         Collections.emptyList());
     assertEqualsAnyOrder(
         service.findRelatedEntities(
+            operationContext,
             anyType,
             EMPTY_FILTER,
             ImmutableList.of(userType),
@@ -1891,6 +1944,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     RelatedEntitiesResult relatedEntities =
         service.findRelatedEntities(
+            operationContext,
             null,
             EMPTY_FILTER,
             null,
@@ -1937,6 +1991,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // assert the graph is there
     RelatedEntitiesResult relatedEntities =
         service.findRelatedEntities(
+            operationContext,
             null,
             EMPTY_FILTER,
             null,
@@ -1956,6 +2011,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
                 edge ->
                     () ->
                         service.removeEdgesFromNode(
+                            operationContext,
                             edge.getSource(),
                             Collections.singletonList(edge.getRelationshipType()),
                             outgoingRelationships));
@@ -1965,6 +2021,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // assert the graph is gone
     RelatedEntitiesResult relatedEntitiesAfterDeletion =
         service.findRelatedEntities(
+            operationContext,
             null,
             EMPTY_FILTER,
             null,
@@ -1998,6 +2055,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // assert the graph is there
     RelatedEntitiesResult relatedEntities =
         service.findRelatedEntities(
+            operationContext,
             null,
             EMPTY_FILTER,
             null,
@@ -2013,13 +2071,14 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // remove all nodes concurrently
     // nodes will be removed multiple times
     Stream<Runnable> operations =
-        edges.stream().map(edge -> () -> service.removeNode(edge.getSource()));
+        edges.stream().map(edge -> () -> service.removeNode(operationContext, edge.getSource()));
     doTestConcurrentOp(operations);
     syncAfterWrite();
 
     // assert the graph is gone
     RelatedEntitiesResult relatedEntitiesAfterDeletion =
         service.findRelatedEntities(
+            operationContext,
             null,
             EMPTY_FILTER,
             null,
@@ -2094,12 +2153,12 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         (!((service instanceof Neo4jGraphService) || (service instanceof DgraphGraphService)));
 
     EntityLineageResult upstreamLineage =
-        service.getLineage(dataset1Urn, LineageDirection.UPSTREAM, 0, 1000, 2);
+        service.getLineage(operationContext, dataset1Urn, LineageDirection.UPSTREAM, 0, 1000, 2);
     assertEquals(upstreamLineage.getTotal().intValue(), 0);
     assertEquals(upstreamLineage.getRelationships().size(), 0);
 
     EntityLineageResult downstreamLineage =
-        service.getLineage(dataset1Urn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
+        service.getLineage(operationContext, dataset1Urn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
 
     assertEquals(downstreamLineage.getTotal().intValue(), 5);
     assertEquals(downstreamLineage.getRelationships().size(), 5);
@@ -2124,7 +2183,8 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertTrue(relationships.containsKey(dataJobTwoUrn));
     assertEquals(relationships.get(dataJobTwoUrn).getDegree(), 1);
 
-    upstreamLineage = service.getLineage(dataset3Urn, LineageDirection.UPSTREAM, 0, 1000, 2);
+    upstreamLineage =
+        service.getLineage(operationContext, dataset3Urn, LineageDirection.UPSTREAM, 0, 1000, 2);
     assertEquals(upstreamLineage.getTotal().intValue(), 3);
     assertEquals(upstreamLineage.getRelationships().size(), 3);
     relationships =
@@ -2137,7 +2197,8 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertTrue(relationships.containsKey(dataJobOneUrn));
     assertEquals(relationships.get(dataJobOneUrn).getDegree(), 1);
 
-    downstreamLineage = service.getLineage(dataset3Urn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
+    downstreamLineage =
+        service.getLineage(operationContext, dataset3Urn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
     assertEquals(downstreamLineage.getTotal().intValue(), 0);
     assertEquals(downstreamLineage.getRelationships().size(), 0);
   }
@@ -2156,6 +2217,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     Set<RelatedEntity> expectedRelatedEntities = convertEdgesToRelatedEntities(edges);
     RelatedEntitiesResult relatedEntities =
         service.findRelatedEntities(
+            operationContext,
             null,
             EMPTY_FILTER,
             null,
@@ -2169,9 +2231,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         expectedRelatedEntities);
 
     Urn root = dataset1Urn;
+    OperationContext limitedHopOpContext =
+        operationContext.withLineageFlags(f -> f.setEntitiesExploredPerHopLimit(5));
+
     EntityLineageResult lineageResult =
         getGraphService(false)
             .getLineage(
+                limitedHopOpContext,
                 root,
                 LineageDirection.UPSTREAM,
                 new GraphFilters(
@@ -2183,8 +2249,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
                         .collect(Collectors.toList())),
                 0,
                 1000,
-                100,
-                new LineageFlags().setEntitiesExploredPerHopLimit(5));
+                100);
     // Unable to explore all paths because multi is disabled, but will be at least 5 since it will
     // explore 5 edges
     assertTrue(
@@ -2201,6 +2266,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     EntityLineageResult lineageResultMulti =
         getGraphService(true)
             .getLineage(
+                limitedHopOpContext,
                 root,
                 LineageDirection.UPSTREAM,
                 new GraphFilters(
@@ -2212,8 +2278,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
                         .collect(Collectors.toList())),
                 0,
                 1000,
-                100,
-                new LineageFlags().setEntitiesExploredPerHopLimit(5));
+                100);
 
     assertTrue(
         lineageResultMulti.getRelationships().size() >= 5
