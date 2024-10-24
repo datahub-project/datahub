@@ -46,10 +46,12 @@ class DremioAPIOperations:
         self.session = requests.Session()
         if connection_args.is_dremio_cloud:
             self.base_url = self._get_cloud_base_url(
-                connection_args.dremio_cloud_region
+                connection_args,
             )
         else:
             self.base_url = self._get_on_prem_base_url(connection_args)
+
+        self.ui_url = self._get_ui_url(connection_args)
 
         self.authenticate(connection_args)
         self.edition = self.get_dremio_edition()
@@ -64,11 +66,18 @@ class DremioAPIOperations:
                 else DremioEdition.COMMUNITY
             )
 
-    def _get_cloud_base_url(self, cloud_region: str) -> str:
+    def _get_cloud_base_url(self, connection_args: "DremioSourceConfig") -> str:
         """Return the base URL for Dremio Cloud."""
-        if cloud_region == "US":
-            return "https://api.dremio.cloud:443/v0"
-        return f"https://api.{cloud_region.lower()}.dremio.cloud:443/v0"
+        if connection_args.dremio_cloud_project_id:
+            project_id = connection_args.dremio_cloud_project_id
+        else:
+            raise ValueError(
+                "Project ID must be provided for Dremio Cloud environments."
+            )
+
+        if connection_args.dremio_cloud_region == "US":
+            return f"https://api.dremio.cloud:443/v0/projects/{project_id}"
+        return f"https://api.{connection_args.dremio_cloud_region.lower()}.dremio.cloud:443/v0/projects/{project_id}"
 
     def _get_on_prem_base_url(self, connection_args: "DremioSourceConfig") -> str:
         """Return the base URL for on-prem Dremio."""
@@ -80,6 +89,30 @@ class DremioAPIOperations:
                 "Hostname must be provided for on-premises Dremio instances."
             )
         return f"{protocol}://{host}:{port}/api/v3"
+
+    def _get_ui_url(self, connection_args: "DremioSourceConfig") -> str:
+        """Return the UI URL for Dremio."""
+        if connection_args.is_dremio_cloud:
+            if connection_args.dremio_cloud_project_id:
+                project_id = connection_args.dremio_cloud_project_id
+            else:
+                raise ValueError(
+                    "Project ID must be provided for Dremio Cloud environments."
+                )
+            cloud_region = connection_args.dremio_cloud_region
+            if cloud_region == "US":
+                return f"https://app.dremio.cloud/sonar/{project_id}"
+            return f"https://app.{cloud_region.lower()}.dremio.cloud/sonar/{project_id}"
+
+        else:
+            host = connection_args.hostname
+            port = connection_args.port
+            protocol = "https" if connection_args.tls else "http"
+            if not host:
+                raise ValueError(
+                    "Hostname must be provided for on-premises Dremio instances."
+                )
+            return f"{protocol}://{host}:{port}"
 
     def _setup_session(self) -> None:
         """Setup the session for retries and connection handling."""

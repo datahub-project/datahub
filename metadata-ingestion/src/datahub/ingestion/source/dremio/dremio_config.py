@@ -67,6 +67,11 @@ class DremioConnectionConfig(ConfigModel):
         description="Dremio Cloud region ('US' or 'EMEA')",
     )
 
+    dremio_cloud_project_id: Optional[str] = Field(
+        default=None,
+        description="ID of Dremio Cloud Project. Found in Project Settings in the Dremio Cloud UI",
+    )
+
     @validator("authentication_method")
     def validate_auth_method(cls, value):
         allowed_methods = ["password", "PAT"]

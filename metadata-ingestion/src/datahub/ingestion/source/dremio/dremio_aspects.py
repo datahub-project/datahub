@@ -146,7 +146,7 @@ class DremioAspects:
         self,
         platform: str,
         profiler: DremioProfiler,
-        base_url: str,
+        ui_url: str,
         env: str,
         domain: Optional[str] = None,
         platform_instance: Optional[str] = None,
@@ -158,7 +158,7 @@ class DremioAspects:
         self.domain = domain
         self.profiler = profiler
         self.profiling_enabled = profiling_enabled
-        self.base_url = base_url
+        self.ui_url = ui_url
 
     def get_container_key(
         self, name: str, path: Optional[List[str]]
@@ -466,7 +466,7 @@ class DremioAspects:
         elif dataset.path[0].startswith("@"):
             container_type = "home"
 
-        return f'{self.base_url}/{container_type}/{dataset_url_path}"{dataset.resource_name}"'
+        return f'{self.ui_url}/{container_type}/{dataset_url_path}"{dataset.resource_name}"'
 
     def _create_ownership(self, dataset: DremioDataset) -> Optional[OwnershipClass]:
         if not dataset.owner:

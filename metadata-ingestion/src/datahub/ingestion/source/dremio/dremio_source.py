@@ -160,7 +160,7 @@ class DremioSource(StatefulIngestionSourceBase):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             profiling_enabled=self.config.profiling.enabled,
-            base_url=dremio_api.base_url,
+            ui_url=dremio_api.ui_url,
         )
         self.reference_source_mapping = DremioToDataHubSourceTypeMapping()
         self.max_workers = config.max_workers
