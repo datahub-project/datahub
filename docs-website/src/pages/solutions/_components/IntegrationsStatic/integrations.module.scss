@@ -82,7 +82,7 @@
 .slide {
   width: 100px;
   height: 100px;
-  margin: auto 50px;
+  margin: auto 3rem;
   display: flex;
   justify-content: space-between;
   overflow: hidden;
@@ -93,3 +93,11 @@
   background-repeat: no-repeat;
 }
 
+
+@media only screen and (max-width: 800px) {
+  .slide {
+    width: 80px;
+    height: 80px;
+    margin: auto 1rem;
+  }
+}

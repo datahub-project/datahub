@@ -81,6 +81,10 @@
         display: none;
       }
 
+      .quickstart__container {
+        max-width: 90% !important;
+      }
+
       .quickstart__content {
         display: flex;
 
@@ -95,6 +99,7 @@
           }
           .quickstart__text__head {
             font-size: 1.4rem;
+            margin: 0 !important;
           }
         }
         .quickstart__img {

@@ -115,3 +115,11 @@
     transform: translateY(0);
   }
 }
+
+@media only screen and (max-width: 800px) {
+  .slide {
+    width: 80px;
+    height: 80px;
+    margin: auto 1rem;
+  }
+}

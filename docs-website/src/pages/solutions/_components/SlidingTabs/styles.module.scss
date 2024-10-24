@@ -95,12 +95,13 @@
 }
 
 .imageContainer {
-  display: none;
   justify-content: right;
   background-color: transparent;
   margin: 1rem 0; 
   height: 380px;
   border-radius: 24px;
+  display: flex;
+  flex-grow: 1;
 }
 
 .tabImage {
@@ -108,20 +109,9 @@
   display: flex;
 }
 
-.mobileImageContainer {
-  @media (max-width: 767px) {
-    display: flex;
-  }
-}
 
-.webImageContainer {
-  @media (min-width: 768px) {
-    display: flex;
-    flex-grow: 1;
-  }
-}
 
-@media (min-width: 768px) {
+@media (min-width: 799px) {
   .container {
     flex-direction: row; // Change back to row for larger screens
     padding: 40px 0px;
@@ -133,4 +123,16 @@
   .imageContainer {
     margin: 1rem 0rem 1rem 1rem;
   }
+}
+
+@media (max-width: 800px) {
+
+  .imageContainer {
+    display: none !important;
+  }
+
+  .leftSection {
+    padding: 2rem;
+  }
+  
 }

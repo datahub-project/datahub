@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { CaretUpFilled } from '@ant-design/icons';
 import styles from './styles.module.scss';
 import clsx from 'clsx';
 
@@ -56,7 +55,7 @@ const TabbedComponent = () => {
                   )}
                 </div>
                 {activeTab === index && (
-                  <div className={clsx(styles.imageContainer, styles.mobileImageContainer)}>
+                  <div className={clsx(styles.imageContainer)}>
                     <div className={clsx(styles.tabImage)}>
                       <video playsInline src={tabs[activeTab].image} controls={false} autoPlay muted loop />
                     </div>
@@ -66,7 +65,7 @@ const TabbedComponent = () => {
             ))}
           </div>
         </div>
-        <div className={clsx(styles.imageContainer, styles.webImageContainer)}>
+        <div className={clsx(styles.imageContainer)}>
           <div className={clsx(styles.tabImage)}>
             <img src='/img/solutions/sliding-tab-bg.png'/>
           </div>
