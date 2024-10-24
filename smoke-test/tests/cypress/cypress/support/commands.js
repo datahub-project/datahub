@@ -88,7 +88,6 @@ Cypress.Commands.add("goToTestsList", () => {
 Cypress.Commands.add("goToDomainList", () => {
   cy.visit("/domains");
   cy.waitTextVisible("Domains");
-  cy.waitTextVisible("New Domain");
 });
 
 Cypress.Commands.add("goToViewsSettings", () => {

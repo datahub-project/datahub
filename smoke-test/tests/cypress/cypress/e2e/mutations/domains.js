@@ -24,7 +24,7 @@ describe("add remove domain", () => {
   it("create domain", () => {
     cy.loginWithCredentials();
     cy.goToDomainList();
-    cy.clickOptionWithText("New Domain");
+    cy.clickOptionWithText("Create");
     cy.waitTextVisible("Create New Domain");
     cy.get('[data-testid="create-domain-name"]').click().type(test_domain);
     cy.clickOptionWithText("Advanced");

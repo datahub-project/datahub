@@ -35,7 +35,7 @@ describe("create, edit and remove metadata test", () => {
     cy.handleIntroducePage();
     cy.visit("/tests");
     cy.get('[aria-label="Ingestion"]').should("be.visible");
-    cy.clickOptionWithText("New Test");
+    cy.clickOptionWithText("Create");
     cy.waitTextVisible("New Metadata Test");
     // select data assets
     cy.contains("Datasets, Dashboards, Charts...").prev().click();

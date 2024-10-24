@@ -104,7 +104,7 @@ export default function ActorAvatar({
     return hideTooltip ? (
         avatar
     ) : (
-        <Tooltip title={renderTitle(name)} placement={placement}>
+        <Tooltip title={renderTitle(name)} placement={placement} showArrow={false}>
             {avatar}
         </Tooltip>
     );

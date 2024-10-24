@@ -156,7 +156,7 @@ export function NavLinksMenu(props: Props) {
     const menuItems: Array<NavMenuItem> = [
         {
             icon: InboxMenuIcon,
-            title: 'Inbox',
+            title: 'Tasks',
             description: 'Review and approve metadata proposals',
             link: PageRoutes.ACTION_REQUESTS,
             isHidden: !showActionRequests,

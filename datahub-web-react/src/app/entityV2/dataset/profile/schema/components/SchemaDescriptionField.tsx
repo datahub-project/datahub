@@ -273,6 +273,7 @@ export default function DescriptionField({
                                 handleShowMore={() => handleShowMore && handleShowMore(fieldPath || '')}
                                 fixedLineHeight
                                 customStyle={{ fontSize: '12px' }}
+                                scrollableY={false}
                             />
                         </DescriptionWrapper>
                         {/* </StripMarkdownText> */}

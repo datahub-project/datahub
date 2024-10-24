@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useApolloClient } from '@apollo/client';
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, message } from 'antd';
+import { Button } from '@src/alchemy-components';
+import { message } from 'antd';
 import { useCreateTestMutation } from '../../graphql/test.generated';
 import { TestBuilderModal } from './builder/TestBuilderModal';
 import { DEFAULT_TESTS_PAGE_SIZE } from './constants';
@@ -11,10 +11,9 @@ import analytics, { EventType } from '../analytics';
 import { updateListTestsCache } from './cacheUtils';
 import { TestDefinitionInput } from '../../types.generated';
 
-const StyledPlusOutlined = styled(PlusOutlined)`
-    &&& {
-        font-size: 12px;
-    }
+const ButtonContainer = styled.div`
+    display: flex;
+    justify-content: center;
 `;
 
 type Props = {
@@ -59,13 +58,13 @@ export const NewTestButton = ({ onCreated }: Props) => {
     };
 
     return (
-        <>
-            <Button type="primary" onClick={() => setShowCreateTestModal(true)}>
-                <StyledPlusOutlined /> New Test
+        <ButtonContainer>
+            <Button icon="Add" onClick={() => setShowCreateTestModal(true)}>
+                Create
             </Button>
             {showCreateTestModal && (
                 <TestBuilderModal onSubmit={createTest} onCancel={() => setShowCreateTestModal(false)} />
             )}
-        </>
+        </ButtonContainer>
     );
 };

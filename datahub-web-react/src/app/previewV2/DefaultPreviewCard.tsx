@@ -42,6 +42,7 @@ import { CompactView } from './CompactView';
 import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
 import { useEntityContext, useEntityData } from '../entity/shared/EntityContext';
 import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from './utils';
+import { removeMarkdown } from '../entityV2/shared/components/styled/StripMarkdownText';
 
 const TransparentButton = styled(Button)`
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
@@ -103,6 +104,25 @@ const InsightIconContainer = styled.span`
     margin-right: 4px;
 `;
 
+const Documentation = styled.div`
+    width: 90%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 500;
+    color: ${REDESIGN_COLORS.SUB_TEXT};
+    margin-top: 8px;
+`;
+
+const ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW = new Set([
+    EntityType.GlossaryTerm,
+    EntityType.GlossaryNode,
+    EntityType.DataProduct,
+    EntityType.Domain,
+    EntityType.Tag,
+]);
+
 interface Props {
     name: string;
     urn: string;
@@ -154,17 +174,6 @@ interface Props {
     actions?: EntityMenuActions;
     browsePaths?: BrowsePathV2 | undefined;
 }
-
-const Documentation = styled.div`
-    width: 90%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 12px;
-    font-weight: 500;
-    color: ${REDESIGN_COLORS.SUB_TEXT};
-    margin-top: 8px;
-`;
 
 export default function DefaultPreviewCard({
     name,
@@ -293,11 +302,6 @@ export default function DefaultPreviewCard({
                             connectionName={previewData?.name}
                         />
                     </RowContainer>
-                    {entityType === EntityType.GlossaryTerm && (
-                        <RowContainer>
-                            <Documentation>{description}</Documentation>
-                        </RowContainer>
-                    )}
                     <RowContainer style={{ marginTop: 8 }}>
                         <ContextPath
                             type={finalType}
@@ -311,6 +315,13 @@ export default function DefaultPreviewCard({
                             contentRef={contentRef}
                         />
                     </RowContainer>
+                    {(previewType === PreviewType.HOVER_CARD ||
+                        ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType)) &&
+                    description ? (
+                        <RowContainer>
+                            <Documentation>{removeMarkdown(description)}</Documentation>
+                        </RowContainer>
+                    ) : null}
                 </>
             ) : (
                 <CompactView

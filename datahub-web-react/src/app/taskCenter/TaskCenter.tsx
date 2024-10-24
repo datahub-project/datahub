@@ -104,7 +104,7 @@ export const TaskCenter = () => {
             <PageHeaderContainer>
                 <PageTitle level={3}>Task Center</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    Complete documentation requests and review metadata change proposals.
+                    Complete compliance tasks and review metadata change proposals.
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <StyledTabs activeKey={activeTab} size="large" onTabClick={(tab: string) => setActiveTab(tab)}>

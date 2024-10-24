@@ -109,11 +109,11 @@ export const EntityPreviewTag = ({
                             logoComponent}
                     </IconContainer>
                     <DisplayNameContainer>
-                        <Tooltip title={displayName}>
+                        <Tooltip title={displayName} showArrow={false}>
                             <span className="test-mini-preview-class">{displayName}</span>
                         </Tooltip>
                         {columnName && (
-                            <Tooltip title={columnName}>
+                            <Tooltip title={columnName} showArrow={false}>
                                 <StyledDivider type="vertical" />
                                 <ColumnName>{columnName}</ColumnName>
                             </Tooltip>

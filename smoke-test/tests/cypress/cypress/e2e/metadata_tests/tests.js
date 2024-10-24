@@ -37,7 +37,7 @@ describe("create, edit and remove metadata test", () => {
     setTestsConfigFlag(true);
     cy.loginWithCredentials();
     cy.goToTestsList();
-    cy.clickOptionWithText("New Test");
+    cy.clickOptionWithText("Create");
     cy.waitTextVisible("New Metadata Test");
     // select data assets
     cy.contains("Datasets, Dashboards, Charts...").prev().click();

@@ -270,7 +270,7 @@ export default function SchemaTable({
     const fieldColumn = {
         fixed: 'left' as FixedType,
         width: 200,
-        title: 'Field',
+        title: 'Name',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
         render: schemaTitleRenderer,
@@ -573,6 +573,7 @@ export default function SchemaTable({
                             },
                             id: `column-${record.fieldPath}`,
                         })}
+                        showSorterTooltip={false}
                     />
                 </ResizeObserver>
             </TableContainer>

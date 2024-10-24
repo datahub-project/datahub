@@ -147,8 +147,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, isV1Drawer }: Props) => {
                 {me.platformPrivileges?.manageStructuredProperties && (
                     <span>
                         {' '}
-                        Check out the <Link to={PageRoutes.STRUCTURED_PROPERTIES}>manage page </Link> to create a new
-                        one!{' '}
+                        <Link to={PageRoutes.STRUCTURED_PROPERTIES}>Manage custom properties</Link>
                     </span>
                 )}
             </>

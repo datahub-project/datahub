@@ -26,7 +26,7 @@ export default function UsageFacepile({ users, maxNumberDisplayed }: Props) {
     return (
         <SpacedAvatarGroup maxCount={2}>
             {displayedUsers?.map((user) => (
-                <Tooltip title={user?.userEmail}>
+                <Tooltip title={user?.userEmail} showArrow={false}>
                     <AvatarStyled backgroundColor={getAvatarColor(user?.userEmail || undefined)}>
                         {user?.userEmail?.charAt(0).toUpperCase()}
                     </AvatarStyled>

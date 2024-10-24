@@ -18,7 +18,7 @@ const EmptyStructuredProperties = ({ isEmptySearch }: Props) => {
                 <>
                     <EmptyFormsImage />
                     <Text size="md" color="gray" weight="bold">
-                        No structured properties yet!
+                        No properties yet!
                     </Text>
                 </>
             )}
