@@ -3,20 +3,26 @@ const personaContent = {
       personas: [
         {
           imgSrc: "/img/solutions/persona_compliance_officers.png",
-          desc: "Data Classification \n\n Glossary Custom Form builder \n\n Automated Form Assigning",
-          link: "/",
+          feature1: "Data Classification Glossary",
+          feature2: "Custom Form builder",
+          feature3: "Automated Form Assigning",
+          feature4: "Analytics Reporting",
           alt: "governance_officers"
         },
         {
           imgSrc: "/img/solutions/persona_developers.png",
-          desc: "Highly Extensible Open-Core \n\n Rich APIs and SDKs  \n\n Automation Framework ",
-          link: "/",
+          feature1: "Highly Extensible Open-Core",
+          feature2: "Rich APIs and SDKs",
+          feature3: "Automation Framework",
+          feature4: "Shift Left Architecture",
           alt: "developers",
         },
         {
           imgSrc: "/img/solutions/persona_owners_and_smes.png",
-          desc: "Seamless UI Workflows to  \n\n Respond to Requests \n\n Notifications where they work",
-          link: "/",
+          feature1: "Seamless UI Workflows",
+          feature2: "Respond to Requests",
+          feature3: "Notifications Where They Work",
+          feature4: "Proposal Workflows",
           alt: "data_owners",
         }
       ]

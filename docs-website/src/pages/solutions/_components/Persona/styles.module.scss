@@ -62,43 +62,39 @@
   flex-direction: column;
   align-items: center;
   width: 365px; 
-  text-align: left;
   margin: 2rem;
   height: 100%;
 }
 
 .persona_img {
-  margin-bottom: 10px;
+  margin-bottom: 30px;
 }
 
 .persona_img img {
   height: 300px;
 }
 
-.persona_desc_div {
-  padding: 10px 0;
-}
+.features {
+  display: contents;
 
-
-.persona_desc {
-  color: var(--primitives-text-tex-subtext, #777E99);
-  font-family: Manrope;
-  font-size: 24px;
-  font-style: normal;
-  font-weight: 400;
-  line-height: normal;
-  letter-spacing: 0.24px;
-  text-transform: capitalize;
-}
-
-.persona_link {
-  font-size: 24px;
-  font-weight: 600;
-
-  &:hover {
-    text-decoration: none;
-    opacity: 0.8;
+  .featureItem {
+    display: flex;
+    padding: 0.625rem;
+    border-radius: 0.375rem;
+    background: var(--semantics-bg-bg-white, #FFF);
+    color: var(--primitives-text-tex-subtext, #777E99);
+    font-family: Manrope;
+    font-size: 1rem;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    letter-spacing: 0.01rem;
+    text-transform: capitalize;
+    margin: 0.5rem;
+    justify-content: center;
+    width: max-content;
   }
+
 }
 
 .persona_bg_line {
@@ -109,7 +105,6 @@
   position: relative;
   margin-top: 2rem;
   z-index: -1; 
-
 }
 
 @media (max-width: 768px) {
