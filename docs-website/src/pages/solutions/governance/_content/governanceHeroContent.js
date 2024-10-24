@@ -1,7 +1,7 @@
 const heroContent = {
       topQuote: "Data governance in datahub",
       title: "Measure and minimize compliance risk, effortlessly.",
-      description: "Detect, resolve, and prevent data quality issues before they impact your business. Seamlessly integrate Data Quality, Data Discovery and Data Governance in one place.",
+      description: "Ensure every data asset is accounted for and responsibility governed by defining and enforcing documentation standards. \n\n Automate your governance program to automatically classify assets as they evolve over time. \n\n Minimize redundant, manual work with GenAI documentation, AI-driven classification, smart propagation, and more.",
       imgSrc: "/img/solutions/hero-governance.png",
     };
   

@@ -28,7 +28,7 @@
   &:before, &:after {
     content: " ";
     height: 2px;
-    width: calc((100vw - 1300px)/2);
+    width: calc((100vw - 1500px)/2);
     background: #D9DBE4;
     display: block;
     position: absolute;
@@ -115,7 +115,7 @@
 
 @media (max-width: 768px) {
   .persona_row {
-    flex-direction: column; /* Stack personas on smaller screens */
+    flex-direction: column; 
   }
 
   .persona {

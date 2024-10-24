@@ -51,11 +51,7 @@ const QuickstartContent = ({ quickstartContent }) => {
               <img src={useBaseUrl(data.image)} />
             </div>
             <div className="quickstart__text">
-              <div className="quickstart__text__label">{data.heading}</div>
               <div className="quickstart__text__head">{data.title}</div>
-              <div className="quickstart__text__desc">
-                <p dangerouslySetInnerHTML={{ __html: data.description }} />
-              </div>
             </div>
           </motion.div>
         ))}

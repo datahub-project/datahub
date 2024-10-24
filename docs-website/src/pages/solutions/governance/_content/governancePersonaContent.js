@@ -1,5 +1,5 @@
 const personaContent = {
-      title: "Highly customizable. Brings all stakeholders together.",
+      title: "A platform that serves everyone involved with Data Governance.",
       personas: [
         {
           imgSrc: "/img/solutions/persona_compliance_officers.png",

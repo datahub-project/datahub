@@ -10,24 +10,6 @@
   flex-direction: column;
 
   :global {
-    .quickstart__header {
-      text-align: center;
-      margin-bottom: 100px;
-
-      .quickstart__title,
-      .quickstart__subtitle {
-        line-height: normal;
-        font-family: Manrope;
-      }
-      .quickstart__title {
-        font-size: 3.5rem;
-      }
-
-      .quickstart__subtitle {
-        font-size: 1.8rem;
-        margin-top: 10px;
-      }
-    }
 
     .quickstart__bar {
         width: 4px;
@@ -65,20 +47,6 @@
           padding-left: 1rem;
         }
 
-        .quickstart__text__label {
-
-          /* Label */
-          font-family: 'Manrope';
-          font-style: normal;
-          font-weight: 500;
-          font-size: 1rem;
-          line-height: 1.2rem;
-          letter-spacing: 0.4em;
-          text-transform: uppercase;
-
-          color: #999EB3;
-        }
-
         .quickstart__text__head {
 
           /* H4 | Semibold */
@@ -86,36 +54,12 @@
           font-style: normal;
           font-weight: 400;
           font-size: 2rem;
-          line-height: 2rem;
+          line-height: 2.5rem;
 
           color: #171B2B;
           margin-top: 1rem;
         }
 
-        .quickstart__text__desc {
-
-          margin-top: 1rem;
-          font-family: 'Manrope';
-          font-style: normal;
-          font-weight: 400;
-          font-size: 1.1rem;
-          line-height: 1.75rem;
-          /* Text|Light */
-          color: #838BA8;
-
-          p {
-            margin-bottom: 1rem;
-            span {
-              margin-bottom: .75rem;
-              display: block;
-            }
-          }
-
-          .learn_more {
-            color: #1890FF;
-            font-weight: 500;
-          }
-        }
       }
 
       .quickstart__img {
@@ -136,14 +80,6 @@
       .quickstart__bar {
         display: none;
       }
-      .quickstart__header {
-        width: 95%;
-        margin-bottom: 40px;
-
-        .quickstart__title {
-          font-size: 2rem;
-        }
-      }
 
       .quickstart__content {
         display: flex;
@@ -157,21 +93,14 @@
           div {
             padding-left: 0;
           }
-
-          .quickstart__text__label {
-            font-size: .8rem;
-          }
           .quickstart__text__head {
             font-size: 1.4rem;
-          }
-          .quickstart__text__desc {
-            font-size: .9rem;
-            line-height: 1.3rem;
           }
         }
         .quickstart__img {
           display: flex;
           min-width: 50px;
+          margin: auto;
         }
       }
     }
