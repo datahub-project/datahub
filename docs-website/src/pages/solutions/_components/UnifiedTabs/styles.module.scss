@@ -102,3 +102,9 @@
     margin: 1rem;
   }
 }
+
+@media (max-width: 768px) {
+  .container {
+    display: block;
+  }
+}
