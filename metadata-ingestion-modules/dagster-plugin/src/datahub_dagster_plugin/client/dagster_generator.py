@@ -13,6 +13,7 @@ from dagster import (
     TableSchemaMetadataValue,
 )
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot, StepEventStatus
+from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 
 try:
     from dagster._core.snap import JobSnapshot  # type: ignore[attr-defined]
@@ -75,7 +76,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.specific.dataset import DatasetPatchBuilder
-from datahub.sql_parsing.sql_parsing_aggregator import get_query_fingerprint
 from datahub.utilities.urns._urn_base import Urn
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
