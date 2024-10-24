@@ -67,6 +67,7 @@
             margin-left: 0;
           }
         }
+
         .item {
           display: flex;
           justify-content: center;
@@ -76,7 +77,7 @@
           margin-left: 4rem;
           flex-grow: 1;
           max-width: 520px;
-                    
+
           .item__title {
             font-family: Manrope;
             font-size: 36px;
@@ -116,6 +117,26 @@
     }
 
     @media only screen and (max-width: 800px) {
+      .itemWrapper {
+        display: block !important;
+        align-items: center; 
+        margin: auto;
+
+      }
+
+      .diagramItem {
+        height: auto;
+        min-width: auto;
+        max-width: none;
+        margin: auto;
+      }
+
+      .item {
+        text-align: center; 
+        padding : 1rem;
+        margin: 2rem !important;
+      }
+      
       .ecosystem_section_content {
         width: 90%;
         min-width: 0;
@@ -135,25 +156,10 @@
         .ecosystem_section_lower_content {
           height: auto;
           margin-top: 8px;
-          flex-direction: column;
-
-          .itemWrapper {
-            display: flex;
-            flex-direction: column-reverse;
-            margin-bottom: 24px;
-
-            &:nth-child(odd) {
-              align-items: flex-start;
-            }
-
-            &:nth-child(even) {
-              align-items: flex-end; // Diagonal placement for every alternate row
-            }
-
-          }
-
-          .item {
-            padding: 0 0 24px 0;
+          .diagramItem {
+            width: 100%;
+            height: auto;
+            border: none;
           }
         }
       }
@@ -171,4 +177,6 @@
 
 .diagramItem__img { 
   overflow: hidden;
+  width: 100%;
+  height: auto;
 }
