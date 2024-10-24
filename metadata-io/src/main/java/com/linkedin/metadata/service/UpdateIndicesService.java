@@ -26,6 +26,7 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -60,6 +61,9 @@ public class UpdateIndicesService implements SearchIndicesService {
   @Getter private final boolean structuredPropertiesHookEnabled;
 
   @Getter private final boolean structuredPropertiesWriteEnabled;
+
+  private static final String DOCUMENT_TRANSFORM_FAILED_METRIC = "document_transform_failed";
+  private static final String SEARCH_DIFF_MODE_SKIPPED_METRIC = "search_diff_no_changes_detected";
 
   private static final Set<ChangeType> UPDATE_CHANGE_TYPES =
       ImmutableSet.of(
@@ -283,11 +287,13 @@ public class UpdateIndicesService implements SearchIndicesService {
                           event.getAuditStamp()));
     } catch (Exception e) {
       log.error(
-          "Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
+          "Error in getting documents for urn: {} from aspect: {}", urn, aspectSpec.getName(), e);
+      MetricUtils.counter(this.getClass(), DOCUMENT_TRANSFORM_FAILED_METRIC).inc();
       return;
     }
 
-    if (!searchDocument.isPresent()) {
+    if (searchDocument.isEmpty()) {
+      log.info("Search document for urn: {} aspect: {} was empty", urn, aspect);
       return;
     }
 
@@ -304,15 +310,22 @@ public class UpdateIndicesService implements SearchIndicesService {
                   opContext, urn, previousAspect, aspectSpec, false);
         } catch (Exception e) {
           log.error(
-              "Error in getting documents from previous aspect state: {} for aspect {}, continuing without diffing.",
-              e,
-              aspectSpec.getName());
+              "Error in getting documents from previous aspect state for urn: {} for aspect {}, continuing without diffing.",
+              urn,
+              aspectSpec.getName(),
+              e);
+          MetricUtils.counter(this.getClass(), DOCUMENT_TRANSFORM_FAILED_METRIC).inc();
         }
       }
 
       if (previousSearchDocument.isPresent()) {
         if (searchDocument.get().toString().equals(previousSearchDocument.get().toString())) {
           // No changes to search document, skip writing no-op update
+          log.info(
+              "No changes detected for search document for urn: {} aspect: {}",
+              urn,
+              aspectSpec.getName());
+          MetricUtils.counter(this.getClass(), SEARCH_DIFF_MODE_SKIPPED_METRIC).inc();
           return;
         }
       }

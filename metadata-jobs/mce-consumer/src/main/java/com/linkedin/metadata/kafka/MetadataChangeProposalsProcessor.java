@@ -1,9 +1,16 @@
 package com.linkedin.metadata.kafka;
 
+import static com.linkedin.metadata.Constants.MDC_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.MDC_CHANGE_TYPE;
+import static com.linkedin.metadata.Constants.MDC_ENTITY_TYPE;
+import static com.linkedin.metadata.Constants.MDC_ENTITY_URN;
+
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.metadata.EventUtils;
@@ -27,6 +34,7 @@ import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
@@ -128,6 +136,17 @@ public class MetadataChangeProposalsProcessor {
       MetadataChangeProposal event = new MetadataChangeProposal();
       try {
         event = EventUtils.avroToPegasusMCP(record);
+
+        Urn entityUrn = event.getEntityUrn();
+        String aspectName = event.hasAspectName() ? event.getAspectName() : null;
+        String entityType = event.hasEntityType() ? event.getEntityType() : null;
+        ChangeType changeType = event.hasChangeType() ? event.getChangeType() : null;
+        MDC.put(MDC_ENTITY_URN, Optional.ofNullable(entityUrn).map(Urn::toString).orElse(""));
+        MDC.put(MDC_ASPECT_NAME, aspectName);
+        MDC.put(MDC_ENTITY_TYPE, entityType);
+        MDC.put(
+            MDC_CHANGE_TYPE, Optional.ofNullable(changeType).map(ChangeType::toString).orElse(""));
+
         log.debug("MetadataChangeProposal {}", event);
         // TODO: Get this from the event itself.
         String urn = entityClient.ingestProposal(systemOperationContext, event, false);
@@ -137,6 +156,8 @@ public class MetadataChangeProposalsProcessor {
         log.error("Message: {}", record);
         sendFailedMCP(event, throwable);
       }
+    } finally {
+      MDC.clear();
     }
   }
 

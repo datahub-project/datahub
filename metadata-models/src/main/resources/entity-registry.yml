@@ -299,6 +299,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - access
       - share
       - origin
       - documentation
@@ -571,6 +572,12 @@ entities:
       - testResults
       - schemaFieldProfile
       - lineageFeatures
+  - name: globalSettings
+    doc: Global settings for an the platform
+    category: internal
+    keyAspect: globalSettingsKey
+    aspects:
+      - globalSettingsInfo
   ## Not in OSS
   - name: constraint
     keyAspect: constraintKey
@@ -595,12 +602,6 @@ entities:
     keyAspect: anomalyKey
     aspects:
       - anomalyInfo
-  - name: globalSettings
-    doc: Global settings for an the platform
-    category: internal
-    keyAspect: globalSettingsKey
-    aspects:
-      - globalSettingsInfo
   - name: dataHubRole
     category: core
     keyAspect: dataHubRoleKey

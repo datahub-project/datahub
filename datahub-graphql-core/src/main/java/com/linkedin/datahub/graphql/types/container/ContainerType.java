@@ -53,6 +53,7 @@ public class ContainerType
           Constants.DATA_PRODUCTS_ASPECT_NAME,
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
           Constants.FORMS_ASPECT_NAME,
+          Constants.ACCESS_ASPECT_NAME,
           Constants.SHARE_ASPECT_NAME,
           Constants.BROWSE_PATHS_V2_ASPECT_NAME,
           Constants.ORIGIN_ASPECT_NAME);

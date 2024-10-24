@@ -410,6 +410,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     )
 
                 dataset_properties = DatasetPropertiesClass(
+                    name=collection_name,
                     tags=[],
                     customProperties={},
                 )

@@ -81,31 +81,33 @@ class FivetranSource(StatefulIngestionSourceBase):
         output_dataset_urn_list: List[DatasetUrn] = []
         fine_grained_lineage: List[FineGrainedLineage] = []
 
-        source_platform_detail: PlatformDetail = PlatformDetail()
-        destination_platform_detail: PlatformDetail = PlatformDetail()
+        # TODO: Once Fivetran exposes the database via the API, we shouldn't ask for it via config.
+
         # Get platform details for connector source
-        source_platform_detail = self.config.sources_to_platform_instance.get(
+        source_details = self.config.sources_to_platform_instance.get(
             connector.connector_id, PlatformDetail()
         )
+        if source_details.platform is None:
+            if connector.connector_type in KNOWN_DATA_PLATFORM_MAPPING:
+                source_details.platform = KNOWN_DATA_PLATFORM_MAPPING[
+                    connector.connector_type
+                ]
+            else:
+                logger.info(
+                    f"Fivetran connector source type: {connector.connector_type} is not supported to mapped with Datahub dataset entity."
+                )
+                source_details.platform = connector.connector_type
 
         # Get platform details for destination
-        destination_platform_detail = self.config.destination_to_platform_instance.get(
+        destination_details = self.config.destination_to_platform_instance.get(
             connector.destination_id, PlatformDetail()
         )
-
-        # Get database for connector source
-        # TODO: Once Fivetran exposes this, we shouldn't ask for it via config.
-        source_database: Optional[str] = self.config.sources_to_database.get(
-            connector.connector_id
-        )
-
-        if connector.connector_type in KNOWN_DATA_PLATFORM_MAPPING:
-            source_platform = KNOWN_DATA_PLATFORM_MAPPING[connector.connector_type]
-        else:
-            source_platform = connector.connector_type
-            logger.info(
-                f"Fivetran connector source type: {connector.connector_type} is not supported to mapped with Datahub dataset entity."
+        if destination_details.platform is None:
+            destination_details.platform = (
+                self.config.fivetran_log_config.destination_platform
             )
+        if destination_details.database is None:
+            destination_details.database = self.audit_log.fivetran_log_database
 
         if len(connector.lineage) >= MAX_TABLE_LINEAGE_PER_CONNECTOR:
             self.report.warning(
@@ -117,22 +119,22 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         for lineage in connector.lineage:
             input_dataset_urn = DatasetUrn.create_from_ids(
-                platform_id=source_platform,
+                platform_id=source_details.platform,
                 table_name=(
-                    f"{source_database.lower()}.{lineage.source_table}"
-                    if source_database
+                    f"{source_details.database.lower()}.{lineage.source_table}"
+                    if source_details.database
                     else lineage.source_table
                 ),
-                env=source_platform_detail.env,
-                platform_instance=source_platform_detail.platform_instance,
+                env=source_details.env,
+                platform_instance=source_details.platform_instance,
             )
             input_dataset_urn_list.append(input_dataset_urn)
 
             output_dataset_urn = DatasetUrn.create_from_ids(
-                platform_id=self.config.fivetran_log_config.destination_platform,
-                table_name=f"{self.audit_log.fivetran_log_database.lower()}.{lineage.destination_table}",
-                env=destination_platform_detail.env,
-                platform_instance=destination_platform_detail.platform_instance,
+                platform_id=destination_details.platform,
+                table_name=f"{destination_details.database.lower()}.{lineage.destination_table}",
+                env=destination_details.env,
+                platform_instance=destination_details.platform_instance,
             )
             output_dataset_urn_list.append(output_dataset_urn)
 
