@@ -211,17 +211,6 @@ export function getFilterIconAndLabel(
             icon = newIcon;
             label = newLabel;
         }
-
-
-
-        // const { icon: newIcon, label: newLabel } = getFilterWithEntityIconAndLabel(
-        //     filterValue,
-        //     entityRegistry,
-        //     filterEntity,
-        //     size,
-        // );
-        // icon = newIcon;
-        // label = newLabel;
     } else {
         label = filterValue;
     }
