@@ -55,7 +55,6 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  flex-wrap: wrap;
   background: inherit; /* Inherit the container's gradient */
 }
 
@@ -63,7 +62,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 365px;
+  min-width: 365px;
   margin: 2rem;
   height: 100%;
   background: inherit; /* Allow persona card to have gradient */
@@ -122,11 +121,23 @@
 }
 
 @media (max-width: 768px) {
+
+  .container {
+    padding: 4rem 2rem;
+  }
   .persona_row {
-    flex-direction: column;
+    display: block;
+  }
+  
+  .persona_row_wrapper {
+    display: block !important;
   }
 
   .persona {
-    margin-bottom: 20px;
+    margin: 3rem auto;
+  }
+
+  .card_gradient {
+    height: 15%;
   }
 }
