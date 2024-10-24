@@ -1000,6 +1000,7 @@ fragment entityContainer on Container {
 
 fragment parentContainerFields on Container {
     urn
+    type
     properties {
         name
     }
