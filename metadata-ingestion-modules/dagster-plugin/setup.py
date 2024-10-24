@@ -73,7 +73,6 @@ base_dev_requirements = {
     "build",
     "twine",
     "packaging",
-    "sqlparse==0.4.4",
 }
 
 dev_requirements = {
