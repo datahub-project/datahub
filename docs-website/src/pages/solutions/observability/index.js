@@ -9,7 +9,6 @@ import CaseStudy from "../_components/CaseStudy";
 import QuickstartContent from "../_components/QuickstartContent";
 import styles from "./styles.module.scss";
 import CloseButton from "@ant-design/icons/CloseCircleFilled";
-import Link from "@docusaurus/Link";
 import clsx from "clsx";
 import quickstartData from "./_content/observeQuickstartContent";
 import heroContent from "./_content/observeHeroContent";

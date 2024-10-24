@@ -100,7 +100,7 @@
           .testimonials__text {
             width: 100%;
             max-width: 100%;
-            margin: 2rem auto;
+            margin: 2rem aut
           }
         }
       }
@@ -154,11 +154,9 @@
   }
   .card_row {
     margin-top: 8px;
-    // overflow-x: scroll;
+    overflow-x: scroll;
     padding-right: 20px;
-    width: 100vw;
     scrollbar-width: none;
-    display: flex;
 
     .card_row_wrapper {
       display: flex;
