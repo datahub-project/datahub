@@ -137,13 +137,12 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
         }, 3000);
     };
 
-    const onRemoveMember = (memberEntity: CorpUser) => {
-        const memberName = entityRegistry.getDisplayName(EntityType.CorpUser, memberEntity);
+    const onRemoveMember = (memberUrn: string) => {
         Modal.confirm({
             title: `Confirm Group Member Removal`,
-            content: `Are you sure you want to remove ${memberName} user from the group?`,
+            content: `Are you sure you want to remove this user from the group?`,
             onOk() {
-                removeGroupMember(memberEntity?.urn);
+                removeGroupMember(memberUrn);
             },
             onCancel() {},
             okText: 'Yes',
@@ -156,7 +155,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
     const total = relationships?.total || 0;
     const groupMembers = relationships?.relationships?.map((rel) => rel.entity as CorpUser) || [];
 
-    const getItems = (userEntity: CorpUser): MenuProps['items'] => {
+    const getItems = (urnID: string): MenuProps['items'] => {
         return [
             {
                 key: 'make',
@@ -170,7 +169,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
             {
                 key: 'remove',
                 disabled: isExternalGroup,
-                onClick: () => onRemoveMember(userEntity),
+                onClick: () => onRemoveMember(urnID),
                 label: (
                     <span>
                         <UserDeleteOutlined /> Remove from Group
@@ -211,7 +210,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
                                 </MemberColumn>
                                 <MemberColumn xl={1} lg={1} md={1} sm={1} xs={1}>
                                     <MemberEditIcon>
-                                        <Dropdown menu={{ items: getItems(item) }}>
+                                        <Dropdown menu={{ items: getItems(item.urn) }}>
                                             <MoreOutlined />
                                         </Dropdown>
                                     </MemberEditIcon>
