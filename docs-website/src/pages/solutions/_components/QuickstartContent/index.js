@@ -2,10 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import styles from "./quickstartcontent.module.scss";
-import quickstartContent from "./quickstartContent";
 import { motion, useScroll, useTransform} from 'framer-motion';
 
-const QuickstartContent = ({}) => {
+const QuickstartContent = ({ quickstartContent }) => {
   const scrollableElement = useRef(null)
   const { scrollYProgress } = useScroll({
     target: scrollableElement,
@@ -16,29 +15,6 @@ const QuickstartContent = ({}) => {
 
   return (
     <div className={clsx("quickstart", styles.quickstart)}>
-      <motion.div className="quickstart__header"
-        initial={{
-          opacity: 0,
-          scale: .8,
-          y: 50,
-        }}
-        exit={{
-          opacity: 0,
-          scale: .9,
-          y: -50
-        }}
-        whileInView={{
-          opacity: 1,
-          scale: 1,
-          y: 0,
-          transition: {
-            delay: 0,
-            duration: .75
-          }
-        }}
-        viewport={{ once: true, amount: 'full' }}
-      >
-      </motion.div>
       <div
         className="quickstart__container"
         id="quickstart__container"
@@ -75,11 +51,7 @@ const QuickstartContent = ({}) => {
               <img src={useBaseUrl(data.image)} />
             </div>
             <div className="quickstart__text">
-              <div className="quickstart__text__label">{data.heading}</div>
               <div className="quickstart__text__head">{data.title}</div>
-              <div className="quickstart__text__desc">
-                <p dangerouslySetInnerHTML={{ __html: data.description }} />
-              </div>
             </div>
           </motion.div>
         ))}
