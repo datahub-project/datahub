@@ -43,78 +43,55 @@
 
 .tab {
   align-items: center;
-  margin: 0;
+  margin: 0.5rem 0;
   position: relative;
-
-.tabButton {
-  padding: 1.5rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  justify-content: left;
-  text-align: left;
-
-  .tabButton:focus {
-    outline: none;
-  }
   
-  .tabTitle {
-    color: var(--primitives-text-tex-subtext, #777E99);
-    font-family: Manrope;
-    font-size: 1.45rem;
-    font-style: normal;
-    font-weight: 600;
-    line-height: normal;
-    padding-left: 1rem;
-  }
-
-  .icon {
-    width: 2.3rem;
-    height: 2.3rem;
-  }
-
-  .icon::before {
-      position: absolute;
-      content: '';
-      display: block;
-      width: 15px;
-      height: 15px;
-      background: #e0e0e0;
-      border-radius: 50%;
-      left: -9px;
-      top: 50%;
-      -webkit-transform: translateY(-50%);
-      -moz-transform: translateY(-50%);
-      -ms-transform: translateY(-50%);
-      transform: translateY(-50%);
-  }
-}
-
-.dropdown {
-  background-color: #ffffff;
-  margin-top: 5px;
-  padding: 1rem 1.5rem;
-  border-left: 3px solid #4C49E4;
-  color: #777E99;
-  font-family: Manrope;
-  font-size: 1.25rem;
-  font-style: normal;
-  font-weight: 500;
-  line-height: 2rem; /* 160% */
-
   &.activeTab {
-    border-bottom: none;
-    color: var(--primitives-text-text-heading, #373A47) !important;
+    border-left: 3px solid #4C49E4;
+    .tabTitle {
+      color: black !important;
+    }
+
   }
 
+  .tabButton {
+    padding: 0rem 1rem 1rem 1rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    justify-content: left;
+    text-align: left;
+
+    .tabTitle {
+      color: var(--primitives-text-tex-subtext, #777E99);
+      font-family: Manrope;
+      font-size: 1.45rem;
+      font-style: normal;
+      font-weight: 600;
+      line-height: normal;
+      padding-left: 1rem;
+    }
+
+    .tabTitle:hover {
+      color: black !important;
+    }
+  }
+
+  .dropdown {
+    background-color: #ffffff;
+    margin-top: 5px;
+    padding: 0rem 1.5rem 0.5rem 1.5rem;
+    color: #777E99;
+    font-family: Manrope;
+    font-size: 1.25rem;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 2rem; /* 160% */
+  }
 }
-}
-
-
-
 
 .imageContainer {
   display: none;

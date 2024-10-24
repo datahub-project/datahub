@@ -35,7 +35,7 @@ const TabbedComponent = () => {
         <div className={clsx(styles.leftSection)}>
           <div className={clsx(styles.title)}>
             Secure. Scalable. Simple. <span className={clsx(styles.titleBlue)}> Open.</span>
-            </div>
+          </div>
           <div className={clsx(styles.tabs)}>
             {tabs.map((tab, index) => (
               <React.Fragment key={index}>
@@ -45,11 +45,13 @@ const TabbedComponent = () => {
                     onClick={() => setActiveTab(index)}
                   >
                     <img className={clsx(styles.icon)} src={tab.icon} alt={`${tab.title} icon`} />
-                    <div className={clsx(styles.tabTitle)}>{tab.title}</div>
+                    <div className={clsx(styles.tabTitle, { [styles.activeTitle]: activeTab === index })}>
+                      {tab.title}
+                    </div>
                   </button>
                   {activeTab === index && (
                     <div className={clsx(styles.dropdown)}>
-                      <p>{tab.description}</p>
+                      {tab.description}
                     </div>
                   )}
                 </div>
