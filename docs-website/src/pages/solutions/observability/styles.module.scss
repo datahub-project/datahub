@@ -21,13 +21,17 @@
         margin: 2rem 4rem;
         display: flex;
 
+        .testimonials__meta {
+          display: flex;
+        }
+
         .testimonials__logo {
           max-width: 120px;
-          margin-right: 24px;
+          margin: auto 1rem;
         }
         .testimonials__company {
           width: 300px;
-          margin-right: 2rem;
+          margin: auto 2rem;
 
           .testimonials__company_title {
             color: var(--primitives-text-text-heading, #373A47);
@@ -60,6 +64,7 @@
           font-style: normal;
           font-weight: 400;
           line-height: 140%;
+          margin: auto 2rem;
         }
       }
     }
@@ -85,6 +90,7 @@
           .testimonials__company {
             font-size: 1rem;
             display: flex;
+            margin: auto 1rem;
 
             .testimonials__author_title {
               padding-left: 1rem;
@@ -94,7 +100,7 @@
           .testimonials__text {
             width: 100%;
             max-width: 100%;
-            margin-top: 1rem;
+            margin: 2rem auto;
           }
         }
       }

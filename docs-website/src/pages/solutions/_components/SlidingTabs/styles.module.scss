@@ -1,10 +1,13 @@
 .tabbedComponent {
-  padding: 20px;
   padding-top: 48px;
   padding-bottom: 48px;
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.leftSection {
+  padding-left: 200px;
 }
 
 .title {
@@ -27,10 +30,8 @@
   display: flex;
   flex-direction: column; // Changed to column for mobile view
   background: white;
-  border-radius: 1rem;
   overflow: hidden;
-  max-width: 1400px;
-  width: 100%;
+  width: 100vw;
 }
 
 .tabs {
@@ -53,7 +54,7 @@
   display: flex;
   align-items: center;
   width: 100%;
-  justify-content: space-between;
+  justify-content: left;
   text-align: left;
 
   .tabButton:focus {
@@ -63,7 +64,7 @@
   .tabTitle {
     color: var(--primitives-text-tex-subtext, #777E99);
     font-family: Manrope;
-    font-size: 1.75rem;
+    font-size: 1.45rem;
     font-style: normal;
     font-weight: 600;
     line-height: normal;
@@ -117,27 +118,16 @@
 
 .imageContainer {
   display: none;
-  justify-content: center;
-  align-items: center;
+  justify-content: right;
   background-color: transparent;
-  margin: 1rem 0; // Added margin for spacing
+  margin: 1rem 0; 
   height: 380px;
   border-radius: 24px;
 }
 
 .tabImage {
-  width: 100%;
-  height: 100%;
+  height: 600px;
   display: flex;
-  padding: 4px;
-  align-items: center;
-  justify-content: center;
-}
-.tabImage video {
-  max-height: 100%;
-  max-width: 100%;
-  border-radius: 22px;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .mobileImageContainer {
@@ -156,13 +146,13 @@
 @media (min-width: 768px) {
   .container {
     flex-direction: row; // Change back to row for larger screens
-    padding: 40px 32px;
+    padding: 40px 0px;
   }
   .tabs {
-    width: 440px;
+    width: 800px;
   }
 
   .imageContainer {
-    margin: 1rem; // Reset margin for larger screens
+    margin: 1rem 0rem 1rem 1rem;
   }
 }
