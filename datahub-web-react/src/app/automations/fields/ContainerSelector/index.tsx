@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Select } from 'antd';
 import { debounce } from 'lodash';
 
@@ -9,6 +9,7 @@ import {
     useGetAutoCompleteMultipleResultsQuery,
     useGetSearchResultsForMultipleQuery,
 } from '@src/graphql/search.generated';
+import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import { PLATFORM_FILTER_NAME } from '../../../searchV2/utils/constants';
 
 export type ContainerSelectorStateType = {
@@ -19,6 +20,8 @@ export const ContainerSelector = ({ state, props, passStateToParent }: Component
     const [query, setQuery] = useState('');
     const { containers } = state as ContainerSelectorStateType;
     const { platforms } = props;
+
+    const [containerOptions, setContainerOptions] = useState<any[]>([]);
 
     // Dynamic input for initial results
     const input: SearchAcrossEntitiesInput = {
@@ -41,6 +44,35 @@ export const ContainerSelector = ({ state, props, passStateToParent }: Component
         skip: !!query, // skip if there's a query (i.e. searching)
         fetchPolicy: 'cache-first',
     });
+    const [getEntities, { data: resolvedEntitiesData }] = useGetEntitiesLazyQuery(); // Lazy query to fetch entities
+
+    useEffect(() => {
+        if (containers?.length) {
+            getEntities({ variables: { urns: containers } }); // Fetch entities based on URNs
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        const shouldPresetSelectedContainers =
+            containers?.length && // Ensure it is edit mode as we will have containers in edit mode only
+            data?.searchAcrossEntities?.searchResults?.length && // check whether we have loaded initial list
+            resolvedEntitiesData?.entities?.length; // check selected containers details has been present or not
+
+        // Initialize an empty array to hold selected containers
+        const selectedContainers: Container[] = shouldPresetSelectedContainers
+            ? (resolvedEntitiesData?.entities as Container[])
+            : [];
+
+        // Extract entities from search results, filtering out any without an entity
+        const initialAssets =
+            (data?.searchAcrossEntities?.searchResults
+                ?.filter((result) => result.entity)
+                .map((result) => result.entity) as Container[]) || ([] as Container[]); // Map them to containers
+
+        // Update the container options by combining the initial assets and selected containers
+        setContainerOptions([...initialAssets, ...selectedContainers]);
+    }, [resolvedEntitiesData, data, containers]);
 
     // Autocomplete (Search) query
     const { data: autocompleteData, loading: autoCompleteLoading } = useGetAutoCompleteMultipleResultsQuery({
@@ -60,18 +92,12 @@ export const ContainerSelector = ({ state, props, passStateToParent }: Component
         setQuery(value);
     };
 
-    // Initial list of containers (default state before search)
-    const initialAssets =
-        (data?.searchAcrossEntities?.searchResults
-            ?.filter((result) => result.entity)
-            .map((result) => result.entity) as Container[]) || ([] as Container[]);
-
     // Results from autocomplete query
     const searchResults =
         autocompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities) || [];
 
     // Use search results if a query exists, otherwise use the initial assets
-    const assets = query ? searchResults : initialAssets;
+    const assets = query ? searchResults : containerOptions;
 
     return (
         <Select
