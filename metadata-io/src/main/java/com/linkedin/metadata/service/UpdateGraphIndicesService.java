@@ -388,24 +388,24 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     // Remove any old edges that no longer exist first
     if (!subtractiveDifference.isEmpty()) {
       log.debug("Removing edges: {}", subtractiveDifference);
+      subtractiveDifference.forEach(graphService::removeEdge);
       MetricUtils.counter(this.getClass(), GRAPH_DIFF_MODE_REMOVE_METRIC)
           .inc(subtractiveDifference.size());
-      subtractiveDifference.forEach(graphService::removeEdge);
     }
 
     // Then add new edges
     if (!additiveDifference.isEmpty()) {
       log.debug("Adding edges: {}", additiveDifference);
+      additiveDifference.forEach(graphService::addEdge);
       MetricUtils.counter(this.getClass(), GRAPH_DIFF_MODE_ADD_METRIC)
           .inc(additiveDifference.size());
-      additiveDifference.forEach(graphService::addEdge);
     }
 
     // Then update existing edges
     if (!mergedEdges.isEmpty()) {
       log.debug("Updating edges: {}", mergedEdges);
-      MetricUtils.counter(this.getClass(), GRAPH_DIFF_MODE_UPDATE_METRIC).inc(mergedEdges.size());
       mergedEdges.forEach(graphService::upsertEdge);
+      MetricUtils.counter(this.getClass(), GRAPH_DIFF_MODE_UPDATE_METRIC).inc(mergedEdges.size());
     }
   }
 
