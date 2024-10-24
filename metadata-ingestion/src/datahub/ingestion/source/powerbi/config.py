@@ -19,6 +19,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -176,11 +177,13 @@ class SupportedDataPlatform(Enum):
 
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
+    all_workspace_count: int = 0
+    filtered_workspaces: LossyList[str] = dataclass_field(default_factory=LossyList)
+
     dashboards_scanned: int = 0
     charts_scanned: int = 0
     filtered_dashboards: List[str] = dataclass_field(default_factory=list)
     filtered_charts: List[str] = dataclass_field(default_factory=list)
-    number_of_workspaces: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -193,9 +196,6 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
 
     def report_charts_dropped(self, view: str) -> None:
         self.filtered_charts.append(view)
-
-    def report_number_of_workspaces(self, number_of_workspaces: int) -> None:
-        self.number_of_workspaces = number_of_workspaces
 
 
 def default_for_dataset_type_mapping() -> Dict[str, str]:
