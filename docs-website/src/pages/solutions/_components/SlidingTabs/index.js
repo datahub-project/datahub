@@ -54,13 +54,6 @@ const TabbedComponent = () => {
                     </div>
                   )}
                 </div>
-                {activeTab === index && (
-                  <div className={clsx(styles.imageContainer)}>
-                    <div className={clsx(styles.tabImage)}>
-                      <video playsInline src={tabs[activeTab].image} controls={false} autoPlay muted loop />
-                    </div>
-                  </div>
-                )}
               </React.Fragment>
             ))}
           </div>
