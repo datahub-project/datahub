@@ -14,18 +14,26 @@ bootstrap:
 
     - name: data-platforms
       version: v1
+      blocking: true
+      async: false
       mcps_location: "bootstrap_mcps/data-platforms.yaml"
 
     - name: data-types
       version: v1
+      blocking: true
+      async: false
       mcps_location: "bootstrap_mcps/data-types.yaml"
 
     - name: ownership-types
       version: v1
+      blocking: true
+      async: false
       mcps_location: "bootstrap_mcps/ownership-types.yaml"
 
     - name: roles
       version: v1
+      blocking: true
+      async: false
       mcps_location: "bootstrap_mcps/roles.yaml"
 
     # Ingestion Recipes

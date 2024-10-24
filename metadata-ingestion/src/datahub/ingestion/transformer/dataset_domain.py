@@ -1,6 +1,8 @@
 import logging
+from enum import auto
 from typing import Callable, Dict, List, Optional, Sequence, Union, cast
 
+from datahub.configuration._config_enum import ConfigEnum
 from datahub.configuration.common import (
     ConfigurationError,
     KeyValuePattern,
@@ -23,6 +25,13 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger = logging.getLogger(__name__)
 
 
+class TransformerOnConflict(ConfigEnum):
+    """Describes the behavior of the transformer when writing an aspect that already exists."""
+
+    DO_UPDATE = auto()  # On conflict, apply the new aspect
+    DO_NOTHING = auto()  # On conflict, do not apply the new aspect
+
+
 class AddDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
     get_domains_to_add: Union[
         Callable[[str], DomainsClass],
@@ -32,10 +41,12 @@ class AddDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
     _resolve_domain_fn = pydantic_resolve_key("get_domains_to_add")
 
     is_container: bool = False
+    on_conflict: TransformerOnConflict = TransformerOnConflict.DO_UPDATE
 
 
 class SimpleDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
     domains: List[str]
+    on_conflict: TransformerOnConflict = TransformerOnConflict.DO_UPDATE
 
 
 class PatternDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
@@ -80,12 +91,13 @@ class AddDatasetDomain(DatasetDomainTransformer):
 
     @staticmethod
     def _merge_with_server_domains(
-        graph: DataHubGraph, urn: str, mce_domain: Optional[DomainsClass]
+        graph: Optional[DataHubGraph], urn: str, mce_domain: Optional[DomainsClass]
     ) -> Optional[DomainsClass]:
         if not mce_domain or not mce_domain.domains:
             # nothing to add, no need to consult server
             return None
 
+        assert graph
         server_domain = graph.get_domain(entity_urn=urn)
         if server_domain:
             # compute patch
@@ -155,7 +167,7 @@ class AddDatasetDomain(DatasetDomainTransformer):
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
         in_domain_aspect: DomainsClass = cast(DomainsClass, aspect)
-        domain_aspect = DomainsClass(domains=[])
+        domain_aspect: DomainsClass = DomainsClass(domains=[])
         # Check if we have received existing aspect
         if in_domain_aspect is not None and self.config.replace_existing is False:
             domain_aspect.domains.extend(in_domain_aspect.domains)
@@ -164,16 +176,18 @@ class AddDatasetDomain(DatasetDomainTransformer):
 
         domain_aspect.domains.extend(domain_to_add.domains)
 
-        if self.config.semantics == TransformerSemantics.PATCH:
-            assert self.ctx.graph
-            patch_domain_aspect: Optional[
-                DomainsClass
-            ] = AddDatasetDomain._merge_with_server_domains(
-                self.ctx.graph, entity_urn, domain_aspect
-            )
-            return cast(Optional[Aspect], patch_domain_aspect)
-
-        return cast(Optional[Aspect], domain_aspect)
+        final_aspect: Optional[DomainsClass] = domain_aspect
+        if domain_aspect.domains:
+            if self.config.on_conflict == TransformerOnConflict.DO_NOTHING:
+                assert self.ctx.graph
+                server_domain = self.ctx.graph.get_domain(entity_urn)
+                if server_domain and server_domain.domains:
+                    return None
+            if self.config.semantics == TransformerSemantics.PATCH:
+                final_aspect = AddDatasetDomain._merge_with_server_domains(
+                    self.ctx.graph, entity_urn, domain_aspect
+                )
+        return cast(Optional[Aspect], final_aspect)
 
 
 class SimpleAddDatasetDomain(AddDatasetDomain):
@@ -186,8 +200,7 @@ class SimpleAddDatasetDomain(AddDatasetDomain):
         domains = AddDatasetDomain.get_domain_class(ctx.graph, config.domains)
         generic_config = AddDatasetDomainSemanticsConfig(
             get_domains_to_add=lambda _: domains,
-            semantics=config.semantics,
-            replace_existing=config.replace_existing,
+            **config.dict(exclude={"domains"}),
         )
         super().__init__(generic_config, ctx)
 

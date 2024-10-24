@@ -30,4 +30,6 @@
       extraArgs: {}
       debugMode: false
       executorId: default
+    source:
+      type: {{source}}{{^source}}SYSTEM{{/source}}
   headers: {}

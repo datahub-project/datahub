@@ -31,6 +31,8 @@ ext {
     ]
     // Postgres
     pg_quickstart_modules = quickstart_modules - [':docker:mysql-setup'] + [':docker:postgres-setup']
+
+    revision = 1 // increment to trigger rebuild
 }
 
 tasks.register('minDockerCompose2.20', Exec) {
@@ -126,6 +128,9 @@ dockerCompose {
         isRequiredBy(tasks.named('quickstartDebug'))
         composeAdditionalArgs = ['--profile', 'debug']
 
+        if (System.getenv().containsKey("DATAHUB_VERSION")) {
+            environment.put 'DATAHUB_VERSION', System.getenv("DATAHUB_VERSION")
+        }
         environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false' // disabled when built locally
 
         useComposeFiles = ['profiles/docker-compose.yml']

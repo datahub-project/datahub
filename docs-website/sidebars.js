@@ -101,6 +101,7 @@ module.exports = {
         {
           label: "Automations",
           type: "category",
+          collapsed: false,
           items: [
             {
               label: "Documentation Propagation",
@@ -108,9 +109,27 @@ module.exports = {
               id: "docs/automations/docs-propagation",
             },
             {
+              label: "BigQuery Metadata Sync",
+              type: "doc",
+              id: "docs/automations/bigquery-metadata-sync",
+              className: "saasOnly",
+            },
+            {
               label: "Snowflake Tag Sync",
               type: "doc",
               id: "docs/automations/snowflake-tag-propagation",
+              className: "saasOnly",
+            },
+            {
+              label: "AI Classification",
+              type: "doc",
+              id: "docs/automations/ai-term-suggestion",
+              className: "saasOnly",
+            },
+            {
+              label: "AI Documentation",
+              type: "doc",
+              id: "docs/automations/ai-docs",
               className: "saasOnly",
             },
           ],
@@ -307,6 +326,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_6",
             "docs/managed-datahub/release-notes/v_0_3_5",
             "docs/managed-datahub/release-notes/v_0_3_4",
             "docs/managed-datahub/release-notes/v_0_3_3",

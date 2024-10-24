@@ -26,6 +26,7 @@ concurrency:
 jobs:
   metadata-ingestion:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     env:
       SPARK_VERSION: 3.3.2
       DATAHUB_TELEMETRY_ENABLED: false
@@ -61,16 +62,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: "pip"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install package
