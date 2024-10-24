@@ -270,7 +270,6 @@ class DatahubSensors:
                 module = code_pointer.module
             else:
                 context.log.error("Unable to get Module")
-                return None
 
         dagster_environment = DagsterEnvironment(
             is_cloud=os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", None) is not None,
