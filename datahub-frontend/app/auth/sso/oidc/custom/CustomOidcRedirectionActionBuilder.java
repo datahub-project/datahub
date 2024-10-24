@@ -2,29 +2,35 @@ package auth.sso.oidc.custom;
 
 import java.util.Map;
 import java.util.Optional;
+import org.pac4j.core.context.CallContext;
 import org.pac4j.core.context.WebContext;
 import org.pac4j.core.exception.http.RedirectionAction;
-import org.pac4j.core.exception.http.RedirectionActionHelper;
+import org.pac4j.core.util.HttpActionHelper;
 import org.pac4j.oidc.client.OidcClient;
 import org.pac4j.oidc.config.OidcConfiguration;
 import org.pac4j.oidc.redirect.OidcRedirectionActionBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 public class CustomOidcRedirectionActionBuilder extends OidcRedirectionActionBuilder {
 
   private static final Logger logger = LoggerFactory.getLogger(OidcRedirectionActionBuilder.class);
+
+  private final OidcConfiguration configuration;
+
   public CustomOidcRedirectionActionBuilder(OidcConfiguration configuration, OidcClient client) {
-    super(configuration, client);
+    super(client);
+    this.configuration = configuration;
   }
 
   @Override
-  public Optional<RedirectionAction> getRedirectionAction(WebContext context) {
-    Map<String, String> params = this.buildParams();
+  public Optional<RedirectionAction> getRedirectionAction(CallContext ctx) {
+    WebContext context = ctx.webContext();
+
+    Map<String, String> params = this.buildParams(context);
     String computedCallbackUrl = this.client.computeFinalCallbackUrl(context);
     params.put("redirect_uri", computedCallbackUrl);
-    this.addStateAndNonceParameters(context, params);
+    this.addStateAndNonceParameters(ctx, params);
     if (this.configuration.getMaxAge() != null) {
       params.put("max_age", this.configuration.getMaxAge().toString());
     }
@@ -40,7 +46,6 @@ public class CustomOidcRedirectionActionBuilder extends OidcRedirectionActionBui
     }
 
     logger.debug("Authentication request url: {}", location);
-    return Optional.of(RedirectionActionHelper.buildRedirectUrlAction(context, location));
+    return Optional.of(HttpActionHelper.buildRedirectUrlAction(context, location));
   }
-
 }

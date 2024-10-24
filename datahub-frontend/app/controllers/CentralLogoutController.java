@@ -15,11 +15,11 @@ import play.mvc.Results;
 public class CentralLogoutController extends LogoutController {
   private static final String AUTH_URL_CONFIG_PATH = "/login";
   private static final String DEFAULT_BASE_URL_PATH = "/";
-  private static Boolean _isOidcEnabled = false;
+  private static Boolean isOidcEnabled = false;
 
   @Inject
   public CentralLogoutController(Config config) {
-    _isOidcEnabled = config.hasPath("auth.oidc.enabled") && config.getBoolean("auth.oidc.enabled");
+    isOidcEnabled = config.hasPath("auth.oidc.enabled") && config.getBoolean("auth.oidc.enabled");
 
     setDefaultUrl(DEFAULT_BASE_URL_PATH);
     setLogoutUrlPattern(DEFAULT_BASE_URL_PATH + ".*");
@@ -29,7 +29,7 @@ public class CentralLogoutController extends LogoutController {
 
   /** logout() method should not be called if oidc is not enabled */
   public Result executeLogout(Http.Request request) {
-    if (_isOidcEnabled) {
+    if (isOidcEnabled) {
       try {
         return logout(request).toCompletableFuture().get().withNewSession();
       } catch (Exception e) {
