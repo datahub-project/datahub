@@ -523,6 +523,11 @@ def test_table_rename(pytestconfig: pytest.Config) -> None:
         generate_operations=False,
     )
 
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("redshift", "dev.public.foo").urn(),
+        {"a": "int", "b": "int", "c": "int"},
+    )
+
     # Register that foo_staging is renamed to foo.
     aggregator.add_table_rename(
         TableRename(
@@ -577,6 +582,11 @@ def test_table_rename_with_temp(pytestconfig: pytest.Config) -> None:
         is_temp_table=lambda x: "staging" in x.lower(),
     )
 
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("redshift", "dev.public.foo").urn(),
+        {"a": "int", "b": "int", "c": "int"},
+    )
+
     # Register that foo_staging is renamed to foo.
     aggregator.add_table_rename(
         TableRename(
@@ -629,6 +639,11 @@ def test_table_swap(pytestconfig: pytest.Config) -> None:
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
+    )
+
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("snowflake", "dev.public.person_info").urn(),
+        {"a": "int", "b": "int", "c": "int"},
     )
 
     # Add an unrelated query.
@@ -714,6 +729,11 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
         is_temp_table=lambda x: "swap" in x.lower() or "incremental" in x.lower(),
     )
 
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("snowflake", "dev.public.person_info").urn(),
+        {"a": "int", "b": "int", "c": "int"},
+    )
+
     # Add an unrelated query.
     aggregator.add_observed_query(
         ObservedQuery(
@@ -730,6 +750,26 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
             query_text="CREATE TABLE person_info_swap CLONE person_info;",
             upstreams=[DatasetUrn("snowflake", "dev.public.person_info").urn()],
             downstream=DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
+            session_id="xxx",
+            timestamp=_ts(10),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "dev.public.person_info_swap"
+                        ).urn(),
+                        column="a",
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake", "dev.public.person_info"
+                            ).urn(),
+                            column="a",
+                        )
+                    ],
+                )
+            ],
         )
     )
 
@@ -744,6 +784,26 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
             downstream=DatasetUrn(
                 "snowflake", "dev.public.person_info_incremental"
             ).urn(),
+            session_id="xxx",
+            timestamp=_ts(20),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "dev.public.person_info_incremental"
+                        ).urn(),
+                        column="a",
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake", "dev.public.person_info_dep"
+                            ).urn(),
+                            column="a",
+                        )
+                    ],
+                )
+            ],
         )
     )
 
@@ -756,6 +816,26 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
                 DatasetUrn("snowflake", "dev.public.person_info_incremental").urn(),
             ],
             downstream=DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
+            session_id="xxx",
+            timestamp=_ts(30),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "dev.public.person_info_swap"
+                        ).urn(),
+                        column="a",
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake", "dev.public.person_info_incremental"
+                            ).urn(),
+                            column="a",
+                        )
+                    ],
+                )
+            ],
         )
     )
 
@@ -763,6 +843,8 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
         TableSwap(
             urn1=DatasetUrn("snowflake", "dev.public.person_info").urn(),
             urn2=DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
+            session_id="xxx",
+            timestamp=_ts(40),
         )
     )
 
@@ -775,6 +857,26 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
                 DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
             ],
             downstream=DatasetUrn("snowflake", "dev.public.person_info_backup").urn(),
+            session_id="xxx",
+            timestamp=_ts(50),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "dev.public.person_info_backup"
+                        ).urn(),
+                        column="a",
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake", "dev.public.person_info_swap"
+                            ).urn(),
+                            column="a",
+                        )
+                    ],
+                )
+            ],
         )
     )
 

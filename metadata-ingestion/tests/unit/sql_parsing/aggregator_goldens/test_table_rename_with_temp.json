@@ -135,6 +135,32 @@
                     "type": "TRANSFORMED",
                     "query": "urn:li:query:composite_4b8845f9fa02123e7501a9baf421175923514b4a4a85158b2df36f930bcdc10e"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_dep,PROD),a)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),a)"
+                    ],
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:composite_4b8845f9fa02123e7501a9baf421175923514b4a4a85158b2df36f930bcdc10e"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_dep,PROD),b)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),b)"
+                    ],
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:composite_4b8845f9fa02123e7501a9baf421175923514b4a4a85158b2df36f930bcdc10e"
+                }
             ]
         }
     }
@@ -226,6 +252,15 @@
                 },
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),a)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),b)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),c)"
                 }
             ]
         }
