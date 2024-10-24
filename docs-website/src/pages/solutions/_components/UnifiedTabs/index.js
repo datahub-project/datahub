@@ -11,15 +11,15 @@ const TabbedComponent = ({ unifiedTabsData }) => {
       <div className={clsx(styles.tabsContainer)}>
         <div className={clsx(styles.tabs)}>
           {unifiedTabsData.map((tab, index) => (
-            <button
+            <div
               key={index}
               className={clsx(styles.tabButton, { [styles.active]: activeTab === index })}
               onClick={() => setActiveTab(index)}
             >
-              <div className={clsx(styles.tabButtonText, { [styles.activeTab]: activeTab === index })}>
+              <div className={clsx(styles.tabButtonText, { [styles.active]: activeTab === index })}>
                 {tab.tabName}
               </div>
-            </button>
+            </div>
           ))}
         </div>
       </div>

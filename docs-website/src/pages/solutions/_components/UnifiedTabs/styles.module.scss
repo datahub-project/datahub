@@ -22,21 +22,26 @@
 }
 
 .tabButton {
-  flex: 1; // Ensure each tab is distributed equally
-  padding: 0.8rem 1.5rem; // More padding to make tabs prominent
+  flex: 1; 
+  padding: 0.8rem 1.5rem; 
   background: none;
   border: none;
   cursor: pointer;
   font-size: 1.5rem;
   font-weight: 500;
   color: #777e99;
-  transition: color 0.2s, border-bottom 0.2s;
   text-align: center;
-}
 
-.tabButton:hover, .active {
-  color: #1890ff;
-  border-bottom: 3px solid #1890ff;
+
+  .tabButtonText {
+    width: min-content;
+    margin: auto;
+    transition: color 0.2s, border-bottom 0.2s;
+  }
+  .tabButtonText:hover, .active {
+    color: #1890ff;
+    border-bottom: 3px solid #1890ff;
+  }
 }
 
 .container {
