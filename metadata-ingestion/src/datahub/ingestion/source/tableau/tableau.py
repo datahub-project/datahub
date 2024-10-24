@@ -464,7 +464,7 @@ class TableauConfig(
         description="When enabled, hidden views and dashboards are ingested into Datahub. If a dashboard or view is hidden in Tableau the luid is blank. Default of this config field is True.",
     )
 
-    tags_for_hidden_assets: Optional[List[str]] = Field(
+    tags_for_hidden_assets: List[str] = Field(
         default=[],
         description="Tags to be added to hidden dashboards and views. If a dashboard or view is hidden in Tableau the luid is blank.",
     )
@@ -2233,7 +2233,7 @@ class TableauSiteSource:
 
         # Tags
         if datasource_info:
-            tags = self.get_tags(datasource_info) or []
+            tags = self.get_tags(datasource_info)
             dataset_snapshot.aspects.append(
                 builder.make_global_tag_aspect_with_tag_list(tags)
             )
@@ -2720,7 +2720,7 @@ class TableauSiteSource:
             chart_snapshot.aspects.append(owner)
 
         #  Tags
-        tags = self.get_tags(sheet) or []
+        tags = self.get_tags(sheet)
         if len(self.config.tags_for_hidden_assets) > 0 and not sheet.get(c.LUID):
             # Add hidden tags if sheet is hidden (blank luid)
             tags.extend(self.config.tags_for_hidden_assets)
@@ -2810,7 +2810,7 @@ class TableauSiteSource:
             else None
         )
 
-        tags = self.get_tags(workbook) or []
+        tags = self.get_tags(workbook)
 
         parent_key = None
         project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
@@ -2937,7 +2937,7 @@ class TableauSiteSource:
                     f"Skip dashboard {dashboard.get(c.ID)} because it's hidden (luid is blank)."
                 )
 
-    def get_tags(self, obj: dict) -> Optional[List[str]]:
+    def get_tags(self, obj: dict) -> List[str]:
         tag_list = obj.get(c.TAGS, [])
         if tag_list and self.config.ingest_tags:
             tag_list_str = [
@@ -2945,7 +2945,7 @@ class TableauSiteSource:
             ]
 
             return tag_list_str
-        return None
+        return []
 
     def emit_dashboard(
         self, dashboard: dict, workbook: Optional[Dict]
@@ -2996,7 +2996,7 @@ class TableauSiteSource:
         )
         dashboard_snapshot.aspects.append(dashboard_info_class)
 
-        tags = self.get_tags(dashboard) or []
+        tags = self.get_tags(dashboard)
         if len(self.config.tags_for_hidden_assets) > 0 and not dashboard.get(c.LUID):
             # Add hidden tags if dashboard is hidden (blank luid)
             tags.extend(self.config.tags_for_hidden_assets)
