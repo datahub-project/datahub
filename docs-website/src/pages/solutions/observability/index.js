@@ -14,7 +14,7 @@ import clsx from "clsx";
 import quickstartData from "./_content/observeQuickstartContent";
 import heroContent from "./_content/observeHeroContent";
 import caseStudyContent from "./_content/observeCaseStudyContent";
-import Integrations from "../_components/Integrations";
+import IntegrationsStatic from "../_components/IntegrationsStatic";
 import tilesContent from "./_content/observeTilesContent";
 import testimonialsData from "./_content/observeTestimonialsContent";
 import resourceData from "./_content/observeResourceContent";
@@ -53,7 +53,7 @@ function Home() {
         </div>
       ) : null}
       <Hero onOpenTourModal={onOpenTourModal} heroContent={heroContent}/>
-      <Integrations />
+      <IntegrationsStatic />
       <QuickstartContent quickstartContent={quickstartData} />
       <Testimonials testimonialsData={testimonialsData} />
       <UnifiedTabs unifiedTabsData={unifiedTabsData}/>
