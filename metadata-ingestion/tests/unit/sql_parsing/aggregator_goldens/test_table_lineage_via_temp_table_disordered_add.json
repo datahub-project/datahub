@@ -18,7 +18,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_39f4adf89c8ad4d6d307b628c82d8260e1c5cd7eb6fb3a8cbb437421f970c16f"
+                    "query": "urn:li:query:composite_cb80bd1f17cc5d3d956e03a82d4266ec0dc698ca4333547281fb93bf67d832ec"
                 }
             ]
         }
@@ -26,7 +26,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_39f4adf89c8ad4d6d307b628c82d8260e1c5cd7eb6fb3a8cbb437421f970c16f",
+    "entityUrn": "urn:li:query:composite_cb80bd1f17cc5d3d956e03a82d4266ec0dc698ca4333547281fb93bf67d832ec",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -49,7 +49,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_39f4adf89c8ad4d6d307b628c82d8260e1c5cd7eb6fb3a8cbb437421f970c16f",
+    "entityUrn": "urn:li:query:composite_cb80bd1f17cc5d3d956e03a82d4266ec0dc698ca4333547281fb93bf67d832ec",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -67,7 +67,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_39f4adf89c8ad4d6d307b628c82d8260e1c5cd7eb6fb3a8cbb437421f970c16f",
+    "entityUrn": "urn:li:query:composite_cb80bd1f17cc5d3d956e03a82d4266ec0dc698ca4333547281fb93bf67d832ec",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {

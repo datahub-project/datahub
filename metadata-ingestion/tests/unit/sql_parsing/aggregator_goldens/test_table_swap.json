@@ -135,6 +135,44 @@
                     "type": "TRANSFORMED",
                     "query": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_swap,PROD),a)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD),a)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_swap,PROD),b)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD),b)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_swap,PROD),c)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD),c)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500"
+                }
             ]
         }
     }
@@ -252,6 +290,15 @@
                 },
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD),a)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD),b)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD),c)"
                 }
             ]
         }

@@ -354,15 +354,23 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         object_modified_by_ddl = res["object_modified_by_ddl"]
 
         if object_modified_by_ddl and not objects_modified:
-            ddl_entry: Optional[Union[TableRename, TableSwap]] = None
+            known_ddl_entry: Optional[Union[TableRename, TableSwap]] = None
             with self.structured_reporter.report_exc(
                 "Error fetching ddl lineage from Snowflake"
             ):
-                ddl_entry = self.parse_ddl_query(
-                    res["query_text"], object_modified_by_ddl
+                known_ddl_entry = self.parse_ddl_query(
+                    res["query_text"],
+                    res["session_id"],
+                    res["query_start_time"],
+                    object_modified_by_ddl,
                 )
-            return ddl_entry
-
+            if known_ddl_entry:
+                return known_ddl_entry
+            elif direct_objects_accessed:
+                # Unknown ddl relevant for usage. We want to continue execution here
+                pass
+            else:
+                return None
         upstreams = []
         column_usage = {}
 
@@ -459,8 +467,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         return entry
 
     def parse_ddl_query(
-        self, query: str, object_modified_by_ddl: dict
+        self,
+        query: str,
+        session_id: str,
+        timestamp: datetime,
+        object_modified_by_ddl: dict,
     ) -> Optional[Union[TableRename, TableSwap]]:
+        timestamp = timestamp.astimezone(timezone.utc)
         if object_modified_by_ddl[
             "operationType"
         ] == "ALTER" and object_modified_by_ddl["properties"].get("swapTargetName"):
@@ -476,7 +489,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 )
             )
 
-            return TableSwap(urn1, urn2, query)
+            return TableSwap(urn1, urn2, query, session_id, timestamp)
         elif object_modified_by_ddl[
             "operationType"
         ] == "RENAME_TABLE" and object_modified_by_ddl["properties"].get("objectName"):
@@ -492,7 +505,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 )
             )
 
-            return TableRename(original_un, new_urn, query)
+            return TableRename(original_un, new_urn, query, session_id, timestamp)
         else:
             self.report.num_ddl_queries_dropped += 1
             return None
