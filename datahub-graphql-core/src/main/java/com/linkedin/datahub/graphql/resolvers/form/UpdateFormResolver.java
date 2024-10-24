@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -14,6 +15,7 @@ import com.linkedin.datahub.graphql.types.form.FormMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.form.DynamicFormAssignment;
+import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormState;
 import com.linkedin.form.FormStatus;
 import com.linkedin.form.FormType;
@@ -59,6 +61,7 @@ public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> 
                   String.format("Form with urn %s does not exist", formUrn));
             }
 
+            FormInfo existingForm = getExistingForm(context, formUrn);
             FormInfoPatchBuilder patchBuilder = new FormInfoPatchBuilder().urn(formUrn);
             if (input.getName() != null) {
               patchBuilder.setName(input.getName());
@@ -69,7 +72,11 @@ public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> 
             if (input.getType() != null) {
               patchBuilder.setType(FormType.valueOf(input.getType().toString()));
             }
-            if (input.getState() != null) {
+            if (input.getState() != null
+                && !input
+                    .getState()
+                    .toString()
+                    .equals(existingForm.getStatus().getState().toString())) {
               patchBuilder.setStatus(
                   createFormStatus(context.getOperationContext(), input.getState()));
             }
@@ -139,5 +146,16 @@ public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> 
     formStatus.setState(FormState.valueOf(state.toString()));
     formStatus.setLastModified(context.getAuditStamp());
     return formStatus;
+  }
+
+  private FormInfo getExistingForm(@Nonnull final QueryContext context, @Nonnull final Urn formUrn)
+      throws Exception {
+    EntityResponse response =
+        _entityClient.getV2(context.getOperationContext(), FORM_ENTITY_NAME, formUrn, null);
+
+    if (response != null && response.getAspects().containsKey(FORM_INFO_ASPECT_NAME)) {
+      return new FormInfo(response.getAspects().get(FORM_INFO_ASPECT_NAME).getValue().data());
+    }
+    return null;
   }
 }
