@@ -105,7 +105,6 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
     def handle_end_of_stream(
         self,
     ) -> Sequence[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
-
         return self.owner_mcps
 
     def transform_aspect(

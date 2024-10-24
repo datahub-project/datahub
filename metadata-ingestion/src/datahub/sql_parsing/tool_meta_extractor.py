@@ -79,7 +79,6 @@ class ToolMetaExtractor:
         return True
 
     def extract_bi_metadata(self, entry: QueryLog) -> bool:
-
         for tool, meta_extractor in self.known_tool_extractors:
             try:
                 if meta_extractor(entry):
