@@ -705,6 +705,7 @@ Please see our [Integrations page](https://datahubproject.io/integrations) if yo
 | [datahub-lineage-file](./generated/ingestion/sources/file-based-lineage.md)                    | _no additional dependencies_                               | Lineage File source                     |
 | [datahub-business-glossary](./generated/ingestion/sources/business-glossary.md)                | _no additional dependencies_                               | Business Glossary File source           |
 | [dbt](./generated/ingestion/sources/dbt.md)                                                    | _no additional dependencies_                               | dbt source                              |
+| [dremio](./generated/ingestion/sources/dremio.md)                                              | `pip install 'acryl-datahub[dremio]'`                      | Dremio Source                          |
 | [druid](./generated/ingestion/sources/druid.md)                                                | `pip install 'acryl-datahub[druid]'`                       | Druid Source                            |
 | [feast](./generated/ingestion/sources/feast.md)                                                | `pip install 'acryl-datahub[feast]'`                       | Feast source (0.26.0)                   |
 | [glue](./generated/ingestion/sources/glue.md)                                                  | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                         |
