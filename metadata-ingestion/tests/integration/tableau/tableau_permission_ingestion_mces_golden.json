@@ -282,7 +282,7 @@
             "customProperties": {
                 "platform": "tableau",
                 "workbook_id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9",
-                "groups": "AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer (Read)"
+                "permissions": "[{\"group\": \"AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer\", \"capabilities\": [\"Read\", \"ViewComments\"]}]"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15995",
             "name": "Email Performance by Campaign",
@@ -425,7 +425,7 @@
             "customProperties": {
                 "platform": "tableau",
                 "workbook_id": "661fabd0-bed6-8610-e066-0694a81a6cea",
-                "groups": "AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer (Read)"
+                "permissions": "[{\"group\": \"AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer\", \"capabilities\": [\"Read\", \"ViewComments\"]}]"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15619",
             "name": "Dvdrental Workbook",
@@ -589,7 +589,7 @@
             "customProperties": {
                 "platform": "tableau",
                 "workbook_id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
-                "groups": "AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer (Read)"
+                "permissions": "[{\"group\": \"AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer\", \"capabilities\": [\"Read\", \"ViewComments\"]}]"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15605",
             "name": "Executive Dashboard",
@@ -732,7 +732,7 @@
             "customProperties": {
                 "platform": "tableau",
                 "workbook_id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c",
-                "groups": "AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer (Read)"
+                "permissions": "[{\"group\": \"AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer\", \"capabilities\": [\"Read\", \"ViewComments\"]}]"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/17904",
             "name": "Workbook published ds",
@@ -12900,7 +12900,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
                     "type": "TRANSFORMED"
                 },
                 {
@@ -12908,7 +12908,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
                     "type": "TRANSFORMED"
                 }
             ],

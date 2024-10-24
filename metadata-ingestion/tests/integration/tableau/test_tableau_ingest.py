@@ -1197,16 +1197,15 @@ def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_group_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
+def test_permission_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
     enable_logging()
-    output_file_name: str = "tableau_group_ingestion_mces.json"
-    golden_file_name: str = "tableau_group_ingestion_mces_golden.json"
+    output_file_name: str = "tableau_permission_ingestion_mces.json"
+    golden_file_name: str = "tableau_permission_ingestion_mces_golden.json"
 
     new_pipeline_config: Dict[Any, Any] = {
         **config_source_default,
-        "group_ingestion": {
+        "permission_ingestion": {
             "enable_workbooks": True,
-            "displayed_capabilities": ["Read", "Write", "Delete"],
             "group_name_pattern": {"allow": ["^.*_Consumer$"]},
         },
     }
