@@ -27,6 +27,8 @@ import {
     WarningWrapper,
 } from './styledComponents';
 
+export const DEFAULT_CARDINALITY = PromptCardinality.Multiple;
+
 interface Props {
     showQuestionModal: boolean;
     setShowQuestionModal: React.Dispatch<React.SetStateAction<boolean>>;
@@ -133,6 +135,20 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
         form.setFieldsValue(fieldValues);
     };
 
+    const setInitialValues = (promptType: string) => {
+        switch (promptType) {
+            case FormPromptType.GlossaryTerms:
+            case FormPromptType.FieldsGlossaryTerms:
+                form.setFieldValue(['glossaryTermsParams', 'cardinality'], DEFAULT_CARDINALITY);
+                break;
+            case FormPromptType.Ownership:
+                form.setFieldValue(['ownershipParams', 'cardinality'], DEFAULT_CARDINALITY);
+                break;
+            default:
+                break;
+        }
+    };
+
     const getModalTitle = () => {
         if (isFormDisabled) return 'View Question';
         if (question) return 'Edit Question';
@@ -184,6 +200,7 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                             onChange={(value: any) => {
                                 resetDependentFields();
                                 setSelectedType(value);
+                                setInitialValues(value);
                                 form.setFieldsValue(
                                     question
                                         ? { ...question, type: value, required: !(value as string).startsWith('FIELD') }
