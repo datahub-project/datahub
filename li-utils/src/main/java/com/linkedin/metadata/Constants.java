@@ -277,7 +277,7 @@ public class Constants {
 
   // ExternalRoleMetadata
   public static final String ROLE_ENTITY_NAME = "role";
-  public static final String ACCESS_DATASET_ASPECT_NAME = "access";
+  public static final String ACCESS_ASPECT_NAME = "access";
   public static final String ROLE_KEY = "roleKey";
   public static final String ROLE_PROPERTIES_ASPECT_NAME = "roleProperties";
   public static final String ROLE_ACTORS_ASPECT_NAME = "actors";
