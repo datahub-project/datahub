@@ -16,7 +16,7 @@ const caseStudyData = [
     tag: "Finance",
     backgroundImage:
       "https://miro.medium.com/v2/resize:fit:2000/format:webp/1*mtC4j8J-jumJKWg8RuR6xQ@2x.png",
-    image: "https://datahubproject.io/img/logos/companies/visa.png",
+    image: "/img/logos/companies/visa_text.png",
     link: "https://datahubproject.io/adoption-stories/#visa",
   },
   {

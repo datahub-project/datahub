@@ -21,15 +21,18 @@ record TagAssociation {
   @Searchable = {
     "/time": {
         "fieldName": "tagAttributionDates",
-        "fieldType": "DATETIME"
+        "fieldType": "DATETIME",
+        "queryByDefault": false,
       },
     "/actor": {
         "fieldName": "tagAttributionActors",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false,
       },
     "/source": {
         "fieldName": "tagAttributionSources",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false,
       },
   }
   attribution: optional MetadataAttribution

@@ -133,7 +133,7 @@ def parse_alter_table_rename(default_schema: str, query: str) -> Tuple[str, str,
     assert isinstance(parsed_query, sqlglot.exp.Alter)
     prev_name = parsed_query.this.name
     rename_clause = parsed_query.args["actions"][0]
-    assert isinstance(rename_clause, sqlglot.exp.RenameTable)
+    assert isinstance(rename_clause, sqlglot.exp.AlterRename)
     new_name = rename_clause.this.name
 
     schema = parsed_query.this.db or default_schema

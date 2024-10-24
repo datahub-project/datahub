@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.query.request;
 
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
@@ -8,7 +9,10 @@ import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
@@ -35,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
@@ -626,6 +631,116 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     BoolQueryBuilder mustHaveV1 = (BoolQueryBuilder) shouldQuery.filter().get(1);
     assertEquals(((ExistsQueryBuilder) mustHaveV1.must().get(0)).fieldName(), "browsePaths");
+  }
+
+  @Test
+  public void testQueryByDefault() {
+    final Set<String> COMMON =
+        Set.of(
+            "container",
+            "fieldDescriptions",
+            "description",
+            "platform",
+            "fieldPaths",
+            "editedFieldGlossaryTerms",
+            "editedFieldDescriptions",
+            "fieldTags",
+            "id",
+            "editedDescription",
+            "qualifiedName",
+            "domains",
+            "platformInstance",
+            "tags",
+            "urn",
+            "customProperties",
+            "fieldGlossaryTerms",
+            "editedName",
+            "name",
+            "fieldLabels",
+            "glossaryTerms",
+            "editedFieldTags",
+            "displayName",
+            "title");
+
+    Map<EntityType, Set<String>> expectedQueryByDefault =
+        ImmutableMap.<EntityType, Set<String>>builder()
+            .put(
+                EntityType.DASHBOARD,
+                Stream.concat(COMMON.stream(), Stream.of("tool")).collect(Collectors.toSet()))
+            .put(
+                EntityType.CHART,
+                Stream.concat(COMMON.stream(), Stream.of("tool")).collect(Collectors.toSet()))
+            .put(
+                EntityType.MLMODEL,
+                Stream.concat(COMMON.stream(), Stream.of("type")).collect(Collectors.toSet()))
+            .put(
+                EntityType.MLFEATURE_TABLE,
+                Stream.concat(COMMON.stream(), Stream.of("features", "primaryKeys"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.MLFEATURE,
+                Stream.concat(COMMON.stream(), Stream.of("featureNamespace"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.MLPRIMARY_KEY,
+                Stream.concat(COMMON.stream(), Stream.of("featureNamespace"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.DATA_FLOW,
+                Stream.concat(COMMON.stream(), Stream.of("cluster", "orchestrator", "flowId"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.DATA_JOB,
+                Stream.concat(COMMON.stream(), Stream.of("jobId")).collect(Collectors.toSet()))
+            .put(
+                EntityType.GLOSSARY_TERM,
+                Stream.concat(
+                        COMMON.stream(),
+                        Stream.of("values", "parentNode", "relatedTerms", "definition"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.GLOSSARY_NODE,
+                Stream.concat(COMMON.stream(), Stream.of("definition", "parentNode"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.CORP_USER,
+                Stream.concat(
+                        COMMON.stream(), Stream.of("skills", "teams", "ldap", "fullName", "email"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.DOMAIN,
+                Stream.concat(COMMON.stream(), Stream.of("parentDomain"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.SCHEMA_FIELD,
+                Stream.concat(COMMON.stream(), Stream.of("schemaFieldAliases", "parent"))
+                    .collect(Collectors.toSet()))
+            .build();
+
+    for (EntityType entityType : SEARCHABLE_ENTITY_TYPES) {
+      Set<String> expectedEntityQueryByDefault =
+          expectedQueryByDefault.getOrDefault(entityType, COMMON);
+      assertFalse(expectedEntityQueryByDefault.isEmpty());
+
+      EntitySpec entitySpec =
+          operationContext.getEntityRegistry().getEntitySpec(EntityTypeMapper.getName(entityType));
+      SearchRequestHandler handler =
+          SearchRequestHandler.getBuilder(
+              operationContext.getEntityRegistry(),
+              entitySpec,
+              testQueryConfig,
+              null,
+              QueryFilterRewriteChain.EMPTY);
+
+      Set<String> unexpected = new HashSet<>(handler.getDefaultQueryFieldNames());
+      unexpected.removeAll(expectedEntityQueryByDefault);
+
+      assertTrue(
+          unexpected.isEmpty(),
+          String.format(
+              "Consider whether these field(s) for entity %s should be included for general search. Fields: %s If yes, please update the test expectations. If no, please annotate the PDL model with \"queryByDefault\": false",
+              entityType, unexpected));
+    }
   }
 
   private BoolQueryBuilder getQuery(final Criterion filterCriterion) {
