@@ -232,8 +232,8 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
     )
 
     emit_assets: Optional[bool] = pydantic.Field(
-        default=False,
-        description="Whether to emit assets aspects. Default is False.",
+        default=True,
+        description="Whether to emit assets aspects. Default is True.",
     )
 
     debug_mode: Optional[bool] = pydantic.Field(

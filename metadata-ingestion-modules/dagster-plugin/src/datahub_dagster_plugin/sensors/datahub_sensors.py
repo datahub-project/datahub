@@ -46,10 +46,11 @@ from datahub.sql_parsing.sqlglot_lineage import (
     create_lineage_sql_parsed_result,
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.error import InvalidUrnError
 
 from datahub_dagster_plugin.client.dagster_generator import (
-    Constant,
     DATAHUB_ASSET_GROUP_NAME_CACHE,
+    Constant,
     DagsterEnvironment,
     DagsterGenerator,
     DatahubDagsterSourceConfig,
@@ -452,8 +453,7 @@ class DatahubSensors:
                 else:
                     context.log.info("Query not found in metadata")
             except Exception as e:
-                context.log.error(f"Error in processing asset logs: {e}")
-                context.log.error(f"Traceback: {traceback.format_exc()}")
+                context.log.exception(f"Error in processing asset logs: {e}")
 
         return upstreams, downstreams
 
@@ -492,8 +492,20 @@ class DatahubSensors:
                 dataset_outputs[log.step_key] = dataset_outputs[log.step_key].union(
                     [DatasetUrn.from_string(d) for d in downstreams]
                 )
+
+                dataset_upstreams: List[DatasetUrn] = []
+
+                for u in upstreams:
+                    try:
+                        dataset_upstreams.append(DatasetUrn.from_string(u))
+                    except InvalidUrnError as e:
+                        context.log.error(
+                            f"Error in parsing upstream dataset urn: {e}", exc_info=True
+                        )
+                        continue
+
                 dataset_inputs[log.step_key] = dataset_inputs[log.step_key].union(
-                    [DatasetUrn.from_string(u) for u in upstreams]
+                    dataset_upstreams
                 )
                 context.log.info(
                     f"Dataset Inputs: {dataset_inputs[log.step_key]} Dataset Outputs: {dataset_outputs[log.step_key]}"
