@@ -1,6 +1,6 @@
 const tilesContent = [
   {
-      title: "Save countless hours of manual labeling with automated classification.",
+      title: "Save countless hours of manual <br /> labeling with automated classification.",
       theme: "dark",
       tileItems: [
         {
@@ -26,7 +26,7 @@ const tilesContent = [
       ]
     },
     {
-      title: "Unlock the full potential of automated data lineage.",
+      title: "Streamline your compliance program: <br />Standardize, delegate, and measure with ease.",
       theme: "light",
       tileItems: [
         {

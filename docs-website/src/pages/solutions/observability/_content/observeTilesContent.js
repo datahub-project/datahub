@@ -1,6 +1,6 @@
 const tilesContent = [
   {
-      title: "Detect Data Quality Issues. Effortlessly.",
+      title: "Detect Data Quality Issues. <br />Effortlessly.",
       theme: "dark",
       tileItems: [
         {
@@ -26,7 +26,7 @@ const tilesContent = [
       ]
     },
     {
-      title: "Fix Data Fires. Fast.",
+      title: "Fix Data Fires.<br />Fast.",
       theme: "light",
       tileItems: [
         {

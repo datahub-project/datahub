@@ -27,7 +27,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   font-weight: 500;
   color: #777e99;
   transition: color 0.2s, border-bottom 0.2s;
@@ -51,6 +51,7 @@
 .tabContent {
   flex: 1;
   padding: 2rem;
+  margin: auto;
 }
 
 .tabTitle {
@@ -67,9 +68,10 @@
 }
 
 .tabDescription {
-  font-size: 1.6875rem;
+  font-size: 1.4rem;
   color: #777e99;
-  line-height: 2.75rem;
+  line-height: 2rem;
+  font-weight: 300;
 }
 
 .imageContainer {
@@ -86,7 +88,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0px 2px 4px 0px #0000001C;
   border-radius: 2.2rem;
 }
 
