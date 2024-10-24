@@ -12,7 +12,14 @@ import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
 import TableIcon from '@src/images/table-icon.svg?react';
-import { Entity, EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+import {
+    Entity,
+    EntityType,
+    SearchAcrossEntitiesInput,
+    SearchResult,
+    SearchResults,
+    StructuredPropertyEntity,
+} from '@src/types.generated';
 import { Dropdown, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
@@ -40,8 +47,8 @@ interface Props {
     setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
     selectedProperty?: SearchResult;
     setSelectedProperty: React.Dispatch<React.SetStateAction<SearchResult | undefined>>;
-    inputs: object;
-    searchAcrossEntities?: object | null;
+    inputs: SearchAcrossEntitiesInput;
+    searchAcrossEntities?: SearchResults | null;
 }
 
 const StructuredPropsTable = ({

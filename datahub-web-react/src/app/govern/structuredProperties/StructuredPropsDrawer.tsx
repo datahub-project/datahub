@@ -11,7 +11,9 @@ import {
 import {
     AllowedValue,
     PropertyCardinality,
+    SearchAcrossEntitiesInput,
     SearchResult,
+    SearchResults,
     StructuredPropertyEntity,
     StructuredPropertyFilterStatus,
     UpdateStructuredPropertyInput,
@@ -48,8 +50,8 @@ interface Props {
     selectedProperty?: SearchResult;
     setSelectedProperty: React.Dispatch<React.SetStateAction<SearchResult | undefined>>;
     refetch: () => void;
-    inputs: object;
-    searchAcrossEntities?: object | null;
+    inputs: SearchAcrossEntitiesInput;
+    searchAcrossEntities?: SearchResults | null;
 }
 
 const StructuredPropsDrawer = ({

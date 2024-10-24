@@ -1,6 +1,3 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
-import { Button, Divider, Form, Input, Typography, message } from 'antd';
 import { useApolloClient } from '@apollo/client';
 import {
     ACRYL_PLATFORM_URN,
@@ -9,10 +6,18 @@ import {
     getURLFromJson,
     showToken,
 } from '@src/app/settingsV2/platform/acryl/utils';
-import { HeaderContainer, HeaderSubtext, HeaderTitle, LeftContainer } from './styledComponents';
-import { DataHubConnection, DataHubConnectionDetailsType } from '../../../../types.generated';
+import { Button, Divider, Form, Input, Typography, message } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components';
 import { useUpdateConnectionMutation, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
+import {
+    DataHubConnection,
+    DataHubConnectionDetailsType,
+    SearchAcrossEntitiesInput,
+    SearchResults,
+} from '../../../../types.generated';
 import { updateInstancesList } from './cacheUtils';
+import { HeaderContainer, HeaderSubtext, HeaderTitle, LeftContainer } from './styledComponents';
 
 const Container = styled.div`
     display: flex;
@@ -90,8 +95,8 @@ interface Props {
     setOpenNewInstance: React.Dispatch<React.SetStateAction<boolean>>;
     isEditForm: boolean;
     selectedInstance?: DataHubConnection;
-    inputs: object;
-    searchAcrossEntities?: object | null;
+    inputs: SearchAcrossEntitiesInput;
+    searchAcrossEntities?: SearchResults | null;
 }
 
 const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inputs, searchAcrossEntities }: Props) => {

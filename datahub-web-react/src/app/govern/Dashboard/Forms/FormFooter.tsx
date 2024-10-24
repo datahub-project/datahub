@@ -1,16 +1,18 @@
-import { useUserContext } from '@src/app/context/useUserContext';
+import { useApolloClient } from '@apollo/client';
 import { Button } from '@components';
 import analytics, { EventType } from '@src/app/analytics';
+import { useUserContext } from '@src/app/context/useUserContext';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import { PageRoutes } from '@src/conf/Global';
 import { useCreateFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
-import { FormState, FormType } from '@src/types.generated';
+import { FormState, FormType, SearchAcrossEntitiesInput, SearchResults } from '@src/types.generated';
 import { Tooltip } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useHistory, useParams } from 'react-router';
 import { Link } from 'react-router-dom';
+import { updateFormsList } from './cacheUtils';
 import {
     mapPromptsToCreatePromptInput,
     PUBLISH_EXPLANATION,
@@ -21,7 +23,12 @@ import {
 import ManageFormContext from './ManageFormContext';
 import { FooterContainer } from './styledComponents';
 
-const FormFooter = () => {
+interface Props {
+    inputs: SearchAcrossEntitiesInput;
+    searchAcrossEntities?: SearchResults | null;
+}
+
+const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
     const history = useHistory();
     const isThemeV2 = useIsThemeV2();
     const me = useUserContext();
@@ -30,6 +37,7 @@ const FormFooter = () => {
     const [createForm] = useCreateFormMutation();
     const [updateForm] = useUpdateFormMutation();
     const { urn } = useParams<{ urn: string }>();
+    const client = useApolloClient();
 
     const [formUrn, setFormUrn] = useState<string | undefined>();
 
@@ -92,7 +100,7 @@ const FormFooter = () => {
                             input: updateInput,
                         },
                     })
-                        .then(() => {
+                        .then((res) => {
                             if (returnToForms) {
                                 analytics.event({
                                     type:
@@ -114,6 +122,8 @@ const FormFooter = () => {
                                 });
                             }
                             showSuccessMessage();
+                            updateFormsList(client, inputs, res.data?.updateForm, formUrn, searchAcrossEntities);
+
                             if (state) updateFormState(state);
                             if (returnToForms) history.push(`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`);
                         })
@@ -162,6 +172,14 @@ const FormFooter = () => {
 
                             setFormUrn(res.data?.createForm.urn);
                             showSuccessMessage();
+                            updateFormsList(
+                                client,
+                                inputs,
+                                res.data?.createForm,
+                                res.data?.createForm.urn,
+                                searchAcrossEntities,
+                            );
+
                             if (state) updateFormState(state);
                             if (returnToForms) history.push(`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`);
                         })
