@@ -29,18 +29,18 @@ from datahub.utilities.urns.urn import Urn
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.pipeline.pipeline_context import PipelineContext
+from datahub_actions.plugin.action.propagation.docs.propagation_action import (
+    DocPropagationAction as BaseDocPropagationAction,
+)
+from datahub_actions.plugin.action.propagation.docs.propagation_action import (
+    DocPropagationConfig as BaseDocPropagationConfig,
+)
+from datahub_actions.plugin.action.stats_util import EventProcessingStats
 
 from datahub_integrations.actions.action_extended import (
     AutomationActionConfig,
     ExtendedAction,
 )
-from datahub_integrations.actions.oss.propagation.docs.propagation_action import (
-    DocPropagationAction as BaseDocPropagationAction,
-)
-from datahub_integrations.actions.oss.propagation.docs.propagation_action import (
-    DocPropagationConfig as BaseDocPropagationConfig,
-)
-from datahub_integrations.actions.oss.stats_util import EventProcessingStats
 
 logger = logging.getLogger(__name__)
 

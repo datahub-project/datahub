@@ -11,7 +11,7 @@
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
-acryl-datahub-actions==0.1.1
+acryl-datahub-actions==0.1.3
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
@@ -250,7 +250,6 @@ docker==7.0.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
-    #   acryl-datahub-actions
 duckdb==0.10.2
     # via
     #   -r requirements.txt
@@ -277,7 +276,6 @@ expandvars==0.12.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
-    #   acryl-datahub-actions
 faker==24.11.0
     # via acryl-datahub-integrations (pyproject.toml)
 fastapi==0.110.2
@@ -1148,7 +1146,6 @@ tabulate==0.9.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
-    #   acryl-datahub-actions
 tenacity==9.0.0
     # via
     #   -r requirements.txt
