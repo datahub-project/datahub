@@ -133,7 +133,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_dep,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_4b8845f9fa02123e7501a9baf421175923514b4a4a85158b2df36f930bcdc10e"
+                    "query": "urn:li:query:composite_2efc2a13ee673ccf7b195f8f2c0e4ba0570194d8200c3c20b1eb7e8ca4fb4332"
                 }
             ],
             "fineGrainedLineages": [
@@ -147,7 +147,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),a)"
                     ],
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_4b8845f9fa02123e7501a9baf421175923514b4a4a85158b2df36f930bcdc10e"
+                    "query": "urn:li:query:composite_2efc2a13ee673ccf7b195f8f2c0e4ba0570194d8200c3c20b1eb7e8ca4fb4332"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -159,7 +159,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),b)"
                     ],
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_4b8845f9fa02123e7501a9baf421175923514b4a4a85158b2df36f930bcdc10e"
+                    "query": "urn:li:query:composite_2efc2a13ee673ccf7b195f8f2c0e4ba0570194d8200c3c20b1eb7e8ca4fb4332"
                 }
             ]
         }
@@ -167,7 +167,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_4b8845f9fa02123e7501a9baf421175923514b4a4a85158b2df36f930bcdc10e",
+    "entityUrn": "urn:li:query:composite_2efc2a13ee673ccf7b195f8f2c0e4ba0570194d8200c3c20b1eb7e8ca4fb4332",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -189,59 +189,8 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_downstream,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 1707182625000,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "created": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_dep,PROD)",
-                    "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_ff126f9f14af4f1871d685a332dc4d71a507a6ca8b7a13e38e46cb58e0b1ecb9"
-                }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_dep,PROD),a)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_downstream,PROD),a)"
-                    ],
-                    "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_ff126f9f14af4f1871d685a332dc4d71a507a6ca8b7a13e38e46cb58e0b1ecb9"
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_dep,PROD),b)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_downstream,PROD),b)"
-                    ],
-                    "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_ff126f9f14af4f1871d685a332dc4d71a507a6ca8b7a13e38e46cb58e0b1ecb9"
-                }
-            ]
-        }
-    }
-},
-{
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_4b8845f9fa02123e7501a9baf421175923514b4a4a85158b2df36f930bcdc10e",
+    "entityUrn": "urn:li:query:composite_2efc2a13ee673ccf7b195f8f2c0e4ba0570194d8200c3c20b1eb7e8ca4fb4332",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -268,7 +217,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_4b8845f9fa02123e7501a9baf421175923514b4a4a85158b2df36f930bcdc10e",
+    "entityUrn": "urn:li:query:composite_2efc2a13ee673ccf7b195f8f2c0e4ba0570194d8200c3c20b1eb7e8ca4fb4332",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -278,8 +227,59 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_downstream,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_dep,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:composite_6c7b9cb477493c36e47135e9a699745ae77ef64de3a811aefb7a44c8c04de703"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_dep,PROD),a)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_downstream,PROD),a)"
+                    ],
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:composite_6c7b9cb477493c36e47135e9a699745ae77ef64de3a811aefb7a44c8c04de703"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_dep,PROD),b)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_downstream,PROD),b)"
+                    ],
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:composite_6c7b9cb477493c36e47135e9a699745ae77ef64de3a811aefb7a44c8c04de703"
+                }
+            ]
+        }
+    }
+},
+{
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_ff126f9f14af4f1871d685a332dc4d71a507a6ca8b7a13e38e46cb58e0b1ecb9",
+    "entityUrn": "urn:li:query:composite_6c7b9cb477493c36e47135e9a699745ae77ef64de3a811aefb7a44c8c04de703",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -302,7 +302,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_ff126f9f14af4f1871d685a332dc4d71a507a6ca8b7a13e38e46cb58e0b1ecb9",
+    "entityUrn": "urn:li:query:composite_6c7b9cb477493c36e47135e9a699745ae77ef64de3a811aefb7a44c8c04de703",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -326,7 +326,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_ff126f9f14af4f1871d685a332dc4d71a507a6ca8b7a13e38e46cb58e0b1ecb9",
+    "entityUrn": "urn:li:query:composite_6c7b9cb477493c36e47135e9a699745ae77ef64de3a811aefb7a44c8c04de703",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {

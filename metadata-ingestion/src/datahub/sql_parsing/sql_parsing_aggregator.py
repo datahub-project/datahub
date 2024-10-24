@@ -1635,7 +1635,17 @@ class SqlParsingAggregator(Closeable):
         # - Update the lineage info
         # - Update the query text to combine the queries
 
-        composite_query_id = self._composite_query_id(composed_of_queries)
+        ordered_queries = [
+            self._query_map[query_id] for query_id in reversed(composed_of_queries)
+        ]
+        if all(q.latest_timestamp for q in ordered_queries):
+            ordered_queries = sorted(
+                ordered_queries,
+                key=lambda query: make_ts_millis(query.latest_timestamp) or 0,
+            )
+        composite_query_id = self._composite_query_id(
+            [q.query_id for q in ordered_queries]
+        )
         composed_of_queries_truncated: LossyList[str] = LossyList()
         for query_id in composed_of_queries:
             composed_of_queries_truncated.append(query_id)
@@ -1644,16 +1654,7 @@ class SqlParsingAggregator(Closeable):
         ] = composed_of_queries_truncated
 
         merged_query_text = ";\n\n".join(
-            [
-                q.formatted_query_string
-                for q in sorted(
-                    [
-                        self._query_map[query_id]
-                        for query_id in reversed(composed_of_queries)
-                    ],
-                    key=lambda query: (make_ts_millis(query.latest_timestamp) or 0),
-                )
-            ]
+            [q.formatted_query_string for q in ordered_queries]
         )
 
         resolved_query = dataclasses.replace(
