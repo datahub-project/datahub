@@ -28,13 +28,15 @@ const Hero = ({ onOpenTourModal, heroContent }) => {
         <Link className={styles.cta__tertiary} to="/docs">
             Get started with Core →
         </Link>
-        {/* push image to bottom */}
         <div style={{ flexGrow: 1 }} />
-        <img
-          src={imgSrc}
-          alt="DataHub Platform Preview"
-          className={styles.hero__img}
-        />
+        <div className={styles.hero__img_container}>
+          <img
+            src={imgSrc}
+            alt="DataHub Platform Preview"
+            className={styles.hero__img}
+          />
+          <div className={styles.hero__img_gradient} />
+        </div>
       </div>
     </div>
   );

@@ -30,7 +30,7 @@ const Persona = ({ personaContent }) => {
 
         <div className={styles.persona_bg_line}></div>
       </div>
-      <div className={styles.cardGradient} />
+      <div className={styles.card_gradient} />
     </div>
   );
 };

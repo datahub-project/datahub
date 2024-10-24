@@ -103,9 +103,25 @@
   }
 }
 
-.hero__img {
-  z-index: 10;
-  height: 40vh;
-  min-height: 320px;
-  margin-bottom: -8rem;
+
+.hero__img_container {
+  position: relative;
+
+  .hero__img {
+    z-index: 10;
+    height: 40vh;
+    min-height: 320px;
+    margin-bottom: -8rem;
+  }
+
+  .hero__img_gradient {
+    position: absolute;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    margin-bottom: -8rem;
+    height: 60%;
+    background: linear-gradient(to top, #FFFFFF 15.52%, transparent);
+  }
+  
 }
