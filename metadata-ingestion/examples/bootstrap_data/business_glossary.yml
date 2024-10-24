@@ -1,4 +1,4 @@
-version: 1
+version: "1"
 source: DataHub
 owners:
   users:
@@ -11,20 +11,20 @@ nodes:
       - label: Wiki link for classification
         url: "https://en.wikipedia.org/wiki/Classification"
     custom_properties:
-      is_confidential: true
+      is_confidential: "true"
     terms:
       - name: Sensitive
         description: Sensitive Data
         custom_properties:
-          is_confidential: false
+          is_confidential: "false"
       - name: Confidential
         description: Confidential Data
         custom_properties:
-          is_confidential: true
+          is_confidential: "true"
       - name: HighlyConfidential
         description: Highly Confidential Data
         custom_properties:
-          is_confidential: true
+          is_confidential: "true"
         domain: Marketing
   - name: PersonalInformation
     description: All terms related to personal information
@@ -72,7 +72,7 @@ nodes:
           - Shipping.CountryCode
           - Shipping.StreetAddress
         custom_properties:
-          is_used_for_compliance_tracking: true
+          is_used_for_compliance_tracking: "true"
         knowledge_links:
           - url: "https://en.wikipedia.org/wiki/Address"
             label: Wiki link
