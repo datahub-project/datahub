@@ -43,7 +43,9 @@ def default_query_results(
         return []
     elif query == fivetran_log_query.get_connectors_query():
         return connector_query_results
-    elif query == fivetran_log_query.get_table_lineage_query():
+    elif query == fivetran_log_query.get_table_lineage_query(
+        connector_ids=["calendar_elected"]
+    ):
         return [
             {
                 "connector_id": "calendar_elected",
@@ -64,7 +66,9 @@ def default_query_results(
                 "destination_schema_name": "postgres_public",
             },
         ]
-    elif query == fivetran_log_query.get_column_lineage_query():
+    elif query == fivetran_log_query.get_column_lineage_query(
+        connector_ids=["calendar_elected"]
+    ):
         return [
             {
                 "source_table_id": "10040",

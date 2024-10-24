@@ -11,15 +11,9 @@ from datahub.api.entities.platformresource.platform_resource import (
     PlatformResourceSearchFields,
 )
 
-from tests.utils import wait_for_healthcheck_util, wait_for_writes_to_sync
+from tests.utils import wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="module")
-def wait_for_healthchecks(auth_session):
-    wait_for_healthcheck_util(auth_session)
-    yield
 
 
 def generate_random_id(length=8):

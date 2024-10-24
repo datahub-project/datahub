@@ -99,7 +99,8 @@ public class CassandraEntityServiceTest
             null,
             opContext ->
                 ((EntityServiceAspectRetriever) opContext.getAspectRetrieverOpt().get())
-                    .setSystemOperationContext(opContext));
+                    .setSystemOperationContext(opContext),
+            null);
   }
 
   /**
