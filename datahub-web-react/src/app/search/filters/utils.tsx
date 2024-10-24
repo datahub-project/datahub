@@ -199,7 +199,7 @@ export function getFilterIconAndLabel(
             ) : (
                 entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9])
             );
-            label = entityRegistry.getDisplayName(filterEntity.type, filterEntity)
+            label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
         } else {
             const { icon: newIcon, label: newLabel } = getFilterWithEntityIconAndLabel(
                 filterValue,

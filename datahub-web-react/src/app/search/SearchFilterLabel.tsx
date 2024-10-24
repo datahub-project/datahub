@@ -165,9 +165,12 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
         return (
             <Tooltip title={displayName}>
                 {!!container.platform?.properties?.logoUrl && (
-                    <><ParentWrapper style={{width: '200px'}}>
-                    <ParentEntities parentEntities={parentEntities} />
-                </ParentWrapper><PreviewImage src={container.platform?.properties?.logoUrl} alt={container.properties?.name} /></>
+                    <>
+                        <ParentWrapper style={{ width: '200px' }}>
+                            <ParentEntities parentEntities={parentEntities} />
+                        </ParentWrapper>
+                        <PreviewImage src={container.platform?.properties?.logoUrl} alt={container.properties?.name} />
+                    </>
                 )}
                 <span>
                     {truncatedDisplayName}
