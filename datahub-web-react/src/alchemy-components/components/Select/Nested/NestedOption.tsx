@@ -224,8 +224,8 @@ export const NestedOption = ({
                 <OptionLabel
                     key={option.value}
                     onClick={(e) => {
+                        e.preventDefault();
                         if (isImplicitlySelected) {
-                            e.preventDefault();
                             return;
                         }
                         if (isParentMissingChildren) {
@@ -237,7 +237,6 @@ export const NestedOption = ({
                         } else {
                             selectOption();
                         }
-                        e.preventDefault();
                     }}
                     isSelected={!isMultiSelect && isSelected}
                     // added hack to show cursor in wait untill we get the inline spinner
@@ -269,12 +268,11 @@ export const NestedOption = ({
                             areParentsSelectable && option.isParent ? areAnyChildrenSelected : isPartialSelected
                         }
                         onClick={(e) => {
+                            e.preventDefault();
                             if (isImplicitlySelected) {
-                                e.preventDefault();
                                 return;
                             }
                             e.stopPropagation();
-                            e.preventDefault();
                             if (isParentMissingChildren) {
                                 loadData?.(option);
                                 if (!areParentsSelectable) {

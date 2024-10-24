@@ -13,7 +13,7 @@ type Option = {
     entity: GlossaryTerm | GlossaryNode;
 };
 
-const CHILD_OPTIONS_ASSIGNMENT_DELAY = 500;
+const CHILD_OPTIONS_ASSIGNMENT_DELAY = 3000;
 
 export const useGlossaryOptionsBuilder = (
     resolvedEntitiesData: any,
@@ -93,7 +93,7 @@ export const useGlossaryOptionsBuilder = (
              * Temporary workaround to display the remaining options that share the same parent,
              * without automatically selecting them. If we directly set the initial options now,
              * it would select all the child options under the parent instead.
-             * We will assign the options correctly after 500 miliseconds, after initialization is complete.
+             * We will assign the options correctly after 3000 miliseconds, after initialization is complete.
              */
             const parentIds = new Set(options.map((item) => item.id));
             const remaningChildNodesToBeAdded = childOptions.filter((item) => parentIds.has(item.parentId as string));
