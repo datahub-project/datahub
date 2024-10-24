@@ -51,6 +51,10 @@
   gap: 50px; 
 }
 
+.persona_row_mobile {
+  display: none;
+}
+
 .persona_row_wrapper {
   display: flex;
   justify-content: center;
@@ -121,12 +125,16 @@
 }
 
 @media (max-width: 768px) {
-
   .container {
     padding: 4rem 2rem;
   }
   .persona_row {
-    display: block;
+    display: none !important;
+  }
+  .persona_row_mobile {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
   }
   
   .persona_row_wrapper {

@@ -27,6 +27,10 @@ const Persona = ({ personaContent }) => {
             ))}
           </div>
         </div>
+        <div className={styles.persona_row_mobile}>
+          <img src='/img/solutions/personas-mobile.png' alt="Persona" />
+        </div>
+
 
         <div className={styles.persona_bg_line}></div>
       </div>
