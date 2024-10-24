@@ -13,7 +13,7 @@
   border-radius: 48px;
   margin: 3rem 3rem 12rem 3rem;
   padding: 5rem;
-  
+
   .hero__topQuote {
     color: var(--primitives-text-tex-subtext, #777E99);
     font-family: Manrope;
@@ -49,79 +49,132 @@
     margin-top: 1rem;
   }
 
-}
-
-.cta__tertiary {
-  color: black;
-  font-size: 1rem;
-  margin-top: .5rem;
-  font-weight: 500;
-}
-.cta__tertiary:hover {
-  color: black;
-  text-decoration: none;
-  opacity: .8;
-}
-.hero__cta {
-  margin-top: 0rem;
-  display: flex;
-
-  a {
-    cursor: pointer;
+  .cta__tertiary {
+    color: black;
     font-size: 1rem;
-    background-color: white;
-    padding: 4px 20px;
-    border-radius: 50px;
-    margin: 0 10px 0 0;
-    font-weight: 600;
+    margin-top: .5rem;
+    font-weight: 500;
+  }
+
+  .cta__tertiary:hover {
+    color: black;
     text-decoration: none;
-    transition: background-color .2s ease-in-out;
-    &:hover {
-      opacity : 0.8;
+    opacity: .8;
+  }
+
+  .hero__cta {
+    margin-top: 0rem;
+    display: flex;
+
+    a {
+      cursor: pointer;
+      font-size: 1rem;
+      background-color: white;
+      padding: 4px 20px;
+      border-radius: 50px;
+      margin: 0 10px 0 0;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background-color .2s ease-in-out;
+      &:hover {
+        opacity : 0.8;
+      }
+    }
+
+    .cta__primary {
+      padding: var(--number-scales-2s-12, 8px) var(--number-scales-2s-24, 24px);
+      justify-content: center;
+      align-items: center;
+      gap: var(--number-scales-2s-8, 8px);
+      border-radius: var(--number-scales-2s-full, 999px);
+      background: var(--semantics-surface-default, #1890FF);
+      color: white;
+    }
+
+    .cta__secondary {
+      padding: var(--number-scales-2s-12, 8px) var(--number-scales-2s-24, 24px);
+      justify-content: center;
+      align-items: center;
+      gap: var(--number-scales-2s-8, 8px);
+      border-radius: var(--number-scales-2s-full, 999px);
+      border: 1px solid var(--semantics-border-default, #1890FF);
+      background: var(--semantics-bg-bg-white, #FFF);
     }
   }
 
-  .cta__primary {
-    padding: var(--number-scales-2s-12, 8px) var(--number-scales-2s-24, 24px);
-    justify-content: center;
-    align-items: center;
-    gap: var(--number-scales-2s-8, 8px);
-    border-radius: var(--number-scales-2s-full, 999px);
-    background: var(--semantics-surface-default, #1890FF);
-    color: white;
-    
+  .hero__img_container {
+    position: relative;
+
+    .hero__img {
+      z-index: 10;
+      height: 40vh;
+      min-height: 320px;
+      margin-bottom: -8rem;
+    }
+
+    .hero__img_gradient {
+      position: absolute;
+      right: 0;
+      left: 0;
+      bottom: 0;
+      margin-bottom: -8rem;
+      height: 60%;
+      width: min-content;
+      background: linear-gradient(to top, #FFFFFF 15.52%, transparent);
+    }
   }
 
-  .cta__secondary {
-    padding: var(--number-scales-2s-12, 8px) var(--number-scales-2s-24, 24px);
-    justify-content: center;
-    align-items: center;
-    gap: var(--number-scales-2s-8, 8px);
-    border-radius: var(--number-scales-2s-full, 999px);
-    border: 1px solid var(--semantics-border-default, #1890FF);
-    background: var(--semantics-bg-bg-white, #FFF);
+  // Mobile adjustments
+  @media (max-width: 768px) {
+    max-height: auto;
+    padding: 2rem;
+    margin: 2rem 1.5rem 6rem 1.5rem;
+    border-radius: 24px;
+
+    .hero__topQuote {
+      font-size: 1rem;
+      margin-top: 3vh;
+    }
+
+    .hero__title {
+      font-size: 3rem;
+      line-height: 3.5rem;
+      max-width: 100%;
+    }
+
+    .hero__description {
+      font-size: 1rem;
+      line-height: 1.75rem;
+      max-width: 100%;
+    }
+
+    .hero__img_container {
+      .hero__img {
+        height: 30vh;
+        min-height: 200px;
+        margin-bottom: -6rem;
+        object-fit: contain;
+      }
+    }
+
+    .cta__tertiary {
+      font-size: 0.9rem;
+    }
+
+    .hero__cta {
+      a {
+        margin: 0.5rem;
+        padding: 8px 16px;
+        font-size: 0.9rem;
+      }
+
+      .cta__primary {
+        background: #1890FF;
+      }
+
+      .cta__secondary {
+        border: 1px solid #1890FF;
+      }
+    }
   }
-}
-
-
-.hero__img_container {
-  position: relative;
-
-  .hero__img {
-    z-index: 10;
-    height: 40vh;
-    min-height: 320px;
-    margin-bottom: -8rem;
-  }
-
-  .hero__img_gradient {
-    position: absolute;
-    right: 0;
-    left: 0;
-    bottom: 0;
-    margin-bottom: -8rem;
-    height: 60%;
-    background: linear-gradient(to top, #FFFFFF 15.52%, transparent);
-  }
-  
 }
