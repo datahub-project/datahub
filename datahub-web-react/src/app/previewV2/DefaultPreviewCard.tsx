@@ -249,6 +249,20 @@ export default function DefaultPreviewCard({
 
     const { removeRelationship, removeButtonText } = useRemoveRelationship(entityType);
 
+    const entityHeader = (
+        <EntityHeader
+            name={name}
+            onClick={onClick}
+            previewType={previewType}
+            titleSizePx={titleSizePx}
+            url={url}
+            urn={urn}
+            deprecation={deprecation}
+            health={health}
+            degree={degree}
+            connectionName={previewData?.name}
+        />
+    );
     return (
         <PreviewContainer data-testid={dataTestID ?? `preview-${urn}`}>
             {(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
@@ -267,7 +281,7 @@ export default function DefaultPreviewCard({
                                 icon={entityIcon}
                             />
                         ) : (
-                            <div />
+                            entityHeader
                         )}
                         <ActionsAndStatusSection>
                             {removeButtonText && (
@@ -288,20 +302,7 @@ export default function DefaultPreviewCard({
                             )}
                         </ActionsAndStatusSection>
                     </RowContainer>
-                    <RowContainer>
-                        <EntityHeader
-                            name={name}
-                            onClick={onClick}
-                            previewType={previewType}
-                            titleSizePx={titleSizePx}
-                            url={url}
-                            urn={urn}
-                            deprecation={deprecation}
-                            health={health}
-                            degree={degree}
-                            connectionName={previewData?.name}
-                        />
-                    </RowContainer>
+                    {isIconPresent && <RowContainer>{entityHeader}</RowContainer>}
                     <RowContainer style={{ marginTop: 8 }}>
                         <ContextPath
                             type={finalType}
