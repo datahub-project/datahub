@@ -3,13 +3,14 @@ import logging
 import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     capability,
@@ -105,7 +106,7 @@ class DremioSource(StatefulIngestionSourceBase):
     config: DremioSourceConfig
     report: DremioSourceReport
 
-    def __init__(self, config: DremioSourceConfig, ctx: Any):
+    def __init__(self, config: DremioSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.default_db = "dremio"
         self.config = config
@@ -145,7 +146,7 @@ class DremioSource(StatefulIngestionSourceBase):
         )
 
     @classmethod
-    def create(cls, config_dict: Dict[str, Any], ctx: Any) -> "DremioSource":
+    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":
         config = DremioSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 

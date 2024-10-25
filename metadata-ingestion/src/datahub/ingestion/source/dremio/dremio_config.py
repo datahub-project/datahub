@@ -10,6 +10,9 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
@@ -151,6 +154,8 @@ class DremioSourceConfig(
         description="The usage config to use when generating usage statistics",
         default=BaseUsageConfig(),
     )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     # Profiling
     profile_pattern: AllowDenyPattern = Field(
