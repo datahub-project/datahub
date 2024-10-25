@@ -70,6 +70,10 @@ function pruneEdges({ nodes, edges }: ContextSubset) {
             newEdges.set(edgeId, edge);
             addToAdjacencyList(newAdjacencyList, LineageDirection.Upstream, downstream, upstream);
             addToAdjacencyList(newAdjacencyList, LineageDirection.Downstream, upstream, downstream);
+            if (edge.via) {
+                addToAdjacencyList(newAdjacencyList, LineageDirection.Upstream, edge.via, upstream);
+                addToAdjacencyList(newAdjacencyList, LineageDirection.Downstream, edge.via, downstream);
+            }
         }
     });
 
