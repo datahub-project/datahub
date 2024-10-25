@@ -98,7 +98,7 @@ FROM (
         dtm.name as destination_table_name,
         dsm.name as destination_schema_name,
         tl.created_at as created_at,
-        ROW_NUMBER() OVER (PARTITION BY stm.id, dtm.id ORDER BY tl.created_at DESC) as table_combo_rn
+        ROW_NUMBER() OVER (PARTITION BY stm.connector_id, stm.id, dtm.id ORDER BY tl.created_at DESC) as table_combo_rn
     FROM {self.db_clause}table_lineage as tl
     JOIN {self.db_clause}source_table_metadata as stm on tl.source_table_id = stm.id
     JOIN {self.db_clause}destination_table_metadata as dtm on tl.destination_table_id = dtm.id
