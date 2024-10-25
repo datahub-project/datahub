@@ -10,7 +10,7 @@ const caseStudyContent = {
         },
         {
           imgSrc: "/img/solutions/logo-myob.png",
-          title: "How MYOB completely eliminated breaking changes with DataHub.",
+          title: "How MYOB eliminated breaking changes with DataHub.",
           link: "/adoption-stories/#myob",
           alt: "MYOB",
         },

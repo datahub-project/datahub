@@ -1,5 +1,6 @@
 .container {
   padding: 5rem;
+  padding-bottom: 0;
   display: flex;
   position: relative;
   justify-content: center;
@@ -15,7 +16,7 @@
   color: var(--primitives-text-tex-subtext, #777E99);
   text-align: center;
   font-family: Manrope;
-  font-size: 34px;
+  font-size: 2rem;
   font-style: normal;
   font-weight: 500;
   line-height: normal;
@@ -68,16 +69,17 @@
   align-items: center;
   min-width: 365px;
   margin: 2rem;
+  margin-bottom: 0;
   height: 100%;
   background: inherit; /* Allow persona card to have gradient */
 }
 
 .persona_img {
-  margin-bottom: 30px;
+  margin-bottom: 12px;
 }
 
 .persona_img img {
-  height: 300px;
+  height: 200px;
 }
 
 .features {
@@ -120,7 +122,7 @@
   background: url('/img/solutions/persona_bg_line.png') no-repeat center;
   background-size: cover;
   position: relative;
-  margin-top: 2rem;
+  margin-top: 0;
   z-index: -1;
 }
 

@@ -166,6 +166,9 @@
     }
     .cardLink {
       color: #000;
+      cursor: pointer;
+      display: block;
+      height: 100%;
       
       &:hover {
         text-decoration: none;
@@ -220,8 +223,9 @@
         padding: 16px;
     
         .card_heading {
-          font-size: 1.5rem;
-          font-weight: bold;
+          font-size: 1.4rem;
+          line-height: 1.75rem;
+          font-weight: 600;
           margin-bottom: 8px;
         }
 

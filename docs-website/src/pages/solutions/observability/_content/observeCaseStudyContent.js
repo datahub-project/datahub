@@ -4,7 +4,7 @@ const caseStudyContent = {
       items: [
         {
           imgSrc: "/img/solutions/logo-notion.png",
-          title: "How Notion Uses Acryl Data to Ensure Data Reliability.",
+          title: "How Notion Uses DataHub Cloud to Ensure Data Reliability.",
           link: "/adoption-stories/#notion",
           alt: "notion"
         },
@@ -15,10 +15,10 @@ const caseStudyContent = {
           alt: "MYOB",
         },
         {
-          imgSrc: "/img/solutions/logo-dpg-media.png",
-          title: "How Acryl Data Helped DPG Media Save 25% Per Mo in Snowflake.",
-          link: "/adoption-stories/#dpg-media",
-          alt: "DPG Media",
+          imgSrc: "/img/solutions/miro.png",
+          title: "How DataHub Helped Miro improve Data Product Reliability.",
+          link: "/adoption-stories/#miro",
+          alt: "Miro",
         }
       ]
     };

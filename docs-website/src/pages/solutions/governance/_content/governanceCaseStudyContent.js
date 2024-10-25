@@ -3,22 +3,22 @@ const caseStudyContent = {
       backgroundColor: "#FFFFFF",
       items: [
         {
-          imgSrc: "/img/solutions/logo-notion.png",
-          title: "How Notion Uses Acryl Data to Ensure Data Reliability.",
-          link: "/adoption-stories/#notion",
-          alt: "notion"
+          imgSrc: "/img/solutions/optum.jpg",
+          title: "How Optum uses DataHub to govern and manage access.",
+          link: "/adoption-stories/#optum",
+          alt: "optum"
         },
         {
-          imgSrc: "/img/solutions/logo-myob.png",
-          title: "How MYOB Improved Data Reliability for dbt and Snowflake.",
-          link: "/adoption-stories/#myob",
-          alt: "MYOB",
+          imgSrc: "/img/solutions/checkout.jpg",
+          title: "How Checkout.com manages compliance with sensitive data.",
+          link: "/adoption-stories/#checkout-com",
+          alt: "Checkout.com",
         },
         {
-          imgSrc: "/img/solutions/logo-dpg-media.png",
-          title: "How Acryl Data Helped DPG Media Save 25% Per Mo in Snowflake.",
-          link: "/adoption-stories/#dpg-media",
-          alt: "DPG Media",
+          imgSrc: "/img/solutions/wolt.png",
+          title: "How Wolt complies with legal requirements using DataHub.",
+          link: "/adoption-stories/#wolt",
+          alt: "Wolt",
         }
       ]
     };
