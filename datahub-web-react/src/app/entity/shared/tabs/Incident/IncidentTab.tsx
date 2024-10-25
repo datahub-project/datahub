@@ -58,7 +58,7 @@ export const IncidentTab = () => {
             start: 0,
             count: PAGE_SIZE,
         },
-        fetchPolicy: 'cache-and-network',
+        fetchPolicy: 'cache-first',
     });
 
     const hasData = (data?.entity as any)?.incidents;
