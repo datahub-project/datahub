@@ -131,9 +131,8 @@
 .resource {
   display: flex;
   flex-direction: column;
-  width: 80vw;
-  max-width: 1200px;
-  margin: 5rem auto;
+  width: 100vw;
+  margin: 5rem 0;
 
   .resource_heading {
     line-height: 4rem;
@@ -142,10 +141,11 @@
     font-size: 3.25rem;
     font-style: normal;
     font-weight: 500;
+    padding-left: 5rem;
     line-height: normal;
     mix-blend-mode: luminosity;
     width: 100%;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
   }
 
   .card_row::-webkit-scrollbar {
@@ -154,7 +154,8 @@
   .card_row {
     margin-top: 8px;
     overflow-x: scroll;
-    padding-right: 20px;
+    padding-right: 5rem;
+    padding-left: 5rem;
     scrollbar-width: none;
 
     .card_row_wrapper {
@@ -178,13 +179,13 @@
       flex-direction: column;
       position: relative;
       width: 300px;
-      height: 500px;
+      height: 400px;
       flex-shrink: 0;
       border-radius: 12px;
       background: white;
       margin-right: 20px;
       transition: box-shadow 0.2s ease-in-out;
-      box-shadow: 0px 6px 16px 0px rgba(55, 61, 68, 0.08), 0px 3px 6px -4px rgba(55, 61, 68, 0.12), 0px 9px 28px 8px rgba(55, 61, 68, 0.05);    
+      box-shadow: 0px 2px 16px 0px rgba(55, 61, 68, 0.08);
       overflow-y: visible;
     
     
@@ -195,6 +196,7 @@
         color: white;
         font-size: 1rem;
         z-index: 10;
+        text-shadow: 0px 1px 4px black;
       }
 
       .card_image {
@@ -227,15 +229,16 @@
           color: #1890ff;
           font-weight: bold;
           text-decoration: none;
-          font-size: 1.2rem;
+          font-size: 1rem;
           position: absolute; 
           bottom: 8px;
           left: 8px;
           width: 100%;
-          
+          transition: all .2s;
     
           &:hover {
-            text-decoration: underline;
+            text-decoration: none;
+            opacity: .9;
           }
         }
       }
@@ -244,7 +247,7 @@
         position: absolute;
         top: 16px;
         left: 16px;
-        background-color: white;
+        background-color: #F9F9F9;
         color: black;
         padding: 4px 24px;
         border-radius: 20px;
