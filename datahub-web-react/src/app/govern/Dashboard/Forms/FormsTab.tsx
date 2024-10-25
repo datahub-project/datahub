@@ -2,6 +2,8 @@ import { SearchOutlined } from '@ant-design/icons';
 import { Button } from '@components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
+import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { EntityType } from '@src/types.generated';
 import { Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { useHistory } from 'react-router';
@@ -49,6 +51,28 @@ const FormsTab = () => {
 
     const [searchQuery, setSearchQuery] = useState<string>('');
 
+    const inputs = {
+        types: [EntityType.Form],
+        query: '*',
+        start: 0,
+        count: 200,
+        searchFlags: { skipCache: true },
+    };
+
+    // Execute search
+    const {
+        data: searchData,
+        loading,
+        refetch,
+        networkStatus,
+    } = useGetSearchResultsForMultipleQuery({
+        variables: {
+            input: inputs,
+        },
+        fetchPolicy: 'cache-first',
+        notifyOnNetworkStatusChange: true,
+    });
+
     const handleSearch = (value) => {
         setSearchQuery(value);
     };
@@ -73,7 +97,10 @@ const FormsTab = () => {
                                     analytics.event({
                                         type: EventType.CreateFormClickEvent,
                                     });
-                                    history.push(PageRoutes.NEW_FORM);
+                                    history.push(PageRoutes.NEW_FORM, {
+                                        inputs,
+                                        searchAcrossEntities: searchData?.searchAcrossEntities,
+                                    });
                                 }}
                                 disabled={!canEditForms}
                             >
@@ -89,7 +116,14 @@ const FormsTab = () => {
                     prefix={<SearchOutlined />}
                 />
                 <FormsContainer>
-                    <FormsTable searchQuery={searchQuery} />
+                    <FormsTable
+                        searchQuery={searchQuery}
+                        searchData={searchData}
+                        loading={loading}
+                        networkStatus={networkStatus}
+                        refetch={refetch}
+                        inputs={inputs}
+                    />
                 </FormsContainer>
             </FormsSection>
         </Container>

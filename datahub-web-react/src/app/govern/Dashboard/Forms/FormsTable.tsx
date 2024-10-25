@@ -13,10 +13,10 @@ import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { PageRoutes } from '@src/conf/Global';
 import { useFormAnalyticsQuery } from '@src/graphql/analytics.generated';
 import { useDeleteFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
-import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { Entity, EntityType, FormState } from '@src/types.generated';
+import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { Entity, EntityType, FormState, SearchAcrossEntitiesInput } from '@src/types.generated';
 import { Dropdown, Tooltip, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
 import { Link } from 'react-router-dom';
@@ -80,9 +80,14 @@ export const EditedByContainer = styled.div`
 
 interface Props {
     searchQuery: string;
+    searchData: GetSearchResultsForMultipleQuery | undefined;
+    loading: boolean;
+    networkStatus: NetworkStatus;
+    refetch: () => Promise<any>;
+    inputs: SearchAcrossEntitiesInput;
 }
 
-const FormsTable = ({ searchQuery }: Props) => {
+const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, inputs }: Props) => {
     const entityRegistry = useEntityRegistryV2();
     const history = useHistory();
     const me = useUserContext();
@@ -94,28 +99,6 @@ const FormsTable = ({ searchQuery }: Props) => {
 
     const [deleteForm] = useDeleteFormMutation();
     const [updateForm] = useUpdateFormMutation();
-
-    const inputs = {
-        types: [EntityType.Form],
-        query: '*',
-        start: 0,
-        count: 100,
-        searchFlags: { skipCache: true },
-    };
-
-    // Execute search
-    const {
-        data: searchData,
-        loading,
-        refetch,
-        networkStatus,
-    } = useGetSearchResultsForMultipleQuery({
-        variables: {
-            input: inputs,
-        },
-        fetchPolicy: 'cache-first',
-        notifyOnNetworkStatusChange: true,
-    });
 
     const formsData = searchData?.searchAcrossEntities?.searchResults || [];
 
@@ -141,10 +124,6 @@ const FormsTable = ({ searchQuery }: Props) => {
     const { data: snapshot, loading: snapshotLoading } = useFormAnalyticsQuery({
         variables: { input: { queryString: `select max(snapshot_date) from '{{ table }}'` } },
     });
-
-    useEffect(() => {
-        refetch();
-    }, [refetch]);
 
     if (!isLoading && !filteredForms.length) {
         return <EmptyForms isEmptySearch={!!formsData.length} />;
@@ -219,7 +198,15 @@ const FormsTable = ({ searchQuery }: Props) => {
             render: (record) => {
                 return (
                     <CellContainer>
-                        <Link to={`/govern/dashboard/edit-form/${record.entity.urn}`}>
+                        <Link
+                            to={{
+                                pathname: `/govern/dashboard/edit-form/${record.entity.urn}`,
+                                state: {
+                                    inputs,
+                                    searchAcrossEntities: searchData?.searchAcrossEntities,
+                                },
+                            }}
+                        >
                             <FormName>
                                 <Highlight search={searchQuery}>{record.entity.formInfo.name}</Highlight>
                             </FormName>
@@ -260,11 +247,13 @@ const FormsTable = ({ searchQuery }: Props) => {
             key: 'published',
             render: (record) => {
                 const publishedTime =
-                    record.entity.formInfo.status.state === FormState.Published &&
-                    record.entity.formInfo.status?.lastModified?.time;
+                    record.entity.formInfo.status.state === FormState.Published
+                        ? record.entity.formInfo.status?.lastModified?.time
+                        : undefined;
+
                 return (
                     <CellContainer>
-                        <Tooltip title={toLocalDateString(publishedTime)} showArrow={false}>
+                        <Tooltip title={publishedTime && toLocalDateString(publishedTime)} showArrow={false}>
                             {publishedTime ? capitalizeFirstLetter(toRelativeTimeString(publishedTime)) : '-'}
                         </Tooltip>
                     </CellContainer>
@@ -337,7 +326,10 @@ const FormsTable = ({ searchQuery }: Props) => {
                         label: (
                             <MenuItem
                                 onClick={() => {
-                                    history.push(`/govern/dashboard/edit-form/${record.entity.urn}`);
+                                    history.push(`/govern/dashboard/edit-form/${record.entity.urn}`, {
+                                        inputs,
+                                        searchAcrossEntities: searchData?.searchAcrossEntities,
+                                    });
                                 }}
                             >
                                 Edit

@@ -24,7 +24,7 @@ const ContainerText = styled.span`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 150px;
+    max-width: 150px; // TODO: Remove in favor of smart truncation
 `;
 
 const StyledLink = styled(Link)`

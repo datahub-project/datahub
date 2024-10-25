@@ -33,6 +33,7 @@ export interface Filters {
     display?: boolean; // undefined == display
     limit?: number; // undefined == no limit
     facetFilters: Map<string, Set<string>>;
+    searchUrns?: Set<string>;
 }
 
 export interface NodeBase {
@@ -40,6 +41,7 @@ export interface NodeBase {
     isExpanded: Record<LineageDirection, boolean>;
     direction?: LineageDirection; // Root node has no direction. One day can try to support cycles in the same way.
     dragged?: boolean;
+    inCycle?: boolean;
 }
 
 export interface LineageEntity extends NodeBase {
@@ -160,7 +162,7 @@ export interface LineageAuditStamp {
 
 export interface LineageEdge {
     isDisplayed: boolean;
-    isManual: boolean;
+    isManual?: boolean;
     created?: LineageAuditStamp;
     updated?: LineageAuditStamp;
     via?: Urn;

@@ -136,6 +136,11 @@ export const toRelativeTimeString = (timeMs: number | undefined) => {
     const diffInMs = timeMs - new Date().getTime();
 
     const diffInSeconds = Math.round(diffInMs / INTERVAL_TO_MS[DateInterval.Second]);
+
+    if (Math.abs(diffInSeconds) === 0) {
+        return 'just now';
+    }
+
     if (Math.abs(diffInSeconds) > 0 && Math.abs(diffInSeconds) <= 60) {
         return rtf.format(diffInSeconds, 'second');
     }

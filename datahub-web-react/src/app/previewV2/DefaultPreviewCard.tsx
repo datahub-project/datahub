@@ -1,5 +1,7 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
+import { ActionsAndStatusSection } from '@app/previewV2/shared';
 import { Button, Typography } from 'antd';
 import React, { ReactNode } from 'react';
 import { CloseOutlined } from '@ant-design/icons';
@@ -20,7 +22,6 @@ import {
     Owner,
     SearchInsight,
     BrowsePathV2,
-    Dataset,
 } from '../../types.generated';
 import { EntityMenuActions, PreviewType } from '../entityV2/Entity';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
@@ -41,6 +42,7 @@ import { CompactView } from './CompactView';
 import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
 import { useEntityContext, useEntityData } from '../entity/shared/EntityContext';
 import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from './utils';
+import { removeMarkdown } from '../entityV2/shared/components/styled/StripMarkdownText';
 
 const TransparentButton = styled(Button)`
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
@@ -102,14 +104,33 @@ const InsightIconContainer = styled.span`
     margin-right: 4px;
 `;
 
+const Documentation = styled.div`
+    width: 90%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 500;
+    color: ${REDESIGN_COLORS.SUB_TEXT};
+    margin-top: 8px;
+`;
+
+const ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW = new Set([
+    EntityType.GlossaryTerm,
+    EntityType.GlossaryNode,
+    EntityType.DataProduct,
+    EntityType.Domain,
+    EntityType.Tag,
+]);
+
 interface Props {
     name: string;
     urn: string;
+    data: GenericEntityProperties | null;
     logoUrl?: string;
     logoComponent?: JSX.Element;
     url: string;
     entityType: EntityType;
-    searchEntity?: Dataset | null;
     type?: string | null;
     typeIcon?: JSX.Element;
     platform?: string;
@@ -143,6 +164,7 @@ interface Props {
     description?: string;
     // eslint-disable-next-line react/no-unused-prop-types
     qualifier?: string | null;
+    // eslint-disable-next-line react/no-unused-prop-types
     externalUrl?: string | null;
     tier?: PopularityTier;
     isOutputPort?: boolean;
@@ -153,44 +175,14 @@ interface Props {
     browsePaths?: BrowsePathV2 | undefined;
 }
 
-const ActionsSection = styled.div`
-    display: flex;
-    flex-direction: row;
-    gap: 5px;
-    align-items: center;
-`;
-
-const ActionsAndStatusSection = styled.div`
-    display: flex;
-    flex-direction: row;
-    gap: 5px;
-`;
-
-const Documentation = styled.div`
-    width: 90%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 12px;
-    font-weight: 500;
-    color: ${REDESIGN_COLORS.SUB_TEXT};
-    margin-top: 8px;
-`;
-
-const LeftContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-`;
-
 export default function DefaultPreviewCard({
     name,
     urn,
+    data,
     logoUrl, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     logoComponent,
     url,
     entityType,
-    searchEntity,
     type,
     typeIcon,
     platform,
@@ -219,7 +211,6 @@ export default function DefaultPreviewCard({
     previewType,
     health,
     lastUpdatedMs,
-    externalUrl,
     tier,
     isOutputPort,
     entityIcon,
@@ -266,60 +257,51 @@ export default function DefaultPreviewCard({
             {isFullViewCard ? (
                 <>
                     <RowContainer alignment="self-start">
-                        <LeftContainer>
-                            {isIconPresent ? (
-                                <ColoredBackgroundPlatformIconGroup
-                                    platformName={platform}
-                                    platformLogoUrl={logoUrl}
-                                    platformNames={platforms}
-                                    platformLogoUrls={logoUrls}
-                                    isOutputPort={isOutputPort}
-                                    icon={entityIcon}
-                                />
-                            ) : (
-                                <div />
-                            )}
-                            <EntityHeader
-                                name={name}
-                                onClick={onClick}
-                                previewType={previewType}
-                                titleSizePx={titleSizePx}
-                                url={url}
-                                urn={urn}
-                                deprecation={deprecation}
-                                health={health}
-                                degree={degree}
-                                connectionName={previewData?.name}
+                        {isIconPresent ? (
+                            <ColoredBackgroundPlatformIconGroup
+                                platformName={platform}
+                                platformLogoUrl={logoUrl}
+                                platformNames={platforms}
+                                platformLogoUrls={logoUrls}
+                                isOutputPort={isOutputPort}
+                                icon={entityIcon}
                             />
-                        </LeftContainer>
-
+                        ) : (
+                            <div />
+                        )}
                         <ActionsAndStatusSection>
-                            <ActionsSection>
-                                {removeButtonText && (
-                                    <TransparentButton size="small" onClick={removeRelationship}>
-                                        <CloseOutlined size={5} /> {removeButtonText}
-                                    </TransparentButton>
-                                )}
-                                <ViewInPlatform urn={urn} searchEntity={searchEntity} />
-                                {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
-                                    <MoreOptionsMenuAction
-                                        menuItems={headerDropdownItems}
-                                        urn={urn}
-                                        entityType={entityType}
-                                        entityData={previewData}
-                                        triggerType={['click']}
-                                        actions={actions}
-                                    />
-                                )}
-                            </ActionsSection>
+                            {removeButtonText && (
+                                <TransparentButton size="small" onClick={removeRelationship}>
+                                    <CloseOutlined size={5} /> {removeButtonText}
+                                </TransparentButton>
+                            )}
+                            <ViewInPlatform urn={urn} data={data} />
+                            {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
+                                <MoreOptionsMenuAction
+                                    menuItems={headerDropdownItems}
+                                    urn={urn}
+                                    entityType={entityType}
+                                    entityData={previewData}
+                                    triggerType={['click']}
+                                    actions={actions}
+                                />
+                            )}
                         </ActionsAndStatusSection>
                     </RowContainer>
-
-                    {entityType === EntityType.GlossaryTerm && (
-                        <RowContainer>
-                            <Documentation>{description}</Documentation>
-                        </RowContainer>
-                    )}
+                    <RowContainer>
+                        <EntityHeader
+                            name={name}
+                            onClick={onClick}
+                            previewType={previewType}
+                            titleSizePx={titleSizePx}
+                            url={url}
+                            urn={urn}
+                            deprecation={deprecation}
+                            health={health}
+                            degree={degree}
+                            connectionName={previewData?.name}
+                        />
+                    </RowContainer>
                     <RowContainer style={{ marginTop: 8 }}>
                         <ContextPath
                             type={finalType}
@@ -333,9 +315,17 @@ export default function DefaultPreviewCard({
                             contentRef={contentRef}
                         />
                     </RowContainer>
+                    {(previewType === PreviewType.HOVER_CARD ||
+                        ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType)) &&
+                    description ? (
+                        <RowContainer>
+                            <Documentation>{removeMarkdown(description)}</Documentation>
+                        </RowContainer>
+                    ) : null}
                 </>
             ) : (
                 <CompactView
+                    data={data}
                     name={name}
                     onClick={onClick}
                     titleSizePx={titleSizePx}
@@ -352,12 +342,10 @@ export default function DefaultPreviewCard({
                     logoUrls={logoUrls}
                     isOutputPort={isOutputPort}
                     entityIcon={entityIcon}
-                    externalUrl={externalUrl}
                     headerDropdownItems={headerDropdownItems}
                     previewType={previewType}
                     urn={urn}
                     entityType={entityType}
-                    searchEntity={searchEntity}
                     platformInstanceId={platformInstanceId}
                     typeIcon={typeIcon}
                     finalType={finalType}

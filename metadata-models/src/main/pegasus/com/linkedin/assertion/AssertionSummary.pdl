@@ -1,0 +1,39 @@
+namespace com.linkedin.assertion
+
+/**
+ * Derived.
+ * Tracks the latest summary details of an assertion.
+ */
+@Aspect = {
+  "name": "assertionSummary"
+}
+record AssertionSummary {
+
+  /**
+   * The last failure event timestamp field as epoch at UTC in milliseconds.
+   */
+  @Searchable = {
+    "fieldName": "lastFailedAtMillis",
+    "fieldType": "DATETIME"
+  }
+  lastFailedAtMillis: optional long
+
+  /**
+   * The last error event timestamp field as epoch at UTC in milliseconds.
+   */
+  @Searchable = {
+    "fieldName": "lastErroredAtMillis",
+    "fieldType": "DATETIME"
+  }
+  lastErroredAtMillis: optional long
+
+  /**
+   * The last pass event timestamp field as epoch at UTC in milliseconds.
+   */
+  @Searchable = {
+    "fieldName": "lastPassedAtMillis",
+    "fieldType": "DATETIME"
+  }
+  lastPassedAtMillis: optional long
+
+}

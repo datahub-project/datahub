@@ -104,6 +104,7 @@ export default function OwnerContent({ name, owner, hidePopOver, pictureLink, fo
                 <Popover
                     overlayStyle={{ maxWidth: 200 }}
                     placement="left"
+                    showArrow={false}
                     title={
                         <OwnerPopoverTitleContainer>
                             {avatar}

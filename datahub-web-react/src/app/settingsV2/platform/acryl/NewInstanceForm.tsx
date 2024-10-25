@@ -1,17 +1,22 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 // import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import { useApolloClient } from '@apollo/client';
 import { Divider, Form, Input, message } from 'antd';
 import { useHistory } from 'react-router';
-import { useApolloClient } from '@apollo/client';
-import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
-import { HeaderContainer, HeaderSubtext, HeaderTitle, LeftContainer } from './styledComponents';
-import { DataHubConnection, DataHubConnectionDetailsType } from '../../../../types.generated';
-import { BackButton } from '../../../sharedV2/buttons/BackButton';
-import { FormItemTitle, StyledButton, StyledFormItem } from '../../../shared/share/v2/styledComponents';
 import { useUpdateConnectionMutation, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
-import { ACRYL_PLATFORM_URN, getConnectionBlob, getTokenFromJson, getURLFromJson, showToken } from './utils';
+import {
+    DataHubConnection,
+    DataHubConnectionDetailsType,
+    SearchAcrossEntitiesInput,
+    SearchResults,
+} from '../../../../types.generated';
+import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
+import { FormItemTitle, StyledButton, StyledFormItem } from '../../../shared/share/v2/styledComponents';
+import { BackButton } from '../../../sharedV2/buttons/BackButton';
 import { updateInstancesList } from './cacheUtils';
+import { HeaderContainer, HeaderSubtext, HeaderTitle, LeftContainer } from './styledComponents';
+import { ACRYL_PLATFORM_URN, getConnectionBlob, getTokenFromJson, getURLFromJson, showToken } from './utils';
 
 const Container = styled.div`
     display: flex;
@@ -67,8 +72,8 @@ interface Props {
     setOpenNewInstance: React.Dispatch<React.SetStateAction<boolean>>;
     isEditForm: boolean;
     selectedInstance?: DataHubConnection;
-    inputs: object;
-    searchAcrossEntities?: object | null;
+    inputs: SearchAcrossEntitiesInput;
+    searchAcrossEntities?: SearchResults | null;
 }
 
 const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inputs, searchAcrossEntities }: Props) => {

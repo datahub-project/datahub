@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { CodeSandboxOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { CodeSandboxOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
 import { MlModel, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
@@ -24,8 +24,14 @@ import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEnt
 import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 
-const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.UPDATE_DEPRECATION]);
+const headerDropdownItems = new Set([
+    EntityMenuItems.SHARE,
+    EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.RAISE_INCIDENT,
+]);
 
 /**
  * Definition of the DataHub MlModel entity.
@@ -108,6 +114,15 @@ export class MLModelEntity implements Entity<MlModel> {
                     name: 'Features',
                     component: MlModelFeaturesTab,
                 },
+                {
+                    name: 'Incidents',
+                    icon: WarningOutlined,
+                    component: IncidentTab,
+                    getDynamicName: (_, mlModel, loading) => {
+                        const activeIncidentCount = mlModel?.mlModel?.activeIncidents.total;
+                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    },
+                },
             ]}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
@@ -154,13 +169,23 @@ export class MLModelEntity implements Entity<MlModel> {
     ];
 
     renderPreview = (previewType: PreviewType, data: MlModel) => {
-        return <Preview model={data} headerDropdownItems={headerDropdownItems} previewType={previewType} />;
+        const genericProperties = this.getGenericEntityProperties(data);
+        return (
+            <Preview
+                data={genericProperties}
+                model={data}
+                headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
+            />
+        );
     };
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as MlModel;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
+                data={genericProperties}
                 model={data}
                 degree={(result as any).degree}
                 paths={(result as any).paths}

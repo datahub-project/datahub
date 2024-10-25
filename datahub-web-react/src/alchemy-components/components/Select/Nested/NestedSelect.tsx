@@ -174,6 +174,15 @@ export const NestedSelect = ({
         [onSearch],
     );
 
+    // Instead of calling the update function individually whenever selectedOptions changes,
+    // we use the useEffect hook to trigger the onUpdate function automatically when selectedOptions is updated.
+    useEffect(() => {
+        if (onUpdate) {
+            onUpdate(selectedOptions);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedOptions]);
+
     const handleOptionChange = useCallback(
         (option: SelectOption) => {
             let newSelectedOptions: SelectOption[];
@@ -186,20 +195,20 @@ export const NestedSelect = ({
             if (!isMultiSelect) {
                 setIsOpen(false);
             }
-            if (onUpdate) {
-                onUpdate(newSelectedOptions);
-            }
         },
-        [onUpdate, selectedOptions, isMultiSelect],
+        [selectedOptions, isMultiSelect],
     );
 
     const addOptions = useCallback(
         (optionsToAdd: SelectOption[]) => {
-            const newSelectedOptions = Array.from(new Set([...selectedOptions, ...optionsToAdd]));
-            setSelectedOptions(newSelectedOptions);
-            onUpdate?.(newSelectedOptions);
+            const existingValues = new Set(selectedOptions.map((option) => option.value));
+            const filteredOptionsToAdd = optionsToAdd.filter((option) => !existingValues.has(option.value));
+            if (filteredOptionsToAdd.length) {
+                const newSelectedOptions = [...selectedOptions, ...filteredOptionsToAdd];
+                setSelectedOptions(newSelectedOptions);
+            }
         },
-        [onUpdate, selectedOptions],
+        [selectedOptions],
     );
 
     const removeOptions = useCallback(
@@ -208,9 +217,8 @@ export const NestedSelect = ({
                 (selectedOption) => !optionsToRemove.find((o) => o.value === selectedOption.value),
             );
             setSelectedOptions(newValues);
-            onUpdate?.(newValues);
         },
-        [onUpdate, selectedOptions],
+        [selectedOptions],
     );
 
     const handleClearSelection = useCallback(() => {
@@ -284,6 +292,7 @@ export const NestedSelect = ({
                                 removeOptions={removeOptions}
                                 loadData={loadData}
                                 isMultiSelect={isMultiSelect}
+                                setSelectedOptions={setSelectedOptions}
                                 areParentsSelectable={areParentsSelectable}
                                 isLoadingParentChildList={isLoadingParentChildList}
                             />

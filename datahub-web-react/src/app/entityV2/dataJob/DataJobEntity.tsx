@@ -202,6 +202,7 @@ export class DataJobEntity implements Entity<DataJob> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.properties?.name || ''}
                 subtype={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
@@ -225,6 +226,7 @@ export class DataJobEntity implements Entity<DataJob> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.properties?.name || ''}
                 subtype={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}

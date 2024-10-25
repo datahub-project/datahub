@@ -60,7 +60,7 @@ interface Props {
 }
 
 export default function SidebarCollapsibleHeader({ currentTab, headerDropdownItems }: Props) {
-    const { isClosed, forLineage } = useContext(EntitySidebarContext);
+    const { isClosed, forLineage, separateSiblings } = useContext(EntitySidebarContext);
 
     const currentTabName = currentTab?.name === 'About' ? 'Summary' : currentTab?.name;
     const currentTabDescription = currentTab?.description;
@@ -78,7 +78,9 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                         <TabTitle>{currentTabName}</TabTitle>
                         <RightActions>
                             {actionType && <TitleAction actionType={actionType} icon={icon} />}
-                            {forLineage && <ViewInPlatform hideSiblingActions urn={urn} />}
+                            {forLineage && (
+                                <ViewInPlatform hideSiblingActions={separateSiblings} urn={urn} data={entityData} />
+                            )}
                             {forLineage && headerDropdownItems && (
                                 <MoreOptionsMenuAction
                                     menuItems={headerDropdownItems}

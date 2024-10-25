@@ -826,3 +826,18 @@ query getLineagePreview($urns: [String!]!) {
         ...autoCompleteFields
     }
 }
+
+query searchAcrossLineageNames($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+        }
+    }
+}

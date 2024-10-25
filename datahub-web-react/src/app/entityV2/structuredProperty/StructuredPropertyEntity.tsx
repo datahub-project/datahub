@@ -56,18 +56,22 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
 
     renderProfile: (urn: string) => JSX.Element = (_urn) => <div />; // not used right now
 
-    renderPreview = (previewType: PreviewType, data: StructuredProperty) => (
-        <DefaultPreviewCard
-            description={data.definition?.description || ''}
-            name={this.displayName(data)}
-            urn={data.urn}
-            url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
-            logoComponent={<PreviewPropIcon />}
-            entityType={EntityType.StructuredProperty}
-            typeIcon={this.icon(14, IconStyleType.ACCENT)}
-            previewType={previewType}
-        />
-    );
+    renderPreview = (previewType: PreviewType, data: StructuredProperty) => {
+        const genericProperties = this.getGenericEntityProperties(data);
+        return (
+            <DefaultPreviewCard
+                data={genericProperties}
+                description={data.definition?.description || ''}
+                name={this.displayName(data)}
+                urn={data.urn}
+                url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
+                logoComponent={<PreviewPropIcon />}
+                entityType={EntityType.StructuredProperty}
+                typeIcon={this.icon(14, IconStyleType.ACCENT)}
+                previewType={previewType}
+            />
+        );
+    };
 
     renderSearch = (result: SearchResult) => {
         return this.renderPreview(PreviewType.SEARCH, result.entity as StructuredProperty);

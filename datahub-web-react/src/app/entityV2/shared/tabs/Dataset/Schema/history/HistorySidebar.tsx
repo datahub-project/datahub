@@ -1,12 +1,14 @@
+import { useGetSiblingPlatforms } from '@app/entity/shared/siblingUtils';
+import ChangeTransactionView, {
+    ChangeTransactionEntry,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeTransactionView';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { Drawer } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { useGetTimelineQuery } from '../../../../../../../graphql/timeline.generated';
-import { ChangeCategoryType } from '../../../../../../../types.generated';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
+import { useGetTimelineQuery } from '@graphql/timeline.generated';
+import { ChangeCategoryType, ChangeTransaction, DataPlatform, SemanticVersionStruct } from '@types';
 import { REDESIGN_COLORS } from '../../../../constants';
-import ChangeTransaction from './ChangeTransaction';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -52,16 +54,17 @@ const CloseIcon = styled.div`
     }
 `;
 
-type Props = {
+interface Props {
     open: boolean;
     onClose: () => void;
-};
+    urn: string;
+    siblingUrn?: string;
+    versionList: SemanticVersionStruct[];
+    hideSemanticVersions: boolean;
+}
 
-const HistorySidebar = ({ open, onClose }: Props) => {
-    const { urn } = useEntityData();
-
-    const timelineResult = useGetTimelineQuery({
-        // also pass in the changeCategories
+const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSemanticVersions }: Props) => {
+    const { data: entityTimelineData } = useGetTimelineQuery({
         variables: {
             input: {
                 urn,
@@ -69,6 +72,25 @@ const HistorySidebar = ({ open, onClose }: Props) => {
             },
         },
     });
+    const { data: siblingTimelineData } = useGetTimelineQuery({
+        skip: !siblingUrn,
+        variables: {
+            input: {
+                urn: siblingUrn || '',
+                changeCategories: [ChangeCategoryType.TechnicalSchema, ChangeCategoryType.Documentation],
+            },
+        },
+    });
+
+    const { entityPlatform, siblingPlatform } = useGetSiblingPlatforms();
+    const transactionEntries: ChangeTransactionEntry[] = [
+        ...(entityTimelineData?.getTimeline?.changeTransactions.map((transaction) =>
+            makeTransactionEntry(transaction, hideSemanticVersions ? [] : versionList, entityPlatform ?? undefined),
+        ) || []),
+        ...(siblingTimelineData?.getTimeline?.changeTransactions.map((transaction) =>
+            makeTransactionEntry(transaction, [], siblingPlatform ?? undefined),
+        ) || []),
+    ].sort((a, b) => a.transaction.timestampMillis - b.transaction.timestampMillis);
 
     return (
         <StyledDrawer
@@ -91,18 +113,27 @@ const HistorySidebar = ({ open, onClose }: Props) => {
                 </FieldHeaderWrapper>
 
                 <ChangeTransactionList>
-                    {timelineResult.data?.getTimeline?.changeTransactions
-                        .map((changeTransaction) => (
-                            <ChangeTransaction
-                                key={changeTransaction.versionStamp}
-                                changeTransaction={changeTransaction}
-                            />
-                        ))
+                    {transactionEntries
+                        .map((entry) => <ChangeTransactionView key={entry.transaction.versionStamp} {...entry} />)
                         .reverse()}
                 </ChangeTransactionList>
             </DrawerContent>
         </StyledDrawer>
     );
 };
+
+function makeTransactionEntry(
+    transaction: ChangeTransaction,
+    versionList: SemanticVersionStruct[],
+    platform?: DataPlatform,
+): ChangeTransactionEntry {
+    return {
+        transaction,
+        platform,
+        semanticVersion:
+            versionList.find((v) => v.semanticVersionTimestamp === transaction.timestampMillis)?.semanticVersion ??
+            undefined,
+    };
+}
 
 export default HistorySidebar;

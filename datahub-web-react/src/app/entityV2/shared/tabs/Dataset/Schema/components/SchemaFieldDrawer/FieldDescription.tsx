@@ -143,14 +143,16 @@ export default function FieldDescription({ expandedField, editableFieldInfo, isS
             <SidebarSection
                 title="Description"
                 extra={
-                    <SectionActionButton
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setIsModalVisible(true);
-                        }}
-                        button={<EditOutlinedIcon />}
-                    />
+                    isSchemaEditable && (
+                        <SectionActionButton
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setIsModalVisible(true);
+                            }}
+                            button={<EditOutlinedIcon />}
+                        />
+                    )
                 }
                 content={
                     <>

@@ -17,10 +17,6 @@ const ParentNodesWrapper = styled.div`
     line-height: 20px;
 `;
 
-export const ArrowWrapper = styled.span`
-    margin: 0 3px;
-`;
-
 const StyledTooltip = styled(Tooltip)`
     display: flex;
     white-space: nowrap;

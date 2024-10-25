@@ -1,5 +1,5 @@
 import { EntityType } from '@types';
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
@@ -11,6 +11,7 @@ import { useAvoidIntersectionsOften } from '../LineageEntityNode/useAvoidInterse
 import { LINEAGE_NODE_WIDTH } from '../LineageEntityNode/useDisplayedColumns';
 import { ShowMoreButton } from './ShowMoreButton';
 import useFetchFilterNodeContents, { PlatformAggregate, SubtypeAggregate } from './useFetchFilterNodeContents';
+import LineageFilterSearch from './LineageFilterSearch';
 
 export const LINEAGE_FILTER_NODE_NAME = 'lineage-filter';
 
@@ -74,7 +75,7 @@ const PillColumn = styled.div`
 
 export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
     const { id, data } = props;
-    const { parent, direction, contents, shown, allChildren, numShown, limit } = data;
+    const { parent, direction, shown, allChildren, numShown } = data;
 
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const { showGhostEntities, rootType } = useContext(LineageNodesContext);
@@ -84,7 +85,10 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
         showGhostEntities && ignoreSchemaFieldStatus && rootType === EntityType.SchemaField,
     );
 
-    useAvoidIntersectionsOften(id, 52);
+    // If a user has searched, result list may be limited to the number of matches
+    const [numMatches, setNumMatches] = useState<number>(0);
+
+    useAvoidIntersectionsOften(id, numMatches ? 133 : 117);
 
     const numerator = numShown ?? shown.size;
     const denominator = showGhostEntities ? allChildren.size : total ?? allChildren.size;
@@ -103,8 +107,9 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
                     </TitleCount>{' '}
                     shown
                 </Title>
-                {limit < contents.length && <ShowMoreButton id={id} data={data} />}
+                <ShowMoreButton data={data} numMatches={numMatches} />
             </TitleWrapper>
+            <LineageFilterSearch data={data} numMatches={numMatches} setNumMatches={setNumMatches} />
             <PillsWrapper>
                 <PillColumn>
                     {platforms?.map((agg, index) => (

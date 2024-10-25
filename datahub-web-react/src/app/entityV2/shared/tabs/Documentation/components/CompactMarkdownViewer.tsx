@@ -30,21 +30,17 @@ const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
     `}
 `;
 
-const EllipsisWrapper = styled.span`
-    font-size: 150%;
-    line-height: 0.5em;
-`;
-
 const CustomButton = styled(Button)`
     padding: 0;
     color: ${REDESIGN_COLORS.ACTION_ICON_GREY};
 `;
 
-const MarkdownViewContainer = styled.div`
+const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
     display: block;
     overflow-wrap: break-word;
     word-wrap: break-word;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: ${(props) => (props.scrollableY ? 'auto' : 'hidden')};
 `;
 
 const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React.CSSProperties }>`
@@ -100,6 +96,7 @@ export type Props = {
     fixedLineHeight?: boolean;
     isShowMoreEnabled?: boolean;
     customStyle?: React.CSSProperties;
+    scrollableY?: boolean; // Whether the viewer is vertically scrollable.
     handleShowMore?: () => void;
 };
 
@@ -109,6 +106,7 @@ export default function CompactMarkdownViewer({
     fixedLineHeight = false,
     isShowMoreEnabled = false,
     customStyle = {},
+    scrollableY = true,
     handleShowMore,
 }: Props) {
     const [isShowingMore, setIsShowingMore] = useState(false);
@@ -136,7 +134,7 @@ export default function CompactMarkdownViewer({
 
     return (
         <MarkdownContainer lineLimit={lineLimit}>
-            <MarkdownViewContainer ref={measuredRef}>
+            <MarkdownViewContainer scrollableY={scrollableY} ref={measuredRef}>
                 <StyledEditor
                     customStyle={customStyle}
                     limit={isShowingMore ? null : lineLimit}
@@ -146,7 +144,6 @@ export default function CompactMarkdownViewer({
             </MarkdownViewContainer>
             {(isShowingMore || isTruncated) && ( // "show more" when isTruncated, "show less" when isShowingMore
                 <ShowMoreWrapper>
-                    {isTruncated && <EllipsisWrapper>...</EllipsisWrapper>}
                     <CustomButton
                         type="link"
                         onClick={() => (handleShowMore ? handleShowMore() : setIsShowingMore(!isShowingMore))}

@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.FeatureFlagsConfig;
 import com.linkedin.datahub.graphql.generated.IdentityManagementConfig;
 import com.linkedin.datahub.graphql.generated.LineageConfig;
 import com.linkedin.datahub.graphql.generated.ManagedIngestionConfig;
+import com.linkedin.datahub.graphql.generated.MixpanelConfig;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.QueriesTabConfig;
@@ -191,6 +192,14 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final TelemetryConfig telemetryConfig = new TelemetryConfig();
     telemetryConfig.setEnableThirdPartyLogging(_telemetryConfiguration.isEnableThirdPartyLogging());
     telemetryConfig.setUserTrackingEnabled(_telemetryConfiguration.isUserTrackingEnabled());
+    telemetryConfig.setMixpanel(
+        new MixpanelConfig(
+            _telemetryConfiguration.getMixpanel().isEnabled(),
+            _telemetryConfiguration.getMixpanel().getToken()));
+    telemetryConfig.setGoogleAnalytics(
+        new com.linkedin.datahub.graphql.generated.GoogleAnalyticsConfig(
+            _telemetryConfiguration.getGoogleAnalytics().isEnabled(),
+            _telemetryConfiguration.getGoogleAnalytics().getMeasurementId()));
     appConfig.setTelemetryConfig(telemetryConfig);
 
     final TestsConfig testsConfig = new TestsConfig();
@@ -350,6 +359,14 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .getResourceType()
         .equals(resourceType)) {
       return EntityType.BUSINESS_ATTRIBUTE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ML_MODEL_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.MLMODEL;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ML_FEATURE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.MLFEATURE;
     } else {
       return null;
     }

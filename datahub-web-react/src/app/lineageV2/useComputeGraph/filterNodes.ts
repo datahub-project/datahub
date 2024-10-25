@@ -98,7 +98,7 @@ function connectEdges(rootUrn: string, { nodes, edges, adjacencyList }: ContextS
                 addToAdjacencyList(newAdjacencyList, direction, id, neighbor);
                 const edgeId = getEdgeId(id, neighbor, direction);
                 // isDisplayed always true -- only set to false right now to deduplicate edges through dbt
-                newEdges.set(edgeId, { isManual: false, ...edges.get(edgeId), via: undefined, isDisplayed: true });
+                newEdges.set(edgeId, { ...edges.get(edgeId), via: undefined, isDisplayed: true });
                 buildNewAdjacencyList(neighbor, direction);
             } else {
                 buildNewAdjacencyList(neighbor, direction)?.forEach((child) => {

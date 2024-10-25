@@ -1,6 +1,5 @@
 import React from 'react';
 import styled from 'styled-components';
-import DomainIcon from '../DomainIcon';
 
 const Wrapper = styled.span`
     display: inline-flex;
@@ -10,10 +9,5 @@ const Wrapper = styled.span`
 `;
 
 export default function DomainsTitle() {
-    return (
-        <Wrapper>
-            <DomainIcon />
-            Domains
-        </Wrapper>
-    );
+    return <Wrapper>Domains</Wrapper>;
 }

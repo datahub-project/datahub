@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import {
     Container,
@@ -16,7 +17,6 @@ import {
     ParentContainersResult,
     SearchInsight,
     BrowsePathV2,
-    Dataset,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -29,10 +29,10 @@ import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
     urn,
+    data,
     name,
     origin,
     description,
-    searchEntity,
     platformName,
     platformLogo,
     platformNames,
@@ -64,10 +64,10 @@ export const Preview = ({
     browsePaths,
 }: {
     urn: string;
+    data: GenericEntityProperties | null;
     name: string;
     origin: FabricType;
     description?: string | null;
-    searchEntity?: Dataset | null;
     platformName?: string;
     platformLogo?: string | null;
     platformNames?: (Maybe<string> | undefined)[];
@@ -106,8 +106,8 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.Dataset, urn)}
             name={name || ''}
             urn={urn}
+            data={data}
             description={description || ''}
-            searchEntity={searchEntity}
             entityType={EntityType.Dataset}
             type={subtype}
             logoUrl={platformLogo || ''}

@@ -36,8 +36,7 @@ function PlatformHeaderIcons(props: Props) {
         <PlatformContentWrapper>
             {platform && (
                 <LogoIcon>
-                    {!platform && !platforms}
-                    {!!platform && !platforms && <PlatformIcon platform={platform} size={size} styles={iconStyles} />}
+                    {!platforms && <PlatformIcon platform={platform} size={size} styles={iconStyles} />}
                     {!!platforms && <StackPlatformImages platforms={platforms} />}
                 </LogoIcon>
             )}

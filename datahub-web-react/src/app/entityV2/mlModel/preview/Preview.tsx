@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import { EntityPath, EntityType, MlModel } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
@@ -8,6 +9,7 @@ import { getDataProduct } from '../../shared/utils';
 import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
+    data,
     model,
     degree,
     paths,
@@ -15,6 +17,7 @@ export const Preview = ({
     headerDropdownItems,
     previewType,
 }: {
+    data: GenericEntityProperties | null;
     model: MlModel;
     degree?: number;
     paths?: EntityPath[];
@@ -30,6 +33,7 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.Mlmodel, model.urn)}
             name={model.name || ''}
             urn={model.urn}
+            data={data}
             description={model.description || ''}
             platformInstanceId={model.dataPlatformInstance?.instanceId}
             entityType={EntityType.Mlmodel}

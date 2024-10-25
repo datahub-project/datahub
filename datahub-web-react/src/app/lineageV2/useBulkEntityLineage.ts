@@ -15,11 +15,10 @@ import {
     LineageEntity,
     LineageNodesContext,
     NodeContext,
-    setDefault,
     useIgnoreSchemaFieldStatus,
 } from './common';
 import { FetchedEntityV2Relationship } from './types';
-import { addQueryNodes, entityNodeDefault, pruneDuplicateEdges } from './useSearchAcrossLineage';
+import { addQueryNodes, pruneDuplicateEdges, setEntityNodeDefault } from './useSearchAcrossLineage';
 
 const BATCH_SIZE = 10;
 
@@ -157,11 +156,7 @@ function processEdge(
         if (node.fetchStatus[direction] !== FetchStatus.UNNEEDED) {
             // Add nodes that should be in the graph
             // TODO: Bust search across lineage cache?
-            setDefault(
-                nodes,
-                relationship.urn,
-                entityNodeDefault(relationship.urn, relationship.entity.type, direction),
-            );
+            setEntityNodeDefault(relationship.urn, relationship.entity.type, direction, nodes);
         }
 
         if (nodes.has(relationship.urn)) {
@@ -186,7 +181,7 @@ function makeLineageEdge({
     return {
         created: createdOn ? { timestamp: createdOn, actor: createdActor ?? undefined } : undefined,
         updated: updatedOn ? { timestamp: updatedOn, actor: updatedActor ?? undefined } : undefined,
-        isManual: isManual ?? false,
+        isManual: isManual ?? undefined,
         isDisplayed: true,
     };
 }

@@ -29,5 +29,8 @@ query getMLFeature($urn: String!) {
         tagProposals: proposals(type: TAG_ASSOCIATION) {
             ...proposalsFragment
         }
+        activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+            total
+        }
     }
 }

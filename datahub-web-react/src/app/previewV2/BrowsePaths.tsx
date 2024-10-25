@@ -60,7 +60,6 @@ const ParentNodesWrapper = styled.div`
 `;
 
 interface Props {
-    // eslint-disable-next-line react/no-unused-prop-types
     previewType?: Maybe<PreviewType>;
     browsePaths?: Maybe<BrowsePathV2> | undefined;
     contentRef: React.RefObject<HTMLDivElement>;
@@ -77,7 +76,7 @@ const BrowsePathSection = ({ path }: { path: BrowsePathEntry }) => {
 function BrowsePaths(props: Props) {
     const { previewType, browsePaths, contentRef, isContentTruncated } = props;
 
-    const parentPath = browsePaths?.path && browsePaths.path[0];
+    const parentPath = browsePaths?.path?.[0];
     const remainingParentPaths = browsePaths?.path && browsePaths.path.slice(1, browsePaths.path.length);
 
     return (

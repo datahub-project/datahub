@@ -16,7 +16,7 @@ import com.linkedin.common.Urn
 record AssertionRunEvent {
 
   /**
-   * The event timestamp field as epoch at UTC in milli seconds.
+   * The event timestamp field as epoch at UTC in milliseconds.
    */
   @Searchable = {
     "fieldName": "lastCompletedTime",

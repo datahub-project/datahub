@@ -19,11 +19,12 @@ export function Pill({
     colorScheme,
     variant = pillDefault.variant,
     clickable = pillDefault.clickable,
+    id,
     onClickRightIcon,
     onClickLeftIcon,
 }: PillProps) {
     return (
-        <PillContainer variant={variant} colorScheme={colorScheme} size={size} clickable={clickable}>
+        <PillContainer variant={variant} colorScheme={colorScheme} size={size} clickable={clickable} id={id}>
             {leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />}
             {label}
             {rightIcon && <Icon icon={rightIcon} size={size} onClick={onClickRightIcon} />}

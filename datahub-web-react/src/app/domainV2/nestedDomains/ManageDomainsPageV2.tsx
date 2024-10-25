@@ -1,7 +1,6 @@
 import { useApolloClient } from '@apollo/client';
-import { Button } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
 import React, { useEffect, useState } from 'react';
+import { Button } from '@src/alchemy-components';
 import styled from 'styled-components/macro';
 import DomainsTitle from './DomainsTitle';
 import RootDomains from './RootDomains';
@@ -45,12 +44,12 @@ export default function ManageDomainsPageV2() {
             <Header>
                 <DomainsTitle />
                 <Button
-                    type="primary"
                     id={DOMAINS_CREATE_DOMAIN_ID}
                     onClick={() => setIsCreatingDomain(true)}
                     data-testid="domains-new-domain-button"
+                    icon="Add"
                 >
-                    <PlusOutlined /> New Domain
+                    Create
                 </Button>
             </Header>
             <RootDomains setIsCreatingDomain={setIsCreatingDomain} />

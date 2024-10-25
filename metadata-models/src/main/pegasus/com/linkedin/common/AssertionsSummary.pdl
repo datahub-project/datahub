@@ -89,4 +89,35 @@ record AssertionsSummary {
       }
     }
     failingAssertionDetails: array[AssertionSummaryDetails] = []
+
+    /**
+    * Summary details about the set of erroring assertions
+    */
+    @Searchable = {
+      "/*/urn" : {
+        "fieldType": "URN",
+        "fieldName": "erroringAssertions",
+        "hasValuesFieldName": "hasErroringAssertions",
+        "numValuesFieldName": "numErroringAssertions",
+        "addHasValuesToFilters": true
+      },
+      "/*/type" : {
+        "fieldType": "KEYWORD",
+        "fieldName": "erroringAssertionType"
+      },
+      "/*/lastResultAt" : {
+       "fieldType": "DATETIME",
+       "fieldName": "erroringAssertionResultTimes"
+      },
+      "/*/source" : {
+        "fieldName": "erroringAssertionSources"
+      }
+    }
+    @Relationship = {
+      "/*/urn" : {
+        "name": "ErroringAssertions",
+        "entityTypes": [ "assertion" ]
+      }
+    }
+    erroringAssertionDetails: array[AssertionSummaryDetails] = []
 }

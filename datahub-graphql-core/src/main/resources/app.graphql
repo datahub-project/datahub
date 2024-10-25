@@ -391,6 +391,40 @@ type TelemetryConfig {
   Env variable for whether or not user tracking is enabled in the product (using external tool like hotjar)
   """
   userTrackingEnabled: Boolean
+
+  """
+  Mixpanel-specific configurations
+  """
+  mixpanel: MixpanelConfig
+
+  """
+  Google Analytics-specific Configurations
+  """
+  googleAnalytics: GoogleAnalyticsConfig
+}
+
+type MixpanelConfig {
+  """
+  Whether Mixpanel tracking is enabled
+  """
+  enabled: Boolean
+
+  """
+  The Mixpanel project token
+  """
+  token: String
+}
+
+type GoogleAnalyticsConfig {
+  """
+  Whether Google Analytics tracking is enabled
+  """
+  enabled: Boolean
+
+  """
+  The Google Analytics measurement ID
+  """
+  measurementId: String
 }
 
 """

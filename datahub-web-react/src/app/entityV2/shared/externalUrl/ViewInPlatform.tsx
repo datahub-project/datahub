@@ -1,12 +1,11 @@
 import { EntityActionType, EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import LaunchIcon from '@mui/icons-material/Launch';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { Dataset, EntityType } from '@types';
 import React from 'react';
 import styled from 'styled-components';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { getSiblings } from '../tabs/Dataset/Validations/acrylUtils';
 import { getExternalUrlDisplayName } from '../utils';
 
@@ -31,7 +30,7 @@ const IconWrapper = styled.span`
 
 const Links = styled.div`
     display: flex;
-    justify-content: center;
+    justify-content: end;
     gap: 10px;
     flex-wrap: wrap;
 `;
@@ -39,35 +38,31 @@ const Links = styled.div`
 const MAX_VISIBILE_ACTIONS = 2;
 
 interface Props {
+    data: GenericEntityProperties | null;
     className?: string;
-    searchEntity?: Dataset | null;
     hideSiblingActions?: boolean;
     urn: string;
 }
 
-export default function ViewInPlatform({ urn, className, searchEntity, hideSiblingActions = false }: Props) {
-    const { entityData, entityType } = useEntityData();
-    const entity = searchEntity || entityData;
-    const externalUrl = entity?.properties?.externalUrl;
-
-    if (!entity) return null;
+export default function ViewInPlatform({ urn, className, data, hideSiblingActions }: Props) {
+    const separateSiblings = useIsSeparateSiblingsMode();
+    if (!data) return null;
 
     function sendAnalytics() {
         analytics.event({
             type: EventType.EntityActionEvent,
             actionType: EntityActionType.ClickExternalUrl,
             entityUrn: urn,
-            entityType: entityType ?? undefined,
+            entityType: data?.type ?? undefined,
         });
     }
-
-    const parentPlatformName = getExternalUrlDisplayName(entity as GenericEntityProperties);
-
+    const externalUrl = data?.properties?.externalUrl;
+    const parentPlatformName = getExternalUrlDisplayName(data);
     const defaultAction = externalUrl ? [{ displayName: parentPlatformName || 'source', url: externalUrl }] : [];
 
     let visibleActions: any = [...defaultAction];
-    if (entityType === EntityType.Dataset && !hideSiblingActions) {
-        const siblings = getSiblings(entity as GenericEntityProperties);
+    if (!(hideSiblingActions ?? separateSiblings)) {
+        const siblings = getSiblings(data);
         if (siblings && siblings.length) {
             const siblingActions: any = siblings
                 .map((sibling) => {

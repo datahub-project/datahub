@@ -1,27 +1,22 @@
 import * as QueryString from 'query-string';
 import { RouteComponentProps } from 'react-router-dom';
 
-export const navigateToVersionedDatasetUrl = ({
-    location,
-    history,
-    datasetVersion,
-}: {
+interface Args {
     location: {
         search: string;
         pathname: string;
     };
     history: RouteComponentProps['history'];
-    datasetVersion: string;
-}) => {
+    urlParam: string;
+    value: string;
+}
+
+export default function navigateToUrl({ location, history, urlParam, value }: Args) {
     const parsedSearch = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const newSearch = {
-        ...parsedSearch,
-        semantic_version: datasetVersion,
-    };
-    const newSearchStringified = QueryString.stringify(newSearch, { arrayFormat: 'comma' });
+    const newSearch = { ...parsedSearch, [urlParam]: value };
 
     history.push({
         pathname: location.pathname,
-        search: newSearchStringified,
+        search: QueryString.stringify(newSearch, { arrayFormat: 'comma' }),
     });
-};
+}

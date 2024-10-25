@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import { BookOutlined } from '@ant-design/icons';
 import { Deprecation, Domain, EntityType, Owner, ParentNodesResult } from '../../../../types.generated';
@@ -11,6 +12,7 @@ import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 export const Preview = ({
     urn,
     name,
+    data,
     description,
     owners,
     deprecation,
@@ -20,6 +22,7 @@ export const Preview = ({
     headerDropdownItems,
 }: {
     urn: string;
+    data: GenericEntityProperties | null;
     name: string;
     description?: string | null;
     owners?: Array<Owner> | null;
@@ -36,6 +39,7 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn)}
             name={name || ''}
             urn={urn}
+            data={data}
             description={description || ''}
             owners={owners}
             logoComponent={<BookOutlined style={{ fontSize: '20px' }} />}

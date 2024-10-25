@@ -60,7 +60,12 @@ export const CompactEntityNameList = ({
                 const url = entityRegistry.getEntityUrl(entity.type, entity.urn, linkUrlParams);
                 return (
                     <NameWrapper addMargin={showArrow}>
-                        <HoverEntityTooltip entity={entity} canOpen={showTooltips} placement={placement}>
+                        <HoverEntityTooltip
+                            entity={entity}
+                            canOpen={showTooltips}
+                            placement={placement}
+                            showArrow={false}
+                        >
                             <EntityPreviewTag
                                 displayName={displayName}
                                 url={url}

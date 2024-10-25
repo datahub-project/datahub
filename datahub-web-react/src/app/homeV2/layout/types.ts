@@ -1,6 +1,7 @@
 export interface NavMenuItem {
     icon?: React.FunctionComponent<React.SVGProps<SVGSVGElement> & { title?: string }>;
     title: string;
+    showNewTag?: boolean;
     description: string;
     link?: string | null;
     subMenu?: NavSubMenu;
@@ -12,6 +13,7 @@ export interface NavMenuItem {
 
 export interface NavSubMenuItem {
     title: string;
+    showNewTag?: boolean;
     description: string;
     link?: string | null;
     isHidden?: boolean;

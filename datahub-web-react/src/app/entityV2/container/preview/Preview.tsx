@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import {
     Container,
@@ -22,6 +23,7 @@ import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
     urn,
+    data,
     name,
     platformName,
     platformLogo,
@@ -47,6 +49,7 @@ export const Preview = ({
     browsePaths,
 }: {
     urn: string;
+    data: GenericEntityProperties | null;
     name: string;
     platformName?: string;
     platformLogo?: string | null;
@@ -77,6 +80,7 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.Container, urn)}
             name={name || ''}
             urn={urn}
+            data={data}
             platform={platformName}
             platformInstanceId={platformInstanceId}
             description={description || ''}

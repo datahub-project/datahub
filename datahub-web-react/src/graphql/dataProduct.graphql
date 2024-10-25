@@ -32,6 +32,7 @@ query getDataProductsList($input: SearchAcrossEntitiesInput!) {
                     type
                     properties {
                         name
+                        description
                         numAssets
                     }
                     domain {

@@ -1,3 +1,4 @@
+import { Pill } from '@src/alchemy-components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -5,13 +6,38 @@ import { NavMenuItem } from './types';
 
 const OptionContainer = styled.div``;
 
+const LinkTitle = styled.span`
+    display: block;
+    color: #fff;
+    font: 700 12px/20px Mulish;
+    white-space: break-spaces;
+`;
+
+const TitleWrapper = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
+const DescriptionWrapper = styled.span`
+    display: block;
+    color: #fff;
+    white-space: break-spaces;
+
+    display: block;
+    font: 600 10px/12px Mulish;
+`;
+
+const PillWrapper = styled.span`
+    margin: 4px 0 4px 6px;
+`;
+
 interface Props {
     menuItem: NavMenuItem;
     key: string;
 }
 
 const CustomNavLink: React.FC<Props> = ({
-    menuItem: { title, description, link, target, rel, isHidden, onClick },
+    menuItem: { title, showNewTag, description, link, target, rel, isHidden, onClick },
     key,
 }) => {
     if (isHidden) {
@@ -19,14 +45,16 @@ const CustomNavLink: React.FC<Props> = ({
     }
 
     if (link === null) {
-        return <div key={key}>{title}</div>;
+        return <LinkTitle key={key}>{title}</LinkTitle>;
     }
 
     if (onClick) {
         return (
             <OptionContainer onClick={onClick} key={key}>
-                {title}
-                {description && <span>{description}</span>}
+                <TitleWrapper>
+                    <LinkTitle>{title}</LinkTitle>
+                </TitleWrapper>
+                {description && <DescriptionWrapper>{description}</DescriptionWrapper>}
             </OptionContainer>
         );
     }
@@ -46,8 +74,15 @@ const CustomNavLink: React.FC<Props> = ({
 
     return (
         <LinkComponent {...linkProps}>
-            {title}
-            {description && <span>{description}</span>}
+            <TitleWrapper>
+                <LinkTitle>{title}</LinkTitle>
+                {showNewTag && (
+                    <PillWrapper>
+                        <Pill label="New" size="xs" clickable={false} colorScheme="blue" />
+                    </PillWrapper>
+                )}
+            </TitleWrapper>
+            {description && <DescriptionWrapper>{description}</DescriptionWrapper>}
         </LinkComponent>
     );
 };

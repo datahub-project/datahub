@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import {
     AccessLevel,
@@ -25,6 +26,7 @@ import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const ChartPreview = ({
     urn,
+    data,
     name,
     description,
     platform,
@@ -54,6 +56,7 @@ export const ChartPreview = ({
     browsePaths,
 }: {
     urn: string;
+    data: GenericEntityProperties | null;
     platform?: string;
     platformInstanceId?: string;
     name?: string;
@@ -90,6 +93,7 @@ export const ChartPreview = ({
             url={entityRegistry.getEntityUrl(EntityType.Chart, urn)}
             name={name || ''}
             urn={urn}
+            data={data}
             description={description || ''}
             entityType={EntityType.Chart}
             type={subType}

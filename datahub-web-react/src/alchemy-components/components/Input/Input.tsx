@@ -1,3 +1,4 @@
+import { Tooltip } from 'antd';
 import React from 'react';
 
 import { InputProps } from './types';
@@ -20,6 +21,7 @@ export const inputDefaults: InputProps = {
     isReadOnly: false,
     isPassword: false,
     isRequired: false,
+    errorOnHover: false,
     type: 'text',
 };
 
@@ -37,6 +39,7 @@ export const Input = ({
     isReadOnly = inputDefaults.isReadOnly,
     isPassword = inputDefaults.isPassword,
     isRequired = inputDefaults.isRequired,
+    errorOnHover = inputDefaults.errorOnHover,
     type = inputDefaults.type,
     id,
     ...props
@@ -61,9 +64,11 @@ export const Input = ({
 
     return (
         <InputWrapper {...props}>
-            <Label aria-label={label}>
-                {label} {isRequired && <Required>*</Required>}
-            </Label>
+            {label && (
+                <Label aria-label={label}>
+                    {label} {isRequired && <Required>*</Required>}
+                </Label>
+            )}
             <InputContainer {...inputBaseProps}>
                 {icon && <Icon icon={icon} size="lg" />}
                 <InputField
@@ -77,15 +82,15 @@ export const Input = ({
                     id={id}
                 />
                 {!isPassword && (
-                    <>
+                    <Tooltip title={errorOnHover ? error : ''} showArrow={false}>
                         {invalid && <Icon icon="WarningAmber" color="red" size="lg" />}
                         {isSuccess && <Icon icon="CheckCircle" color="green" size="lg" />}
                         {warning && <Icon icon="ErrorOutline" color="yellow" size="lg" />}
-                    </>
+                    </Tooltip>
                 )}
                 {isPassword && <Icon onClick={() => setShowPassword(!showPassword)} icon={passwordIcon} size="lg" />}
             </InputContainer>
-            {invalid && error && <ErrorMessage>{error}</ErrorMessage>}
+            {invalid && error && !errorOnHover && <ErrorMessage>{error}</ErrorMessage>}
             {warning && <WarningMessage>{warning}</WarningMessage>}
         </InputWrapper>
     );

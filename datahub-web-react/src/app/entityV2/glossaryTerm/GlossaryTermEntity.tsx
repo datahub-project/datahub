@@ -198,8 +198,10 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     };
 
     renderPreview = (previewType: PreviewType, data: GlossaryTerm) => {
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
+                data={genericProperties}
                 previewType={previewType}
                 urn={data?.urn}
                 parentNodes={data.parentNodes}

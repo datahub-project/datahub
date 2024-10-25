@@ -97,6 +97,7 @@ const getPillFontStyles = (size) => {
     };
 
     const sizeMap = {
+        xs: { fontSize: getFontSize(size), lineHeight: '16px' },
         sm: { fontSize: getFontSize(size), lineHeight: '22px' },
         md: { fontSize: getFontSize(size), lineHeight: '24px' },
         lg: { fontSize: getFontSize(size), lineHeight: '30px' },

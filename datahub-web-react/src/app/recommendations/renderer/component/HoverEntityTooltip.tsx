@@ -4,7 +4,6 @@ import React from 'react';
 import { Entity } from '../../../../types.generated';
 import { PreviewType } from '../../../entity/Entity';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useEmbeddedProfileLinkProps } from '../../../shared/useEmbeddedProfileLinkProps';
 
 type Props = {
     entity?: Entity;
@@ -22,18 +21,16 @@ export const HoverEntityTooltip = ({
     canOpen = true,
     children,
     placement,
-    showArrow,
+    showArrow = false,
     width = 360,
     maxWidth = 450,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const linkProps = useEmbeddedProfileLinkProps();
 
     if (!entity || !entity.type || !entity.urn) {
         return <>{children}</>;
     }
 
-    const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
     return (
         <Tooltip
             showArrow={showArrow}
@@ -41,12 +38,8 @@ export const HoverEntityTooltip = ({
             color="white"
             placement={placement || 'bottom'}
             overlayStyle={{ minWidth: width, maxWidth }}
-            overlayInnerStyle={{ padding: 20, borderRadius: 20, overflow: 'hidden', position: 'relative' }}
-            title={
-                <a href={url} {...linkProps}>
-                    {entityRegistry.renderPreview(entity.type, PreviewType.HOVER_CARD, entity)}
-                </a>
-            }
+            overlayInnerStyle={{ padding: 20, borderRadius: 12, overflow: 'hidden', position: 'relative' }}
+            title={entityRegistry.renderPreview(entity.type, PreviewType.HOVER_CARD, entity)}
             zIndex={1000}
         >
             {children}

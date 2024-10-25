@@ -65,7 +65,7 @@ const SubMenu = styled.div`
     position: absolute;
     top: 3px;
     left: 50px;
-    width: 200px;
+    width: 220px;
     padding-left: 10px;
 `;
 
@@ -75,10 +75,6 @@ const SubMenuContent = styled.div`
     background: rgba(92, 63, 209, 0.95);
     box-shadow: 0px 8px 8px 4px rgba(0, 0, 0, 0.25);
     padding: 8px;
-
-    & a,
-    div {
-    }
 `;
 
 const SubMenuTitle = styled.div`
@@ -90,22 +86,11 @@ const SubMenuTitle = styled.div`
 `;
 
 const SubMenuLink = styled.div`
-    & a,
-    div {
-        display: block;
-        border-radius: 12px;
-        color: #fff;
-        font: 700 12px/20px Mulish;
-        padding: 4px 12px 12px 12px;
-        white-space: break-spaces;
+    border-radius: 12px;
+    padding: 4px 12px 12px 12px;
 
-        & span {
-            display: block;
-            font: 600 10px/12px Mulish;
-        }
-        &:hover {
-            background-color: #4b39bc;
-        }
+    &:hover {
+        background-color: #4b39bc;
     }
 `;
 
@@ -171,7 +156,7 @@ export function NavLinksMenu(props: Props) {
     const menuItems: Array<NavMenuItem> = [
         {
             icon: InboxMenuIcon,
-            title: 'Inbox',
+            title: 'Tasks',
             description: 'Review and approve metadata proposals',
             link: PageRoutes.ACTION_REQUESTS,
             isHidden: !showActionRequests,
@@ -219,12 +204,14 @@ export function NavLinksMenu(props: Props) {
                     },
                     {
                         title: 'Compliance Forms',
+                        showNewTag: true,
                         description: 'Manage compliance initiatives for your data assets',
                         link: PageRoutes.GOVERN_DASHBOARD,
                         isHidden: !showDocumentationCenter,
                     },
                     {
                         title: 'Structured Properties',
+                        showNewTag: true,
                         description: `Manage custom properties for your data assets`,
                         link: PageRoutes.STRUCTURED_PROPERTIES,
                         isHidden: !showStructuredProperties,
@@ -343,6 +330,7 @@ export function NavLinksMenu(props: Props) {
                             <SubMenuContent>
                                 <SubMenuTitle>{menuItem.title}</SubMenuTitle>
                                 {menuItem.subMenu?.items.map((subMenuItem) => {
+                                    if (subMenuItem.isHidden) return null;
                                     return (
                                         <SubMenuLink>
                                             <CustomNavLink

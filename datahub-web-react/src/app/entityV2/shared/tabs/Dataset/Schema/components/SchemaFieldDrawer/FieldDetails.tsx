@@ -1,3 +1,4 @@
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import React, { useState } from 'react';
 import { Button, Typography } from 'antd';
 import styled from 'styled-components';
@@ -56,6 +57,7 @@ type FieldDetailsProps = {
 };
 
 export const FieldDetails = ({ fieldPath, usageStats, refetch }: FieldDetailsProps) => {
+    const isSchemaEditable = React.useContext(SchemaEditableContext);
     const [isPostModalVisible, setIsPostModalVisible] = useState(false);
 
     const datasetUrn = useMutationUrn();
@@ -84,20 +86,22 @@ export const FieldDetails = ({ fieldPath, usageStats, refetch }: FieldDetailsPro
                 </PopularityContainer>
                 <NotesWrapper>
                     <DetailLabel>Notes</DetailLabel>
-                    <Button
-                        type="text"
-                        style={{
-                            width: 70,
-                            padding: 0,
-                            marginTop: -8,
-                            color: REDESIGN_COLORS.LINK_GREY,
-                        }}
-                        onClick={() => {
-                            setIsPostModalVisible(true);
-                        }}
-                    >
-                        + Add Note
-                    </Button>
+                    {isSchemaEditable && (
+                        <Button
+                            type="text"
+                            style={{
+                                width: 70,
+                                padding: 0,
+                                marginTop: -8,
+                                color: REDESIGN_COLORS.LINK_GREY,
+                            }}
+                            onClick={() => {
+                                setIsPostModalVisible(true);
+                            }}
+                        >
+                            + Add Note
+                        </Button>
+                    )}
                 </NotesWrapper>
             </FieldDetailsContent>
         </FieldDetailsWrapper>

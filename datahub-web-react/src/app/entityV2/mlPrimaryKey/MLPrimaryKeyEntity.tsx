@@ -161,6 +161,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.name || ''}
                 featureNamespace={data.featureNamespace || ''}
                 description={data.description}
@@ -180,6 +181,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.name || ''}
                 featureNamespace={data.featureNamespace || ''}
                 description={data.description || ''}

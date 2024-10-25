@@ -57,18 +57,22 @@ export class TagEntity implements Entity<Tag> {
 
     renderProfile: (urn: string) => JSX.Element = (urn) => <TagProfile urn={urn} />;
 
-    renderPreview = (previewType: PreviewType, data: Tag) => (
-        <DefaultPreviewCard
-            description={data.description || ''}
-            name={this.displayName(data)}
-            urn={data.urn}
-            url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
-            logoComponent={<PreviewTagIcon />}
-            entityType={EntityType.Tag}
-            typeIcon={this.icon(14, IconStyleType.ACCENT)}
-            previewType={previewType}
-        />
-    );
+    renderPreview = (previewType: PreviewType, data: Tag) => {
+        const genericProperties = this.getGenericEntityProperties(data);
+        return (
+            <DefaultPreviewCard
+                data={genericProperties}
+                description={data.description || ''}
+                name={this.displayName(data)}
+                urn={data.urn}
+                url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
+                logoComponent={<PreviewTagIcon />}
+                entityType={EntityType.Tag}
+                typeIcon={this.icon(14, IconStyleType.ACCENT)}
+                previewType={previewType}
+            />
+        );
+    };
 
     renderSearch = (result: SearchResult) => {
         return this.renderPreview(PreviewType.SEARCH, result.entity as Tag);

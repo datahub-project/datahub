@@ -375,6 +375,8 @@ entities:
       - status
       - globalTags
       - lineageFeatures
+      - assertionSummary # Acryl-Only (Observe)
+      - assertionAnalyticsRunEvent # Acryl-Only (Observe)
       - assertionDryRunEvent # Acryl-Only (Observe)
       - assertionInferenceDetails # Acryl-Only (Observe)
   - name: dataHubRetention
@@ -426,6 +428,7 @@ entities:
       - origin
       - lineageFeatures
       - documentation
+      - incidentsSummary
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -508,6 +511,7 @@ entities:
       - origin
       - lineageFeatures
       - documentation
+      - incidentsSummary
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey

@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import { EntityType, Owner, GlobalTags, GlossaryTerms, Domain, EntityPath } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
@@ -7,6 +8,7 @@ import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 interface Props {
     urn: string;
+    data: GenericEntityProperties | null;
     name: string;
     description?: string | null;
     owners?: Array<Owner> | null;
@@ -24,6 +26,7 @@ interface Props {
 
 export const Preview = ({
     urn,
+    data,
     name,
     description,
     owners,
@@ -45,6 +48,7 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.DataProduct, urn)}
             name={name || ''}
             urn={urn}
+            data={data}
             description={description || ''}
             entityType={EntityType.DataProduct}
             typeIcon={entityRegistry.getIcon(EntityType.DataProduct, 12, IconStyleType.ACCENT)}

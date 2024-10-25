@@ -19,18 +19,18 @@ const getLabelFromEvent = (event: Event) => {
     }
 };
 
-let wrappedGoogleAnalyticsPlugin;
-if (isEnabled) {
-    const googleAnalyticsPlugin = googleAnalytics({ measurementIds });
+export const getWrappedGAPlugin = (mIds: string[]) => {
+    const googleAnalyticsPlugin = googleAnalytics({ measurementIds: mIds });
     /**
      * Lightweight wrapper on top of the default google analytics plugin
      * to transform DataHub Analytics Events into the Google Analytics event
      * format.
      */
-    wrappedGoogleAnalyticsPlugin = {
+    const wrappedGoogleAnalyticsPlugin = {
         ...googleAnalyticsPlugin,
         track: ({ payload, config, instance }) => {
             const modifiedProperties = {
+                ...(payload.properties || {}),
                 label: getLabelFromEvent(payload.properties as Event),
                 category: 'UserActions',
             };
@@ -45,8 +45,10 @@ if (isEnabled) {
             });
         },
     };
-}
+    return wrappedGoogleAnalyticsPlugin;
+};
+
 export default {
     isEnabled,
-    plugin: isEnabled && wrappedGoogleAnalyticsPlugin,
+    plugin: isEnabled && getWrappedGAPlugin(measurementIds),
 };

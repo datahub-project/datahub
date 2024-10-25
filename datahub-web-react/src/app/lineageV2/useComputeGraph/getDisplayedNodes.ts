@@ -87,7 +87,12 @@ function applyFilters(
     }
 
     const { allChildren, childrenToFilter } = getChildrenToFilter(node, direction, context);
-    let filteredChildren = orderedNodes.filter((n) => childrenToFilter?.has(n.urn));
+    const contents = orderedNodes.filter((n) => childrenToFilter?.has(n.urn));
+    let filteredChildren = contents.slice();
+
+    if (filters?.searchUrns) {
+        filteredChildren = filteredChildren.filter((n) => filters.searchUrns?.has(n.urn));
+    }
 
     filters?.facetFilters?.forEach((values, facet) => {
         if (!values.size) {
@@ -128,7 +133,7 @@ function applyFilters(
                 [LineageDirection.Downstream]: false,
             },
             allChildren,
-            contents: filteredChildren.map((n) => n.urn),
+            contents: contents.map((n) => n.urn),
             shown: new Set(allShownNodes.map((n) => n.urn)),
         };
         result.push(filterNode);

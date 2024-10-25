@@ -16,8 +16,9 @@ export const Text = ({
     size = textDefaults.size,
     weight = textDefaults.weight,
     children,
+    ...props
 }: TextProps) => {
-    const sharedProps = { size, color, weight };
+    const sharedProps = { size, color, weight, ...props };
 
     switch (type) {
         case 'p':

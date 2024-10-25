@@ -1,13 +1,14 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import { SEMANTIC_VERSION_PARAM } from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
+import useSchemaVersioning from '@app/entityV2/shared/tabs/Dataset/Schema/useSchemaVersioning';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { Empty } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useGetSchemaVersionListQuery } from '../../../../../../graphql/schemaBlame.generated';
-import { useGetVersionedDatasetQuery } from '../../../../../../graphql/versionedDataset.generated';
-import { SemanticVersionStruct } from '../../../../../../types.generated';
+import { useBaseEntity, useEntityData } from '../../../../../entity/shared/EntityContext';
 import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import SchemaHeader from '../../../../dataset/profile/schema/components/SchemaHeader';
@@ -15,7 +16,6 @@ import SchemaRawView from '../../../../dataset/profile/schema/components/SchemaR
 import { KEY_SCHEMA_PREFIX } from '../../../../dataset/profile/schema/utils/constants';
 import { groupByFieldPath } from '../../../../dataset/profile/schema/utils/utils';
 import { ANTD_GRAY } from '../../../constants';
-import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import { TabRenderType } from '../../../types';
 import CompactSchemaTable from './CompactSchemaTable';
 import HistorySidebar from './history/HistorySidebar';
@@ -24,10 +24,9 @@ import SchemaTable from './SchemaTable';
 import { useGetEntityWithSchema } from './useGetEntitySchema';
 import { filterSchemaRows, SchemaFilterType } from './utils/filterSchemaRows';
 import getExpandedDrawerFieldPath from './utils/getExpandedDrawerFieldPath';
-import { getSchemaFilterFromQueryString, getMatchedTextFromQueryString } from './utils/queryStringUtils';
 import getSchemaFilterTypesFromUrl from './utils/getSchemaFilterTypesFromUrl';
+import { getMatchedTextFromQueryString, getSchemaFilterFromQueryString } from './utils/queryStringUtils';
 import useUpdateSchemaFilterQueryString from './utils/updateSchemaFilterQueryString';
-import useGetSemanticVersionFromUrlParams from './utils/useGetSemanticVersionFromUrlParams';
 
 const NoSchema = styled(Empty)`
     color: ${ANTD_GRAY[6]};
@@ -56,12 +55,14 @@ const DEFAULT_SCHEMA_FILTER_TYPES = [
 
 export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderType; properties?: any }) => {
     const entityRegistry = useEntityRegistry();
+    const { urn, entityData } = useEntityData();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     // Dynamically load the schema + editable schema information.
     const { entityWithSchema, loading, refetch } = useGetEntityWithSchema();
     let schemaMetadata: any = entityWithSchema?.schemaMetadata || undefined;
     let editableSchemaMetadata: any = entityWithSchema?.editableSchemaMetadata || undefined;
-    const datasetUrn: string = baseEntity?.dataset?.urn || '';
+    const separateSiblings = useIsSeparateSiblingsMode();
+    const siblingUrn = entityData?.siblingsSearch?.searchResults?.[0]?.entity?.urn;
     const usageStats = baseEntity?.dataset?.usageStats;
     const [showRaw, setShowRaw] = useState(false);
     const location = useLocation();
@@ -104,46 +105,27 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
     const [showKeySchema, setShowKeySchema] = useState(false);
     const [showSchemaTimelineView, setShowSchemaTimelineView] = useState(false);
 
-    const { data: getSchemaVersionListData } = useGetSchemaVersionListQuery({
-        skip: !datasetUrn,
-        variables: {
-            input: {
-                datasetUrn,
-            },
-        },
-        fetchPolicy: 'cache-first',
+    // Do not show semantic version (dropdown or in change history drawer) if we are on combined siblings page
+    const hideSemanticVersions = !separateSiblings && !!siblingUrn;
+    const {
+        selectedVersion,
+        versionList,
+        schema: versionedSchema,
+        editableSchemaMetadata: versionedESM,
+        isLatest: isLatestVersion,
+    } = useSchemaVersioning({
+        datasetUrn: urn,
+        urlParam: SEMANTIC_VERSION_PARAM,
+        skip: !urn || hideSemanticVersions,
     });
-    const latestVersion: string = getSchemaVersionListData?.getSchemaVersionList?.latestVersion?.semanticVersion || '';
 
-    const versionList: Array<SemanticVersionStruct> =
-        getSchemaVersionListData?.getSchemaVersionList?.semanticVersionList || [];
-    const version = useGetSemanticVersionFromUrlParams();
-    const selectedVersion = version || latestVersion;
-
-    const selectedSemanticVersionStruct = versionList.find(
-        (semanticVersion) => semanticVersion.semanticVersion === selectedVersion,
-    );
-    const selectedVersionStamp: string = selectedSemanticVersionStruct?.versionStamp || '';
-    const isVersionLatest = selectedVersion === latestVersion;
     let editMode = true;
-    if (!isVersionLatest) {
+    if (!isLatestVersion) {
+        schemaMetadata = versionedSchema;
+        editableSchemaMetadata = versionedESM;
         editMode = false;
     } else if (properties && properties.hasOwnProperty('editMode')) {
         editMode = properties.editMode;
-    }
-
-    const versionedDatasetData = useGetVersionedDatasetQuery({
-        skip: !datasetUrn || !selectedVersionStamp,
-        variables: {
-            urn: datasetUrn,
-            versionStamp: selectedVersionStamp,
-        },
-        fetchPolicy: 'cache-first',
-    });
-
-    if (selectedVersion !== latestVersion) {
-        schemaMetadata = versionedDatasetData?.data?.versionedDataset?.schema || undefined;
-        editableSchemaMetadata = versionedDatasetData?.data?.versionedDataset?.editableSchemaMetadata || undefined;
     }
 
     // if there is no value schema, default the selected schema to Key
@@ -226,12 +208,18 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
 
     return (
         <SchemaContext.Provider value={{ refetch }}>
-            <HistorySidebar open={showSchemaTimelineView} onClose={() => setShowSchemaTimelineView(false)} />
+            <HistorySidebar
+                urn={urn}
+                siblingUrn={siblingUrn}
+                versionList={versionList}
+                hideSemanticVersions={hideSemanticVersions}
+                open={showSchemaTimelineView}
+                onClose={() => setShowSchemaTimelineView(false)}
+            />
             <SchemaHeader
                 // see above hook
                 key={wasSearchReset ? 'key1' : 'key2'}
                 schemaFilter={filterText}
-                editMode={editMode}
                 showRaw={showRaw}
                 setShowRaw={setShowRaw}
                 hasRaw={hasRawSchema}
@@ -250,11 +238,11 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                 highlightedMatchIndex={highlightedMatchIndex}
                 setHighlightedMatchIndex={setHighlightedMatchIndex}
             />
-            {(loading && !schemaMetadata && (
+            {loading && !schemaMetadata ? (
                 <LoadingWrapper>
                     <LoadingOutlined />
                 </LoadingWrapper>
-            )) || (
+            ) : (
                 <SchemaTableContainer>
                     {/* eslint-disable-next-line no-nested-ternary */}
                     {showRaw ? (
@@ -264,24 +252,22 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                             showKeySchema={showKeySchema}
                         />
                     ) : rows && rows.length > 0 ? (
-                        <>
-                            <SchemaEditableContext.Provider value={editMode}>
-                                <SchemaTable
-                                    schemaMetadata={schemaMetadata}
-                                    rows={rows}
-                                    editableSchemaMetadata={editableSchemaMetadata}
-                                    usageStats={usageStats}
-                                    expandedRowsFromFilter={expandedRowsFromFilter}
-                                    filterText={filterText}
-                                    expandedDrawerFieldPath={expandedDrawerFieldPath}
-                                    setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
-                                    openTimelineDrawer={openTimelineDrawer}
-                                    setOpenTimelineDrawer={setOpenTimelineDrawer}
-                                    matches={matches}
-                                    refetch={refetch}
-                                />
-                            </SchemaEditableContext.Provider>
-                        </>
+                        <SchemaEditableContext.Provider value={editMode}>
+                            <SchemaTable
+                                schemaMetadata={schemaMetadata}
+                                rows={rows}
+                                editableSchemaMetadata={editableSchemaMetadata}
+                                usageStats={usageStats}
+                                expandedRowsFromFilter={expandedRowsFromFilter}
+                                filterText={filterText}
+                                expandedDrawerFieldPath={expandedDrawerFieldPath}
+                                setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
+                                openTimelineDrawer={openTimelineDrawer}
+                                setOpenTimelineDrawer={setOpenTimelineDrawer}
+                                matches={matches}
+                                refetch={refetch}
+                            />
+                        </SchemaEditableContext.Provider>
                     ) : (
                         <NoSchema />
                     )}

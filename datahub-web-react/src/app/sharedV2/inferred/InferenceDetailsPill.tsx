@@ -44,7 +44,7 @@ export default function InferenceDetailsPill({ pillStyles }: { pillStyles?: Reac
     );
 
     return (
-        <Popover content={popoverContent}>
+        <Popover showArrow={false} content={popoverContent}>
             <Pill style={pillStyles}>
                 <AISparkle />
                 Generated with AI
