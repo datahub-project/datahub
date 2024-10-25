@@ -129,6 +129,7 @@
 @media (max-width: 768px) {
   .container {
     padding: 4rem 2rem;
+    max-width: 100vw;
   }
   .persona_row {
     display: none !important;

@@ -53,7 +53,7 @@
 
         .itemWrapper {
           display: flex;
-          padding: 68px 0px;
+          padding: 4rem 0px;
           width: 100%;
           align-items: center;
           justify-content: space-between;
@@ -80,16 +80,16 @@
 
           .item__title {
             font-family: Manrope;
-            font-size: 36px;
+            font-size: 2.25rem;
             font-style: normal;
             font-weight: 500;
             line-height: normal;
-            margin-bottom: 16px;
+            margin-bottom: 1rem;
           }
 
           .item__subtitle {
             font-family: Manrope;
-            font-size: 20px;
+            font-size: 1.25rem;
             font-style: normal;
             font-weight: 400;
             line-height: normal;
@@ -115,51 +115,70 @@
     .item, .diagramItem {
       margin: 8px;
     }
+  }
+}
+@media only screen and (max-width: 800px) {
+  .ecosystem_section {
+    padding: 1rem 0;
+    .ecosystem_section_content {
+      width: 90%;
+      min-width: 0;
+      height: auto !important;
+      padding-bottom: 48px;
+      padding-top: 48px;
 
-    @media only screen and (max-width: 800px) {
-      .itemWrapper {
-        display: block !important;
-        align-items: center; 
-        margin: auto;
-
-      }
-
-      .diagramItem {
-        height: auto;
-        min-width: auto;
-        max-width: none;
-        margin: auto;
-      }
-
-      .item {
-        text-align: center; 
-        padding : 1rem;
-        margin: 2rem !important;
-      }
-      
-      .ecosystem_section_content {
-        width: 90%;
-        min-width: 0;
+      .ecosystem_section_upper_content {
         height: auto !important;
-        padding-bottom: 48px;
-        padding-top: 48px;
 
-        .ecosystem_section_upper_content {
-          height: auto !important;
-
-          .ecosystem_section_heading {
-            font-size: 1.75rem;
-            line-height: 2.25rem;
-          }
+        .ecosystem_section_heading {
+          font-size: 1.75rem;
+          line-height: 2.25rem;
+          font-weight: 600;
+          text-align: center;
         }
+      }
 
-        .ecosystem_section_lower_content {
+      .ecosystem_section_lower_content {
+        height: auto;
+        margin-top: 8px;
+
+        .diagramItem {
+          width: 100%;
           height: auto;
-          margin-top: 8px;
+          border: none;
+        }
+        .itemWrappers {
+          .itemWrapper {
+            flex-direction: column-reverse;
+            &.alternate {
+              flex-direction: column;
+            }
+            width: 95vw;
+            padding: 2rem 0;
+            align-items: center; 
+            margin: auto;
+      
+          }
+      
           .diagramItem {
-            width: 100%;
             height: auto;
-            border: none;
+            width: 95vw;
+            aspect-ratio: 1;
+            min-width: auto;
+            margin: auto;
+          }
+      
+          .item {
+            text-align: center; 
+            padding : 1rem;
+            margin: 2rem 0!important;
+      
+            .item__title {
+              font-size: 1.5rem;
+            }
+            .item__subtitle {
+              font-size: 1rem;
+            }
           }
         }
       }

@@ -43,6 +43,12 @@
   width: 100%;
   min-height: 100px;
   min-width: 400px;
+  overflow: hidden;
+}
+@media screen and (max-width: 800px) {
+  .carouselContainer {
+    min-width: auto;
+  }
 }
 
 .slider {
@@ -63,10 +69,6 @@
     z-index: 9;
   }
 
-}
-
-.carouselContainer {
-  overflow: hidden;
 }
 
 .slider {

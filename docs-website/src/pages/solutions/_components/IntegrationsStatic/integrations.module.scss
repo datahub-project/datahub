@@ -95,6 +95,10 @@
 
 
 @media only screen and (max-width: 800px) {
+  .slider {
+    max-width: 100vw;
+    min-width: auto;
+  }
   .slide {
     width: 80px;
     height: 80px;

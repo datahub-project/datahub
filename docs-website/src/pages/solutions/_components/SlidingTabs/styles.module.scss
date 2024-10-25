@@ -141,6 +141,24 @@
 }
 
 @media (max-width: 800px) {
+  .title {
+    font-size: 2.5rem;
+    line-height: 3rem;
+  }
+  .tabButton {
+    .icon {
+      height: 24px;
+      width: 24px;
+    }
+    .tabTitle {
+      font-size: 1rem!important;
+      padding-left: .25rem!important;
+    }
+  }
+  .dropdown {
+    font-size: .9rem!important;
+    line-height: 1.5rem!important;
+  }
 
   .imageContainer {
     display: none !important;

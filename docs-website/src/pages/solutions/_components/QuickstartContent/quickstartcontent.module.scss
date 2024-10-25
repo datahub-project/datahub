@@ -1,6 +1,7 @@
 @media only screen and (max-width: 800px) {
   .quickstart {
     margin: 6rem auto!important;
+    width: 95vw!important;
   }
 }
 .quickstart {
@@ -82,11 +83,12 @@
       }
 
       .quickstart__container {
-        max-width: 90% !important;
+        max-width: 95% !important;
       }
 
       .quickstart__content {
         display: flex;
+        margin: 2rem;
 
         .quickstart__text {
           min-width: 0;
@@ -98,8 +100,11 @@
             padding-left: 0;
           }
           .quickstart__text__head {
-            font-size: 1.4rem;
+            font-size: 1.25rem;
+            font-weight: 400;
+            line-height: 1.75rem;
             margin: 0 !important;
+            padding-right: 1.5rem;
           }
         }
         .quickstart__img {

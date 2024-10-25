@@ -242,8 +242,18 @@
     }
     .trial_right {
       width: 100%;
+      max-width: none;
       height: 500px;
       margin: auto;
+    }
+    .right_content {
+      .right_l, .right_r {
+        div {
+          font-size: .9rem!important;
+          line-height: 1.2rem !important;
+          color: #333!important;
+        }
+      }
     }
   }
 }

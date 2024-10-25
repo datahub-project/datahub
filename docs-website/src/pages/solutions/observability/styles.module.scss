@@ -88,12 +88,16 @@
           }
 
           .testimonials__company {
-            font-size: 1rem;
             display: flex;
             margin: auto 1rem;
+            flex-direction: column;
 
+            .testimonials__company_title {
+              font-size: 1.5rem;
+              margin-bottom: 0;
+            }
             .testimonials__author_title {
-              padding-left: 1rem;
+              padding-left: 0;
             }
           }
 
@@ -284,6 +288,20 @@
 }
 
 @media (max-width: 800px) {
+  .resource {
+    .resource_heading {
+      padding-left: 2rem;
+      font-size: 2rem;
+    }
+
+    .card_row {
+      padding-left: 0;
+
+      .card_row_wrapper {
+        padding: 0 2rem;
+      }
+    }
+  }
   .case_study {
     .case_study_heading {
       text-align: center;
@@ -302,14 +320,6 @@
         font-size: 1.1rem;
         line-height: 1.5rem;
         margin-top: 12px;
-      }
-    }
-
-    .card_row {
-      margin-top: 24px;
-
-      .card_row_wrapper {
-        padding: 0 5vw;
       }
     }
 

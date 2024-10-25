@@ -127,13 +127,14 @@
   // Mobile adjustments
   @media (max-width: 768px) {
     max-height: auto;
-    padding: 2rem;
-    margin: 2rem 1.5rem 6rem 1.5rem;
+    padding: 1.25rem;
+    margin: 1rem .5rem 6rem .5rem;
     border-radius: 24px;
 
     .hero__topQuote {
       font-size: 1rem;
       margin-top: 3vh;
+      text-align: center;
     }
 
     .hero__title {

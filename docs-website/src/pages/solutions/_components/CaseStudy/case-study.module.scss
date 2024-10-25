@@ -135,10 +135,13 @@
     .card_row {
       margin-top: 16px;
       display: flex;
-      justify-content: center;
+      justify-content: flex-start;
 
       .card_row_wrapper {
-        padding: 0 2vw;
+        padding: 0 0;
+        width: 100vh;
+        align-items: flex-start;
+        justify-content: flex-start;
       }
 
       .card {

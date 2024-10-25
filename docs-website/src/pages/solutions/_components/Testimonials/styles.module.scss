@@ -60,12 +60,12 @@
       @media only screen and (max-width: 800px) {
         .testimonials__content {
           width: 100vw;
-          padding: 20px 0;
+          padding: 2rem 0;
           text-align: center;
           
           .testimonials__card {
             flex-direction: column;
-            margin: 2rem 3rem;
+            margin: 2rem 1rem;
   
             .testimonials__logo {
               max-width: 40px;
@@ -74,8 +74,14 @@
   
             .testimonials__text {
               width: 100%;
-              padding-left: 24px;
+              padding-left: 0;
               max-width: 100%;
+              .testimonials__quote_title {
+                font-size: 2.25rem;
+              }
+              .testimonials__quote_description {
+                font-size: 1.5rem;
+              }
               .testimonials__quote {
                 font-size: 1.1rem;
                 line-height: 1.75rem;
