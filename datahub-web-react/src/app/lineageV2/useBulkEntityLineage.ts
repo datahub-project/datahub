@@ -181,7 +181,7 @@ function makeLineageEdge({
     return {
         created: createdOn ? { timestamp: createdOn, actor: createdActor ?? undefined } : undefined,
         updated: updatedOn ? { timestamp: updatedOn, actor: updatedActor ?? undefined } : undefined,
-        isManual: isManual ?? false,
+        isManual: isManual ?? undefined,
         isDisplayed: true,
     };
 }

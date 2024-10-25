@@ -119,9 +119,11 @@ export default function useSearchAcrossLineage(
                 if (isQuery(parent)) {
                     const grandparent = path.path[path.path.length - 3];
                     if (grandparent) {
+                        edges.set(getEdgeId(grandparent.urn, result.entity.urn, direction), { isDisplayed: true });
                         addToAdjacencyList(adjacencyList, direction, grandparent.urn, result.entity.urn);
                     }
                 } else {
+                    edges.set(getEdgeId(parent.urn, result.entity.urn, direction), { isDisplayed: true });
                     addToAdjacencyList(adjacencyList, direction, parent.urn, result.entity.urn);
                 }
 

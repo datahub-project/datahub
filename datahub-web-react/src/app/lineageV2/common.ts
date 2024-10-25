@@ -162,7 +162,7 @@ export interface LineageAuditStamp {
 
 export interface LineageEdge {
     isDisplayed: boolean;
-    isManual: boolean;
+    isManual?: boolean;
     created?: LineageAuditStamp;
     updated?: LineageAuditStamp;
     via?: Urn;
