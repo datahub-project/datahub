@@ -223,6 +223,9 @@ class DremioAPIOperations:
                 self.report.failure("Failed to authenticate", str(e))
                 sleep(1)  # Optional: exponential backoff
 
+        self.report.failure(
+            "Credentials cannot be refreshed. Please check your username and password."
+        )
         raise DremioAPIException(
             "Credentials cannot be refreshed. Please check your username and password."
         )
