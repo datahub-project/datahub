@@ -6,24 +6,25 @@ source:
     port: 9047
     tls: true
 
-    # Credentials with personal access token
+    # Credentials with personal access token(recommended)
     authentication_method: PAT
     password: pass
-
-    # Credentials with basic auth
-    authentication_method: password
-    username: user
-    password: pass
+    # OR Credentials with basic auth
+    # authentication_method: password
+    # username: user
+    # password: pass
 
     include_query_lineage: True
 
+    #Optional
     source_mappings:
       - platform: s3
         platform_name: samples
 
+    #Optional
     schema_pattern:
       allow:
-        - ".*"
+        - "<source_name>.<table_name>"
 
 sink:
   # sink configs
