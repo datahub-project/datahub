@@ -178,7 +178,12 @@ class SupportedDataPlatform(Enum):
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     all_workspace_count: int = 0
-    filtered_workspaces: LossyList[str] = dataclass_field(default_factory=LossyList)
+    filtered_workspace_names: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
+    filtered_workspace_types: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
 
     dashboards_scanned: int = 0
     charts_scanned: int = 0
@@ -331,7 +336,7 @@ class PowerBiDashboardSourceConfig(
     )
     workspace_id_as_urn_part: bool = pydantic.Field(
         default=False,
-        description="It is recommended to set this to True only if you have legacy workspaces based on Office 365 groups, as those workspaces can have identical names."
+        description="It is recommended to set this to True only if you have legacy workspaces based on Office 365 groups, as those workspaces can have identical names. "
         "To maintain backward compatibility, this is set to False which uses workspace name",
     )
     # Enable/Disable extracting ownership information of Dashboard

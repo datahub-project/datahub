@@ -1265,13 +1265,13 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         allowed_workspaces = []
         for workspace in all_workspaces:
             if not self.source_config.workspace_id_pattern.allowed(workspace.id):
-                self.reporter.filtered_workspaces.append(
-                    f"{workspace.id} - {workspace.name} (not allowed by pattern)"
+                self.reporter.filtered_workspace_names.append(
+                    f"{workspace.id} - {workspace.name}"
                 )
                 continue
             elif workspace.type not in self.source_config.workspace_type_filter:
-                self.reporter.filtered_workspaces.append(
-                    f"{workspace.id} - {workspace.name} ({workspace.type} not allowed by type filter)"
+                self.reporter.filtered_workspace_types.append(
+                    f"{workspace.id} - {workspace.name} (type = {workspace.type})"
                 )
                 continue
             else:
