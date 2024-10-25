@@ -49,21 +49,19 @@ public class NotificationGeneratorHook implements MetadataChangeLogHook {
                             // Skip notification generation since this is an initial ingestion run
                             // to prevent slamming notifications on this run
                             if (!NotificationUtils.isEligibleForNotificationGeneration(event)) {
-                              log.warn(
-                                  String.format(
-                                      "Skipping NotificationGenerationHook since this aspect is not eligible for generation. aspect: %s, Run ID: %s",
-                                      event.getAspectName(),
-                                      event.getSystemMetadata() != null
-                                          ? event.getSystemMetadata().getRunId()
-                                          : null));
+                              log.debug(
+                                  "Skipping NotificationGenerationHook since this aspect is not eligible for generation. aspect: {}, Run ID: {}",
+                                  event.getAspectName(),
+                                  event.getSystemMetadata() != null
+                                      ? event.getSystemMetadata().getRunId()
+                                      : null);
                             } else {
                               notificationGenerator.generate(event);
                             }
                           } catch (Exception e) {
                             log.error(
-                                String.format(
-                                    "Caught exception while invoking notification generator %s.",
-                                    notificationGenerator.getClass().getCanonicalName()),
+                                "Caught exception while invoking notification generator {}",
+                                notificationGenerator.getClass().getCanonicalName(),
                                 e);
                           }
                         }))
