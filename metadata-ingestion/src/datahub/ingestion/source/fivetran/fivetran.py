@@ -175,10 +175,15 @@ class FivetranSource(StatefulIngestionSourceBase):
         datajob.fine_grained_lineages.extend(fine_grained_lineage)
 
         return dict(
-            **{f"source.{k}": str(v) for k, v in source_details.dict().items()},
+            **{
+                f"source.{k}": str(v)
+                for k, v in source_details.dict().items()
+                if v is not None
+            },
             **{
                 f"destination.{k}": str(v)
                 for k, v in destination_details.dict().items()
+                if v is not None
             },
         )
 
