@@ -75,7 +75,6 @@
       }
     
       .card_heading_div {
-        text-align: start;
         width: 70%; 
         padding: 12px;
     
@@ -86,7 +85,11 @@
           font-style: normal;
           font-weight: 400;
           line-height: normal;
-
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          display: -webkit-box;
+        
         }
       }
     }

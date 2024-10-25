@@ -1,7 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
+// import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
+// import Image from "@theme/IdealImage";
+// import { useColorMode } from "@docusaurus/theme-common";
+// import { QuestionCircleOutlined } from "@ant-design/icons";
 import styles from "./quickstartcontent.module.scss";
+// import CodeBlock from "@theme/CodeBlock";
+// import TownhallButton from "../TownhallButton";
+// import { Section } from "../Section";
 import quickstartContent from "./quickstartContent";
 import { motion, useScroll, useTransform} from 'framer-motion';
 
@@ -38,6 +45,10 @@ const QuickstartContent = ({}) => {
         }}
         viewport={{ once: true, amount: 'full' }}
       >
+        <div className="quickstart__title">The only platform you need.</div>
+        <div className="quickstart__subtitle">
+          Unified Discovery, Observability, and Governance for Data and AI.
+        </div>
       </motion.div>
       <div
         className="quickstart__container"
@@ -71,15 +82,16 @@ const QuickstartContent = ({}) => {
             }}
             viewport={{ once: true, amount: .4 }}
           >
-            <div className="quickstart__img">
-              <img src={useBaseUrl(data.image)} />
-            </div>
             <div className="quickstart__text">
               <div className="quickstart__text__label">{data.heading}</div>
               <div className="quickstart__text__head">{data.title}</div>
               <div className="quickstart__text__desc">
                 <p dangerouslySetInnerHTML={{ __html: data.description }} />
+                {/* <span className="learn_more">Learn More →</span> */}
               </div>
+            </div>
+            <div className="quickstart__img">
+              <img src={useBaseUrl(data.image)} />
             </div>
           </motion.div>
         ))}

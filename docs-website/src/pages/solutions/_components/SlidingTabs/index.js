@@ -33,7 +33,7 @@ const TabbedComponent = () => {
       <div className={clsx(styles.container)}>
         <div className={clsx(styles.leftSection)}>
           <div className={clsx(styles.title)}>
-            Secure. Scalable. Simple. <span className={clsx(styles.titleBlue)}> Open.</span>
+            Secure. Scalable.<br/>Simple. <span className={clsx(styles.titleBlue)}> Open.</span>
           </div>
           <div className={clsx(styles.tabs)}>
             {tabs.map((tab, index) => (
@@ -59,9 +59,7 @@ const TabbedComponent = () => {
           </div>
         </div>
         <div className={clsx(styles.imageContainer)}>
-          <div className={clsx(styles.tabImage)}>
-            <img src='/img/solutions/sliding-tab-bg.png'/>
-          </div>
+          <div className={clsx(styles.tabImage)} style={{ backgroundImage: `url(/img/solutions/sliding-tab-bg.png)`}} />
         </div>
       </div>
     </div>

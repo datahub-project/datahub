@@ -4,13 +4,13 @@ const caseStudyContent = {
       items: [
         {
           imgSrc: "/img/solutions/logo-notion.png",
-          title: "How Notion Uses Acryl Data to Ensure Data Reliability.",
-          link: "/adoption-stories/#notion",
+          title: "How Notion Used DataHub to harness their sprawling data.",
+          link: "https://www.notion.so/blog/a-brief-history-of-notions-data-catalog",
           alt: "notion"
         },
         {
           imgSrc: "/img/solutions/logo-myob.png",
-          title: "How MYOB Improved Data Reliability for dbt and Snowflake.",
+          title: "How MYOB completely eliminated breaking changes with DataHub.",
           link: "/adoption-stories/#myob",
           alt: "MYOB",
         },
