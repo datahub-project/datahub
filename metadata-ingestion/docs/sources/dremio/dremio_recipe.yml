@@ -6,13 +6,13 @@ source:
     port: 9047
     tls: true
 
+    # Credentials with personal access token
+    authentication_method: PAT
+    password: pass
+
     # Credentials with basic auth
     authentication_method: password
     username: user
-    password: pass
-
-    # Credentials with personal access token
-    authentication_method: PAT
     password: pass
 
     include_query_lineage: True

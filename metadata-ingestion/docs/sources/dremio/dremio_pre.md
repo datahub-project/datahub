@@ -4,15 +4,6 @@ This integration pulls metadata directly from the Dremio APIs.
 
 You'll need to have a Dremio instance up and running with access to the necessary datasets, and API access should be enabled with a valid token.
 
-**Dremio instance can be one of following**:
-
-    - Dremio Cloud (Fully managed cloud SaaS)
-        - Standard
-        - Enterprise
-    - Dremio Software (self-managed on own infrastructure / on-premise)
-        - Community (oss)
-        - Enterprise
-
 The API token should have the necessary permissions to **read metadata** and **retrieve lineage**.
 
 #### Steps to Get the Required Information
