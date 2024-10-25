@@ -99,7 +99,8 @@ record AssertionsSummary {
         "fieldName": "erroringAssertions",
         "hasValuesFieldName": "hasErroringAssertions",
         "numValuesFieldName": "numErroringAssertions",
-        "addHasValuesToFilters": true
+        "addHasValuesToFilters": true,
+        "queryByDefault": false,
       },
       "/*/type" : {
         "fieldType": "KEYWORD",
@@ -110,7 +111,8 @@ record AssertionsSummary {
        "fieldName": "erroringAssertionResultTimes"
       },
       "/*/source" : {
-        "fieldName": "erroringAssertionSources"
+        "fieldName": "erroringAssertionSources",
+        "queryByDefault": false,
       }
     }
     @Relationship = {

@@ -21,9 +21,7 @@ acryl-datahub-classify==0.0.11
     #   -r requirements.txt
     #   acryl-datahub
 acryl-sqlglot==25.20.2.dev5
-    # via
-    #   -r requirements.txt
-    #   acryl-datahub
+    # via -r requirements.txt
 aiohttp==3.9.5
     # via
     #   -r requirements.txt
@@ -738,6 +736,8 @@ parso==0.8.4
     # via
     #   -r requirements.txt
     #   jedi
+patchy==2.8.0
+    # via acryl-datahub
 pathlib-abc==0.1.1
     # via
     #   -r requirements.txt
@@ -1112,10 +1112,12 @@ sqlalchemy-bigquery==1.11.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+sqlglot==25.26.0
+    # via acryl-datahub
 sqlglotrs==0.2.12
     # via
     #   -r requirements.txt
-    #   acryl-sqlglot
+    #   sqlglot
 sqlparse==0.5.0
     # via
     #   -r requirements.txt
