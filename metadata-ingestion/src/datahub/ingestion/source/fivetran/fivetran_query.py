@@ -33,6 +33,7 @@ SELECT
 FROM {self.db_clause}connector
 WHERE
   _fivetran_deleted = FALSE
+QUALIFY ROW_NUMBER() OVER (PARTITION BY connector_id ORDER BY _fivetran_synced DESC) = 1
 """
 
     def get_users_query(self) -> str:
@@ -86,21 +87,29 @@ ORDER BY connector_id, end_time DESC
 
         return f"""\
 SELECT
-    stm.connector_id as connector_id,
-    stm.id as source_table_id,
-    stm.name as source_table_name,
-    ssm.name as source_schema_name,
-    dtm.id as destination_table_id,
-    dtm.name as destination_table_name,
-    dsm.name as destination_schema_name
-FROM {self.db_clause}table_lineage as tl
-JOIN {self.db_clause}source_table_metadata as stm on tl.source_table_id = stm.id
-JOIN {self.db_clause}destination_table_metadata as dtm on tl.destination_table_id = dtm.id
-JOIN {self.db_clause}source_schema_metadata as ssm on stm.schema_id = ssm.id
-JOIN {self.db_clause}destination_schema_metadata as dsm on dtm.schema_id = dsm.id
-WHERE stm.connector_id IN ({formatted_connector_ids})
-QUALIFY ROW_NUMBER() OVER (PARTITION BY stm.connector_id ORDER BY tl.created_at DESC) <= {MAX_TABLE_LINEAGE_PER_CONNECTOR}
-ORDER BY stm.connector_id, tl.created_at DESC
+    *
+FROM (
+    SELECT
+        stm.connector_id as connector_id,
+        stm.id as source_table_id,
+        stm.name as source_table_name,
+        ssm.name as source_schema_name,
+        dtm.id as destination_table_id,
+        dtm.name as destination_table_name,
+        dsm.name as destination_schema_name,
+        tl.created_at as created_at,
+        ROW_NUMBER() OVER (PARTITION BY stm.id, dtm.id ORDER BY tl.created_at DESC) as table_combo_rn
+    FROM {self.db_clause}table_lineage as tl
+    JOIN {self.db_clause}source_table_metadata as stm on tl.source_table_id = stm.id
+    JOIN {self.db_clause}destination_table_metadata as dtm on tl.destination_table_id = dtm.id
+    JOIN {self.db_clause}source_schema_metadata as ssm on stm.schema_id = ssm.id
+    JOIN {self.db_clause}destination_schema_metadata as dsm on dtm.schema_id = dsm.id
+    WHERE stm.connector_id IN ({formatted_connector_ids})
+)
+-- Ensure that we only get back one entry per source and destination pair.
+WHERE table_combo_rn = 1
+QUALIFY ROW_NUMBER() OVER (PARTITION BY connector_id ORDER BY created_at DESC) <= {MAX_TABLE_LINEAGE_PER_CONNECTOR}
+ORDER BY connector_id, created_at DESC
 """
 
     def get_column_lineage_query(self, connector_ids: List[str]) -> str:
