@@ -17,10 +17,10 @@ const Header = styled.div`
 
 const UnborderedTabs = styled(Tabs)`
     width: 100%;
+    padding: 12px 14px 10px 12px;
 
     &&& .ant-tabs-nav {
         margin-bottom: 0;
-        padding: 12px 14px 10px 12px;
 
         &::before {
             border-bottom: none;
