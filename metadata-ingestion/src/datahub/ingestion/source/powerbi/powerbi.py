@@ -1260,7 +1260,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         all_workspaces = self.powerbi_client.get_workspaces()
         logger.info(f"Number of workspaces = {len(all_workspaces)}")
         self.reporter.all_workspace_count = len(all_workspaces)
-        logger.debug(f"Workspaces = {all_workspaces}")
+        logger.debug(
+            f"All workspaces: {[workspace.format_name_for_logger() for workspace in all_workspaces]}"
+        )
 
         allowed_workspaces = []
         for workspace in all_workspaces:
@@ -1278,6 +1280,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 allowed_workspaces.append(workspace)
 
         logger.info(f"Number of allowed workspaces = {len(allowed_workspaces)}")
+        logger.debug(
+            f"Allowed workspaces: {[workspace.format_name_for_logger() for workspace in allowed_workspaces]}"
+        )
 
         return allowed_workspaces
 

@@ -299,7 +299,7 @@ class PowerBiAPI:
                 )
             return None
 
-        logger.info("Waiting for scan to complete")
+        logger.debug("Waiting for scan to complete")
         if (
             self.__admin_api_resolver.wait_for_scan_to_complete(
                 scan_id=scan_id, timeout=self.__config.scan_timeout
@@ -478,8 +478,7 @@ class PowerBiAPI:
                 )
             else:
                 logger.info(
-                    "Skipping endorsements tag as extract_endorsements_to_tags is set to "
-                    "false "
+                    "Skipping endorsements tag as extract_endorsements_to_tags is not enabled"
                 )
 
             workspaces.append(cur_workspace)
@@ -551,6 +550,9 @@ class PowerBiAPI:
     def fill_workspaces(
         self, workspaces: List[Workspace], reporter: PowerBiDashboardSourceReport
     ) -> Iterable[Workspace]:
+        logger.info(
+            f"Fetching initial metadata for workspaces: {[workspace.format_name_for_logger() for workspace in workspaces]}"
+        )
 
         workspaces = self._fill_metadata_from_scan_result(workspaces=workspaces)
         # First try to fill the admin detail as some regular metadata contains lineage to admin metadata

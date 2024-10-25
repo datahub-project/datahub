@@ -376,8 +376,8 @@ class PowerBiDashboardSourceConfig(
     # any existing tags defined to those entities
     extract_endorsements_to_tags: bool = pydantic.Field(
         default=False,
-        description="Whether to extract endorsements to tags, note that this may overwrite existing tags. Admin API "
-        "access is required is this setting is enabled",
+        description="Whether to extract endorsements to tags, note that this may overwrite existing tags. "
+        "Admin API access is required if this setting is enabled.",
     )
     filter_dataset_endorsements: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
