@@ -1,3 +1,4 @@
+import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import React, { useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components/macro';
@@ -98,8 +99,10 @@ export function LineageColumnView({ defaultDirection }: Props) {
     const [isColumnLevelLineage, setIsColumnLevelLineage] = useState(!!columnForLineage);
 
     const selectedV1FieldPath = downgradeV2FieldPath(selectedColumn);
-    const selectedColumnUrn = generateSchemaFieldUrn(selectedV1FieldPath, urn);
-    const impactAnalysisUrn = isColumnLevelLineage && selectedColumnUrn ? selectedColumnUrn : urn;
+    const onIndividualSiblingPage = useIsSeparateSiblingsMode();
+    const lineageUrn = (!onIndividualSiblingPage && entityData?.lineageUrn) || urn;
+    const selectedColumnUrn = generateSchemaFieldUrn(selectedV1FieldPath, lineageUrn);
+    const impactAnalysisUrn = isColumnLevelLineage && selectedColumnUrn ? selectedColumnUrn : lineageUrn;
     const canEditLineage = !!entityData?.privileges?.canEditLineage;
 
     const directionOptions = [

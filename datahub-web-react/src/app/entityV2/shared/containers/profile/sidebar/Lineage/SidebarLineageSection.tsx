@@ -1,3 +1,4 @@
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -65,14 +66,17 @@ const StyledPartitionOutlined = styled(PartitionOutlined)`
 `;
 
 const SidebarLineageSection = () => {
-    const { urn, entityType } = useEntityData();
+    const { urn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
     const startTimeMillis = useGetDefaultLineageStartTimeMillis();
 
+    const separateSiblings = useIsSeparateSiblingsMode();
+    const onCombinedSiblingPage = !separateSiblings && (entityData?.siblingsSearch?.total || 0) > 0;
     const { data, loading } = useGetSearchAcrossLineageCountsQuery({
         variables: { urn, startTimeMillis },
         fetchPolicy: 'cache-first',
+        skip: onCombinedSiblingPage,
     });
 
     const directUpstreamSummary = data?.upstreams && getDirectUpstreamSummary(data.upstreams as any);

@@ -1,4 +1,5 @@
 import { ArrowDownOutlined, ArrowUpOutlined, SearchOutlined } from '@ant-design/icons';
+import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { Button, Divider, Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
@@ -110,6 +111,8 @@ const DEFAULT_SELECTED_LEVELS = new Set([LevelFilterType.DIRECT]);
 export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: LineageDirection }) => {
     const entityRegistry = useEntityRegistry();
     const { urn, entityData, entityType } = useEntityData();
+    const onIndividualSiblingPage = useIsSeparateSiblingsMode();
+    const lineageUrn = (!onIndividualSiblingPage && entityData?.lineageUrn) || urn;
     const [selectedDirection, setDirection] = useState<LineageDirection>(defaultDirection);
     const [selectedLevels, setSelectedLevels] = useState<Set<LevelFilterType>>(DEFAULT_SELECTED_LEVELS);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -234,7 +237,7 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
                 >
                     <ImpactAnalysis
                         type="compact"
-                        urn={urn}
+                        urn={lineageUrn}
                         direction={selectedDirection as LineageDirection}
                         skipCache={false}
                         defaultShowFilters={false}
