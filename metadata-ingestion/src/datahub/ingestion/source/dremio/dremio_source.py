@@ -3,8 +3,6 @@ import logging
 import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
-from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
@@ -30,10 +28,7 @@ from datahub.ingestion.source.dremio.dremio_api import (
     DremioEdition,
 )
 from datahub.ingestion.source.dremio.dremio_aspects import DremioAspects
-from datahub.ingestion.source.dremio.dremio_config import (
-    DremioSourceConfig,
-    DremioSourceMapping,
-)
+from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
     DremioToDataHubSourceTypeMapping,
 )
@@ -46,10 +41,9 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioQuery,
 )
 from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
-    StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -68,30 +62,6 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class DremioSourceReport(ProfilingSqlReport, StaleEntityRemovalSourceReport):
-    num_containers_failed: int = 0
-    num_datasets_failed: int = 0
-
-    def report_upstream_latency(self, start_time: datetime, end_time: datetime) -> None:
-        # recording total combined latency is not very useful, keeping this method as a placeholder
-        # for future implementation of min / max / percentiles etc.
-        pass
-
-    def report_entity_scanned(
-        self, name: str, ent_type: str = DremioDatasetType.VIEW.value
-    ) -> None:
-        """
-        Entity could be a view or a table
-        """
-        if ent_type == DremioDatasetType.TABLE.value:
-            self.tables_scanned += 1
-        elif ent_type == DremioDatasetType.VIEW.value:
-            self.views_scanned += 1
-        else:
-            raise KeyError(f"Unknown entity {ent_type}.")
 
 
 @platform_name("Dremio")
@@ -140,10 +110,10 @@ class DremioSource(StatefulIngestionSourceBase):
         self.default_db = "dremio"
         self.config = config
         self.report = DremioSourceReport()
-        self.source_map: Dict[str, DremioSourceMapping] = defaultdict()
+        self.source_map: Dict[str, Dict] = defaultdict()
 
         # Initialize API operations
-        dremio_api = DremioAPIOperations(self.config)
+        dremio_api = DremioAPIOperations(self.config, self.report)
 
         # Initialize catalog
         self.dremio_catalog = DremioCatalog(dremio_api)
@@ -162,7 +132,6 @@ class DremioSource(StatefulIngestionSourceBase):
             profiling_enabled=self.config.profiling.enabled,
             ui_url=dremio_api.ui_url,
         )
-        self.reference_source_mapping = DremioToDataHubSourceTypeMapping()
         self.max_workers = config.max_workers
 
         self.sql_parsing_aggregator = SqlParsingAggregator(
@@ -183,7 +152,39 @@ class DremioSource(StatefulIngestionSourceBase):
     def get_platform(self) -> str:
         return "dremio"
 
-    def _build_source_map(self) -> Dict[str, DremioSourceMapping]:
+    def _build_source_map(self) -> Dict[str, Dict]:
+        """
+        Builds a source mapping dictionary to support external lineage generation across
+        multiple Dremio sources, based on provided configuration mappings.
+
+        This method operates as follows:
+
+        1. If a source mapping is present in the config:
+        - For each source in the Dremio catalog, if the mapping's `source_name` matches
+            the `dremio_source_type`, `root_path` and `database_name` are added to the mapping
+            information, along with the platform, platform instance, and environment if they exist.
+            This allows constructing the full URN for upstream lineage.
+
+        2. If a source mapping is absent in the configuration:
+        - Default mappings are created for each source name, setting `env` and `platform_instance`
+            to default values and classifying the source type. This ensures all sources have a
+            mapping, even if specific configuration details are missing.
+
+        Returns:
+            Dict[str, Dict]: A dictionary (`source_map`) where each key is a source name
+                            (lowercased) and each value is another dictionary containing:
+                            - `platform`: The source platform.
+                            - `source_name`: The source name.
+                            - `dremio_source_type`: The type mapped to DataHub,
+                            e.g., "database", "folder".
+                            - Optional `root_path`, `database_name`, `platform_instance`,
+                            and `env` if provided in the configuration.
+        Example:
+            This method is used internally within the class to generate mappings before
+            creating cross-platform lineage.
+
+        """
+
         source_map = {}
         dremio_sources = self.dremio_catalog.get_sources()
 
@@ -199,38 +200,41 @@ class DremioSource(StatefulIngestionSourceBase):
                 source_platform_name = source_name
 
                 for mapping in self.config.source_mappings or []:
-                    if not mapping.platform_name:
+                    if not mapping.source_name:
                         continue
 
-                    if re.search(mapping.platform_name, source_type, re.IGNORECASE):
-                        source_platform_name = mapping.platform_name.lower()
+                    if re.search(mapping.source_name, source_type, re.IGNORECASE):
+                        source_platform_name = mapping.source_name.lower()
 
                     if not mapping.platform:
                         continue
 
                     datahub_source_type = (
-                        self.reference_source_mapping.get_datahub_source_type(
+                        DremioToDataHubSourceTypeMapping.get_datahub_source_type(
                             source_type
                         )
                     )
 
                     if re.search(mapping.platform, datahub_source_type, re.IGNORECASE):
                         source_platform_name = source_platform_name.lower()
-                        source_map[source_platform_name] = mapping
-                        source_map[
-                            source_platform_name
-                        ].dremio_source_type = self.reference_source_mapping.get_category(
-                            source_type
-                        )
-                        source_map[source_platform_name].root_path = root_path
-                        source_map[source_platform_name].database_name = database_name
+                        source_map[source_platform_name] = {
+                            "platform": mapping.platform,
+                            "source_name": mapping.source_name,
+                            "dremio_source_type": DremioToDataHubSourceTypeMapping.get_category(
+                                source_type,
+                            ),
+                            "root_path": root_path,
+                            "database_name": database_name,
+                            "platform_instance": mapping.platform_instance,
+                            "env": mapping.env,
+                        }
                         source_present = True
                         break
 
                 if not source_present:
                     try:
-                        dremio_source_type = self.reference_source_mapping.get_category(
-                            source_type
+                        dremio_source_type = (
+                            DremioToDataHubSourceTypeMapping.get_category(source_type)
                         )
                     except Exception as exc:
                         logger.info(
@@ -238,18 +242,18 @@ class DremioSource(StatefulIngestionSourceBase):
                             f"Adding source_type {source_type} to mapping as database. Error: {exc}"
                         )
 
-                        self.reference_source_mapping.add_mapping(
+                        DremioToDataHubSourceTypeMapping.add_mapping(
                             source_type, source_name
                         )
-                        dremio_source_type = self.reference_source_mapping.get_category(
-                            source_type
+                        dremio_source_type = (
+                            DremioToDataHubSourceTypeMapping.get_category(source_type)
                         )
 
-                    source_map[source_platform_name.lower()] = DremioSourceMapping(
-                        platform=source_type,
-                        platform_name=source_name,
-                        dremio_source_type=dremio_source_type,
-                    )
+                    source_map[source_platform_name.lower()] = {
+                        "platform": source_type,
+                        "source_name": source_name,
+                        "dremio_source_type": dremio_source_type,
+                    }
 
             else:
                 logger.error(
@@ -276,7 +280,6 @@ class DremioSource(StatefulIngestionSourceBase):
         """
 
         self.source_map = self._build_source_map()
-
         # Process Containers
         containers = self.dremio_catalog.get_containers()
         for container in containers:
@@ -549,41 +552,46 @@ class DremioSource(StatefulIngestionSourceBase):
         """
         Map a Dremio dataset to a DataHub URN.
         """
-
         mapping = self.source_map.get(dremio_source.lower())
         if not mapping:
             return None
 
-        if not mapping.platform:
+        platform = mapping.get("platform")
+        if not platform:
             return None
+
+        platform_instance = mapping.get(
+            "platform_instance", self.config.platform_instance
+        )
+        env = mapping.get("env", self.config.env)
 
         root_path = ""
         database_name = ""
 
-        if mapping.dremio_source_type == "file_object_storage":
-            if mapping.root_path:
-                root_path = f"{mapping.root_path[1:]}/"
+        if mapping.get("dremio_source_type") == "file_object_storage":
+            if mapping.get("root_path"):
+                root_path = f"{mapping['root_path'][1:]}/"
             dremio_dataset = f"{root_path}{'/'.join(dremio_path[1:])}/{dremio_dataset}"
         else:
-            if mapping.database_name:
-                database_name = f"{mapping.database_name}."
+            if mapping.get("database_name"):
+                database_name = f"{mapping['database_name']}."
             dremio_dataset = (
                 f"{database_name}{'.'.join(dremio_path[1:])}.{dremio_dataset}"
             )
 
-        if mapping.platform_instance:
+        if platform_instance:
             return make_dataset_urn_with_platform_instance(
-                platform=mapping.platform.lower(),
+                platform=platform.lower(),
                 name=dremio_dataset,
-                platform_instance=mapping.platform_instance,
-                env=self.config.env,
+                platform_instance=platform_instance,
+                env=env,
             )
 
         return make_dataset_urn_with_platform_instance(
-            platform=mapping.platform.lower(),
+            platform=platform.lower(),
             name=dremio_dataset,
             platform_instance=None,
-            env=self.config.env,
+            env=env,
         )
 
     def get_report(self) -> SourceReport:

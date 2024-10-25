@@ -15,6 +15,7 @@ from datahub.emitter.mce_builder import make_term_urn
 from datahub.ingestion.source.dremio.dremio_api import (
     DremioAPIOperations,
     DremioEdition,
+    DremioEntityContainerType,
 )
 from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
 
@@ -384,7 +385,7 @@ class DremioCatalog:
         if not self.containers_populated:
             for container in self.dremio_api.get_all_containers():
                 container_type = container.get("container_type")
-                if container_type == "SOURCE":
+                if container_type == DremioEntityContainerType.SOURCE:
                     self.sources.append(
                         DremioSource(
                             container_name=container.get("name"),
@@ -396,7 +397,7 @@ class DremioCatalog:
                             database_name=container.get("database_name"),
                         )
                     )
-                elif container_type == "SPACE":
+                elif container_type == DremioEntityContainerType.SPACE:
                     self.spaces.append(
                         DremioSpace(
                             container_name=container.get("name"),
@@ -405,7 +406,7 @@ class DremioCatalog:
                             api_operations=self.dremio_api,
                         )
                     )
-                elif container_type == "FOLDER":
+                elif container_type == DremioEntityContainerType.FOLDER:
                     self.folders.append(
                         DremioFolder(
                             container_name=container.get("name"),

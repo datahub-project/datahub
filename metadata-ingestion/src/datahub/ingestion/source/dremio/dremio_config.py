@@ -108,33 +108,14 @@ class ProfileConfig(GEProfilingConfig):
     sample_values: bool = True
 
 
-class DremioSourceMapping(EnvConfigMixin, ConfigModel):
+class DremioSourceMapping(EnvConfigMixin, PlatformInstanceConfigMixin, ConfigModel):
     platform: Optional[str] = Field(
         default=None,
         description="Source connection made by Dremio (e.g. S3, Snowflake)",
     )
-    platform_name: Optional[str] = Field(
+    source_name: Optional[str] = Field(
         default=None,
         description="Alias of platform in Dremio connection",
-    )
-    platform_instance: Optional[str] = Field(
-        default=None,
-        description="Platform instance of source connection in Datahub",
-    )
-    dremio_source_type: Optional[str] = Field(
-        default=None,
-        description="Source connection made by Dremio (e.g. S3, Snowflake)",
-    )
-
-    root_path: Optional[str] = Field(
-        default=None,
-        description="Root path of source - Extracted from Dremio API",
-        hidden_from_docs=True,
-    )
-    database_name: Optional[str] = Field(
-        default=None,
-        description="Database of source - Extracted from Dremio API",
-        hidden_from_docs=True,
     )
 
 

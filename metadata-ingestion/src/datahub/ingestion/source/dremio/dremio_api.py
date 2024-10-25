@@ -18,6 +18,7 @@ from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
     DremioToDataHubSourceTypeMapping,
 )
+from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 
 logger = logging.getLogger(__name__)
@@ -33,16 +34,26 @@ class DremioEdition(Enum):
     COMMUNITY = "COMMUNITY"
 
 
+class DremioEntityContainerType(Enum):
+    SPACE = "SPACE"
+    CONTAINER = "CONTAINER"
+    FOLDER = "FOLDER"
+    SOURCE = "SOURCE"
+
+
 class DremioAPIOperations:
     _retry_count: int = 5
     _timeout: int = 1800
 
-    def __init__(self, connection_args: "DremioSourceConfig") -> None:
+    def __init__(
+        self, connection_args: "DremioSourceConfig", report: "DremioSourceReport"
+    ) -> None:
         self.dremio_to_datahub_source_mapper = DremioToDataHubSourceTypeMapping()
         self.allow_schema_pattern: List[str] = connection_args.schema_pattern.allow
         self.deny_schema_pattern: List[str] = connection_args.schema_pattern.deny
         self._max_workers: int = connection_args.max_workers
         self.is_dremio_cloud = connection_args.is_dremio_cloud
+        self.report = report
         self.session = requests.Session()
         if connection_args.is_dremio_cloud:
             self.base_url = self._get_cloud_base_url(
@@ -71,7 +82,10 @@ class DremioAPIOperations:
         if connection_args.dremio_cloud_project_id:
             project_id = connection_args.dremio_cloud_project_id
         else:
-            raise ValueError(
+            self.report.failure(
+                "Project ID must be provided for Dremio Cloud environments."
+            )
+            raise DremioAPIException(
                 "Project ID must be provided for Dremio Cloud environments."
             )
 
@@ -85,7 +99,10 @@ class DremioAPIOperations:
         port = connection_args.port
         protocol = "https" if connection_args.tls else "http"
         if not host:
-            raise ValueError(
+            self.report.failure(
+                "Hostname must be provided for on-premises Dremio instances."
+            )
+            raise DremioAPIException(
                 "Hostname must be provided for on-premises Dremio instances."
             )
         return f"{protocol}://{host}:{port}/api/v3"
@@ -96,7 +113,10 @@ class DremioAPIOperations:
             if connection_args.dremio_cloud_project_id:
                 project_id = connection_args.dremio_cloud_project_id
             else:
-                raise ValueError(
+                self.report.failure(
+                    "Project ID must be provided for Dremio Cloud environments."
+                )
+                raise DremioAPIException(
                     "Project ID must be provided for Dremio Cloud environments."
                 )
             cloud_region = connection_args.dremio_cloud_region
@@ -109,7 +129,10 @@ class DremioAPIOperations:
             port = connection_args.port
             protocol = "https" if connection_args.tls else "http"
             if not host:
-                raise ValueError(
+                self.report.failure(
+                    "Hostname must be provided for on-premises Dremio instances."
+                )
+                raise DremioAPIException(
                     "Hostname must be provided for on-premises Dremio instances."
                 )
             return f"{protocol}://{host}:{port}"
@@ -145,6 +168,9 @@ class DremioAPIOperations:
         # Cloud Dremio authentication using PAT
         if self.is_dremio_cloud:
             if not connection_args.password:
+                self.report.failure(
+                    "Personal Access Token (PAT) is missing for cloud authentication."
+                )
                 raise DremioAPIException(
                     "Personal Access Token (PAT) is missing for cloud authentication."
                 )
@@ -170,8 +196,9 @@ class DremioAPIOperations:
                     host = connection_args.hostname
                     port = connection_args.port
                     protocol = "https" if connection_args.tls else "http"
+                    login_url = f"{protocol}://{host}:{port}/apiv2/login"
                     response = self.session.post(
-                        url=f"{protocol}://{host}:{port}/apiv2/login",
+                        url=login_url,
                         data=json.dumps(
                             {
                                 "userName": connection_args.username,
@@ -190,9 +217,10 @@ class DremioAPIOperations:
 
                         return
                     else:
+                        self.report.failure("Failed to authenticate", login_url)
                         raise DremioAPIException("Failed to authenticate with Dremio")
             except Exception as e:
-                logger.error(f"Dremio login failed on attempt #{retry}: {e}")
+                self.report.failure("Failed to authenticate", str(e))
                 sleep(1)  # Optional: exponential backoff
 
         raise DremioAPIException(
@@ -224,7 +252,8 @@ class DremioAPIOperations:
             response = self.post(url="/sql", data=json.dumps({"sql": query}))
 
             if "errorMessage" in response:
-                raise RuntimeError(f"SQL Error: {response['errorMessage']}")
+                self.report.failure(f"SQL Error: {response['errorMessage']}")
+                raise DremioAPIException(f"SQL Error: {response['errorMessage']}")
 
             job_id = response["id"]
 
@@ -239,7 +268,7 @@ class DremioAPIOperations:
                     )
 
         except requests.RequestException as e:
-            raise RuntimeError(f"Error executing query: {str(e)}")
+            raise DremioAPIException(f"Error executing query: {str(e)}")
 
     def fetch_results(self, job_id: str) -> List[Dict]:
         """Fetch job results with status checking"""
@@ -459,10 +488,10 @@ class DremioAPIOperations:
                     )
                 )
             except Exception as exc:
-                logger.warning(
+                logger.debug(f"Failed with {exc}")
+                self.report.warning(
                     f"{schema.subclass} {schema.container_name} had no tables or views"
                 )
-                logger.debug(exc)
 
         tables = []
 
@@ -647,26 +676,35 @@ class DremioAPIOperations:
             nonlocal containers
             try:
                 response = self.get(url=f"/catalog/{location_id}")
+                if (
+                    response.get("entityType")
+                    == DremioEntityContainerType.FOLDER.value.lower()
+                ):
 
-                if response.get("entityType") == "folder":
                     containers.append(
                         {
                             "id": location_id,
                             "name": entity_path[-1],
                             "path": entity_path[:-1],
-                            "container_type": "FOLDER",
+                            "container_type": DremioEntityContainerType.FOLDER,
                         }
                     )
 
                 for container in response.get("children", []):
-                    if container.get("type") == "CONTAINER":
+                    if (
+                        container.get("type")
+                        == DremioEntityContainerType.CONTAINER.value
+                    ):
                         traverse_path(container.get("id"), container.get("path"))
 
             except Exception as exc:
                 logging.info(
                     "Location {} contains no tables or views. Skipping...".format(id)
                 )
-                logging.info("Error message: {}".format(exc))
+                self.report.warning(
+                    title="Failed to get tables or view, skipping",
+                    message=f"Failed with {str(exc)}",
+                )
 
             return containers
 
@@ -681,23 +719,24 @@ class DremioAPIOperations:
         response = self.get(url="/catalog")
 
         def process_source(source):
-            if source.get("containerType") == "SOURCE":
-                source_config = self.get(
+            if source.get("containerType") == DremioEntityContainerType.SOURCE.value:
+                source_resp = self.get(
                     url=f"/catalog/{source.get('id')}",
                 )
 
-                if source_config.get("config", {}).get("database"):
-                    db = source_config.get("config", {}).get("database")
+                source_config = source_resp.get("config", {})
+                if source_config.get("database"):
+                    db = source_config.get("database")
                 else:
-                    db = source_config.get("config", {}).get("databaseName", "")
+                    db = source_config.get("databaseName", "")
 
                 return {
                     "id": source.get("id"),
                     "name": source.get("path")[0],
                     "path": [],
-                    "container_type": "SOURCE",
-                    "source_type": source_config.get("type"),
-                    "root_path": source_config.get("config", {}).get("rootPath"),
+                    "container_type": DremioEntityContainerType.SOURCE,
+                    "source_type": source_resp.get("type"),
+                    "root_path": source_config.get("rootPath"),
                     "database_name": db,
                 }
             else:
@@ -705,7 +744,7 @@ class DremioAPIOperations:
                     "id": source.get("id"),
                     "name": source.get("path")[0],
                     "path": [],
-                    "container_type": "SPACE",
+                    "container_type": DremioEntityContainerType.SPACE,
                 }
 
         def process_source_and_containers(source):
