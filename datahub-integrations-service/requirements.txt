@@ -242,7 +242,9 @@ googleapis-common-protos==1.65.0
 great-expectations==0.15.50
     # via acryl-datahub
 greenlet==3.0.3
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   sqlalchemy
 grpc-google-iam-v1==0.13.1
     # via
     #   google-cloud-datacatalog

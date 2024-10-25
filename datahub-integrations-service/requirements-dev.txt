@@ -20,8 +20,6 @@ acryl-datahub-classify==0.0.11
     # via
     #   -r requirements.txt
     #   acryl-datahub
-acryl-sqlglot==25.20.2.dev5
-    # via -r requirements.txt
 aiohttp==3.9.5
     # via
     #   -r requirements.txt
@@ -394,6 +392,7 @@ greenlet==3.0.3
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   sqlalchemy
 grpc-google-iam-v1==0.13.1
     # via
     #   -r requirements.txt
@@ -737,7 +736,9 @@ parso==0.8.4
     #   -r requirements.txt
     #   jedi
 patchy==2.8.0
-    # via acryl-datahub
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub
 pathlib-abc==0.1.1
     # via
     #   -r requirements.txt
@@ -1113,7 +1114,9 @@ sqlalchemy-bigquery==1.11.0
     #   -r requirements.txt
     #   acryl-datahub
 sqlglot==25.26.0
-    # via acryl-datahub
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub
 sqlglotrs==0.2.12
     # via
     #   -r requirements.txt
