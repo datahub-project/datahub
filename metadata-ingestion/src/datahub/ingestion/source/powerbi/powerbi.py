@@ -6,6 +6,8 @@
 import logging
 from typing import Iterable, List, Optional, Tuple, Union
 
+import more_itertools
+
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -1397,16 +1399,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         # Fetch PowerBi workspace for given workspace identifier
 
         allowed_workspaces = self.get_allowed_workspaces()
-        workspaces_len = len(allowed_workspaces)
 
-        batch_size = (
-            self.source_config.scan_batch_size
-        )  # 100 is the maximum allowed for powerbi scan
-        num_batches = (workspaces_len + batch_size - 1) // batch_size
-        batches = [
-            allowed_workspaces[i * batch_size : (i + 1) * batch_size]
-            for i in range(num_batches)
-        ]
+        batches = more_itertools.chunked(
+            allowed_workspaces, self.source_config.scan_batch_size
+        )
         for batch_workspaces in batches:
             for workspace in self.powerbi_client.fill_workspaces(
                 batch_workspaces, self.reporter

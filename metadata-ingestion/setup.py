@@ -488,7 +488,9 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
-    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
+    "powerbi": microsoft_common
+    | {"lark[regex]==1.1.4", "sqlparse", "more-itertools"}
+    | sqlglot_lib,
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
     "unity-catalog": databricks | sql_common | sqllineage_lib,
