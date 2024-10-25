@@ -135,6 +135,44 @@
                     "type": "TRANSFORMED",
                     "query": "urn:li:query:a30d42497a737321ece461fa17344c3ba3588fdee736016acb59a00cec955a0c"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_staging,PROD),a)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),a)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:a30d42497a737321ece461fa17344c3ba3588fdee736016acb59a00cec955a0c"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_staging,PROD),b)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),b)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:a30d42497a737321ece461fa17344c3ba3588fdee736016acb59a00cec955a0c"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_staging,PROD),c)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),c)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:a30d42497a737321ece461fa17344c3ba3588fdee736016acb59a00cec955a0c"
+                }
             ]
         }
     }
@@ -175,6 +213,15 @@
                 },
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),a)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),b)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),c)"
                 }
             ]
         }
