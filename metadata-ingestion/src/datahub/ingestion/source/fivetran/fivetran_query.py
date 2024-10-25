@@ -3,7 +3,7 @@ from typing import List
 # Safeguards to prevent fetching massive amounts of data.
 MAX_TABLE_LINEAGE_PER_CONNECTOR = 120
 MAX_COLUMN_LINEAGE_PER_CONNECTOR = 1000
-MAX_JOBS_PER_CONNECTOR = 200
+MAX_JOBS_PER_CONNECTOR = 500
 
 
 class FivetranLogQuery:
