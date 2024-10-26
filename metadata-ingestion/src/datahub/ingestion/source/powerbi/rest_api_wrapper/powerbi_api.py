@@ -351,22 +351,30 @@ class PowerBiAPI:
         logger.debug("Processing scan result for datasets")
 
         for dataset_dict in datasets:
-            dataset_instance: PowerBIDataset = self._get_resolver().get_dataset(
-                workspace=workspace,
-                dataset_id=dataset_dict[Constant.ID],
-            )
+            dataset_id = dataset_dict[Constant.ID]
+            try:
+                dataset_instance: PowerBIDataset = self._get_resolver().get_dataset(
+                    workspace=workspace,
+                    dataset_id=dataset_id,
+                )
+            except Exception as e:
+                self.reporter.warning(
+                    title="Unable to fetch dataset details",
+                    message="Skipping this dataset due to the error. Metadata will be incomplete.",
+                    context=f"workspace={workspace.name}, dataset-id={dataset_id}",
+                    exc=e,
+                )
+                continue
 
             # fetch + set dataset parameters
             try:
                 dataset_parameters = self._get_resolver().get_dataset_parameters(
                     workspace_id=workspace.id,
-                    dataset_id=dataset_dict[Constant.ID],
+                    dataset_id=dataset_id,
                 )
                 dataset_instance.parameters = dataset_parameters
             except Exception as e:
-                logger.info(
-                    f"Unable to fetch dataset parameters for {dataset_dict[Constant.ID]}: {e}"
-                )
+                logger.info(f"Unable to fetch dataset parameters for {dataset_id}: {e}")
 
             if self.__config.extract_endorsements_to_tags:
                 dataset_instance.tags = self._parse_endorsement(
