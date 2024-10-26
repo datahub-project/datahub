@@ -1,9 +1,9 @@
 from typing import List
 
 # Safeguards to prevent fetching massive amounts of data.
-MAX_TABLE_LINEAGE_PER_CONNECTOR = 100
-MAX_COLUMN_LINEAGE_PER_CONNECTOR = 3000
-MAX_JOBS_PER_CONNECTOR = 1000
+MAX_TABLE_LINEAGE_PER_CONNECTOR = 50
+MAX_COLUMN_LINEAGE_PER_CONNECTOR = 500
+MAX_JOBS_PER_CONNECTOR = 500
 
 
 class FivetranLogQuery:
@@ -80,7 +80,10 @@ WHERE rn <= {MAX_JOBS_PER_CONNECTOR}
 ORDER BY connector_id, end_time DESC
 """
 
-    def get_table_lineage_query(self) -> str:
+    def get_table_lineage_query(self, connector_ids: List[str]) -> str:
+        # Format connector_ids as a comma-separated string of quoted IDs
+        formatted_connector_ids = ", ".join(f"'{id}'" for id in connector_ids)
+
         return f"""\
 SELECT
     stm.connector_id as connector_id,
@@ -95,11 +98,15 @@ JOIN {self.db_clause}source_table_metadata as stm on tl.source_table_id = stm.id
 JOIN {self.db_clause}destination_table_metadata as dtm on tl.destination_table_id = dtm.id
 JOIN {self.db_clause}source_schema_metadata as ssm on stm.schema_id = ssm.id
 JOIN {self.db_clause}destination_schema_metadata as dsm on dtm.schema_id = dsm.id
+WHERE stm.connector_id IN ({formatted_connector_ids})
 QUALIFY ROW_NUMBER() OVER (PARTITION BY stm.connector_id ORDER BY tl.created_at DESC) <= {MAX_TABLE_LINEAGE_PER_CONNECTOR}
 ORDER BY stm.connector_id, tl.created_at DESC
 """
 
-    def get_column_lineage_query(self) -> str:
+    def get_column_lineage_query(self, connector_ids: List[str]) -> str:
+        # Format connector_ids as a comma-separated string of quoted IDs
+        formatted_connector_ids = ", ".join(f"'{id}'" for id in connector_ids)
+
         return f"""\
 SELECT
     scm.table_id as source_table_id,
@@ -114,6 +121,7 @@ JOIN {self.db_clause}destination_column_metadata as dcm
 -- Only joining source_table_metadata to get the connector_id.
 JOIN {self.db_clause}source_table_metadata as stm
   ON scm.table_id = stm.id
+WHERE stm.connector_id IN ({formatted_connector_ids})
 QUALIFY ROW_NUMBER() OVER (PARTITION BY stm.connector_id ORDER BY cl.created_at DESC) <= {MAX_COLUMN_LINEAGE_PER_CONNECTOR}
 ORDER BY stm.connector_id, cl.created_at DESC
 """
