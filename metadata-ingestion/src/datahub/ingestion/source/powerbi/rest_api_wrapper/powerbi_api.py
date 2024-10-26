@@ -353,10 +353,12 @@ class PowerBiAPI:
         for dataset_dict in datasets:
             dataset_id = dataset_dict[Constant.ID]
             try:
-                dataset_instance: PowerBIDataset = self._get_resolver().get_dataset(
+                dataset_instance = self._get_resolver().get_dataset(
                     workspace=workspace,
                     dataset_id=dataset_id,
                 )
+                if dataset_instance is None:
+                    continue
             except Exception as e:
                 self.reporter.warning(
                     title="Unable to fetch dataset details",
