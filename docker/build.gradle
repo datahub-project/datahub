@@ -8,6 +8,8 @@ import com.avast.gradle.dockercompose.tasks.ComposeDownForced
 apply from: "../gradle/versioning/versioning.gradle"
 
 ext {
+    compose_base = "profiles/docker-compose.acryl.yml"
+
     backend_profile_modules = [
             ':docker:elasticsearch-setup',
             ':docker:mysql-setup',
@@ -23,7 +25,7 @@ ext {
 
     debug_modules = quickstart_modules - [':metadata-jobs:mce-consumer-job',
                                           ':metadata-jobs:mae-consumer-job']
-    compose_args = ['-f', 'profiles/docker-compose.yml']
+    compose_args = ['-f', compose_base]
     debug_reloadable = [
             'datahub-gms-debug',
             'system-update-debug',
@@ -78,7 +80,7 @@ dockerCompose {
         environment.put "DATAHUB_REPO", "${docker_registry}"
         // SaaS only end
 
-        useComposeFiles = ['profiles/docker-compose.yml']
+        useComposeFiles = [compose_base]
         projectName = 'datahub'
         projectNamePrefix = ''
         buildBeforeUp = false
@@ -100,7 +102,7 @@ dockerCompose {
         environment.put "DATAHUB_REPO", "${docker_registry}"
         // SaaS only end
 
-        useComposeFiles = ['profiles/docker-compose.yml']
+        useComposeFiles = [compose_base]
         projectName = 'datahub'
         projectNamePrefix = ''
         buildBeforeUp = false
@@ -131,7 +133,7 @@ dockerCompose {
         environment.put "DATAHUB_REPO", "${docker_registry}"
         // SaaS only end
 
-        useComposeFiles = ['profiles/docker-compose.yml']
+        useComposeFiles = [compose_base]
         projectName = 'datahub'
         projectNamePrefix = ''
         buildBeforeUp = false
@@ -155,7 +157,7 @@ dockerCompose {
         environment.put "DATAHUB_REPO", "${docker_registry}"
         // SaaS only end
 
-        useComposeFiles = ['profiles/docker-compose.yml']
+        useComposeFiles = [compose_base]
         projectName = 'datahub'
         projectNamePrefix = ''
         buildBeforeUp = false
@@ -168,7 +170,7 @@ dockerCompose {
         isRequiredBy(tasks.named('quickstartStorage'))
         composeAdditionalArgs = ['--profile', 'quickstart-storage']
 
-        useComposeFiles = ['profiles/docker-compose.yml']
+        useComposeFiles = [compose_base]
         projectName = 'datahub'
         projectNamePrefix = ''
         buildBeforeUp = false
