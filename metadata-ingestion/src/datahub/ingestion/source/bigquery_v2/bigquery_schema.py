@@ -174,7 +174,7 @@ class BigQuerySchemaApi:
 
     def get_query_result(self, query: str) -> RowIterator:
         def _should_retry(exc: BaseException) -> bool:
-            logger.debug(f"Exception occured for job query. Reason: {exc}")
+            logger.debug(f"Exception occurred for job query. Reason: {exc}")
             # Jobs sometimes fail with transient errors.
             # This is not currently handled by the python-bigquery client.
             # https://github.com/googleapis/python-bigquery/issues/23
@@ -196,7 +196,7 @@ class BigQuerySchemaApi:
     def get_projects(self, max_results_per_page: int = 100) -> List[BigqueryProject]:
         def _should_retry(exc: BaseException) -> bool:
             logger.debug(
-                f"Exception occured for project.list api. Reason: {exc}. Retrying api request..."
+                f"Exception occurred for project.list api. Reason: {exc}. Retrying api request..."
             )
             self.report.num_list_projects_retry_request += 1
             return True

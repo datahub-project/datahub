@@ -83,6 +83,8 @@ def get_upstream_tables(
                 context=f"table-full-name={table.full_name}, expression={table.expression}, message={message}",
             )
             return []
+    except KeyboardInterrupt:
+        raise
     except (
         BaseException
     ) as e:  # TODO: Debug why BaseException is needed here and below.
