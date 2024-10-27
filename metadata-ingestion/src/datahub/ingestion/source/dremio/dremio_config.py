@@ -177,13 +177,3 @@ class DremioSourceConfig(
         default=False,
         description="Whether to include query-based lineage information.",
     )
-
-    include_table_rename_lineage: bool = Field(
-        default=True,
-        description="Whether to include table rename lineage",
-    )
-
-    include_copy_lineage: bool = Field(
-        default=True,
-        description="Whether to include copy lineage",
-    )

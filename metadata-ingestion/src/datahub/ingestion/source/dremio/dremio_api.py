@@ -266,9 +266,15 @@ class DremioAPIOperations:
                     return future.result(timeout=timeout)
                 except concurrent.futures.TimeoutError:
                     self.cancel_query(job_id)
+                    self.report.failure(
+                        f"Query execution timed out after {timeout} seconds"
+                    )
                     raise TimeoutError(
                         f"Query execution timed out after {timeout} seconds"
                     )
+                except RuntimeError as e:
+                    self.report.failure("Query Execution failed", exc=e)
+                    raise DremioAPIException("Query Execution failed: {str(e)}")
 
         except requests.RequestException as e:
             raise DremioAPIException(f"Error executing query: {str(e)}")

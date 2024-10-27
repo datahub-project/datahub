@@ -600,9 +600,3 @@ class DremioSource(StatefulIngestionSourceBase):
         Get the source report.
         """
         return self.report
-
-    def close(self) -> None:
-        """
-        Close any resources held by the source.
-        """
-        pass

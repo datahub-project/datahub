@@ -309,6 +309,6 @@
         "displayName": "Dremio",
         "description": "Import Spaces, Sources, Tables and statistics from Dremio.",
         "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
-        "recipe": "source:\n    type: dremio\n    config:\n        # Coordinates\n        hostname: null\n        port: null\n        #Credentials with personal access token\n        authentication_method: PAT\n        password: pass\n        #Or Credentials with basic auth\n        #authentication_method: password\n        #username: null\n        #password: null\n        stateful_ingestion:\n            enabled: true"
+        "recipe": "source:\n    type: dremio\n    config:\n        # Coordinates\n        hostname: null\n        port: null\n\n        #Credentials with personal access token\n        authentication_method: PAT\n        password: pass\n        #Or Credentials with basic auth\n        #authentication_method: password\n        #username: null\n        #password: null\n        #tls: true-->https/false-->http\n\n        stateful_ingestion:\n            enabled: true"
     }
 ]

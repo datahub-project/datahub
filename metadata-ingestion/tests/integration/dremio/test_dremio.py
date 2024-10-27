@@ -13,10 +13,12 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2023-10-15 07:00:00"
 MINIO_PORT = 9000
+MYSQL_PORT = 3306
+
 # Dremio server credentials
 DREMIO_HOST = "http://localhost:9047"
 DREMIO_USERNAME = "admin"
-DREMIO_PASSWORD = "2310Admin1234!@"  # Set your Dremio admin password
+DREMIO_PASSWORD = "2310Admin1234!@"
 MINIO_S3_ENDPOINT = "minio:9000"
 AWS_ACCESS_KEY = "miniouser"
 AWS_SECRET_KEY = "miniopassword"
@@ -34,6 +36,27 @@ def is_minio_up(container_name: str) -> bool:
     return ret.returncode == 0
 
 
+def is_mysql_up(container_name: str, port: int) -> bool:
+    """A cheap way to figure out if mysql is responsive on a container"""
+
+    cmd = f"docker logs {container_name} 2>&1 | grep '/usr/sbin/mysqld: ready for connections.' | grep {port}"
+    ret = subprocess.run(
+        cmd,
+        shell=True,
+    )
+    return ret.returncode == 0
+
+
+def install_mysql_client(container_name: str) -> None:
+    """
+    This is bit hacky to install mysql-client and connect mysql to start-mysql in container
+    """
+
+    command = f'docker exec --user root {container_name} sh -c  "apt-get update && apt-get install -y mysql-client && /usr/bin/mysql -h test_mysql -u root -prootpwd123"'
+    ret = subprocess.run(command, shell=True, stdout=subprocess.DEVNULL)
+    assert ret.returncode == 0
+
+
 def create_spaces_and_folders(headers):
     """
     Create spaces and folders in Dremio
@@ -41,12 +64,12 @@ def create_spaces_and_folders(headers):
     url = f"{DREMIO_HOST}/api/v3/catalog"
 
     # Create Space
-    payload = {"entityType": "space", "name": "my_space"}
+    payload = {"entityType": "space", "name": "space"}
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     assert response.status_code == 200, f"Failed to create space: {response.text}"
 
     # Create Folder inside Space
-    json_data = {"entityType": "folder", "path": ["my_space", "my_folder"]}
+    json_data = {"entityType": "folder", "path": ["space", "test_folder"]}
     response = requests.post(url, headers=headers, data=json.dumps(json_data))
     assert response.status_code == 200, f"Failed to create folder: {response.text}"
 
@@ -130,6 +153,44 @@ def create_s3_source(headers):
     assert response.status_code == 200, f"Failed to add s3 datasource: {response.text}"
 
 
+def create_mysql_source(headers):
+    url = f"{DREMIO_HOST}/apiv2/source/mysql"
+
+    payload = {
+        "config": {
+            "username": "root",
+            "password": "rootpwd123",
+            "hostname": "test_mysql",
+            "port": MYSQL_PORT,
+            "database": "",
+            "authenticationType": "MASTER",
+            "netWriteTimeout": 60,
+            "fetchSize": 200,
+            "maxIdleConns": 8,
+            "idleTimeSec": 60,
+        },
+        "name": "mysql-source",
+        "accelerationRefreshPeriod": 3600000,
+        "accelerationGracePeriod": 10800000,
+        "accelerationActivePolicyType": "PERIOD",
+        "accelerationRefreshSchedule": "0 0 8 * * *",
+        "accelerationRefreshOnDataChanges": False,
+        "metadataPolicy": {
+            "deleteUnavailableDatasets": True,
+            "namesRefreshMillis": 3600000,
+            "datasetDefinitionRefreshAfterMillis": 3600000,
+            "datasetDefinitionExpireAfterMillis": 10800000,
+            "authTTLMillis": 86400000,
+            "updateMode": "PREFETCH_QUERIED",
+        },
+        "type": "MYSQL",
+    }
+    response = requests.put(url, headers=headers, data=json.dumps(payload))
+    assert (
+        response.status_code == 200
+    ), f"Failed to add mysql datasource: {response.text}"
+
+
 def upload_dataset(headers):
 
     url = f"{DREMIO_HOST}/apiv2/source/s3/file_format/warehouse/sample.parquet"
@@ -187,12 +248,64 @@ def upload_dataset(headers):
 
 
 def create_view(headers):
+    # from s3
     url = f"{DREMIO_HOST}/api/v3/catalog"
     payload = {
         "entityType": "dataset",
         "type": "VIRTUAL_DATASET",
-        "path": ["my_space", "my_folder", "raw"],
+        "path": ["space", "test_folder", "raw"],
         "sql": 'SELECT * FROM s3.warehouse."sample.parquet"',
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    assert response.status_code == 200, f"Failed to create view: {response.text}"
+
+    # from mysql
+    payload = {
+        "entityType": "dataset",
+        "type": "VIRTUAL_DATASET",
+        "path": ["space", "test_folder", "customers"],
+        "sql": 'SELECT * FROM "mysql".northwind.customers',
+        "sqlContext": ["mysql", "northwind"],
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    assert response.status_code == 200, f"Failed to create view: {response.text}"
+
+    payload = {
+        "entityType": "dataset",
+        "type": "VIRTUAL_DATASET",
+        "path": ["space", "test_folder", "orders"],
+        "sql": 'SELECT * FROM "mysql".northwind.orders',
+        "sqlContext": ["mysql", "northwind"],
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    assert response.status_code == 200, f"Failed to create view: {response.text}"
+
+    payload = {
+        "entityType": "dataset",
+        "type": "VIRTUAL_DATASET",
+        "path": ["space", "test_folder", "metadata_aspect"],
+        "sql": 'SELECT * FROM "mysql".metagalaxy."metadata_aspect"',
+        "sqlContext": ["mysql", "metagalaxy"],
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    assert response.status_code == 200, f"Failed to create view: {response.text}"
+
+    payload = {
+        "entityType": "dataset",
+        "type": "VIRTUAL_DATASET",
+        "path": ["space", "test_folder", "metadata_index"],
+        "sql": 'SELECT * FROM "mysql".metagalaxy."metadata_index"',
+        "sqlContext": ["mysql", "metagalaxy"],
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    assert response.status_code == 200, f"Failed to create view: {response.text}"
+
+    payload = {
+        "entityType": "dataset",
+        "type": "VIRTUAL_DATASET",
+        "path": ["space", "test_folder", "metadata_index_view"],
+        "sql": 'SELECT * FROM "mysql".metagalaxy."metadata_index_view"',
+        "sqlContext": ["mysql", "metagalaxy"],
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     assert response.status_code == 200, f"Failed to create view: {response.text}"
@@ -221,6 +334,7 @@ def dremio_setup():
     headers = dremio_header()
     create_sample_source(headers)
     create_s3_source(headers)
+    create_mysql_source(headers)
     create_spaces_and_folders(headers)
     upload_dataset(headers)
     create_view(headers)
@@ -235,7 +349,8 @@ def test_resources_dir(pytestconfig):
 def mock_dremio_service(docker_compose_runner, pytestconfig, test_resources_dir):
     # Spin up Dremio and MinIO (for mock S3) services using Docker Compose.
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "dremio"
+        test_resources_dir / "docker-compose.yml",
+        "dremio",
     ) as docker_services:
         wait_for_port(docker_services, "dremio", 9047, timeout=120)
         wait_for_port(
@@ -244,6 +359,13 @@ def mock_dremio_service(docker_compose_runner, pytestconfig, test_resources_dir)
             MINIO_PORT,
             timeout=120,
             checker=lambda: is_minio_up("minio"),
+        )
+        wait_for_port(
+            docker_services,
+            "test_mysql",
+            MYSQL_PORT,
+            timeout=120,
+            checker=lambda: is_mysql_up("test_mysql", MYSQL_PORT),
         )
 
         # Ensure the admin and data setup scripts have the right permissions
@@ -255,6 +377,7 @@ def mock_dremio_service(docker_compose_runner, pytestconfig, test_resources_dir)
         admin_setup_cmd = f"{test_resources_dir}/setup_dremio_admin.sh"
         subprocess.run(admin_setup_cmd, shell=True, check=True)
 
+        install_mysql_client("dremio")
         yield docker_compose_runner
 
 
