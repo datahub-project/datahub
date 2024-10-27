@@ -10,6 +10,7 @@ import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -396,7 +397,7 @@ public interface EntitySearchService {
   @Nonnull
   ScrollResult predicateScroll(
       @Nonnull OperationContext opContext,
-      @Nonnull List<String> entities,
+      @Nonnull Collection<String> entities,
       @Nonnull String input,
       @Nullable Predicate predicate,
       List<SortCriterion> sortCriteria,

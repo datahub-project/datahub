@@ -40,6 +40,7 @@ GlossaryNodeInterface = TypeVar(
 
 class Owners(ConfigModel):
     type: str = models.OwnershipTypeClass.DEVELOPER
+    typeUrn: Optional[str] = None
     users: Optional[List[str]] = None
     groups: Optional[List[str]] = None
 
@@ -154,6 +155,8 @@ def make_glossary_term_urn(
 
 def get_owners(owners: Owners) -> models.OwnershipClass:
     ownership_type, ownership_type_urn = validate_ownership_type(owners.type)
+    if owners.typeUrn is not None:
+        ownership_type_urn = owners.typeUrn
     owners_meta: List[models.OwnerClass] = []
     if owners.users is not None:
         owners_meta = owners_meta + [

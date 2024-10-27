@@ -272,7 +272,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             self.report.set_ingestion_stage("*", QUERIES_EXTRACTION)
 
-            queries_extractor = BigQueryQueriesExtractor(
+            with BigQueryQueriesExtractor(
                 connection=self.config.get_bigquery_client(),
                 schema_api=self.bq_schema_extractor.schema_api,
                 config=BigQueryQueriesExtractorConfig(
@@ -288,9 +288,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 identifiers=self.identifiers,
                 schema_resolver=self.sql_parser_schema_resolver,
                 discovered_tables=self.bq_schema_extractor.table_refs,
-            )
-            self.report.queries_extractor = queries_extractor.report
-            yield from queries_extractor.get_workunits_internal()
+            ) as queries_extractor:
+                self.report.queries_extractor = queries_extractor.report
+                yield from queries_extractor.get_workunits_internal()
+
         else:
             if self.config.include_usage_statistics:
                 yield from self.usage_extractor.get_usage_workunits(

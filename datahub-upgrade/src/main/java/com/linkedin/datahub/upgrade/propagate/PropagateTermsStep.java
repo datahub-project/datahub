@@ -21,6 +21,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -30,7 +31,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -215,11 +216,13 @@ public class PropagateTermsStep implements UpgradeStep {
                   sourceFilter));
         }
         if (keyValue.get(0).equals(URN_FILTER)) {
-          criteria.add(QueryUtils.newCriterion(keyValue.get(0), keyValue.get(1)));
+          criteria.add(
+              CriterionUtils.buildCriterion(keyValue.get(0), Condition.EQUAL, keyValue.get(1)));
         } else {
           criteria.add(
-              QueryUtils.newCriterion(
+              CriterionUtils.buildCriterion(
                   ESUtils.toKeywordField(keyValue.get(0), false, aspectRetriever),
+                  Condition.EQUAL,
                   keyValue.get(1)));
         }
       }

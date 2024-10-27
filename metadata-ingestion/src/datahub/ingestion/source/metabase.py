@@ -725,7 +725,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             return "", None, None, None
 
         # Map engine names to what datahub expects in
-        # https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
+        # https://github.com/datahub-project/datahub/blob/master/metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml
         engine = dataset_json.get("engine", "")
 
         engine_mapping = {

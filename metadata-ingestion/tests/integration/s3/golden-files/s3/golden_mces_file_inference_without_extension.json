@@ -174,7 +174,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_inference_without_extension.json",
+        "runId": "file_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -269,7 +269,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_inference_without_extension.json",
+        "runId": "file_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -384,7 +384,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_inference_without_extension.json",
+        "runId": "file_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -503,7 +503,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_inference_without_extension.json",
+        "runId": "file_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -626,7 +626,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_inference_without_extension.json",
+        "runId": "file_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -804,6 +804,28 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586847850000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 }

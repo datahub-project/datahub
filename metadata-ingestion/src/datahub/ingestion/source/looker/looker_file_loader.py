@@ -3,11 +3,10 @@ import pathlib
 from dataclasses import replace
 from typing import Dict, Optional
 
-from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
 from datahub.ingestion.source.looker.looker_template_language import (
-    process_lookml_template_language,
+    load_and_preprocess_file,
 )
 from datahub.ingestion.source.looker.lookml_config import (
     _EXPLORE_FILE_EXTENSION,
@@ -72,10 +71,8 @@ class LookerViewFileLoader:
         try:
             logger.debug(f"Loading viewfile {path}")
 
-            parsed = load_lkml(path)
-
-            process_lookml_template_language(
-                view_lkml_file_dict=parsed,
+            parsed = load_and_preprocess_file(
+                path=path,
                 source_config=self.source_config,
             )
 
@@ -86,6 +83,7 @@ class LookerViewFileLoader:
                 root_project_name=self._root_project_name,
                 base_projects_folder=self._base_projects_folder,
                 raw_file_content=raw_file_content,
+                source_config=self.source_config,
                 reporter=reporter,
             )
             logger.debug(f"adding viewfile for path {path} to the cache")

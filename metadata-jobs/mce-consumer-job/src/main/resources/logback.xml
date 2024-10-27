@@ -16,7 +16,7 @@
             </then>
             <else>
                 <encoder>
-                    <pattern>%date{ISO8601} [%thread] %-5level %logger{36}:%L urn=%X{entityUrn:-none} aspect=%X{aspectName:-none} entityType=%X{entityType:-none} changeType=%X{changeType:-none} - %msg%n</pattern>
+                    <pattern>%date{ISO8601} [%thread] %-5level %logger{36} urn=%X{entityUrn:-none} aspect=%X{aspectName:-none} entityType=%X{entityType:-none} changeType=%X{changeType:-none} - %msg%n</pattern>
                 </encoder>
             </else>
         </if>

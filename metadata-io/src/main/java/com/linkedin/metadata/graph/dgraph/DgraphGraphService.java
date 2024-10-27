@@ -367,7 +367,7 @@ public class DgraphGraphService implements GraphService {
                 filters.add(
                     String.format(
                         "%s as var(func: eq(<%s>, \"%s\"))",
-                        sourceFilterName, criterion.getField(), criterion.getValue()));
+                        sourceFilterName, criterion.getField(), criterion.getValues().get(0)));
               });
     }
 
@@ -384,7 +384,7 @@ public class DgraphGraphService implements GraphService {
                 filters.add(
                     String.format(
                         "%s as var(func: eq(<%s>, \"%s\"))",
-                        sourceFilterName, criterion.getField(), criterion.getValue()));
+                        sourceFilterName, criterion.getField(), criterion.getValues().get(0)));
               });
     }
 

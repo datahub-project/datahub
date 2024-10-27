@@ -18,13 +18,13 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.CriterionUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -195,11 +195,9 @@ public class ListActionRequestsResolver
       final @Nullable Long endTimestampMillis) {
     final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
     final CriterionArray andCriterion = new CriterionArray();
-    final Criterion userCriterion = new Criterion();
-    userCriterion.setField(ASSIGNED_USERS_FIELD_NAME + ".keyword");
-    userCriterion.setValue(userUrn.toString());
-    userCriterion.setCondition(Condition.EQUAL);
-    andCriterion.add(userCriterion);
+    andCriterion.add(
+        CriterionUtils.buildCriterion(
+            ASSIGNED_USERS_FIELD_NAME + ".keyword", Condition.EQUAL, userUrn.toString()));
     if (status != null) {
       andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
     }
@@ -231,11 +229,9 @@ public class ListActionRequestsResolver
     for (Urn groupUrn : groupUrns) {
       final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
       final CriterionArray andCriterion = new CriterionArray();
-      final Criterion groupUrnCriterion = new Criterion();
-      groupUrnCriterion.setField(ASSIGNED_GROUPS_FIELD_NAME + ".keyword");
-      groupUrnCriterion.setValue(groupUrn.toString());
-      groupUrnCriterion.setCondition(Condition.EQUAL);
-      andCriterion.add(groupUrnCriterion);
+      andCriterion.add(
+          CriterionUtils.buildCriterion(
+              ASSIGNED_GROUPS_FIELD_NAME + ".keyword", Condition.EQUAL, groupUrn.toString()));
       if (status != null) {
         andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
       }
@@ -268,11 +264,9 @@ public class ListActionRequestsResolver
     for (Urn groupUrn : roleUrns) {
       final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
       final CriterionArray andCriterion = new CriterionArray();
-      final Criterion roleUrnCriterion = new Criterion();
-      roleUrnCriterion.setField(ASSIGNED_ROLES_FIELD_NAME + ".keyword");
-      roleUrnCriterion.setValue(groupUrn.toString());
-      roleUrnCriterion.setCondition(Condition.EQUAL);
-      andCriterion.add(roleUrnCriterion);
+      andCriterion.add(
+          CriterionUtils.buildCriterion(
+              ASSIGNED_ROLES_FIELD_NAME + ".keyword", Condition.EQUAL, groupUrn.toString()));
       if (status != null) {
         andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
       }

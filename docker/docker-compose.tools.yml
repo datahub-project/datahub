@@ -1,6 +1,5 @@
 # Tools useful for operating & debugging DataHub.
 ---
-version: '3.8'
 services:
   kafka-rest-proxy:
     image: ${DATAHUB_CONFLUENT_KAFKA_REST_IMAGE:-confluentinc/cp-kafka-rest}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}

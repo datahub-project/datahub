@@ -9,8 +9,10 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -82,5 +84,19 @@ public class ProposedItem implements MCPItem {
   @Override
   public ChangeType getChangeType() {
     return metadataChangeProposal.getChangeType();
+  }
+
+  public static class ProposedItemBuilder {
+    public ProposedItem build() {
+      // Ensure systemMetadata
+      return new ProposedItem(
+          Objects.requireNonNull(this.metadataChangeProposal)
+              .setSystemMetadata(
+                  SystemMetadataUtils.generateSystemMetadataIfEmpty(
+                      this.metadataChangeProposal.getSystemMetadata())),
+          this.auditStamp,
+          this.entitySpec,
+          this.aspectSpec);
+    }
   }
 }

@@ -30,6 +30,7 @@ public class FeatureFlags {
   private boolean dataContractsEnabled = false;
   private boolean editableDatasetNameEnabled = false;
   private boolean showSeparateSiblings = false;
+  private boolean alternateMCPValidation = false;
   private boolean documentationAiEnabled = false;
   private boolean themeV2Enabled = false;
   private boolean themeV2Default = false;
@@ -41,7 +42,6 @@ public class FeatureFlags {
   private boolean broadcastNewIncidentUpdatesEnabled = false;
   private boolean separateSiblingsLineageByDefault = false;
   private boolean formCreationEnabled = false;
-  private boolean alternateMCPValidation = false;
   private boolean schemaFieldCLLEnabled = false;
   private boolean hideDbtSourceInLineage = false;
   private boolean showBulkFormByDefault = false;

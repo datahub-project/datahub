@@ -6,7 +6,7 @@ import pathlib
 import signal
 import subprocess
 import time
-from typing import Dict, Iterable, Iterator, List, Optional, Set, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Union
 
 import datahub.metadata.schema_classes as models
 import pydantic
@@ -236,6 +236,7 @@ def cleanup(
 
 @pytest.fixture(scope="function")
 def create_test_action(
+    auth_session: Any,
     graph_client: DataHubGraph,
     bigquery_test_helper: BigqueryTestHelper,
     test_resources_dir,
@@ -282,7 +283,7 @@ def create_test_action(
     bigquery_test_helper.create_table(
         test_dataset.dataset_id, SMOKE_TEST_TABLE_PREFIX, SMOKE_TEST_NUMBER_OF_TABLES
     )
-    ingest_biquery_data(SMOKE_TEST_DATASET_ID)
+    ingest_biquery_data(auth_session, SMOKE_TEST_DATASET_ID)
 
     yield
     # we cleanup the action after all the tests have run
@@ -346,7 +347,7 @@ class PropagationTestScenario(BaseModel):
         return list(urns)
 
 
-def ingest_biquery_data(dataset: str):
+def ingest_biquery_data(auth_session, dataset: str):
     # Ingest data into BigQuery
     credentials = generate_bigquery_credentials()
     credential_dict = credentials.dict()
@@ -366,6 +367,13 @@ def ingest_biquery_data(dataset: str):
                     "profiling": {
                         "enabled": False,
                     },
+                },
+            },
+            "sink": {
+                "type": "datahub-rest",
+                "config": {
+                    "server": auth_session.gms_url(),
+                    "token": auth_session.gms_token(),
                 },
             },
         }

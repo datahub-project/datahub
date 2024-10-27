@@ -365,8 +365,9 @@ class LookerViewContext:
         return sql_table_name.lower()
 
     def datahub_transformed_sql_table_name(self) -> str:
-        table_name: Optional[str] = self.raw_view.get(
-            "datahub_transformed_sql_table_name"
+        # This field might be present in parent view of current view
+        table_name: Optional[str] = self.get_including_extends(
+            field="datahub_transformed_sql_table_name"
         )
 
         if not table_name:

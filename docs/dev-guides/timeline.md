@@ -33,6 +33,7 @@ based on timestamp. A `ChangeEvent` consists of:
 - `elementId`: Optional, the ID of the element being applied to the target
 - `description`: A human readable description of the change produced by the `Differ` type computing the diff
 - `changeDetails`: A loose property map of additional details about the change
+- `modificationCategory`: Specifies the type of modification made to a schema field within an Entity change event. Options are `RENAME`, `TYPE_CHANGE` and `OTHER`.
 
 ### Change Event Examples
 - A tag was applied to a *field* of a dataset through the UI:
@@ -41,12 +42,14 @@ based on timestamp. A `ChangeEvent` consists of:
   - `category`: `TAG` 
   - `elementId`: `urn:li:tag:<tagName>` -> The ID of the tag being added
   - `semVerChange`: `MINOR`
+  - `modificationCategory`: `OTHER`
 - A tag was added directly at the top-level to a dataset through the UI:
   - `changeType`: `ADD`
   - `target`: `urn:li:dataset:(urn:li:dataPlatform:<platform>,<name>,<fabric_type>)` -> The dataset the tag is being added to
   - `category`: `TAG`
   - `elementId`: `urn:li:tag:<tagName>` -> The ID of the tag being added
   - `semVerChange`: `MINOR`
+  - `modificationCategory`: `OTHER`
 
 Note the `target` and `elementId` fields in the examples above to familiarize yourself with the semantics.
 

@@ -7,7 +7,6 @@ import org.apache.directory.scim.compliance.tests.ScimpleITSupport;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
-import org.testng.util.Strings;
 
 public class ScimRepositoryTestBase extends ScimpleITSupport {
   static String CREATED = "meta.created";
@@ -37,7 +36,7 @@ public class ScimRepositoryTestBase extends ScimpleITSupport {
         return false;
       }
       String s = (String) o;
-      if (Strings.isNullOrEmpty(s)) {
+      if (s == null || s.isEmpty()) {
         return false;
       }
       long greaterValue = ts(s);

@@ -9,7 +9,6 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormInfo;
@@ -28,6 +27,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.FormService;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
@@ -184,13 +184,7 @@ public class FormAssignmentHookTest {
     FormAssignmentHook hook = new FormAssignmentHook(service, true);
     final Filter newFilter =
         buildFilter(
-            ImmutableList.of(
-                new Criterion()
-                    .setField("platform")
-                    .setCondition(Condition.EQUAL)
-                    .setValues(new StringArray("Test"))
-                    .setValue("Test")
-                    .setNegated(false)));
+            ImmutableList.of(CriterionUtils.buildCriterion("platform", Condition.EQUAL, "Test")));
     final DynamicFormAssignment newFormFilters = mockDynamicFilterAssignment(newFilter);
     final MetadataChangeLog event1 =
         buildMetadataChangeLog(

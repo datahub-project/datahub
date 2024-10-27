@@ -8,17 +8,20 @@ from unittest import mock
 import pytest
 from freezegun import freeze_time
 from requests.adapters import ConnectionError
-from tableauserverclient import Server
+from tableauserverclient import PermissionsRule, Server
 from tableauserverclient.models import (
     DatasourceItem,
+    GroupItem,
     ProjectItem,
     SiteItem,
     ViewItem,
     WorkbookItem,
 )
+from tableauserverclient.models.reference_item import ResourceReference
 
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.tableau.tableau import (
     TableauConfig,
@@ -37,7 +40,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageUpstreamType,
     UpstreamLineage,
 )
-from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
+from datahub.metadata.schema_classes import UpstreamClass
 from tests.test_helpers import mce_helpers, test_connection_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
@@ -129,6 +132,43 @@ def side_effect_project_data(*arg, **kwargs):
     project4.parent_id = project1._id
 
     return [project1, project2, project3, project4], mock_pagination
+
+
+def side_effect_group_data(*arg, **kwargs):
+    mock_pagination = mock.MagicMock()
+    mock_pagination.total_available = None
+
+    group1: GroupItem = GroupItem(
+        name="AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer"
+    )
+    group1._id = "79d02655-88e5-45a6-9f9b-eeaf5fe54903-group1"
+    group2: GroupItem = GroupItem(
+        name="AB_XY00-Tableau-Access_A_123_PROJECT_XY_Analyst"
+    )
+    group2._id = "79d02655-88e5-45a6-9f9b-eeaf5fe54903-group2"
+
+    return [group1, group2], mock_pagination
+
+
+def side_effect_workbook_permissions(*arg, **kwargs):
+    project_capabilities1 = {"Read": "Allow", "ViewComments": "Allow"}
+    reference: ResourceReference = ResourceReference(
+        id_="79d02655-88e5-45a6-9f9b-eeaf5fe54903-group1", tag_name="group"
+    )
+    rule1 = PermissionsRule(grantee=reference, capabilities=project_capabilities1)
+
+    project_capabilities2 = {
+        "Read": "Allow",
+        "ViewComments": "Allow",
+        "Delete": "Allow",
+        "Write": "Allow",
+    }
+    reference2: ResourceReference = ResourceReference(
+        id_="79d02655-88e5-45a6-9f9b-eeaf5fe54903-group2", tag_name="group"
+    )
+    rule2 = PermissionsRule(grantee=reference2, capabilities=project_capabilities2)
+
+    return [rule1, rule2]
 
 
 def side_effect_site_data(*arg, **kwargs):
@@ -248,8 +288,10 @@ def mock_sdk_client(
     mock_client.views = mock.Mock()
     mock_client.projects = mock.Mock()
     mock_client.sites = mock.Mock()
+    mock_client.groups = mock.Mock()
 
     mock_client.projects.get.side_effect = side_effect_project_data
+    mock_client.groups.get.side_effect = side_effect_group_data
     mock_client.sites.get.side_effect = side_effect_site_data
     mock_client.sites.get_by_id.side_effect = side_effect_site_get_by_id
 
@@ -259,6 +301,11 @@ def mock_sdk_client(
 
     mock_client.workbooks = mock.Mock()
     mock_client.workbooks.get.side_effect = side_effect_workbook_data
+    workbook_mock = mock.create_autospec(WorkbookItem, instance=True)
+    type(workbook_mock).permissions = mock.PropertyMock(
+        return_value=side_effect_workbook_permissions()
+    )
+    mock_client.workbooks.get_by_id.return_value = workbook_mock
 
     mock_client.views.get.side_effect = side_effect_usage_stat
     mock_client.auth.sign_in.return_value = None
@@ -545,7 +592,72 @@ def test_value_error_projects_and_project_pattern(
             pipeline_config=new_config,
         )
     except Exception as e:
-        assert "projects is deprecated. Please use project_pattern only" in str(e)
+        assert "projects is deprecated. Please use project_path_pattern only" in str(e)
+
+
+def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph):
+    # Ingestion should raise ValueError
+    output_file_name: str = "tableau_project_pattern_deprecation_mces.json"
+    golden_file_name: str = "tableau_project_pattern_deprecation_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["project_pattern"] = {"allow": ["^Samples$"]}
+    new_config["project_path_pattern"] = {"allow": ["^Samples$"]}
+
+    try:
+        tableau_ingest_common(
+            pytestconfig,
+            tmp_path,
+            mock_data(),
+            golden_file_name,
+            output_file_name,
+            mock_datahub_graph,
+            pipeline_config=new_config,
+        )
+    except Exception as e:
+        assert (
+            "project_pattern is deprecated. Please use project_path_pattern only"
+            in str(e)
+        )
+
+
+def test_project_path_pattern_allow(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_project_path_pattern_allow_mces.json"
+    golden_file_name: str = "tableau_project_path_pattern_allow_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["project_path_pattern"] = {"allow": ["default/DenyProject"]}
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+    )
+
+
+def test_project_path_pattern_deny(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_project_path_pattern_deny_mces.json"
+    golden_file_name: str = "tableau_project_path_pattern_deny_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["project_path_pattern"] = {"deny": ["^default.*"]}
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+    )
 
 
 @freeze_time(FROZEN_TIME)
@@ -874,11 +986,12 @@ def test_tableau_unsupported_csql():
         database_override_map={"production database": "prod"}
     )
 
-    def test_lineage_metadata(
+    def check_lineage_metadata(
         lineage, expected_entity_urn, expected_upstream_table, expected_cll
     ):
-        mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)
-        assert mcp.aspect == UpstreamLineage(
+        mcp = cast(MetadataChangeProposalWrapper, list(lineage)[0].metadata)
+
+        expected = UpstreamLineage(
             upstreams=[
                 UpstreamClass(
                     dataset=expected_upstream_table,
@@ -900,6 +1013,9 @@ def test_tableau_unsupported_csql():
             ],
         )
         assert mcp.entityUrn == expected_entity_urn
+
+        actual_aspect = mcp.aspect
+        assert actual_aspect == expected
 
     csql_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
     expected_upstream_table = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.UserDetail,PROD)"
@@ -931,7 +1047,7 @@ def test_tableau_unsupported_csql():
         },
         out_columns=[],
     )
-    test_lineage_metadata(
+    check_lineage_metadata(
         lineage=lineage,
         expected_entity_urn=csql_urn,
         expected_upstream_table=expected_upstream_table,
@@ -949,7 +1065,7 @@ def test_tableau_unsupported_csql():
         },
         out_columns=[],
     )
-    test_lineage_metadata(
+    check_lineage_metadata(
         lineage=lineage,
         expected_entity_urn=csql_urn,
         expected_upstream_table=expected_upstream_table,
@@ -1081,6 +1197,32 @@ def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
         mock_datahub_graph,
         pipeline_config=new_config,
         pipeline_name="test_tableau_site_name_pattern_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_permission_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_permission_ingestion_mces.json"
+    golden_file_name: str = "tableau_permission_ingestion_mces_golden.json"
+
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "permission_ingestion": {
+            "enable_workbooks": True,
+            "group_name_pattern": {"allow": ["^.*_Consumer$"]},
+        },
+    }
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_pipeline_config,
+        pipeline_name="test_tableau_group_ingest",
     )
 
 

@@ -1,8 +1,9 @@
 package com.linkedin.metadata.search.opensearch;
 
-import static org.testng.AssertJUnit.assertNotNull;
+import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.fixtures.SampleDataFixtureTestBase;
@@ -42,6 +43,11 @@ public class SampleDataFixtureOpenSearchTest extends SampleDataFixtureTestBase {
   @Autowired
   @Qualifier("sampleDataOperationContext")
   protected OperationContext operationContext;
+
+  @Getter
+  @Autowired
+  @Qualifier("fixtureCustomSearchConfig")
+  protected CustomSearchConfiguration customSearchConfiguration;
 
   @Test
   public void initTest() {

@@ -13,6 +13,7 @@ from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     get_time_bucket,
 )
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -114,7 +115,7 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
     )
 
 
-class BigQueryQueriesExtractor:
+class BigQueryQueriesExtractor(Closeable):
     """
     Extracts query audit log and generates usage/lineage/operation workunits.
 
@@ -181,6 +182,7 @@ class BigQueryQueriesExtractor:
             is_allowed_table=self.is_allowed_table,
             format_queries=False,
         )
+
         self.report.sql_aggregator = self.aggregator.report
         self.report.num_discovered_tables = (
             len(self.discovered_tables) if self.discovered_tables else None
@@ -273,12 +275,14 @@ class BigQueryQueriesExtractor:
             self.report.num_unique_queries = len(queries_deduped)
             logger.info(f"Found {self.report.num_unique_queries} unique queries")
 
-        with self.report.audit_log_load_timer:
+        with self.report.audit_log_load_timer, queries_deduped:
             i = 0
             for _, query_instances in queries_deduped.items():
                 for query in query_instances.values():
                     if i > 0 and i % 10000 == 0:
-                        logger.info(f"Added {i} query log entries to SQL aggregator")
+                        logger.info(
+                            f"Added {i} query log equeries_dedupedntries to SQL aggregator"
+                        )
                         if self.report.sql_aggregator:
                             logger.info(self.report.sql_aggregator.as_string())
 
@@ -286,6 +290,11 @@ class BigQueryQueriesExtractor:
                     i += 1
 
         yield from auto_workunit(self.aggregator.gen_metadata())
+
+        if not use_cached_audit_log:
+            queries.close()
+            shared_connection.close()
+            audit_log_file.unlink(missing_ok=True)
 
     def deduplicate_queries(
         self, queries: FileBackedList[ObservedQuery]
@@ -403,6 +412,9 @@ class BigQueryQueriesExtractor:
         )
 
         return entry
+
+    def close(self) -> None:
+        self.aggregator.close()
 
 
 def _extract_query_text(row: BigQueryJob) -> str:

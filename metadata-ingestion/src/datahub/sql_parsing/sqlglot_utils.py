@@ -1,3 +1,5 @@
+from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
+
 import functools
 import hashlib
 import logging
@@ -7,6 +9,8 @@ from typing import Dict, Iterable, Optional, Tuple, Union
 import sqlglot
 import sqlglot.errors
 import sqlglot.optimizer.eliminate_ctes
+
+assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
@@ -346,6 +350,9 @@ def detach_ctes(
 
     dialect = get_dialect(platform)
     statement = parse_statement(sql, dialect=dialect)
+
+    if not cte_mapping:
+        return statement
 
     def replace_cte_refs(node: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
         if (

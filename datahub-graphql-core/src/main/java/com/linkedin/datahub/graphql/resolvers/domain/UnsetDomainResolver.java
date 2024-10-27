@@ -43,7 +43,7 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(
-              environment.getContext(), entityUrn)) {
+              environment.getContext(), entityUrn, _entityClient)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }

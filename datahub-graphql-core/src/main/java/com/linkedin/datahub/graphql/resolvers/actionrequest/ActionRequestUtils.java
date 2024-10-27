@@ -61,6 +61,7 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.EditableSchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -417,59 +418,35 @@ public class ActionRequestUtils {
   }
 
   public static Criterion createStatusCriterion(ActionRequestStatus status) {
-    final Criterion statusCriterion = new Criterion();
-    statusCriterion.setField(STATUS_FIELD_NAME);
-    statusCriterion.setValue(status.toString());
-    statusCriterion.setCondition(Condition.EQUAL);
-    return statusCriterion;
+    return CriterionUtils.buildCriterion(STATUS_FIELD_NAME, Condition.EQUAL, status.toString());
   }
 
   public static Criterion createTypeCriterion(ActionRequestType type) {
-    final Criterion typeCriterion = new Criterion();
-    typeCriterion.setField(TYPE_FIELD_NAME);
-    typeCriterion.setValue(type.toString());
-    typeCriterion.setCondition(Condition.EQUAL);
-    return typeCriterion;
+    return CriterionUtils.buildCriterion(TYPE_FIELD_NAME, Condition.EQUAL, type.toString());
   }
 
   public static Criterion createResultCriterion(ActionRequestResult result) {
-    final Criterion resultCriterion = new Criterion();
-    resultCriterion.setField(RESULT_FIELD_NAME);
-    resultCriterion.setValue(result.toString());
-    resultCriterion.setCondition(Condition.EQUAL);
-    return resultCriterion;
+    return CriterionUtils.buildCriterion(RESULT_FIELD_NAME, Condition.EQUAL, result.toString());
   }
 
   public static Criterion createResourceCriterion(String targetUrn) {
-    final Criterion resourceCriterion = new Criterion();
-    resourceCriterion.setField(RESOURCE_FIELD_NAME);
-    resourceCriterion.setValue(targetUrn);
-    resourceCriterion.setCondition(Condition.EQUAL);
-    return resourceCriterion;
+    return CriterionUtils.buildCriterion(RESOURCE_FIELD_NAME, Condition.EQUAL, targetUrn);
   }
 
   public static Criterion createSubResourceCriterion(String subResource) {
-    final Criterion subResourceCriterion = new Criterion();
-    subResourceCriterion.setField(SUBRESOURCE_FIELD_NAME);
-    subResourceCriterion.setValue(subResource);
-    subResourceCriterion.setCondition(Condition.EQUAL);
-    return subResourceCriterion;
+    return CriterionUtils.buildCriterion(SUBRESOURCE_FIELD_NAME, Condition.EQUAL, subResource);
   }
 
   public static Criterion createStartTimestampCriterion(Long startTimestampMillis) {
-    final Criterion startTimestampCriterion = new Criterion();
-    startTimestampCriterion.setField(LAST_MODIFIED_FIELD_NAME);
-    startTimestampCriterion.setValue(startTimestampMillis.toString());
-    startTimestampCriterion.setCondition(Condition.GREATER_THAN_OR_EQUAL_TO);
-    return startTimestampCriterion;
+    return CriterionUtils.buildCriterion(
+        LAST_MODIFIED_FIELD_NAME,
+        Condition.GREATER_THAN_OR_EQUAL_TO,
+        startTimestampMillis.toString());
   }
 
-  public static Criterion createEndTimestampCriterion(Long startTimestampMillis) {
-    final Criterion endTimestampCriterion = new Criterion();
-    endTimestampCriterion.setField(LAST_MODIFIED_FIELD_NAME);
-    endTimestampCriterion.setValue(startTimestampMillis.toString());
-    endTimestampCriterion.setCondition(Condition.LESS_THAN_OR_EQUAL_TO);
-    return endTimestampCriterion;
+  public static Criterion createEndTimestampCriterion(Long endTimestampMillis) {
+    return CriterionUtils.buildCriterion(
+        LAST_MODIFIED_FIELD_NAME, Condition.LESS_THAN_OR_EQUAL_TO, endTimestampMillis.toString());
   }
 
   public static List<ActionRequest> mapActionRequests(

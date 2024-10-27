@@ -6,7 +6,6 @@ import static com.linkedin.metadata.search.utils.ESUtils.*;
 import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
 
 import com.datahub.authorization.AuthUtil;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
@@ -21,7 +20,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -29,6 +27,7 @@ import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.PolicyMatchCriterion;
@@ -48,10 +47,10 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.index.query.TermsQueryBuilder;
 
 @Slf4j
 public class ESAccessControlUtil {
@@ -292,14 +291,38 @@ public class ESAccessControlUtil {
             && !actorFilter.getResourceOwnersTypes().isEmpty());
   }
 
-  private static Stream<TermsQueryBuilder> buildResourceQuery(
+  private static Stream<AbstractQueryBuilder<?>> buildResourceQuery(
       @Nonnull OperationContext opContext, @Nonnull PolicyMatchCriterionArray criteriaArray) {
     return criteriaArray.stream()
         .map(
-            criteria ->
-                QueryBuilders.termsQuery(
-                    toESField(criteria, opContext.getAspectRetriever()).get(),
-                    toESValues(opContext, criteria)));
+            criteria -> {
+              final String fieldName = toESField(criteria, opContext.getAspectRetriever()).get();
+              final Collection<String> values = toESValues(opContext, criteria);
+
+              switch (criteria.getCondition()) {
+                case EQUALS:
+                  return QueryBuilders.termsQuery(fieldName, values);
+                case STARTS_WITH:
+                  BoolQueryBuilder startWithBoolQuery =
+                      QueryBuilders.boolQuery().minimumShouldMatch(1);
+                  switch (criteria.getField()) {
+                    case "URN":
+                    case "TAG":
+                    case "DOMAIN":
+                      values.forEach(
+                          value ->
+                              startWithBoolQuery.should(
+                                  QueryBuilders.prefixQuery(fieldName, value)));
+                      return startWithBoolQuery;
+                    default:
+                      throw new UnsupportedOperationException(
+                          "Unsupported field for search access controls:" + criteria);
+                  }
+                default:
+                  throw new UnsupportedOperationException(
+                      "Unsupported search access control condition: " + criteria);
+              }
+            });
   }
 
   private static Optional<String> toESField(
@@ -372,13 +395,8 @@ public class ESAccessControlUtil {
                                         .setAnd(
                                             new CriterionArray(
                                                 List.of(
-                                                    new Criterion()
-                                                        .setField("urn")
-                                                        .setCondition(Condition.EQUAL)
-                                                        .setValue(urnStr)
-                                                        .setValues(
-                                                            new StringArray(
-                                                                ImmutableList.of(urnStr)))))))
+                                                    CriterionUtils.buildCriterion(
+                                                        "urn", Condition.EQUAL, urnStr)))))
                             .collect(Collectors.toList())));
 
         result =

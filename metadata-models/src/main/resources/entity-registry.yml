@@ -299,6 +299,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - access
       - share
       - origin
       - documentation
@@ -575,6 +576,12 @@ entities:
       - testResults
       - schemaFieldProfile
       - lineageFeatures
+  - name: globalSettings
+    doc: Global settings for an the platform
+    category: internal
+    keyAspect: globalSettingsKey
+    aspects:
+      - globalSettingsInfo
   ## Not in OSS
   - name: constraint
     keyAspect: constraintKey
@@ -599,12 +606,6 @@ entities:
     keyAspect: anomalyKey
     aspects:
       - anomalyInfo
-  - name: globalSettings
-    doc: Global settings for an the platform
-    category: internal
-    keyAspect: globalSettingsKey
-    aspects:
-      - globalSettingsInfo
   - name: dataHubRole
     category: core
     keyAspect: dataHubRoleKey
@@ -771,6 +772,12 @@ entities:
     keyAspect: dataHubPersonaKey
     aspects:
       - dataHubPersonaInfo
+  - name: dataHubConnection
+    category: internal
+    keyAspect: dataHubConnectionKey
+    aspects:
+      - dataHubConnectionDetails
+      - dataPlatformInstance
   - name: platformResource
     doc: >-
       Platform Resources are assets that are unmodeled and stored outside of

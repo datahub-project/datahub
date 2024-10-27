@@ -48,55 +48,7 @@
             },
             "fields": [
                 {
-                    "fieldPath": "effect_changes",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.ArrayType": {}
-                        }
-                    },
-                    "nativeDataType": "list",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "effect_changes.effect_entries",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.ArrayType": {}
-                        }
-                    },
-                    "nativeDataType": "list",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "effect_changes.effect_entries.effect",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "str",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "effect_changes.effect_entries.language",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.RecordType": {}
-                        }
-                    },
-                    "nativeDataType": "dict",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "effect_changes.effect_entries.language.is_native",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -132,7 +84,19 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "effect_changes.version_group",
+                    "fieldPath": "effect_changes.effect_entries.language.is_native",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "str",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "effect_changes.effect_entries.language",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -140,6 +104,18 @@
                         }
                     },
                     "nativeDataType": "dict",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "effect_changes.effect_entries",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "list",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -168,7 +144,19 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "effect_entries",
+                    "fieldPath": "effect_changes.version_group",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "dict",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "effect_changes",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -188,18 +176,6 @@
                         }
                     },
                     "nativeDataType": "str",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "effect_entries.language",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.RecordType": {}
-                        }
-                    },
-                    "nativeDataType": "dict",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -228,6 +204,18 @@
                     "isPartOfKey": false
                 },
                 {
+                    "fieldPath": "effect_entries.language",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "dict",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
                     "fieldPath": "effect_entries.short_effect",
                     "nullable": false,
                     "type": {
@@ -240,7 +228,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "flavor_text_entries",
+                    "fieldPath": "effect_entries",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -260,18 +248,6 @@
                         }
                     },
                     "nativeDataType": "str",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "flavor_text_entries.language",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.RecordType": {}
-                        }
-                    },
-                    "nativeDataType": "dict",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -300,7 +276,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "flavor_text_entries.version_group",
+                    "fieldPath": "flavor_text_entries.language",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -336,7 +312,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "generation",
+                    "fieldPath": "flavor_text_entries.version_group",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -344,6 +320,18 @@
                         }
                     },
                     "nativeDataType": "dict",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "flavor_text_entries",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "list",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -368,6 +356,18 @@
                         }
                     },
                     "nativeDataType": "str",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "generation",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "dict",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -408,30 +408,6 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "names",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.ArrayType": {}
-                        }
-                    },
-                    "nativeDataType": "list",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "names.language",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.RecordType": {}
-                        }
-                    },
-                    "nativeDataType": "dict",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "names.language.name",
                     "nullable": false,
                     "type": {
@@ -456,6 +432,18 @@
                     "isPartOfKey": false
                 },
                 {
+                    "fieldPath": "names.language",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "dict",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
                     "fieldPath": "names.name",
                     "nullable": false,
                     "type": {
@@ -468,7 +456,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "pokemon",
+                    "fieldPath": "names",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -488,18 +476,6 @@
                         }
                     },
                     "nativeDataType": "bool",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "pokemon.pokemon",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.RecordType": {}
-                        }
-                    },
-                    "nativeDataType": "dict",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -528,6 +504,18 @@
                     "isPartOfKey": false
                 },
                 {
+                    "fieldPath": "pokemon.pokemon",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "dict",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
                     "fieldPath": "pokemon.slot",
                     "nullable": false,
                     "type": {
@@ -536,6 +524,18 @@
                         }
                     },
                     "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "pokemon",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "list",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -561,7 +561,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688445259021
+            "lastUpdatedTimestamp": 1586808380000
         }
     },
     "systemMetadata": {
@@ -1705,6 +1705,28 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_basic.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808380000
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,

@@ -80,7 +80,7 @@ const QuickstartContent = ({}) => {
                 duration: .75
               }
             }}
-            viewport={{ once: true, amount: .5 }}
+            viewport={{ once: true, amount: .4 }}
           >
             <div className="quickstart__text">
               <div className="quickstart__text__label">{data.heading}</div>

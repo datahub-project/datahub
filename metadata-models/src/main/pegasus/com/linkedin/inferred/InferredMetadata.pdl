@@ -47,6 +47,7 @@ record InferredMetadata {
     "/*/owners/*/owner":{
       "fieldName": "inferredOwners",
       "fieldType": "URN",
+      "queryByDefault": false,
       }
   }
   inferredOwners: optional array[InferredOwners]

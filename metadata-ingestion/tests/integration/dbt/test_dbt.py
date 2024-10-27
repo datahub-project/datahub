@@ -339,9 +339,13 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
                         (test_resources_dir / "jaffle_shop_catalog.json").resolve()
                     ),
                     target_platform="postgres",
-                    test_results_path=str(
-                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
-                    ),
+                    run_results_paths=[
+                        str(
+                            (
+                                test_resources_dir / "jaffle_shop_test_results.json"
+                            ).resolve()
+                        )
+                    ],
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
@@ -442,9 +446,13 @@ def test_dbt_tests_only_assertions(
                         (test_resources_dir / "jaffle_shop_catalog.json").resolve()
                     ),
                     target_platform="postgres",
-                    test_results_path=str(
-                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
-                    ),
+                    run_results_paths=[
+                        str(
+                            (
+                                test_resources_dir / "jaffle_shop_test_results.json"
+                            ).resolve()
+                        )
+                    ],
                     entities_enabled=DBTEntitiesEnabled(
                         test_results=EmitDirective.ONLY
                     ),
@@ -465,7 +473,7 @@ def test_dbt_tests_only_assertions(
         )
         > 20
     )
-    number_of_valid_assertions_in_test_results = 23
+    number_of_valid_assertions_in_test_results = 24
     assert (
         mce_helpers.assert_entity_urn_like(
             entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
@@ -518,9 +526,13 @@ def test_dbt_only_test_definitions_and_results(
                         (test_resources_dir / "jaffle_shop_catalog.json").resolve()
                     ),
                     target_platform="postgres",
-                    test_results_path=str(
-                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
-                    ),
+                    run_results_paths=[
+                        str(
+                            (
+                                test_resources_dir / "jaffle_shop_test_results.json"
+                            ).resolve()
+                        )
+                    ],
                     entities_enabled=DBTEntitiesEnabled(
                         sources=EmitDirective.NO,
                         seeds=EmitDirective.NO,
@@ -542,7 +554,7 @@ def test_dbt_only_test_definitions_and_results(
         )
         > 20
     )
-    number_of_assertions = 24
+    number_of_assertions = 25
     assert (
         mce_helpers.assert_entity_urn_like(
             entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file

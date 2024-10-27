@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -62,7 +63,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
-import org.springframework.core.io.ClassPathResource;
 
 @SpringBootApplication(
     scanBasePackages = {
@@ -199,21 +199,25 @@ public class ScimpleSpringTestApp {
   private static void ingestSystemRoles(
       OperationContext opContext, EntityServiceImpl _entityServiceImpl)
       throws IOException, URISyntaxException {
-    final ObjectMapper mapper = new ObjectMapper();
-    final JsonNode rolesObj = mapper.readTree(new ClassPathResource("./roles.json").getFile());
+    final ObjectMapper mapper = new YAMLMapper();
+    final JsonNode mcpsObj =
+        mapper.readTree(
+            ScimpleSpringTestApp.class
+                .getClassLoader()
+                .getResourceAsStream("bootstrap_mcps/roles.yaml"));
     final AuditStamp auditStamp =
         new AuditStamp()
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
 
-    for (final JsonNode roleObj : rolesObj) {
-      Urn roleUrn = Urn.createFromString(roleObj.get("urn").asText());
+    for (final JsonNode mcpObj : mcpsObj) {
+      Urn roleUrn = Urn.createFromString(mcpObj.get("entityUrn").asText());
 
       DataHubRoleKey roleKey = new DataHubRoleKey();
-      roleKey.setId(roleObj.get("info").get("name").toString());
+      roleKey.setId(mcpObj.get("aspect").get("name").toString());
 
       DataHubRoleInfo roleInfo =
-          RecordUtils.toRecordTemplate(DataHubRoleInfo.class, roleObj.get("info").toString());
+          RecordUtils.toRecordTemplate(DataHubRoleInfo.class, mcpObj.get("aspect").toString());
 
       MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
       keyAspectProposal.setEntityUrn(roleUrn);

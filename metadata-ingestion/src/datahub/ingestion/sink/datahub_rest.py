@@ -79,6 +79,7 @@ class DataHubRestSinkReport(SinkReport):
     gms_version: Optional[str] = None
     pending_requests: int = 0
 
+    async_batches_prepared: int = 0
     async_batches_split: int = 0
 
     main_thread_blocking_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
@@ -260,6 +261,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 events.append(event)
 
         chunks = self.emitter.emit_mcps(events)
+        self.report.async_batches_prepared += 1
         if chunks > 1:
             self.report.async_batches_split += chunks
             logger.info(

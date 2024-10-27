@@ -1,6 +1,5 @@
 # Override to use PostgreSQL as a backing store for datahub-gms.
 ---
-version: '3.9'
 services:
   datahub-gms:
     env_file:
@@ -9,6 +8,7 @@ services:
     environment:
       - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
       - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+      - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
     depends_on:
       datahub-upgrade:
         condition: service_completed_successfully

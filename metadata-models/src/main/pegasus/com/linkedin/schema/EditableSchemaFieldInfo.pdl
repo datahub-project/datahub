@@ -45,12 +45,12 @@ record EditableSchemaFieldInfo {
     "/tags/*/attribution/actor": {
         "fieldName": "editedFieldTagAttributionActors",
         "fieldType": "URN",
-        "queryByDefault": false
+        "queryByDefault": false,
       },
     "/tags/*/attribution/source": {
         "fieldName": "editedFieldTagAttributionSources",
         "fieldType": "URN",
-        "queryByDefault": false
+        "queryByDefault": false,
       },
   }
   globalTags: optional GlobalTags
@@ -78,12 +78,12 @@ record EditableSchemaFieldInfo {
     "/terms/*/attribution/actor": {
         "fieldName": "editedFieldTermAttributionActors",
         "fieldType": "URN",
-        "queryByDefault": false
+        "queryByDefault": false,
       },
     "/terms/*/attribution/source": {
         "fieldName": "editedFieldTermAttributionSources",
         "fieldType": "URN",
-        "queryByDefault": false
+        "queryByDefault": false,
       },
   }
   glossaryTerms: optional GlossaryTerms

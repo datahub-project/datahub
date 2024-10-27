@@ -28,7 +28,6 @@ Taking the example of "United States- Social Security Number", if an application
 What you need to create/update and associate business attributes to dataset schema field
 
 * **Manage Business Attributes** platform privilege to create/update/delete business attributes.
-* **Edit Dataset Column Business Attribute** metadata privilege to associate business attributes to dataset schema field.
 
 ## Using Business Attributes
 As of now Business Attributes can only be created through UI

@@ -65,6 +65,13 @@ query getContainer($urn: String!) {
         status {
             removed
         }
+        access {
+            roles {
+                role {
+                    urn
+                }
+            }
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }

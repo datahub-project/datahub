@@ -17,7 +17,8 @@ record RoleAssociation {
     "fieldName": "roles",
     "fieldType": "URN",
     "hasValuesFieldName": "hasRoles",
-    "filterNameOverride": "Role"
+    "filterNameOverride": "Role",
+    "queryByDefault": false,
   }
   urn: Urn
 }

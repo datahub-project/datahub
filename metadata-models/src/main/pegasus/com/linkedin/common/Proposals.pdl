@@ -15,7 +15,7 @@ record Proposals {
         "/*" : {
             "fieldName": "proposedTags",
             "fieldType": "URN",
-            "filterNameOverride": "Proposed Tag"
+            "filterNameOverride": "Proposed Tag",
         }
     }
     proposedTags: optional array[Urn]
@@ -26,7 +26,7 @@ record Proposals {
         "/*" : {
             "fieldName": "proposedGlossaryTerms",
             "fieldType": "URN",
-            "filterNameOverride": "Proposed Glossary Term"
+            "filterNameOverride": "Proposed Glossary Term",
         }
     }
     proposedGlossaryTerms: optional array[Urn]

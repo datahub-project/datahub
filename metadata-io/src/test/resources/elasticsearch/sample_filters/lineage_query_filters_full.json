@@ -33,11 +33,13 @@
                   }
                 ],
                 "adjust_pure_negative" : true,
+                "minimum_should_match" : "1",
                 "boost" : 1.0
               }
             }
           ],
           "adjust_pure_negative" : true,
+          "minimum_should_match" : "1",
           "boost" : 1.0
         }
       },
@@ -115,6 +117,7 @@
                   }
                 ],
                 "adjust_pure_negative" : true,
+                "minimum_should_match" : "1",
                 "boost" : 1.0
               }
             },
@@ -156,6 +159,7 @@
                         }
                       ],
                       "adjust_pure_negative" : true,
+                      "minimum_should_match" : "1",
                       "boost" : 1.0
                     }
                   },
@@ -194,6 +198,7 @@
                         }
                       ],
                       "adjust_pure_negative" : true,
+                      "minimum_should_match" : "1",
                       "boost" : 1.0
                     }
                   }
@@ -212,6 +217,7 @@
             }
           ],
           "adjust_pure_negative" : true,
+          "minimum_should_match" : "1",
           "boost" : 1.0
         }
       }

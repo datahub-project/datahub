@@ -41,6 +41,7 @@ class DatasetKey(ContainerKey):
 class Workspace:
     id: str
     name: str
+    type: str  # This is used as a subtype of the Container entity.
     dashboards: List["Dashboard"]
     reports: List["Report"]
     datasets: Dict[str, "PowerBIDataset"]
@@ -141,6 +142,7 @@ class PowerBIDataset:
     description: str
     webUrl: Optional[str]
     workspace_id: str
+    workspace_name: str
     parameters: Dict[str, str]
 
     # Table in datasets
@@ -211,14 +213,23 @@ class User:
         return hash(self.__members())
 
 
+class ReportType(Enum):
+    PaginatedReport = "PaginatedReport"
+    PowerBIReport = "Report"
+
+
 @dataclass
 class Report:
     id: str
     name: str
+    type: ReportType
     webUrl: Optional[str]
     embedUrl: str
     description: str
-    dataset: Optional["PowerBIDataset"]
+    dataset_id: Optional[str]  # dataset_id is coming from REST API response
+    dataset: Optional[
+        "PowerBIDataset"
+    ]  # This the dataclass later initialise by powerbi_api.py
     pages: List["Page"]
     users: List["User"]
     tags: List[str]
@@ -259,7 +270,7 @@ class Dashboard:
     tiles: List["Tile"]
     users: List["User"]
     tags: List[str]
-    webUrl: Optional[str] = None
+    webUrl: Optional[str]
 
     def get_urn_part(self):
         return f"dashboards.{self.id}"
@@ -276,7 +287,7 @@ class Dashboard:
         return hash(self.__members())
 
 
-def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset:
+def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIDataset:
     return PowerBIDataset(
         id=raw_instance["id"],
         name=raw_instance.get("name"),
@@ -286,7 +297,8 @@ def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset
             if raw_instance.get("webUrl") is not None
             else None
         ),
-        workspace_id=workspace_id,
+        workspace_id=workspace.id,
+        workspace_name=workspace.name,
         parameters={},
         tables=[],
         tags=[],

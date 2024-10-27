@@ -49,6 +49,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -117,7 +118,8 @@ public class EntityController
                             opContext,
                             urns,
                             new HashSet<>(request.getAspectNames()),
-                            request.isWithSystemMetadata())))
+                            request.isWithSystemMetadata(),
+                            true)))
                 .build()));
   }
 
@@ -127,10 +129,12 @@ public class EntityController
       SearchEntityArray searchEntities,
       Set<String> aspectNames,
       boolean withSystemMetadata,
-      @Nullable String scrollId)
+      @Nullable String scrollId,
+      boolean expandEmpty)
       throws URISyntaxException {
     return GenericEntityScrollResultV2.builder()
-        .results(toRecordTemplates(opContext, searchEntities, aspectNames, withSystemMetadata))
+        .results(
+            toRecordTemplates(opContext, searchEntities, aspectNames, withSystemMetadata, true))
         .scrollId(scrollId)
         .build();
   }
@@ -158,7 +162,7 @@ public class EntityController
         while (aspectItr.hasNext()) {
           Map.Entry<String, JsonNode> aspect = aspectItr.next();
 
-          AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey());
+          AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).get();
 
           if (opContext.getValidationContext().isAlternateValidation()) {
             ProposedItem.ProposedItemBuilder builder =
@@ -168,6 +172,7 @@ public class EntityController
                             .setEntityUrn(entityUrn)
                             .setAspectName(aspect.getKey())
                             .setEntityType(entityUrn.getEntityType())
+                            .setChangeType(ChangeType.UPSERT)
                             .setAspect(GenericRecordUtils.serializeAspect(aspect.getValue()))
                             .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata()))
                     .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
@@ -212,12 +217,14 @@ public class EntityController
   @Override
   protected List<GenericEntityV2> buildEntityVersionedAspectList(
       @Nonnull OperationContext opContext,
+      Collection<Urn> requestedUrns,
       LinkedHashMap<Urn, Map<String, Long>> urnAspectVersions,
-      boolean withSystemMetadata)
+      boolean withSystemMetadata,
+      boolean expandEmpty)
       throws URISyntaxException {
     Map<Urn, List<EnvelopedAspect>> aspects =
         entityService.getEnvelopedVersionedAspects(
-            opContext, resolveAspectNames(urnAspectVersions, 0L), true);
+            opContext, resolveAspectNames(urnAspectVersions, 0L, true), true);
 
     return urnAspectVersions.keySet().stream()
         .map(
@@ -246,22 +253,40 @@ public class EntityController
                     withSystemMetadata ? updateAspectResult.getNewSystemMetadata() : null)));
   }
 
+  @Override
+  protected GenericEntityV2 buildGenericEntity(
+      @Nonnull String aspectName, @Nonnull IngestResult ingestResult, boolean withSystemMetadata) {
+    return GenericEntityV2.builder()
+        .urn(ingestResult.getUrn().toString())
+        .build(
+            objectMapper,
+            Map.of(
+                aspectName,
+                Pair.of(
+                    ingestResult.getRequest().getRecordTemplate(),
+                    withSystemMetadata ? ingestResult.getRequest().getSystemMetadata() : null)));
+  }
+
   private List<GenericEntityV2> toRecordTemplates(
       @Nonnull OperationContext opContext,
       SearchEntityArray searchEntities,
       Set<String> aspectNames,
-      boolean withSystemMetadata)
+      boolean withSystemMetadata,
+      boolean expandEmpty)
       throws URISyntaxException {
     return buildEntityList(
         opContext,
         searchEntities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
         aspectNames,
-        withSystemMetadata);
+        withSystemMetadata,
+        true);
   }
 
   @Override
   protected List<GenericEntityV2> buildEntityList(
-      Set<IngestResult> ingestResults, boolean withSystemMetadata) {
+      Collection<IngestResult> ingestResults,
+      boolean withSystemMetadata,
+      boolean isAsyncAlternateValidation) {
     List<GenericEntityV2> responseList = new LinkedList<>();
 
     Map<Urn, List<IngestResult>> entityMap =
@@ -280,7 +305,7 @@ public class EntityController
       responseList.add(
           GenericEntityV2.builder()
               .urn(urnAspects.getKey().toString())
-              .build(objectMapper, aspectsMap));
+              .build(objectMapper, aspectsMap, isAsyncAlternateValidation));
     }
     return responseList;
   }
@@ -290,14 +315,25 @@ public class EntityController
       @Nonnull AspectRetriever aspectRetriever,
       Urn entityUrn,
       AspectSpec aspectSpec,
+      Boolean createIfEntityNotExists,
       Boolean createIfNotExists,
       String jsonAspect,
       Actor actor)
       throws URISyntaxException {
+
+    final ChangeType changeType;
+    if (Boolean.TRUE.equals(createIfEntityNotExists)) {
+      changeType = ChangeType.CREATE_ENTITY;
+    } else if (Boolean.TRUE.equals(createIfNotExists)) {
+      changeType = ChangeType.CREATE;
+    } else {
+      changeType = ChangeType.UPSERT;
+    }
+
     return ChangeItemImpl.builder()
         .urn(entityUrn)
         .aspectName(aspectSpec.getName())
-        .changeType(Boolean.TRUE.equals(createIfNotExists) ? ChangeType.CREATE : ChangeType.UPSERT)
+        .changeType(changeType)
         .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
         .recordTemplate(
             GenericRecordUtils.deserializeAspect(

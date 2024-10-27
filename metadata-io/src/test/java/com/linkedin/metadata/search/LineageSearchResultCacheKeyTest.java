@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search;
 
-import static org.testng.AssertJUnit.assertEquals;
-import static org.testng.AssertJUnit.assertNotSame;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotSame;
 
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;

@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.siblings;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.ScrollAcrossEntitiesInput;
@@ -17,6 +16,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.CriterionUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -41,10 +41,7 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
         bindArgument(environment.getArgument("input"), ScrollAcrossEntitiesInput.class);
 
     final Criterion siblingsFilter =
-        new Criterion()
-            .setField(SIBLINGS_FIELD_NAME)
-            .setValues(new StringArray(entity.getUrn()))
-            .setCondition(Condition.EQUAL);
+        CriterionUtils.buildCriterion(SIBLINGS_FIELD_NAME, Condition.EQUAL, entity.getUrn());
     final Filter baseFilter =
         new Filter()
             .setOr(

@@ -37,17 +37,17 @@ record GlossaryTermAssociation {
     "/time": {
         "fieldName": "termAttributionDates",
         "fieldType": "DATETIME",
-        "queryByDefault": false
+        "queryByDefault": false,
       },
     "/actor": {
         "fieldName": "termAttributionActors",
         "fieldType": "URN",
-        "queryByDefault": false
+        "queryByDefault": false,
       },
     "/source": {
         "fieldName": "termAttributionSources",
         "fieldType": "URN",
-        "queryByDefault": false
+        "queryByDefault": false,
       },
   }
   attribution: optional MetadataAttribution

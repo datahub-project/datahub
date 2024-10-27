@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntityNames;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -215,11 +216,7 @@ public class FormUtils {
 
   private static Criterion buildFormCriterion(
       @Nonnull final String formUrn, @Nonnull final String field, final boolean negated) {
-    return new Criterion()
-        .setField(field)
-        .setValue(formUrn)
-        .setCondition(Condition.EQUAL)
-        .setNegated(negated);
+    return buildCriterion(field, Condition.EQUAL, negated, formUrn);
   }
 
   /**

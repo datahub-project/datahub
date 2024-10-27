@@ -94,7 +94,7 @@ describe("entity subscription test", () => {
       .find(".ant-dropdown-menu-submenu")
       .contains("Subscribe")
       .click();
-    cy.clickOptionWithText("Manage My Subscription");
+    cy.clickOptionWithText("Subscribe Me");
     cy.clickOptionWithTestId("cancel-button");
     cy.waitTextVisible("You have unsubscribed from this entity.").wait(3000);
     cy.goToSubscriptionsSettings();

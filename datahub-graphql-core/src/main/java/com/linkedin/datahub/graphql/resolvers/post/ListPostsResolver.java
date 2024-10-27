@@ -6,7 +6,6 @@ import static com.linkedin.metadata.Constants.*;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ListPostsInput;
@@ -17,13 +16,13 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.CriterionUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
@@ -119,12 +118,7 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
-                                    new Criterion()
-                                        .setField("target")
-                                        .setCondition(Condition.EQUAL)
-                                        .setValue(maybeResourceUrn)
-                                        .setValues(
-                                            new StringArray(
-                                                Collections.singletonList(maybeResourceUrn)))))))));
+                                    CriterionUtils.buildCriterion(
+                                        "target", Condition.EQUAL, maybeResourceUrn)))))));
   }
 }

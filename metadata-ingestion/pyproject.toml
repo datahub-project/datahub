@@ -14,7 +14,7 @@ target-version = ['py37', 'py38', 'py39', 'py310']
 [tool.isort]
 combine_as_imports = true
 indent = '    '
-known_future_library = ['__future__', 'datahub.utilities._markupsafe_compat', 'datahub_provider._airflow_compat']
+known_future_library = ['__future__', 'datahub.utilities._markupsafe_compat', 'datahub.sql_parsing._sqlglot_patch']
 profile = 'black'
 sections = 'FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER'
 skip_glob = 'src/datahub/metadata'

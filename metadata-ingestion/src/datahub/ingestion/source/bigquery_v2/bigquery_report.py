@@ -30,6 +30,7 @@ class BigQuerySchemaApiPerfReport(Report):
     num_list_tables_api_requests: int = 0
     num_get_views_for_dataset_api_requests: int = 0
     num_get_snapshots_for_dataset_api_requests: int = 0
+    num_get_table_constraints_for_dataset_api_requests: int = 0
 
     list_projects_timer: PerfTimer = field(default_factory=PerfTimer)
     list_projects_with_labels_timer: PerfTimer = field(default_factory=PerfTimer)
@@ -37,6 +38,7 @@ class BigQuerySchemaApiPerfReport(Report):
 
     get_columns_for_dataset_sec: float = 0
     get_tables_for_dataset_sec: float = 0
+    get_table_constraints_for_dataset_sec: float = 0
     list_tables_sec: float = 0
     get_views_for_dataset_sec: float = 0
     get_snapshots_for_dataset_sec: float = 0
@@ -155,7 +157,6 @@ class BigQueryV2Report(
     num_filtered_query_events: int = 0
     num_usage_query_hash_collisions: int = 0
     num_operational_stats_workunits_emitted: int = 0
-
     snapshots_scanned: int = 0
 
     # view lineage

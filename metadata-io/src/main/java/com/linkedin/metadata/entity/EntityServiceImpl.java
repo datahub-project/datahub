@@ -1173,15 +1173,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * @return an {@link IngestResult} containing the results
    */
   @Override
-  public Set<IngestResult> ingestProposal(
+  public List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
     Stream<IngestResult> timeseriesIngestResults =
         ingestTimeseriesProposal(opContext, aspectsBatch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
         async ? ingestProposalAsync(aspectsBatch) : ingestProposalSync(opContext, aspectsBatch);
 
-    return Stream.concat(timeseriesIngestResults, nonTimeseriesIngestResults)
-        .collect(Collectors.toSet());
+    return Stream.concat(nonTimeseriesIngestResults, timeseriesIngestResults)
+        .collect(Collectors.toList());
   }
 
   /**
@@ -1192,8 +1192,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    */
   private Stream<IngestResult> ingestTimeseriesProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
-    // TODO: Assuming custom unvalidated aspects are non-timeseries.
-    //  Might need better handling with mutator occurring before this
+
     List<? extends BatchItem> unsupported =
         aspectsBatch.getItems().stream()
             .filter(
@@ -1338,7 +1337,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private Stream<IngestResult> ingestProposalSync(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch) {
 
-    // TODO: Apply mutations for unvalidated aspects
     AspectsBatchImpl nonTimeseries =
         AspectsBatchImpl.builder()
             .retrieverContext(aspectsBatch.getRetrieverContext())
@@ -1368,6 +1366,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               return IngestResult.builder()
                   .urn(item.getUrn())
                   .request(item)
+                  .result(result)
                   .publishedMCL(result.getMclFuture() != null)
                   .sqlCommitted(true)
                   .isUpdate(result.getOldValue() != null)

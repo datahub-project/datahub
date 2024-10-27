@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers;
 
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.core.StreamReadConstraints;
@@ -22,6 +23,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -158,38 +160,22 @@ public class ResolverUtils {
 
   // Translates a FacetFilterInput (graphql input class) into Criterion (our internal model)
   public static Criterion criterionFromFilter(final FacetFilterInput filter) {
-    Criterion result = new Criterion();
-    result.setField(filter.getField());
 
-    // `value` is deprecated in place of `values`- this is to support old query patterns. If values
-    // is provided,
-    // this statement will be skipped
-    if (filter.getValues() == null && filter.getValue() != null) {
-      result.setValues(new StringArray(filter.getValue()));
-      result.setValue(filter.getValue());
-    } else if (filter.getValues() != null) {
-      result.setValues(new StringArray(filter.getValues()));
-      if (!filter.getValues().isEmpty()) {
-        result.setValue(filter.getValues().get(0));
-      } else {
-        result.setValue("");
-      }
-    } else {
-      result.setValues(new StringArray());
-      result.setValue("");
-    }
-
+    final Condition condition;
     if (filter.getCondition() != null) {
-      result.setCondition(Condition.valueOf(filter.getCondition().toString()));
+      condition = Condition.valueOf(filter.getCondition().toString());
     } else {
-      result.setCondition(Condition.EQUAL);
+      condition = Condition.EQUAL;
     }
 
-    if (filter.getNegated() != null) {
-      result.setNegated(filter.getNegated());
+    final List<String> values;
+    if (filter.getValues() == null && filter.getValue() != null) {
+      values = Collections.singletonList(filter.getValue());
+    } else {
+      values = filter.getValues();
     }
 
-    return result;
+    return buildCriterion(filter.getField(), condition, filter.getNegated(), values);
   }
 
   public static Filter viewFilter(
@@ -224,13 +210,11 @@ public class ResolverUtils {
       @Nonnull final String fieldName, @Nonnull final List<Urn> urns) {
     Filter filter = new Filter();
     CriterionArray criterionArray = new CriterionArray();
-    Criterion criterion = new Criterion();
-    criterion.setCondition(Condition.EQUAL);
-    criterion.setField(fieldName);
+
     StringArray urnStrings = new StringArray();
     urns.forEach(urn -> urnStrings.add(urn.toString()));
-    criterion.setValues(urnStrings);
-    criterion.setValue(urnStrings.size() > 0 ? urnStrings.get(0) : "");
+    Criterion criterion = CriterionUtils.buildCriterion(fieldName, Condition.EQUAL, urnStrings);
+
     criterionArray.add(criterion);
     filter.setOr(
         new ConjunctiveCriterionArray(

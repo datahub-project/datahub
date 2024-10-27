@@ -2,7 +2,6 @@ import logging
 import math
 import sys
 from dataclasses import dataclass, field
-from multiprocessing.pool import ThreadPool
 from typing import Dict, Iterable, List, Optional, Set, Type
 
 import dateutil.parser as dp
@@ -43,6 +42,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sql_parser import SQLParser
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -646,11 +646,11 @@ class RedashSource(Source):
         self.report.total_dashboards = total_dashboards
         self.report.max_page_dashboards = max_page
 
-        dash_exec_pool = ThreadPool(self.config.parallelism)
-        for response in dash_exec_pool.imap_unordered(
-            self._process_dashboard_response, range(1, max_page + 1)
-        ):
-            yield from response
+        yield from ThreadedIteratorExecutor.process(
+            self._process_dashboard_response,
+            [(page,) for page in range(1, max_page + 1)],
+            max_workers=self.config.parallelism,
+        )
 
     def _get_chart_type_from_viz_data(self, viz_data: Dict) -> str:
         """
@@ -769,11 +769,12 @@ class RedashSource(Source):
         logger.info(f"/api/queries total count {total_queries} and max page {max_page}")
         self.report.total_queries = total_queries
         self.report.max_page_queries = max_page
-        chart_exec_pool = ThreadPool(self.config.parallelism)
-        for response in chart_exec_pool.imap_unordered(
-            self._process_query_response, range(1, max_page + 1)
-        ):
-            yield from response
+
+        yield from ThreadedIteratorExecutor.process(
+            self._process_query_response,
+            [(page,) for page in range(1, max_page + 1)],
+            max_workers=self.config.parallelism,
+        )
 
     def add_config_to_report(self) -> None:
         self.report.api_page_limit = self.config.api_page_limit

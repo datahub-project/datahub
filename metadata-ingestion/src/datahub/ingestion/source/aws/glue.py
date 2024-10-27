@@ -678,12 +678,19 @@ class GlueSource(StatefulIngestionSourceBase):
         else:
             paginator_response = paginator.paginate()
 
-        for page in paginator_response:
-            yield from page["DatabaseList"]
+        pattern = "DatabaseList"
+        if self.source_config.ignore_resource_links:
+            # exclude resource links by using a JMESPath conditional query against the TargetDatabase struct key
+            pattern += "[?!TargetDatabase]"
 
-    def get_tables_from_database(self, database_name: str) -> Iterable[Dict]:
+        for database in paginator_response.search(pattern):
+            if self.source_config.database_pattern.allowed(database["Name"]):
+                yield database
+
+    def get_tables_from_database(self, database: Mapping[str, Any]) -> Iterable[Dict]:
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetTables.html
         paginator = self.glue_client.get_paginator("get_tables")
+        database_name = database["Name"]
 
         if self.source_config.catalog_id:
             paginator_response = paginator.paginate(
@@ -692,34 +699,28 @@ class GlueSource(StatefulIngestionSourceBase):
         else:
             paginator_response = paginator.paginate(DatabaseName=database_name)
 
-        for page in paginator_response:
-            yield from page["TableList"]
+        for table in paginator_response.search("TableList"):
+            # if resource links are detected, re-use database names from the current catalog
+            # otherwise, external names are picked up instead of aliased ones when creating full table names later
+            # This will cause an incoherent situation when creating full table names later
+            # Note: use an explicit source_config check but it is useless actually (filtering has already been done)
+            if (
+                not self.source_config.ignore_resource_links
+                and "TargetDatabase" in database
+            ):
+                table["DatabaseName"] = database["Name"]
+            yield table
 
     def get_all_databases_and_tables(
         self,
-    ) -> Tuple[Dict, List[Dict]]:
-        all_databases = self.get_all_databases()
-
-        if self.source_config.ignore_resource_links:
-            all_databases = [
-                database
-                for database in all_databases
-                if "TargetDatabase" not in database
-            ]
-
-        allowed_databases = {
-            database["Name"]: database
-            for database in all_databases
-            if self.source_config.database_pattern.allowed(database["Name"])
-        }
-
+    ) -> Tuple[List[Mapping[str, Any]], List[Dict]]:
+        all_databases = [*self.get_all_databases()]
         all_tables = [
-            table
-            for database_name in allowed_databases
-            for table in self.get_tables_from_database(database_name)
+            tables
+            for database in all_databases
+            for tables in self.get_tables_from_database(database)
         ]
-
-        return allowed_databases, all_tables
+        return all_databases, all_tables
 
     def get_lineage_if_enabled(
         self, mce: MetadataChangeEventClass
@@ -1039,7 +1040,7 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         databases, tables = self.get_all_databases_and_tables()
 
-        for database in databases.values():
+        for database in databases:
             yield from self.gen_database_containers(database)
 
         for table in tables:

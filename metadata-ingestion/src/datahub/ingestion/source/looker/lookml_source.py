@@ -29,7 +29,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.git.git_import import GitClone
-from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_common import (
     CORPUSER_DATAHUB,
     LookerExplore,
@@ -45,6 +44,9 @@ from datahub.ingestion.source.looker.looker_connection import (
     get_connection_def_based_on_connection_string,
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
+from datahub.ingestion.source.looker.looker_template_language import (
+    load_and_preprocess_file,
+)
 from datahub.ingestion.source.looker.looker_view_id_cache import (
     LookerModel,
     LookerViewFileLoader,
@@ -311,13 +313,19 @@ class LookMLSource(StatefulIngestionSourceBase):
 
     def _load_model(self, path: str) -> LookerModel:
         logger.debug(f"Loading model from file {path}")
-        parsed = load_lkml(path)
+
+        parsed = load_and_preprocess_file(
+            path=path,
+            source_config=self.source_config,
+        )
+
         looker_model = LookerModel.from_looker_dict(
             parsed,
             _BASE_PROJECT_NAME,
             self.source_config.project_name,
             self.base_projects_folder,
             path,
+            self.source_config,
             self.reporter,
         )
         return looker_model
@@ -495,7 +503,10 @@ class LookMLSource(StatefulIngestionSourceBase):
     def get_manifest_if_present(self, folder: pathlib.Path) -> Optional[LookerManifest]:
         manifest_file = folder / "manifest.lkml"
         if manifest_file.exists():
-            manifest_dict = load_lkml(manifest_file)
+
+            manifest_dict = load_and_preprocess_file(
+                path=manifest_file, source_config=self.source_config
+            )
 
             manifest = LookerManifest(
                 project_name=manifest_dict.get("project_name"),

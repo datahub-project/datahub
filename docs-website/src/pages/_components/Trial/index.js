@@ -25,6 +25,8 @@ const Trial = ({onOpenTourModal}) => {
         </div>
         <div className={styles.trial_right}>
           <div className={styles.right_content}>
+            <div className={styles.gradientTop} />
+            <div className={styles.gradientBottom} />
             <div className={styles.right_l}>
               <div className={styles.soc}>
                 <img

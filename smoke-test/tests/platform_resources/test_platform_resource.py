@@ -10,7 +10,6 @@ from datahub.api.entities.platformresource.platform_resource import (
     PlatformResourceKey,
     PlatformResourceSearchFields,
 )
-from datahub.ingestion.graph.client import get_default_graph
 
 from tests.utils import wait_for_writes_to_sync
 
@@ -24,11 +23,6 @@ def generate_random_id(length=8):
 @pytest.fixture
 def test_id():
     return f"test_{generate_random_id()}"
-
-
-@pytest.fixture(scope="module")
-def graph_client():
-    return get_default_graph()
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -56,9 +50,7 @@ def cleanup_resources(graph_client):
             logger.warning(f"Failed to delete resource during final cleanup: {e}")
 
 
-def test_platform_resource_read_write(
-    wait_for_healthchecks, graph_client, test_id, cleanup_resources
-):
+def test_platform_resource_read_write(graph_client, test_id, cleanup_resources):
     key = PlatformResourceKey(
         platform=f"test_platform_{test_id}",
         resource_type=f"test_resource_type_{test_id}",
@@ -78,9 +70,7 @@ def test_platform_resource_read_write(
     assert read_platform_resource == platform_resource
 
 
-def test_platform_resource_search(
-    wait_for_healthchecks, graph_client, test_id, cleanup_resources
-):
+def test_platform_resource_search(graph_client, test_id, cleanup_resources):
     key = PlatformResourceKey(
         platform=f"test_platform_{test_id}",
         resource_type=f"test_resource_type_{test_id}",

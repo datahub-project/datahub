@@ -6,7 +6,6 @@ import static com.linkedin.metadata.search.utils.ESPredicateUtils.*;
 import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.LongMap;
@@ -15,6 +14,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -26,6 +26,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.test.definition.expression.Query;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.test.query.QueryOperation;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -401,29 +402,12 @@ public class AggregationQueryBuilder {
       @Nonnull final List<AggregationMetadata> originalMetadata,
       @Nullable AspectRetriever aspectRetriever) {
     for (Criterion criterion : criteria) {
-      addCriterionFiltersToAggregationMetadata(criterion, originalMetadata, aspectRetriever);
-    }
-  }
-
-  private void addCriterionFiltersToAggregationMetadata(
-      @Nonnull final Criterion criterion,
-      @Nonnull final List<AggregationMetadata> aggregationMetadata,
-      @Nullable AspectRetriever aspectRetriever) {
-    if (criterion.hasValues()) {
-      addFacetFiltersToAggregationMetadata(
-          criterion.getField(), criterion.getValues(), aggregationMetadata, aspectRetriever);
-    } else {
-      addFacetFiltersToAggregationMetadata(
-          criterion.getField(),
-          ImmutableList.of(criterion.getValue()),
-          aggregationMetadata,
-          aspectRetriever);
+      addFacetFiltersToAggregationMetadata(criterion, originalMetadata, aspectRetriever);
     }
   }
 
   private void addFacetFiltersToAggregationMetadata(
-      @Nonnull final String fieldName,
-      @Nonnull final List<String> fieldValues,
+      @Nonnull final Criterion criterion,
       @Nonnull final List<AggregationMetadata> aggregationMetadata,
       @Nullable AspectRetriever aspectRetriever) {
 
@@ -433,13 +417,13 @@ public class AggregationQueryBuilder {
             .collect(Collectors.toMap(AggregationMetadata::getName, agg -> agg));
 
     // Map a filter criterion to a facet field (e.g. domains.keyword -> domains)
-    final String finalFacetField = toParentField(fieldName, aspectRetriever);
+    final String finalFacetField = toParentField(criterion.getField(), aspectRetriever);
 
     if (finalFacetField == null) {
       log.warn(
           String.format(
               "Found invalid filter field for entity search. Invalid or unrecognized facet %s",
-              fieldName));
+              criterion.getField()));
       return;
     }
 
@@ -458,17 +442,24 @@ public class AggregationQueryBuilder {
        * Elasticsearch.
        */
       AggregationMetadata originalAggMetadata = aggregationMetadataMap.get(finalFacetField);
-      fieldValues.forEach(
-          value -> addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
-    } else if (aggregationMetadataMap.containsKey(fieldName)) {
+      if (criterion.hasValues()) {
+        criterion
+            .getValues()
+            .forEach(
+                value ->
+                    addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
+      }
+    } else if (aggregationMetadataMap.containsKey(criterion.getField())) {
       /*
        * If we already have aggregations for the facet field (original field name), simply inject any missing values counts into the set.
        * If there are no results for a particular facet value, it will NOT be in the original aggregation set returned by
        * Elasticsearch.
        */
-      AggregationMetadata originalAggMetadata = aggregationMetadataMap.get(fieldName);
-      fieldValues.forEach(
-          value -> addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
+      AggregationMetadata originalAggMetadata = aggregationMetadataMap.get(criterion.getField());
+      criterion
+          .getValues()
+          .forEach(
+              value -> addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
     } else {
       /*
        * If we do not have ANY aggregation for the facet field, then inject a new aggregation metadata object for the
@@ -480,9 +471,10 @@ public class AggregationQueryBuilder {
           buildAggregationMetadata(
               finalFacetField,
               getFacetToDisplayNames().getOrDefault(finalFacetField, finalFacetField),
-              new LongMap(fieldValues.stream().collect(Collectors.toMap(i -> i, i -> 0L))),
+              new LongMap(
+                  criterion.getValues().stream().collect(Collectors.toMap(i -> i, i -> 0L))),
               new FilterValueArray(
-                  fieldValues.stream()
+                  criterion.getValues().stream()
                       .map(value -> createFilterValue(value, 0L, true))
                       .collect(Collectors.toList()))));
     }
@@ -677,8 +669,9 @@ public class AggregationQueryBuilder {
                   .map(literal -> getSearchValueField(literal, fieldName, opContext))
                   .flatMap(StringArray::stream)
                   .collect(Collectors.toList());
+          Criterion criterion = CriterionUtils.buildCriterion(fieldName, Condition.EQUAL, values);
           addFacetFiltersToAggregationMetadata(
-              fieldName, values, originalMetadata, opContext.getAspectRetriever());
+              criterion, originalMetadata, opContext.getAspectRetriever());
         });
     return originalMetadata;
   }

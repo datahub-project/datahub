@@ -9,10 +9,6 @@ ext {
     ebeanEntities = "${project(':metadata-io').buildDir}/classes/java/main"
 }
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
     implementation (externalDependency.scimServer) {
         exclude group: 'commons-logging', module: 'commons-logging'
@@ -57,15 +53,11 @@ dependencies {
 
     testImplementation externalDependency.mockito
 
-    testImplementation externalDependency.testng
-
     testImplementation externalDependency.springWeb
 
     testImplementation externalDependency.springWebMVC
 
     testImplementation externalDependency.springBootStarterWeb
-
-    testImplementation "org.springframework.boot:spring-boot-starter-tomcat:${project.parent.springBootVersion}"
 
     testImplementation externalDependency.springBootTest
 
@@ -80,6 +72,8 @@ dependencies {
     testImplementation externalDependency.antlr4Runtime
 
     testImplementation externalDependency.antlr4
+
+    testImplementation externalDependency.junit
 
 }
 

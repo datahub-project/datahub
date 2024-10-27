@@ -1253,3 +1253,18 @@ DROP SCHEMA my_schema
         dialect="snowflake",
         expected_file=RESOURCE_DIR / "test_snowflake_drop_schema.json",
     )
+
+
+def test_bigquery_subquery_column_inference() -> None:
+    assert_sql_result(
+        """\
+SELECT user_id, source, user_source
+FROM (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY __partition_day DESC) AS rank_
+    FROM invent_dw.UserDetail
+) source_user
+WHERE rank_ = 1
+""",
+        dialect="bigquery",
+        expected_file=RESOURCE_DIR / "test_bigquery_subquery_column_inference.json",
+    )

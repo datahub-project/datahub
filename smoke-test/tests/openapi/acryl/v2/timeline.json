@@ -339,7 +339,7 @@
       "json": [
         {
           "timestamp": 1723730294803,
-          "actor": "urn:li:corpuser:__datahub_system",
+          "actor": "urn:li:corpuser:admin",
           "semVer": "0.0.0-computed",
           "semVerChange": "MINOR",
           "changeEvents": [
@@ -432,7 +432,7 @@
         },
         {
           "timestamp": 1723730315423,
-          "actor": "urn:li:corpuser:__datahub_system",
+          "actor": "urn:li:corpuser:admin",
           "semVer": "1.0.0-computed",
           "semVerChange": "MAJOR",
           "changeEvents": [
@@ -483,7 +483,7 @@
         },
         {
           "timestamp": 1723730326868,
-          "actor": "urn:li:corpuser:__datahub_system",
+          "actor": "urn:li:corpuser:admin",
           "semVer": "2.0.0-computed",
           "semVerChange": "MAJOR",
           "changeEvents": [

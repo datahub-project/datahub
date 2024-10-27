@@ -489,7 +489,7 @@ public class Neo4jGraphService implements GraphService {
     // Create a URN from the String. Only proceed if srcCriteria is not null or empty
     if (StringUtils.isNotEmpty(srcCriteria)) {
       final String urnValue =
-          sourceEntityFilter.getOr().get(0).getAnd().get(0).getValue().toString();
+          sourceEntityFilter.getOr().get(0).getAnd().get(0).getValues().get(0).toString();
       try {
         final Urn urn = Urn.createFromString(urnValue);
         srcNodeLabel = urn.getEntityType();
@@ -840,7 +840,8 @@ public class Neo4jGraphService implements GraphService {
     final StringJoiner joiner = new StringJoiner(",", "{", "}");
 
     criterionArray.forEach(
-        criterion -> joiner.add(toCriterionString(criterion.getField(), criterion.getValue())));
+        criterion ->
+            joiner.add(toCriterionString(criterion.getField(), criterion.getValues().get(0))));
 
     return joiner.length() <= 2 ? "" : joiner.toString();
   }
@@ -943,7 +944,7 @@ public class Neo4jGraphService implements GraphService {
     // Create a URN from the String. Only proceed if srcCriteria is not null or empty
     if (StringUtils.isNotEmpty(srcCriteria)) {
       final String urnValue =
-          sourceEntityFilter.getOr().get(0).getAnd().get(0).getValue().toString();
+          sourceEntityFilter.getOr().get(0).getAnd().get(0).getValues().get(0).toString();
       try {
         final Urn urn = Urn.createFromString(urnValue);
         srcNodeLabel = urn.getEntityType();

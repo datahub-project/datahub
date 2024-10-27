@@ -3,6 +3,7 @@ package com.linkedin.metadata.resources.entity;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
+import static com.datahub.authorization.AuthUtil.isAPIOperationsAuthorized;
 import static com.linkedin.metadata.authorization.ApiGroup.COUNTS;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
@@ -310,7 +311,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
         batch.getMCPItems().forEach(item ->
             log.info(
-                    "Ingestion proposal urn: {}, async: {}, value: {}",
+                    "INGEST PROPOSAL content: urn: {}, async: {}, value: {}",
                     item.getUrn(),
                     asyncBool,
                     StringUtils.abbreviate(java.util.Optional.ofNullable(item.getMetadataChangeProposal())
@@ -318,7 +319,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                             .orElse(new GenericAspect())
                             .getValue().asString(StandardCharsets.UTF_8), MAX_LOG_WIDTH)));
 
-        Set<IngestResult> results =
+        List<IngestResult> results =
                 _entityService.ingestProposal(opContext, batch, asyncBool);
 
             for (IngestResult result : results) {
@@ -385,7 +386,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                     systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
                             getContext(), ACTION_RESTORE_INDICES), _authorizer, authentication, true);
 
-            if (!isAPIAuthorized(
+            if (!isAPIOperationsAuthorized(
                     opContext,
                     PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
                 throw new RestLiServiceException(

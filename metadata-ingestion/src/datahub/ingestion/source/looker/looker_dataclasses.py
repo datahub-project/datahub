@@ -4,11 +4,14 @@ import pathlib
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set
 
-from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_connection import LookerConnectionDefinition
+from datahub.ingestion.source.looker.looker_template_language import (
+    load_and_preprocess_file,
+)
 from datahub.ingestion.source.looker.lookml_config import (
     _BASE_PROJECT_NAME,
     _EXPLORE_FILE_EXTENSION,
+    LookMLSourceConfig,
     LookMLSourceReport,
 )
 
@@ -43,6 +46,7 @@ class LookerModel:
         root_project_name: Optional[str],
         base_projects_folders: Dict[str, pathlib.Path],
         path: str,
+        source_config: LookMLSourceConfig,
         reporter: LookMLSourceReport,
     ) -> "LookerModel":
         logger.debug(f"Loading model from {path}")
@@ -54,6 +58,7 @@ class LookerModel:
             root_project_name,
             base_projects_folders,
             path,
+            source_config,
             reporter,
             seen_so_far=set(),
             traversal_path=pathlib.Path(path).stem,
@@ -68,7 +73,10 @@ class LookerModel:
         ]
         for included_file in explore_files:
             try:
-                parsed = load_lkml(included_file)
+                parsed = load_and_preprocess_file(
+                    path=included_file,
+                    source_config=source_config,
+                )
                 included_explores = parsed.get("explores", [])
                 explores.extend(included_explores)
             except Exception as e:
@@ -94,6 +102,7 @@ class LookerModel:
         root_project_name: Optional[str],
         base_projects_folder: Dict[str, pathlib.Path],
         path: str,
+        source_config: LookMLSourceConfig,
         reporter: LookMLSourceReport,
         seen_so_far: Set[str],
         traversal_path: str = "",  # a cosmetic parameter to aid debugging
@@ -206,7 +215,10 @@ class LookerModel:
                     f"Will be loading {included_file}, traversed here via {traversal_path}"
                 )
                 try:
-                    parsed = load_lkml(included_file)
+                    parsed = load_and_preprocess_file(
+                        path=included_file,
+                        source_config=source_config,
+                    )
                     seen_so_far.add(included_file)
                     if "includes" in parsed:  # we have more includes to resolve!
                         resolved.extend(
@@ -216,6 +228,7 @@ class LookerModel:
                                 root_project_name,
                                 base_projects_folder,
                                 included_file,
+                                source_config,
                                 reporter,
                                 seen_so_far,
                                 traversal_path=traversal_path
@@ -259,6 +272,7 @@ class LookerViewFile:
         root_project_name: Optional[str],
         base_projects_folder: Dict[str, pathlib.Path],
         raw_file_content: str,
+        source_config: LookMLSourceConfig,
         reporter: LookMLSourceReport,
     ) -> "LookerViewFile":
         logger.debug(f"Loading view file at {absolute_file_path}")
@@ -272,6 +286,7 @@ class LookerViewFile:
             root_project_name,
             base_projects_folder,
             absolute_file_path,
+            source_config,
             reporter,
             seen_so_far=seen_so_far,
         )

@@ -93,6 +93,7 @@
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
+            "name": "emptyCollection",
             "customProperties": {},
             "tags": []
         }
@@ -359,6 +360,7 @@
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
+            "name": "firstCollection",
             "customProperties": {
                 "schema.downsampled": "True",
                 "schema.totalFields": "22"
@@ -580,6 +582,7 @@
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
+            "name": "largeCollection",
             "customProperties": {
                 "schema.downsampled": "True",
                 "schema.totalFields": "502"
@@ -823,6 +826,7 @@
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
+            "name": "secondCollection",
             "customProperties": {},
             "tags": []
         }

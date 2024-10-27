@@ -9,6 +9,7 @@ on:
       - "li-utils/**"
       - "metadata-models/**"
       - "metadata-io/**"
+      - ".github/workflows/metadata-io.yml"
   pull_request:
     branches:
       - "**"
@@ -17,6 +18,7 @@ on:
       - "li-utils/**"
       - "metadata-models/**"
       - "metadata-io/**"
+      - ".github/workflows/metadata-io.yml"
   release:
     types: [published]
 
@@ -53,8 +55,9 @@ jobs:
           sudo apt-get remove 'dotnet-*' azure-cli || true
           sudo rm -rf /usr/local/lib/android/ || true
           sudo docker image prune -a -f || true
-      - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+      - name: Disk Check
+        run: df -h . && docker images
+      - uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"

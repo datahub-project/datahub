@@ -32,7 +32,11 @@ def test_determine_entities_to_sync_has_container() -> None:
     )
     share_config = {
         "connection": {
-            "details": {"type": "JSON", "json": {"blob": '{"connection": {}}'}}
+            "server": "localhost:8080",
+            "details": {
+                "type": "JSON",
+                "json": {"blob": '{"connection": {"server": "localhost:8080"}}'},
+            },
         }
     }
 
@@ -47,7 +51,11 @@ def test_determine_entities_to_sync_has_container() -> None:
 def test_determine_entities_to_sync_without_container() -> None:
     share_config = {
         "connection": {
-            "details": {"type": "JSON", "json": {"blob": '{"connection": {}}'}}
+            "server": "localhost:8080",
+            "details": {
+                "type": "JSON",
+                "json": {"blob": '{"connection": {"server": "localhost:8080"}}'},
+            },
         }
     }
 

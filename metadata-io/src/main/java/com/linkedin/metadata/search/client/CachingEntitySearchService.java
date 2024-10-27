@@ -20,6 +20,7 @@ import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -529,7 +530,7 @@ public class CachingEntitySearchService {
    */
   public ScrollResult predicateScroll(
       @Nonnull OperationContext opContext,
-      @Nonnull List<String> entities,
+      @Nonnull Collection<String> entities,
       @Nonnull String query,
       @Nullable Filter filters,
       List<SortCriterion> sortCriteria,
@@ -551,7 +552,7 @@ public class CachingEntitySearchService {
 
   public ScrollResult getCachedPredicateScrollResults(
       @Nonnull OperationContext opContext,
-      @Nonnull List<String> entities,
+      @Nonnull Collection<String> entities,
       @Nonnull String query,
       @Nullable Filter filters,
       List<SortCriterion> sortCriteria,
@@ -624,7 +625,7 @@ public class CachingEntitySearchService {
 
   private ScrollResult getRawPredicateScrollResults(
       @Nonnull OperationContext opContext,
-      final List<String> entities,
+      final Collection<String> entities,
       final String input,
       final Predicate predicate,
       final List<SortCriterion> sortCriteria,
