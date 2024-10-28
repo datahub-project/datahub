@@ -74,7 +74,7 @@ Below you'll find some tips to troubleshoot issues with your Slack bot.
 
 ### Command failed with error "dispatch_failed"
 If you've installed the Slack bot, but your commands are failing with an error 'dispatch_failed', you can try the following to correct it.
-1. Open your datahub cloud instance with the following url: `<your-instance-base-url>/settings/integrations/slack?display_all_configs=true`.
+1. Open your DataHub cloud instance with the following url: `<your-instance-base-url>/settings/integrations/slack?display_all_configs=true`.
 2. Switch to the **Bot Token** tab.
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/verify_tokens_1.png"/>
