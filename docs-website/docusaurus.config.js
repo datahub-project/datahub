@@ -180,7 +180,7 @@ module.exports = {
                 opacity: 0.8;
               }
             </style>
-            <div class='cloud-cta button button--primary' alt='try-datahub-cloud' style='font-weight: 700;'>Try DataHub Cloud</div>
+            <div class='cloud-cta button button--primary' alt='try-datahub-cloud' style='font-weight: 700;'>Get DataHub Cloud</div>
           `,
           position: "right",
         }
