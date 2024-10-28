@@ -5,7 +5,6 @@ import pytest
 
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
     QueryEvent,
@@ -144,10 +143,10 @@ def test_column_level_lineage(lineage_entries: List[QueryEvent]) -> None:
     )
 
 
-def test_lineage_for_external_bq_table(mock_datahub_graph):
+def test_lineage_for_external_bq_table(mock_datahub_graph_instance):
 
     pipeline_context = PipelineContext(run_id="bq_gcs_lineage")
-    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+    pipeline_context.graph = mock_datahub_graph_instance
 
     def fake_schema_metadata(entity_urn: str) -> models.SchemaMetadataClass:
         return models.SchemaMetadataClass(
@@ -239,10 +238,10 @@ def test_lineage_for_external_bq_table(mock_datahub_graph):
     ), "Some expected column URNs are missing from fine grained lineage."
 
 
-def test_lineage_for_external_bq_table_no_column_lineage(mock_datahub_graph):
+def test_lineage_for_external_bq_table_no_column_lineage(mock_datahub_graph_instance):
 
     pipeline_context = PipelineContext(run_id="bq_gcs_lineage")
-    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+    pipeline_context.graph = mock_datahub_graph_instance
 
     def fake_schema_metadata(entity_urn: str) -> Optional[models.SchemaMetadataClass]:
         return None
@@ -295,9 +294,9 @@ def test_lineage_for_external_bq_table_no_column_lineage(mock_datahub_graph):
     assert upstream_lineage.fineGrainedLineages is None
 
 
-def test_lineage_for_external_table_with_non_gcs_uri(mock_datahub_graph):
+def test_lineage_for_external_table_with_non_gcs_uri(mock_datahub_graph_instance):
     pipeline_context = PipelineContext(run_id="non_gcs_lineage")
-    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+    pipeline_context.graph = mock_datahub_graph_instance
 
     config = BigQueryV2Config(
         include_table_lineage=True,
@@ -323,9 +322,11 @@ def test_lineage_for_external_table_with_non_gcs_uri(mock_datahub_graph):
     assert upstream_lineage is None
 
 
-def test_lineage_for_external_table_path_not_matching_specs(mock_datahub_graph):
+def test_lineage_for_external_table_path_not_matching_specs(
+    mock_datahub_graph_instance,
+):
     pipeline_context = PipelineContext(run_id="path_not_matching_lineage")
-    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+    pipeline_context.graph = mock_datahub_graph_instance
 
     path_specs: List[PathSpec] = [
         PathSpec(include="gs://different_data/db2/db3/{table}/*.parquet"),
