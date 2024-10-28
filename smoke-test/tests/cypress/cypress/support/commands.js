@@ -569,6 +569,12 @@ Cypress.Commands.add("handleIntroducePage", () => {
   });
 });
 
+const SKIP_INTRODUCE_PAGE_KEY = "skipAcrylIntroducePage";
+
+Cypress.Commands.add("skipIntroducePage", () => {
+  localStorage.setItem(SKIP_INTRODUCE_PAGE_KEY, "true");
+});
+
 Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
   // intercept the app config query and alert that we are aliasing a response
   cy.intercept("POST", "/api/v2/graphql", (req) => {

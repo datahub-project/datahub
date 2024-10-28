@@ -13,7 +13,15 @@ export const SidebarWrapper = styled.div<{ width: number }>`
     margin-bottom: 12px;
 `;
 
-export function RotatingTriangle({ isOpen, onClick }: { isOpen: boolean; onClick?: () => void }) {
+export function RotatingTriangle({
+    isOpen,
+    onClick,
+    dataTestId,
+}: {
+    isOpen: boolean;
+    onClick?: () => void;
+    dataTestId?: string;
+}) {
     return (
         <RotatingButton
             ghost
@@ -22,6 +30,7 @@ export function RotatingTriangle({ isOpen, onClick }: { isOpen: boolean; onClick
             deg={isOpen ? 90 : 0}
             icon={<ChevronRightIcon style={{ color: 'black' }} />}
             onClick={onClick}
+            data-testid={dataTestId}
         />
     );
 }
