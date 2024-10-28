@@ -66,14 +66,19 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
   @Override
   public ValidationResult validateQuery(String entityType, TestQuery query) {
     final EntitySpec entitySpec;
+    final AspectSpec aspectSpec;
     try {
-      entitySpec = entityRegistry.getEntitySpec(entityType);
+      entitySpec = Objects.requireNonNull(entityRegistry.getEntitySpec(entityType));
     } catch (Exception e) {
       return invalidResultWithMessage(String.format("Unknown entity type %s", entityType));
     }
-
     String aspect = query.getQueryParts().get(0);
-    AspectSpec aspectSpec = entitySpec.getAspectSpec(aspect);
+    try {
+      aspectSpec = Objects.requireNonNull(entitySpec.getAspectSpec(aspect));
+    } catch (Exception e) {
+      return invalidResultWithMessage(
+          String.format("Unknown aspect %s aspect %s", entityType, aspect));
+    }
 
     // Check whether the query matches the schema by traversing through the query parts
     RecordDataSchema schema = aspectSpec.getPegasusSchema();
