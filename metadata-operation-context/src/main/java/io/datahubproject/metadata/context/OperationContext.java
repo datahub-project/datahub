@@ -71,6 +71,7 @@ public class OperationContext implements AuthorizationSession {
                 .build())
         .authorizationContext(AuthorizationContext.builder().authorizer(authorizer).build())
         .requestContext(requestContext)
+        .validationContext(systemOperationContext.getValidationContext())
         .build(sessionAuthentication);
   }
 
@@ -122,7 +123,8 @@ public class OperationContext implements AuthorizationSession {
       @Nonnull EntityRegistry entityRegistry,
       @Nullable ServicesRegistryContext servicesRegistryContext,
       @Nullable IndexConvention indexConvention,
-      @Nullable RetrieverContext retrieverContext) {
+      @Nullable RetrieverContext retrieverContext,
+      @Nonnull ValidationContext validationContext) {
     return asSystem(
         config,
         systemAuthentication,
@@ -130,6 +132,7 @@ public class OperationContext implements AuthorizationSession {
         servicesRegistryContext,
         indexConvention,
         retrieverContext,
+        validationContext,
         ObjectMapperContext.DEFAULT);
   }
 
@@ -140,6 +143,7 @@ public class OperationContext implements AuthorizationSession {
       @Nullable ServicesRegistryContext servicesRegistryContext,
       @Nullable IndexConvention indexConvention,
       @Nullable RetrieverContext retrieverContext,
+      @Nonnull ValidationContext validationContext,
       @Nonnull ObjectMapperContext objectMapperContext) {
 
     ActorContext systemActorContext =
@@ -161,6 +165,7 @@ public class OperationContext implements AuthorizationSession {
         .authorizationContext(AuthorizationContext.builder().authorizer(Authorizer.EMPTY).build())
         .retrieverContext(retrieverContext)
         .objectMapperContext(objectMapperContext)
+        .validationContext(validationContext)
         .build(systemAuthentication);
   }
 
@@ -174,6 +179,7 @@ public class OperationContext implements AuthorizationSession {
   @Nullable private final RequestContext requestContext;
   @Nullable private final RetrieverContext retrieverContext;
   @Nonnull private final ObjectMapperContext objectMapperContext;
+  @Nonnull private final ValidationContext validationContext;
 
   public OperationContext withSearchFlags(
       @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
@@ -460,9 +466,8 @@ public class OperationContext implements AuthorizationSession {
           this.servicesRegistryContext,
           this.requestContext,
           this.retrieverContext,
-          this.objectMapperContext != null
-              ? this.objectMapperContext
-              : ObjectMapperContext.DEFAULT);
+          this.objectMapperContext != null ? this.objectMapperContext : ObjectMapperContext.DEFAULT,
+          this.validationContext);
     }
 
     private OperationContext build() {
