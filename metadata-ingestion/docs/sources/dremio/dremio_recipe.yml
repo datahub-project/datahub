@@ -14,6 +14,10 @@ source:
     # username: user
     # password: pass
 
+    #For cloud instance
+    #is_dremio_cloud: True
+    #dremio_cloud_project_id: <project_id>
+
     include_query_lineage: True
 
     #Optional

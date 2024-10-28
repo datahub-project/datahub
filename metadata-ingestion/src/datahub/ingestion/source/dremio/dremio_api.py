@@ -266,15 +266,11 @@ class DremioAPIOperations:
                     return future.result(timeout=timeout)
                 except concurrent.futures.TimeoutError:
                     self.cancel_query(job_id)
-                    self.report.failure(
-                        f"Query execution timed out after {timeout} seconds"
-                    )
-                    raise TimeoutError(
+                    raise DremioAPIException(
                         f"Query execution timed out after {timeout} seconds"
                     )
                 except RuntimeError as e:
-                    self.report.failure("Query Execution failed", exc=e)
-                    raise DremioAPIException("Query Execution failed: {str(e)}")
+                    raise DremioAPIException(f"{str(e)}")
 
         except requests.RequestException as e:
             raise DremioAPIException(f"Error executing query: {str(e)}")
@@ -490,16 +486,15 @@ class DremioAPIOperations:
                     deny_schema_pattern=deny_schema_condition,
                     container_name=schema.container_name.lower(),
                 )
-
                 all_tables_and_columns.extend(
                     self.execute_query(
                         query=formatted_query,
                     )
                 )
-            except Exception as exc:
-                logger.debug(f"Failed with {exc}")
+            except DremioAPIException as e:
                 self.report.warning(
-                    f"{schema.subclass} {schema.container_name} had no tables or views"
+                    title=f"{schema.subclass} {schema.container_name} had no tables or views",
+                    message=str(e),
                 )
 
         tables = []

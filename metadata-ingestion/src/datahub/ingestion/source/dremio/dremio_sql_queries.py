@@ -135,14 +135,13 @@ class DremioSQLQueries:
         """
 
     QUERY_DATASETS_CLOUD = """
-        SELECT* FROM
+        SELECT * FROM
         (
         SELECT
             RESOURCE_ID,
             V.TABLE_NAME,
             OWNER,
             PATH AS TABLE_SCHEMA,
-            CONCAT(REPLACE(REPLACE(
             CONCAT(REPLACE(REPLACE(
             REPLACE(V.PATH, ', ', '.'),
              '[', ''), ']', ''
