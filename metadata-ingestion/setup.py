@@ -449,7 +449,7 @@ plugins: Dict[str, Set[str]] = {
     # mariadb should have same dependency as mysql
     "mariadb": sql_common | {"pymysql>=1.0.2"},
     "okta": {"okta~=1.7.0", "nest-asyncio"},
-    "oracle": sql_common | {"cx_Oracle"},
+    "oracle": sql_common | {"oracledb"},
     "postgres": sql_common | postgres_common,
     "presto": sql_common | pyhive_common | trino,
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
