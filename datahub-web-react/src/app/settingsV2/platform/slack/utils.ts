@@ -1,7 +1,15 @@
+import { useLocation } from 'react-router';
+import * as QueryString from 'query-string';
 import { SlackConnection } from './types';
 
 export const SLACK_INSTALL_REDIRECT_PATH = '/integrations/slack/install';
 export const SLACK_REFRESH_INSTALLATION_REDIRECT_PATH = '/integrations/slack/refresh-installation';
+
+export function useShouldDisplayBotTokensTabFromQueryParams() {
+    const location = useLocation();
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    return params.display_all_configs === 'true';
+}
 
 /**
  * Decodes the Slack Configuration JSON to a well-formed object.
