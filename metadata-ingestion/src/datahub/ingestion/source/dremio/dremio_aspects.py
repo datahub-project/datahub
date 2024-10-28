@@ -1,7 +1,3 @@
-"""This Module contains controller functions for dremio source"""
-
-__author__ = "Shabbir Mohammed Hussain, Shehroz Abdullah, Hamza Rehman, Jonny Dixon"
-
 import logging
 import time
 import uuid
@@ -161,18 +157,30 @@ class DremioAspects:
         self.ui_url = ui_url
 
     def get_container_key(
-        self, name: str, path: Optional[List[str]]
+        self, name: Optional[str], path: Optional[List[str]]
     ) -> DremioContainerKey:
+        key = name
+        if path:
+            key = ".".join(path) + "." + name if name else ".".join(path)
+
         return DremioContainerKey(
             platform=self.platform,
             instance=self.platform_instance,
             env=str(self.env),
-            key="".join(path) + name if path else name,
+            key=key,
         )
 
-    def get_container_urn(self, name: str, path: Optional[List[str]]) -> str:
+    def get_container_urn(
+        self, name: Optional[str] = None, path: Optional[List[str]] = []
+    ) -> str:
         container_key = self.get_container_key(name, path)
         return container_key.as_urn()
+
+    def get_container_space_urn(self) -> str:
+        return self.get_container_urn(name="Spaces", path=[])
+
+    def get_container_source_urn(self) -> str:
+        return self.get_container_urn(name="Sources", path=[])
 
     def create_domain_aspect(self) -> Optional[_Aspect]:
         if self.domain:
@@ -199,16 +207,16 @@ class DremioAspects:
         )
         yield mcp.as_workunit()
 
-        # Browse Paths V2
-        browse_paths_v2 = self._create_browse_paths(container)
-        if browse_paths_v2:
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=container_urn,
-                aspect=browse_paths_v2,
-            )
-            yield mcp.as_workunit()
+        if not container.path:
+            browse_paths_v2 = self._create_browse_paths_containers(container)
+            if browse_paths_v2:
+                mcp = MetadataChangeProposalWrapper(
+                    entityUrn=container_urn,
+                    aspect=browse_paths_v2,
+                )
+                yield mcp.as_workunit()
 
-        # Container Class
+        # Container Class Folders
         container_class = self._create_container_class(container)
         if container_class:
             mcp = MetadataChangeProposalWrapper(
@@ -216,6 +224,16 @@ class DremioAspects:
                 aspect=container_class,
             )
             yield mcp.as_workunit()
+
+        # Container Class for Spaces and Sources
+        if not container.path:
+            container_class = self._create_container_class_containers(container)
+            if container_class:
+                mcp = MetadataChangeProposalWrapper(
+                    entityUrn=container_urn,
+                    aspect=container_class,
+                )
+                yield mcp.as_workunit()
 
         # Data Platform Instance
         data_platform_instance = self._create_data_platform_instance()
@@ -277,15 +295,6 @@ class DremioAspects:
             aspect=data_platform_instance,
         )
         yield mcp.as_workunit()
-
-        # Browse Paths V2
-        browse_paths_v2 = self._create_browse_paths(dataset)
-        if browse_paths_v2:
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=browse_paths_v2,
-            )
-            yield mcp.as_workunit()
 
         # Container Class
         container_class = self._create_container_class(dataset)
@@ -380,32 +389,15 @@ class DremioAspects:
             env=self.env,
         )
 
-    def _create_browse_paths(
-        self, entity: Union[DremioContainer, DremioDataset]
+    def _create_browse_paths_containers(
+        self, entity: DremioContainer
     ) -> Optional[BrowsePathsV2Class]:
         paths = []
 
-        if self.platform_instance:
-            paths.append(
-                BrowsePathEntryClass(
-                    id=self.platform_instance,
-                )
-            )
-
-        if entity.path:
-            for browse_path_level in range(len(entity.path)):
-                paths.append(
-                    BrowsePathEntryClass(
-                        id=entity.path[browse_path_level],
-                        urn=self.get_container_urn(
-                            name=entity.container_name
-                            if hasattr(entity, "container_name")
-                            else "",
-                            path=entity.path[: browse_path_level + 1],
-                        ),
-                    )
-                )
-
+        if entity.subclass == "Dremio Space":
+            paths.append(BrowsePathEntryClass(id="Spaces"))
+        elif entity.subclass == "Dremio Source":
+            paths.append(BrowsePathEntryClass(id="Sources"))
         if paths:
             return BrowsePathsV2Class(path=paths)
         return None
@@ -414,12 +406,17 @@ class DremioAspects:
         self, entity: Union[DremioContainer, DremioDataset]
     ) -> Optional[ContainerClass]:
         if entity.path:
-            return ContainerClass(
-                container=self.get_container_urn(
-                    path=entity.path,
-                    name="",
-                )
-            )
+            return ContainerClass(container=self.get_container_urn(path=entity.path))
+        return None
+
+    def _create_container_class_containers(
+        self, entity: DremioContainer
+    ) -> Optional[ContainerClass]:
+        if entity.subclass == "Dremio Space":
+            return ContainerClass(container=self.get_container_space_urn())
+        elif entity.subclass == "Dremio Source":
+            return ContainerClass(container=self.get_container_source_urn())
+
         return None
 
     def _create_data_platform_instance(self) -> DataPlatformInstanceClass:

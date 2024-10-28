@@ -1,8 +1,3 @@
-"""
-    Dremio source type to Datahub source type.
-"""
-
-
 from typing import Optional
 
 

@@ -1,4 +1,3 @@
-"""This Module contains utility functions for dremio source"""
 import itertools
 import logging
 import re
@@ -275,11 +274,11 @@ class DremioDataset:
 
 
 class DremioContainer:
+    subclass: str = "Dremio Container"
     container_name: str
     location_id: str
     path: List[str]
     description: Optional[str]
-    subclass: str
 
     def __init__(
         self,
@@ -373,10 +372,6 @@ class DremioCatalog:
 
             self.datasets_populated = True
 
-    def force_reset_datasets(self) -> None:
-        self.datasets_populated = False
-        self.set_datasets()
-
     def get_datasets(self) -> Deque[DremioDataset]:
         self.set_datasets()
         return self.datasets
@@ -429,10 +424,6 @@ class DremioCatalog:
 
         self.containers_populated = True
 
-    def force_reset_containers(self) -> None:
-        self.containers_populated = False
-        self.set_containers()
-
     def get_containers(self) -> Deque:
         self.set_containers()
         return deque(itertools.chain(self.sources, self.spaces, self.folders))
@@ -445,10 +436,6 @@ class DremioCatalog:
         self.set_datasets()
         self.set_containers()
         return self.glossary_terms
-
-    def force_set_glossary_terms(self) -> None:
-        self.force_reset_containers()
-        self.force_reset_datasets()
 
     def is_valid_query(self, query: Dict[str, Any]) -> bool:
         required_fields = [

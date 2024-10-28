@@ -1,4 +1,3 @@
-"""This module contains the Dremio source class for DataHub ingestion"""
 import logging
 import re
 from collections import defaultdict
@@ -201,14 +200,9 @@ class DremioSource(StatefulIngestionSourceBase):
                 source_platform_name = source_name
 
                 for mapping in self.config.source_mappings or []:
-                    if not mapping.source_name:
-                        continue
 
                     if re.search(mapping.source_name, source_type, re.IGNORECASE):
                         source_platform_name = mapping.source_name.lower()
-
-                    if not mapping.platform:
-                        continue
 
                     datahub_source_type = (
                         DremioToDataHubSourceTypeMapping.get_datahub_source_type(
@@ -281,6 +275,15 @@ class DremioSource(StatefulIngestionSourceBase):
         """
 
         self.source_map = self._build_source_map()
+
+        space_urn = self.dremio_aspects.get_container_space_urn()
+        container = DremioContainer("Spaces", "", [], self.dremio_catalog.dremio_api)
+        yield from self.dremio_aspects.populate_container_mcp(space_urn, container)
+
+        source_urn = self.dremio_aspects.get_container_source_urn()
+        container = DremioContainer("Sources", "", [], self.dremio_catalog.dremio_api)
+        yield from self.dremio_aspects.populate_container_mcp(source_urn, container)
+
         # Process Containers
         containers = self.dremio_catalog.get_containers()
         for container in containers:
@@ -293,7 +296,7 @@ class DremioSource(StatefulIngestionSourceBase):
                 self.report.num_containers_failed += 1  # Increment failed containers
                 self.report.report_failure(
                     "Failed to process Dremio container",
-                    f"Failed to process container {'.'.join(container.path)}.{container.resource_name}: {exc}",
+                    f"Failed to process container {'.'.join(container.path)}.{container.container_name}: {exc}",
                 )
 
         # Process Datasets
