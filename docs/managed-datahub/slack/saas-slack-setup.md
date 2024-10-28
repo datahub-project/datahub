@@ -5,7 +5,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 ## Install the DataHub Slack App into your Slack workspace
-
+You can see the permissions required by the DataHub Slack bot [below](#datahub-slack-bot-permissions).
 
 ### Video Walkthrough
 <div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/af6fcfd435cf4993b79a0c8e13aecaaa?sid=93f2a66b-1362-4809-996b-5abb399f82dd" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
@@ -47,6 +47,42 @@ You may need approval from a workspace admin to do this step. Learn about [what 
 </p>
 
 Now proceed to the [Subscriptions and Notifications page](https://datahubproject.io/docs/managed-datahub/subscription-and-notification) to see how you can subscribe to be notified about events on the platform, or visit the [Slack App page](saas-slack-app.md) to see how you can use DataHub's powerful capabilities directly within Slack.
+
+### DataHub Slack bot permissions
+The DataHub Slack bot requires a certain set of scopes (permissions) to function. We've listed them below with thier explanations.
+```
+# Required for slash commands / shortcuts.
+commands
+# Required to get @DataHub messages and send messages as @DataHub.
+app_mentions:read
+chat:write
+chat:write.public
+# When sending messages we want to use a custom icon_url so that we can display the DataHub Cloud logo.
+chat:write.customize
+# Required to see conversation details + read messages.
+channels:history
+channels:read
+groups:history
+groups:read
+im:history
+im:read
+mpim:history
+mpim:read
+metadata.message:read
+# Required to get workspace ID and create links to user profiles.
+team:read
+# Allows the bot to join a public channel when someone configures notifications to be sent to one.
+channels:join
+# Required to unfurl links.
+links:read
+links:write
+# Required to resolve user IDs to names/emails + enable lookup by email address.
+users:read
+users:read.email
+# Future-proofing.
+reactions:read
+reactions:write
+```
 
 ### Workspace admin approval guide
 In some workspaces, you will find at step 6 above you will need approval from your workspace admin. In this case, you will want to:
