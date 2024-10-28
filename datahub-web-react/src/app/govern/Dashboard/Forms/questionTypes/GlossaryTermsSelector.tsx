@@ -15,7 +15,7 @@ const Wrapper = styled.div``;
 
 type GlossaryTermSelectorProps = {
     initialOptions: any[];
-    onUpdate: (values: SelectOption[]) => void;
+    onUpdate?: (values: SelectOption[]) => void;
     label?: string;
     placeholder?: string;
     areNodeSelectable?: boolean;
@@ -40,6 +40,7 @@ const GlossaryTermsSelector = ({
                 orFilters: [{ and: [{ field: 'hasParentNode', value: 'false' }] }],
             },
         },
+        // onCompleted: (data) => console.log('Mock data returned:', data),
     });
 
     const [seenUrns] = useState<Set<string>>(new Set());
@@ -96,14 +97,17 @@ const GlossaryTermsSelector = ({
         assignInitialTermsToDropdown();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialOptions]);
+    console.log('data>>>>', data);
 
     const options =
-        data?.searchAcrossEntities?.searchResults.map((result) => ({
+        data?.searchAcrossEntities?.searchResults?.map((result) => ({
             value: result.entity.urn,
             label: entityRegistry.getDisplayName(result.entity.type, result.entity),
             isParent: result.entity.type === EntityType.GlossaryNode,
             entity: result.entity,
         })) || [];
+    console.log('options>>>>', options);
+
     const autoCompleteOptions =
         autoCompleteData?.autoCompleteForMultiple?.suggestions
             .find((s) => s.type === EntityType.GlossaryTerm)

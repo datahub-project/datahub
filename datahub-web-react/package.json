@@ -110,7 +110,7 @@
         "start": "yarn run generate && vite",
         "ec2-dev": "yarn run generate && CI=true;export CI;vite",
         "build": "yarn run generate && NODE_OPTIONS='--max-old-space-size=3072 --openssl-legacy-provider' CI=false vite build",
-        "test": "vitest",
+        "test": "vitest run ./src/app/govern/Dashboard/Forms/questionTypes/GlossaryTermSelector/GlossaryTermSelector.test.tsx",
         "generate": "graphql-codegen --config codegen.yml",
         "lint": "eslint . --ext .ts,.tsx --quiet && yarn format-check && yarn type-check",
         "lint-fix": "eslint '*/**/*.{ts,tsx}' --quiet --fix",
