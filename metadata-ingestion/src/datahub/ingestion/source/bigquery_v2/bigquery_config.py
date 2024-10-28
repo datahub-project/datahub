@@ -369,6 +369,11 @@ class BigQueryV2Config(
         description="Capture BigQuery dataset labels as DataHub tag",
     )
 
+    include_table_constraints: bool = Field(
+        default=True,
+        description="Whether to ingest table constraints. If you know you don't use table constraints, you can disable it to save one extra query per dataset. In general it should be enabled",
+    )
+
     include_external_url: bool = Field(
         default=True,
         description="Whether to populate BigQuery Console url to Datasets/Tables",
@@ -520,6 +525,12 @@ class BigQueryV2Config(
         default=DEFAULT_BQ_SCHEMA_PARALLELISM,
         description="Number of worker threads to use to parallelize BigQuery Dataset Metadata Extraction."
         " Set to 1 to disable.",
+    )
+
+    region_qualifiers: List[str] = Field(
+        default=["region-us", "region-eu"],
+        description="BigQuery regions to be scanned for bigquery jobs when using `use_queries_v2`. "
+        "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
 
     # include_view_lineage and include_view_column_lineage are inherited from SQLCommonConfig

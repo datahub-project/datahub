@@ -112,7 +112,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable String runId) {
     final String docId = indexBuilders.getIndexConvention().getEntityDocumentId(urn);
 
-    log.info(
+    log.debug(
         "Appending run id for entity name: {}, doc id: {}, run id: {}", entityName, docId, runId);
     esWriteDAO.applyScriptUpdate(
         opContext,
