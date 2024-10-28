@@ -70,7 +70,7 @@ If you've subscribed to an entity, and then performed an action (i.e., raised an
 If sending a test notification works, and you've verified that none of the above cases apply, then you should contact your DataHub Customer Success rep to help troubleshoot and resolve the issue. 
 
 ## Slack bot issues
-Below you'll find some tips to troubleshoot issues with your Slack bot
+Below you'll find some tips to troubleshoot issues with your Slack bot.
 
 ### Command failed with error "dispatch_failed"
 If you've installed the Slack bot, but your commands are failing with an error 'dispatch_failed', you can try the following to correct it.
@@ -88,5 +88,5 @@ If you've installed the Slack bot, but your commands are failing with an error '
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/verify_tokens_3.png"/>
 </p>
-6. Paste the values in and hit **Update Configuration**
+6. Paste the values in and hit **Update Configuration**.
 7. Test the Slack command now and it should work. If it still fails, please reach out to your DataHub Cloud admin to troubleshoot further.
