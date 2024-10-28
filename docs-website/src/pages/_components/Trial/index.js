@@ -11,7 +11,7 @@ const Trial = ({onOpenTourModal}) => {
           <div className={styles.left_content}>
             <span className="">Discover. Observe. Govern.</span>
             <p className="">
-              Get a free trial of<br/><b>DataHub</b> cloud today.
+              Get started with<br/><b>DataHub</b> cloud today.
             </p>
             <div className={styles.btn_div}>
               <Link to="/cloud">Book a Demo</Link>

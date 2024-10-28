@@ -87,6 +87,7 @@
   .bookButton, .productTourButton {
     display: block;
     width: 100%;
+    margin-left: 0!important;
   }
 
   .productTourButton {
@@ -101,7 +102,9 @@
   .formContainer {
     display: none; 
   }
-
+  .hero__title, .hero__subtitle {
+    text-align: center!important;
+  }
 }
 
 @media screen  and (min-width: 1000px){
