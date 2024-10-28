@@ -259,6 +259,16 @@ def create_view(headers):
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     assert response.status_code == 200, f"Failed to create view: {response.text}"
 
+    url = f"{DREMIO_HOST}/api/v3/catalog"
+    payload = {
+        "entityType": "dataset",
+        "type": "VIRTUAL_DATASET",
+        "path": ["space", "warehouse"],
+        "sql": 'SELECT * from Samples."samples.dremio.com"."NYC-weather.csv"',
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    assert response.status_code == 200, f"Failed to create view: {response.text}"
+
     # from mysql
     payload = {
         "entityType": "dataset",
@@ -349,8 +359,7 @@ def test_resources_dir(pytestconfig):
 def mock_dremio_service(docker_compose_runner, pytestconfig, test_resources_dir):
     # Spin up Dremio and MinIO (for mock S3) services using Docker Compose.
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml",
-        "dremio",
+        test_resources_dir / "docker-compose.yml", "dremio"
     ) as docker_services:
         wait_for_port(docker_services, "dremio", 9047, timeout=120)
         wait_for_port(

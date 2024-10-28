@@ -16,6 +16,7 @@ source:
     source_mappings:
       - platform: s3
         source_name: samples
+        platform_instance: s3_test_samples
 
     schema_pattern:
       allow:
