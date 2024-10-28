@@ -15,11 +15,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetEntityCountsQuery } from '../../graphql/app.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { HomePagePosts } from './HomePagePosts';
-import {
-    HOME_PAGE_DOMAINS_ID,
-    HOME_PAGE_MOST_POPULAR_ID,
-    HOME_PAGE_PLATFORMS_ID,
-} from '../onboarding/config/HomePageOnboardingConfig';
+import { HOME_PAGE_MOST_POPULAR_ID, HOME_PAGE_PLATFORMS_ID } from '../onboarding/config/HomePageOnboardingConfig';
 import { useUpdateEducationStepIdsAllowlist } from '../onboarding/useUpdateEducationStepIdsAllowlist';
 
 const PLATFORMS_MODULE_ID = 'Platforms';
@@ -65,13 +61,6 @@ const NoMetadataContainer = styled.div`
     flex-direction: column;
     justify-content: center;
     align-items: center;
-`;
-
-const DomainsRecomendationContainer = styled.div`
-    margin-top: -48px;
-    margin-bottom: 32px;
-    max-width: 1000px;
-    min-width: 750px;
 `;
 
 function getStepId(moduleId: string) {
@@ -139,15 +128,6 @@ export const HomePageRecommendations = ({ user }: Props) => {
     const hasIngestedMetadata =
         orderedEntityCounts && orderedEntityCounts.filter((entityCount) => entityCount.count > 0).length > 0;
 
-    // we want to render the domain module first if it exists
-    const domainRecommendationModule = recommendationModules?.find(
-        (module) => module.renderType === RecommendationRenderType.DomainSearchList,
-    );
-
-    // Render domain onboarding step if the domains module exists
-    const hasDomains = !!domainRecommendationModule;
-    useUpdateEducationStepIdsAllowlist(hasDomains, HOME_PAGE_DOMAINS_ID);
-
     // Render platforms onboarding step if the platforms module exists
     const hasPlatforms = !!recommendationModules?.some((module) => module?.moduleId === PLATFORMS_MODULE_ID);
     useUpdateEducationStepIdsAllowlist(hasPlatforms, HOME_PAGE_PLATFORMS_ID);
@@ -161,19 +141,6 @@ export const HomePageRecommendations = ({ user }: Props) => {
             <HomePagePosts />
             {orderedEntityCounts && orderedEntityCounts.length > 0 && (
                 <RecommendationContainer>
-                    {domainRecommendationModule && (
-                        <>
-                            <DomainsRecomendationContainer id={HOME_PAGE_DOMAINS_ID}>
-                                <RecommendationTitle level={4}>{domainRecommendationModule.title}</RecommendationTitle>
-                                <ThinDivider />
-                                <RecommendationModule
-                                    module={domainRecommendationModule as RecommendationModuleType}
-                                    scenarioType={scenario}
-                                    showTitle={false}
-                                />
-                            </DomainsRecomendationContainer>
-                        </>
-                    )}
                     <RecommendationTitle level={4}>Explore your data</RecommendationTitle>
                     <ThinDivider />
                     {hasIngestedMetadata ? (

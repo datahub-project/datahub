@@ -86,7 +86,8 @@
         "uuid": "^8.3.2",
         "virtualizedtableforantd4": "^1.2.1",
         "web-vitals": "^0.2.4",
-        "yamljs": "^0.3.0"
+        "yamljs": "^0.3.0",
+        "govuk-react": "0.10.5"
     },
     "scripts": {
         "analyze": "source-map-explorer 'dist/static/js/*.js'",

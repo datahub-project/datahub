@@ -46,6 +46,10 @@ const turndownService = new TurndownService({
         filter: (node) => node.nodeName === 'TABLE' && !isValidMarkdownTable(node),
         replacement: (_, node: any) => `${node.outerHTML}`,
     })
+    .addRule('skipDetailsTag', {
+        filter: (node) => node.nodeName === 'DETAILS',
+        replacement: (_, node: any) => `${node.outerHTML}`,
+    })
     /* Keep <br> tags in tables allowing line break within cells */
     .addRule('keepBreaksinTables', {
         filter: (node) => node.nodeName === 'BR' && !!node.closest('table'),

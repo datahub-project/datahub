@@ -2,22 +2,18 @@ import React, { useState } from 'react';
 import { Image, Layout } from 'antd';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
-
 import { SearchBar } from './SearchBar';
 import { ManageAccount } from '../shared/ManageAccount';
 import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
-import { useAppConfig, useIsShowAcrylInfoEnabled } from '../useAppConfig';
-import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
-import DemoButton from '../entity/shared/components/styled/DemoButton';
+import { CIPBanner, FixedCIPHeader } from '../shared/CIPShared';
 
 const { Header } = Layout;
 
 const styles = {
     header: {
-        position: 'fixed',
         zIndex: 10,
         width: '100%',
         lineHeight: '20px',
@@ -44,6 +40,8 @@ const LogoSearchContainer = styled.div`
 const NavGroup = styled.div`
     display: flex;
     align-items: center;
+    flex-flow: row wrap;
+    align-content: space-between;
     justify-content: flex-end;
     min-width: 200px;
 `;
@@ -79,42 +77,32 @@ export const SearchHeader = ({
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const themeConfig = useTheme();
     const showAcrylInfo = useIsShowAcrylInfoEnabled();
-    const appConfig = useAppConfig();
-    const viewsEnabled = appConfig.config?.viewsConfig?.enabled || false;
 
     return (
-        <Header style={styles.header as any}>
-            <LogoSearchContainer>
-                <Link to="/">
-                    <LogoImage
-                        src={
-                            appConfig.config !== DEFAULT_APP_CONFIG
-                                ? appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl
-                                : undefined
-                        }
-                        preview={false}
+        <FixedCIPHeader>
+            <CIPBanner />
+            <Header style={styles.header as any}>
+                <LogoSearchContainer>
+                    <Link to="/">
+                        <LogoImage src={themeConfig.assets.logoUrl} preview={false} />
+                    </Link>
+                    <SearchBar
+                        initialQuery={initialQuery}
+                        placeholderText={placeholderText}
+                        suggestions={suggestions}
+                        onSearch={onSearch}
+                        onQueryChange={onQueryChange}
+                        entityRegistry={entityRegistry}
+                        setIsSearchBarFocused={setIsSearchBarFocused}
+                        fixAutoComplete
                     />
-                </Link>
-                <SearchBar
-                    initialQuery={initialQuery}
-                    placeholderText={placeholderText}
-                    suggestions={suggestions}
-                    onSearch={onSearch}
-                    onQueryChange={onQueryChange}
-                    entityRegistry={entityRegistry}
-                    setIsSearchBarFocused={setIsSearchBarFocused}
-                    viewsEnabled={viewsEnabled}
-                    combineSiblings
-                    fixAutoComplete
-                    showQuickFilters
-                />
-            </LogoSearchContainer>
-            <NavGroup>
-                <HeaderLinks areLinksHidden={isSearchBarFocused} />
-                <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
-                {showAcrylInfo && <DemoButton />}
-            </NavGroup>
-        </Header>
+                </LogoSearchContainer>
+                <NavGroup>
+                    <HeaderLinks areLinksHidden={isSearchBarFocused} />
+                    <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
+                </NavGroup>
+            </Header>
+        </FixedCIPHeader>
     );
 };
 

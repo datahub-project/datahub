@@ -53,6 +53,7 @@ dependencies {
   implementation 'com.nimbusds:nimbus-jose-jwt:8.18'
   implementation externalDependency.jsonSmart
   implementation externalDependency.playPac4j
+  implementation externalDependency.playCaffeineCache
   implementation externalDependency.shiroCore
 
   implementation externalDependency.playCache

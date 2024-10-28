@@ -45,6 +45,10 @@ const cases = [
 
 const skipParseCases = [
     [
+        'should skip details tag',
+        '<details><summary>Click this to collapse/fold.</summary><p>These details <em>remain</em> <strong>hidden</strong> until expanded.</p></details>',
+    ],
+    [
         'table if ul or li is present',
         '<table><thead><tr><th>Lorem ipsum</th></tr></thead><tbody><tr><td><ul><li>Lorem</li><li>ipsum</li></ul></td></tr></tbody></table>',
     ],

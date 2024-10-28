@@ -18,10 +18,11 @@ import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import { useUserContext } from '../context/useUserContext';
 import { useSelectedSortOption } from './context/SearchContext';
 
+// CIP - change margin for our custom header
 const styles = {
     children: {
         flex: '1',
-        marginTop: 60,
+        marginTop: 195,
         display: 'flex',
         flexDirection: 'column' as const,
         maxHeight: 'calc(100vh - 60px)',

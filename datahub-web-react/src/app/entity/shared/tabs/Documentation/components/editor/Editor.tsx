@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useImperativeHandle } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 import {
     BlockquoteExtension,
@@ -21,11 +21,14 @@ import {
     TableExtension,
     UnderlineExtension,
 } from 'remirror/extensions';
+import { InvalidContentHandler } from 'remirror';
 import { EditorComponent, Remirror, useRemirror, ThemeProvider, TableComponents } from '@remirror/react';
 import { useMount } from 'react-use';
 import { EditorContainer, EditorTheme } from './EditorTheme';
 import { htmlToMarkdown } from './extensions/htmlToMarkdown';
 import { markdownToHtml } from './extensions/markdownToHtml';
+import { DetailsExtension } from './extensions/detailsExtension';
+import { SummaryExtension } from './extensions/summaryExtension';
 import { CodeBlockToolbar } from './toolbar/CodeBlockToolbar';
 import { FloatingToolbar } from './toolbar/FloatingToolbar';
 import { Toolbar } from './toolbar/Toolbar';
@@ -44,8 +47,19 @@ type EditorProps = {
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
     const { content, readOnly, onChange, className } = props;
+    const onError: InvalidContentHandler = useCallback(({ json, invalidContent, transformers }) => {
+        console.log('invalid content');
+        console.log(invalidContent);
+        console.log(json);
+        const result = transformers.remove(json, invalidContent);
+        console.log('invalidContent result');
+        console.log(result);
+        return result;
+    }, []);
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
+            new DetailsExtension(),
+            new SummaryExtension(),
             new BlockquoteExtension(),
             new BoldExtension(),
             new BulletListExtension(),
@@ -68,6 +82,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new TableExtension({ resizable: false }),
             ...(readOnly ? [] : [new HistoryExtension()]),
         ],
+        onError,
         content,
         stringHandler: 'markdown',
     });
@@ -85,7 +100,6 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [readOnly, content]);
-
     return (
         <EditorContainer className={className}>
             <ThemeProvider theme={EditorTheme}>

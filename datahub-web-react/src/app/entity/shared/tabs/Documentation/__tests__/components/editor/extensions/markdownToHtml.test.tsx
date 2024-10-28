@@ -6,6 +6,11 @@ const cases = [
         'Lorem [@SampleHiveDataset](urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)) ipsum',
         '<p>Lorem <span data-datahub-mention-urn="urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)">@SampleHiveDataset</span> ipsum</p>\n',
     ],
+    [
+        'should parse details and summary',
+        '<details><summary>Click this to collapse/fold.</summary><p>These details <em>remain</em> <strong>hidden</strong> until expanded.</p></details>',
+        '<details><summary>Click this to collapse/fold.</summary><p>These details <em>remain</em> <strong>hidden</strong> until expanded.</p></details>',
+    ],
     ['should not parse github mentions', 'Lorem @githubuser ipsum', '<p>Lorem @githubuser ipsum</p>\n'],
     [
         'should parse invalid mentions as links',
