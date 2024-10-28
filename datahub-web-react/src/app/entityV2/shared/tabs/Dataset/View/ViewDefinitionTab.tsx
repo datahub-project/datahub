@@ -7,6 +7,8 @@ import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import { InfoItem } from '../../../components/styled/InfoItem';
 import { StyledSyntaxHighlighter } from '../../../StyledSyntaxHighlighter';
 import { DBT_URN } from '../../../../../ingest/source/builder/constants';
+import CopyQuery from '../Queries/CopyQuery';
+import { ViewHeader } from '../../../containers/profile/sidebar/SidebarLogicSection';
 
 const InfoSection = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
@@ -24,9 +26,7 @@ const InfoItemContent = styled.div`
     padding-top: 8px;
 `;
 
-const FormattingSelector = styled.div`
-    margin-top: 10px;
-`;
+const FormattingSelector = styled.div``;
 
 /**
  * NOTE: To ensure consistent font-family for pre and code tags within as the parent wrapper was overriding it,
@@ -97,13 +97,16 @@ export default function ViewDefinitionTab() {
             </InfoSection>
             <InfoSection>
                 <Typography.Title level={5}>Logic</Typography.Title>
-                {canShowFormatted && (
-                    <ViewTab
-                        formatOptions={formatOptions}
-                        setShowFormatted={setShowFormatted}
-                        showFormatted={showFormatted}
-                    />
-                )}
+                <ViewHeader>
+                    {canShowFormatted && (
+                        <ViewTab
+                            formatOptions={formatOptions}
+                            setShowFormatted={setShowFormatted}
+                            showFormatted={showFormatted}
+                        />
+                    )}
+                    <CopyQuery query={showFormatted ? formattedLogic || '' : logic} showCopyText />
+                </ViewHeader>
                 <QueryText>
                     <NestedSyntax language="sql">{showFormatted ? formattedLogic : logic}</NestedSyntax>
                 </QueryText>

@@ -4,6 +4,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { Button, Modal } from 'antd';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import CopyQuery from '@src/app/entity/shared/tabs/Dataset/Queries/CopyQuery';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import { EntityType, QueryEntity } from '../../../../../../types.generated';
@@ -25,6 +26,13 @@ const PreviewSyntax = styled(SyntaxHighlighter)`
 
 const ModalSyntaxContainer = styled.div`
     margin: 20px;
+`;
+
+export const ViewHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
 `;
 
 export function SidebarDatasetViewDefinitionSection() {
@@ -106,13 +114,16 @@ function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl
                         onCancel={() => setShowFullContentModal(false)}
                     >
                         <ModalSyntaxContainer>
-                            {canShowFormatted && (
-                                <ViewTab
-                                    formatOptions={formatOptions}
-                                    setShowFormatted={setShowFormatted}
-                                    showFormatted={showFormatted}
-                                />
-                            )}
+                            <ViewHeader>
+                                {canShowFormatted && (
+                                    <ViewTab
+                                        formatOptions={formatOptions}
+                                        setShowFormatted={setShowFormatted}
+                                        showFormatted={showFormatted}
+                                    />
+                                )}
+                                <CopyQuery query={showFormatted ? formattedLogic || '' : statement} showCopyText />
+                            </ViewHeader>
                             <SyntaxHighlighter language="sql" showLineNumbers lineProps={lineProps}>
                                 {showFormatted ? formattedLogic : statement}
                             </SyntaxHighlighter>
