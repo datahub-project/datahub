@@ -276,14 +276,6 @@ class DremioSource(StatefulIngestionSourceBase):
 
         self.source_map = self._build_source_map()
 
-        space_urn = self.dremio_aspects.get_container_space_urn()
-        container = DremioContainer("Spaces", "", [], self.dremio_catalog.dremio_api)
-        yield from self.dremio_aspects.populate_container_mcp(space_urn, container)
-
-        source_urn = self.dremio_aspects.get_container_source_urn()
-        container = DremioContainer("Sources", "", [], self.dremio_catalog.dremio_api)
-        yield from self.dremio_aspects.populate_container_mcp(source_urn, container)
-
         # Process Containers
         containers = self.dremio_catalog.get_containers()
         for container in containers:

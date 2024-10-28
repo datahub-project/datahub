@@ -2,7 +2,7 @@ import os
 from typing import List, Literal, Optional
 
 import certifi
-from pydantic import Field, root_validator, validator
+from pydantic import Field, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -118,15 +118,6 @@ class DremioSourceMapping(EnvConfigMixin, PlatformInstanceConfigMixin, ConfigMod
     source_name: str = Field(
         description="Alias of platform in Dremio connection",
     )
-
-    @root_validator
-    def check_both_fields_present(cls, values):
-        platform, source_name = values.get("platform"), values.get("source_name")
-        if not platform or not source_name:
-            raise ValueError(
-                "Both 'platform' and 'source_name' must be provided in source_mappings."
-            )
-        return values
 
 
 class DremioSourceConfig(

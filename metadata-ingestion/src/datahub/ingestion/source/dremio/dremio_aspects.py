@@ -176,12 +176,6 @@ class DremioAspects:
         container_key = self.get_container_key(name, path)
         return container_key.as_urn()
 
-    def get_container_space_urn(self) -> str:
-        return self.get_container_urn(name="Spaces", path=[])
-
-    def get_container_source_urn(self) -> str:
-        return self.get_container_urn(name="Sources", path=[])
-
     def create_domain_aspect(self) -> Optional[_Aspect]:
         if self.domain:
             if self.domain.startswith("urn:li:domain:"):
@@ -224,16 +218,6 @@ class DremioAspects:
                 aspect=container_class,
             )
             yield mcp.as_workunit()
-
-        # Container Class for Spaces and Sources
-        if not container.path:
-            container_class = self._create_container_class_containers(container)
-            if container_class:
-                mcp = MetadataChangeProposalWrapper(
-                    entityUrn=container_urn,
-                    aspect=container_class,
-                )
-                yield mcp.as_workunit()
 
         # Data Platform Instance
         data_platform_instance = self._create_data_platform_instance()
@@ -409,16 +393,6 @@ class DremioAspects:
             return ContainerClass(container=self.get_container_urn(path=entity.path))
         return None
 
-    def _create_container_class_containers(
-        self, entity: DremioContainer
-    ) -> Optional[ContainerClass]:
-        if entity.subclass == "Dremio Space":
-            return ContainerClass(container=self.get_container_space_urn())
-        elif entity.subclass == "Dremio Source":
-            return ContainerClass(container=self.get_container_source_urn())
-
-        return None
-
     def _create_data_platform_instance(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
             platform=f"urn:li:dataPlatform:{self.platform}",
@@ -514,12 +488,6 @@ class DremioAspects:
             type=type_class,
             nativeDataType=native_data_type,
             nullable=column.is_nullable == "YES",
-        )
-
-    def _get_profile_data(self, dataset: DremioDataset) -> Dict:
-        return self.profiler.profile_table(
-            f"{'.'.join(dataset.path)}.{dataset.resource_name}",
-            [(col.name, col.data_type) for col in dataset.columns],
         )
 
     def _create_view_properties(
