@@ -71,6 +71,10 @@ export const updateListIncidentsCache = (client, urn, incident, pageSize) => {
         },
     });
 
+    if (!currData) {
+        return;
+    }
+
     // Add our new incidents into the existing list.
     const existingIncidents = [...(currData?.entity?.incidents?.incidents || [])];
     const newIncidents = addOrUpdateIncidentInList(existingIncidents, incident);
