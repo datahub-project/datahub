@@ -99,9 +99,11 @@ usage_common = {
 }
 
 sqlglot_lib = {
-    # Using an Acryl fork of sqlglot.
+    # We heavily monkeypatch sqlglot.
+    # Prior to the patching, we originally maintained an acryl-sqlglot fork:
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==25.20.2.dev6",
+    "sqlglot[rs]==25.26.0",
+    "patchy==2.8.0",
 }
 
 classification_lib = {
@@ -122,6 +124,10 @@ dbt_common = {
     "more_itertools",
 }
 
+cachetools_lib = {
+    "cachetools",
+}
+
 sql_common = (
     {
         # Required for all SQL sources.
@@ -138,6 +144,7 @@ sql_common = (
         # https://github.com/ipython/traitlets/issues/741
         "traitlets<5.2.2",
         "greenlet",
+        *cachetools_lib,
     }
     | usage_common
     | sqlglot_lib
@@ -213,7 +220,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
-    "cachetools",
+    *cachetools_lib,
 } | classification_lib
 
 trino = {
@@ -319,6 +326,13 @@ sac = {
     "requests",
     "pyodata>=1.11.1",
     "Authlib",
+}
+
+superset_common = {
+    "requests",
+    "sqlalchemy",
+    "great_expectations",
+    "greenlet",
 }
 
 # Note: for all of these, framework_common will be added.
@@ -435,7 +449,7 @@ plugins: Dict[str, Set[str]] = {
     # mariadb should have same dependency as mysql
     "mariadb": sql_common | {"pymysql>=1.0.2"},
     "okta": {"okta~=1.7.0", "nest-asyncio"},
-    "oracle": sql_common | {"cx_Oracle"},
+    "oracle": sql_common | {"oracledb"},
     "postgres": sql_common | postgres_common,
     "presto": sql_common | pyhive_common | trino,
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
@@ -450,7 +464,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
-    | {"cachetools"},
+    | cachetools_lib,
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "abs": {*abs_base, *data_lake_profiling},
@@ -462,12 +476,8 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib,
     "slack": slack,
-    "superset": {
-        "requests",
-        "sqlalchemy",
-        "great_expectations",
-        "greenlet",
-    },
+    "superset": superset_common,
+    "preset": superset_common,
     # FIXME: I don't think tableau uses sqllineage anymore so we should be able
     # to remove that dependency.
     "tableau": {"tableauserverclient>=0.24.0"} | sqllineage_lib | sqlglot_lib,

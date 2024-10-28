@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple, Type, cast
+from typing import Any, Dict, Optional, Tuple, Type, cast
 from unittest.mock import patch
 
 import pydantic
@@ -11,7 +11,7 @@ from freezegun import freeze_time
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import (
     GlueProfilingConfig,
@@ -35,7 +35,7 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 from tests.test_helpers.type_helpers import PytestConfig
-from tests.unit.test_glue_source_stubs import (
+from tests.unit.glue.test_glue_source_stubs import (
     databases_1,
     databases_2,
     get_bucket_tagging,
@@ -71,10 +71,12 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
+test_resources_dir = Path(__file__).parent
+
 
 def glue_source(
     platform_instance: Optional[str] = None,
-    mock_datahub_graph: Optional[Callable[[DatahubClientConfig], DataHubGraph]] = None,
+    mock_datahub_graph_instance: Optional[DataHubGraph] = None,
     use_s3_bucket_tags: bool = True,
     use_s3_object_tags: bool = True,
     extract_delta_schema_from_parameters: bool = False,
@@ -83,8 +85,8 @@ def glue_source(
     extract_transforms: bool = True,
 ) -> GlueSource:
     pipeline_context = PipelineContext(run_id="glue-source-tes")
-    if mock_datahub_graph:
-        pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+    if mock_datahub_graph_instance:
+        pipeline_context.graph = mock_datahub_graph_instance
     return GlueSource(
         ctx=pipeline_context,
         config=GlueSourceConfig(
@@ -247,7 +249,6 @@ def test_glue_ingest(
             write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_file,
@@ -266,8 +267,8 @@ def test_platform_config():
 @pytest.mark.parametrize(
     "ignore_resource_links, all_databases_and_tables_result",
     [
-        (True, ({}, [])),
-        (False, ({"test-database": resource_link_database}, target_database_tables)),
+        (True, ([], [])),
+        (False, ([resource_link_database], target_database_tables)),
     ],
 )
 def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_result):
@@ -288,7 +289,7 @@ def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_r
         glue_stubber.add_response(
             "get_tables",
             get_tables_response_for_target_database,
-            {"DatabaseName": "test-database"},
+            {"DatabaseName": "resource-link-test-database"},
         )
 
         assert source.get_all_databases_and_tables() == all_databases_and_tables_result
@@ -312,8 +313,6 @@ def test_config_without_platform():
 
 @freeze_time(FROZEN_TIME)
 def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
-
     deleted_actor_golden_mcs = "{}/glue_deleted_actor_mces_golden.json".format(
         test_resources_dir
     )
@@ -438,7 +437,6 @@ def test_glue_with_delta_schema_ingest(
         write_metadata_file(tmp_path / "glue_delta_mces.json", mce_objects)
 
     # Verify the output.
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "glue_delta_mces.json",
@@ -475,7 +473,6 @@ def test_glue_with_malformed_delta_schema_ingest(
         write_metadata_file(tmp_path / "glue_malformed_delta_mces.json", mce_objects)
 
     # Verify the output.
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "glue_malformed_delta_mces.json",
@@ -493,14 +490,14 @@ def test_glue_with_malformed_delta_schema_ingest(
 def test_glue_ingest_include_table_lineage(
     tmp_path: Path,
     pytestconfig: PytestConfig,
-    mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
+    mock_datahub_graph_instance: DataHubGraph,
     platform_instance: str,
     mce_file: str,
     mce_golden_file: str,
 ) -> None:
     glue_source_instance = glue_source(
         platform_instance=platform_instance,
-        mock_datahub_graph=mock_datahub_graph,
+        mock_datahub_graph_instance=mock_datahub_graph_instance,
         emit_s3_lineage=True,
     )
 
@@ -571,7 +568,6 @@ def test_glue_ingest_include_table_lineage(
             write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_file,
@@ -589,14 +585,14 @@ def test_glue_ingest_include_table_lineage(
 def test_glue_ingest_include_column_lineage(
     tmp_path: Path,
     pytestconfig: PytestConfig,
-    mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
+    mock_datahub_graph_instance: DataHubGraph,
     platform_instance: str,
     mce_file: str,
     mce_golden_file: str,
 ) -> None:
     glue_source_instance = glue_source(
         platform_instance=platform_instance,
-        mock_datahub_graph=mock_datahub_graph,
+        mock_datahub_graph_instance=mock_datahub_graph_instance,
         emit_s3_lineage=True,
         include_column_lineage=True,
         use_s3_bucket_tags=False,
@@ -678,7 +674,6 @@ def test_glue_ingest_include_column_lineage(
         write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_file,
@@ -716,7 +711,6 @@ def test_glue_ingest_with_profiling(
         write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_file,

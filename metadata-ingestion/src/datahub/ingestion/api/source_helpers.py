@@ -148,6 +148,12 @@ def auto_workunit_reporter(report: "SourceReport", stream: Iterable[T]) -> Itera
         report.report_workunit(wu)
         yield wu
 
+    if report.events_produced == 0:
+        report.warning(
+            title="No metadata was produced by the source",
+            message="Please check the source configuration, filters, and permissions.",
+        )
+
 
 def auto_materialize_referenced_tags_terms(
     stream: Iterable[MetadataWorkUnit],
