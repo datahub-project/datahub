@@ -368,6 +368,11 @@ class BigQueryV2Config(
         description="Capture BigQuery dataset labels as DataHub tag",
     )
 
+    include_table_constraints: bool = Field(
+        default=True,
+        description="Whether to ingest table constraints. If you know you don't use table constraints, you can disable it to save one extra query per dataset. In general it should be enabled",
+    )
+
     include_external_url: bool = Field(
         default=True,
         description="Whether to populate BigQuery Console url to Datasets/Tables",

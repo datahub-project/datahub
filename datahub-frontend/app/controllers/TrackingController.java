@@ -22,23 +22,23 @@ import play.mvc.Security;
 @Singleton
 public class TrackingController extends Controller {
 
-  private final Logger _logger = LoggerFactory.getLogger(TrackingController.class.getName());
+  private static final Logger logger = LoggerFactory.getLogger(TrackingController.class.getName());
 
-  private final String _topic;
+  private final String topic;
 
-  @Inject KafkaTrackingProducer _producer;
+  @Inject KafkaTrackingProducer producer;
 
-  @Inject AuthServiceClient _authClient;
+  @Inject AuthServiceClient authClient;
 
   @Inject
   public TrackingController(@Nonnull Config config) {
-    _topic = config.getString("analytics.tracking.topic");
+    topic = config.getString("analytics.tracking.topic");
   }
 
   @Security.Authenticated(Authenticator.class)
   @Nonnull
   public Result track(Http.Request request) throws Exception {
-    if (!_producer.isEnabled()) {
+    if (!producer.isEnabled()) {
       // If tracking is disabled, simply return a 200.
       return status(200);
     }
@@ -51,15 +51,15 @@ public class TrackingController extends Controller {
     }
     final String actor = request.session().data().get(ACTOR);
     try {
-      _logger.debug(
+      logger.debug(
           String.format("Emitting product analytics event. actor: %s, event: %s", actor, event));
       final ProducerRecord<String, String> record =
-          new ProducerRecord<>(_topic, actor, event.toString());
-      _producer.send(record);
-      _authClient.track(event.toString());
+          new ProducerRecord<>(topic, actor, event.toString());
+      producer.send(record);
+      authClient.track(event.toString());
       return ok();
     } catch (Exception e) {
-      _logger.error(
+      logger.error(
           String.format(
               "Failed to emit product analytics event. actor: %s, event: %s", actor, event));
       return internalServerError(e.getMessage());
