@@ -75,7 +75,7 @@ export const EditOwnersModal = ({
             (entity.type === EntityType.CorpUser && (entity as CorpUser).editableProperties?.pictureLink) || undefined;
         const displayName = entityRegistry.getDisplayName(entity.type, entity);
         return (
-            <Select.Option value={entity.urn} key={entity.urn}>
+            <Select.Option value={entity.urn} key={entity.urn} data-testid={`owner-${displayName}`}>
                 <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
             </Select.Option>
         );
