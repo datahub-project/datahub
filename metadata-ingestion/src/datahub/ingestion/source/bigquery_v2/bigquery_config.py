@@ -527,6 +527,12 @@ class BigQueryV2Config(
         " Set to 1 to disable.",
     )
 
+    region_qualifiers: List[str] = Field(
+        default=["region-us", "region-eu"],
+        description="BigQuery regions to be scanned for bigquery jobs when using `use_queries_v2`. "
+        "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
+    )
+
     # include_view_lineage and include_view_column_lineage are inherited from SQLCommonConfig
     # but not used in bigquery so we hide them from docs.
     include_view_lineage: bool = Field(default=True, hidden_from_docs=True)
