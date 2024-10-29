@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from 'antd';
+import { DataPlatform } from '@src/types.generated';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../graphql/monitor.generated';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
@@ -114,7 +115,7 @@ export const AcrylAssertions = () => {
                 <AssertionMonitorBuilderDrawer
                     entityUrn={urn}
                     entityType={entityType}
-                    platformUrn={entityData?.platform?.urn as string}
+                    platform={entityData?.platform as DataPlatform}
                     onSubmit={(assertion) => {
                         setShowAssertionBuilder(false);
                         updateDatasetAssertionsCache(urn, createCachedAssertionWithMonitor(assertion), client);

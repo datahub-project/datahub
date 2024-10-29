@@ -2,7 +2,6 @@ import React from 'react';
 import Fuse from 'fuse.js';
 import styled from 'styled-components';
 import { Typography } from 'antd';
-
 import {
     Assertion,
     AssertionInfo,
@@ -12,10 +11,13 @@ import {
     AssertionSourceType,
     AssertionType,
     AuditStamp,
+    EntityType,
     GlobalTags,
     Monitor,
 } from '@src/types.generated';
 import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { getPlatformName } from '@src/app/entityV2/shared/utils';
 import {
     ASSERTION_INFO,
     AssertionWithMonitorDetails,
@@ -33,9 +35,11 @@ import {
     AssertionRecommendedFilter,
     AssertionWithDescription,
     AssertionColumnGroup,
+    AssertionBuilderSiblingOptions,
 } from './types';
 import { ASSERTION_DEFAULT_RAW_DATA, ASSERTION_SOURCES } from './constant';
 import { getPlainTextDescriptionFromAssertion } from '../assertion/profile/summary/utils';
+import { isEntityEligibleForAssertionMonitoring } from '../assertion/builder/utils';
 
 const ASSERTION_TYPE_NAME_MAP = {
     VOLUME: 'Volume',
@@ -98,6 +102,54 @@ const getGroupNameBySummary = (record) => {
             <Message type="secondary">{list.join(', ')}</Message>
         </TextContainer>
     );
+};
+
+/**
+ * Gets sibling options that a user can author assertions with
+ * This includes direct links that will open the respective siblings' assertion builder UI
+ * @param entityData
+ * @param urn
+ * @param entityType
+ * @returns {AssertionBuilderSiblingOptions[]}
+ */
+export const useSiblingOptionsForAssertionBuilder = (
+    entityData: GenericEntityProperties | null,
+    urn: string,
+    entityType: EntityType,
+): AssertionBuilderSiblingOptions[] => {
+    const optionsToAuthorOn: AssertionBuilderSiblingOptions[] = [];
+    // push main entity data
+    optionsToAuthorOn.push({
+        title:
+            entityData?.platform?.properties?.displayName ??
+            entityData?.platform?.name ??
+            entityData?.dataPlatformInstance?.platform.name ??
+            entityData?.platform?.urn ??
+            urn,
+        disabled: !isEntityEligibleForAssertionMonitoring(entityData?.platform?.urn),
+        urn,
+        platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
+        entityType,
+    });
+    // push siblings data
+    const siblings: GenericEntityProperties[] = entityData?.siblingsSearch?.searchResults?.map((r) => r.entity) || [];
+    siblings.forEach((sibling) => {
+        if (sibling.urn === urn || !sibling.urn) {
+            return;
+        }
+        optionsToAuthorOn.push({
+            urn: sibling.urn,
+            title:
+                getPlatformName(sibling) ??
+                sibling?.dataPlatformInstance?.platform.name ??
+                sibling?.platform?.urn ??
+                sibling.urn,
+            disabled: !isEntityEligibleForAssertionMonitoring(sibling.platform?.urn),
+            platform: sibling?.platform ?? sibling?.dataPlatformInstance?.platform,
+            entityType: sibling.type,
+        });
+    });
+    return optionsToAuthorOn;
 };
 
 // transform assertions into table data

@@ -81,6 +81,40 @@ export const useOpenAssertionDetailModal = (setFocusAssertionUrn) => {
     return { assertionUrnParam };
 };
 
+const OPEN_ASSERTION_BUILDER_QUERY_PARAM = 'open_assertion_builder';
+
+/**
+ * Hook to automatically open up assertion authoring on mount.
+ *
+ * @param {Function} onOpenAssertionBuilder - Function to open assertion builder.
+ * @returns {Object} Object containing the 'open_assertion_builder' from the URL.
+ */
+export const useOpenAssertionBuilder = (onOpenAssertionBuilder: () => void) => {
+    const location = useLocation();
+    const history = useHistory();
+    const openBuilderParam = getQueryParams(OPEN_ASSERTION_BUILDER_QUERY_PARAM, location);
+
+    useEffect(() => {
+        if (openBuilderParam) {
+            const decodedOpenAssertionBuilder = decodeURIComponent(openBuilderParam);
+
+            if (decodedOpenAssertionBuilder === 'true') {
+                onOpenAssertionBuilder();
+            }
+
+            // Remove the query parameter from the URL
+            const newUrlParams = new URLSearchParams(location.search);
+            newUrlParams.delete(OPEN_ASSERTION_BUILDER_QUERY_PARAM);
+            const newUrl = `${location.pathname}?${newUrlParams.toString()}`;
+
+            // Use React Router's history.replace to replace the current URL
+            history.replace(newUrl);
+        }
+    }, [openBuilderParam, onOpenAssertionBuilder, location.search, location.pathname, history]);
+
+    return { openBuilderParam };
+};
+
 /**
  * Hook for managing the expanded row keys based on the `assertion_urn` query parameter.
  *
