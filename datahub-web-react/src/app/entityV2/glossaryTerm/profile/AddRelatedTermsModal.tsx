@@ -176,7 +176,7 @@ function AddRelatedTermsModal(props: Props) {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={addTerms} disabled={!selectedUrns.length}>
+                    <Button type="primary" onClick={addTerms} disabled={!selectedUrns.length}>
                         Add
                     </Button>
                 </>

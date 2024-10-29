@@ -23,8 +23,7 @@ const GlossaryItem = styled.div`
     height: 100%;
     position: relative;
     overflow: hidden;
-    padding: 12px 20px 20px 32px;
-    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 20px 20px 20px 20px;
 
     .anticon-folder {
         margin-right: 8px;

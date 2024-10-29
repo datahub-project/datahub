@@ -108,7 +108,11 @@ export function LineageColumnView({ defaultDirection }: Props) {
     const directionOptions = [
         {
             label: (
-                <Tooltip placement="right" title={`View the data assets that depend on ${entityName}`}>
+                <Tooltip
+                    placement="right"
+                    title={`View the data assets that depend on ${entityName}`}
+                    showArrow={false}
+                >
                     <span data-testid="lineage-tab-direction-select-option-downstream">
                         <ArrowDownOutlined style={{ marginRight: 4 }} />
                         <b>Downstreams</b>
@@ -119,7 +123,11 @@ export function LineageColumnView({ defaultDirection }: Props) {
         },
         {
             label: (
-                <Tooltip placement="right" title={`View the data assets that ${entityName} depends on`}>
+                <Tooltip
+                    placement="right"
+                    title={`View the data assets that ${entityName} depends on`}
+                    showArrow={false}
+                >
                     <span data-testid="lineage-tab-direction-select-option-upstream">
                         <ArrowUpOutlined style={{ marginRight: 4 }} />
                         <b>Upstreams</b>
@@ -172,7 +180,7 @@ export function LineageColumnView({ defaultDirection }: Props) {
                         />
                     )}
                     <LineageTabTimeSelector />
-                    <Tooltip title={isLoading ? 'Refreshing data' : 'Click to refresh data'}>
+                    <Tooltip title={isLoading ? 'Refreshing data' : 'Refresh lineage'} showArrow={false}>
                         <RefreshCacheButton type="text" onClick={() => setSkipCache(true)} disabled={isLoading}>
                             {isLoading ? <LoadingOutlined /> : <ReloadOutlined />}
                             <Typography.Text>

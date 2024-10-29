@@ -569,12 +569,13 @@ export default function EditTagTermsModal({
                         </Button>
                     )}
                     <Button
+                        type="primary"
                         id="addTagButton"
                         data-testid="add-tag-term-from-modal-btn"
                         onClick={onOk}
                         disabled={urns.length === 0 || disableAction}
                     >
-                        Done
+                        Add
                     </Button>
                 </>
             }

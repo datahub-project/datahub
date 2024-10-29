@@ -340,8 +340,8 @@ export const EditOwnersModal = ({
                     <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
-                        Done
+                    <Button type="primary" id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
+                        Add
                     </Button>
                 </>
             }

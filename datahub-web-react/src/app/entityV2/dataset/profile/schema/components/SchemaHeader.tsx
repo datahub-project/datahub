@@ -192,7 +192,7 @@ export default function SchemaHeader({
                             isPrimary
                         />
                     )}
-                    <Tooltip title={schemaAuditToggleText}>
+                    <Tooltip title={schemaAuditToggleText} showArrow={false}>
                         <SchemaAuditButton
                             type="text"
                             data-testid="schema-blame-button"

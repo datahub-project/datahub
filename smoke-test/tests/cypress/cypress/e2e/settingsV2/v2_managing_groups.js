@@ -118,7 +118,7 @@ describe("create and manage group", () => {
     cy.get(`[data-testid="owner-${username}"]`).click();
     cy.focused().blur();
     cy.contains(username, { matchCase: false }).should("have.length", 1);
-    cy.get('[role="dialog"] button').contains("Done").click();
+    cy.get('[role="dialog"] button').contains("Add").click();
     cy.waitTextVisible("Owners Added");
     cy.contains(username, { matchCase: false }).should("be.visible");
   });

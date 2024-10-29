@@ -94,7 +94,7 @@ function GlossaryBrowser(props: Props) {
             ))}
             {!hideTerms &&
                 sortedTerms.map((term) => (
-                    <TermItem key={term.urn} term={term} isSelecting={isSelecting} selectTerm={selectTerm} />
+                    <TermItem key={term.urn} term={term} isSelecting={isSelecting} selectTerm={selectTerm} depth={0} />
                 ))}
         </BrowserWrapper>
     );

@@ -72,13 +72,11 @@ export const StyledModal = styled(Modal)`
     max-width: 680px;
 
     &&& .ant-modal-content {
-        background-color: #eeecfa;
         box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25), 0px 4px 8px 3px rgba(0, 0, 0, 0.15);
         border-radius: 12px;
     }
 
     .ant-modal-header {
-        background-color: #eeecfa;
         border-bottom: 0;
         padding-top: 24px;
         border-radius: 12px !important;

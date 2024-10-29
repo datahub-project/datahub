@@ -170,8 +170,8 @@ export default function SetDataProductModal({
                     <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="setDataProductButton" disabled={!selectedDataProduct} onClick={onOk}>
-                        Add
+                    <Button type="primary" id="setDataProductButton" disabled={!selectedDataProduct} onClick={onOk}>
+                        Save
                     </Button>
                 </>
             }

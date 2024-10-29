@@ -162,8 +162,8 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                     <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
-                        Add
+                    <Button type="primary" id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
+                        Save
                     </Button>
                 </>
             }

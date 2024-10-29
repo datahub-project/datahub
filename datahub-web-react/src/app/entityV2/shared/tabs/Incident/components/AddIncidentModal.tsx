@@ -118,8 +118,8 @@ export const AddIncidentModal = ({ urn, entityType, visible, onClose, refetch }:
                     <Button type="text" onClick={handleClose}>
                         Cancel
                     </Button>,
-                    <Button form="addIncidentForm" key="submit" htmlType="submit">
-                        Add
+                    <Button type="primary" form="addIncidentForm" key="submit" htmlType="submit">
+                        Raise
                     </Button>,
                 ]}
             >

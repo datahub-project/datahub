@@ -34,6 +34,7 @@ export const FieldPopularity = ({ isFieldSelected, usageStats, fieldPath, displa
                     ? `${formatNumberWithoutAbbreviation(relevantUsageStats.count || 0)} queries / month`
                     : 'No column usage data'
             }
+            showArrow={false}
         >
             <div>
                 <PopularityBars

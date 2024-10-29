@@ -61,12 +61,7 @@ const ModalTitle = styled.div`
 const StyledModal = styled(Modal)`
     width: 680px !important;
     .ant-modal-header {
-        background: #cac3f1;
-        border-radius: 22px 22px 0 0;
         padding: 0px 32px;
-    }
-    .ant-modal-content {
-        border-radius: 22px;
     }
 `;
 
@@ -89,7 +84,7 @@ export default function CreateEntityAnnouncementModal({
     const [updatePostMutation] = useUpdatePostMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const noteTitle = 'title';
-    const noteContent = 'content';
+    const noteContent = 'description';
     const [form] = Form.useForm();
 
     useEffect(() => {
@@ -192,7 +187,7 @@ export default function CreateEntityAnnouncementModal({
     };
 
     // note-- edit announcement functionality is not implemented
-    const titleText = editData ? 'Edit Note' : 'Create new Note';
+    const titleText = editData ? 'Edit Note' : 'Create Note';
 
     /**
      * Handles the change in the description field.

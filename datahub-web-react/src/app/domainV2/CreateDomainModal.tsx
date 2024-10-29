@@ -123,6 +123,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         Cancel
                     </Button>
                     <Button
+                        type="primary"
                         id="createDomainButton"
                         data-testid="create-domain-button"
                         onClick={onCreateDomain}
