@@ -30,7 +30,7 @@ export function Pill({
             size={size}
             clickable={clickable}
             id={id}
-            data-testid="selected-item-pill"
+            data-testid="pill-container"
         >
             {leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />}
             {label}
