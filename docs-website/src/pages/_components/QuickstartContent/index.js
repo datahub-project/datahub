@@ -47,7 +47,7 @@ const QuickstartContent = ({}) => {
       >
         <div className="quickstart__title">The only platform you need.</div>
         <div className="quickstart__subtitle">
-          Unified Discovery, Observability, and Governance for Data and AI.
+          Unified discovery, observability, and governance for data and AI.
         </div>
       </motion.div>
       <div
