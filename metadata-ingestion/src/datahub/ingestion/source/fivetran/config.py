@@ -144,8 +144,8 @@ class FivetranSourceReport(StaleEntityRemovalSourceReport):
     def report_connectors_scanned(self, count: int = 1) -> None:
         self.connectors_scanned += count
 
-    def report_connectors_dropped(self, model: str) -> None:
-        self.filtered_connectors.append(model)
+    def report_connectors_dropped(self, connector: str) -> None:
+        self.filtered_connectors.append(connector)
 
 
 class PlatformDetail(ConfigModel):
