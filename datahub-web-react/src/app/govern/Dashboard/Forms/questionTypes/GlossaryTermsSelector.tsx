@@ -97,15 +97,19 @@ const GlossaryTermsSelector = ({
         assignInitialTermsToDropdown();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialOptions]);
-    console.log('data>>>>', data);
+    console.log('data>>>>', JSON.stringify(data));
 
     const options =
-        data?.searchAcrossEntities?.searchResults?.map((result) => ({
-            value: result.entity.urn,
-            label: entityRegistry.getDisplayName(result.entity.type, result.entity),
-            isParent: result.entity.type === EntityType.GlossaryNode,
-            entity: result.entity,
-        })) || [];
+        data?.searchAcrossEntities?.searchResults?.map((result) => {
+            console.log('result.entity.type, result.entity>>>>>', result, result.entity);
+
+            return {
+                value: result.entity.urn,
+                label: result.entity.type ? entityRegistry.getDisplayName(result.entity.type, result.entity) : '',
+                isParent: result.entity.type === EntityType.GlossaryNode,
+                entity: result.entity,
+            };
+        }) || [];
     console.log('options>>>>', options);
 
     const autoCompleteOptions =
