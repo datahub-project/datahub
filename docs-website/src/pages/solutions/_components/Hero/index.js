@@ -16,7 +16,7 @@ const Hero = ({ onOpenTourModal, heroContent }) => {
         <p className={styles.hero__description}>{description}</p>
         <div className={styles.hero__cta}>
           <Link className={styles.cta__primary} to="/cloud">
-            Book a Demo
+            Get Cloud
           </Link>
           <a
             className={styles.cta__secondary}
@@ -26,7 +26,7 @@ const Hero = ({ onOpenTourModal, heroContent }) => {
           </a>
         </div>
         <Link className={styles.cta__tertiary} to="/docs">
-            Get started with Core →
+            Start with Open Source →
         </Link>
         <div style={{ flexGrow: 1 }} />
         <div className={styles.hero__img_container}>
