@@ -30,7 +30,7 @@ Tutorials should be written to accomodate the targeted persona, i.e. Developer, 
 
 *Not all Tutorials require an associated Feature Guide.*
 
-## Docs Best Practices
+## Docs
 
 ### Embedding GIFs and or Screenshots
 
