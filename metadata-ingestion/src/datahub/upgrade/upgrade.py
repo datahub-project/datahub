@@ -1,15 +1,14 @@
 import asyncio
 import contextlib
 import logging
-import sys
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Any, Callable, Optional, Tuple, TypeVar
 
+import click
 import humanfriendly
 from packaging.version import Version
 from pydantic import BaseModel
-from termcolor import colored
 
 from datahub import __version__
 from datahub.cli.config_utils import load_client_config
@@ -277,8 +276,8 @@ def maybe_print_upgrade_message(  # noqa: C901
         if not version_stats:
             log.debug("No version stats found")
             return
-        else:
-            log.debug(f"Version stats found: {version_stats}")
+
+        log.debug(f"Version stats found: {version_stats}")
         current_release_date = version_stats.client.current.release_date
         latest_release_date = (
             version_stats.client.latest.release_date
@@ -325,50 +324,54 @@ def maybe_print_upgrade_message(  # noqa: C901
     if client_server_compat < 0:
         with contextlib.suppress(Exception):
             assert version_stats
-            print(
-                colored("❗Client-Server Incompatible❗", "yellow"),
-                colored(
+            click.echo(
+                click.style("❗Client-Server Incompatible❗", fg="yellow")
+                + " "
+                + click.style(
                     f"Your client version {version_stats.client.current.version} is newer than your server version {version_stats.server.current.version}. Downgrading the cli to {version_stats.server.current.version} is recommended.\n",
-                    "cyan",
-                ),
-                colored(
+                    fg="cyan",
+                )
+                + click.style(
                     f"➡️ Downgrade via `\"pip install 'acryl-datahub=={version_stats.server.current.version}'\"",
-                    "cyan",
-                ),
+                    fg="cyan",
+                )
             )
     elif client_server_compat > 0:
         with contextlib.suppress(Exception):
             assert version_stats
-            print(
-                colored("❗Client-Server Incompatible❗", "red"),
-                colored(
+            click.echo(
+                click.style("❗Client-Server Incompatible❗", fg="red")
+                + " "
+                + click.style(
                     f"Your client version {version_stats.client.current.version} is older than your server version {version_stats.server.current.version}. Upgrading the cli to {version_stats.server.current.version} is recommended.\n",
-                    "cyan",
-                ),
-                colored(
+                    fg="cyan",
+                )
+                + click.style(
                     f"➡️  Upgrade via \"pip install 'acryl-datahub=={version_stats.server.current.version}'\"",
-                    "cyan",
-                ),
+                    fg="cyan",
+                )
             )
     elif client_server_compat == 0 and encourage_cli_upgrade:
         with contextlib.suppress(Exception):
-            print(
-                colored("💡 Upgrade cli!", "yellow"),
-                colored(
+            click.echo(
+                click.style("💡 Upgrade cli!", fg="yellow")
+                + " "
+                + click.style(
                     f"You seem to be running an old version of datahub cli: {current_version} {get_days(current_release_date)}. Latest version is {latest_version} {get_days(latest_release_date)}.\nUpgrade via \"pip install -U 'acryl-datahub'\"",
-                    "cyan",
-                ),
+                    fg="cyan",
+                )
             )
     elif encourage_quickstart_upgrade:
         try:
             assert version_stats
-            print(
-                colored("💡 Upgrade available!", "yellow"),
-                colored(
+            click.echo(
+                click.style("💡 Upgrade available!", fg="yellow")
+                + " "
+                + click.style(
                     f'You seem to be running a slightly old quickstart image {get_days(version_stats.server.current.release_date)}. Run "datahub docker quickstart" to get the latest updates without losing any data!',
-                    "cyan",
+                    fg="cyan",
                 ),
-                file=sys.stderr,
+                err=True,
             )
         except Exception as e:
             log.debug(f"Failed to suggest quickstart upgrade due to {e}")

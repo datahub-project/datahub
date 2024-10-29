@@ -647,11 +647,11 @@ class Pipeline:
             return "cyan"
         else:
             if failures:
-                return "bright_red"
+                return "red"
             elif warnings:
-                return "bright_yellow"
+                return "yellow"
             else:
-                return "bright_green"
+                return "green"
 
     def has_failures(self) -> bool:
         return bool(
@@ -674,7 +674,7 @@ class Pipeline:
         else:
             click.echo()
             click.secho("Cli report:", bold=True)
-            click.secho(self.cli_report.as_string())
+            click.echo(self.cli_report.as_string())
             click.secho(f"Source ({self.source_type}) report:", bold=True)
             click.echo(self.source.get_report().as_string())
             click.secho(f"Sink ({self.sink_type}) report:", bold=True)
