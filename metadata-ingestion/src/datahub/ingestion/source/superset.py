@@ -415,6 +415,8 @@ class SupersetSource(StatefulIngestionSourceBase):
             return "athena"
         if platform_name == "clickhousedb":
             return "clickhouse"
+        if platform_name == "postgresql":
+            return "postgres"
         return platform_name
     
     @lru_cache(maxsize=None)
@@ -894,8 +896,8 @@ class SupersetSource(StatefulIngestionSourceBase):
 
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        # yield from self.emit_dashboard_mces()
-        # yield from self.emit_chart_mces()
+        yield from self.emit_dashboard_mces()
+        yield from self.emit_chart_mces()
         yield from self.emit_dataset_mces()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
