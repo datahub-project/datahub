@@ -1,0 +1,70 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "3f92d4d52c670825ca41786036f54a8658763c584b55c54ba3aeb85b09215346",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table2,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "a",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)",
+                    "column": "a"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "b",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)",
+                    "column": "b"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "c",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table2,PROD)",
+                    "column": "c"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT a, b, (SELECT c FROM table2 WHERE table2.id = table1.id) AS c FROM table1"
+    }
+}

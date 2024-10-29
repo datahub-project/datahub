@@ -10,7 +10,9 @@ from confluent_kafka.serialization import SerializationContext, StringSerializer
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass as MetadataChangeEvent,
     MetadataChangeProposalClass as MetadataChangeProposal,
@@ -54,7 +56,7 @@ class KafkaEmitterConfig(ConfigModel):
         return v
 
 
-class DatahubKafkaEmitter:
+class DatahubKafkaEmitter(Closeable, Emitter):
     def __init__(self, config: KafkaEmitterConfig):
         self.config = config
         schema_registry_conf = {
@@ -153,6 +155,9 @@ class DatahubKafkaEmitter:
     def flush(self) -> None:
         for producer in self.producers.values():
             producer.flush()
+
+    def close(self) -> None:
+        self.flush()
 
 
 def _error_reporting_callback(err: Exception, msg: str) -> None:

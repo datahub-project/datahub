@@ -25,10 +25,10 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -49,15 +49,11 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     SubTypesClass,
 )
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 
 logger = logging.getLogger(__name__)
 
 
-class PulsarTopic(object):
+class PulsarTopic:
     __slots__ = ["topic_parts", "fullname", "type", "tenant", "namespace", "topic"]
 
     def __init__(self, topic):
@@ -69,7 +65,7 @@ class PulsarTopic(object):
         self.topic = topic_parts[5]
 
 
-class PulsarSchema(object):
+class PulsarSchema:
     __slots__ = [
         "schema_version",
         "schema_name",
@@ -95,6 +91,7 @@ class PulsarSchema(object):
 @config_class(PulsarSourceConfig)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @dataclass
 class PulsarSource(StatefulIngestionSourceBase):
     def __init__(self, config: PulsarSourceConfig, ctx: PipelineContext):
@@ -102,14 +99,6 @@ class PulsarSource(StatefulIngestionSourceBase):
         self.platform: str = "pulsar"
         self.config: PulsarSourceConfig = config
         self.report: PulsarSourceReport = PulsarSourceReport()
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
 
         self.base_url: str = f"{self.config.web_service_url}/admin/v2"
         self.tenants: List[str] = config.tenants
@@ -128,7 +117,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                 f"{self.config.issuer_url}/.well-known/openid-configuration"
             )
             oid_config_response = requests.get(
-                oid_config_url, verify=False, allow_redirects=False
+                oid_config_url, verify=self.session.verify, allow_redirects=False
             )
 
             if oid_config_response:
@@ -175,7 +164,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                 token_response = requests.post(
                     url=token_endpoint,
                     data=data,
-                    verify=False,
+                    verify=self.session.verify,
                     allow_redirects=False,
                     auth=(
                         self.config.client_id,
@@ -234,11 +223,13 @@ class PulsarSource(StatefulIngestionSourceBase):
 
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
-        )
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
@@ -384,8 +375,10 @@ class PulsarSource(StatefulIngestionSourceBase):
                 hash=md5_hash,
                 platform=platform_urn,
                 platformSchema=KafkaSchema(
-                    documentSchema=schema.schema_str if schema is not None else "",
+                    documentSchema=schema.schema_str if schema else "",
+                    documentSchemaType=schema.schema_type if schema else None,
                     keySchema=None,
+                    keySchemaType=None,
                 ),
                 fields=fields,
             )
@@ -408,43 +401,37 @@ class PulsarSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
-        status_wu = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=StatusClass(removed=False),
         ).as_workunit()
-        self.report.report_workunit(status_wu)
-        yield status_wu
 
         # 2. Emit schemaMetadata aspect
         schema, schema_metadata = self._get_schema_metadata(pulsar_topic, platform_urn)
         if schema_metadata is not None:
-            schema_metadata_wu = MetadataChangeProposalWrapper(
+            yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=schema_metadata,
             ).as_workunit()
-            self.report.report_workunit(schema_metadata_wu)
-            yield schema_metadata_wu
 
         # TODO Add topic properties (Pulsar 2.10.0 feature)
         # 3. Construct and emit dataset properties aspect
         if schema is not None:
+            # Add some static properties to the schema properties
             schema_properties = {
+                **schema.properties,
                 "schema_version": str(schema.schema_version),
                 "schema_type": schema.schema_type,
                 "partitioned": str(partitioned).lower(),
             }
-            # Add some static properties to the schema properties
-            schema.properties.update(schema_properties)
 
-            dataset_properties_wu = MetadataChangeProposalWrapper(
+            yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=DatasetPropertiesClass(
                     description=schema.schema_description,
-                    customProperties=schema.properties,
+                    customProperties=schema_properties,
                 ),
             ).as_workunit()
-            self.report.report_workunit(dataset_properties_wu)
-            yield dataset_properties_wu
 
         # 4. Emit browsePaths aspect
         pulsar_path = (
@@ -456,18 +443,16 @@ class PulsarSource(StatefulIngestionSourceBase):
             else pulsar_path
         )
 
-        browse_path_wu = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=BrowsePathsClass(
                 [f"/{self.config.env.lower()}/{self.platform}/{browse_path_suffix}"]
             ),
         ).as_workunit()
-        self.report.report_workunit(browse_path_wu)
-        yield browse_path_wu
 
         # 5. Emit dataPlatformInstance aspect.
         if self.config.platform_instance:
-            platform_instance_wu = MetadataChangeProposalWrapper(
+            yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=DataPlatformInstanceClass(
                     platform=platform_urn,
@@ -476,16 +461,12 @@ class PulsarSource(StatefulIngestionSourceBase):
                     ),
                 ),
             ).as_workunit()
-            self.report.report_workunit(platform_instance_wu)
-            yield platform_instance_wu
 
         # 6. Emit subtype aspect marking this as a "topic"
-        subtype_wu = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.TOPIC]),
         ).as_workunit()
-        self.report.report_workunit(subtype_wu)
-        yield subtype_wu
 
         # 7. Emit domains aspect
         domain_urn: Optional[str] = None
@@ -494,13 +475,10 @@ class PulsarSource(StatefulIngestionSourceBase):
                 domain_urn = make_domain_urn(domain)
 
         if domain_urn:
-            wus = add_domain_to_entity_wu(
+            yield from add_domain_to_entity_wu(
                 entity_urn=dataset_urn,
                 domain_urn=domain_urn,
             )
-            for wu in wus:
-                self.report.report_workunit(wu)
-                yield wu
 
     def get_report(self):
         return self.report

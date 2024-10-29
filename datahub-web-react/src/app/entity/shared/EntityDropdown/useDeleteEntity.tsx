@@ -6,6 +6,8 @@ import { getDeleteEntityMutation } from '../../../shared/deleteUtils';
 import analytics, { EventType } from '../../../analytics';
 import { useGlossaryEntityData } from '../GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
+import { useHandleDeleteDomain } from './useHandleDeleteDomain';
+import { removeTermFromGlossaryNode } from '../../../glossary/cacheUtils';
 
 /**
  * Performs the flow for deleting an entity of a given type.
@@ -25,16 +27,12 @@ function useDeleteEntity(
     const [hasBeenDeleted, setHasBeenDeleted] = useState(false);
     const entityRegistry = useEntityRegistry();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { handleDeleteDomain } = useHandleDeleteDomain({ entityData, urn });
 
-    const maybeDeleteEntity = getDeleteEntityMutation(type)();
-    const deleteEntity = (maybeDeleteEntity && maybeDeleteEntity[0]) || undefined;
+    const [deleteEntity, { client }] = getDeleteEntityMutation(type)() ?? [undefined, { client: undefined }];
 
     function handleDeleteEntity() {
-        deleteEntity?.({
-            variables: {
-                urn,
-            },
-        })
+        deleteEntity?.({ variables: { urn } })
             .then(() => {
                 analytics.event({
                     type: EventType.DeleteEntityEvent,
@@ -47,6 +45,11 @@ function useDeleteEntity(
                         duration: 2,
                     });
                 }
+
+                if (entityData.type === EntityType.Domain) {
+                    handleDeleteDomain();
+                }
+
                 setTimeout(
                     () => {
                         setHasBeenDeleted(true);
@@ -54,6 +57,9 @@ function useDeleteEntity(
                         if (isInGlossaryContext) {
                             const parentNodeToUpdate = getParentNodeToUpdate(entityData, type);
                             updateGlossarySidebar([parentNodeToUpdate], urnsToUpdate, setUrnsToUpdate);
+                            if (client) {
+                                removeTermFromGlossaryNode(client, parentNodeToUpdate, urn);
+                            }
                         }
                         if (!hideMessage) {
                             message.success({

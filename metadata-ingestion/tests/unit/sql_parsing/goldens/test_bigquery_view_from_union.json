@@ -1,0 +1,64 @@
+{
+    "query_type": "CREATE_VIEW",
+    "query_type_props": {
+        "kind": "VIEW"
+    },
+    "query_fingerprint": "3c811a0b47858c50d1c8f666644986a3d9f4522c3f084249656af345741da690",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project_2.my_dataset_2.sometable,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project_2.my_dataset_2.sometable2,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_view,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_view,PROD)",
+                "column": "col1",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "STRING"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project_2.my_dataset_2.sometable,PROD)",
+                    "column": "col1"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project_2.my_dataset_2.sometable2,PROD)",
+                    "column": "col1"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_view,PROD)",
+                "column": "col2",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "STRING"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project_2.my_dataset_2.sometable,PROD)",
+                    "column": "col2"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project_2.my_dataset_2.sometable2,PROD)",
+                    "column": "col2"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.4,
+        "generalized_statement": "CREATE VIEW my_view AS SELECT * FROM my_project_2.my_dataset_2.sometable UNION ALL SELECT * FROM my_project_2.my_dataset_2.sometable2 AS a"
+    }
+}

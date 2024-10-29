@@ -33,6 +33,9 @@ fi
 if [[ ${GRAPH_SERVICE_IMPL:-} != elasticsearch ]] && [[ ${SKIP_NEO4J_CHECK:-false} != true ]]; then
   dockerize_args+=("-wait" "$NEO4J_HOST")
 fi
+if [[ "${KAFKA_SCHEMAREGISTRY_URL:-}" && ${SKIP_SCHEMA_REGISTRY_CHECK:-false} != true ]]; then
+  dockerize_args+=("-wait" "$KAFKA_SCHEMAREGISTRY_URL")
+fi
 
 JAVA_TOOL_OPTIONS="${JDK_JAVA_OPTIONS:-}${JAVA_OPTS:+ $JAVA_OPTS}${JMX_OPTS:+ $JMX_OPTS}"
 if [[ ${ENABLE_OTEL:-false} == true ]]; then

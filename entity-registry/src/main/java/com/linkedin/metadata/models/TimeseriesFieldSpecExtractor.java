@@ -15,16 +15,16 @@ import java.util.Map;
 import java.util.Optional;
 import lombok.Getter;
 
-
 /**
- * Implementation of {@link SchemaVisitor} responsible for extracting {@link TimeseriesFieldSpec} and
- * {@link TimeseriesFieldCollectionSpec} from an aspect schema.
+ * Implementation of {@link SchemaVisitor} responsible for extracting {@link TimeseriesFieldSpec}
+ * and {@link TimeseriesFieldCollectionSpec} from an aspect schema.
  */
 @Getter
 public class TimeseriesFieldSpecExtractor implements SchemaVisitor {
 
   private final List<TimeseriesFieldSpec> timeseriesFieldSpecs = new ArrayList<>();
-  private final List<TimeseriesFieldCollectionSpec> timeseriesFieldCollectionSpecs = new ArrayList<>();
+  private final List<TimeseriesFieldCollectionSpec> timeseriesFieldCollectionSpecs =
+      new ArrayList<>();
   private final Map<String, String> namesToPath = new HashMap<>();
 
   @Override
@@ -40,16 +40,22 @@ public class TimeseriesFieldSpecExtractor implements SchemaVisitor {
 
       // First, check for collection in primary properties
       final Map<String, Object> primaryProperties = context.getEnclosingField().getProperties();
-      final Object timeseriesFieldAnnotationObj = primaryProperties.get(TimeseriesFieldAnnotation.ANNOTATION_NAME);
+      final Object timeseriesFieldAnnotationObj =
+          primaryProperties.get(TimeseriesFieldAnnotation.ANNOTATION_NAME);
       final Object timeseriesFieldCollectionAnnotationObj =
           primaryProperties.get(TimeseriesFieldCollectionAnnotation.ANNOTATION_NAME);
-      if (currentSchema.getType() == DataSchema.Type.RECORD && timeseriesFieldCollectionAnnotationObj != null) {
-        validateCollectionAnnotation(currentSchema, timeseriesFieldCollectionAnnotationObj,
+      if (currentSchema.getType() == DataSchema.Type.RECORD
+          && timeseriesFieldCollectionAnnotationObj != null) {
+        validateCollectionAnnotation(
+            currentSchema,
+            timeseriesFieldCollectionAnnotationObj,
             context.getTraversePath().toString());
-        addTimeseriesFieldCollectionSpec(currentSchema, path, timeseriesFieldCollectionAnnotationObj);
-      } else if (timeseriesFieldAnnotationObj != null && !path.getPathComponents()
-          .get(path.getPathComponents().size() - 1)
-          .equals("*")) { // For arrays make sure to add just the array form
+        addTimeseriesFieldCollectionSpec(
+            currentSchema, path, timeseriesFieldCollectionAnnotationObj);
+      } else if (timeseriesFieldAnnotationObj != null
+          && !path.getPathComponents()
+              .get(path.getPathComponents().size() - 1)
+              .equals("*")) { // For arrays make sure to add just the array form
         addTimeseriesFieldSpec(currentSchema, path, timeseriesFieldAnnotationObj);
       } else {
         addTimeseriesFieldCollectionKey(path);
@@ -57,7 +63,8 @@ public class TimeseriesFieldSpecExtractor implements SchemaVisitor {
     }
   }
 
-  private void validateCollectionAnnotation(DataSchema currentSchema, Object annotationObj, String pathStr) {
+  private void validateCollectionAnnotation(
+      DataSchema currentSchema, Object annotationObj, String pathStr) {
 
     // If primitive, assume the annotation is well formed until resolvedProperties reflects it.
     if (currentSchema.isPrimitive()) {
@@ -66,21 +73,25 @@ public class TimeseriesFieldSpecExtractor implements SchemaVisitor {
 
     // Required override case. If the annotation keys are not overrides, they are incorrect.
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
-      throw new ModelValidationException(String.format(
-          "Failed to validate @%s annotation declared inside %s: Invalid value type provided (Expected Map)",
-          TimeseriesFieldCollectionAnnotation.ANNOTATION_NAME, pathStr));
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared inside %s: Invalid value type provided (Expected Map)",
+              TimeseriesFieldCollectionAnnotation.ANNOTATION_NAME, pathStr));
     }
   }
 
-  private void addTimeseriesFieldCollectionSpec(DataSchema currentSchema, PathSpec path, Object annotationObj) {
+  private void addTimeseriesFieldCollectionSpec(
+      DataSchema currentSchema, PathSpec path, Object annotationObj) {
     if (currentSchema.getType() == DataSchema.Type.RECORD) {
       TimeseriesFieldCollectionAnnotation annotation =
-          TimeseriesFieldCollectionAnnotation.fromPegasusAnnotationObject(annotationObj,
-              FieldSpecUtils.getSchemaFieldName(path), path.toString());
-      if (namesToPath.containsKey(annotation.getCollectionName()) && !namesToPath.get(annotation.getCollectionName())
-          .equals(path.toString())) {
+          TimeseriesFieldCollectionAnnotation.fromPegasusAnnotationObject(
+              annotationObj, FieldSpecUtils.getSchemaFieldName(path), path.toString());
+      if (namesToPath.containsKey(annotation.getCollectionName())
+          && !namesToPath.get(annotation.getCollectionName()).equals(path.toString())) {
         throw new ModelValidationException(
-            String.format("There are multiple fields with the same name: %s", annotation.getCollectionName()));
+            String.format(
+                "There are multiple fields with the same name: %s",
+                annotation.getCollectionName()));
       }
       namesToPath.put(annotation.getCollectionName(), path.toString());
       timeseriesFieldCollectionSpecs.add(
@@ -88,25 +99,32 @@ public class TimeseriesFieldSpecExtractor implements SchemaVisitor {
     }
   }
 
-  private void addTimeseriesFieldSpec(DataSchema currentSchema, PathSpec path, Object annotationObj) {
+  private void addTimeseriesFieldSpec(
+      DataSchema currentSchema, PathSpec path, Object annotationObj) {
     // First check whether the stat is part of a collection
     String pathStr = path.toString();
-    Optional<TimeseriesFieldCollectionSpec> fieldCollectionSpec = timeseriesFieldCollectionSpecs.stream()
-        .filter(spec -> pathStr.startsWith(spec.getPath().toString()))
-        .findFirst();
+    Optional<TimeseriesFieldCollectionSpec> fieldCollectionSpec =
+        timeseriesFieldCollectionSpecs.stream()
+            .filter(spec -> pathStr.startsWith(spec.getPath().toString()))
+            .findFirst();
     TimeseriesFieldAnnotation annotation =
-        TimeseriesFieldAnnotation.fromPegasusAnnotationObject(annotationObj, FieldSpecUtils.getSchemaFieldName(path),
-            path.toString());
+        TimeseriesFieldAnnotation.fromPegasusAnnotationObject(
+            annotationObj, FieldSpecUtils.getSchemaFieldName(path), path.toString());
     if (fieldCollectionSpec.isPresent()) {
-      fieldCollectionSpec.get()
+      fieldCollectionSpec
+          .get()
           .getTimeseriesFieldSpecMap()
-          .put(annotation.getStatName(),
-              new TimeseriesFieldSpec(getRelativePath(path, fieldCollectionSpec.get().getPath()), annotation,
+          .put(
+              annotation.getStatName(),
+              new TimeseriesFieldSpec(
+                  getRelativePath(path, fieldCollectionSpec.get().getPath()),
+                  annotation,
                   currentSchema));
     } else {
       if (path.getPathComponents().contains("*")) {
         throw new ModelValidationException(
-            String.format("No matching collection found for the given timeseries field %s", pathStr));
+            String.format(
+                "No matching collection found for the given timeseries field %s", pathStr));
       }
       timeseriesFieldSpecs.add(new TimeseriesFieldSpec(path, annotation, currentSchema));
     }
@@ -123,7 +141,9 @@ public class TimeseriesFieldSpecExtractor implements SchemaVisitor {
 
   private PathSpec getRelativePath(PathSpec child, PathSpec parent) {
     return new PathSpec(
-        child.getPathComponents().subList(parent.getPathComponents().size(), child.getPathComponents().size()));
+        child
+            .getPathComponents()
+            .subList(parent.getPathComponents().size(), child.getPathComponents().size()));
   }
 
   @Override

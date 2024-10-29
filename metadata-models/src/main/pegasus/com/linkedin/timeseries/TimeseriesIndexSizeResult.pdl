@@ -1,0 +1,29 @@
+namespace com.linkedin.timeseries
+
+/**
+ * Encapsulates the response of the getIndexSizes API
+ */
+record TimeseriesIndexSizeResult{
+  /**
+   * Name of the index
+   */
+  indexName: string
+
+  /**
+   * Name of the entity associated with the index
+   */
+  entityName: string
+
+  /**
+   * Name of the aspect associated with the index
+   */
+  aspectName: string
+
+  /**
+   * Size
+   */
+   @deprecated = "use sizeInMb instead"
+  sizeMb: float = 0
+
+  sizeInMb: double = 0
+}

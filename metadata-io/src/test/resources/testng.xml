@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+<!--
+Grouping Elasticsearch and OpenSearch tests into a suite reduce testcontainers.
+There are currently 2 implementations. Group them into separate tests and thus
+allow only 1 container per impl. The 2 search implementation tests are run in
+parallel followed by everything else.
+-->
+<suite name="metadata-io-testcontainers">
+<suite-files>
+    <suite-file path="testng-search.xml"/>
+    <suite-file path="testng-cassandra.xml"/>
+    <suite-file path="testng-other.xml"/>
+</suite-files>
+</suite>

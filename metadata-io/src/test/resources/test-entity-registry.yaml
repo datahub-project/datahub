@@ -1,0 +1,10 @@
+id: test-registry
+entities:
+  - name: testRefEntity
+    keyAspect: testRefEntityKey
+    aspects:
+      - testRefEntityInfo
+  - name: refEntity
+    keyAspect: refEntityKey
+    aspects:
+      - refEntityProperties

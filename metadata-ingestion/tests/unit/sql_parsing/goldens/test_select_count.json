@@ -1,0 +1,33 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "b701c1952e9d41bcfc1b163e2d9e6c518e7e6f812d5ed60473a4de7242e8e99e",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,something_prd.fact_complaint_snapshot,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "COUNT(`fact_complaint_snapshot`.`etl_data_dt_id`)",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,something_prd.fact_complaint_snapshot,PROD)",
+                    "column": "etl_data_dt_id"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT COUNT(etl_data_dt_id) FROM something_prd.fact_complaint_snapshot WHERE etl_data_dt_id = ?"
+    }
+}

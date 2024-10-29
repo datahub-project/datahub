@@ -13,7 +13,7 @@ record GlossaryTermKey {
   * The term name, which serves as a unique id
   */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "fieldName": "id"
   }

@@ -1,3 +1,4 @@
+import doctest
 import os
 
 import pytest
@@ -51,10 +52,11 @@ def test_base_url_guessing():
         url_template="https://gitea.com/gitea/tea/src/branch/{branch}/{file_path}",
         repo_ssh_locator="https://gitea.com/gitea/tea.git",
     )
-    config.get_url_for_file_path(
-        "cmd/admin.go"
-    ) == "https://gitea.com/gitea/tea/src/branch/main/cmd/admin.go"
-    config.repo_ssh_locator == "https://gitea.com/gitea/tea.git"
+    assert (
+        config.get_url_for_file_path("cmd/admin.go")
+        == "https://gitea.com/gitea/tea/src/branch/main/cmd/admin.go"
+    )
+    assert config.repo_ssh_locator == "https://gitea.com/gitea/tea.git"
 
     # Deprecated: base_url.
     with pytest.warns(ConfigurationWarning, match="base_url is deprecated"):
@@ -78,6 +80,17 @@ def test_github_branch():
         branch="main",
     )
     assert config.branch_for_clone == "main"
+
+
+def test_sanitize_repo_url():
+    import datahub.ingestion.source.git.git_import
+
+    assert (
+        doctest.testmod(
+            datahub.ingestion.source.git.git_import, raise_on_error=True
+        ).attempted
+        == 3
+    )
 
 
 def test_git_clone_public(tmp_path):
@@ -110,15 +123,13 @@ def test_git_clone_private(tmp_path):
         branch="d380a2b777ec6f4653626f39c68dba85893faa74",
     )
     assert checkout_dir.exists()
-    assert set(os.listdir(checkout_dir)) == set(
-        [
-            ".datahub",
-            "models",
-            "README.md",
-            ".github",
-            ".git",
-            "views",
-            "manifest_lock.lkml",
-            "manifest.lkml",
-        ]
-    )
+    assert set(os.listdir(checkout_dir)) == {
+        ".datahub",
+        "models",
+        "README.md",
+        ".github",
+        ".git",
+        "views",
+        "manifest_lock.lkml",
+        "manifest.lkml",
+    }

@@ -96,7 +96,11 @@
                   },
                   "nativeDataType": "varchar(100)",
                   "globalTags": {
-                    "tags": [{ "tag": "urn:li:tag:NeedsDocumentation" }]
+                    "tags": [
+                      {
+                        "tag": "urn:li:tag:NeedsDocumentation"
+                      }
+                    ]
                   },
                   "recursive": false
                 },
@@ -137,7 +141,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -202,15 +210,15 @@
               ],
               "fineGrainedLineages": [
                 {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD),field_bar)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),shipment_info)"
-                    ],
-                    "confidenceScore": 1.0
+                  "upstreamType": "FIELD_SET",
+                  "upstreams": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD),field_bar)"
+                  ],
+                  "downstreamType": "FIELD",
+                  "downstreams": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),shipment_info)"
+                  ],
+                  "confidenceScore": 1.0
                 }
               ]
             }
@@ -246,7 +254,13 @@
               "editableSchemaFieldInfo": [
                 {
                   "fieldPath": "shipment_info",
-                  "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] },
+                  "globalTags": {
+                    "tags": [
+                      {
+                        "tag": "urn:li:tag:Legacy"
+                      }
+                    ]
+                  },
                   "glossaryTerms": {
                     "terms": [
                       {
@@ -400,7 +414,14 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" },  { "tag": "urn:li:tag:Cypress2" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                },
+                {
+                  "tag": "urn:li:tag:Cypress2"
+                }
+              ]
             }
           }
         ]
@@ -539,7 +560,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -715,7 +740,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1008,7 +1037,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1226,7 +1259,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1276,7 +1313,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1329,7 +1370,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1368,7 +1413,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1410,7 +1459,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1456,7 +1509,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1518,7 +1575,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1755,7 +1816,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:CypressFeatureTag" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:CypressFeatureTag"
+                }
+              ]
             }
           }
         ]
@@ -1782,7 +1847,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:CypressPrimaryKeyTag" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:CypressPrimaryKeyTag"
+                }
+              ]
             }
           }
         ]
@@ -2008,6 +2077,141 @@
     "aspectName": "querySubjects",
     "aspect": {
       "value": "{\"subjects\":[{\"entity\":\"urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)\"}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table for health",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+      "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD),field_foo)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"true\", \"type\": \"UNKNOWN\"} }, \"nativeType\": \"expect_column_values_to_equal\", \"nativeParameters\": {\"column\": \"field_foo\", \"value\": \"true\"}}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1675155843000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_hive_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"FAILURE\", \"nativeResults\": {}}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:test",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+      "value": "{\"entities\":[\"urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)\"],\"created\":{\"actor\":\"urn:li:corpuser:admin\",\"time\":1692301854918},\"description\":\"test\",\"source\":{\"type\":\"MANUAL\"},\"title\":\"test\",\"type\":\"OPERATIONAL\",\"status\":{\"lastUpdated\":{\"actor\":\"urn:li:corpuser:admin\",\"time\":1692301854919},\"state\":\"ACTIVE\"}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "incidentsSummary",
+    "aspect": {
+      "value": "{\"resolvedIncidentDetails\":[], \"activeIncidentDetails\": [{ \"urn\": \"urn:li:incident:test\", \"type\": \"OPERATIONAL\", \"createdAt\": 0 }]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:37c81832-06e0-40b1-a682-858e1dd0d449",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "businessAttributeInfo",
+    "aspect": {
+      "value": "{\n      \"fieldPath\": \"CypressAttribute\",\n      \"description\": \"CypressAttribute\",\n      \"globalTags\": {\n        \"tags\": [\n          {\n            \"tag\": \"urn:li:tag:Cypress\"\n          }\n        ]\n      },\n      \"glossaryTerms\": {\n        \"terms\": [\n          {\n            \"urn\": \"urn:li:glossaryTerm:CypressNode.CypressTerm\"\n          }\n        ],\n        \"auditStamp\": {\n          \"time\": 1706889592683,\n          \"actor\": \"urn:li:corpuser:datahub\"\n        }\n      },\n      \"customProperties\": {},\n      \"created\": {\n        \"time\": 1706690081803,\n        \"actor\": \"urn:li:corpuser:datahub\"\n      },\n      \"lastModified\": {\n        \"time\": 1706690081803,\n        \"actor\": \"urn:li:corpuser:datahub\"\n      },\n      \"name\": \"CypressAttribute\",\n      \"type\": {\n        \"type\": {\n          \"com.linkedin.schema.BooleanType\": {}\n        }\n      }\n    }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:37c81832-06e0-40b1-a682-858e1dd0d449",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "value": "{\n      \"owners\": [\n        {\n          \"owner\": \"urn:li:corpuser:datahub\",\n          \"type\": \"TECHNICAL_OWNER\",\n          \"typeUrn\": \"urn:li:ownershipType:__system__technical_owner\",\n          \"source\": {\n            \"type\": \"MANUAL\"\n          }\n        }\n      ]\n    }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:cypressTestAttribute",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "businessAttributeInfo",
+    "aspect": {
+      "value": "{\n      \"fieldPath\": \"cypressTestAttribute\",\n      \"description\": \"cypressTestAttribute\",\n      \"customProperties\": {},\n      \"created\": {\n        \"time\": 1706690081803,\n        \"actor\": \"urn:li:corpuser:datahub\"\n      },\n      \"lastModified\": {\n        \"time\": 1706690081803,\n        \"actor\": \"urn:li:corpuser:datahub\"\n      },\n      \"name\": \"cypressTestAttribute\",\n      \"type\": {\n        \"type\": {\n          \"com.linkedin.schema.BooleanType\": {}\n        }\n      }\n    }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:cypressTestAttribute",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "value": "{\n      \"owners\": [\n        {\n          \"owner\": \"urn:li:corpuser:datahub\",\n          \"type\": \"TECHNICAL_OWNER\",\n          \"typeUrn\": \"urn:li:ownershipType:__system__technical_owner\",\n          \"source\": {\n            \"type\": \"MANUAL\"\n          }\n        }\n      ]\n    }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_deleted,PROD),user_id)",
+    "changeType": "UPSERT",
+    "aspectName": "documentation",
+    "aspect": {
+      "value": "{\"documentations\":[{\"attribution\":{\"actor\":\"urn:li:corpuser:__datahub_system\",\"source\":\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD),user_id)\",\"sourceDetail\":{\"actor\":\"urn:li:corpuser:shirshanka@acryl.io\",\"origin\":\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD),user_id)\",\"propagated\":\"true\"},\"time\":1721422917808},\"documentation\":\"Unique identifier of user profile.\"}]}",
       "contentType": "application/json"
     },
     "systemMetadata": null

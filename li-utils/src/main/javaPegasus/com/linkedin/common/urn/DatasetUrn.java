@@ -6,7 +6,6 @@ import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
 
-
 public final class DatasetUrn extends Urn {
 
   public static final String ENTITY_TYPE = "dataset";
@@ -49,10 +48,13 @@ public final class DatasetUrn extends Urn {
         throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
       } else {
         try {
-          return new DatasetUrn((DataPlatformUrn) key.getAs(0, DataPlatformUrn.class),
-              (String) key.getAs(1, String.class), (FabricType) key.getAs(2, FabricType.class));
+          return new DatasetUrn(
+              (DataPlatformUrn) key.getAs(0, DataPlatformUrn.class),
+              (String) key.getAs(1, String.class),
+              (FabricType) key.getAs(2, FabricType.class));
         } catch (Exception var3) {
-          throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + var3.getMessage());
+          throw new URISyntaxException(
+              urn.toString(), "Invalid URN Parameter: '" + var3.getMessage());
         }
       }
     }
@@ -66,18 +68,20 @@ public final class DatasetUrn extends Urn {
     Custom.initializeCustomClass(DataPlatformUrn.class);
     Custom.initializeCustomClass(DatasetUrn.class);
     Custom.initializeCustomClass(FabricType.class);
-    Custom.registerCoercer(new DirectCoercer<DatasetUrn>() {
-      public Object coerceInput(DatasetUrn object) throws ClassCastException {
-        return object.toString();
-      }
+    Custom.registerCoercer(
+        new DirectCoercer<DatasetUrn>() {
+          public Object coerceInput(DatasetUrn object) throws ClassCastException {
+            return object.toString();
+          }
 
-      public DatasetUrn coerceOutput(Object object) throws TemplateOutputCastException {
-        try {
-          return DatasetUrn.createFromString((String) object);
-        } catch (URISyntaxException e) {
-          throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
-        }
-      }
-    }, DatasetUrn.class);
+          public DatasetUrn coerceOutput(Object object) throws TemplateOutputCastException {
+            try {
+              return DatasetUrn.createFromString((String) object);
+            } catch (URISyntaxException e) {
+              throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
+            }
+          }
+        },
+        DatasetUrn.class);
   }
 }

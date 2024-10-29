@@ -7,6 +7,9 @@ query listPosts($input: ListPostsInput!) {
             urn
             type
             postType
+            lastModified {
+                time
+            }
             content {
                 contentType
                 title
@@ -19,4 +22,16 @@ query listPosts($input: ListPostsInput!) {
             }
         }
     }
+}
+
+mutation createPost($input: CreatePostInput!) {
+    createPost(input: $input)
+}
+
+mutation deletePost($urn: String!) {
+    deletePost(urn: $urn)
+}
+
+mutation updatePost($input: UpdatePostInput!) {
+    updatePost(input: $input)
 }

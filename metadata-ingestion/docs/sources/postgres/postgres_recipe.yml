@@ -9,8 +9,13 @@ source:
     username: user
     password: pass
 
-    # Options
-    database_alias: DatabaseNameToBeIngested
+    # Optional: SSL configuration.
+    # options:
+    #   connect_args:
+    #     sslcert: "<<path to sslcert>>"
+    #     sslkey: "<<path to sslkey>>"
+    #     sslrootcert: "<<path to verification ca chain>>"
+    #     sslmode: "verify-full"
 
 sink:
   # sink configs

@@ -1,0 +1,11 @@
+namespace com.linkedin.datatype
+
+@Aspect = {
+    "name": "dataTypeKey"
+}
+record DataTypeKey {
+    /**
+     * A unique id for a data type. Usually this will be a unique namespace + data type name.
+     */
+    id: string
+}

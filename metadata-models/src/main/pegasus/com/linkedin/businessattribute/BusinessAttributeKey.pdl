@@ -1,0 +1,14 @@
+namespace com.linkedin.businessattribute
+
+/**
+ * Key for a Query
+ */
+@Aspect = {
+  "name": "businessAttributeKey"
+}
+record BusinessAttributeKey {
+  /**
+  * A unique id for the Business Attribute.
+  */
+  id: string
+}

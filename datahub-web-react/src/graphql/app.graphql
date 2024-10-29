@@ -40,6 +40,14 @@ query appConfig {
             queriesTab {
                 queriesTabResultSize
             }
+            entityProfiles {
+                domain {
+                    defaultTab
+                }
+            }
+            searchResult {
+                enableNameHighlight
+            }
         }
         telemetryConfig {
             enableThirdPartyLogging
@@ -49,6 +57,20 @@ query appConfig {
         }
         viewsConfig {
             enabled
+        }
+        featureFlags {
+            readOnlyModeEnabled
+            showSearchFiltersV2
+            showBrowseV2
+            showAcrylInfo
+            erModelRelationshipFeatureEnabled
+            showAccessManagement
+            nestedDomainsEnabled
+            platformBrowseV2
+            businessAttributeEntityEnabled
+            dataContractsEnabled
+            editableDatasetNameEnabled
+            showSeparateSiblings
         }
     }
 }
@@ -68,6 +90,16 @@ query getGlobalViewsSettings {
     }
 }
 
+query getDocPropagationSettings {
+    docPropagationSettings {
+        docColumnPropagation
+    }
+}
+
 mutation updateGlobalViewsSettings($input: UpdateGlobalViewsSettingsInput!) {
     updateGlobalViewsSettings(input: $input)
+}
+
+mutation updateDocPropagationSettings($input: UpdateDocPropagationSettingsInput!) {
+    updateDocPropagationSettings(input: $input)
 }

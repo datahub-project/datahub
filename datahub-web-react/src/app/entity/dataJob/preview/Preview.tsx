@@ -3,7 +3,17 @@ import styled from 'styled-components';
 import { Typography } from 'antd';
 import { ClockCircleOutlined } from '@ant-design/icons';
 
-import { Deprecation, Domain, EntityType, GlobalTags, Owner, SearchInsight } from '../../../../types.generated';
+import {
+    DataProduct,
+    Deprecation,
+    Domain,
+    EntityPath,
+    EntityType,
+    GlobalTags,
+    Health,
+    Owner,
+    SearchInsight,
+} from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
@@ -17,33 +27,43 @@ const StatText = styled(Typography.Text)`
 export const Preview = ({
     urn,
     name,
+    subType,
     description,
     platformName,
     platformLogo,
     platformInstanceId,
     owners,
     domain,
+    dataProduct,
     deprecation,
     globalTags,
     snippet,
     insights,
     lastRunTimeMs,
     externalUrl,
+    degree,
+    paths,
+    health,
 }: {
     urn: string;
     name: string;
+    subType?: string | null;
     description?: string | null;
     platformName: string;
     platformLogo?: string | null;
     platformInstanceId?: string;
     owners?: Array<Owner> | null;
     domain?: Domain | null;
+    dataProduct?: DataProduct | null;
     deprecation?: Deprecation | null;
     globalTags?: GlobalTags | null;
     snippet?: React.ReactNode | null;
     insights?: Array<SearchInsight> | null;
     lastRunTimeMs?: number | null;
     externalUrl?: string | null;
+    degree?: number;
+    paths?: EntityPath[];
+    health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -52,7 +72,7 @@ export const Preview = ({
             name={name}
             urn={urn}
             description={description || ''}
-            type="Data Task"
+            type={subType || 'Data Task'}
             typeIcon={entityRegistry.getIcon(EntityType.DataJob, 14, IconStyleType.ACCENT)}
             platform={platformName}
             logoUrl={platformLogo || ''}
@@ -60,6 +80,7 @@ export const Preview = ({
             owners={owners}
             tags={globalTags || undefined}
             domain={domain}
+            dataProduct={dataProduct}
             snippet={snippet}
             deprecation={deprecation}
             dataTestID="datajob-item-preview"
@@ -74,6 +95,9 @@ export const Preview = ({
                 ]) ||
                 undefined
             }
+            degree={degree}
+            paths={paths}
+            health={health || undefined}
         />
     );
 };

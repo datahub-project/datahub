@@ -1,0 +1,25 @@
+namespace com.linkedin.common
+
+
+/**
+ * Properties of an applied Role. For now, just an Urn
+ */
+record RoleAssociation {
+
+ /**
+  * Urn of the External Role
+  */
+  @Relationship = {
+    "name": "AssociatedWith",
+    "entityTypes": [ "role" ]
+  }
+  @Searchable = {
+    "fieldName": "roles",
+    "fieldType": "URN",
+    "hasValuesFieldName": "hasRoles",
+    "addToFilters": true,
+    "filterNameOverride": "Role",
+    "queryByDefault": false,
+  }
+  urn: Urn
+}

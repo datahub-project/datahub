@@ -7,12 +7,28 @@ import pydantic
 import pytest
 
 from datahub.ingestion.source.elastic_search import (
+    CollapseUrns,
     ElasticsearchSourceConfig,
     ElasticToSchemaFieldConverter,
+    collapse_urn,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 logger = logging.getLogger(__name__)
+
+
+def test_elasticsearch_throws_error_wrong_operation_config():
+    with pytest.raises(pydantic.ValidationError):
+        ElasticsearchSourceConfig.parse_obj(
+            {
+                "profiling": {
+                    "enabled": True,
+                    "operation_config": {
+                        "lower_freq_profile_enabled": True,
+                    },
+                }
+            }
+        )
 
 
 def assert_field_paths_are_unique(fields: List[SchemaField]) -> None:
@@ -2470,3 +2486,29 @@ def test_host_port_parsing() -> None:
 
         with pytest.raises(pydantic.ValidationError):
             ElasticsearchSourceConfig.parse_obj(config_dict)
+
+
+def test_collapse_urns() -> None:
+    assert (
+        collapse_urn(
+            urn="urn:li:dataset:(urn:li:dataPlatform:elasticsearch,platform1.prefix_datahub_usage_event-000059,PROD)",
+            collapse_urns=CollapseUrns(
+                urns_suffix_regex=[
+                    "-\\d+$",
+                ]
+            ),
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,platform1.prefix_datahub_usage_event,PROD)"
+    )
+
+    assert (
+        collapse_urn(
+            urn="urn:li:dataset:(urn:li:dataPlatform:elasticsearch,platform1.prefix_datahub_usage_event-2023.01.11,PROD)",
+            collapse_urns=CollapseUrns(
+                urns_suffix_regex=[
+                    "-\\d{4}\\.\\d{2}\\.\\d{2}",
+                ]
+            ),
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,platform1.prefix_datahub_usage_event,PROD)"
+    )

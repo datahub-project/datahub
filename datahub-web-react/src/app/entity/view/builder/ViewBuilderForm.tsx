@@ -53,7 +53,7 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
     const isEditing = urn !== undefined;
 
     return (
-        <>
+        <span data-testid="view-builder-form">
             <Form form={form} initialValues={state} layout="vertical">
                 <StyledFormItem label={<Typography.Text strong>Name</Typography.Text>}>
                     <Typography.Paragraph>Give your new View a name. </Typography.Paragraph>
@@ -112,6 +112,6 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                 </StyledFormItem>
             </Form>
             <ViewDefinitionBuilder mode={mode} state={state} updateState={updateState} />
-        </>
+        </span>
     );
 };

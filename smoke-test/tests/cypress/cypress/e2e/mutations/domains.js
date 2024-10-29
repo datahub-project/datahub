@@ -1,64 +1,78 @@
-const test_domain = "CypressDomainTest";
-let domain_created_urn = ""
+import { aliasQuery, hasOperationName } from "../utils";
+
+const test_domain_id = Math.floor(Math.random() * 100000);
+const test_domain = `CypressDomainTest ${test_domain_id}`;
+const test_domain_urn = `urn:li:domain:${test_domain_id}`;
 
 describe("add remove domain", () => {
-    it("create domain", () => {
-        cy.login();
-        cy.goToDomainList();
-        cy.clickOptionWithText("New Domain");
-        cy.addViaModal(test_domain, "Create new Domain")
-        cy.waitTextVisible("Created domain!")
-        cy.waitTextVisible(test_domain)
-            .parents("[data-testid^='urn:li:domain:']")
-            .invoke('attr', 'data-testid')
-            .then((data_test_id) => {
-                domain_created_urn = data_test_id;
-            })
-    })
+  beforeEach(() => {
+    cy.intercept("POST", "/api/v2/graphql", (req) => {
+      aliasQuery(req, "appConfig");
+    });
+  });
 
-    it("add entities to domain", () => {
-        cy.login();
-        cy.goToDomainList();
-        cy.clickOptionWithText(test_domain);
-        cy.waitTextVisible("Add assets")
-        cy.clickOptionWithText("Add assets")     
-        cy.get(".ant-modal-content").within(() => {
-            cy.get('[data-testid="search-input"]').click().type("jaffle_shop")
-            cy.waitTextVisible("jaffle_shop")
-            cy.get(".ant-checkbox-input").first().click()
-            cy.get("#continueButton").click()
-        })
-        cy.waitTextVisible("Added assets to Domain!")
-    })
+  const setDomainsFeatureFlag = (isOn) => {
+    cy.intercept("POST", "/api/v2/graphql", (req) => {
+      if (hasOperationName(req, "appConfig")) {
+        req.reply((res) => {
+          res.body.data.appConfig.featureFlags.nestedDomainsEnabled = isOn;
+        });
+      }
+    });
+  };
 
-    it("search filter by domain", () => {
-        cy.login();
-        cy.goToStarSearchList()
-        cy.waitTextVisible(test_domain)
-        cy.get('[data-testid="facet-domains-' + domain_created_urn + '"]').click()
-        cy.waitTextVisible("jaffle_shop")
-    })
+  it("create domain", () => {
+    cy.loginWithCredentials();
+    cy.goToDomainList();
+    cy.clickOptionWithText("New Domain");
+    cy.waitTextVisible("Create New Domain");
+    cy.get('[data-testid="create-domain-name"]').click().type(test_domain);
+    cy.clickOptionWithText("Advanced");
+    cy.get('[data-testid="create-domain-id"]').click().type(test_domain_id);
+    cy.get('[data-testid="create-domain-button"]').click();
+    cy.waitTextVisible(test_domain);
+  });
 
-    it("remove entity from domain", () => {
-        cy.login();
-        cy.goToDomainList();
-        cy.removeDomainFromDataset(
-            "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
-            "customers",
-            domain_created_urn
-        )
-    })
+  it("add entities to domain", () => {
+    setDomainsFeatureFlag(false);
+    cy.loginWithCredentials();
+    cy.goToDomainList();
+    cy.clickOptionWithText(test_domain);
+    cy.waitTextVisible("Add assets");
+    cy.clickOptionWithText("Add assets");
+    cy.get(".ant-modal-content").within(() => {
+      cy.get('[data-testid="search-input"]')
+        .click()
+        .invoke("val", "cypress_project.jaffle_shop.")
+        .type("customer");
+      cy.contains("BigQuery", { timeout: 30000 });
+      cy.get(".ant-checkbox-input").first().click();
+      cy.get("#continueButton").click();
+    });
+    cy.waitTextVisible("Added assets to Domain!");
+  });
 
-    it("delete a domain and ensure dangling reference is deleted on entities", () => {
-        cy.login();
-        cy.goToDomainList();
-        cy.get('[data-testid="dropdown-menu-' + domain_created_urn + '"]').click();
-        cy.clickOptionWithText("Delete");
-        cy.clickOptionWithText("Yes");
-        cy.ensureTextNotPresent(test_domain)
-        
-        cy.goToContainer("urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb")
-        cy.waitTextVisible("jaffle_shop")
-        cy.ensureTextNotPresent(test_domain)
-    })
+  it("remove entity from domain", () => {
+    setDomainsFeatureFlag(false);
+    cy.loginWithCredentials();
+    cy.goToDomainList();
+    cy.removeDomainFromDataset(
+      "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
+      "customers",
+      test_domain_urn,
+    );
+  });
+
+  it("delete a domain and ensure dangling reference is deleted on entities", () => {
+    setDomainsFeatureFlag(false);
+    cy.loginWithCredentials();
+    cy.goToDomainList();
+    cy.get(`[data-testid="dropdown-menu-${test_domain_urn}"]`).click();
+    cy.clickOptionWithText("Delete");
+    cy.clickOptionWithText("Yes");
+    cy.ensureTextNotPresent(test_domain);
+    cy.goToContainer("urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb");
+    cy.waitTextVisible("customers");
+    cy.ensureTextNotPresent(test_domain);
+  });
 });

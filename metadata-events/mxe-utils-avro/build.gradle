@@ -1,0 +1,38 @@
+plugins {
+  id 'java-library'
+  id 'pegasus'
+}
+
+dependencies {
+  api project(':metadata-events:mxe-avro')
+  api project(':metadata-models')
+  api project(path: ':metadata-models', configuration: "dataTemplate")
+  api spec.product.pegasus.dataAvro
+
+  testImplementation externalDependency.testng
+  testImplementation project(':test-models')
+  testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
+
+  constraints {
+    implementation(externalDependency.log4jCore) {
+        because("previous versions are vulnerable to CVE-2021-45105")
+    }
+    implementation(externalDependency.log4jApi) {
+        because("previous versions are vulnerable to CVE-2021-45105")
+    }
+  }
+}
+
+// copy original MXE avro schema from metadata-events to resources
+task copyOriginalMXESchemas(type: Copy, dependsOn: ':metadata-events:mxe-schemas:build') {
+  from("../mxe-schemas/src/mainGeneratedAvroSchema/")
+  into("src/main/resources/")
+  include("avro/com/linkedin/mxe/")
+}
+
+compileJava.dependsOn copyOriginalMXESchemas
+processResources.dependsOn copyOriginalMXESchemas
+
+clean {
+  project.delete("src/main/resources/avro")
+}

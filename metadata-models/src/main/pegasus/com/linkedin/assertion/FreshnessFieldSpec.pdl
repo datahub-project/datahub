@@ -1,0 +1,16 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.schema.SchemaFieldSpec
+
+
+/**
+* Lightweight spec used for referencing a particular schema field that is used to compute
+* a freshness signal or operation.
+* TODO: Since this is now leveraged across assertions & metrics / operations, we should consider moving this to a common package.
+*/
+record FreshnessFieldSpec includes SchemaFieldSpec {
+  /**
+   * The type of the field being used to verify the Freshness of the asset.
+   */
+  kind: optional FreshnessFieldKind
+}

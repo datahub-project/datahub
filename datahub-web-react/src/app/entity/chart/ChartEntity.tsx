@@ -8,7 +8,7 @@ import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '../../.
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
@@ -19,9 +19,16 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
-import { ChartSnippet } from './ChartSnippet';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { getDataProduct } from '../shared/utils';
+import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
+import { LOOKER_URN } from '../../ingest/source/builder/constants';
+import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
+import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import { ChartQueryTab } from './ChartQueryTab';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -68,18 +75,50 @@ export class ChartEntity implements Entity<Chart> {
 
     getCollectionName = () => 'Charts';
 
+    useEntityQuery = useGetChartQuery;
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+    ];
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Chart}
-            useEntityQuery={useGetChartQuery}
+            useEntityQuery={this.useEntityQuery}
             useUpdateQuery={useUpdateChartMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
             subHeader={{
                 component: ChartStatsSummarySubHeader,
             }}
             tabs={[
+                {
+                    name: 'Query',
+                    component: ChartQueryTab,
+                    display: {
+                        visible: (_, chart: GetChartQuery) => (chart?.chart?.query?.rawQuery && true) || false,
+                        enabled: (_, chart: GetChartQuery) => (chart?.chart?.query?.rawQuery && true) || false,
+                    },
+                },
                 {
                     name: 'Documentation',
                     component: DocumentationTab,
@@ -96,8 +135,10 @@ export class ChartEntity implements Entity<Chart> {
                     name: 'Preview',
                     component: EmbedTab,
                     display: {
-                        visible: (_, chart: GetChartQuery) => !!chart?.chart?.embed?.renderUrl,
-                        enabled: (_, chart: GetChartQuery) => !!chart?.chart?.embed?.renderUrl,
+                        visible: (_, chart: GetChartQuery) =>
+                            !!chart?.chart?.embed?.renderUrl && chart?.chart?.platform.urn === LOOKER_URN,
+                        enabled: (_, chart: GetChartQuery) =>
+                            !!chart?.chart?.embed?.renderUrl && chart?.chart?.platform.urn === LOOKER_URN,
                     },
                 },
                 {
@@ -119,42 +160,37 @@ export class ChartEntity implements Entity<Chart> {
                     name: 'Properties',
                     component: PropertiesTab,
                 },
-            ]}
-            sidebarSections={[
                 {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
+                    name: 'Incidents',
+                    component: IncidentTab,
+                    getDynamicName: (_, chart) => {
+                        const activeIncidentCount = chart?.chart?.activeIncidents.total;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
-                {
-                    component: SidebarOwnerSection,
-                },
-                {
-                    component: SidebarDomainSection,
-                },
             ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
 
     getOverridePropertiesFromEntity = (chart?: Chart | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
         const name = chart?.properties?.name;
+        const subTypes = chart?.subTypes;
         const externalUrl = chart?.properties?.externalUrl;
         return {
             name,
             externalUrl,
+            entityTypeOverride: subTypes ? capitalizeFirstLetterOnly(subTypes.typeNames?.[0]) : '',
         };
     };
 
     renderPreview = (_: PreviewType, data: Chart) => {
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <ChartPreview
                 urn={data.urn}
+                subType={data.subTypes?.typeNames?.[0]}
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
@@ -164,16 +200,20 @@ export class ChartEntity implements Entity<Chart> {
                 glossaryTerms={data?.glossaryTerms}
                 logoUrl={data?.platform?.properties?.logoUrl}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 parentContainers={data.parentContainers}
+                health={data.health}
             />
         );
     };
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Chart;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <ChartPreview
                 urn={data.urn}
+                subType={data.subTypes?.typeNames?.[0]}
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 name={data.properties?.name}
@@ -185,12 +225,20 @@ export class ChartEntity implements Entity<Chart> {
                 insights={result.insights}
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
                 externalUrl={data.properties?.externalUrl}
-                snippet={<ChartSnippet matchedFields={result.matchedFields} inputFields={data.inputFields} />}
+                snippet={
+                    <MatchedFieldList
+                        customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
+                    />
+                }
+                degree={(result as any).degree}
+                paths={(result as any).paths}
+                health={data.health}
             />
         );
     };
@@ -202,6 +250,8 @@ export class ChartEntity implements Entity<Chart> {
             type: EntityType.Chart,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
+            subtype: entity?.subTypes?.typeNames?.[0] || undefined,
+            health: entity?.health || undefined,
         };
     };
 
@@ -225,6 +275,16 @@ export class ChartEntity implements Entity<Chart> {
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
+
+    renderEmbeddedProfile = (urn: string) => (
+        <EmbeddedProfile
+            urn={urn}
+            entityType={EntityType.Chart}
+            useEntityQuery={this.useEntityQuery}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
+        />
+    );
 }

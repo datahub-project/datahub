@@ -1,0 +1,143 @@
+[
+{
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pet_of_the_week",
+    "changeType": "PATCH",
+    "aspectName": "dataProductProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "Pet of the Week Campaign"
+            },
+            {
+                "op": "add",
+                "path": "/assets",
+                "value": [
+                    {
+                        "destinationUrn": "urn:li:container:DATABASE",
+                        "created": {
+                            "time": 1681455600000,
+                            "actor": "urn:li:corpuser:datahub",
+                            "message": "yaml"
+                        },
+                        "outputPort": false
+                    },
+                    {
+                        "destinationUrn": "urn:li:container:SCHEMA",
+                        "created": {
+                            "time": 1681455600000,
+                            "actor": "urn:li:corpuser:datahub",
+                            "message": "yaml"
+                        },
+                        "outputPort": false
+                    },
+                    {
+                        "destinationUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)",
+                        "created": {
+                            "time": 1681455600000,
+                            "actor": "urn:li:corpuser:datahub",
+                            "message": "yaml"
+                        },
+                        "outputPort": false
+                    }
+                ]
+            },
+            {
+                "op": "add",
+                "path": "/customProperties",
+                "value": {
+                    "version": "2.0",
+                    "classification": "pii"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://github.com/datahub-project/datahub"
+            }
+        ]
+    }
+},
+{
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pet_of_the_week",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:12345"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pet_of_the_week",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:awesome"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pet_of_the_week",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:ClientsAndAccounts.AccountBalance"
+                }
+            ],
+            "auditStamp": {
+                "time": 1681455600000,
+                "actor": "urn:li:corpuser:datahub",
+                "message": "yaml"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pet_of_the_week",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "BUSINESS_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pet_of_the_week",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+}
+]

@@ -4,11 +4,7 @@ import com.linkedin.common.FabricType;
 import com.linkedin.data.template.Custom;
 import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
-
 import java.net.URISyntaxException;
-
-import static com.linkedin.common.urn.UrnUtils.toFabricType;
-
 
 public class DataProcessUrn extends Urn {
   public static final String ENTITY_TYPE = "dataProcess";
@@ -55,10 +51,13 @@ public class DataProcessUrn extends Urn {
         throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
       } else {
         try {
-          return new DataProcessUrn((String) key.getAs(0, String.class), (String) key.getAs(1, String.class),
+          return new DataProcessUrn(
+              (String) key.getAs(0, String.class),
+              (String) key.getAs(1, String.class),
               (FabricType) key.getAs(2, FabricType.class));
         } catch (Exception var3) {
-          throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + var3.getMessage());
+          throw new URISyntaxException(
+              urn.toString(), "Invalid URN Parameter: '" + var3.getMessage());
         }
       }
     }
@@ -67,18 +66,20 @@ public class DataProcessUrn extends Urn {
   static {
     Custom.initializeCustomClass(DataProcessUrn.class);
     Custom.initializeCustomClass(FabricType.class);
-    Custom.registerCoercer(new DirectCoercer<DataProcessUrn>() {
-      public Object coerceInput(DataProcessUrn object) throws ClassCastException {
-        return object.toString();
-      }
+    Custom.registerCoercer(
+        new DirectCoercer<DataProcessUrn>() {
+          public Object coerceInput(DataProcessUrn object) throws ClassCastException {
+            return object.toString();
+          }
 
-      public DataProcessUrn coerceOutput(Object object) throws TemplateOutputCastException {
-        try {
-          return DataProcessUrn.createFromString((String) object);
-        } catch (URISyntaxException e) {
-          throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
-        }
-      }
-    }, DataProcessUrn.class);
+          public DataProcessUrn coerceOutput(Object object) throws TemplateOutputCastException {
+            try {
+              return DataProcessUrn.createFromString((String) object);
+            } catch (URISyntaxException e) {
+              throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
+            }
+          }
+        },
+        DataProcessUrn.class);
   }
 }

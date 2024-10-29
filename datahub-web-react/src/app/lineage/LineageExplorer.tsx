@@ -3,7 +3,6 @@ import { useHistory } from 'react-router';
 import { Button, Drawer } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
 import CompactContext from '../shared/CompactContext';
 import { EntityAndType, EntitySelectParams, FetchedEntities } from './types';
@@ -17,12 +16,11 @@ import { SHOW_COLUMNS_URL_PARAMS, useIsShowColumnsMode } from './utils/useIsShow
 import { ErrorSection } from '../shared/error/ErrorSection';
 import usePrevious from '../shared/usePrevious';
 import { useGetLineageTimeParams } from './utils/useGetLineageTimeParams';
+import analytics, { EventType } from '../analytics';
+import LineageLoadingSection from './LineageLoadingSection';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
 
-const LoadingMessage = styled(Message)`
-    margin-top: 10%;
-`;
 const FooterButtonGroup = styled.div`
     display: flex;
     justify-content: space-between;
@@ -58,6 +56,7 @@ export default function LineageExplorer({ urn, type }: Props) {
     const previousUrn = usePrevious(urn);
     const history = useHistory();
     const [fineGrainedMap] = useState<any>({ forward: {}, reverse: {} });
+    const [fineGrainedMapForSiblings] = useState<any>({});
 
     const entityRegistry = useEntityRegistry();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
@@ -78,17 +77,23 @@ export default function LineageExplorer({ urn, type }: Props) {
 
     const [isDrawerVisible, setIsDrawVisible] = useState(false);
     const [selectedEntity, setSelectedEntity] = useState<EntitySelectParams | undefined>(undefined);
-    const [asyncEntities, setAsyncEntities] = useState<FetchedEntities>({});
+    const [asyncEntities, setAsyncEntities] = useState<FetchedEntities>(new Map());
 
     // In the case that any URL params change, we want to reset asyncEntities. If new parameters are added,
     // they should be added to the dependency array below.
     useEffect(() => {
-        setAsyncEntities({});
-    }, [isHideSiblingMode, startTimeMillis, endTimeMillis]);
+        setAsyncEntities(new Map());
+        // this can also be our hook for emitting the tracking event
+
+        analytics.event({
+            type: EventType.VisualLineageViewEvent,
+            entityType: entityData?.type,
+        });
+    }, [isHideSiblingMode, startTimeMillis, endTimeMillis, entityData?.type]);
 
     useEffect(() => {
         if (showColumns) {
-            setAsyncEntities({});
+            setAsyncEntities(new Map());
         }
     }, [showColumns]);
 
@@ -96,10 +101,11 @@ export default function LineageExplorer({ urn, type }: Props) {
 
     const maybeAddAsyncLoadedEntity = useCallback(
         (entityAndType: EntityAndType) => {
-            if (entityAndType?.entity.urn && !asyncEntities[entityAndType?.entity.urn]?.fullyFetched) {
+            if (entityAndType?.entity.urn && !asyncEntities.get(entityAndType?.entity.urn)?.fullyFetched) {
                 // record that we have added this entity
                 let newAsyncEntities = extendAsyncEntities(
                     fineGrainedMap,
+                    fineGrainedMapForSiblings,
                     asyncEntities,
                     entityRegistry,
                     entityAndType,
@@ -107,36 +113,42 @@ export default function LineageExplorer({ urn, type }: Props) {
                 );
                 const config = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
 
-                config?.downstreamChildren?.forEach((downstream) => {
-                    newAsyncEntities = extendAsyncEntities(
-                        fineGrainedMap,
-                        newAsyncEntities,
-                        entityRegistry,
-                        downstream,
-                        false,
-                    );
-                });
-                config?.upstreamChildren?.forEach((downstream) => {
-                    newAsyncEntities = extendAsyncEntities(
-                        fineGrainedMap,
-                        newAsyncEntities,
-                        entityRegistry,
-                        downstream,
-                        false,
-                    );
-                });
+                config?.downstreamChildren
+                    ?.filter((child) => child.type)
+                    ?.forEach((downstream) => {
+                        newAsyncEntities = extendAsyncEntities(
+                            fineGrainedMap,
+                            fineGrainedMapForSiblings,
+                            newAsyncEntities,
+                            entityRegistry,
+                            downstream,
+                            false,
+                        );
+                    });
+                config?.upstreamChildren
+                    ?.filter((child) => child.type)
+                    ?.forEach((downstream) => {
+                        newAsyncEntities = extendAsyncEntities(
+                            fineGrainedMap,
+                            fineGrainedMapForSiblings,
+                            newAsyncEntities,
+                            entityRegistry,
+                            downstream,
+                            false,
+                        );
+                    });
                 setAsyncEntities(newAsyncEntities);
             }
         },
-        [asyncEntities, setAsyncEntities, entityRegistry, fineGrainedMap],
+        [asyncEntities, setAsyncEntities, entityRegistry, fineGrainedMap, fineGrainedMapForSiblings],
     );
 
     // set asyncEntity to have fullyFetched: false so we can update it in maybeAddAsyncLoadedEntity
     function resetAsyncEntity(entityUrn: string) {
-        setAsyncEntities({
-            ...asyncEntities,
-            [entityUrn]: { ...asyncEntities[entityUrn], fullyFetched: false },
-        });
+        const newAsyncEntities = new Map(asyncEntities);
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        newAsyncEntities.set(entityUrn, { ...asyncEntities.get(entityUrn)!, fullyFetched: false });
+        setAsyncEntities(newAsyncEntities);
     }
 
     const handleClose = () => {
@@ -156,7 +168,7 @@ export default function LineageExplorer({ urn, type }: Props) {
     return (
         <>
             {error && <ErrorSection />}
-            {loading && <LoadingMessage type="loading" content="Loading..." />}
+            {loading && <LineageLoadingSection />}
             {!!data && (
                 <div>
                     <LineageViz
@@ -179,6 +191,10 @@ export default function LineageExplorer({ urn, type }: Props) {
                         onLineageExpand={(asyncData: EntityAndType) => {
                             resetAsyncEntity(asyncData.entity.urn);
                             maybeAddAsyncLoadedEntity(asyncData);
+                            analytics.event({
+                                type: EventType.VisualLineageExpandGraphEvent,
+                                targetEntityType: asyncData?.type,
+                            });
                         }}
                         refetchCenterNode={() => {
                             refetch().then(() => {
@@ -194,7 +210,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                 placement="left"
                 closable={false}
                 onClose={handleClose}
-                visible={isDrawerVisible}
+                open={isDrawerVisible}
                 width={490}
                 bodyStyle={{ overflowX: 'hidden' }}
                 mask={false}
@@ -204,9 +220,13 @@ export default function LineageExplorer({ urn, type }: Props) {
                             <Button onClick={handleClose} type="text">
                                 Close
                             </Button>
-                            <Button href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}>
-                                <InfoCircleOutlined /> {entityRegistry.getEntityName(selectedEntity.type)} Details
-                            </Button>
+                            {selectedEntity.type !== EntityType.Restricted && (
+                                <Button
+                                    href={`${entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}`}
+                                >
+                                    <InfoCircleOutlined /> View details
+                                </Button>
+                            )}
                         </FooterButtonGroup>
                     )
                 }

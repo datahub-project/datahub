@@ -1,0 +1,11 @@
+namespace com.linkedin.connection
+
+/**
+ * A set of connection details consisting of an encrypted JSON blob.
+ */
+record DataHubJsonConnection {
+  /**
+   * The encrypted JSON connection details.
+   */
+  encryptedBlob: string
+}

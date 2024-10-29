@@ -1,0 +1,2698 @@
+{
+    "data": {
+        "databaseTablesConnection": {
+            "nodes": [
+                {
+                    "id": "1704c7c3-4bb9-e6c6-6ea0-23f76e7560db",
+                    "name": "activity6",
+                    "database": {
+                        "name": "Marketo"
+                    },
+                    "schema": "",
+                    "fullName": "[activity6]",
+                    "connectionType": "webdata-direct:marketo-marketo",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "Test_Variant",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Mailing_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Campaign_Run_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "id",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Activity_Date",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "Choice_Number",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Step_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Campaign_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Lead_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Has_Predictive",
+                            "remoteType": "WDC_BOOL"
+                        }
+                    ]
+                },
+                {
+                    "id": "38f106d0-5219-2663-2647-bbbf5fca3866",
+                    "name": "activity11",
+                    "database": {
+                        "name": "Marketo"
+                    },
+                    "schema": "",
+                    "fullName": "[activity11]",
+                    "connectionType": "webdata-direct:marketo-marketo",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "Campaign_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Campaign_Run_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Link",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "Test_Variant",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Platform",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "id",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Activity_Date",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "Choice_Number",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Mailing_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Step_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Lead_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Link_ID",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "Is_Predictive",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "Device",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "Is_Mobile_Device",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "User_Agent",
+                            "remoteType": "WDC_STRING"
+                        }
+                    ]
+                },
+                {
+                    "id": "4aee37cd-e738-e5de-3c77-7a118964ac70",
+                    "name": "activity10",
+                    "database": {
+                        "name": "Marketo"
+                    },
+                    "schema": "",
+                    "fullName": "[activity10]",
+                    "connectionType": "webdata-direct:marketo-marketo",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "Platform",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "Device",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "Choice_Number",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Lead_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Activity_Date",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "Test_Variant",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Is_Mobile_Device",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "Has_Predictive",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "Step_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "User_Agent",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "Mailing_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Campaign_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Campaign_Run_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "id",
+                            "remoteType": "WDC_INT"
+                        }
+                    ]
+                },
+                {
+                    "id": "6a9da5b0-a1bc-ef1b-a154-59c2627f49b0",
+                    "name": "activity7",
+                    "database": {
+                        "name": "Marketo"
+                    },
+                    "schema": "",
+                    "fullName": "[activity7]",
+                    "connectionType": "webdata-direct:marketo-marketo",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "Test_Variant",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Campaign_Run_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Activity_Date",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "Mailing_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Has_Predictive",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "id",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Campaign_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Step_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Lead_ID",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "Choice_Number",
+                            "remoteType": "WDC_INT"
+                        }
+                    ]
+                },
+                {
+                    "id": "82c42950-210b-ba3f-b2e9-53240474a8fd",
+                    "name": "campaignsTable",
+                    "database": {
+                        "name": "Marketo"
+                    },
+                    "schema": "",
+                    "fullName": "[campaignsTable]",
+                    "connectionType": "webdata-direct:marketo-marketo",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "programName",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "name",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "programId",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "createdAt",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "id",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "workspaceName",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "updatedAt",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "active",
+                            "remoteType": "WDC_BOOL"
+                        }
+                    ]
+                },
+                {
+                    "id": "5acb3a52-00b1-0e5c-b8b2-040445db9824",
+                    "name": "address",
+                    "database": {
+                        "name": "dvdrental"
+                    },
+                    "schema": "public",
+                    "fullName": "[public].[address]",
+                    "connectionType": "postgres",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "postal_code",
+                            "remoteType": "STR"
+                        },
+                        {
+                            "name": "last_update",
+                            "remoteType": "DBTIMESTAMP"
+                        },
+                        {
+                            "name": "phone",
+                            "remoteType": "STR"
+                        },
+                        {
+                            "name": "address2",
+                            "remoteType": "STR"
+                        },
+                        {
+                            "name": "address",
+                            "remoteType": "STR"
+                        },
+                        {
+                            "name": "city_id",
+                            "remoteType": "I2"
+                        },
+                        {
+                            "name": "district",
+                            "remoteType": "STR"
+                        },
+                        {
+                            "name": "address_id",
+                            "remoteType": "I4"
+                        }
+                    ]
+                },
+                {
+                    "id": "985d7629-535b-9326-79bc-748e29e97949",
+                    "name": "actor",
+                    "database": {
+                        "name": "dvdrental"
+                    },
+                    "schema": "public1",
+                    "fullName": "[public].[actor]",
+                    "connectionType": "postgres",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "last_update",
+                            "remoteType": "DBTIMESTAMP"
+                        },
+                        {
+                            "name": "last_name",
+                            "remoteType": "STR"
+                        },
+                        {
+                            "name": "first_name",
+                            "remoteType": "STR"
+                        },
+                        {
+                            "name": "actor_id",
+                            "remoteType": "I4"
+                        }
+                    ]
+                },
+                {
+                    "id": "15714253-8e46-a209-63cc-700705b66de9",
+                    "name": "People",
+                    "database": {
+                        "name": "Sample - Superstore.xls"
+                    },
+                    "schema": "",
+                    "fullName": "[People$]",
+                    "connectionType": "excel-direct",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "Person",
+                            "remoteType": "WSTR"
+                        },
+                        {
+                            "name": "Region",
+                            "remoteType": "WSTR"
+                        }
+                    ]
+                },
+                {
+                    "id": "19be3c28-8e4d-ebac-b44d-8f0851d9f206",
+                    "name": "Returns",
+                    "database": {
+                        "name": "Sample - Superstore.xls"
+                    },
+                    "schema": "",
+                    "fullName": "[Returns$]",
+                    "connectionType": "excel-direct",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "Returned",
+                            "remoteType": "WSTR"
+                        },
+                        {
+                            "name": "Order ID",
+                            "remoteType": "WSTR"
+                        }
+                    ]
+                },
+                {
+                    "id": "b0e0c3eb-6e53-e0f5-ded1-478d5d9f7281",
+                    "name": "Orders",
+                    "database": {
+                        "name": "Sample - Superstore.xls"
+                    },
+                    "schema": "",
+                    "fullName": "[Orders$]",
+                    "connectionType": "excel-direct",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "Product ID",
+                            "remoteType": "WSTR"
+                        },
+                        {
+                            "name": "Category",
+                            "remoteType": "WSTR"
+                        },
+                        {
+                            "name": "Postal Code",
+                            "remoteType": "I8"
+                        },
+                        {
+                            "name": "City",
+                            "remoteType": "WSTR"
+                        },
+                        {
+                            "name": "Quantity",
+                            "remoteType": "I8"
+                        },
+                        {
+                            "name": "State",
+                            "remoteType": "WSTR"
+                        },
+                        {
+                            "name": "Order Date",
+                            "remoteType": "DATE"
+                        },
+                        {
+                            "name": "Customer Name",
+                            "remoteType": "WSTR"
+                        },
+                        {
+                            "name": "Country/Region",
+                            "remoteType": "WSTR"
+                        },
+                        {
+                            "name": "Sales",
+                            "remoteType": "R8"
+                        },
+                        {
+                            "name": "Segment",
+                            "remoteType": "WSTR"
+                        },
+                        {
+                            "name": "Sub-Category",
+                            "remoteType": "WSTR"
+                        },
+                        {
+                            "name": "Profit",
+                            "remoteType": "R8"
+                        },
+                        {
+                            "name": "Product Name",
+                            "remoteType": "WSTR"
+                        },
+                        {
+                            "name": "Customer ID",
+                            "remoteType": "WSTR"
+                        },
+                        {
+                            "name": "Order ID",
+                            "remoteType": "WSTR"
+                        },
+                        {
+                            "name": "Row ID",
+                            "remoteType": "I8"
+                        },
+                        {
+                            "name": "Discount",
+                            "remoteType": "R8"
+                        },
+                        {
+                            "name": "Ship Date",
+                            "remoteType": "DATE"
+                        },
+                        {
+                            "name": "Ship Mode",
+                            "remoteType": "WSTR"
+                        },
+                        {
+                            "name": "Region",
+                            "remoteType": "WSTR"
+                        }
+                    ]
+                },
+                {
+                    "id": "57135afa-7602-93fe-0f9f-c7fe7c36dd5d",
+                    "name": "task",
+                    "database": {
+                        "name": "ven01911"
+                    },
+                    "schema": "",
+                    "fullName": "[task]",
+                    "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
+                    "description": "",
+                    "isEmbedded": true,
+                    "columns": [
+                        {
+                            "name": "contact_type",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "user_input",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "opened_at",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "expected_start",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "delivery_plan",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "opened_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "delivery_task",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "approval_set",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "urgency",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "comments",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "active",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "priority",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "knowledge",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "closed_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "activity_due",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "assignment_group",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "correlation_display",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "state",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "work_end",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "business_service",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "approval_history",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "upon_reject",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_created_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "parent",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "order",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "work_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "work_notes_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_created_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_updated_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "work_start",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "group_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_mod_count",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "location",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "correlation_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_updated_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "sla_due",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "number",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "business_duration",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "follow_up",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "additional_assignee_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "escalation",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "due_date",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "approval",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "made_sla",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "assigned_to",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "calendar_duration",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "closed_at",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "sys_domain",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "cmdb_ci",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "comments_and_work_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "impact",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "close_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "reassignment_count",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "company",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_domain_path",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "short_description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "upon_approval",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "watch_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "time_worked",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_class_name",
+                            "remoteType": "WDC_STRING"
+                        }
+                    ]
+                },
+                {
+                    "id": "66f2e5af-c0f9-94b4-13d6-5fd53f6e02b7",
+                    "name": "sc_request",
+                    "database": {
+                        "name": "ven01911"
+                    },
+                    "schema": "",
+                    "fullName": "[sc_request]",
+                    "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "work_notes_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "closed_at",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "user_input",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "requested_for",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "opened_at",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "price",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "assigned_to",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "number",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "delivery_plan",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "delivery_address",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "business_duration",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "urgency",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "work_end",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "due_date",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "parent",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "made_sla",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "assignment_group",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_class_name",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "additional_assignee_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "work_start",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "sys_domain_path",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "time_worked",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "comments_and_work_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "group_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "business_service",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "correlation_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "cmdb_ci",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "requested_date",
+                            "remoteType": "WDC_DATE"
+                        },
+                        {
+                            "name": "follow_up",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "sys_updated_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "state",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "comments",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "approval_set",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "close_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "upon_approval",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "company",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "activity_due",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "contact_type",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "approval",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "calendar_duration",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "reassignment_count",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "delivery_task",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "approval_history",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_created_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "request_state",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "watch_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "upon_reject",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "expected_start",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "active",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "opened_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "work_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "impact",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sla_due",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "correlation_display",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "priority",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "stage",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_created_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "escalation",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "closed_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "short_description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "location",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "special_instructions",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "order",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "sys_updated_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_mod_count",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "knowledge",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "sys_domain",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "calendar_stc",
+                            "remoteType": "WDC_INT"
+                        }
+                    ]
+                },
+                {
+                    "id": "6d3b8726-1f0b-312a-6013-43aec9ccba69",
+                    "name": "sc_req_item",
+                    "database": {
+                        "name": "ven01911"
+                    },
+                    "schema": "",
+                    "fullName": "[sc_req_item]",
+                    "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "watch_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "due_date",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "made_sla",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "parent",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "assigned_to",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_mod_count",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "cmdb_ci",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_domain",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "configuration_item",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "closed_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "active",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "expected_start",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "recurring_price",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "work_end",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "short_description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "approval",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "opened_at",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "order",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "assignment_group",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sc_catalog",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "knowledge",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "stage",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "correlation_display",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "reassignment_count",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "delivery_plan",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_class_name",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "user_input",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "activity_due",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "price",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "work_notes_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "estimated_delivery",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "additional_assignee_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "context",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "business_duration",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "approval_set",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "priority",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "sys_updated_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "sys_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "state",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "business_service",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "billable",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "approval_history",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "recurring_frequency",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "contact_type",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "cat_item",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_updated_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_domain_path",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "comments",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "impact",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "order_guide",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sla_due",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "sys_created_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "comments_and_work_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "opened_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "backordered",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "correlation_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "group_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "delivery_task",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "number",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_created_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "company",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "work_start",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "request",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "close_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "work_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "calendar_duration",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "quantity",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "follow_up",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "location",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "upon_reject",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "closed_at",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "time_worked",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "escalation",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "urgency",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "upon_approval",
+                            "remoteType": "WDC_STRING"
+                        }
+                    ]
+                },
+                {
+                    "id": "ce005441-3761-f8d4-fa42-60f14c7002c8",
+                    "name": "sc_cat_item",
+                    "database": {
+                        "name": "ven01911"
+                    },
+                    "schema": "",
+                    "fullName": "[sc_cat_item]",
+                    "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "sc_catalogs",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_updated_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "type",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "mobile_picture_type",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "workflow",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_customer_update",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "sys_class_name",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "visible_standalone",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "no_quantity",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "order",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "sys_updated_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "sys_scope",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "template",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "no_proceed_checkout",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "billable",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "name",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "delivery_plan",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "meta",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "ordered_item_link",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_mod_count",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "sc_ic_version",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "image",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "short_description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_policy",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "roles",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "picture",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "list_price",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "no_order_now",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "vendor",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sc_ic_item_staging",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "no_order",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "entitlement_script",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "active",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "icon",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "ignore_price",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "start_closed",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "sys_package",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "group",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_replace_on_upgrade",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "cost",
+                            "remoteType": "WDC_FLOAT"
+                        },
+                        {
+                            "name": "use_sc_layout",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "location",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "availability",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "model",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "custom_cart",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "mobile_picture",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "category",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "no_cart",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "mobile_hide_price",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "sys_created_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "price",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "delivery_time",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "no_search",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "sys_created_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "recurring_frequency",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "recurring_price",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "delivery_plan_script",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "visible_bundle",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "sys_update_name",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_name",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "visible_guide",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "preview",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "omit_price",
+                            "remoteType": "WDC_BOOL"
+                        }
+                    ]
+                },
+                {
+                    "id": "f9588215-a80d-42e8-0bd3-c3b110a19e22",
+                    "name": "sys_user_group",
+                    "database": {
+                        "name": "ven01911"
+                    },
+                    "schema": "",
+                    "fullName": "[sys_user_group]",
+                    "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "u_u",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_updated_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "source",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "exclude_manager",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "cost_center",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_created_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "parent",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_mod_count",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "sys_updated_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "u_lucha",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "u_lu2",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "type",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "roles",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_created_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "default_assignee",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "email",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "manager",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "name",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "active",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "include_members",
+                            "remoteType": "WDC_BOOL"
+                        }
+                    ]
+                },
+                {
+                    "id": "fffba843-b0c6-c083-0f6f-5c2ea5075d50",
+                    "name": "problem",
+                    "database": {
+                        "name": "ven01911"
+                    },
+                    "schema": "",
+                    "fullName": "[problem]",
+                    "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "opened_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_class_name",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_created_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_updated_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "closed_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "close_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "made_sla",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "state",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "related_incidents",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "business_duration",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "sys_domain",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "delivery_task",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "priority",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "sys_created_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "sys_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "escalation",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "business_service",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "comments_and_work_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "rfc",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_domain_path",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "cmdb_ci",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "problem_state",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "delivery_plan",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "user_input",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "active",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "location",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "expected_start",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "calendar_duration",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "number",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sla_due",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "work_notes_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "knowledge",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "sys_updated_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "time_worked",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "order",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "assignment_group",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "upon_approval",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "company",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "opened_at",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "group_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "work_around",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "work_end",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "correlation_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "approval_set",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "urgency",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "impact",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "short_description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "approval",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "closed_at",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "known_error",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "due_date",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "work_start",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "activity_due",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "sys_mod_count",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "correlation_display",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "contact_type",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "additional_assignee_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "approval_history",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "reassignment_count",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "follow_up",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "comments",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "work_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "parent",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "assigned_to",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "watch_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "upon_reject",
+                            "remoteType": "WDC_STRING"
+                        }
+                    ]
+                },
+                {
+                    "id": "0646bea5-97f9-d806-ac63-9b63500d07e9",
+                    "name": "incident",
+                    "database": {
+                        "name": "ven01911"
+                    },
+                    "schema": "",
+                    "fullName": "[incident]",
+                    "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "sys_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "correlation_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "urgency",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "severity",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "business_service",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "location",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "approval_set",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "closed_at",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "parent_incident",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "subcategory",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "company",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "caller_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "resolved_at",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "group_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "correlation_display",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "resolved_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_created_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "business_stc",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "sys_domain_path",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "parent",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "category",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "user_input",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "number",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "escalation",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "state",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "approval_history",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "impact",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "expected_start",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "additional_assignee_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "child_incidents",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "cmdb_ci",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "incident_state",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "notify",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "work_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "reassignment_count",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "contact_type",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "opened_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_class_name",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "problem_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "due_date",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "approval",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "order",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "opened_at",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "work_notes_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "priority",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "time_worked",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_domain",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "caused_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_updated_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "upon_reject",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "delivery_task",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "knowledge",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "sys_updated_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "calendar_duration",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "closed_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "comments",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "short_description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "assigned_to",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "assignment_group",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "work_end",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "reopen_count",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "work_start",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "made_sla",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "sys_mod_count",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "calendar_stc",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "rfc",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "delivery_plan",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "close_code",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "close_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "activity_due",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "sys_created_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "active",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "business_duration",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "follow_up",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "comments_and_work_notes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "upon_approval",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "watch_list",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sla_due",
+                            "remoteType": "WDC_DATETIME"
+                        }
+                    ]
+                },
+                {
+                    "id": "d0c8ed66-15df-e9b5-a86a-227f4d604922",
+                    "name": "cmdb_ci",
+                    "database": {
+                        "name": "ven01911"
+                    },
+                    "schema": "",
+                    "fullName": "[cmdb_ci]",
+                    "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
+                    "description": "",
+                    "columns": [
+                        {
+                            "name": "first_discovered",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "operational_status",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "last_discovered",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "cost_cc",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "checked_in",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "attributes",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "serial_number",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "vendor",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "ip_address",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "support_group",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_updated_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "asset",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_domain",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "supported_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "invoice_number",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "managed_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "fault_count",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "due_in",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "cost",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "correlation_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "justification",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_created_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "assigned",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "model_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_class_name",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "comments",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "company",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "lease_id",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "monitor",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "cost_center",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "subcategory",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "delivery_date",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "assignment_group",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "can_print",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "short_description",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "model_number",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "name",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "start_date",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "discovery_source",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_domain_path",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "assigned_to",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "category",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "schedule",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "fqdn",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "warranty_expiration",
+                            "remoteType": "WDC_DATE"
+                        },
+                        {
+                            "name": "owned_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "asset_tag",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "manufacturer",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "purchase_date",
+                            "remoteType": "WDC_DATE"
+                        },
+                        {
+                            "name": "location",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "department",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_updated_on",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "checked_out",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "unverified",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "skip_sync",
+                            "remoteType": "WDC_BOOL"
+                        },
+                        {
+                            "name": "po_number",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "order_date",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "gl_account",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "maintenance_schedule",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "install_date",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "dns_domain",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "sys_created_by",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "mac_address",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "change_control",
+                            "remoteType": "WDC_STRING"
+                        },
+                        {
+                            "name": "install_status",
+                            "remoteType": "WDC_INT"
+                        },
+                        {
+                            "name": "due",
+                            "remoteType": "WDC_DATETIME"
+                        },
+                        {
+                            "name": "sys_mod_count",
+                            "remoteType": "WDC_INT"
+                        }
+                    ]
+                },
+                {
+                    "id": "908f635d-2ad5-4fe8-9056-ebc1e71ae41c",
+                    "name": "customer",
+                    "schema": "",
+                    "fullName": "customer",
+                    "database": {
+                        "name": "dvdrental"
+                    },
+                    "connectionType": "postgres"
+                },
+                {
+                    "id": "677f03e0-099a-4073-8cbd-3121d095f39e",
+                    "name": "payment",
+                    "schema": "",
+                    "fullName": "payment",
+                    "database": {
+                        "name": "dvdrental"
+                    },
+                    "connectionType": "postgres"
+                },
+                {
+                    "id": "ed8ae04f-eaec-4993-a893-3d150bc53616",
+                    "name": "staff",
+                    "schema": "",
+                    "fullName": "staff",
+                    "database": {
+                        "name": "dvdrental"
+                    },
+                    "connectionType": "postgres"
+                }
+            ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 21
+        }
+    }
+}

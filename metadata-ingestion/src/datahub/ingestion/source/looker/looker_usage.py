@@ -4,17 +4,16 @@
 #     3) Entity timeseries stat by user
 
 import concurrent
+import concurrent.futures
 import dataclasses
 import datetime
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, cast
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, cast
 
 from looker_sdk.sdk.api40.models import Dashboard, LookWithQuery
 
-import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import Aspect, AspectAbstract
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.looker import looker_common
@@ -36,7 +35,6 @@ from datahub.ingestion.source.looker.looker_query_model import (
 )
 from datahub.metadata.schema_classes import (
     CalendarIntervalClass,
-    ChangeTypeClass,
     ChartUsageStatisticsClass,
     ChartUserUsageCountsClass,
     DashboardUsageStatisticsClass,
@@ -74,16 +72,20 @@ class LookerDashboardForUsage(ModelForUsage):
             id=dashboard.id,
             view_count=dashboard.view_count,
             favorite_count=dashboard.favorite_count,
-            last_viewed_at=round(dashboard.last_viewed_at.timestamp() * 1000)
-            if dashboard.last_viewed_at
-            else None,
-            looks=[
-                LookerChartForUsage.from_chart(e.look)
-                for e in dashboard.dashboard_elements
-                if e.look is not None
-            ]
-            if dashboard.dashboard_elements
-            else [],
+            last_viewed_at=(
+                round(dashboard.last_viewed_at.timestamp() * 1000)
+                if dashboard.last_viewed_at
+                else None
+            ),
+            looks=(
+                [
+                    LookerChartForUsage.from_chart(e.look)
+                    for e in dashboard.dashboard_elements
+                    if e.look is not None
+                ]
+                if dashboard.dashboard_elements
+                else []
+            ),
         )
 
 
@@ -93,7 +95,6 @@ class StatGeneratorConfig:
     looker_user_registry: LookerUserRegistry
     strip_user_ids_from_email: bool
     interval: str
-    platform_name: str
     max_threads: int = 1
 
 
@@ -162,7 +163,7 @@ class BaseStatGenerator(ABC):
     def __init__(
         self,
         config: StatGeneratorConfig,
-        looker_models: List[ModelForUsage],
+        looker_models: Sequence[ModelForUsage],
         report: LookerDashboardSourceReport,
     ):
         self.config = config
@@ -206,7 +207,7 @@ class BaseStatGenerator(ABC):
         pass
 
     @abstractmethod
-    def _get_mcp_attributes(self, model: ModelForUsage) -> Dict:
+    def _get_urn(self, model: ModelForUsage) -> str:
         pass
 
     @abstractmethod
@@ -227,8 +228,8 @@ class BaseStatGenerator(ABC):
         self, model: ModelForUsage, aspect: Aspect
     ) -> MetadataChangeProposalWrapper:
         return MetadataChangeProposalWrapper(
+            entityUrn=self._get_urn(model=model),
             aspect=aspect,
-            **self._get_mcp_attributes(model=model),
         )
 
     def _round_time(self, date_time: str) -> int:
@@ -273,7 +274,7 @@ class BaseStatGenerator(ABC):
         logger.debug("Entering fill user stat aspect")
 
         # We first resolve all the users using a threadpool to warm up the cache
-        user_ids = set([self._get_user_identifier(row) for row in user_wise_rows])
+        user_ids = {self._get_user_identifier(row) for row in user_wise_rows}
         start_time = datetime.datetime.now()
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.config.max_threads
@@ -358,7 +359,7 @@ class BaseStatGenerator(ABC):
                 rows = [r for r in rows if self.get_id_from_row(r) in self.id_vs_model]
                 logger.debug("Filtered down to %d rows", len(rows))
         except Exception as e:
-            logger.warning(f"Failed to execute {query_name} query", e)
+            logger.warning(f"Failed to execute {query_name} query: {e}")
 
         return rows
 
@@ -407,14 +408,16 @@ class DashboardStatGenerator(BaseStatGenerator):
     def __init__(
         self,
         config: StatGeneratorConfig,
-        looker_dashboards: List[LookerDashboardForUsage],
+        looker_dashboards: Sequence[LookerDashboardForUsage],
         report: LookerDashboardSourceReport,
+        urn_builder: Callable[[str], str],
     ):
         super().__init__(
             config,
-            looker_models=cast(List[ModelForUsage], looker_dashboards),
+            looker_models=looker_dashboards,
             report=report,
         )
+        self.urn_builder = urn_builder
         self.report = report
         self.report.report_dashboards_scanned_for_usage(len(looker_dashboards))
 
@@ -449,20 +452,11 @@ class DashboardStatGenerator(BaseStatGenerator):
             row[HistoryViewField.HISTORY_CREATED_DATE],
         )
 
-    def _get_mcp_attributes(self, model: ModelForUsage) -> Dict:
-        dashboard: Dashboard = cast(Dashboard, model)
-        if dashboard is None or dashboard.id is None:  # to pass mypy lint
-            return {}
+    def _get_urn(self, model: ModelForUsage) -> str:
+        assert isinstance(model, LookerDashboardForUsage)
+        assert model.id is not None
 
-        return {
-            "entityUrn": builder.make_dashboard_urn(
-                self.config.platform_name,
-                looker_common.get_urn_looker_dashboard_id(dashboard.id),
-            ),
-            "entityType": "dashboard",
-            "changeType": ChangeTypeClass.UPSERT,
-            "aspectName": "dashboardUsageStatistics",
-        }
+        return self.urn_builder(looker_common.get_urn_looker_dashboard_id(model.id))
 
     def to_entity_absolute_stat_aspect(
         self, looker_object: ModelForUsage
@@ -513,7 +507,7 @@ class DashboardStatGenerator(BaseStatGenerator):
         user_urn: Optional[str] = user.get_urn(self.config.strip_user_ids_from_email)
 
         if user_urn is None:
-            logger.warning("user_urn not found for the user {}".format(user))
+            logger.warning(f"user_urn not found for the user {user}")
             return
 
         dashboard_stat_aspect.userCounts.append(
@@ -530,14 +524,16 @@ class LookStatGenerator(BaseStatGenerator):
     def __init__(
         self,
         config: StatGeneratorConfig,
-        looker_looks: List[LookerChartForUsage],
+        looker_looks: Sequence[LookerChartForUsage],
         report: LookerDashboardSourceReport,
+        urn_builder: Callable[[str], str],
     ):
         super().__init__(
             config,
-            looker_models=cast(List[ModelForUsage], looker_looks),
+            looker_models=looker_looks,
             report=report,
         )
+        self.urn_builder = urn_builder
         self.report = report
         report.report_charts_scanned_for_usage(len(looker_looks))
 
@@ -568,20 +564,11 @@ class LookStatGenerator(BaseStatGenerator):
             row[HistoryViewField.HISTORY_CREATED_DATE],
         )
 
-    def _get_mcp_attributes(self, model: ModelForUsage) -> Dict:
-        look: LookerChartForUsage = cast(LookerChartForUsage, model)
-        if look is None or look.id is None:
-            return {}
+    def _get_urn(self, model: ModelForUsage) -> str:
+        assert isinstance(model, LookerChartForUsage)
+        assert model.id is not None
 
-        return {
-            "entityUrn": builder.make_chart_urn(
-                self.config.platform_name,
-                looker_common.get_urn_looker_element_id(str(look.id)),
-            ),
-            "entityType": "chart",
-            "changeType": ChangeTypeClass.UPSERT,
-            "aspectName": "chartUsageStatistics",
-        }
+        return self.urn_builder(looker_common.get_urn_looker_element_id(str(model.id)))
 
     def to_entity_absolute_stat_aspect(
         self, looker_object: ModelForUsage
@@ -626,7 +613,7 @@ class LookStatGenerator(BaseStatGenerator):
         user_urn: Optional[str] = user.get_urn(self.config.strip_user_ids_from_email)
 
         if user_urn is None:
-            logger.warning("user_urn not found for the user {}".format(user))
+            logger.warning(f"user_urn not found for the user {user}")
             return
 
         chart_stat_aspect.userCounts.append(
@@ -637,45 +624,34 @@ class LookStatGenerator(BaseStatGenerator):
         )
 
 
-class SupportedStatEntity(Enum):
-    DASHBOARD = "dashboard"
-    CHART = "chart"
-
-
-# type_ is because of type is builtin identifier
-def create_stat_entity_generator(
-    type_: SupportedStatEntity, config: StatGeneratorConfig
-) -> Callable[[List[ModelForUsage], LookerDashboardSourceReport], BaseStatGenerator]:
-    # Wrapper function to defer creation of actual entities
-    # config is generally available at the startup, however entities may get created later during processing
-    def create_dashboard_stat_generator(
-        looker_dashboards: List[LookerDashboardForUsage],
-        report: LookerDashboardSourceReport,
-    ) -> BaseStatGenerator:
-        logger.debug(
-            "Number of dashboard received for stat processing = {}".format(
-                len(looker_dashboards)
-            )
+def create_dashboard_stat_generator(
+    config: StatGeneratorConfig,
+    report: LookerDashboardSourceReport,
+    urn_builder: Callable[[str], str],
+    looker_dashboards: Sequence[LookerDashboardForUsage],
+) -> DashboardStatGenerator:
+    logger.debug(
+        "Number of dashboard received for stat processing = {}".format(
+            len(looker_dashboards)
         )
-        return DashboardStatGenerator(
-            config=config, looker_dashboards=looker_dashboards, report=report
-        )
+    )
+    return DashboardStatGenerator(
+        config=config,
+        looker_dashboards=looker_dashboards,
+        report=report,
+        urn_builder=urn_builder,
+    )
 
-    def create_chart_stat_generator(
-        looker_looks: List[LookerChartForUsage], report: LookerDashboardSourceReport
-    ) -> BaseStatGenerator:
-        logger.debug(
-            "Number of looks received for stat processing = {}".format(
-                len(looker_looks)
-            )
-        )
-        return LookStatGenerator(
-            config=config, looker_looks=looker_looks, report=report
-        )
 
-    stat_entities_generator = {
-        SupportedStatEntity.DASHBOARD: create_dashboard_stat_generator,
-        SupportedStatEntity.CHART: create_chart_stat_generator,
-    }
-
-    return stat_entities_generator[type_]  # type: ignore
+def create_chart_stat_generator(
+    config: StatGeneratorConfig,
+    report: LookerDashboardSourceReport,
+    urn_builder: Callable[[str], str],
+    looker_looks: Sequence[LookerChartForUsage],
+) -> LookStatGenerator:
+    logger.debug(
+        "Number of looks received for stat processing = {}".format(len(looker_looks))
+    )
+    return LookStatGenerator(
+        config=config, looker_looks=looker_looks, report=report, urn_builder=urn_builder
+    )

@@ -1,148 +1,222 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:57aba13b10c1691508600999cd411c25",
+    "entityUrn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"trino\", \"instance\": \"PROD\", \"database\": \"library_catalog\"}, \"name\": \"library_catalog\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "trino",
+                "env": "PROD",
+                "database": "postgresqldb"
+            },
+            "name": "postgresqldb",
+            "env": "PROD"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:57aba13b10c1691508600999cd411c25",
+    "entityUrn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:57aba13b10c1691508600999cd411c25",
+    "entityUrn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:trino\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:trino"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:57aba13b10c1691508600999cd411c25",
+    "entityUrn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Database\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+    "entityUrn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"trino\", \"instance\": \"PROD\", \"database\": \"library_catalog\", \"schema\": \"librarydb\"}, \"name\": \"librarydb\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "trino",
+                "env": "PROD",
+                "database": "postgresqldb",
+                "schema": "librarydb"
+            },
+            "name": "librarydb",
+            "env": "PROD"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+    "entityUrn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+    "entityUrn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:trino\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:trino"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+    "entityUrn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Schema\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+    "entityUrn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:57aba13b10c1691508600999cd411c25\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
+                    "urn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:8568c0971ce28c183fde0dff7f88e617\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -158,7 +232,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "library_catalog.librarydb.book",
+                        "schemaName": "postgresqldb.librarydb.book",
                         "platform": "urn:li:dataPlatform:trino",
                         "version": 0,
                         "created": {
@@ -184,7 +258,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -196,7 +270,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -208,7 +282,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -220,7 +294,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -232,7 +306,7 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "JSON()",
+                                "nativeDataType": "JSON",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -261,41 +335,136 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.issue_history,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "siblings",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:8568c0971ce28c183fde0dff7f88e617\"}",
-        "contentType": "application/json"
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.book,PROD)"
+            ],
+            "primary": true
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
+                    "urn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
+                },
+                {
+                    "id": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
+                    "urn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.book,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book,PROD)"
+            ],
+            "primary": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.book,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.issue_history,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.issue_history,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.issue_history,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -311,7 +480,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "library_catalog.librarydb.issue_history",
+                        "schemaName": "postgresqldb.librarydb.issue_history",
                         "platform": "urn:li:dataPlatform:trino",
                         "version": 0,
                         "created": {
@@ -337,7 +506,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -349,7 +518,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -361,7 +530,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE()",
+                                "nativeDataType": "DATE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -373,7 +542,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE()",
+                                "nativeDataType": "DATE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -385,41 +554,136 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.issue_history,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.issue_history,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.member,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.issue_history,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "siblings",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:8568c0971ce28c183fde0dff7f88e617\"}",
-        "contentType": "application/json"
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.issue_history,PROD)"
+            ],
+            "primary": true
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.issue_history,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
+                    "urn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
+                },
+                {
+                    "id": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
+                    "urn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.issue_history,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.issue_history,PROD)"
+            ],
+            "primary": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.issue_history,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.issue_history,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.member,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.member,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.member,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -435,7 +699,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "library_catalog.librarydb.member",
+                        "schemaName": "postgresqldb.librarydb.member",
                         "platform": "urn:li:dataPlatform:trino",
                         "version": 0,
                         "created": {
@@ -461,7 +725,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -473,7 +737,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -485,41 +749,136 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.member,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.member,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book_in_circulation,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.member,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "siblings",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:8568c0971ce28c183fde0dff7f88e617\"}",
-        "contentType": "application/json"
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.member,PROD)"
+            ],
+            "primary": true
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.member,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
+                    "urn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
+                },
+                {
+                    "id": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
+                    "urn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.member,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.member,PROD)"
+            ],
+            "primary": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.member,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.member,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book_in_circulation,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book_in_circulation,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book_in_circulation,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -535,7 +894,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "library_catalog.librarydb.book_in_circulation",
+                        "schemaName": "postgresqldb.librarydb.book_in_circulation",
                         "platform": "urn:li:dataPlatform:trino",
                         "version": 0,
                         "created": {
@@ -561,7 +920,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -573,7 +932,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -585,7 +944,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -597,7 +956,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -609,7 +968,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -621,7 +980,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE()",
+                                "nativeDataType": "DATE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -633,77 +992,494 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book_in_circulation,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book_in_circulation,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book_in_circulation,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
+    "aspectName": "siblings",
     "aspect": {
-        "value": "{\"timestampMillis\": 1632398400000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 3, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 3, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"3\", \"mean\": \"2.0\", \"median\": \"2\", \"stdev\": \"1.0\", \"sampleValues\": [\"1\", \"2\", \"3\"]}, {\"fieldPath\": \"name\", \"uniqueCount\": 3, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Book 1\", \"Book 2\", \"Book 3\"]}, {\"fieldPath\": \"author\", \"uniqueCount\": 3, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"ABC\", \"PQR\", \"XYZ\"]}, {\"fieldPath\": \"publisher\", \"uniqueCount\": 0, \"nullCount\": 3, \"nullProportion\": 1, \"sampleValues\": []}, {\"fieldPath\": \"tags\", \"nullCount\": 3, \"nullProportion\": 1, \"sampleValues\": []}, {\"fieldPath\": \"genre_ids\", \"uniqueCount\": 0, \"nullCount\": 3, \"nullProportion\": 1, \"sampleValues\": []}]}",
-        "contentType": "application/json"
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.book_in_circulation,PROD)"
+            ],
+            "primary": true
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.issue_history,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book_in_circulation,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
+    "aspectName": "browsePathsV2",
     "aspect": {
-        "value": "{\"timestampMillis\": 1632398400000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2, \"columnCount\": 4, \"fieldProfiles\": [{\"fieldPath\": \"book_id\", \"uniqueCount\": 2, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"2\", \"mean\": \"1.5\", \"median\": \"2\", \"stdev\": \"0.7071067811865476\", \"sampleValues\": [\"1\", \"2\"]}, {\"fieldPath\": \"member_id\", \"uniqueCount\": 2, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"2\", \"mean\": \"1.5\", \"median\": \"2\", \"stdev\": \"0.7071067811865476\", \"sampleValues\": [\"1\", \"2\"]}, {\"fieldPath\": \"issue_date\", \"uniqueCount\": 1, \"uniqueProportion\": 0.5, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2021-09-27\", \"max\": \"2021-09-27\", \"distinctValueFrequencies\": [{\"value\": \"2021-09-27\", \"frequency\": 2}], \"sampleValues\": [\"2021-09-27\", \"2021-09-27\"]}, {\"fieldPath\": \"return_date\", \"uniqueCount\": 1, \"uniqueProportion\": 1, \"nullCount\": 1, \"nullProportion\": 0.5, \"min\": \"2021-09-27\", \"max\": \"2021-09-27\", \"sampleValues\": [\"2021-09-27\"]}]}",
-        "contentType": "application/json"
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
+                    "urn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
+                },
+                {
+                    "id": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
+                    "urn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.member,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.book_in_circulation,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
+    "aspectName": "siblings",
     "aspect": {
-        "value": "{\"timestampMillis\": 1632398400000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 2, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"2\", \"mean\": \"1.5\", \"median\": \"2\", \"stdev\": \"0.7071067811865476\", \"sampleValues\": [\"1\", \"2\"]}, {\"fieldPath\": \"name\", \"uniqueCount\": 2, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Member 1\", \"Member 2\"]}]}",
-        "contentType": "application/json"
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book_in_circulation,PROD)"
+            ],
+            "primary": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book_in_circulation,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book_in_circulation,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
+    "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"timestampMillis\": 1632398400000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 1, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 1, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2\", \"max\": \"2\", \"mean\": \"2.0\", \"median\": \"2\", \"stdev\": \"0.0\", \"sampleValues\": [\"2\"]}, {\"fieldPath\": \"name\", \"uniqueCount\": 1, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Book 2\"]}, {\"fieldPath\": \"author\", \"uniqueCount\": 1, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"PQR\"]}, {\"fieldPath\": \"publisher\", \"uniqueCount\": 0, \"nullCount\": 1, \"nullProportion\": 1, \"sampleValues\": []}, {\"fieldPath\": \"member_id\", \"uniqueCount\": 1, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2\", \"max\": \"2\", \"mean\": \"2.0\", \"median\": \"2\", \"stdev\": \"0.0\", \"sampleValues\": [\"2\"]}, {\"fieldPath\": \"issue_date\", \"uniqueCount\": 1, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2021-09-27\", \"max\": \"2021-09-27\", \"sampleValues\": [\"2021-09-27\"]}]}",
-        "contentType": "application/json"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.book_in_circulation,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-test"
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1632398400000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 3,
+            "columnCount": 6,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "3",
+                    "mean": "2.0",
+                    "median": "2",
+                    "stdev": "1.0",
+                    "sampleValues": [
+                        "1",
+                        "2",
+                        "3"
+                    ]
+                },
+                {
+                    "fieldPath": "name",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Book 1",
+                        "Book 2",
+                        "Book 3"
+                    ]
+                },
+                {
+                    "fieldPath": "author",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "ABC",
+                        "PQR",
+                        "XYZ"
+                    ]
+                },
+                {
+                    "fieldPath": "publisher",
+                    "uniqueCount": 0,
+                    "nullCount": 3,
+                    "nullProportion": 1,
+                    "sampleValues": []
+                },
+                {
+                    "fieldPath": "tags",
+                    "nullCount": 3,
+                    "nullProportion": 1,
+                    "sampleValues": []
+                },
+                {
+                    "fieldPath": "genre_ids",
+                    "uniqueCount": 0,
+                    "nullCount": 3,
+                    "nullProportion": 1,
+                    "sampleValues": []
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.issue_history,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1632398400000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 2,
+            "columnCount": 4,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "book_id",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "2",
+                    "mean": "1.5",
+                    "median": "2",
+                    "stdev": "0.7071067811865476",
+                    "sampleValues": [
+                        "1",
+                        "2"
+                    ]
+                },
+                {
+                    "fieldPath": "member_id",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "2",
+                    "mean": "1.5",
+                    "median": "2",
+                    "stdev": "0.7071067811865476",
+                    "sampleValues": [
+                        "1",
+                        "2"
+                    ]
+                },
+                {
+                    "fieldPath": "issue_date",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 0.5,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "2021-09-27",
+                    "max": "2021-09-27",
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "2021-09-27",
+                            "frequency": 2
+                        }
+                    ],
+                    "sampleValues": [
+                        "2021-09-27",
+                        "2021-09-27"
+                    ]
+                },
+                {
+                    "fieldPath": "return_date",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 1,
+                    "nullCount": 1,
+                    "nullProportion": 0.5,
+                    "min": "2021-09-27",
+                    "max": "2021-09-27",
+                    "sampleValues": [
+                        "2021-09-27"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.member,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1632398400000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 2,
+            "columnCount": 2,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "2",
+                    "mean": "1.5",
+                    "median": "2",
+                    "stdev": "0.7071067811865476",
+                    "sampleValues": [
+                        "1",
+                        "2"
+                    ]
+                },
+                {
+                    "fieldPath": "name",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Member 1",
+                        "Member 2"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book_in_circulation,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1632398400000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 1,
+            "columnCount": 6,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "2",
+                    "max": "2",
+                    "mean": "2.0",
+                    "median": "2",
+                    "stdev": "0.0",
+                    "sampleValues": [
+                        "2"
+                    ]
+                },
+                {
+                    "fieldPath": "name",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Book 2"
+                    ]
+                },
+                {
+                    "fieldPath": "author",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "PQR"
+                    ]
+                },
+                {
+                    "fieldPath": "publisher",
+                    "uniqueCount": 0,
+                    "nullCount": 1,
+                    "nullProportion": 1,
+                    "sampleValues": []
+                },
+                {
+                    "fieldPath": "member_id",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "2",
+                    "max": "2",
+                    "mean": "2.0",
+                    "median": "2",
+                    "stdev": "0.0",
+                    "sampleValues": [
+                        "2"
+                    ]
+                },
+                {
+                    "fieldPath": "issue_date",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "2021-09-27",
+                    "max": "2021-09-27",
+                    "sampleValues": [
+                        "2021-09-27"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.book,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.book_in_circulation,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.issue_history,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.member,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

@@ -1,0 +1,17 @@
+namespace com.linkedin.common
+
+/**
+ * An association between a verification and an entity that has been granted
+ * via completion of one or more forms of type 'VERIFICATION'.
+ */
+record FormVerificationAssociation {
+  /**
+   * The urn of the form that granted this verification.
+   */
+  form: Urn
+
+  /**
+   * An audit stamp capturing who and when verification was applied for this form.
+   */
+  lastModified: optional AuditStamp
+}

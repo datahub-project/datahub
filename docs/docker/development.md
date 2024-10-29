@@ -20,7 +20,7 @@ We highly recommend you just invoke `./gradlew quickstartDebug` task.
 This task is defined in `docker/build.gradle` and executes the following steps:
 
 1. Builds all required artifacts to run DataHub. This includes both application code such as the GMS war, the frontend
-distribution zip which contains javascript, as wel as secondary support docker containers.
+distribution zip which contains javascript, as well as secondary support docker containers.
  
 1. Locally builds Docker images with the expected `debug` tag required by the docker compose files.
 
@@ -30,12 +30,12 @@ containers with remote debugging ports enabled.
 Once the `debug` docker images are constructed you'll see images similar to the following:
 
 ```shell
-linkedin/datahub-frontend-react                 debug              e52fef698025   28 minutes ago   763MB
-linkedin/datahub-kafka-setup                    debug              3375aaa2b12d   55 minutes ago   659MB
-linkedin/datahub-gms                            debug              ea2b0a8ea115   56 minutes ago   408MB
+acryldata/datahub-frontend-react                 debug              e52fef698025   28 minutes ago   763MB
+acryldata/datahub-kafka-setup                    debug              3375aaa2b12d   55 minutes ago   659MB
+acryldata/datahub-gms                            debug              ea2b0a8ea115   56 minutes ago   408MB
 acryldata/datahub-upgrade                       debug              322377a7a21d   56 minutes ago   463MB
 acryldata/datahub-mysql-setup                   debug              17768edcc3e5   2 hours ago      58.2MB
-linkedin/datahub-elasticsearch-setup            debug              4d935be7c62c   2 hours ago      26.1MB
+acryldata/datahub-elasticsearch-setup            debug              4d935be7c62c   2 hours ago      26.1MB
 ```
 
 At this point it is possible to view the DataHub UI at `http://localhost:9002` as you normally would with quickstart.
@@ -92,7 +92,11 @@ Environment variables control the debugging ports for GMS and the frontend.
 
 The screenshot shows an example configuration for IntelliJ using the default GMS debugging port of 5001.
 
-![](../imgs/development/intellij-remote-debug.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/development/intellij-remote-debug.png"/>
+</p>
+
 
 
 ## Tips for People New To Docker

@@ -1,0 +1,17 @@
+namespace com.linkedin.common
+
+/**
+ * Represents a single level in an entity's browsePathV2
+ */
+record BrowsePathEntry {
+  /**
+   * The ID of the browse path entry. This is what gets stored in the index.
+   * If there's an urn associated with this entry, id and urn will be the same
+   */
+  id: string
+
+  /**
+   * Optional urn pointing to some entity in DataHub
+   */
+  urn: optional Urn
+}

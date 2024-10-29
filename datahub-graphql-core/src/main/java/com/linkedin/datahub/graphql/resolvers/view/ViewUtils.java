@@ -11,8 +11,9 @@ import com.linkedin.datahub.graphql.generated.DataHubViewDefinitionInput;
 import com.linkedin.datahub.graphql.generated.DataHubViewFilterInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.LogicalOperator;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -25,58 +26,64 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-
+import javax.annotation.Nullable;
 
 public class ViewUtils {
 
   /**
    * Returns true if the authenticated actor is allowed to create a view with the given parameters.
    *
-   * The user can create a View if it's a personal View specific to them, or
-   * if it's a Global view and they have the correct Platform privileges.
+   * <p>The user can create a View if it's a personal View specific to them, or if it's a Global
+   * view and they have the correct Platform privileges.
    *
    * @param type the type of the new View
    * @param context the current GraphQL {@link QueryContext}
-   * @return true if the authenticator actor is allowed to change or delete the view, false otherwise.
+   * @return true if the authenticator actor is allowed to change or delete the view, false
+   *     otherwise.
    */
   public static boolean canCreateView(
-      @Nonnull DataHubViewType type,
-      @Nonnull QueryContext context) {
+      @Nonnull DataHubViewType type, @Nonnull QueryContext context) {
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(context, "context must not be null");
     return DataHubViewType.PERSONAL.equals(type)
-        || (DataHubViewType.GLOBAL.equals(type) && AuthorizationUtils.canManageGlobalViews(context));
+        || (DataHubViewType.GLOBAL.equals(type)
+            && AuthorizationUtils.canManageGlobalViews(context));
   }
 
-
   /**
-   * Returns true if the authenticated actor is allowed to update or delete
-   * the View with the specified urn.
+   * Returns true if the authenticated actor is allowed to update or delete the View with the
+   * specified urn.
    *
    * @param viewService an instance of {@link ViewService}
    * @param viewUrn the urn of the View
    * @param context the current GraphQL {@link QueryContext}
-   * @return true if the authenticator actor is allowed to change or delete the view, false otherwise.
+   * @return true if the authenticator actor is allowed to change or delete the view, false
+   *     otherwise.
    */
-  public static boolean canUpdateView(@Nonnull ViewService viewService, @Nonnull Urn viewUrn, @Nonnull QueryContext context) {
+  public static boolean canUpdateView(
+      @Nonnull ViewService viewService, @Nonnull Urn viewUrn, @Nonnull QueryContext context) {
     Objects.requireNonNull(viewService, "viewService must not be null");
     Objects.requireNonNull(viewUrn, "viewUrn must not be null");
     Objects.requireNonNull(context, "context must not be null");
 
     // Retrieve the view, determine it's type, and then go from there.
-    final DataHubViewInfo viewInfo = viewService.getViewInfo(viewUrn, context.getAuthentication());
+    final DataHubViewInfo viewInfo =
+        viewService.getViewInfo(context.getOperationContext(), viewUrn);
 
     if (viewInfo == null) {
-      throw new IllegalArgumentException(String.format("Failed to modify View. View with urn %s does not exist.", viewUrn));
+      throw new IllegalArgumentException(
+          String.format("Failed to modify View. View with urn %s does not exist.", viewUrn));
     }
 
-    // If the View is Global, then the user must have ability to manage global views OR must be its owner
-    if (DataHubViewType.GLOBAL.equals(viewInfo.getType()) && AuthorizationUtils.canManageGlobalViews(context)) {
+    // If the View is Global, then the user must have ability to manage global views OR must be its
+    // owner
+    if (DataHubViewType.GLOBAL.equals(viewInfo.getType())
+        && AuthorizationUtils.canManageGlobalViews(context)) {
       return true;
     }
 
     // If the View is Personal, then the current actor must be the owner.
-    return isViewOwner(viewInfo.getCreated().getActor(), UrnUtils.getUrn(context.getAuthentication().getActor().toUrnStr()));
+    return isViewOwner(viewInfo.getCreated().getActor(), UrnUtils.getUrn(context.getActorUrn()));
   }
 
   /**
@@ -86,54 +93,72 @@ public class ViewUtils {
    * @return the GMS model
    */
   @Nonnull
-  public static DataHubViewDefinition mapDefinition(@Nonnull final DataHubViewDefinitionInput input) {
+  public static DataHubViewDefinition mapDefinition(
+      @Nonnull final DataHubViewDefinitionInput input, @Nullable AspectRetriever aspectRetriever) {
     Objects.requireNonNull(input, "input must not be null");
 
     final DataHubViewDefinition result = new DataHubViewDefinition();
     if (input.getFilter() != null) {
-      result.setFilter(mapFilter(input.getFilter()), SetMode.IGNORE_NULL);
+      result.setFilter(mapFilter(input.getFilter(), aspectRetriever), SetMode.IGNORE_NULL);
     }
-    result.setEntityTypes(new StringArray(input.getEntityTypes().stream().map(EntityTypeMapper::getName).collect(
-        Collectors.toList())));
+    result.setEntityTypes(
+        new StringArray(
+            input.getEntityTypes().stream()
+                .map(EntityTypeMapper::getName)
+                .collect(Collectors.toList())));
     return result;
   }
 
   /**
-   * Converts an instance of {@link DataHubViewFilterInput} into the corresponding {@link Filter} object,
-   * which is then persisted to the backend in an aspect.
+   * Converts an instance of {@link DataHubViewFilterInput} into the corresponding {@link Filter}
+   * object, which is then persisted to the backend in an aspect.
    *
-   * We intentionally convert from a more rigid model to something more flexible to hedge for the case
-   * in which the views feature evolves to require more advanced filter capabilities.
+   * <p>We intentionally convert from a more rigid model to something more flexible to hedge for the
+   * case in which the views feature evolves to require more advanced filter capabilities.
    *
-   * The risk we run is that people ingest Views through the Rest.li ingestion APIs (back door), which cannot be
-   * rendered in full by the UI. We account for this on the read path by logging a warning and returning an empty
-   * View in such cases.
+   * <p>The risk we run is that people ingest Views through the Rest.li ingestion APIs (back door),
+   * which cannot be rendered in full by the UI. We account for this on the read path by logging a
+   * warning and returning an empty View in such cases.
    */
-  private static Filter mapFilter(@Nonnull DataHubViewFilterInput input) {
+  private static Filter mapFilter(
+      @Nonnull DataHubViewFilterInput input, @Nullable AspectRetriever aspectRetriever) {
     if (LogicalOperator.AND.equals(input.getOperator())) {
       // AND
-      return buildAndFilter(input.getFilters());
+      return buildAndFilter(input.getFilters(), aspectRetriever);
     } else {
       // OR
-      return buildOrFilter(input.getFilters());
+      return buildOrFilter(input.getFilters(), aspectRetriever);
     }
   }
 
-  private static Filter buildAndFilter(@Nonnull List<FacetFilterInput> input) {
+  private static Filter buildAndFilter(
+      @Nonnull List<FacetFilterInput> input, @Nullable AspectRetriever aspectRetriever) {
     final Filter result = new Filter();
-    result.setOr(new ConjunctiveCriterionArray(ImmutableList.of(
-        new ConjunctiveCriterion().setAnd(
-            new CriterionArray(input.stream().map(ResolverUtils::criterionFromFilter).collect(Collectors.toList()))))
-    ));
+    result.setOr(
+        new ConjunctiveCriterionArray(
+            ImmutableList.of(
+                new ConjunctiveCriterion()
+                    .setAnd(
+                        new CriterionArray(
+                            input.stream()
+                                .map(ResolverUtils::criterionFromFilter)
+                                .collect(Collectors.toList()))))));
     return result;
   }
 
-  private static Filter buildOrFilter(@Nonnull List<FacetFilterInput> input) {
+  private static Filter buildOrFilter(
+      @Nonnull List<FacetFilterInput> input, @Nullable AspectRetriever aspectRetriever) {
     final Filter result = new Filter();
-    result.setOr(new ConjunctiveCriterionArray(input.stream().map(filter ->
-        new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(ResolverUtils.criterionFromFilter(filter))))
-    )
-    .collect(Collectors.toList())));
+    result.setOr(
+        new ConjunctiveCriterionArray(
+            input.stream()
+                .map(
+                    filter ->
+                        new ConjunctiveCriterion()
+                            .setAnd(
+                                new CriterionArray(
+                                    ImmutableList.of(ResolverUtils.criterionFromFilter(filter)))))
+                .collect(Collectors.toList())));
     return result;
   }
 
@@ -141,6 +166,5 @@ public class ViewUtils {
     return creatorUrn.equals(actorUrn);
   }
 
-  private ViewUtils() { }
-
+  private ViewUtils() {}
 }

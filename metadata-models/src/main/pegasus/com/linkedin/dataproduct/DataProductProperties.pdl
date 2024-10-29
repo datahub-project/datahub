@@ -1,0 +1,42 @@
+namespace com.linkedin.dataproduct
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+
+/**
+ * The main properties of a Data Product
+ */
+@Aspect = {
+  "name": "dataProductProperties"
+}
+record DataProductProperties includes CustomProperties, ExternalReference  {
+  /**
+   * Display name of the Data Product
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  name: optional string
+
+  /**
+   * Documentation of the dataset
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  /**
+   * A list of assets that are part of this Data Product
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "DataProductContains",
+      "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey" ],
+    }
+  }
+  assets: optional array[DataProductAssociation]
+}

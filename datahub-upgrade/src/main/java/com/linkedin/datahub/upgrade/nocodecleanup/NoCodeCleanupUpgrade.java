@@ -5,23 +5,31 @@ import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.elasticsearch.client.RestHighLevelClient;
-
+import javax.annotation.Nullable;
+import org.opensearch.client.RestHighLevelClient;
 
 public class NoCodeCleanupUpgrade implements Upgrade {
 
   private final List<UpgradeStep> _steps;
   private final List<UpgradeCleanupStep> _cleanupSteps;
 
-  // Upgrade requires the EbeanServer.
-  public NoCodeCleanupUpgrade(final EbeanServer server, final GraphService graphClient,
-      final RestHighLevelClient searchClient, final IndexConvention indexConvention) {
-    _steps = buildUpgradeSteps(server, graphClient, searchClient, indexConvention);
-    _cleanupSteps = buildCleanupSteps();
+  // Upgrade requires the Database.
+  public NoCodeCleanupUpgrade(
+      @Nullable final Database server,
+      final GraphService graphClient,
+      final RestHighLevelClient searchClient,
+      final IndexConvention indexConvention) {
+    if (server != null) {
+      _steps = buildUpgradeSteps(server, graphClient, searchClient, indexConvention);
+      _cleanupSteps = buildCleanupSteps();
+    } else {
+      _steps = List.of();
+      _cleanupSteps = List.of();
+    }
   }
 
   @Override
@@ -43,8 +51,11 @@ public class NoCodeCleanupUpgrade implements Upgrade {
     return Collections.emptyList();
   }
 
-  private List<UpgradeStep> buildUpgradeSteps(final EbeanServer server, final GraphService graphClient,
-      final RestHighLevelClient searchClient, final IndexConvention indexConvention) {
+  private List<UpgradeStep> buildUpgradeSteps(
+      final Database server,
+      final GraphService graphClient,
+      final RestHighLevelClient searchClient,
+      final IndexConvention indexConvention) {
     final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(new NoCodeUpgradeQualificationStep(server));
     steps.add(new DeleteAspectTableStep(server));

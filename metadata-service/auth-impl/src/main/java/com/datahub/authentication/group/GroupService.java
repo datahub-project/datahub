@@ -1,6 +1,7 @@
 package com.datahub.authentication.group;
 
-import com.datahub.authentication.Authentication;
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CorpGroupUrnArray;
@@ -26,6 +27,10 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -35,15 +40,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 public class GroupService {
   private final EntityClient _entityClient;
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final GraphClient _graphClient;
 
-  public GroupService(@Nonnull EntityClient entityClient, @Nonnull EntityService entityService,
+  public GroupService(
+      @Nonnull EntityClient entityClient,
+      @Nonnull EntityService<?> entityService,
       @Nonnull GraphClient graphClient) {
     Objects.requireNonNull(entityClient, "entityClient must not be null!");
     Objects.requireNonNull(entityService, "entityService must not be null!");
@@ -54,29 +58,32 @@ public class GroupService {
     _graphClient = graphClient;
   }
 
-  public boolean groupExists(@Nonnull Urn groupUrn) {
+  public boolean groupExists(@Nonnull OperationContext opContext, @Nonnull Urn groupUrn) {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
-    return _entityService.exists(groupUrn);
+    return _entityService.exists(opContext, groupUrn, true);
   }
 
-  public Origin getGroupOrigin(@Nonnull final Urn groupUrn) {
+  public Origin getGroupOrigin(@Nonnull OperationContext opContext, @Nonnull final Urn groupUrn) {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
-    return (Origin) _entityService.getLatestAspect(groupUrn, ORIGIN_ASPECT_NAME);
+    return (Origin) _entityService.getLatestAspect(opContext, groupUrn, ORIGIN_ASPECT_NAME);
   }
 
-  public void addUserToNativeGroup(@Nonnull final Urn userUrn, @Nonnull final Urn groupUrn,
-      final Authentication authentication) {
+  public void addUserToNativeGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn userUrn,
+      @Nonnull final Urn groupUrn) {
     Objects.requireNonNull(userUrn, "userUrn must not be null");
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
     // Verify the user exists
-    if (!_entityService.exists(userUrn)) {
+    if (!_entityService.exists(opContext, userUrn, true)) {
       throw new RuntimeException("Failed to add member to group. User does not exist.");
     }
 
     try {
       // First, fetch user's group membership aspect.
-      NativeGroupMembership nativeGroupMembership = getExistingNativeGroupMembership(userUrn, authentication);
+      NativeGroupMembership nativeGroupMembership =
+          getExistingNativeGroupMembership(opContext, userUrn);
       // Handle the duplicate case.
       nativeGroupMembership.getNativeGroups().remove(groupUrn);
       nativeGroupMembership.getNativeGroups().add(groupUrn);
@@ -88,44 +95,61 @@ public class GroupService {
       proposal.setAspectName(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME);
       proposal.setAspect(GenericRecordUtils.serializeAspect(nativeGroupMembership));
       proposal.setChangeType(ChangeType.UPSERT);
-      _entityClient.ingestProposal(proposal, authentication);
+      _entityClient.ingestProposal(opContext, proposal);
     } catch (Exception e) {
       throw new RuntimeException("Failed to add member to group", e);
     }
   }
 
-  public String createNativeGroup(@Nonnull final CorpGroupKey corpGroupKey, @Nonnull final String groupName,
-      @Nonnull final String groupDescription, final Authentication authentication) throws Exception {
+  public String createNativeGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull final CorpGroupKey corpGroupKey,
+      @Nonnull final String groupName,
+      @Nonnull final String groupDescription)
+      throws Exception {
     Objects.requireNonNull(corpGroupKey, "corpGroupKey must not be null");
     Objects.requireNonNull(groupName, "groupName must not be null");
     Objects.requireNonNull(groupDescription, "groupDescription must not be null");
 
-    Urn corpGroupUrn = EntityKeyUtils.convertEntityKeyToUrn(corpGroupKey, Constants.CORP_GROUP_ENTITY_NAME);
-    if (groupExists(corpGroupUrn)) {
+    Urn corpGroupUrn =
+        EntityKeyUtils.convertEntityKeyToUrn(corpGroupKey, Constants.CORP_GROUP_ENTITY_NAME);
+    if (groupExists(opContext, corpGroupUrn)) {
       throw new IllegalArgumentException("This Group already exists!");
     }
 
-    String groupInfo = createGroupInfo(corpGroupKey, groupName, groupDescription, authentication);
-    createNativeGroupOrigin(corpGroupUrn, authentication);
+    String groupInfo = createGroupInfo(opContext, corpGroupKey, groupName, groupDescription);
+    createNativeGroupOrigin(opContext, corpGroupUrn);
     return groupInfo;
   }
 
-  public void removeExistingNativeGroupMembers(@Nonnull final Urn groupUrn, @Nonnull final List<Urn> userUrnList,
-      final Authentication authentication) throws Exception {
+  public void removeExistingNativeGroupMembers(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn groupUrn,
+      @Nonnull final List<Urn> userUrnList)
+      throws Exception {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
     Objects.requireNonNull(userUrnList, "userUrnList must not be null");
 
     final Set<Urn> userUrns = new HashSet<>(userUrnList);
     for (Urn userUrn : userUrns) {
-      final Map<Urn, EntityResponse> entityResponseMap = _entityClient.batchGetV2(CORP_USER_ENTITY_NAME, userUrns,
-          Collections.singleton(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME), authentication);
+      final Map<Urn, EntityResponse> entityResponseMap =
+          _entityClient.batchGetV2(
+              opContext,
+              CORP_USER_ENTITY_NAME,
+              userUrns,
+              Collections.singleton(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
       EntityResponse entityResponse = entityResponseMap.get(userUrn);
       if (entityResponse == null) {
         continue;
       }
 
-      final NativeGroupMembership nativeGroupMembership = new NativeGroupMembership(
-          entityResponse.getAspects().get(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data());
+      final NativeGroupMembership nativeGroupMembership =
+          new NativeGroupMembership(
+              entityResponse
+                  .getAspects()
+                  .get(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)
+                  .getValue()
+                  .data());
       if (nativeGroupMembership.getNativeGroups().remove(groupUrn)) {
         // Finally, create the MetadataChangeProposal.
         final MetadataChangeProposal proposal = new MetadataChangeProposal();
@@ -134,45 +158,98 @@ public class GroupService {
         proposal.setAspectName(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME);
         proposal.setAspect(GenericRecordUtils.serializeAspect(nativeGroupMembership));
         proposal.setChangeType(ChangeType.UPSERT);
-        _entityClient.ingestProposal(proposal, authentication);
+        _entityClient.ingestProposal(opContext, proposal);
       }
     }
   }
 
-  public void migrateGroupMembershipToNativeGroupMembership(@Nonnull final Urn groupUrn, final String actorUrnStr,
-      final Authentication authentication) throws Exception {
+  public void migrateGroupMembershipToNativeGroupMembership(
+      @Nonnull OperationContext opContext, @Nonnull final Urn groupUrn, final String actorUrnStr)
+      throws Exception {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
     // Get the existing set of users
     final List<Urn> userUrnList = getExistingGroupMembers(groupUrn, actorUrnStr);
     // Remove the existing group membership for each user in the group
-    removeExistingGroupMembers(groupUrn, userUrnList, authentication);
+    removeExistingGroupMembers(opContext, groupUrn, userUrnList);
     // Mark the group as a native group
-    createNativeGroupOrigin(groupUrn, authentication);
+    createNativeGroupOrigin(opContext, groupUrn);
     // Add each user as a native group member to the group
-    userUrnList.forEach(userUrn -> addUserToNativeGroup(userUrn, groupUrn, authentication));
+    userUrnList.forEach(userUrn -> addUserToNativeGroup(opContext, userUrn, groupUrn));
   }
 
-  NativeGroupMembership getExistingNativeGroupMembership(@Nonnull final Urn userUrn,
-      final Authentication authentication) throws Exception {
-    final EntityResponse entityResponse =
-        _entityClient.batchGetV2(CORP_USER_ENTITY_NAME, Collections.singleton(userUrn),
-            Collections.singleton(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME), authentication).get(userUrn);
+  public List<Urn> getGroupsForUser(@Nonnull OperationContext opContext, @Nonnull final Urn userUrn)
+      throws Exception {
+    final NativeGroupMembership nativeGroupMembership =
+        getExistingNativeGroupMembership(opContext, userUrn);
+    final GroupMembership groupMembership = getExistingGroupMembership(opContext, userUrn);
+    final List<Urn> allGroups = new ArrayList<>();
+    allGroups.addAll(nativeGroupMembership.getNativeGroups());
+    allGroups.addAll(groupMembership.getGroups());
+    return allGroups;
+  }
 
-    NativeGroupMembership nativeGroupMembership;
-    if (entityResponse == null || !entityResponse.getAspects().containsKey(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)) {
+  NativeGroupMembership getExistingNativeGroupMembership(
+      @Nonnull OperationContext opContext, @Nonnull final Urn userUrn) throws Exception {
+    final EntityResponse entityResponse =
+        _entityClient
+            .batchGetV2(
+                opContext,
+                CORP_USER_ENTITY_NAME,
+                Collections.singleton(userUrn),
+                Collections.singleton(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))
+            .get(userUrn);
+
+    final NativeGroupMembership nativeGroupMembership;
+    if (entityResponse == null
+        || !entityResponse.getAspects().containsKey(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)) {
       // If the user doesn't have the NativeGroupMembership aspect, create one.
       nativeGroupMembership = new NativeGroupMembership();
       nativeGroupMembership.setNativeGroups(new UrnArray());
     } else {
-      nativeGroupMembership = new NativeGroupMembership(
-          entityResponse.getAspects().get(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data());
+      nativeGroupMembership =
+          new NativeGroupMembership(
+              entityResponse
+                  .getAspects()
+                  .get(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)
+                  .getValue()
+                  .data());
     }
     return nativeGroupMembership;
   }
 
-  String createGroupInfo(@Nonnull final CorpGroupKey corpGroupKey, @Nonnull final String groupName,
-      @Nonnull final String groupDescription, final Authentication authentication) throws Exception {
+  GroupMembership getExistingGroupMembership(
+      @Nonnull OperationContext opContext, @Nonnull final Urn userUrn)
+      throws RemoteInvocationException, URISyntaxException {
+    final EntityResponse entityResponse =
+        _entityClient
+            .batchGetV2(
+                opContext,
+                CORP_USER_ENTITY_NAME,
+                Collections.singleton(userUrn),
+                Collections.singleton(GROUP_MEMBERSHIP_ASPECT_NAME))
+            .get(userUrn);
+
+    final GroupMembership groupMembership;
+    if (entityResponse == null
+        || !entityResponse.getAspects().containsKey(GROUP_MEMBERSHIP_ASPECT_NAME)) {
+      // If the user doesn't have the GroupMembership aspect, create one.
+      groupMembership = new GroupMembership();
+      groupMembership.setGroups(new UrnArray());
+    } else {
+      groupMembership =
+          new GroupMembership(
+              entityResponse.getAspects().get(GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data());
+    }
+    return groupMembership;
+  }
+
+  String createGroupInfo(
+      @Nonnull OperationContext opContext,
+      @Nonnull final CorpGroupKey corpGroupKey,
+      @Nonnull final String groupName,
+      @Nonnull final String groupDescription)
+      throws Exception {
     Objects.requireNonNull(corpGroupKey, "corpGroupKey must not be null");
     Objects.requireNonNull(groupName, "groupName must not be null");
     Objects.requireNonNull(groupDescription, "groupDescription must not be null");
@@ -184,7 +261,10 @@ public class GroupService {
     corpGroupInfo.setGroups(new CorpGroupUrnArray());
     corpGroupInfo.setMembers(new CorpuserUrnArray());
     corpGroupInfo.setAdmins(new CorpuserUrnArray());
-    corpGroupInfo.setCreated(new AuditStamp().setTime(System.currentTimeMillis()).setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
+    corpGroupInfo.setCreated(
+        new AuditStamp()
+            .setTime(System.currentTimeMillis())
+            .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr())));
 
     // Finally, create the MetadataChangeProposal.
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
@@ -193,10 +273,11 @@ public class GroupService {
     proposal.setAspectName(Constants.CORP_GROUP_INFO_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(corpGroupInfo));
     proposal.setChangeType(ChangeType.UPSERT);
-    return _entityClient.ingestProposal(proposal, authentication);
+    return _entityClient.ingestProposal(opContext, proposal);
   }
 
-  void createNativeGroupOrigin(@Nonnull final Urn groupUrn, final Authentication authentication) throws Exception {
+  void createNativeGroupOrigin(@Nonnull OperationContext opContext, @Nonnull final Urn groupUrn)
+      throws Exception {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
     // Create the Group info.
@@ -210,35 +291,49 @@ public class GroupService {
     proposal.setAspectName(ORIGIN_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(groupOrigin));
     proposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(proposal, authentication);
+    _entityClient.ingestProposal(opContext, proposal);
   }
 
   List<Urn> getExistingGroupMembers(@Nonnull final Urn groupUrn, final String actorUrnStr) {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
     final EntityRelationships relationships =
-        _graphClient.getRelatedEntities(groupUrn.toString(), ImmutableList.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME),
-            RelationshipDirection.INCOMING, 0, 500, actorUrnStr);
-    return relationships.getRelationships().stream().map(EntityRelationship::getEntity).collect(Collectors.toList());
+        _graphClient.getRelatedEntities(
+            groupUrn.toString(),
+            ImmutableList.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME),
+            RelationshipDirection.INCOMING,
+            0,
+            500,
+            actorUrnStr);
+    return relationships.getRelationships().stream()
+        .map(EntityRelationship::getEntity)
+        .collect(Collectors.toList());
   }
 
-  void removeExistingGroupMembers(@Nonnull final Urn groupUrn, @Nonnull final List<Urn> userUrnList,
-      final Authentication authentication) throws Exception {
+  void removeExistingGroupMembers(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn groupUrn,
+      @Nonnull final List<Urn> userUrnList)
+      throws Exception {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
     Objects.requireNonNull(userUrnList, "userUrnList must not be null");
 
     final Set<Urn> userUrns = new HashSet<>(userUrnList);
     for (Urn userUrn : userUrns) {
       final Map<Urn, EntityResponse> entityResponseMap =
-          _entityClient.batchGetV2(CORP_USER_ENTITY_NAME, userUrns, Collections.singleton(GROUP_MEMBERSHIP_ASPECT_NAME),
-              authentication);
+          _entityClient.batchGetV2(
+              opContext,
+              CORP_USER_ENTITY_NAME,
+              userUrns,
+              Collections.singleton(GROUP_MEMBERSHIP_ASPECT_NAME));
       EntityResponse entityResponse = entityResponseMap.get(userUrn);
       if (entityResponse == null) {
         continue;
       }
 
       final GroupMembership groupMembership =
-          new GroupMembership(entityResponse.getAspects().get(GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data());
+          new GroupMembership(
+              entityResponse.getAspects().get(GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data());
       if (groupMembership.getGroups().remove(groupUrn)) {
         // Finally, create the MetadataChangeProposal.
         final MetadataChangeProposal proposal = new MetadataChangeProposal();
@@ -247,7 +342,7 @@ public class GroupService {
         proposal.setAspectName(GROUP_MEMBERSHIP_ASPECT_NAME);
         proposal.setAspect(GenericRecordUtils.serializeAspect(groupMembership));
         proposal.setChangeType(ChangeType.UPSERT);
-        _entityClient.ingestProposal(proposal, authentication);
+        _entityClient.ingestProposal(opContext, proposal);
       }
     }
   }

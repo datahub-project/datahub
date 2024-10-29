@@ -13,7 +13,6 @@ As a result, one may be tempted to add as many attributes as needed. This is acc
 Below shows an example schema for the `User` search document. Note that:
 1. Each search document is required to have a type-specific `urn` field, generally maps to an entity in the [graph](graph.md).
 2. Similar to `Entity`, each document has an optional `removed` field for "soft deletion". 
-This is captured in [BaseDocument](../../metadata-models/src/main/pegasus/com/linkedin/metadata/search/BaseDocument.pdl), which is expected to be included by all documents.
 3. Similar to `Entity`, all remaining fields are made `optional` to support partial updates.
 4. `management` shows an example of a string array field.
 5. `ownedDataset` shows an example on how a field can be derived from metadata [aspects](aspect.md) associated with other types of entity (in this case, `Dataset`).

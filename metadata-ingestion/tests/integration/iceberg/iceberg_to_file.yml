@@ -1,0 +1,21 @@
+run_id: iceberg-test
+
+source:
+  type: iceberg
+  config:
+    catalog:
+      default:
+        type: rest
+        uri: http://localhost:8181
+        s3.access-key-id: admin
+        s3.secret-access-key: password
+        s3.region: us-east-1
+        warehouse: s3a://warehouse/wh/
+        s3.endpoint: http://localhost:9000
+    user_ownership_property: owner
+    group_ownership_property: owner
+
+sink:
+  type: file
+  config:
+    filename: "./iceberg_mces.json"

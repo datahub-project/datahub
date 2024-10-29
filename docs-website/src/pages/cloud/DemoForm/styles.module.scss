@@ -1,0 +1,53 @@
+.col {
+  padding: 0 2rem;
+}
+
+.formContainer {
+  padding: 2rem;
+  margin: 0 auto;
+  background-color:#F3F3F3;
+  border: 1px solid #DDD;
+  align-items: center;
+  max-width: 540px;
+  border-radius: 16px;
+
+  .formContent {
+    width: 90%;
+    margin: 0 auto;
+  }
+
+  .formHeader {
+    justify-content: space-between;
+    text-align: left;
+
+    .formTitle {
+      font-size: 24px;
+      font-weight: 600;
+      color: #000;
+      line-height: 28px;
+      margin-bottom: 12px;
+    }
+  
+    .formSubtitle {
+      font-size: 14px;
+      color: #666;
+      line-height: 14px;
+      margin-bottom: 8px;
+    }
+  }
+
+}
+
+.bookButton {
+  display: none;
+}
+
+@media screen and (max-width: 999px) {
+  .bookButton {
+    display: block;
+  }
+
+  .productTourButton {
+    text-align: center!important;
+  }
+}

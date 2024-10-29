@@ -1,4 +1,5 @@
 import json
+import pathlib
 from unittest.mock import patch
 
 from freezegun import freeze_time
@@ -11,8 +12,9 @@ from tests.test_helpers import mce_helpers
 FROZEN_TIME = "2021-12-07 07:00:00"
 
 JSON_RESPONSE_MAP = {
+    "https://app.mode.com/api/verify": "verify.json",
     "https://app.mode.com/api/account": "user.json",
-    "https://app.mode.com/api/acryl/spaces": "spaces.json",
+    "https://app.mode.com/api/acryl/spaces?filter=all": "spaces.json",
     "https://app.mode.com/api/acryl/spaces/157933cc1168/reports": "reports_157933cc1168.json",
     "https://app.mode.com/api/acryl/spaces/75737b70402e/reports": "reports_75737b70402e.json",
     "https://app.mode.com/api/modeuser": "user.json",
@@ -20,11 +22,15 @@ JSON_RESPONSE_MAP = {
     "https://app.mode.com/api/acryl/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts": "charts.json",
     "https://app.mode.com/api/acryl/data_sources": "data_sources.json",
     "https://app.mode.com/api/acryl/definitions": "definitions.json",
+    "https://app.mode.com/api/acryl/spaces/157933cc1168/datasets": "datasets_157933cc1168.json",
+    "https://app.mode.com/api/acryl/spaces/75737b70402e/datasets": "datasets_75737b70402e.json",
+    "https://app.mode.com/api/acryl/reports/24f66e1701b6": "dataset_24f66e1701b6.json",
+    "https://app.mode.com/api/acryl/reports/24f66e1701b6/queries": "dataset_queries_24f66e1701b6.json",
 }
 
 RESPONSE_ERROR_LIST = ["https://app.mode.com/api/acryl/spaces/75737b70402e/reports"]
 
-test_resources_dir = None
+test_resources_dir = pathlib.Path(__file__).parent
 
 
 class MockResponse:
@@ -39,8 +45,12 @@ class MockResponse:
     def json(self):
         return self.json_data
 
-    def get(self, url):
+    def mount(self, prefix, adaptor):
+        return self
+
+    def get(self, url, timeout=40):
         self.url = url
+        self.timeout = timeout
         response_json_path = f"{test_resources_dir}/setup/{JSON_RESPONSE_MAP.get(url)}"
         with open(response_json_path) as file:
             data = json.loads(file.read())
@@ -49,7 +59,7 @@ class MockResponse:
 
     def raise_for_status(self):
         if self.error_list is not None and self.url in self.error_list:
-            http_error_msg = "%s Client Error: %s for url: %s" % (
+            http_error_msg = "{} Client Error: {} for url: {}".format(
                 400,
                 "Simulate error",
                 self.url,
@@ -68,12 +78,9 @@ def mocked_requests_failure(*args, **kwargs):
 @freeze_time(FROZEN_TIME)
 def test_mode_ingest_success(pytestconfig, tmp_path):
     with patch(
-        "datahub.ingestion.source.mode.requests.session",
+        "datahub.ingestion.source.mode.requests.Session",
         side_effect=mocked_requests_sucess,
     ):
-        global test_resources_dir
-        test_resources_dir = pytestconfig.rootpath / "tests/integration/mode"
-
         pipeline = Pipeline.create(
             {
                 "run_id": "mode-test",
@@ -108,7 +115,7 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
 @freeze_time(FROZEN_TIME)
 def test_mode_ingest_failure(pytestconfig, tmp_path):
     with patch(
-        "datahub.ingestion.source.mode.requests.session",
+        "datahub.ingestion.source.mode.requests.Session",
         side_effect=mocked_requests_failure,
     ):
         global test_resources_dir
@@ -140,7 +147,3 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
         except PipelineExecutionError as exec_error:
             assert exec_error.args[0] == "Source reported errors"
             assert len(exec_error.args[1].failures) == 1
-            assert (
-                list(exec_error.args[1].failures.keys())[0]
-                == "mode-report-75737b70402e"
-            )

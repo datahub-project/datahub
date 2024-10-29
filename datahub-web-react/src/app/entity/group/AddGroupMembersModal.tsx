@@ -10,14 +10,14 @@ import { OwnerLabel } from '../../shared/OwnerLabel';
 
 type Props = {
     urn: string;
-    visible: boolean;
+    open: boolean;
     onCloseModal: () => void;
     onSubmit: () => void;
 };
 
 const SelectInput = styled(Select)`
     > .ant-select-selector {
-        height: 36px;
+        height: 'auto';
     }
 `;
 
@@ -29,7 +29,7 @@ const StyleTag = styled(Tag)`
     align-items: center;
 `;
 
-export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: Props) => {
+export const AddGroupMembersModal = ({ urn, open, onCloseModal, onSubmit }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [selectedMembers, setSelectedMembers] = useState<any[]>([]);
     const [inputValue, setInputValue] = useState('');
@@ -83,9 +83,9 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
         setSelectedMembers(newUsers);
     };
 
-    const onDeselectMember = (memberUrn: string) => {
+    const onDeselectMember = (member: { key: string; label: React.ReactNode; value: string }) => {
         setInputValue('');
-        const newUserActors = selectedMembers.filter((user) => user !== memberUrn);
+        const newUserActors = selectedMembers.filter((user) => user.value !== member.value);
         setSelectedMembers(newUserActors);
     };
 
@@ -134,7 +134,7 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
     return (
         <Modal
             title="Add group members"
-            visible={visible}
+            open={open}
             onCancel={onModalClose}
             footer={
                 <>

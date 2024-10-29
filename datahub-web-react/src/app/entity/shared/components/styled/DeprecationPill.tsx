@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Divider, message, Modal, Popover, Tooltip, Typography } from 'antd';
 import { blue } from '@ant-design/colors';
@@ -8,24 +8,29 @@ import { Deprecation } from '../../../../../types.generated';
 import { getLocaleTimezone } from '../../../../shared/time/timeUtils';
 import { ANTD_GRAY } from '../../constants';
 import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
+import { Editor } from '../../tabs/Documentation/components/editor/Editor';
+import StripMarkdownText, { removeMarkdown } from './StripMarkdownText';
 
 const DeprecatedContainer = styled.div`
-    width: 104px;
     height: 18px;
-    border: 1px solid #ef5b5b;
+    border: 1px solid #cd0d24;
     border-radius: 15px;
     display: flex;
     justify-content: center;
     align-items: center;
-    color: #ef5b5b;
+    color: #cd0d24;
     margin-left: 0px;
-    padding-top: 12px;
-    padding-bottom: 12px;
+    margin-right: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    padding-right: 4px;
+    padding-left: 4px;
 `;
 
 const DeprecatedText = styled.div`
-    color: #ef5b5b;
-    margin-left: 5px;
+    padding-right: 2px;
+    padding-left: 2px;
+    font-size: 10px;
 `;
 
 const DeprecatedTitle = styled(Typography.Text)`
@@ -33,11 +38,6 @@ const DeprecatedTitle = styled(Typography.Text)`
     font-size: 14px;
     margin-bottom: 5px;
     font-weight: bold;
-`;
-
-const DeprecatedSubTitle = styled(Typography.Text)`
-    display: block;
-    margin-bottom: 5px;
 `;
 
 const LastEvaluatedAtLabel = styled.div`
@@ -51,10 +51,6 @@ const LastEvaluatedAtLabel = styled.div`
 const ThinDivider = styled(Divider)`
     margin-top: 8px;
     margin-bottom: 8px;
-`;
-
-const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
-    color: #ef5b5b;
 `;
 
 const UndeprecatedIcon = styled(InfoCircleOutlined)`
@@ -71,29 +67,64 @@ const IconGroup = styled.div`
     }
 `;
 
+const DescriptionContainer = styled.div`
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 22px;
+    margin-bottom: 14px;
+`;
+const StyledViewer = styled(Editor)`
+    padding-right: 8px;
+    display: block;
+
+    .remirror-editor.ProseMirror {
+        padding: 0;
+    }
+`;
+
+const ExpandedActions = styled.div`
+    height: 10px;
+`;
+const ReadLessText = styled(Typography.Link)`
+    margin-right: 4px;
+`;
 type Props = {
     urn: string;
     deprecation: Deprecation;
-    preview?: boolean | null;
     refetch?: () => void;
     showUndeprecate: boolean | null;
 };
+const ABBREVIATED_LIMIT = 80;
 
-export const DeprecationPill = ({ deprecation, preview, urn, refetch, showUndeprecate }: Props) => {
+export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: Props) => {
     const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
+    const [expanded, setExpanded] = useState(false);
+    const overLimit = deprecation?.note && removeMarkdown(deprecation?.note).length > 80;
     /**
      * Deprecation Decommission Timestamp
      */
     const localeTimezone = getLocaleTimezone();
+
+    let decommissionTimeSeconds;
+    if (deprecation.decommissionTime) {
+        if (deprecation.decommissionTime < 943920000000) {
+            // Time is set in way past if it was milli-second so considering this as set in seconds
+            decommissionTimeSeconds = deprecation.decommissionTime;
+        } else {
+            decommissionTimeSeconds = deprecation.decommissionTime / 1000;
+        }
+    }
     const decommissionTimeLocal =
-        (deprecation.decommissionTime &&
+        (decommissionTimeSeconds &&
             `Scheduled to be decommissioned on ${moment
-                .unix(deprecation.decommissionTime)
+                .unix(decommissionTimeSeconds)
                 .format('DD/MMM/YYYY')} (${localeTimezone})`) ||
         undefined;
     const decommissionTimeGMT =
-        deprecation.decommissionTime &&
-        moment.unix(deprecation.decommissionTime).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
+        decommissionTimeSeconds && moment.unix(decommissionTimeSeconds).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
 
     const hasDetails = deprecation.note !== '' || deprecation.decommissionTime !== null;
     const isDividerNeeded = deprecation.note !== '' && deprecation.decommissionTime !== null;
@@ -124,14 +155,55 @@ export const DeprecationPill = ({ deprecation, preview, urn, refetch, showUndepr
 
     return (
         <Popover
-            overlayStyle={{ maxWidth: 240 }}
+            overlayStyle={{ maxWidth: 480 }}
             placement="right"
             content={
                 hasDetails ? (
                     <>
                         {deprecation?.note !== '' && <DeprecatedTitle>Deprecation note</DeprecatedTitle>}
                         {isDividerNeeded && <ThinDivider />}
-                        {deprecation?.note !== '' && <DeprecatedSubTitle>{deprecation.note}</DeprecatedSubTitle>}
+                        <DescriptionContainer>
+                            {expanded || !overLimit ? (
+                                <>
+                                    {deprecation?.note && deprecation?.note !== '' && (
+                                        <>
+                                            <StyledViewer content={deprecation.note} readOnly />
+                                            <ExpandedActions>
+                                                {overLimit && (
+                                                    <ReadLessText
+                                                        onClick={() => {
+                                                            setExpanded(false);
+                                                        }}
+                                                    >
+                                                        Read Less
+                                                    </ReadLessText>
+                                                )}
+                                            </ExpandedActions>
+                                        </>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <StripMarkdownText
+                                        limit={ABBREVIATED_LIMIT}
+                                        readMore={
+                                            <>
+                                                <Typography.Link
+                                                    onClick={() => {
+                                                        setExpanded(true);
+                                                    }}
+                                                >
+                                                    Read More
+                                                </Typography.Link>
+                                            </>
+                                        }
+                                        shouldWrap
+                                    >
+                                        {deprecation.note}
+                                    </StripMarkdownText>
+                                </>
+                            )}
+                        </DescriptionContainer>
                         {deprecation?.decommissionTime !== null && (
                             <Typography.Text type="secondary">
                                 <Tooltip placement="right" title={decommissionTimeGMT}>
@@ -166,12 +238,9 @@ export const DeprecationPill = ({ deprecation, preview, urn, refetch, showUndepr
                 )
             }
         >
-            {(preview && <StyledInfoCircleOutlined />) || (
-                <DeprecatedContainer>
-                    <StyledInfoCircleOutlined />
-                    <DeprecatedText>Deprecated</DeprecatedText>
-                </DeprecatedContainer>
-            )}
+            <DeprecatedContainer>
+                <DeprecatedText>DEPRECATED</DeprecatedText>
+            </DeprecatedContainer>
         </Popover>
     );
 };

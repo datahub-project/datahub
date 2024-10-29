@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.policy;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -20,11 +22,9 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 @RequiredArgsConstructor
-public class DataHubPolicyType implements com.linkedin.datahub.graphql.types.EntityType<DataHubPolicy, String> {
+public class DataHubPolicyType
+    implements com.linkedin.datahub.graphql.types.EntityType<DataHubPolicy, String> {
   static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(DATAHUB_POLICY_INFO_ASPECT_NAME);
   private final EntityClient _entityClient;
 
@@ -44,22 +44,30 @@ public class DataHubPolicyType implements com.linkedin.datahub.graphql.types.Ent
   }
 
   @Override
-  public List<DataFetcherResult<DataHubPolicy>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context)
-      throws Exception {
+  public List<DataFetcherResult<DataHubPolicy>> batchLoad(
+      @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> roleUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
     try {
       final Map<Urn, EntityResponse> entities =
-          _entityClient.batchGetV2(POLICY_ENTITY_NAME, new HashSet<>(roleUrns), ASPECTS_TO_FETCH,
-              context.getAuthentication());
+          _entityClient.batchGetV2(
+              context.getOperationContext(),
+              POLICY_ENTITY_NAME,
+              new HashSet<>(roleUrns),
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : roleUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
       return gmsResults.stream()
-          .map(gmsResult -> gmsResult == null ? null
-              : DataFetcherResult.<DataHubPolicy>newResult().data(DataHubPolicyMapper.map(gmsResult)).build())
+          .map(
+              gmsResult ->
+                  gmsResult == null
+                      ? null
+                      : DataFetcherResult.<DataHubPolicy>newResult()
+                          .data(DataHubPolicyMapper.map(context, gmsResult))
+                          .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Roles", e);

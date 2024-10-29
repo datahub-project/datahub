@@ -7,12 +7,12 @@ from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
+pytestmark = pytest.mark.integration_batch_2
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.xfail  # TODO: debug the flakes for this test
-@pytest.mark.slow_integration
 @pytest.mark.skipif(
     platform.machine().lower() == "aarch64",
     reason="The hdbcli dependency is not available for aarch64",

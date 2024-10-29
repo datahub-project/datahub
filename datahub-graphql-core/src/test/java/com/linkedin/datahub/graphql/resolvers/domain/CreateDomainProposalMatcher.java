@@ -6,13 +6,12 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import org.mockito.ArgumentMatcher;
 
-
 public class CreateDomainProposalMatcher implements ArgumentMatcher<MetadataChangeProposal> {
 
   private MetadataChangeProposal left;
 
   public CreateDomainProposalMatcher(MetadataChangeProposal left) {
-      this.left = left;
+    this.left = left;
   }
 
   @Override
@@ -24,17 +23,13 @@ public class CreateDomainProposalMatcher implements ArgumentMatcher<MetadataChan
   }
 
   private boolean domainPropertiesMatch(GenericAspect left, GenericAspect right) {
-    DomainProperties leftProps = GenericRecordUtils.deserializeAspect(
-        left.getValue(),
-        "application/json",
-        DomainProperties.class
-    );
+    DomainProperties leftProps =
+        GenericRecordUtils.deserializeAspect(
+            left.getValue(), "application/json", DomainProperties.class);
 
-    DomainProperties rightProps = GenericRecordUtils.deserializeAspect(
-        right.getValue(),
-        "application/json",
-        DomainProperties.class
-    );
+    DomainProperties rightProps =
+        GenericRecordUtils.deserializeAspect(
+            right.getValue(), "application/json", DomainProperties.class);
 
     // Omit timestamp comparison.
     return leftProps.getName().equals(rightProps.getName())

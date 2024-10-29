@@ -1,0 +1,29 @@
+version: 1  # datahub yaml format version
+
+# Note: this data contract yaml format is still in development, and will likely
+# change in backwards-incompatible ways in the future.
+
+entity: urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)
+freshness:
+  type: cron
+  cron: 0 7 * * *  # 7am daily
+  timezone: America/Los_Angeles
+schema:
+  type: json-schema
+  json-schema:
+    properties:
+      field_foo:
+        type: string
+        native_type: VARCHAR(100)
+      field_bar:
+        type: boolean
+    required:
+      - field_bar
+data_quality:
+  - type: unique
+    column: field_foo
+  - type: custom_sql
+    sql: SELECT COUNT(*) FROM SampleHiveDataset
+    operator:
+      type: greater_than
+      value: 100

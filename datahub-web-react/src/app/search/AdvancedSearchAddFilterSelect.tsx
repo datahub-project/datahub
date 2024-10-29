@@ -10,16 +10,23 @@ const StyledPlus = styled(PlusOutlined)`
     margin-right: 6px;
 `;
 
-const selectStyle = { padding: 6, fontWeight: 500, width: 'auto' };
-
 interface Props {
     selectedFilters: Array<FacetFilterInput>;
     onFilterFieldSelect: (value) => void;
+    isCompact?: boolean;
 }
 
 const { Option } = Select;
 
-export const AdvancedSearchAddFilterSelect = ({ selectedFilters, onFilterFieldSelect }: Props) => {
+export const AdvancedSearchAddFilterSelect = ({ selectedFilters, onFilterFieldSelect, isCompact }: Props) => {
+    const selectStyle = {
+        padding: isCompact ? 3 : 6,
+        fontWeight: 500,
+        width: 'auto',
+        paddingTop: isCompact ? 0 : undefined,
+        paddingBottom: isCompact ? 0 : undefined,
+    };
+
     return (
         <Select
             value={{

@@ -1,21 +1,64 @@
 [
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,testcatalog.testschema.testtable,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1634169600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"uniqueUserCount\": 1, \"totalSqlQueries\": 2, \"topSqlQueries\": [\"select * from testcatalog.testschema.testtable limit 100\"], \"userCounts\": [{\"user\": \"urn:li:corpuser:test-name\", \"count\": 2, \"userEmail\": \"test-name@acryl.io\"}], \"fieldCounts\": [{\"fieldPath\": \"column1\", \"count\": 2}, {\"fieldPath\": \"column2\", \"count\": 2}]}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1629763200000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "uniqueUserCount": 1,
+            "totalSqlQueries": 1,
+            "topSqlQueries": [
+                "select * from testcatalog.testschema.testtable limit 100"
+            ],
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:test-name",
+                    "count": 1,
+                    "userEmail": "test-name@acryl.io"
+                }
+            ],
+            "fieldCounts": [
+                {
+                    "fieldPath": "column1",
+                    "count": 1
+                },
+                {
+                    "fieldPath": "column2",
+                    "count": 1
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
         "runId": "test-trino-usage",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,testcatalog.testschema.testtable,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-trino-usage",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

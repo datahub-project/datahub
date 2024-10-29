@@ -25,51 +25,52 @@ public class DirectoryWalker {
         this.excludeMatchers.add(FileSystems.getDefault().getPathMatcher("glob:" + excludePattern));
       }
     }
-
   }
 
   public Stream<Path> walkFiles() throws IOException {
     final Path baseDir = this.rootDirectory;
     final ArrayList<Path> files = new ArrayList<>();
-    Files.walkFileTree(this.rootDirectory, new FileVisitor<Path>() {
-      @Override
-      public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-        return FileVisitResult.CONTINUE;
-      }
-
-      @Override
-      public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-        boolean excluded = false;
-        Path relativePath = baseDir.relativize(file);
-        if (!includeMatcher.matches(relativePath)) {
-          excluded = true;
-        } else {
-          for (PathMatcher matcher : excludeMatchers) {
-            if (matcher.matches(relativePath)) {
-              excluded = true;
-            }
+    Files.walkFileTree(
+        this.rootDirectory,
+        new FileVisitor<Path>() {
+          @Override
+          public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+              throws IOException {
+            return FileVisitResult.CONTINUE;
           }
-        }
 
-        if (!excluded) {
-          files.add(file);
-        }
-        return FileVisitResult.CONTINUE;
-      }
+          @Override
+          public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+              throws IOException {
+            boolean excluded = false;
+            Path relativePath = baseDir.relativize(file);
+            if (!includeMatcher.matches(relativePath)) {
+              excluded = true;
+            } else {
+              for (PathMatcher matcher : excludeMatchers) {
+                if (matcher.matches(relativePath)) {
+                  excluded = true;
+                }
+              }
+            }
 
-      @Override
-      public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-        return FileVisitResult.CONTINUE;
-      }
+            if (!excluded) {
+              files.add(file);
+            }
+            return FileVisitResult.CONTINUE;
+          }
 
-      @Override
-      public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-        return FileVisitResult.CONTINUE;
-      }
-    });
+          @Override
+          public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+            return FileVisitResult.CONTINUE;
+          }
+
+          @Override
+          public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+            return FileVisitResult.CONTINUE;
+          }
+        });
 
     return files.stream();
   }
-
-
 }

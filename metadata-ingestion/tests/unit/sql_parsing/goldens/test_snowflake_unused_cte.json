@@ -1,0 +1,45 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "2b4cf29392c9aad44822b36fff4e4d833f747a3eb8b7b1b7143af55bc88dc1e0",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,table2,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,table3,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "col1",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)",
+                    "column": "col1"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "col6",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table3,PROD)",
+                    "column": "col6"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "WITH cte1 AS (SELECT col1, col2 FROM table1 WHERE col1 = ?), cte2 AS (SELECT col3, col4 FROM table2 WHERE col2 = ?) SELECT cte1.col1, table3.col6 FROM cte1 JOIN table3 ON table3.col5 = cte1.col2"
+    }
+}

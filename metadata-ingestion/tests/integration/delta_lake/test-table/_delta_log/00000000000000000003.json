@@ -1,2 +1,0 @@
-{"commitInfo":{"timestamp":1655724802244,"operation":"WRITE","operationParameters":{},"readVersion":2,"isolationLevel":"Serializable","isBlindAppend":true,"operationMetrics":{},"engineInfo":"local Delta-Standalone/0.4.0"}}
-{"add":{"path":"3","partitionValues":{"bar":"1","foo":"0"},"size":100,"modificationTime":1655724802243,"dataChange":true,"tags":{"someTagKey":"someTagVal"}}}

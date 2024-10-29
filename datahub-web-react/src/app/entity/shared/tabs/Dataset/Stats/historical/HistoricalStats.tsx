@@ -10,6 +10,7 @@ import { Message } from '../../../../../../shared/Message';
 import { LookbackWindow } from '../lookbackWindows';
 import { ANTD_GRAY } from '../../../../constants';
 import PrefixedSelect from './shared/PrefixedSelect';
+import { formatBytes } from '../../../../../../shared/formatNumber';
 
 // TODO: Reuse stat sections.
 const StatSection = styled.div`
@@ -167,6 +168,7 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
      */
     const rowCountChartValues = extractChartValuesFromTableProfiles(profiles, 'rowCount');
     const columnCountChartValues = extractChartValuesFromTableProfiles(profiles, 'columnCount');
+    const sizeChartValues = extractChartValuesFromTableProfiles(profiles, 'sizeInBytes');
 
     /**
      * Compute Column Stat chart data.
@@ -192,6 +194,24 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
         'uniqueProportion',
     );
 
+    const bytesFormatter = (num: number) => {
+        const formattedBytes = formatBytes(num);
+        return `${formattedBytes.number} ${formattedBytes.unit}`;
+    };
+
+    const placeholderChart = (
+        <StatChart
+            title="Placeholder"
+            tickInterval={graphTickInterval}
+            dateRange={{ start: '', end: '' }}
+            values={[]}
+            visible={false}
+        />
+    );
+    const placeholderVerticalDivider = (
+        <ChartDivider type="vertical" height={360} width={1} style={{ visibility: 'hidden' }} />
+    );
+
     return (
         <>
             {profilesLoading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
@@ -215,6 +235,18 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
                         dateRange={graphDateRange}
                         values={columnCountChartValues}
                     />
+                </ChartRow>
+                <ChartDivider type="horizontal" height={1} width={400} />
+                <ChartRow>
+                    <StatChart
+                        title="Size Over Time"
+                        tickInterval={graphTickInterval}
+                        dateRange={graphDateRange}
+                        values={sizeChartValues}
+                        yAxis={{ formatter: bytesFormatter }}
+                    />
+                    {placeholderVerticalDivider}
+                    {placeholderChart}
                 </ChartRow>
             </StatSection>
             <StatSection>

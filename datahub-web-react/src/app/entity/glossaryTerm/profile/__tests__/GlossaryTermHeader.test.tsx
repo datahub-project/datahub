@@ -7,7 +7,7 @@ import GlossaryTermHeader from '../GlossaryTermHeader';
 
 const glossaryTermHeaderData = {
     definition: 'this is sample definition',
-    termSource: 'termSource',
+    sourceUrl: 'sourceUrl',
     sourceRef: 'Source ref',
     fqdn: 'fqdn',
 };
@@ -19,9 +19,9 @@ describe('Glossary Term Header', () => {
                 <TestPageContainer>
                     <GlossaryTermHeader
                         definition={glossaryTermHeaderData.definition}
-                        termSource={glossaryTermHeaderData.termSource}
+                        sourceUrl={glossaryTermHeaderData.sourceUrl}
                         sourceRef={glossaryTermHeaderData.sourceRef}
-                        fqdn={glossaryTermHeaderData.fqdn}
+                        ownership={undefined}
                     />
                 </TestPageContainer>
             </MockedProvider>,

@@ -16,20 +16,32 @@ cd "$DIR"
 
 if [ "${RUN_QUICKSTART:-true}" == "true" ]; then
     source ./run-quickstart.sh
-fi
+else
+  mkdir -p ~/.datahub/plugins/frontend/auth/
+  echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
+  echo "datahub:datahub" > ~/.datahub/plugins/frontend/auth/user.props
 
-source venv/bin/activate
+  python3 -m venv venv
+  source venv/bin/activate
+  python -m pip install --upgrade 'uv>=0.1.10'
+  uv pip install -r requirements.txt
+fi
 
 (cd ..; ./gradlew :smoke-test:yarnInstall)
 
 source ./set-cypress-creds.sh
 
-# no_cypress, cypress_suite1, cypress_rest
+# set environment variables for the test
+source ./set-test-env-vars.sh
+
+# no_cypress_suite0, no_cypress_suite1, cypress_suite1, cypress_rest
 if [[ -z "${TEST_STRATEGY}" ]]; then
     pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
 else
-    if [ "$TEST_STRATEGY" == "no_cypress" ]; then
-        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -k 'not test_run_cypress'
+    if [ "$TEST_STRATEGY" == "no_cypress_suite0" ]; then
+        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -k 'not test_run_cypress' -m 'not no_cypress_suite1'
+    elif [ "$TEST_STRATEGY" == "no_cypress_suite1" ]; then
+        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -m 'no_cypress_suite1'
     else
         pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_cypress_${TEST_STRATEGY}.xml tests/cypress/integration_test.py
     fi

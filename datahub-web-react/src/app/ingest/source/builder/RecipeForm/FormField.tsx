@@ -19,17 +19,6 @@ const StyledRemoveIcon = styled(MinusCircleOutlined)`
     margin-left: 10px;
 `;
 
-const StyledCheckbox = styled(Checkbox)`
-    .ant-checkbox-inner {
-        border-color: ${ANTD_GRAY[7]};
-    }
-    .ant-checkbox-checked {
-        .ant-checkbox-inner {
-            border-color: ${(props) => props.theme.styles['primary-color']};
-        }
-    }
-`;
-
 interface CommonFieldProps {
     field: RecipeField;
     removeMargin?: boolean;
@@ -71,7 +60,7 @@ function SelectField({ field, removeMargin }: CommonFieldProps) {
             name={field.name}
             label={field.label}
             tooltip={field.tooltip}
-            removeMargin={!!removeMargin}
+            $removeMargin={!!removeMargin}
             rules={field.rules || undefined}
         >
             {field.options && (
@@ -92,7 +81,7 @@ function DateField({ field, removeMargin }: CommonFieldProps) {
             name={field.name}
             label={field.label}
             tooltip={field.tooltip}
-            removeMargin={!!removeMargin}
+            $removeMargin={!!removeMargin}
             rules={field.rules || undefined}
         >
             <DatePicker showTime />
@@ -132,7 +121,7 @@ function FormField(props: Props) {
 
     const isBoolean = field.type === FieldType.BOOLEAN;
     let input = <Input placeholder={field.placeholder} />;
-    if (isBoolean) input = <StyledCheckbox />;
+    if (isBoolean) input = <Checkbox />;
     if (field.type === FieldType.TEXTAREA)
         input = <Input.TextArea required={field.required} placeholder={field.placeholder} />;
     const valuePropName = isBoolean ? 'checked' : 'value';
@@ -148,8 +137,8 @@ function FormField(props: Props) {
             rules={field.rules || undefined}
             valuePropName={valuePropName}
             getValueFromEvent={getValueFromEvent}
-            alignLeft={isBoolean}
-            removeMargin={!!removeMargin}
+            $alignLeft={isBoolean}
+            $removeMargin={!!removeMargin}
         >
             {input}
         </StyledFormItem>

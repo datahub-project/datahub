@@ -1,0 +1,30 @@
+namespace com.linkedin.dataset
+
+/**
+ * A definition of filters that should be used when
+ * querying an external Dataset or Table.
+ *
+ * Note that this models should NOT be used for working with
+ * search / filter on DataHub Platform itself.
+ */
+record DatasetFilter {
+  /**
+   * How the partition will be represented in this model.
+   *
+   * In the future, we'll likely add support for more structured
+   * predicates.
+   */
+  type: enum DatasetFilterType {
+    /**
+     * The partition is represented as a an opaque, raw SQL
+     * clause.
+     */
+    SQL
+  }
+
+  /**
+   * The raw where clause string which will be used for monitoring.
+   * Required if the type is SQL.
+   */
+  sql: optional string
+}

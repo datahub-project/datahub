@@ -22,9 +22,10 @@ record MLFeatureTableKey {
   * Name of the feature table
   */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "boostScore": 8.0
+    "boostScore": 8.0,
+    "fieldNameAliases": [ "_entityName" ]
   }
   name: string
 }

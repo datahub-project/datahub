@@ -162,7 +162,8 @@ datahub actions -c <config-1.yaml> -c <config-2.yaml>
 
 ### Running in debug mode
 
-Simply append the `--debug` flag to the CLI to run your action in debug mode.
+Simply append the `--debug` flag to the CLI to run your action in debug mode. NOTE: This will reveal sensitive information in the logs, do not share the logs with outside resources and ensure untrusted
+users will not have access to logs through UI ingestions before enabling on instances.
 
 ```
 datahub actions -c <config.yaml> --debug

@@ -5,6 +5,9 @@ import sqlparse
 
 logger = logging.getLogger(__name__)
 
+# TODO: The sql query formatting functionality is duplicated by the try_format_query method,
+# which is powered by sqlglot instead of sqlparse.
+
 
 def format_sql_query(query: str, **options: Any) -> str:
     try:

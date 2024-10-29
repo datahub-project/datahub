@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { FilterOutlined } from '@ant-design/icons';
 
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityType, FacetFilterInput } from '../../../../../../types.generated';
+import { EntityType, FacetFilterInput, FilterOperator } from '../../../../../../types.generated';
 import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
 import { SearchCfg } from '../../../../../../conf';
 import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
@@ -45,6 +45,8 @@ type Props = {
     placeholderText?: string | null;
     selectedEntities: EntityAndType[];
     setSelectedEntities: (Entities: EntityAndType[]) => void;
+    singleSelect?: boolean;
+    hideToolbar?: boolean;
 };
 
 /**
@@ -54,7 +56,14 @@ type Props = {
  * This component provides easy ways to filter for a specific set of entity types, and provides a set of entity urns
  * when the selection is complete.
  */
-export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntities, setSelectedEntities }: Props) => {
+export const SearchSelect = ({
+    fixedEntityTypes,
+    placeholderText,
+    selectedEntities,
+    setSelectedEntities,
+    singleSelect,
+    hideToolbar,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
 
     // Component state
@@ -74,6 +83,13 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
         .flatMap((filter) => filter.values?.map((value) => value.toUpperCase() as EntityType) || []);
     const finalEntityTypes = (entityFilters.length > 0 && entityFilters) || fixedEntityTypes || [];
 
+    const finalEntityFilter: FacetFilterInput = {
+        field: ENTITY_FILTER_NAME,
+        condition: FilterOperator.Equal,
+        values: finalEntityTypes,
+        negated: false,
+    };
+
     // Execute search
     const { data, loading, error, refetch } = useGetSearchResultsForMultipleQuery({
         variables: {
@@ -82,7 +98,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                 query,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters: filtersWithoutEntities,
+                filters: [...filtersWithoutEntities, finalEntityFilter],
             },
         },
     });
@@ -153,16 +169,18 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                     entityRegistry={entityRegistry}
                 />
             </SearchBarContainer>
-            <TabToolbar>
-                <SearchSelectBar
-                    isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
-                    onChangeSelectAll={onChangeSelectAll}
-                    showCancel={false}
-                    showActions={false}
-                    refetch={refetch}
-                    selectedEntities={selectedEntities}
-                />
-            </TabToolbar>
+            {!hideToolbar && (
+                <TabToolbar>
+                    <SearchSelectBar
+                        isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
+                        onChangeSelectAll={onChangeSelectAll}
+                        showCancel={false}
+                        showActions={false}
+                        refetch={refetch}
+                        selectedEntities={selectedEntities}
+                    />
+                </TabToolbar>
+            )}
             <EmbeddedListSearchResults
                 loading={loading}
                 searchResponse={searchAcrossEntities}
@@ -179,6 +197,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                 isSelectMode
                 selectedEntities={selectedEntities}
                 setSelectedEntities={setSelectedEntities}
+                singleSelect={singleSelect}
             />
         </Container>
     );

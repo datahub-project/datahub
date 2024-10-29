@@ -1,0 +1,23 @@
+namespace com.datahub.test
+
+/**
+ * Shared aspect containing Browse Paths V2 to be indexed for an entity.
+ */
+@Aspect = {
+    "name": "testBrowsePathsV2"
+}
+record TestBrowsePathsV2 {
+  /**
+   * A valid browse path for the entity. This field is provided by DataHub by default.
+   *
+   * Browse paths V2 are stored in elasticsearch as unit-separator delimited strings and only include platform specific folders or containers.
+   * These paths should not include high level info captured elsewhere ie. Platform and Environment.
+   */
+   @Searchable = {
+    "/*/id": {
+      "fieldName": "browsePathV2",
+      "fieldType": "BROWSE_PATH_V2",
+    }
+  }
+  path: array[BrowsePathEntry]
+}

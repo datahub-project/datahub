@@ -1,6 +1,7 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
-import com.datahub.authentication.Authentication;
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
@@ -8,10 +9,11 @@ import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
 import com.linkedin.dataprocess.DataProcessRunStatus;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -19,17 +21,19 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 public class DataProcessInstanceRunEventChangeEventGenerator
     extends EntityChangeEventGenerator<DataProcessInstanceRunEvent> {
   private static final String COMPLETED_STATUS = "COMPLETED";
   private static final String STARTED_STATUS = "STARTED";
 
-  public DataProcessInstanceRunEventChangeEventGenerator(@Nonnull final EntityClient entityClient, @Nonnull final
-  Authentication authentication) {
-    super(entityClient, authentication);
+  private final OperationContext systemOperationContext;
+  private final SystemEntityClient systemEntityClient;
+
+  public DataProcessInstanceRunEventChangeEventGenerator(
+      @Nonnull OperationContext systemOperationContext,
+      @Nonnull final SystemEntityClient systemEntityClient) {
+    this.systemOperationContext = systemOperationContext;
+    this.systemEntityClient = systemEntityClient;
   }
 
   @Override
@@ -52,15 +56,17 @@ public class DataProcessInstanceRunEventChangeEventGenerator
     final DataProcessRunStatus newStatus = getStatus(newAspect);
 
     if (newStatus != null && !newStatus.equals(previousStatus)) {
-      String operationType = newStatus.equals(DataProcessRunStatus.COMPLETE) ? COMPLETED_STATUS : STARTED_STATUS;
+      String operationType =
+          newStatus.equals(DataProcessRunStatus.COMPLETE) ? COMPLETED_STATUS : STARTED_STATUS;
 
-      return Collections.singletonList(ChangeEvent.builder()
-          .category(ChangeCategory.RUN)
-          .operation(ChangeOperation.valueOf(operationType))
-          .auditStamp(auditStamp)
-          .entityUrn(entityUrn)
-          .parameters(buildParameters(newAspect, entityUrn))
-          .build());
+      return Collections.singletonList(
+          ChangeEvent.builder()
+              .category(ChangeCategory.RUN)
+              .operation(ChangeOperation.valueOf(operationType))
+              .auditStamp(auditStamp)
+              .entityUrn(entityUrn)
+              .parameters(buildParameters(newAspect, entityUrn))
+              .build());
     }
 
     return Collections.emptyList();
@@ -72,8 +78,8 @@ public class DataProcessInstanceRunEventChangeEventGenerator
   }
 
   @Nonnull
-  private Map<String, Object> buildParameters(@Nonnull final DataProcessInstanceRunEvent runEvent,
-      @Nonnull final String entityUrnString) {
+  private Map<String, Object> buildParameters(
+      @Nonnull final DataProcessInstanceRunEvent runEvent, @Nonnull final String entityUrnString) {
     final Map<String, Object> parameters = new HashMap<>();
     if (runEvent.hasAttempt()) {
       parameters.put(ATTEMPT_KEY, runEvent.getAttempt());
@@ -108,8 +114,11 @@ public class DataProcessInstanceRunEventChangeEventGenerator
     EntityResponse entityResponse;
     try {
       entityUrn = Urn.createFromString(entityUrnString);
-      entityResponse = _entityClient.getV2(DATA_PROCESS_INSTANCE_ENTITY_NAME, entityUrn,
-          Collections.singleton(DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME), _authentication);
+      entityResponse =
+          systemEntityClient.getV2(
+              systemOperationContext,
+              entityUrn,
+              Collections.singleton(DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME));
     } catch (Exception e) {
       return null;
     }

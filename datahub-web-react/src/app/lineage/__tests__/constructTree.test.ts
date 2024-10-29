@@ -10,9 +10,9 @@ import {
     dataFlow1,
     dataset1,
 } from '../../../Mocks';
-import { DataPlatform, EntityType, RelationshipDirection } from '../../../types.generated';
+import { DataPlatform, Dataset, Entity, EntityType, RelationshipDirection } from '../../../types.generated';
 import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
-import { Direction, FetchedEntities, UpdatedLineages } from '../types';
+import { Direction, EntityAndType, FetchedEntity, UpdatedLineages } from '../types';
 import constructTree from '../utils/constructTree';
 import extendAsyncEntities from '../utils/extendAsyncEntities';
 
@@ -23,7 +23,7 @@ const airflowPlatform: DataPlatform = dataFlow1.platform;
 
 describe('constructTree', () => {
     it('handles nodes without any lineage', () => {
-        const mockFetchedEntities = {};
+        const mockFetchedEntities = new Map();
         expect(
             constructTree(
                 { entity: dataset3, type: EntityType.Dataset },
@@ -42,7 +42,7 @@ describe('constructTree', () => {
             icon: undefined,
             platform: kafkaPlatform,
             schemaMetadata: dataset3.schemaMetadata,
-            canEditLineage: false,
+            canEditLineage: true,
         });
     });
 
@@ -55,17 +55,18 @@ describe('constructTree', () => {
             (acc, entry) =>
                 extendAsyncEntities(
                     {},
+                    {},
                     acc,
                     testEntityRegistry,
-                    { entity: entry.entity, type: EntityType.Dataset },
+                    { entity: entry.entity as Dataset, type: EntityType.Dataset },
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         expect(
             constructTree(
-                { entity: dataset6WithLineage, type: EntityType.Dataset },
+                { entity: dataset6WithLineage as Dataset, type: EntityType.Dataset },
                 mockFetchedEntities,
                 Direction.Downstream,
                 testEntityRegistry,
@@ -106,17 +107,18 @@ describe('constructTree', () => {
             (acc, entry) =>
                 extendAsyncEntities(
                     {},
+                    {},
                     acc,
                     testEntityRegistry,
-                    { entity: entry.entity, type: EntityType.Dataset },
+                    { entity: entry.entity as Dataset, type: EntityType.Dataset },
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         expect(
             constructTree(
-                { entity: dataset6WithLineage, type: EntityType.Dataset },
+                { entity: dataset6WithLineage as Dataset, type: EntityType.Dataset },
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
@@ -158,12 +160,13 @@ describe('constructTree', () => {
             (acc, entry) =>
                 extendAsyncEntities(
                     {},
+                    {},
                     acc,
                     testEntityRegistry,
-                    { entity: entry.entity, type: EntityType.Dataset },
+                    { entity: entry.entity as Dataset, type: EntityType.Dataset },
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         expect(
@@ -252,12 +255,13 @@ describe('constructTree', () => {
             (acc, entry) =>
                 extendAsyncEntities(
                     {},
+                    {},
                     acc,
                     testEntityRegistry,
-                    { entity: entry.entity, type: EntityType.Dataset },
+                    { entity: entry.entity as Dataset, type: EntityType.Dataset },
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         const tree = constructTree(
@@ -282,12 +286,13 @@ describe('constructTree', () => {
             (acc, entry) =>
                 extendAsyncEntities(
                     {},
+                    {},
                     acc,
                     testEntityRegistry,
-                    { entity: entry.entity, type: EntityType.Dataset },
+                    { entity: entry.entity as Entity, type: EntityType.Dataset } as EntityAndType,
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
         expect(
             constructTree(
@@ -368,16 +373,17 @@ describe('constructTree', () => {
             (acc, entry) =>
                 extendAsyncEntities(
                     {},
+                    {},
                     acc,
                     testEntityRegistry,
-                    { entity: entry.entity, type: entry.entity.type },
+                    { entity: entry.entity as Dataset, type: entry.entity.type as EntityType } as EntityAndType,
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map<string, FetchedEntity>(),
         );
         expect(
             constructTree(
-                { entity: updatedDataset6WithLineage, type: EntityType.Dataset },
+                { entity: updatedDataset6WithLineage as Dataset, type: EntityType.Dataset },
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
@@ -393,7 +399,7 @@ describe('constructTree', () => {
             platform: kafkaPlatform,
             subtype: undefined,
             schemaMetadata: updatedDataset6WithLineage.schemaMetadata,
-            canEditLineage: false,
+            canEditLineage: true,
             children: [
                 {
                     name: 'DataJobInfoName',
@@ -407,7 +413,7 @@ describe('constructTree', () => {
                     status: null,
                     platform: airflowPlatform,
                     subtype: undefined,
-                    canEditLineage: false,
+                    canEditLineage: true,
                 },
             ],
         });
@@ -422,12 +428,13 @@ describe('constructTree', () => {
             (acc, entry) =>
                 extendAsyncEntities(
                     {},
+                    {},
                     acc,
                     testEntityRegistry,
-                    { entity: entry.entity, type: EntityType.Dataset },
+                    { entity: entry.entity as Dataset, type: EntityType.Dataset },
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         const updatedLineages: UpdatedLineages = {
@@ -440,7 +447,7 @@ describe('constructTree', () => {
 
         expect(
             constructTree(
-                { entity: dataset6WithLineage, type: EntityType.Dataset },
+                { entity: dataset6WithLineage as Dataset, type: EntityType.Dataset },
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,

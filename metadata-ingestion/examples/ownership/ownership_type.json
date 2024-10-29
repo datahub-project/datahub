@@ -1,0 +1,14 @@
+[
+  {
+    "auditHeader":null,
+    "entityType":"ownershipType",
+    "entityUrn": "urn:li:ownershipType:architect",
+    "changeType":"UPSERT",
+    "aspectName":"ownershipTypeInfo",
+    "aspect":{
+      "value":"{\"name\": \"Architect\", \"description\": \"Technical person responsible for the asset\", \"created\": {\"time\": 1674291843000,  \"actor\": \"urn:li:corpuser:jdoe\",  \"impersonator\": null},\n\"lastModified\": {\"time\": 1674291843000,  \"actor\": \"urn:li:corpuser:jdoe\",  \"impersonator\": null}}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  }
+]

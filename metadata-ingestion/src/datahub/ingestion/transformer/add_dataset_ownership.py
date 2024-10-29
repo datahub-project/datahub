@@ -1,4 +1,5 @@
-from typing import Callable, List, Optional, cast
+import logging
+from typing import Callable, Dict, List, Optional, Union, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -9,16 +10,20 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.emitter.mce_builder import Aspect
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.transformer.dataset_transformer import (
-    DatasetOwnershipTransformer,
-)
+from datahub.ingestion.transformer.dataset_transformer import OwnershipTransformer
 from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
+    MetadataChangeProposalClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.specific.dashboard import DashboardPatchBuilder
+
+logger = logging.getLogger(__name__)
 
 
 class AddDatasetOwnershipConfig(TransformerSemanticsConfigModel):
@@ -27,8 +32,10 @@ class AddDatasetOwnershipConfig(TransformerSemanticsConfigModel):
 
     _resolve_owner_fn = pydantic_resolve_key("get_owners_to_add")
 
+    is_container: bool = False
 
-class AddDatasetOwnership(DatasetOwnershipTransformer):
+
+class AddDatasetOwnership(OwnershipTransformer):
     """Transformer that adds owners to datasets according to a callback function."""
 
     ctx: PipelineContext
@@ -70,15 +77,63 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
 
         return mce_ownership
 
+    def handle_end_of_stream(
+        self,
+    ) -> List[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
+        if not self.config.is_container:
+            return []
+
+        logger.debug("Generating Ownership for containers")
+        ownership_container_mapping: Dict[str, List[OwnerClass]] = {}
+        for entity_urn, data_ownerships in (
+            (urn, self.config.get_owners_to_add(urn)) for urn in self.entity_map.keys()
+        ):
+            if not data_ownerships:
+                continue
+
+            assert self.ctx.graph
+            browse_paths = self.ctx.graph.get_aspect(entity_urn, BrowsePathsV2Class)
+            if not browse_paths:
+                continue
+
+            for path in browse_paths.path:
+                container_urn = path.urn
+
+                if not container_urn or not container_urn.startswith(
+                    "urn:li:container:"
+                ):
+                    continue
+
+                if container_urn not in ownership_container_mapping:
+                    ownership_container_mapping[container_urn] = data_ownerships
+                else:
+                    ownership_container_mapping[container_urn] = list(
+                        ownership_container_mapping[container_urn] + data_ownerships
+                    )
+
+        mcps: List[
+            Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
+        ] = []
+
+        for urn, owners in ownership_container_mapping.items():
+            patch_builder = DashboardPatchBuilder(urn)
+            for owner in owners:
+                patch_builder.add_owner(owner)
+            mcps.extend(list(patch_builder.build()))
+
+        return mcps
+
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
         in_ownership_aspect: Optional[OwnershipClass] = cast(OwnershipClass, aspect)
         out_ownership_aspect: OwnershipClass = OwnershipClass(
             owners=[],
-            lastModified=in_ownership_aspect.lastModified
-            if in_ownership_aspect is not None
-            else None,
+            lastModified=(
+                in_ownership_aspect.lastModified
+                if in_ownership_aspect is not None
+                else None
+            ),
         )
 
         # Check if user want to keep existing ownerships
@@ -102,7 +157,7 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
 
 
 class DatasetOwnershipBaseConfig(TransformerSemanticsConfigModel):
-    ownership_type: Optional[str] = OwnershipTypeClass.DATAOWNER
+    ownership_type: str = OwnershipTypeClass.DATAOWNER
 
 
 class SimpleDatasetOwnershipConfig(DatasetOwnershipBaseConfig):
@@ -114,11 +169,14 @@ class SimpleAddDatasetOwnership(AddDatasetOwnership):
     """Transformer that adds a specified set of owners to each dataset."""
 
     def __init__(self, config: SimpleDatasetOwnershipConfig, ctx: PipelineContext):
-        ownership_type = builder.validate_ownership_type(config.ownership_type)
+        ownership_type, ownership_type_urn = builder.validate_ownership_type(
+            config.ownership_type
+        )
         owners = [
             OwnerClass(
                 owner=owner,
                 type=ownership_type,
+                typeUrn=ownership_type_urn,
             )
             for owner in config.owner_urns
         ]
@@ -142,40 +200,30 @@ class SimpleAddDatasetOwnership(AddDatasetOwnership):
 class PatternDatasetOwnershipConfig(DatasetOwnershipBaseConfig):
     owner_pattern: KeyValuePattern = KeyValuePattern.all()
     default_actor: str = builder.make_user_urn("etl")
+    is_container: bool = False
 
 
 class PatternAddDatasetOwnership(AddDatasetOwnership):
     """Transformer that adds a specified set of owners to each dataset."""
 
-    def getOwners(
-        self,
-        key: str,
-        owner_pattern: KeyValuePattern,
-        ownership_type: Optional[str] = None,
-    ) -> List[OwnerClass]:
-        owners = [
-            OwnerClass(
-                owner=owner,
-                type=builder.validate_ownership_type(ownership_type),
-            )
-            for owner in owner_pattern.value(key)
-        ]
-        return owners
-
     def __init__(self, config: PatternDatasetOwnershipConfig, ctx: PipelineContext):
-        ownership_type = builder.validate_ownership_type(config.ownership_type)
         owner_pattern = config.owner_pattern
+        ownership_type, ownership_type_urn = builder.validate_ownership_type(
+            config.ownership_type
+        )
         generic_config = AddDatasetOwnershipConfig(
             get_owners_to_add=lambda urn: [
                 OwnerClass(
                     owner=owner,
                     type=ownership_type,
+                    typeUrn=ownership_type_urn,
                 )
                 for owner in owner_pattern.value(urn)
             ],
             default_actor=config.default_actor,
             semantics=config.semantics,
             replace_existing=config.replace_existing,
+            is_container=config.is_container,
         )
         super().__init__(generic_config, ctx)
 

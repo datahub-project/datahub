@@ -11,48 +11,44 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     JobId,
 )
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    DatahubIngestionCheckpointClass,
-)
+from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass
 
 logger = logging.getLogger(__name__)
 
 
 class DatahubIngestionStateProviderConfig(IngestionCheckpointingProviderConfig):
-    datahub_api: Optional[DatahubClientConfig] = DatahubClientConfig()
+    datahub_api: Optional[DatahubClientConfig] = None
 
 
 class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
     orchestrator_name: str = "datahub"
 
-    def __init__(self, graph: DataHubGraph, name: str):
-        super().__init__(name)
+    def __init__(
+        self,
+        graph: DataHubGraph,
+    ):
+        super().__init__(self.__class__.__name__)
         self.graph = graph
         if not self._is_server_stateful_ingestion_capable():
             raise ConfigurationError(
-                "Datahub server is not capable of supporting stateful ingestion."
-                " Please consider upgrading to the latest server version to use this feature."
+                "Datahub server is not capable of supporting stateful ingestion. "
+                "Please consider upgrading to the latest server version to use this feature."
             )
 
     @classmethod
     def create(
-        cls, config_dict: Dict[str, Any], ctx: PipelineContext, name: str
+        cls, config_dict: Dict[str, Any], ctx: PipelineContext
     ) -> "DatahubIngestionCheckpointingProvider":
-        if ctx.graph:
-            # Use the pipeline-level graph if set
-            return cls(ctx.graph, name)
-        elif config_dict is None:
-            raise ConfigurationError("Missing provider configuration.")
+        config = DatahubIngestionStateProviderConfig.parse_obj(config_dict)
+        if config.datahub_api is not None:
+            return cls(DataHubGraph(config.datahub_api))
+        elif ctx.graph:
+            # Use the pipeline-level graph if set.
+            return cls(ctx.graph)
         else:
-            provider_config = DatahubIngestionStateProviderConfig.parse_obj(config_dict)
-            if provider_config.datahub_api:
-                graph = DataHubGraph(provider_config.datahub_api)
-                return cls(graph, name)
-            else:
-                raise ConfigurationError(
-                    "Missing datahub_api. Provide either a global one or under the state_provider."
-                )
+            raise ValueError(
+                "A graph instance is required. Either pass one in the pipeline context, or set it explicitly in the stateful ingestion provider config."
+            )
 
     def _is_server_stateful_ingestion_capable(self) -> bool:
         server_config = self.graph.get_config() if self.graph else None
@@ -105,7 +101,7 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
 
         for job_name, checkpoint in self.state_to_commit.items():
             # Emit the ingestion state for each job
-            logger.info(
+            logger.debug(
                 f"Committing ingestion checkpoint for pipeline:'{checkpoint.pipelineName}', "
                 f"job:'{job_name}'"
             )
@@ -118,13 +114,16 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
                 job_name,
             )
 
+            # We don't want the state payloads to show up in search. As such, we emit the
+            # dataJob aspects as soft-deleted. This doesn't affect the ability to query
+            # them using the timeseries API.
+            self.graph.soft_delete_entity(
+                urn=datajob_urn,
+            )
             self.graph.emit_mcp(
                 MetadataChangeProposalWrapper(
-                    entityType="dataJob",
                     entityUrn=datajob_urn,
-                    aspectName="datahubIngestionCheckpoint",
                     aspect=checkpoint,
-                    changeType=ChangeTypeClass.UPSERT,
                 )
             )
 

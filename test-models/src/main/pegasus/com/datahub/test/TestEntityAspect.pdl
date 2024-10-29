@@ -6,6 +6,7 @@ namespace com.datahub.test
 typeref TestEntityAspect = union[
   TestEntityKey,
   TestEntityInfo,
-  BrowsePaths,
-  SearchFeatures
+  TestBrowsePaths,
+  SearchFeatures,
+  TestBrowsePathsV2
 ]

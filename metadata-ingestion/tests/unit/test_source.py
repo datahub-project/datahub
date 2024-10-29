@@ -1,17 +1,17 @@
 from typing import Iterable
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api import workunit
-from datahub.ingestion.api.common import PipelineContext, WorkUnit
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import StatusClass
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 
 class FakeSource(Source):
-    def get_workunits(self) -> Iterable[WorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         return [
-            workunit.MetadataWorkUnit(
+            MetadataWorkUnit(
                 id="test-workunit",
                 mcp=MetadataChangeProposalWrapper(
                     entityUrn=str(
@@ -27,6 +27,7 @@ class FakeSource(Source):
         ]
 
     def __init__(self, ctx: PipelineContext):
+        super().__init__(ctx)
         self.source_report = SourceReport()
 
     @classmethod

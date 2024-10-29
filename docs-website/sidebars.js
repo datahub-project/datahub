@@ -40,267 +40,677 @@ module.exports = {
 
   overviewSidebar: [
     {
-      "What is DataHub?": [
+      type: "html",
+      value: "<div>Getting Started</div>",
+      defaultStyle: true,
+    },
+    {
+      label: "What Is DataHub?",
+      type: "category",
+      collapsed: true,
+      link: { type: "doc", id: "docs/features" },
+      items: [
         // By the end of this section, readers should understand the core use cases that DataHub addresses,
         // target end-users, high-level architecture, & hosting options
-
-        "docs/features",
-        "docs/what-is-datahub/datahub-concepts",
         {
-          Architecture: [
-            "docs/architecture/architecture",
-            "docs/components",
-            "docs/architecture/metadata-ingestion",
-            "docs/architecture/metadata-serving",
-          ],
+          type: "doc",
+          label: "Quickstart",
+          id: "docs/quickstart",
         },
+<<<<<<< HEAD
         "docs/saas",
+=======
+        {
+          type: "link",
+          label: "Demo",
+          href: "https://demo.datahubproject.io/",
+        },
+        {
+          type: "link",
+          label: "Adoption Stories",
+          href: "/adoption-stories",
+        },
+        "docs/what-is-datahub/datahub-concepts",
+>>>>>>> upstream/master
       ],
     },
     {
       type: "category",
-      label: "Get Started",
-      collapsed: false,
-      // The goal of this section is to provide the bare-minimum steps required to:
-      //   - Get DataHub Running
-      //   - Optionally configure SSO
-      //   - Add/invite Users
-      //   - Create Polices & assign roles
-      //   - Ingest at least one source (ie. data warehouse)
-      //   - Understand high-level options for enriching metadata
-      link: { type: "doc", id: "docs/get-started-with-datahub" },
+      label: "Features",
+      link: {
+        type: "generated-index",
+        title: "Feature Guides",
+        description: "Learn about the features of DataHub.",
+      },
       items: [
+        // "docs/how/ui-tabs-guide",
         {
-          "Self-Hosted DataHub": [
-            "docs/quickstart",
-            "docs/authentication/guides/add-users",
+          label: "Assertions",
+          type: "category",
+          link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
+          items: [
+            {
+              label: "Column Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/column-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Custom SQL Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/custom-sql-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Freshness Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/freshness-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Schema Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/schema-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Volume Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/volume-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Open Assertions Specification",
+              type: "category",
+              link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
+              items: [
+                {
+                  label: "Snowflake",
+                  type: "doc",
+                  id: "docs/assertions/snowflake/snowflake_dmfs",
+                },
+              ],
+            },
           ],
         },
         {
-          "Managed DataHub": [
-            "docs/authentication/guides/add-users",
-
+          label: "Automations",
+          type: "category",
+          collapsed: false,
+          items: [
+            {
+              label: "Documentation Propagation",
+              type: "doc",
+              id: "docs/automations/docs-propagation",
+            },
+            {
+              label: "BigQuery Metadata Sync",
+              type: "doc",
+              id: "docs/automations/bigquery-metadata-sync",
+              className: "saasOnly",
+            },
+            {
+              label: "Snowflake Tag Sync",
+              type: "doc",
+              id: "docs/automations/snowflake-tag-propagation",
+              className: "saasOnly",
+            },
+            {
+              label: "AI Classification",
+              type: "doc",
+              id: "docs/automations/ai-term-suggestion",
+              className: "saasOnly",
+            },
+            {
+              label: "AI Documentation",
+              type: "doc",
+              id: "docs/automations/ai-docs",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
+          label: "Business Attributes",
+          type: "doc",
+          id: "docs/businessattributes",
+        },
+        {
+          label: "Business Glossary",
+          type: "doc",
+          id: "docs/glossary/business-glossary",
+        },
+        {
+          label: "Data Contract",
+          type: "doc",
+          id: "docs/managed-datahub/observe/data-contract",
+        },
+        {
+          label: "Data Products",
+          type: "doc",
+          id: "docs/dataproducts",
+        },
+        {
+          label: "Dataset Usage and Query History",
+          type: "doc",
+          id: "docs/features/dataset-usage-and-query-history",
+        },
+        "docs/features/feature-guides/documentation-forms",
+        {
+          label: "Domains",
+          type: "doc",
+          id: "docs/domains",
+        },
+        {
+          label: "Incidents",
+          type: "doc",
+          id: "docs/incidents/incidents",
+        },
+        {
+          label: "Ingestion",
+          type: "doc",
+          id: "docs/ui-ingestion",
+        },
+        {
+          label: "Lineage",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/generated/lineage/lineage-feature-guide",
+          },
+          items: [
+            {
+              label: "Lineage Impact analysis",
+              type: "doc",
+              id: "docs/act-on-metadata/impact-analysis",
+            },
+            {
+              label: "Managing Lineage via UI",
+              type: "doc",
+              id: "docs/features/feature-guides/ui-lineage",
+            },
+          ],
+        },
+        {
+          label: "Metadata Tests",
+          type: "doc",
+          id: "docs/tests/metadata-tests",
+          className: "saasOnly",
+        },
+        {
+          label: "Ownership",
+          type: "doc",
+          id: "docs/ownership/ownership-types",
+        },
+        {
+          label: "Policies",
+          type: "doc",
+          id: "docs/authorization/access-policies-guide",
+        },
+        {
+          label: "Posts",
+          type: "doc",
+          id: "docs/posts",
+        },
+        "docs/features/feature-guides/properties",
+        {
+          label: "Schema history",
+          type: "doc",
+          id: "docs/schema-history",
+        },
+        {
+          label: "Search",
+          type: "doc",
+          id: "docs/how/search",
+        },
+        {
+          label: "Sync Status",
+          type: "doc",
+          id: "docs/sync-status",
+        },
+        {
+          label: "Tags",
+          type: "doc",
+          id: "docs/tags",
+        },
+      ],
+    },
+    {
+      label: "DataHub Cloud",
+      type: "category",
+      collapsed: true,
+      link: {
+        type: "doc",
+        id: "docs/managed-datahub/managed-datahub-overview",
+      },
+      items: [
+        "docs/managed-datahub/welcome-acryl",
+        {
+          type: "doc",
+          id: "docs/managed-datahub/approval-workflows",
+          className: "saasOnly",
+        },
+        {
+          "DataHub API": [
             {
               type: "doc",
-              id: "docs/managed-datahub/saas-slack-setup",
+              id: "docs/managed-datahub/datahub-api/entity-events-api",
+              className: "saasOnly",
+            },
+            {
+              "GraphQL API": [
+                "docs/managed-datahub/datahub-api/graphql-api/getting-started",
+              ],
+            },
+          ],
+        },
+        {
+          Integrations: [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/integrations/aws-privatelink",
               className: "saasOnly",
             },
             {
               type: "doc",
-              id: "docs/managed-datahub/approval-workflows",
+              id: "docs/managed-datahub/integrations/oidc-sso-integration",
               className: "saasOnly",
             },
           ],
         },
         {
-          "Ingestion Quickstart Guides": [
-            {
-              BigQuery: [
-                "docs/quick-ingestion-guides/bigquery/overview",
-                "docs/quick-ingestion-guides/bigquery/setup",
-                "docs/quick-ingestion-guides/bigquery/configuration",
-              ],
-            },
-            {
-              Redshift: [
-                "docs/quick-ingestion-guides/redshift/overview",
-                "docs/quick-ingestion-guides/redshift/setup",
-                "docs/quick-ingestion-guides/redshift/configuration",
-              ],
-            },
-            {
-              Snowflake: [
-                "docs/quick-ingestion-guides/snowflake/overview",
-                "docs/quick-ingestion-guides/snowflake/setup",
-                "docs/quick-ingestion-guides/snowflake/configuration",
-              ],
-            },
-          ],
-        },
-      ],
-    },
-    {
-      "Ingest Metadata": [
-        // The purpose of this section is to provide a deeper understanding of how ingestion works.
-        // Readers should be able to find details for ingesting from all systems, apply transformers, understand sinks,
-        // and understand key concepts of the Ingestion Framework (Sources, Sinks, Transformers, and Recipes)
-        {
-          Overview: ["metadata-ingestion/README", "docs/ui-ingestion"],
-        },
-
-        {
-          Sources: [
-            // collapse these; add push-based at top
+          Slack: [
             {
               type: "doc",
-              id: "docs/lineage/airflow",
-              label: "Airflow",
+              id: "docs/managed-datahub/slack/saas-slack-setup",
+              className: "saasOnly",
             },
-
-            //"docker/airflow/local_airflow",
-            "metadata-integration/java/spark-lineage/README",
-            "metadata-ingestion/integration_docs/great-expectations",
-            "metadata-integration/java/datahub-protobuf/README",
-            //"metadata-ingestion/source-docs-template",
             {
-              type: "autogenerated",
-              dirName: "docs/generated/ingestion/sources", // '.' means the current docs folder
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-app",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
+              className: "saasOnly",
             },
           ],
         },
         {
-          Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
-        },
-        {
-          Transformers: [
-            "metadata-ingestion/docs/transformer/intro",
-            "metadata-ingestion/docs/transformer/dataset_transformer",
-          ],
-        },
-        {
-          "Advanced Guides": [
+          "Operator Guide": [
             {
-              "Scheduling Ingestion": [
-                "metadata-ingestion/schedule_docs/intro",
-                "metadata-ingestion/schedule_docs/cron",
-                "metadata-ingestion/schedule_docs/airflow",
-                "metadata-ingestion/schedule_docs/kubernetes",
-              ],
-            },
-
-            "docs/platform-instances",
-            "metadata-ingestion/docs/dev_guides/stateful",
-            "metadata-ingestion/docs/dev_guides/classification",
-            "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
-            "metadata-ingestion/docs/dev_guides/sql_profiles",
-          ],
-        },
-      ],
-    },
-    {
-      type: "category",
-      // The purpose of this section is to provide direction on how to enrich metadata when shift-left isn’t an option
-      label: "Enrich Metadata",
-      link: { type: "doc", id: "docs/enrich-metadata" },
-      items: [
-        "docs/domains",
-        "docs/glossary/business-glossary",
-        "docs/tags",
-        "docs/lineage/lineage-feature-guide",
-      ],
-    },
-
-    {
-      type: "category",
-      label: "Act on Metadata",
-      link: { type: "doc", id: "docs/act-on-metadata" },
-      items: [
-        {
-          "Actions Framework": [
-            "docs/actions/README",
-            "docs/actions/quickstart",
-            "docs/actions/concepts",
-            {
-              Sources: [
-                {
-                  type: "autogenerated",
-                  dirName: "docs/actions/sources",
-                },
-              ],
+              type: "doc",
+              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+              className: "saasOnly",
             },
             {
-              Events: [
-                {
-                  type: "autogenerated",
-                  dirName: "docs/actions/events",
-                },
-              ],
-            },
-            {
-              Actions: [
-                {
-                  type: "autogenerated",
-                  dirName: "docs/actions/actions",
-                },
-              ],
-            },
-            {
-              Guides: [
-                {
-                  type: "autogenerated",
-                  dirName: "docs/actions/guides",
-                },
-              ],
+              type: "doc",
+              id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
+              className: "saasOnly",
             },
           ],
         },
         {
           type: "doc",
-          id: "docs/tests/metadata-tests",
+          id: "docs/managed-datahub/chrome-extension",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/subscription-and-notification",
           className: "saasOnly",
         },
-        "docs/act-on-metadata/impact-analysis",
+        {
+          "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_6",
+            "docs/managed-datahub/release-notes/v_0_3_5",
+            "docs/managed-datahub/release-notes/v_0_3_4",
+            "docs/managed-datahub/release-notes/v_0_3_3",
+            "docs/managed-datahub/release-notes/v_0_3_2",
+            "docs/managed-datahub/release-notes/v_0_3_1",
+            "docs/managed-datahub/release-notes/v_0_2_16",
+            "docs/managed-datahub/release-notes/v_0_2_15",
+            "docs/managed-datahub/release-notes/v_0_2_14",
+            "docs/managed-datahub/release-notes/v_0_2_13",
+            "docs/managed-datahub/release-notes/v_0_2_12",
+            "docs/managed-datahub/release-notes/v_0_2_11",
+            "docs/managed-datahub/release-notes/v_0_2_10",
+            "docs/managed-datahub/release-notes/v_0_2_9",
+            "docs/managed-datahub/release-notes/v_0_2_8",
+            "docs/managed-datahub/release-notes/v_0_2_7",
+            "docs/managed-datahub/release-notes/v_0_2_6",
+            "docs/managed-datahub/release-notes/v_0_2_5",
+            "docs/managed-datahub/release-notes/v_0_2_4",
+            "docs/managed-datahub/release-notes/v_0_2_3",
+            "docs/managed-datahub/release-notes/v_0_2_2",
+            "docs/managed-datahub/release-notes/v_0_2_1",
+            "docs/managed-datahub/release-notes/v_0_2_0",
+            "docs/managed-datahub/release-notes/v_0_1_73",
+            "docs/managed-datahub/release-notes/v_0_1_72",
+            "docs/managed-datahub/release-notes/v_0_1_70",
+            "docs/managed-datahub/release-notes/v_0_1_69",
+          ],
+        },
       ],
     },
-
     {
-      "Deploy DataHub": [
-        // The purpose of this section is to provide the minimum steps required to deploy DataHub to the vendor of your choosing
+      type: "html",
+      value: "<div>Integrations</div>",
+      defaultStyle: true,
+    },
+    {
+      type: "category",
+      link: {
+        type: "doc",
+        id: "metadata-ingestion/README",
+      },
+      label: "Overview",
+      items: [
+        {
+          type: "doc",
+          label: "Recipe",
+          id: "metadata-ingestion/recipe_overview",
+        },
+        {
+<<<<<<< HEAD
+          Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
+=======
+          type: "category",
+          label: "Sinks",
+          link: { type: "doc", id: "metadata-ingestion/sink_overview" },
+          items: [
+            {
+              type: "autogenerated",
+              dirName: "metadata-ingestion/sink_docs",
+            },
+          ],
+>>>>>>> upstream/master
+        },
+        {
+          type: "category",
+          label: "Transformers",
+          link: {
+            type: "doc",
+            id: "metadata-ingestion/docs/transformer/intro",
+          },
+          items: ["metadata-ingestion/docs/transformer/dataset_transformer"],
+        },
+      ],
+    },
+    {
+      "Quickstart Guides": [
+        "metadata-ingestion/cli-ingestion",
+        {
+          BigQuery: [
+            "docs/quick-ingestion-guides/bigquery/overview",
+            "docs/quick-ingestion-guides/bigquery/setup",
+            "docs/quick-ingestion-guides/bigquery/configuration",
+          ],
+        },
+        {
+          Redshift: [
+            "docs/quick-ingestion-guides/redshift/overview",
+            "docs/quick-ingestion-guides/redshift/setup",
+            "docs/quick-ingestion-guides/redshift/configuration",
+          ],
+        },
+        {
+          Snowflake: [
+            "docs/quick-ingestion-guides/snowflake/overview",
+            "docs/quick-ingestion-guides/snowflake/setup",
+            "docs/quick-ingestion-guides/snowflake/configuration",
+          ],
+        },
+        {
+          Tableau: [
+            "docs/quick-ingestion-guides/tableau/overview",
+            "docs/quick-ingestion-guides/tableau/setup",
+            "docs/quick-ingestion-guides/tableau/configuration",
+          ],
+        },
+        {
+          PowerBI: [
+            "docs/quick-ingestion-guides/powerbi/overview",
+            "docs/quick-ingestion-guides/powerbi/setup",
+            "docs/quick-ingestion-guides/powerbi/configuration",
+          ],
+        },
+        {
+          Looker: [
+            "docs/quick-ingestion-guides/looker/overview",
+            "docs/quick-ingestion-guides/looker/setup",
+            "docs/quick-ingestion-guides/looker/configuration",
+          ],
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Sources",
+      link: { type: "doc", id: "metadata-ingestion/source_overview" },
+      items: [
+        // collapse these; add push-based at top
+        {
+          type: "doc",
+          id: "docs/lineage/airflow",
+          label: "Airflow",
+        },
+        {
+          type: "doc",
+          id: "docs/lineage/dagster",
+          label: "Dagster",
+        },
+        {
+          type: "doc",
+          id: "docs/lineage/openlineage",
+          label: "OpenLineage",
+        },
+        {
+          type: "doc",
+          id: "docs/lineage/prefect",
+          label: "Prefect",
+        },
+        {
+          type: "doc",
+          id: "metadata-integration/java/acryl-spark-lineage/README",
+          label: "Spark",
+        },
+        //"docker/airflow/local_airflow",
+        "metadata-ingestion/integration_docs/great-expectations",
+        "metadata-integration/java/datahub-protobuf/README",
+        //"metadata-integration/java/spark-lineage-legacy/README",
+        //"metadata-ingestion/source-docs-template",
+        {
+          type: "autogenerated",
+          dirName: "docs/generated/ingestion/sources", // '.' means the current docs folder
+        },
+      ],
+    },
+    {
+      "Advanced Guides": [
+        {
+          "Scheduling Ingestion": [
+            "metadata-ingestion/schedule_docs/intro",
+            "metadata-ingestion/schedule_docs/cron",
+            "metadata-ingestion/schedule_docs/airflow",
+            "metadata-ingestion/schedule_docs/kubernetes",
+          ],
+        },
+
+        "docs/platform-instances",
+        "metadata-ingestion/docs/dev_guides/stateful",
+        "metadata-ingestion/docs/dev_guides/classification",
+        "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
+        "metadata-ingestion/docs/dev_guides/sql_profiles",
+        "metadata-ingestion/docs/dev_guides/profiling_ingestions",
+      ],
+    },
+    {
+      type: "html",
+      value: "<div>Deployment</div>",
+      defaultStyle: true,
+    },
+    {
+      type: "category",
+      label: "Deployment Guides",
+      link: {
+        type: "generated-index",
+        title: "Deployment Guides",
+        description:
+          "Learn how to deploy DataHub to your environment, set up authentication, manage upgrades, and more.",
+      },
+      items: [
         "docs/deploy/aws",
         "docs/deploy/gcp",
+        "docs/deploy/azure",
         "docker/README",
         "docs/deploy/kubernetes",
-        {
-          Authentication: [
-            "docs/authentication/README",
-            "docs/authentication/concepts",
-            {
-              "Frontend Authentication": [
-                "docs/authentication/guides/jaas",
-                {
-                  "OIDC Authentication": [
-                    "docs/authentication/guides/sso/configure-oidc-react",
-                    "docs/authentication/guides/sso/configure-oidc-react-google",
-                    "docs/authentication/guides/sso/configure-oidc-react-okta",
-                    "docs/authentication/guides/sso/configure-oidc-react-azure",
-                  ],
-                },
-              ],
-            },
-            "docs/authentication/introducing-metadata-service-authentication",
-            "docs/authentication/personal-access-tokens",
-          ],
-        },
-        {
-          Authorization: [
-            "docs/authorization/README",
-            "docs/authorization/roles",
-            "docs/authorization/policies",
-            "docs/authorization/groups",
-          ],
-        },
-        {
-          "Advanced Guides": [
-            "docs/how/delete-metadata",
-            "docs/how/configuring-authorization-with-apache-ranger",
-            "docs/how/backup-datahub",
-            "docs/how/restore-indices",
-            "docs/advanced/db-retention",
-            "docs/advanced/monitoring",
-            "docs/how/extract-container-logs",
-            "docs/deploy/telemetry",
-            "docs/how/kafka-config",
-            "docs/deploy/confluent-cloud",
-            "docs/advanced/no-code-upgrade",
-          ],
-        },
-        "docs/how/updating-datahub",
       ],
     },
-
     {
-      "DataHub API": [
-        "docs/api/datahub-apis",
+      type: "category",
+      label: "Advanced Guides",
+      items: [
+        "docs/deploy/confluent-cloud",
+        "docs/deploy/environment-vars",
+        "docs/how/extract-container-logs",
+      ],
+    },
+    {
+      type: "html",
+      value: "<div>Admin</div>",
+      defaultStyle: true,
+    },
+    {
+      Authentication: [
+        "docs/authentication/README",
+        "docs/authentication/concepts",
+        "docs/authentication/changing-default-credentials",
+        "docs/authentication/guides/add-users",
+        {
+          "Frontend Authentication": [
+            "docs/authentication/guides/jaas",
+            "docs/authentication/guides/sso/configure-oidc-react",
+            "docs/authentication/guides/sso/configure-oidc-behind-proxy",
+          ],
+        },
+        "docs/authentication/introducing-metadata-service-authentication",
+        "docs/authentication/personal-access-tokens",
+      ],
+    },
+    {
+      Authorization: [
+        "docs/authorization/README",
+        "docs/authorization/roles",
+        "docs/authorization/policies",
+        "docs/authorization/groups",
+      ],
+    },
+    {
+      "Advanced Guides": [
+        "docs/how/delete-metadata",
+        "docs/how/configuring-authorization-with-apache-ranger",
+        {
+          "SCIM Provisioning": [
+            "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
+            "docs/managed-datahub/configuring-identity-provisioning-with-okta",
+          ],
+        },
+        "docs/how/backup-datahub",
+        "docs/how/restore-indices",
+        "docs/advanced/db-retention",
+        "docs/advanced/monitoring",
+        "docs/deploy/telemetry",
+        "docs/how/kafka-config",
+        "docs/advanced/no-code-upgrade",
+        "docs/how/jattach-guide",
+      ],
+    },
+    {
+      type: "html",
+      value: "<div>Developers</div>",
+      defaultStyle: true,
+    },
+    {
+      Architecture: [
+        "docs/architecture/architecture",
+        "docs/components",
+        "docs/architecture/metadata-ingestion",
+        "docs/architecture/metadata-serving",
+        "docs/architecture/docker-containers",
+      ],
+    },
+    {
+      "Metadata Model": [
+        "docs/modeling/metadata-model",
+        "docs/modeling/extending-the-metadata-model",
+        "docs/what/mxe",
+        {
+          Entities: [
+            {
+              type: "autogenerated",
+              dirName: "docs/generated/metamodel/entities", // '.' means the current docs folder
+            },
+          ],
+        },
+      ],
+    },
+    {
+      "Developing on DataHub": [
+        "docs/developers",
+        "docs/docker/development",
+        "metadata-ingestion/developing",
+        "docs/api/graphql/graphql-endpoint-development",
+        {
+          Modules: [
+            "datahub-web-react/README",
+            "datahub-frontend/README",
+            "datahub-graphql-core/README",
+            "metadata-service/README",
+            "metadata-jobs/mae-consumer-job/README",
+            "metadata-jobs/mce-consumer-job/README",
+          ],
+        },
+        {
+          Troubleshooting: [
+            "docs/troubleshooting/quickstart",
+            "docs/troubleshooting/build",
+            "docs/troubleshooting/general",
+          ],
+        },
+      ],
+    },
+    {
+      "Advanced Guides": [
+        "metadata-ingestion/docs/dev_guides/reporting_telemetry",
+        "docs/advanced/mcp-mcl",
+        "docker/datahub-upgrade/README",
+        "docs/advanced/no-code-modeling",
+        "datahub-web-react/src/app/analytics/README",
+        "docs/how/migrating-graph-service-implementation",
+        "docs/advanced/field-path-spec-v2",
+        "metadata-ingestion/adding-source",
+        "docs/how/add-custom-ingestion-source",
+        "docs/how/add-custom-data-platform",
+        "docs/advanced/browse-paths-upgrade",
+        "docs/browseV2/browse-paths-v2",
+        "docs/plugins",
+        "docs/advanced/bootstrap-mcps",
+      ],
+    },
+    {
+      type: "html",
+      value: "<div>API & SDKs</div>",
+      defaultStyle: true,
+    },
+    {
+      type: "doc",
+      id: "docs/api/datahub-apis",
+      label: "Overview",
+    },
+    {
+      type: "category",
+      label: "API",
+      items: [
         {
           "GraphQL API": [
             {
@@ -376,18 +786,18 @@ module.exports = {
         {
           OpenAPI: [
             {
-              label: "Usage Guide",
               type: "doc",
+              label: "OpenAPI",
               id: "docs/api/openapi/openapi-usage-guide",
             },
-            "docs/dev-guides/timeline",
           ],
         },
+        "docs/dev-guides/timeline",
         {
-          "Rest.li": [
+          "Rest.li API": [
             {
               type: "doc",
-              label: "Rest.li API",
+              label: "Rest.li API Guide",
               id: "docs/api/restli/restli-overview",
             },
             {
@@ -397,11 +807,32 @@ module.exports = {
             },
             {
               type: "doc",
+              label: "Get Index Sizes",
+              id: "docs/api/restli/get-index-sizes",
+            },
+            {
+              type: "doc",
+              label: "Truncate Timeseries Aspect",
+              id: "docs/api/restli/truncate-time-series-aspect",
+            },
+            {
+              type: "doc",
+              label: "Get ElasticSearch Task Status Endpoint",
+              id: "docs/api/restli/get-elastic-task-status",
+            },
+            {
+              type: "doc",
+              label: "Evaluate Tests",
+              id: "docs/api/restli/evaluate-tests",
+            },
+            {
+              type: "doc",
               label: "Aspect Versioning and Rest.li Modeling",
               id: "docs/advanced/aspect-versioning",
             },
           ],
         },
+<<<<<<< HEAD
         {
           "Getting Started: APIs & SDKs": [
             {
@@ -445,196 +876,135 @@ module.exports = {
             },
           ],
         },
+=======
+>>>>>>> upstream/master
       ],
     },
-
     {
-      Tools: [
-        "docs/cli",
+      type: "category",
+      label: "SDK",
+      items: [
         {
-          SDKs: [
+          "Python SDK": [
             "metadata-ingestion/as-a-library",
-            "metadata-integration/java/as-a-library",
-          ],
-        },
-        {
-          "Python SDK Reference": [
             {
-              type: "autogenerated",
-              dirName: "python-sdk",
-            },
-          ],
-        },
-        "docs/datahub_lite",
-      ],
-    },
-    {
-      "Developer Guides": [
-        // The purpose of this section is to provide developers & technical users with
-        // concrete tutorials for how to work with the DataHub CLI & APIs
-        {
-          "DataHub Metadata Model": [
-            "docs/modeling/metadata-model",
-            "docs/modeling/extending-the-metadata-model",
-            "docs/what/mxe",
-            {
-              Entities: [
+              "Python SDK Reference": [
                 {
                   type: "autogenerated",
-                  dirName: "docs/generated/metamodel/entities", // '.' means the current docs folder
+                  dirName: "python-sdk",
                 },
               ],
-            },
-          ],
-        },
-        {
-          "Developing on DataHub": [
-            "docs/developers",
-            "docs/docker/development",
-            "metadata-ingestion/developing",
-            {
-              Modules: [
-                "datahub-web-react/README",
-                "datahub-frontend/README",
-                "datahub-graphql-core/README",
-                "metadata-service/README",
-                "metadata-jobs/mae-consumer-job/README",
-                "metadata-jobs/mce-consumer-job/README",
-              ],
-            },
-          ],
-        },
-        "docs/debugging",
-        "docs/faq-using-datahub",
-        "docs/plugins",
-
-        {
-          Advanced: [
-            "metadata-ingestion/docs/dev_guides/reporting_telemetry",
-            "docs/advanced/mcp-mcl",
-            "docker/datahub-upgrade/README",
-            "docs/advanced/no-code-modeling",
-            "datahub-web-react/src/app/analytics/README",
-            "docs/advanced/es-7-upgrade",
-            "docs/how/migrating-graph-service-implementation",
-            "docs/advanced/field-path-spec-v2",
-            "metadata-ingestion/adding-source",
-            "docs/how/add-custom-ingestion-source",
-            "docs/how/add-custom-data-platform",
-            "docs/advanced/browse-paths-upgrade",
-          ],
-        },
-      ],
-    },
-
-    {
-      "Feature Guides": [
-        "docs/how/search",
-        "docs/schema-history",
-        // "docs/how/ui-tabs-guide",
-        "docs/domains",
-        "docs/glossary/business-glossary",
-        "docs/tags",
-        "docs/browse",
-        "docs/authorization/access-policies-guide",
-        "docs/features/dataset-usage-and-query-history",
-        "docs/posts",
-        "docs/sync-status",
-        "docs/architecture/stemming_and_synonyms",
-        "docs/lineage/lineage-feature-guide",
-      ],
-    },
-
-    {
-      "Join the Community": [
-        "docs/slack",
-        "docs/townhalls",
-        "docs/townhall-history",
-        "docs/CODE_OF_CONDUCT",
-        "docs/CONTRIBUTING",
-        "docs/links",
-        "docs/rfc",
-      ],
-    },
-    {
-      "Managed DataHub": [
-        "docs/managed-datahub/managed-datahub-overview",
-        "docs/managed-datahub/welcome-acryl",
-        {
-          "Metadata Ingestion With Acryl": [
-            "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
-          ],
-        },
-        {
-          "DataHub API": [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/datahub-api/entity-events-api",
-              className: "saasOnly",
-            },
-            {
-              "GraphQL API": [
-                "docs/managed-datahub/datahub-api/graphql-api/getting-started",
-                {
-                  type: "doc",
-                  id: "docs/managed-datahub/datahub-api/graphql-api/incidents-api-beta",
-                  className: "saasOnly",
-                },
-              ],
-            },
-          ],
-        },
-        {
-          Integrations: [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/aws-privatelink",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/oidc-sso-integration",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
-          "Operator Guide": [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor-on-aws",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
-              className: "saasOnly",
             },
           ],
         },
         {
           type: "doc",
-          id: "docs/managed-datahub/chrome-extension",
-          className: "saasOnly",
+          label: "Java SDK",
+          id: "metadata-integration/java/as-a-library",
         },
-
+      ],
+    },
+    {
+      type: "category",
+      label: "DataHub CLI",
+      link: { type: "doc", id: "docs/cli" },
+      items: ["docs/datahub_lite"],
+    },
+    {
+      type: "category",
+      label: "DataHub Actions",
+      link: { type: "doc", id: "docs/act-on-metadata" },
+      items: [
+        "docs/actions/README",
+        "docs/actions/quickstart",
+        "docs/actions/concepts",
         {
-          "Managed DataHub Release History": [
-            "docs/managed-datahub/release-notes/v_0_2_4",
-            "docs/managed-datahub/release-notes/v_0_2_3",
-            "docs/managed-datahub/release-notes/v_0_2_2",
-            "docs/managed-datahub/release-notes/v_0_2_1",
-            "docs/managed-datahub/release-notes/v_0_2_0",
-            "docs/managed-datahub/release-notes/v_0_1_73",
-            "docs/managed-datahub/release-notes/v_0_1_72",
-            "docs/managed-datahub/release-notes/v_0_1_70",
-            "docs/managed-datahub/release-notes/v_0_1_69",
+          Sources: [
+            {
+              type: "autogenerated",
+              dirName: "docs/actions/sources",
+            },
+          ],
+        },
+        {
+          Events: [
+            {
+              type: "autogenerated",
+              dirName: "docs/actions/events",
+            },
+          ],
+        },
+        {
+          Actions: [
+            {
+              type: "autogenerated",
+              dirName: "docs/actions/actions",
+            },
+          ],
+        },
+        {
+          Guides: [
+            {
+              type: "autogenerated",
+              dirName: "docs/actions/guides",
+            },
           ],
         },
       ],
     },
     {
-      "Release History": ["releases"],
+      "API & SDK Guides": [
+        "docs/api/tutorials/datasets",
+        "docs/api/tutorials/deprecation",
+        "docs/api/tutorials/descriptions",
+        "docs/api/tutorials/custom-properties",
+        "docs/api/tutorials/assertions",
+        "docs/api/tutorials/custom-assertions",
+        "docs/api/tutorials/incidents",
+        "docs/api/tutorials/operations",
+        "docs/api/tutorials/data-contracts",
+        "docs/api/tutorials/domains",
+        "docs/api/tutorials/forms",
+        "docs/api/tutorials/lineage",
+        "docs/api/tutorials/ml",
+        "docs/api/tutorials/owners",
+        "docs/api/tutorials/structured-properties",
+        "docs/api/tutorials/tags",
+        "docs/api/tutorials/terms",
+        {
+          type: "doc",
+          id: "docs/advanced/patch",
+          label: "Patch",
+        },
+      ],
+    },
+    {
+      type: "html",
+      value: "<div>Community</div>",
+      defaultStyle: true,
+    },
+    {
+      label: "Community",
+      type: "category",
+      collapsed: true,
+      link: {
+        type: "generated-index",
+        title: "Community",
+        description: "Learn about DataHub community.",
+      },
+      items: [
+        "docs/slack",
+        "docs/townhalls",
+        //        "docs/townhall-history",
+        "docs/CODE_OF_CONDUCT",
+        "docs/CONTRIBUTING",
+        "docs/links",
+        "docs/rfc",
+        "SECURITY",
+      ],
+    },
+    {
+      "Release History": ["releases", "docs/how/updating-datahub"],
     },
 
     // "Candidates for Deprecation": [
@@ -654,7 +1024,13 @@ module.exports = {
     //"docs/how/build-metadata-service",
     //"docs/how/graph-onboarding",
     //"docs/demo/graph-onboarding",
+    //"metadata-integration/java/spark-lineage/README",
+    // "metadata-integration/java/acryl-spark-lineage/README.md
+    // "metadata-integration/java/openlineage-converter/README"
     //"metadata-ingestion-modules/airflow-plugin/README"
+    //"metadata-ingestion-modules/dagster-plugin/README"
+    //"metadata-ingestion-modules/prefect-plugin/README"
+    //"metadata-ingestion-modules/gx-plugin/README"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
     // "docs/what/entity",
@@ -681,6 +1057,11 @@ module.exports = {
     // "metadata-jobs/README",
     // "docs/how/add-user-data",
     // "docs/_feature-guide-template"
+    // "docs/_api-guide-template"
+    // - "metadata-service/services/README"
+    // "metadata-ingestion/examples/structured_properties/README"
+    // "smoke-test/tests/openapi/README"
+    // "docs/SECURITY_STANCE"
     // ],
   ],
 };

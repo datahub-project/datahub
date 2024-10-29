@@ -27,7 +27,7 @@ record PizzaSearchDocument {
   /**
    * The path parts to browse for this pizza.
    */
-  browsePaths: optional array[string]
+  testBrowsePaths: optional array[string]
 
   /**
    * Whether this pizza still exists.

@@ -1,26 +1,24 @@
-version: '3.8'
 services:
   datahub-mae-consumer:
-    image: linkedin/datahub-mae-consumer:debug
+    image: acryldata/datahub-mae-consumer:debug
     build:
-      context: datahub-mae-consumer
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: docker/datahub-mae-consumer/Dockerfile
       args:
         APP_ENV: dev
     volumes:
-      - ./datahub-mae-consumer/start.sh:/datahub/datahub-mae-consumer/scripts/start.sh
-      - ../metadata-models/src/main/resources/:/datahub/datahub-mae-consumer/resources
-      - ../metadata-jobs/mae-consumer-job/build/libs/:/datahub/datahub-mae-consumer/bin/
-      - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
-
+    - ./datahub-mae-consumer/start.sh:/datahub/datahub-mae-consumer/scripts/start.sh
+    - ../metadata-models/src/main/resources/:/datahub/datahub-mae-consumer/resources
+    - ../metadata-jobs/mae-consumer-job/build/libs/:/datahub/datahub-mae-consumer/bin/
+    - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
   datahub-mce-consumer:
-    image: linkedin/datahub-mce-consumer:debug
+    image: acryldata/datahub-mce-consumer:debug
     build:
-      context: datahub-mce-consumer
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: docker/datahub-mce-consumer/Dockerfile
       args:
         APP_ENV: dev
     volumes:
-      - ./datahub-mce-consumer/start.sh:/datahub/datahub-mce-consumer/scripts/start.sh
-      - ../metadata-jobs/mce-consumer-job/build/libs/:/datahub/datahub-mce-consumer/bin
-      - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
+    - ./datahub-mce-consumer/start.sh:/datahub/datahub-mce-consumer/scripts/start.sh
+    - ../metadata-jobs/mce-consumer-job/build/libs/:/datahub/datahub-mce-consumer/bin
+    - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-mce-consumer/scripts/prometheus-config.yaml

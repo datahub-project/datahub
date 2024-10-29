@@ -38,8 +38,8 @@ We are planning to support a cron-based application of retention in the near fut
 
 ## How to configure?
 
-For the initial iteration, we have made this feature opt-in. Please set **ENTITY_SERVICE_ENABLE_RETENTION=true** when
-creating the datahub-gms container/k8s pod.
+We have enabled with feature by default. Please set **ENTITY_SERVICE_ENABLE_RETENTION=false** when
+creating the datahub-gms container/k8s pod to prevent the retention policies from taking effect.
 
 On GMS start up, retention policies are initialized with:
 1. First, the default provided **version-based** retention to keep **20 latest aspects** for all entity-aspect pairs. 

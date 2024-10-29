@@ -7,6 +7,7 @@ import com.linkedin.common.Ownership
 import com.linkedin.common.Status
 import com.linkedin.common.GlobalTags
 import com.linkedin.common.BrowsePaths
+import com.linkedin.common.BrowsePathsV2
 import com.linkedin.common.DataPlatformInstance
 import com.linkedin.common.GlossaryTerms
 import com.linkedin.common.InstitutionalMemory
@@ -24,5 +25,6 @@ typeref DashboardAspect = union[
   BrowsePaths,
   GlossaryTerms,
   InstitutionalMemory,
-  DataPlatformInstance
+  DataPlatformInstance,
+  BrowsePathsV2
 ]

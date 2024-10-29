@@ -37,6 +37,11 @@ extend type Mutation {
   createSecret(input: CreateSecretInput!): String
 
   """
+  Update a Secret
+  """
+  updateSecret(input: UpdateSecretInput!): String
+
+  """
   Delete a Secret
   """
   deleteSecret(urn: String!): String
@@ -112,6 +117,11 @@ type ExecutionRequestInput {
   The time at which the request was created
   """
   requestedAt: Long!
+
+  """
+  Urn of the actor who created this execution request
+  """
+  actorUrn: String
 }
 
 """
@@ -332,6 +342,11 @@ type IngestionConfig {
   Advanced: Whether or not to run ingestion in debug mode
   """
   debugMode: Boolean
+
+  """
+  Advanced: Extra arguments for the ingestion run.
+  """
+  extraArgs: [StringMapEntry!]
 }
 
 """
@@ -428,6 +443,11 @@ input ListIngestionSourcesInput {
   An optional search query
   """
   query: String
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
 }
 
 """
@@ -478,6 +498,11 @@ input UpdateIngestionSourceConfigInput {
   Whether or not to run ingestion in debug mode
   """
   debugMode: Boolean
+
+  """
+  Extra arguments for the ingestion run.
+  """
+  extraArgs: [StringMapEntryInput!]
 }
 
 """
@@ -529,6 +554,31 @@ input UpdateIngestionSourceInput {
 Input arguments for creating a new Secret
 """
 input CreateSecretInput {
+  """
+  The name of the secret for reference in ingestion recipes
+  """
+  name: String!
+
+  """
+  The value of the secret, to be encrypted and stored
+  """
+  value: String!
+
+  """
+  An optional description for the secret
+  """
+  description: String
+}
+
+"""
+Input arguments for updating a Secret
+"""
+input UpdateSecretInput {
+  """
+  The primary key of the Secret to update
+  """
+  urn: String!
+
   """
   The name of the secret for reference in ingestion recipes
   """

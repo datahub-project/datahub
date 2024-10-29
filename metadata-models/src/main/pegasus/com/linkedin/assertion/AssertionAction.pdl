@@ -1,0 +1,22 @@
+namespace com.linkedin.assertion
+
+/**
+ * The Actions about an Assertion.
+ * In the future, we'll likely extend this model to support additional
+ * parameters or options related to the assertion actions.
+ */
+record AssertionAction {
+    /**
+     * The type of the Action
+     */
+    type: enum AssertionActionType {
+      /**
+      * Raise an incident.
+      */
+      RAISE_INCIDENT
+      /**
+      * Resolve open incidents related to the assertion.
+      */
+      RESOLVE_INCIDENT
+    }
+}

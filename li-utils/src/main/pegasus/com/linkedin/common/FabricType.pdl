@@ -54,4 +54,14 @@ enum FabricType {
    * Designates corporation fabrics
    */
   CORP
+
+  /**
+   * Designates review fabrics
+   */
+  RVW
+
+  /**
+   * Designates sandbox fabrics
+   */
+  SANDBOX
 }

@@ -7,14 +7,14 @@ from dataclasses import dataclass, field
 from time import sleep
 from typing import Dict, Iterable, List, Optional, Union
 
+import nest_asyncio
 from okta.client import Client as OktaClient
 from okta.exceptions import OktaAPIException
 from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -25,8 +25,17 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     CorpGroupSnapshot,
     CorpUserSnapshot,
@@ -43,9 +52,10 @@ from datahub.metadata.schema_classes import (
 )
 
 logger = logging.getLogger(__name__)
+nest_asyncio.apply()
 
 
-class OktaConfig(ConfigModel):
+class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     # Required: Domain of the Okta deployment. Example: dev-33231928.okta.com
     okta_domain: str = Field(
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
@@ -70,11 +80,11 @@ class OktaConfig(ConfigModel):
     # Optional: Customize the mapping to DataHub Username from an attribute appearing in the Okta User
     # profile. Reference: https://developer.okta.com/docs/reference/api/users/
     okta_profile_to_username_attr: str = Field(
-        default="login",
+        default="email",
         description="Which Okta User Profile attribute to use as input to DataHub username mapping. Common values used are - login, email.",
     )
     okta_profile_to_username_regex: str = Field(
-        default="([^@]+)",
+        default="(.*)",
         description="A regex used to parse the DataHub username from the attribute specified in `okta_profile_to_username_attr`.",
     )
 
@@ -130,6 +140,15 @@ class OktaConfig(ConfigModel):
         default=None,
         description="Okta search expression (not regex) for ingesting groups. Only one of `okta_groups_filter` and `okta_groups_search` can be set. See (https://developer.okta.com/docs/reference/api/groups/#list-groups-with-search) for more info.",
     )
+    skip_users_without_a_group: bool = Field(
+        default=False,
+        description="Whether to only ingest users that are members of groups. If this is set to False, all users will be ingested regardless of group membership.",
+    )
+
+    # Configuration for stateful ingestion
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None, description="Okta Stateful Ingestion Config."
+    )
 
     # Optional: Whether to mask sensitive information from workunit ID's. On by default.
     mask_group_id: bool = True
@@ -138,7 +157,7 @@ class OktaConfig(ConfigModel):
     @validator("okta_users_search")
     def okta_users_one_of_filter_or_search(cls, v, values):
         if v and values["okta_users_filter"]:
-            raise ConfigurationError(
+            raise ValueError(
                 "Only one of okta_users_filter or okta_users_search can be set"
             )
         return v
@@ -146,14 +165,14 @@ class OktaConfig(ConfigModel):
     @validator("okta_groups_search")
     def okta_groups_one_of_filter_or_search(cls, v, values):
         if v and values["okta_groups_filter"]:
-            raise ConfigurationError(
+            raise ValueError(
                 "Only one of okta_groups_filter or okta_groups_search can be set"
             )
         return v
 
 
 @dataclass
-class OktaSourceReport(SourceReport):
+class OktaSourceReport(StaleEntityRemovalSourceReport):
     filtered: List[str] = field(default_factory=list)
 
     def report_filtered(self, name: str) -> None:
@@ -178,7 +197,10 @@ class OktaSourceReport(SourceReport):
 @config_class(OktaConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DESCRIPTIONS, "Optionally enabled via configuration")
-class OktaSource(Source):
+@capability(
+    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+)
+class OktaSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
 
@@ -193,7 +215,7 @@ class OktaSource(Source):
     like to take actions like adding them to a group or assigning them a role.
 
     For instructions on how to do configure Okta OIDC SSO, please read the documentation
-    [here](https://datahubproject.io/docs/authentication/guides/sso/configure-oidc-react-okta).
+    [here](../../../authentication/guides/sso/configure-oidc-react.md#create-an-application-in-okta-developer-console).
 
     ### Extracting DataHub Users
 
@@ -256,27 +278,42 @@ class OktaSource(Source):
 
     """
 
+    config: OktaConfig
+    report: OktaSourceReport
+    okta_client: OktaClient
+    stale_entity_removal_handler: StaleEntityRemovalHandler
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = OktaConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
     def __init__(self, config: OktaConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.report = OktaSourceReport()
         self.okta_client = self._create_okta_client()
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Step 0: get or create the event loop
         # This method can be called on the main thread or an async thread, so we must create a new loop if one doesn't exist
         # See https://docs.python.org/3/library/asyncio-eventloop.html for more info.
 
+        created_event_loop = False
         try:
             event_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         except RuntimeError:
             event_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(event_loop)
+            created_event_loop = True
 
         # Step 1: Produce MetadataWorkUnits for CorpGroups.
         okta_groups: Optional[Iterable[Group]] = None
@@ -288,37 +325,23 @@ class OktaSource(Source):
             ):
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_group_snapshot)
                 wu_id = f"group-snapshot-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                wu = MetadataWorkUnit(id=wu_id, mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
+                yield MetadataWorkUnit(id=wu_id, mce=mce)
 
-                group_origin_mcp = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityType="corpGroup",
                     entityUrn=datahub_corp_group_snapshot.urn,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
-                )
-                group_origin_wu_id = f"group-origin-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                group_origin_wu = MetadataWorkUnit(
-                    id=group_origin_wu_id, mcp=group_origin_mcp
-                )
-                self.report.report_workunit(group_origin_wu)
-                yield group_origin_wu
+                ).as_workunit()
 
-                group_status_mcp = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityType="corpGroup",
                     entityUrn=datahub_corp_group_snapshot.urn,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName="status",
                     aspect=StatusClass(removed=False),
-                )
-                group_status_wu_id = f"group-status-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                group_status_wu = MetadataWorkUnit(
-                    id=group_status_wu_id, mcp=group_status_mcp
-                )
-                self.report.report_workunit(group_status_wu)
-                yield group_status_wu
+                ).as_workunit()
 
         # Step 2: Populate GroupMembership Aspects for CorpUsers
         datahub_corp_user_urn_to_group_membership: Dict[
@@ -368,44 +391,40 @@ class OktaSource(Source):
                         datahub_corp_user_snapshot.urn
                     ]
                 )
+                if (
+                    self.config.skip_users_without_a_group
+                    and len(datahub_group_membership.groups) == 0
+                ):
+                    logger.debug(
+                        f"Filtering {datahub_corp_user_snapshot.urn} due to group filter"
+                    )
+                    self.report.report_filtered(datahub_corp_user_snapshot.urn)
+                    continue
                 assert datahub_group_membership is not None
                 datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
                 wu_id = f"user-snapshot-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-                wu = MetadataWorkUnit(id=wu_id, mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
+                yield MetadataWorkUnit(id=wu_id, mce=mce)
 
-                user_origin_mcp = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityType="corpuser",
                     entityUrn=datahub_corp_user_snapshot.urn,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
-                )
-                user_origin_wu_id = f"user-origin-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-                user_origin_wu = MetadataWorkUnit(
-                    id=user_origin_wu_id, mcp=user_origin_mcp
-                )
-                self.report.report_workunit(user_origin_wu)
-                yield user_origin_wu
+                ).as_workunit()
 
-                user_status_mcp = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityType="corpuser",
                     entityUrn=datahub_corp_user_snapshot.urn,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName="status",
                     aspect=StatusClass(removed=False),
-                )
-                user_status_wu_id = f"user-status-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-                user_status_wu = MetadataWorkUnit(
-                    id=user_status_wu_id, mcp=user_status_mcp
-                )
-                self.report.report_workunit(user_status_wu)
-                yield user_status_wu
+                ).as_workunit()
 
         # Step 4: Close the event loop
-        event_loop.close()
+        if created_event_loop:
+            event_loop.close()
 
     def get_report(self):
         return self.report
@@ -446,8 +465,7 @@ class OktaSource(Source):
                     "okta_groups", f"Failed to fetch Groups from Okta API: {err}"
                 )
             if groups:
-                for group in groups:
-                    yield group
+                yield from groups
             if resp and resp.has_next():
                 sleep(self.config.delay_seconds)
                 try:
@@ -485,8 +503,7 @@ class OktaSource(Source):
                     f"Failed to fetch Users of Group {group.profile.name} from Okta API: {err}",
                 )
             if users:
-                for user in users:
-                    yield user
+                yield from users
             if resp and resp.has_next():
                 sleep(self.config.delay_seconds)
                 try:
@@ -523,8 +540,7 @@ class OktaSource(Source):
                     "okta_users", f"Failed to fetch Users from Okta API: {err}"
                 )
             if users:
-                for user in users:
-                    yield user
+                yield from users
             if resp and resp.has_next():
                 sleep(self.config.delay_seconds)
                 try:
@@ -648,9 +664,9 @@ class OktaSource(Source):
         full_name = f"{profile.firstName} {profile.lastName}"
         return CorpUserInfoClass(
             active=True,
-            displayName=profile.displayName
-            if profile.displayName is not None
-            else full_name,
+            displayName=(
+                profile.displayName if profile.displayName is not None else full_name
+            ),
             firstName=profile.firstName,
             lastName=profile.lastName,
             fullName=full_name,

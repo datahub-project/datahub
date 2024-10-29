@@ -1,30 +1,18 @@
 import pytest
-import time
 import tenacity
-from tests.utils import (
-    delete_urns_from_file,
-    get_frontend_url,
-    get_gms_url,
-    ingest_file_via_rest,
-    get_sleep_info,
-)
+
+from tests.utils import get_sleep_info
 
 sleep_sec, sleep_times = get_sleep_info()
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
 
 
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_more_views(frontend_session, list_views_json, query_name, before_count):
-
+def _ensure_more_views(auth_session, list_views_json, query_name, before_count):
     # Get new count of Views
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=list_views_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=list_views_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -40,14 +28,14 @@ def _ensure_more_views(frontend_session, list_views_json, query_name, before_cou
     assert after_count == before_count + 1
     return after_count
 
+
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_less_views(frontend_session, list_views_json, query_name, before_count):
-
+def _ensure_less_views(auth_session, list_views_json, query_name, before_count):
     # Get new count of Views
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=list_views_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=list_views_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -63,9 +51,8 @@ def _ensure_less_views(frontend_session, list_views_json, query_name, before_cou
     assert after_count == before_count - 1
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_list_delete_global_view(frontend_session):
-
+@pytest.mark.dependency()
+def test_create_list_delete_global_view(auth_session):
     # Get count of existing views
     list_global_views_json = {
         "query": """query listGlobalViews($input: ListGlobalViewsInput!) {\n
@@ -95,8 +82,8 @@ def test_create_list_delete_global_view(frontend_session):
         "variables": {"input": {"start": "0", "count": "20"}},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=list_global_views_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=list_global_views_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -111,18 +98,18 @@ def test_create_list_delete_global_view(frontend_session):
     new_view_name = "Test View"
     new_view_description = "Test Description"
     new_view_definition = {
-      "entityTypes": ["DATASET", "DASHBOARD"],
-      "filter": {
-        "operator": "AND",
-        "filters": [
-          {
-            "field": "tags",
-            "values": ["urn:li:tag:test"],
-            "negated": False,
-            "condition": "EQUAL"
-          }
-        ]
-      }
+        "entityTypes": ["DATASET", "DASHBOARD"],
+        "filter": {
+            "operator": "AND",
+            "filters": [
+                {
+                    "field": "tags",
+                    "values": ["urn:li:tag:test"],
+                    "negated": False,
+                    "condition": "EQUAL",
+                }
+            ],
+        },
     }
 
     # Create new View
@@ -137,13 +124,13 @@ def test_create_list_delete_global_view(frontend_session):
                 "viewType": "GLOBAL",
                 "name": new_view_name,
                 "description": new_view_description,
-                "definition": new_view_definition
+                "definition": new_view_definition,
             }
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=create_view_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=create_view_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -156,42 +143,37 @@ def test_create_list_delete_global_view(frontend_session):
     view_urn = res_data["data"]["createView"]["urn"]
 
     new_count = _ensure_more_views(
-        frontend_session=frontend_session,
+        auth_session=auth_session,
         list_views_json=list_global_views_json,
         query_name="listGlobalViews",
         before_count=before_count,
     )
-
-    delete_json = {"urn": view_urn}
 
     # Delete the View
     delete_view_json = {
         "query": """mutation deleteView($urn: String!) {\n
             deleteView(urn: $urn)
         }""",
-        "variables": {
-            "urn": view_urn
-        },
+        "variables": {"urn": view_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=delete_view_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=delete_view_json
     )
     response.raise_for_status()
     res_data = response.json()
     assert "errors" not in res_data
 
     _ensure_less_views(
-        frontend_session=frontend_session,
+        auth_session=auth_session,
         list_views_json=list_global_views_json,
         query_name="listGlobalViews",
         before_count=new_count,
     )
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_create_list_delete_global_view"])
-def test_create_list_delete_personal_view(frontend_session):
-
+@pytest.mark.dependency(depends=["test_create_list_delete_global_view"])
+def test_create_list_delete_personal_view(auth_session):
     # Get count of existing views
     list_my_views_json = {
         "query": """query listMyViews($input: ListMyViewsInput!) {\n
@@ -221,8 +203,8 @@ def test_create_list_delete_personal_view(frontend_session):
         "variables": {"input": {"start": "0", "count": "20"}},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=list_my_views_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=list_my_views_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -237,18 +219,18 @@ def test_create_list_delete_personal_view(frontend_session):
     new_view_name = "Test View"
     new_view_description = "Test Description"
     new_view_definition = {
-      "entityTypes": ["DATASET", "DASHBOARD"],
-      "filter": {
-        "operator": "AND",
-        "filters": [
-          {
-            "field": "tags",
-            "values": ["urn:li:tag:test"],
-            "negated": False,
-            "condition": "EQUAL"
-          }
-        ]
-      }
+        "entityTypes": ["DATASET", "DASHBOARD"],
+        "filter": {
+            "operator": "AND",
+            "filters": [
+                {
+                    "field": "tags",
+                    "values": ["urn:li:tag:test"],
+                    "negated": False,
+                    "condition": "EQUAL",
+                }
+            ],
+        },
     }
 
     # Create new View
@@ -263,13 +245,13 @@ def test_create_list_delete_personal_view(frontend_session):
                 "viewType": "PERSONAL",
                 "name": new_view_name,
                 "description": new_view_description,
-                "definition": new_view_definition
+                "definition": new_view_definition,
             }
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=create_view_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=create_view_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -282,7 +264,7 @@ def test_create_list_delete_personal_view(frontend_session):
     view_urn = res_data["data"]["createView"]["urn"]
 
     new_count = _ensure_more_views(
-        frontend_session=frontend_session,
+        auth_session=auth_session,
         list_views_json=list_my_views_json,
         query_name="listMyViews",
         before_count=before_count,
@@ -293,44 +275,42 @@ def test_create_list_delete_personal_view(frontend_session):
         "query": """mutation deleteView($urn: String!) {\n
             deleteView(urn: $urn)
         }""",
-        "variables": {
-            "urn": view_urn
-        },
+        "variables": {"urn": view_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=delete_view_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=delete_view_json
     )
     response.raise_for_status()
     res_data = response.json()
     assert "errors" not in res_data
 
     _ensure_less_views(
-        frontend_session=frontend_session,
+        auth_session=auth_session,
         list_views_json=list_my_views_json,
         query_name="listMyViews",
         before_count=new_count,
     )
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_create_list_delete_personal_view"])
-def test_update_global_view(frontend_session):
 
+@pytest.mark.dependency(depends=["test_create_list_delete_personal_view"])
+def test_update_global_view(auth_session):
     # First create a view
     new_view_name = "Test View"
     new_view_description = "Test Description"
     new_view_definition = {
-      "entityTypes": ["DATASET", "DASHBOARD"],
-      "filter": {
-        "operator": "AND",
-        "filters": [
-          {
-            "field": "tags",
-            "values": ["urn:li:tag:test"],
-            "negated": False,
-            "condition": "EQUAL"
-          }
-        ]
-      }
+        "entityTypes": ["DATASET", "DASHBOARD"],
+        "filter": {
+            "operator": "AND",
+            "filters": [
+                {
+                    "field": "tags",
+                    "values": ["urn:li:tag:test"],
+                    "negated": False,
+                    "condition": "EQUAL",
+                }
+            ],
+        },
     }
 
     # Create new View
@@ -345,13 +325,13 @@ def test_update_global_view(frontend_session):
                 "viewType": "PERSONAL",
                 "name": new_view_name,
                 "description": new_view_description,
-                "definition": new_view_definition
+                "definition": new_view_definition,
             }
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=create_view_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=create_view_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -366,18 +346,18 @@ def test_update_global_view(frontend_session):
     new_view_name = "New Test View"
     new_view_description = "New Test Description"
     new_view_definition = {
-      "entityTypes": ["DATASET", "DASHBOARD", "CHART", "DATA_FLOW"],
-      "filter": {
-        "operator": "OR",
-        "filters": [
-          {
-            "field": "glossaryTerms",
-            "values": ["urn:li:glossaryTerm:test"],
-            "negated": True,
-            "condition": "CONTAIN"
-          }
-        ]
-      }
+        "entityTypes": ["DATASET", "DASHBOARD", "CHART", "DATA_FLOW"],
+        "filter": {
+            "operator": "OR",
+            "filters": [
+                {
+                    "field": "glossaryTerms",
+                    "values": ["urn:li:glossaryTerm:test"],
+                    "negated": True,
+                    "condition": "CONTAIN",
+                }
+            ],
+        },
     }
 
     update_view_json = {
@@ -391,13 +371,13 @@ def test_update_global_view(frontend_session):
             "input": {
                 "name": new_view_name,
                 "description": new_view_description,
-                "definition": new_view_definition
-            }
+                "definition": new_view_definition,
+            },
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=update_view_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=update_view_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -411,13 +391,11 @@ def test_update_global_view(frontend_session):
         "query": """mutation deleteView($urn: String!) {\n
             deleteView(urn: $urn)
         }""",
-        "variables": {
-            "urn": view_urn
-        },
+        "variables": {"urn": view_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=delete_view_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=delete_view_json
     )
     response.raise_for_status()
     res_data = response.json()

@@ -8,8 +8,8 @@ import click
 from requests import Response
 from termcolor import colored
 
-import datahub.cli.cli_utils
 from datahub.emitter.mce_builder import dataset_urn_to_key, schema_field_urn_to_key
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn
@@ -51,7 +51,7 @@ def pretty_id(id: Optional[str]) -> str:
     if id.startswith("urn:li:dataset"):
         dataset_key = dataset_urn_to_key(id)
         if dataset_key:
-            return f"{colored('dataset','cyan')}:{colored(dataset_key.platform,'white')}:{colored(dataset_key.name,'white')}"
+            return f"{colored('dataset','cyan')}:{colored(dataset_key.platform[len('urn:li:dataPlatform:'):],'white')}:{colored(dataset_key.name,'white')}"
     # failed to prettify, return original
     return id
 
@@ -62,8 +62,11 @@ def get_timeline(
     start_time: Optional[int],
     end_time: Optional[int],
     diff: bool,
+    graph: Optional[DataHubGraph] = None,
 ) -> Any:
-    session, host = datahub.cli.cli_utils.get_session_and_host()
+    client = graph if graph else get_default_graph()
+    session = client._session
+    host = client.config.server
     if urn.startswith("urn%3A"):
         # we assume the urn is already encoded
         encoded_urn: str = urn
@@ -79,7 +82,7 @@ def get_timeline(
     diff_param: str = f"&raw={diff}" if diff else ""
     endpoint: str = (
         host
-        + f"/openapi/timeline/v1/{encoded_urn}?categories={categories}{start_time_param}{end_time_param}{diff_param}"
+        + f"/openapi/v2/timeline/v1/{encoded_urn}?categories={categories}{start_time_param}{end_time_param}{diff_param}"
     )
     click.echo(endpoint)
 

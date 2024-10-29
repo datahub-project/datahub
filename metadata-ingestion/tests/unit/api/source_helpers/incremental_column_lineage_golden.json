@@ -1,0 +1,83 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:platform,dataset1,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:platform,upstream1,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:platform,upstream1,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:platform,upstream2,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:platform,upstream2,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:platform,dataset1,PROD),col_a)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:platform,upstream1,PROD),col_a)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:platform,dataset1,PROD),col_a)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:platform,upstream2,PROD),col_a)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:platform,dataset1,PROD),col_b)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:platform,upstream1,PROD),col_b)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:platform,dataset1,PROD),col_b)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:platform,upstream2,PROD),col_b)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:platform,dataset1,PROD),col_c)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:platform,upstream1,PROD),col_c)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:platform,dataset1,PROD),col_c)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:platform,upstream2,PROD),col_c)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "run-id",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

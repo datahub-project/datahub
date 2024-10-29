@@ -1,0 +1,67 @@
+{
+    "query_type": "CREATE_DDL",
+    "query_type_props": {},
+    "query_fingerprint": "22a615c14258f9fc2e1da76c26882cc4bc175eab53caf3c2591e1978df49d22e",
+    "in_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:sqlite,costs,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:sqlite,costs,PROD)",
+                "column": "id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INTEGER"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:sqlite,costs,PROD)",
+                "column": "month",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "TEXT"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:sqlite,costs,PROD)",
+                "column": "total_cost",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "REAL"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:sqlite,costs,PROD)",
+                "column": "area",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "REAL"
+            },
+            "upstreams": []
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "CREATE TABLE IF NOT EXISTS costs (id INTEGER PRIMARY KEY, month TEXT NOT NULL, total_cost REAL NOT NULL, area REAL NOT NULL)"
+    }
+}

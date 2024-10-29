@@ -10,7 +10,7 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
 import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
@@ -19,6 +19,9 @@ import { RunsTab } from './tabs/RunsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { DataFlowEntity } from '../dataFlow/DataFlowEntity';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { getDataProduct } from '../shared/utils';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
     return (
@@ -67,14 +70,16 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getCollectionName = () => 'Tasks';
 
+    useEntityQuery = useGetDataJobQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
             entityType={EntityType.DataJob}
-            useEntityQuery={useGetDataJobQuery}
+            useEntityQuery={this.useEntityQuery}
             useUpdateQuery={useUpdateDataJobMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
             tabs={[
                 {
                     name: 'Documentation',
@@ -100,30 +105,43 @@ export class DataJobEntity implements Entity<DataJob> {
                         enabled: (_, dataJob: GetDataJobQuery) => (dataJob?.dataJob?.runs?.total || 0) !== 0,
                     },
                 },
-            ]}
-            sidebarSections={[
                 {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
+                    name: 'Incidents',
+                    component: IncidentTab,
+                    getDynamicName: (_, dataJob) => {
+                        const activeIncidentCount = dataJob?.dataJob?.activeIncidents.total;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                },
             ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+            properties: {
+                defaultOwnerType: OwnershipType.TechnicalOwner,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+    ];
 
     getOverridePropertiesFromEntity = (dataJob?: DataJob | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
@@ -137,27 +155,33 @@ export class DataJobEntity implements Entity<DataJob> {
     };
 
     renderPreview = (_: PreviewType, data: DataJob) => {
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
                 name={data.properties?.name || ''}
+                subType={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={getDataJobPlatformName(data)}
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags || null}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
+                health={data.health}
             />
         );
     };
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as DataJob;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
                 name={data.properties?.name || ''}
+                subType={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={getDataJobPlatformName(data)}
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
@@ -165,12 +189,16 @@ export class DataJobEntity implements Entity<DataJob> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 insights={result.insights}
                 externalUrl={data.properties?.externalUrl}
                 lastRunTimeMs={
                     ((data as any).lastRun?.runs?.length && (data as any).lastRun?.runs[0]?.created?.time) || undefined
                 }
+                degree={(result as any).degree}
+                paths={(result as any).paths}
+                health={data.health}
             />
         );
     };
@@ -201,6 +229,7 @@ export class DataJobEntity implements Entity<DataJob> {
             type: EntityType.DataJob,
             icon: entity?.dataFlow?.platform?.properties?.logoUrl || undefined,
             platform: entity?.dataFlow?.platform,
+            health: entity?.health || undefined,
         };
     };
 
@@ -224,6 +253,7 @@ export class DataJobEntity implements Entity<DataJob> {
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
 }

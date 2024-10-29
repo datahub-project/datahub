@@ -11,10 +11,18 @@ START_LOCK=$4
 ## the queue workers are supposed to be doing
 job() {
   i=$1
-  topic_args=$2
+  worker_args=$2
+  topic_args=$(echo $worker_args | cut -d "$DELIMITER" -f 1)
+  topic_config=$(echo $worker_args | cut -d "$DELIMITER" -f 2)
+
+  echo "   $i: kafka-topics.sh --create --if-not-exist $topic_args"
   kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER \
      --replication-factor $REPLICATION_FACTOR \
      $topic_args
+  if [[ ! -z "$topic_config" ]]; then
+    echo "   $i: kafka-configs.sh $topic_config"
+    kafka-configs.sh --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER $topic_config
+  fi
 }
 
 ## This is the worker to read from the queue.

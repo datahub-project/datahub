@@ -1,0 +1,111 @@
+{
+  "name" : "operations",
+  "namespace" : "com.linkedin.operations",
+  "path" : "/operations",
+  "schema" : "com.linkedin.metadata.aspect.VersionedAspect",
+  "doc" : "Endpoints for performing maintenance operations\n\ngenerated from: com.linkedin.metadata.resources.operations.OperationsResource",
+  "resourceClass" : "com.linkedin.metadata.resources.operations.OperationsResource",
+  "collection" : {
+    "identifier" : {
+      "name" : "operationsId",
+      "type" : "string"
+    },
+    "supports" : [ ],
+    "actions" : [ {
+      "name" : "getEsTaskStatus",
+      "javaMethodName" : "getTaskStatus",
+      "parameters" : [ {
+        "name" : "nodeId",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "taskId",
+        "type" : "long",
+        "default" : "0"
+      }, {
+        "name" : "task",
+        "type" : "string",
+        "optional" : true
+      } ],
+      "returns" : "string"
+    }, {
+      "name" : "getIndexSizes",
+      "javaMethodName" : "getIndexSizes",
+      "returns" : "com.linkedin.timeseries.TimeseriesIndicesSizesResult"
+    }, {
+      "name" : "restoreIndices",
+      "javaMethodName" : "restoreIndices",
+      "parameters" : [ {
+        "name" : "aspect",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "urn",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "urnLike",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "start",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "batchSize",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "limit",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "gePitEpochMs",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "lePitEpochMs",
+        "type" : "long",
+        "optional" : true
+      } ],
+      "returns" : "string"
+    }, {
+      "name" : "truncateTimeseriesAspect",
+      "javaMethodName" : "truncateTimeseriesAspect",
+      "parameters" : [ {
+        "name" : "entityType",
+        "type" : "string"
+      }, {
+        "name" : "aspect",
+        "type" : "string"
+      }, {
+        "name" : "endTimeMillis",
+        "type" : "long"
+      }, {
+        "name" : "dryRun",
+        "type" : "boolean",
+        "default" : "true"
+      }, {
+        "name" : "batchSize",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "timeoutSeconds",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "forceDeleteByQuery",
+        "type" : "boolean",
+        "optional" : true
+      }, {
+        "name" : "forceReindex",
+        "type" : "boolean",
+        "optional" : true
+      } ],
+      "returns" : "string"
+    } ],
+    "entity" : {
+      "path" : "/operations/{operationsId}"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import json
+import logging
 import re
-import warnings
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import requests
@@ -13,6 +13,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass, StringTypeClass
+
+logger = logging.getLogger(__name__)
 
 
 def flatten(d: dict, prefix: str = "") -> Generator:
@@ -49,17 +51,16 @@ def request_call(
     token: Optional[str] = None,
     username: Optional[str] = None,
     password: Optional[str] = None,
+    proxies: Optional[dict] = None,
 ) -> requests.Response:
     headers = {"accept": "application/json"}
-
     if username is not None and password is not None:
         return requests.get(
             url, headers=headers, auth=HTTPBasicAuth(username, password)
         )
-
     elif token is not None:
-        headers["Authorization"] = f"Bearer {token}"
-        return requests.get(url, headers=headers)
+        headers["Authorization"] = f"{token}"
+        return requests.get(url, proxies=proxies, headers=headers)
     else:
         return requests.get(url, headers=headers)
 
@@ -70,12 +71,12 @@ def get_swag_json(
     username: Optional[str] = None,
     password: Optional[str] = None,
     swagger_file: str = "",
+    proxies: Optional[dict] = None,
 ) -> Dict:
     tot_url = url + swagger_file
-    if token is not None:
-        response = request_call(url=tot_url, token=token)
-    else:
-        response = request_call(url=tot_url, username=username, password=password)
+    response = request_call(
+        url=tot_url, token=token, username=username, password=password, proxies=proxies
+    )
 
     if response.status_code != 200:
         raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}")
@@ -87,10 +88,13 @@ def get_swag_json(
 
 
 def get_url_basepath(sw_dict: dict) -> str:
-    try:
+    if "basePath" in sw_dict:
         return sw_dict["basePath"]
-    except KeyError:  # no base path defined
-        return ""
+    if "servers" in sw_dict:
+        # When the API path doesn't match the OAS path
+        return sw_dict["servers"][0]["url"]
+
+    return ""
 
 
 def check_sw_version(sw_dict: dict) -> None:
@@ -102,79 +106,85 @@ def check_sw_version(sw_dict: dict) -> None:
     version = [int(v) for v in v_split]
 
     if version[0] == 3 and version[1] > 0:
-        raise NotImplementedError(
-            "This plugin is not compatible with Swagger version >3.0"
+        logger.warning(
+            "This plugin has not been fully tested with Swagger version >3.0"
         )
 
 
 def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
     """
-    Get all the URLs accepting the "GET" method, together with their description and the tags
+    Get all the URLs, together with their description and the tags
     """
     url_details = {}
 
     check_sw_version(sw_dict)
 
     for p_k, p_o in sw_dict["paths"].items():
-        # will track only the "get" methods, which are the ones that give us data
-        if "get" in p_o.keys():
-            if "200" in p_o["get"]["responses"].keys():
-                base_res = p_o["get"]["responses"]["200"]
-            elif 200 in p_o["get"]["responses"].keys():
-                # if you read a plain yml file the 200 will be an integer
-                base_res = p_o["get"]["responses"][200]
-            else:
-                # the endpoint does not have a 200 response
-                continue
+        method = list(p_o)[0]
+        if "200" in p_o[method]["responses"].keys():
+            base_res = p_o[method]["responses"]["200"]
+        elif 200 in p_o[method]["responses"].keys():
+            # if you read a plain yml file the 200 will be an integer
+            base_res = p_o[method]["responses"][200]
+        else:
+            # the endpoint does not have a 200 response
+            continue
 
-            if "description" in p_o["get"].keys():
-                desc = p_o["get"]["description"]
-            elif "summary" in p_o["get"].keys():
-                desc = p_o["get"]["summary"]
-            else:  # still testing
-                desc = ""
+        if "description" in p_o[method].keys():
+            desc = p_o[method]["description"]
+        elif "summary" in p_o[method].keys():
+            desc = p_o[method]["summary"]
+        else:  # still testing
+            desc = ""
 
-            try:
-                tags = p_o["get"]["tags"]
-            except KeyError:
-                tags = []
+        try:
+            tags = p_o[method]["tags"]
+        except KeyError:
+            tags = []
 
-            url_details[p_k] = {"description": desc, "tags": tags}
+        url_details[p_k] = {"description": desc, "tags": tags, "method": method}
 
-            # trying if dataset is defined in swagger...
-            if "content" in base_res.keys():
-                res_cont = base_res["content"]
-                if "application/json" in res_cont.keys():
-                    ex_field = None
-                    if "example" in res_cont["application/json"]:
-                        ex_field = "example"
-                    elif "examples" in res_cont["application/json"]:
-                        ex_field = "examples"
+        example_data = check_for_api_example_data(base_res, p_k)
+        if example_data:
+            url_details[p_k]["data"] = example_data
 
-                    if ex_field:
-                        if isinstance(res_cont["application/json"][ex_field], dict):
-                            url_details[p_k]["data"] = res_cont["application/json"][
-                                ex_field
-                            ]
-                        elif isinstance(res_cont["application/json"][ex_field], list):
-                            # taking the first example
-                            url_details[p_k]["data"] = res_cont["application/json"][
-                                ex_field
-                            ][0]
-                    else:
-                        warnings.warn(
-                            f"Field in swagger file does not give consistent data --- {p_k}"
-                        )
-                elif "text/csv" in res_cont.keys():
-                    url_details[p_k]["data"] = res_cont["text/csv"]["schema"]
-            elif "examples" in base_res.keys():
-                url_details[p_k]["data"] = base_res["examples"]["application/json"]
-
-            # checking whether there are defined parameters to execute the call...
-            if "parameters" in p_o["get"].keys():
-                url_details[p_k]["parameters"] = p_o["get"]["parameters"]
+        # checking whether there are defined parameters to execute the call...
+        if "parameters" in p_o[method].keys():
+            url_details[p_k]["parameters"] = p_o[method]["parameters"]
 
     return dict(sorted(url_details.items()))
+
+
+def check_for_api_example_data(base_res: dict, key: str) -> dict:
+    """
+    Try to determine if example data is defined for the endpoint, and return it
+    """
+    data = {}
+    if "content" in base_res.keys():
+        res_cont = base_res["content"]
+        if "application/json" in res_cont.keys():
+            ex_field = None
+            if "example" in res_cont["application/json"]:
+                ex_field = "example"
+            elif "examples" in res_cont["application/json"]:
+                ex_field = "examples"
+
+            if ex_field:
+                if isinstance(res_cont["application/json"][ex_field], dict):
+                    data = res_cont["application/json"][ex_field]
+                elif isinstance(res_cont["application/json"][ex_field], list):
+                    # taking the first example
+                    data = res_cont["application/json"][ex_field][0]
+            else:
+                logger.warning(
+                    f"Field in swagger file does not give consistent data --- {key}"
+                )
+        elif "text/csv" in res_cont.keys():
+            data = res_cont["text/csv"]["schema"]
+    elif "examples" in base_res.keys():
+        data = base_res["examples"]["application/json"]
+
+    return data
 
 
 def guessing_url_name(url: str, examples: dict) -> str:
@@ -240,7 +250,7 @@ def compose_url_attr(raw_url: str, attr_list: list) -> str:
                            attr_list=["2",])
     asd2 == "http://asd.com/2"
     """
-    splitted = re.split(r"\{[^}]+\}", raw_url)
+    splitted = re.split(r"\{[^}]+}", raw_url)
     if splitted[-1] == "":  # it can happen that the last element is empty
         splitted = splitted[:-1]
     composed_url = ""
@@ -254,7 +264,7 @@ def compose_url_attr(raw_url: str, attr_list: list) -> str:
 
 
 def maybe_theres_simple_id(url: str) -> str:
-    dets = re.findall(r"(\{[^}]+\})", url)  # searching the fields between parenthesis
+    dets = re.findall(r"(\{[^}]+})", url)  # searching the fields between parenthesis
     if len(dets) == 0:
         return url
     dets_w_id = [det for det in dets if "id" in det]  # the fields containing "id"
@@ -296,12 +306,12 @@ def extract_fields(
     dict_data = json.loads(response.content)
     if isinstance(dict_data, str):
         # no sense
-        warnings.warn(f"Empty data --- {dataset_name}")
+        logger.warning(f"Empty data --- {dataset_name}")
         return [], {}
     elif isinstance(dict_data, list):
         # it's maybe just a list
         if len(dict_data) == 0:
-            warnings.warn(f"Empty data --- {dataset_name}")
+            logger.warning(f"Empty data --- {dataset_name}")
             return [], {}
         # so we take the fields of the first element,
         # if it's a dict
@@ -312,12 +322,10 @@ def extract_fields(
             return ["contains_a_string"], {"contains_a_string": dict_data[0]}
         else:
             raise ValueError("unknown format")
-    if len(dict_data.keys()) > 1:
+    if len(dict_data) > 1:
         # the elements are directly inside the dict
         return flatten2list(dict_data), dict_data
-    dst_key = list(dict_data.keys())[
-        0
-    ]  # the first and unique key is the dataset's name
+    dst_key = list(dict_data)[0]  # the first and unique key is the dataset's name
 
     try:
         return flatten2list(dict_data[dst_key]), dict_data[dst_key]
@@ -330,7 +338,7 @@ def extract_fields(
             else:
                 return [], {}  # it's empty!
         else:
-            warnings.warn(f"Unable to get the attributes --- {dataset_name}")
+            logger.warning(f"Unable to get the attributes --- {dataset_name}")
             return [], {}
 
 
@@ -340,6 +348,7 @@ def get_tok(
     password: str = "",
     tok_url: str = "",
     method: str = "post",
+    proxies: Optional[dict] = None,
 ) -> str:
     """
     Trying to post username/password to get auth.
@@ -348,12 +357,15 @@ def get_tok(
     url4req = url + tok_url
     if method == "post":
         # this will make a POST call with username and password
-        data = {"username": username, "password": password}
+        data = {"username": username, "password": password, "maxDuration": True}
         # url2post = url + "api/authenticate/"
-        response = requests.post(url4req, data=data)
+        response = requests.post(url4req, proxies=proxies, json=data)
         if response.status_code == 200:
             cont = json.loads(response.content)
-            token = cont["tokens"]["access"]
+            if "token" in cont:  # other authentication scheme
+                token = cont["token"]
+            else:  # works only for bearer authentication scheme
+                token = f"Bearer {cont['tokens']['access']}"
     elif method == "get":
         # this will make a GET call with username and password
         response = requests.get(url4req)

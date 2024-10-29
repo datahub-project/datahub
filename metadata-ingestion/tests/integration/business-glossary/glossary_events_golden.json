@@ -6,6 +6,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+                        "customProperties": {
+                            "is_confidential": "True"
+                        },
                         "definition": "A set of terms related to Data Classification",
                         "name": "Classification"
                     }
@@ -23,18 +26,14 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -43,12 +42,24 @@
     "changeType": "UPSERT",
     "aspectName": "institutionalMemory",
     "aspect": {
-        "value": "{\"elements\": [{\"url\": \"https://en.wikipedia.org/wiki/Classification\", \"description\": \"Wiki link for classification\", \"createStamp\": {\"time\": 1586847600000, \"actor\": \"urn:li:corpuser:datahub\", \"message\": \"ingestion bot\"}}]}",
-        "contentType": "application/json"
+        "json": {
+            "elements": [
+                {
+                    "url": "https://en.wikipedia.org/wiki/Classification",
+                    "description": "Wiki link for classification",
+                    "createStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:datahub",
+                        "message": "ingestion bot"
+                    }
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -88,7 +99,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -97,12 +109,24 @@
     "changeType": "UPSERT",
     "aspectName": "institutionalMemory",
     "aspect": {
-        "value": "{\"elements\": [{\"url\": \"https://www.google.com\", \"description\": \"Google Link\", \"createStamp\": {\"time\": 1586847600000, \"actor\": \"urn:li:corpuser:datahub\", \"message\": \"ingestion bot\"}}]}",
-        "contentType": "application/json"
+        "json": {
+            "elements": [
+                {
+                    "url": "https://www.google.com",
+                    "description": "Google Link",
+                    "createStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:datahub",
+                        "message": "ingestion bot"
+                    }
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -142,7 +166,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -151,12 +176,16 @@
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
-        "value": "{\"domains\": [\"urn:li:domain:Marketing\"]}",
-        "contentType": "application/json"
+        "json": {
+            "domains": [
+                "urn:li:domain:Marketing"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -196,7 +225,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -206,6 +236,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+                        "customProperties": {},
                         "definition": "All terms related to personal information",
                         "name": "Personal Information"
                     }
@@ -215,7 +246,7 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:mjames",
-                                "type": "DEVELOPER"
+                                "type": "DATAOWNER"
                             }
                         ],
                         "lastModified": {
@@ -223,18 +254,14 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -279,7 +306,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -303,7 +331,7 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:mjames",
-                                "type": "DEVELOPER"
+                                "type": "DATAOWNER"
                             }
                         ],
                         "lastModified": {
@@ -317,7 +345,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -348,7 +377,7 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:mjames",
-                                "type": "DEVELOPER"
+                                "type": "DATAOWNER"
                             }
                         ],
                         "lastModified": {
@@ -362,7 +391,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -372,6 +402,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+                        "customProperties": {},
                         "definition": "Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities",
                         "name": "Clients And Accounts"
                     }
@@ -381,7 +412,8 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpGroup:finance",
-                                "type": "DEVELOPER"
+                                "type": "CUSTOM",
+                                "typeUrn": "urn:li:ownershipType:my_cutom_type"
                             }
                         ],
                         "lastModified": {
@@ -389,18 +421,14 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -434,7 +462,8 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpGroup:finance",
-                                "type": "DEVELOPER"
+                                "type": "CUSTOM",
+                                "typeUrn": "urn:li:ownershipType:my_cutom_type"
                             }
                         ],
                         "lastModified": {
@@ -448,7 +477,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -472,7 +502,8 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpGroup:finance",
-                                "type": "DEVELOPER"
+                                "type": "CUSTOM",
+                                "typeUrn": "urn:li:ownershipType:my_cutom_type"
                             }
                         ],
                         "lastModified": {
@@ -486,7 +517,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -496,6 +528,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+                        "customProperties": {},
                         "definition": "Common Business KPIs",
                         "name": "KPIs"
                     }
@@ -513,18 +546,14 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -562,7 +591,216 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Classification",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Clients And Accounts",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:KPIs",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Personal Information",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:4faf1eed790370f65942f2998a7993d6",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Classification.Confidential",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Classification.Highly Confidential",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Classification.Sensitive",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Clients And Accounts.Account",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Clients And Accounts.Balance",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Personal Information.Address",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Personal Information.Email",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Personal Information.Gender",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

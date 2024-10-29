@@ -45,12 +45,14 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
     const placeholderRecipe = getPlaceholderRecipe(ingestionSources, type);
 
     const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || placeholderRecipe);
+    const [stagedRecipeName, setStagedRecipeName] = useState(state.name);
 
     useEffect(() => {
         if (existingRecipeYaml) {
+            setStagedRecipeName(state.name);
             setStagedRecipeYml(existingRecipeYaml);
         }
-    }, [existingRecipeYaml]);
+    }, [existingRecipeYaml, state.name]);
 
     const [stepComplete, setStepComplete] = useState(false);
 
@@ -97,6 +99,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
     if (type && CONNECTORS_WITH_FORM.has(type)) {
         return (
             <RecipeBuilder
+                key={stagedRecipeName}
                 state={state}
                 isEditing={isEditing}
                 displayRecipe={displayRecipe}
@@ -161,7 +164,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
                 <Button disabled={isEditing} onClick={prev}>
                     Previous
                 </Button>
-                <Button disabled={!stepComplete} onClick={onClickNext}>
+                <Button type="primary" disabled={!stepComplete} onClick={onClickNext}>
                     Next
                 </Button>
             </ControlsContainer>

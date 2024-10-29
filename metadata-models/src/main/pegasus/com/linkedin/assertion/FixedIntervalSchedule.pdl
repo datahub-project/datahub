@@ -1,0 +1,10 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.Urn
+import com.linkedin.timeseries.TimeWindowSize
+
+/**
+* Attributes defining a relative fixed interval SLA schedule.
+*/
+record FixedIntervalSchedule includes TimeWindowSize {
+}

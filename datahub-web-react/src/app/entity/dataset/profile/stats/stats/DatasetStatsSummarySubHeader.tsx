@@ -1,38 +1,37 @@
 import React from 'react';
-import {
-    DatasetStatsSummary as DatasetStatsSummaryObj,
-    DatasetProfile,
-    Operation,
-} from '../../../../../../types.generated';
+import { DatasetStatsSummary as DatasetStatsSummaryObj } from '../../../../../../types.generated';
 import { useBaseEntity } from '../../../../shared/EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { DatasetStatsSummary } from '../../../shared/DatasetStatsSummary';
+import { getLastUpdatedMs } from '../../../shared/utils';
 
-export const DatasetStatsSummarySubHeader = () => {
+export const DatasetStatsSummarySubHeader = ({ properties }: { properties?: any }) => {
     const result = useBaseEntity<GetDatasetQuery>();
     const dataset = result?.dataset;
 
     const maybeStatsSummary = dataset?.statsSummary as DatasetStatsSummaryObj;
+
     const maybeLastProfile =
-        ((dataset?.datasetProfiles?.length || 0) > 0 && (dataset?.datasetProfiles![0] as DatasetProfile)) || undefined;
-    const maybeLastOperation =
-        ((dataset?.operations?.length || 0) > 0 && (dataset?.operations![0] as Operation)) || undefined;
+        dataset?.datasetProfiles && dataset.datasetProfiles.length ? dataset.datasetProfiles[0] : undefined;
 
     const rowCount = maybeLastProfile?.rowCount;
     const columnCount = maybeLastProfile?.columnCount;
     const sizeInBytes = maybeLastProfile?.sizeInBytes;
+    const totalSqlQueries = dataset?.usageStats?.aggregations?.totalSqlQueries;
     const queryCountLast30Days = maybeStatsSummary?.queryCountLast30Days;
     const uniqueUserCountLast30Days = maybeStatsSummary?.uniqueUserCountLast30Days;
-    const lastUpdatedMs = maybeLastOperation?.lastUpdatedTimestamp;
+    const lastUpdatedMs = getLastUpdatedMs(dataset?.properties, dataset?.operations);
 
     return (
         <DatasetStatsSummary
             rowCount={rowCount}
             columnCount={columnCount}
             sizeInBytes={sizeInBytes}
+            totalSqlQueries={totalSqlQueries}
             queryCountLast30Days={queryCountLast30Days}
             uniqueUserCountLast30Days={uniqueUserCountLast30Days}
             lastUpdatedMs={lastUpdatedMs}
+            shouldWrap={properties?.shouldWrap}
         />
     );
 };

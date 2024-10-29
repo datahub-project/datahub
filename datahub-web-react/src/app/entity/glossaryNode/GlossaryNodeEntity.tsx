@@ -4,13 +4,14 @@ import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated
 import { EntityType, GlossaryNode, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import ChildrenTab from './ChildrenTab';
 import { Preview } from './preview/Preview';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     type: EntityType = EntityType.GlossaryNode;
@@ -48,6 +49,8 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     getEntityName = () => 'Term Group';
 
+    useEntityQuery = useGetGlossaryNodeQuery;
+
     renderProfile = (urn: string) => {
         return (
             <EntityProfile
@@ -69,18 +72,12 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                             hideLinksButton: true,
                         },
                     },
-                ]}
-                sidebarSections={[
                     {
-                        component: SidebarAboutSection,
-                        properties: {
-                            hideLinksButton: true,
-                        },
-                    },
-                    {
-                        component: SidebarOwnerSection,
+                        name: 'Properties',
+                        component: PropertiesTab,
                     },
                 ]}
+                sidebarSections={this.getSidebarSections()}
                 headerDropdownItems={
                     new Set([
                         EntityMenuItems.ADD_TERM_GROUP,
@@ -92,6 +89,18 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             />
         );
     };
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+            properties: {
+                hideLinksButton: true,
+            },
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+    ];
 
     displayName = (data: GlossaryNode) => {
         return data.properties?.name || data.urn;

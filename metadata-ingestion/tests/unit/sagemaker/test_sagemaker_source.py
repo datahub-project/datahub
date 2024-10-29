@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from botocore.stub import Stubber
 from freezegun import freeze_time
 
@@ -12,7 +14,7 @@ from datahub.ingestion.source.aws.sagemaker_processors.jobs import (
     job_types,
 )
 from tests.test_helpers import mce_helpers
-from tests.unit.test_sagemaker_source_stubs import (
+from tests.unit.sagemaker.test_sagemaker_source_stubs import (
     describe_endpoint_response_1,
     describe_endpoint_response_2,
     describe_feature_group_response_1,
@@ -220,8 +222,17 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             {"ModelName": "the-second-model"},
         )
 
-        mce_objects = [wu.metadata for wu in sagemaker_source_instance.get_workunits()]
-        write_metadata_file(tmp_path / "sagemaker_mces.json", mce_objects)
+        # Patch the client factory's get_client method to return the stubbed client for jobs
+        with patch.object(
+            sagemaker_source_instance.client_factory,
+            "get_client",
+            return_value=sagemaker_source_instance.sagemaker_client,
+        ):
+            # Run the test and generate the MCEs
+            mce_objects = [
+                wu.metadata for wu in sagemaker_source_instance.get_workunits()
+            ]
+            write_metadata_file(tmp_path / "sagemaker_mces.json", mce_objects)
 
     # Verify the output.
     test_resources_dir = pytestconfig.rootpath / "tests/unit/sagemaker"

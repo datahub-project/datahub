@@ -16,7 +16,10 @@ docker {
     version "v${version}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
+        include '.dockerignore'
         include "docker/${docker_dir}/*"
+    }.exclude {
+        i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }
     tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
@@ -24,8 +27,18 @@ docker {
     buildx(true)
     load(true)
     push(false)
+
+    // Add build args if they are defined (needed for some CI or enterprise environments)
+    def dockerBuildArgs = [:]
+    if (project.hasProperty('alpineApkRepositoryUrl')) {
+        dockerBuildArgs.ALPINE_REPO_URL = project.getProperty('alpineApkRepositoryUrl')
+    }
+
+    if (dockerBuildArgs.size() > 0) {
+        buildArgs(dockerBuildArgs)
+    }
 }
-tasks.getByPath('docker').dependsOn('build')
+tasks.getByName('docker').dependsOn('build')
 
 task mkdirBuildDocker {
     doFirst {
@@ -36,7 +49,7 @@ dockerClean.finalizedBy(mkdirBuildDocker)
 
 task cleanLocalDockerImages {
     doLast {
-        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}")
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
     }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)

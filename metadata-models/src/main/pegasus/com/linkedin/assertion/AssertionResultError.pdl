@@ -1,0 +1,53 @@
+namespace com.linkedin.assertion
+
+/**
+ *  An error encountered when evaluating an AssertionResult
+ */
+record AssertionResultError {
+  /**
+  *  The type of error encountered
+  */
+  type: enum AssertionResultErrorType {
+    /**
+    *  Source is unreachable
+    */
+    SOURCE_CONNECTION_ERROR
+    /**
+    *  Source query failed to execute
+    */
+    SOURCE_QUERY_FAILED
+    /**
+    *  Insufficient data to evaluate the assertion
+    */
+    INSUFFICIENT_DATA
+    /**
+    *  Invalid parameters were detected
+    */
+    INVALID_PARAMETERS
+    /**
+    *  Event type not supported by the specified source
+    */
+    INVALID_SOURCE_TYPE
+    /**
+    *  Unsupported platform
+    */
+    UNSUPPORTED_PLATFORM
+    /**
+    *  Error while executing a custom SQL assertion
+    */
+    CUSTOM_SQL_ERROR
+    /**
+    *  Error while executing a field assertion
+    */
+    FIELD_ASSERTION_ERROR
+    /**
+    *  Unknown error
+    */
+    UNKNOWN_ERROR
+  }
+
+  /**
+  *  Additional metadata depending on the type of error
+  */
+  properties: optional map[string, string]
+}

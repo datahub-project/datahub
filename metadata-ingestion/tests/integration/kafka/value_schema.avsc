@@ -2,18 +2,23 @@
   "namespace": "io.codebrews.createuserrequest",
   "type": "record",
   "name": "CreateUserRequest",
+  "doc": "Value schema for kafka topic",
+  "tags": ["PII"],
   "fields": [
     {
       "name": "email",
-      "type": "string"
+      "type": "string",
+      "tags": ["Email"]      
     },
     {
       "name": "firstName",
-      "type": "string"
+      "type": "string",
+      "tags": ["Name"]
     },
     {
       "name": "lastName",
-      "type": "string"
+      "type": "string",
+      "tags": ["Name"]
     }
   ]
 }

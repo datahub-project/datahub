@@ -1,13 +1,13 @@
 import * as React from 'react';
-import { useState } from 'react';
 import styled from 'styled-components';
-import { FacetFilterInput, FacetMetadata, FilterOperator } from '../../types.generated';
+import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
 import { AdvancedSearchFilterOverallUnionTypeSelect } from './AdvancedSearchFilterOverallUnionTypeSelect';
 import { AdvancedFilterSelectValueModal } from './AdvancedFilterSelectValueModal';
-import { FIELDS_THAT_USE_CONTAINS_OPERATOR, UnionType } from './utils/constants';
+import { UnionType } from './utils/constants';
 import { AdvancedSearchAddFilterSelect } from './AdvancedSearchAddFilterSelect';
+import useAdvancedSearchSelectFilters from './useAdvancedSearchSelectFilters';
 
 const AnyAllSection = styled.div`
     padding: 6px;
@@ -52,24 +52,9 @@ export const AdvancedSearchFilters = ({
     direction = LayoutDirection.Vertical,
     disabled = false,
 }: Props) => {
-    const [filterField, setFilterField] = useState<null | string>(null);
-
-    const onFilterFieldSelect = (value) => {
-        setFilterField(value.value);
-    };
-
-    const onSelectValueFromModal = (values) => {
-        if (!filterField) return;
-
-        const newFilter: FacetFilterInput = {
-            field: filterField,
-            values: values as string[],
-            condition: FIELDS_THAT_USE_CONTAINS_OPERATOR.includes(filterField)
-                ? FilterOperator.Contain
-                : FilterOperator.Equal,
-        };
-        onFilterSelect([...selectedFilters, newFilter]);
-    };
+    const { filterField, setFilterField, onFilterFieldSelect, onSelectValueFromModal } = useAdvancedSearchSelectFilters(
+        { selectedFilters, onFilterSelect },
+    );
 
     return (
         <>

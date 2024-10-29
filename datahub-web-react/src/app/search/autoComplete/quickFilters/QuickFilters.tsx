@@ -16,7 +16,7 @@ export default function QuickFilters() {
     return (
         <QuickFiltersWrapper>
             {quickFilters?.map((quickFilter) => (
-                <QuickFilter quickFilter={quickFilter} />
+                <QuickFilter key={quickFilter.value} quickFilter={quickFilter} />
             ))}
         </QuickFiltersWrapper>
     );

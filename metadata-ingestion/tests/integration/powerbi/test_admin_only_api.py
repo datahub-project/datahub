@@ -3,10 +3,13 @@ import sys
 from typing import Any, Dict
 from unittest import mock
 
+import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
+
+pytestmark = pytest.mark.integration_batch_2
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
@@ -55,19 +58,26 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
             "status_code": 200,
             "json": admin_datasets_response,
         },
-        "https://api.powerbi.com/v1.0/myorg/admin/groups": {
+        "https://api.powerbi.com/v1.0/myorg/admin/groups?%24skip=0&%24top=1000": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                "@odata.count": 3,
                 "value": [
                     {
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
                         "isReadOnly": True,
                         "name": "demo-workspace",
                         "type": "Workspace",
+                        "state": "Active",
                     }
                 ],
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/admin/groups?%24skip=1000&%24top=1000": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/admin/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
@@ -97,6 +107,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "datasetUserAccessRight": "ReadWrite",
                         "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
                         "principalType": "User",
+                        "reportUserAccessRight": "Read",
                     },
                     {
                         "identifier": "User2@foo.com",
@@ -105,6 +116,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "datasetUserAccessRight": "ReadWrite",
                         "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
                         "principalType": "User",
+                        "reportUserAccessRight": "Owner",
                     },
                 ]
             },
@@ -215,6 +227,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                     {
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
                         "name": "demo-workspace",
+                        "type": "Workspace",
                         "state": "Active",
                         "datasets": [
                             {
@@ -278,7 +291,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                         "name": "job-history",
                                         "source": [
                                             {
-                                                "expression": 'let\n    Source = Oracle.Database("localhost:1521/salesdb.GSLAB.COM", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
+                                                "expression": 'let\n    Source = Oracle.Database("localhost:1521/salesdb.domain.com", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
                                             }
                                         ],
                                         "datasourceUsages": [
@@ -304,6 +317,8 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                             },
                             {
                                 "id": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
+                                "endorsementDetails": {"endorsement": "Certified"},
+                                "configuredBy": "sindri@something.com",
                                 "name": "hr_pbi_test",
                                 "tables": [
                                     {
@@ -332,6 +347,45 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                             }
                                         ],
                                     },
+                                    {
+                                        "name": "revenue",
+                                        "columns": [
+                                            {
+                                                "name": "op_item_id",
+                                                "dataType": "String",
+                                                "description": "op_item_id column description",
+                                                "isHidden": False,
+                                                "columnType": "Data",
+                                            },
+                                            {
+                                                "name": "op_id",
+                                                "dataType": "String",
+                                                "description": "op_id description",
+                                                "isHidden": False,
+                                                "columnType": "Data",
+                                            },
+                                            {
+                                                "name": "op_product_name",
+                                                "dataType": "String",
+                                                "isHidden": False,
+                                                "columnType": "Data",
+                                            },
+                                        ],
+                                        "measures": [
+                                            {
+                                                "name": "event_name",
+                                                "description": "column description",
+                                                "expression": "let\n x",
+                                                "isHidden": False,
+                                            }
+                                        ],
+                                        "isHidden": False,
+                                        "source": [
+                                            {
+                                                "expression": 'let\n    Source = Sql.Database("database.sql.net", "analytics", [Query="select * from analytics.sales_revenue"])\nin\n    Source'
+                                            }
+                                        ],
+                                    },
                                 ],
                             },
                         ],
@@ -345,6 +399,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                             {
                                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                                "reportType": "PowerBIReport",
                                 "name": "SalesMarketing",
                                 "description": "Acryl sales marketing report",
                             }
@@ -352,6 +407,15 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                     },
                 ]
             },
+        },
+        "https://api.powerbi.com/v1.0/myorg/admin/workspaces/modified": {
+            "method": "GET",
+            "status_code": 200,
+            "json": [
+                {"id": "64ED5CAD-7C10-4684-8180-826122881108"},
+                {"id": "64ED5CAD-7C22-4684-8180-826122881108"},
+                {"id": "64ED5CAD-7322-4684-8180-826122881108"},
+            ],
         },
         "https://api.powerbi.com/v1.0/myorg/admin/workspaces/getInfo": {
             "method": "POST",
@@ -367,6 +431,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                         "id": "5b218778-e7a5-4d73-8187-f10824047715",
                         "name": "SalesMarketing",
+                        "reportType": "PowerBIReport",
                         "description": "Acryl sales marketing report",
                         "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
                         "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
@@ -381,6 +446,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
                 "name": "SalesMarketing",
+                "reportType": "PowerBIReport",
                 "description": "Acryl sales marketing report",
                 "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
                 "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
@@ -450,9 +516,11 @@ def default_source_config():
             "Oracle": {"platform_instance": "high_performance_production_unit"},
             "Sql": {"platform_instance": "reporting-db"},
             "Snowflake": {"platform_instance": "sn-2"},
+            "Databricks": {"platform_instance": "az-databrick"},
         },
         "env": "DEV",
         "extract_workspaces_to_containers": False,
+        "enable_advance_lineage_sql_construct": False,
     }
 
 
@@ -491,4 +559,71 @@ def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_
         pytestconfig,
         output_path=f"{tmp_path}/powerbi_admin_only_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_most_config_and_modified_since(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    enable_logging()
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_admin_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "extract_workspaces_to_containers": True,
+                    "workspace_id_pattern": {
+                        "deny": [
+                            "64ED5CAD-7C22-4684-8180-826122881108",
+                            "64ED5CAD-7322-4684-8180-826122881108",
+                        ],
+                    },
+                    "modified_since": "2023-02-10T00:00:00.0000000Z",
+                    "extract_ownership": True,
+                    "extract_reports": True,
+                    "extract_endorsements_to_tags": True,
+                    "extract_dashboards": True,
+                    "extract_dataset_schema": True,
+                    "admin_apis_only": True,
+                    "scan_batch_size": 100,
+                    "workspace_id_as_urn_part": True,
+                    "ownership": {
+                        "create_corp_user": False,
+                        "use_powerbi_email": True,
+                        "remove_email_suffix": True,
+                        "dataset_configured_by_as_owner": True,
+                        "owner_criteria": [
+                            "Owner",
+                        ],
+                    },
+                    "extract_datasets_to_containers": True,
+                    "filter_dataset_endorsements": {"allow": ["Certified"]},
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_test_most_config_and_modified_since_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    mce_out_file = "golden_test_most_config_and_modified_since_admin_only.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "powerbi_test_most_config_and_modified_since_mces.json",
+        golden_path=f"{test_resources_dir}/{mce_out_file}",
     )

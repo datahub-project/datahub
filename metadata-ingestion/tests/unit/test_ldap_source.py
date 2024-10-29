@@ -1,13 +1,27 @@
 import pytest
 
-from datahub.ingestion.source.ldap import parse_from_attrs, strip_ldap_info
+from datahub.ingestion.source.ldap import parse_groups, parse_ldap_dn, parse_users
 
 
-def test_strip_ldap_info():
-    assert (
-        strip_ldap_info(b"uid=firstname.surname,ou=People,dc=internal,dc=machines")
-        == "firstname.surname"
-    )
+@pytest.mark.parametrize(
+    "input, expected",
+    [
+        (
+            b"uid=firstname.surname,ou=People,dc=internal,dc=machines",
+            "firstname.surname",
+        ),
+        (
+            b"cn=group_name,ou=Groups,dc=internal,dc=machines",
+            "group_name",
+        ),
+        (
+            b"cn=comma group (one\\, two\\, three),ou=Groups,dc=internal,dc=machines",
+            "comma group (one, two, three)",
+        ),
+    ],
+)
+def test_parse_ldap_dn(input, expected):
+    assert parse_ldap_dn(input) == expected
 
 
 @pytest.mark.parametrize(
@@ -32,11 +46,43 @@ def test_strip_ldap_info():
         ),
     ],
 )
-def test_parse_from_attrs(input, expected):
+def test_parse_users(input, expected):
     assert (
-        parse_from_attrs(
+        parse_users(
             input,
             "admins",
+        )
+        == expected
+    )
+
+
+@pytest.mark.parametrize(
+    "input, expected",
+    [
+        (
+            {
+                "memberOf": [
+                    b"cn=group1,ou=Groups,dc=internal,dc=machines",
+                    b"cn=group2,ou=Groups,dc=internal,dc=machines",
+                ]
+            },
+            ["urn:li:corpGroup:group1", "urn:li:corpGroup:group2"],
+        ),
+        (
+            {
+                "not_member": [
+                    b"doesntmatter",
+                ]
+            },
+            [],
+        ),
+    ],
+)
+def test_parse_groups(input, expected):
+    assert (
+        parse_groups(
+            input,
+            "memberOf",
         )
         == expected
     )

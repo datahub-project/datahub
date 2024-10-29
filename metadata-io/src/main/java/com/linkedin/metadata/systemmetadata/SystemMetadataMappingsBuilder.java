@@ -5,11 +5,10 @@ import java.util.HashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class SystemMetadataMappingsBuilder {
 
-  private SystemMetadataMappingsBuilder() { }
+  private SystemMetadataMappingsBuilder() {}
 
   public static Map<String, Object> getMappings() {
     Map<String, Object> mappings = new HashMap<>();

@@ -52,16 +52,21 @@ Also see [Kafka Connect Security](https://docs.confluent.io/current/connect/secu
 
 By default, DataHub relies on the a set of Kafka topics to operate. By default, they have the following names:
 
-- **MetadataChangeProposal_v1**
-- **FailedMetadataChangeProposal_v1**
-- **MetadataChangeLog_Versioned_v1**
-- **MetadataChangeLog_Timeseries_v1**
-- **DataHubUsageEvent_v1**: User behavior tracking event for UI
+1. **MetadataChangeProposal_v1**
+2. **FailedMetadataChangeProposal_v1**
+3. **MetadataChangeLog_Versioned_v1**
+4. **MetadataChangeLog_Timeseries_v1**
+5. **DataHubUsageEvent_v1**: User behavior tracking event for UI
 6. (Deprecated) **MetadataChangeEvent_v4**: Metadata change proposal messages
 7. (Deprecated) **MetadataAuditEvent_v4**: Metadata change log messages
 8. (Deprecated) **FailedMetadataChangeEvent_v4**: Failed to process #1 event
+9. **MetadataGraphEvent_v4**:
+10. **MetadataGraphEvent_v4**:
+11. **PlatformEvent_v1**:
+12. **DataHubUpgradeHistory_v1**: Notifies the end of DataHub Upgrade job so dependants can act accordingly (_eg_, startup).
+    Note this topic requires special configuration: **Infinite retention**. Also, 1 partition is enough for the occasional traffic.
 
-These topics are discussed at more length in [Metadata Events](../what/mxe.md).
+How Metadata Events relate to these topics is discussed at more length in [Metadata Events](../what/mxe.md).
 
 We've included environment variables to customize the name each of these topics, for cases where an organization has naming rules for your topics.
 
@@ -110,6 +115,27 @@ We've included an environment variable to customize the consumer group id, if yo
 ### datahub-mce-consumer and datahub-mae-consumer
 
 - `KAFKA_CONSUMER_GROUP_ID`: The name of the kafka consumer's group id.
+
+#### datahub-mae-consumer MCL Hooks
+
+By default, all MetadataChangeLog processing hooks execute as part of the same kafka consumer group based on the 
+previously mentioned `KAFKA_CONSUMER_GROUP_ID`.
+
+The various MCL Hooks could alsp be separated into separate groups which allows for controlling parallelization and 
+prioritization of the hooks.
+
+For example, the `UpdateIndicesHook` and `SiblingsHook` processing can be delayed by other hooks. Separating these
+hooks into their own group can reduce latency from these other hooks. The `application.yaml` configuration
+includes options for assigning a suffix to the consumer group, see `consumerGroupSuffix`.
+
+| Environment Variable                           | Default | Description                                                                                 |
+|------------------------------------------------|---------|---------------------------------------------------------------------------------------------|
+| SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX            | ''      | Siblings processing hook. Considered one of the primary hooks in the `datahub-mae-consumer` |
+| UPDATE_INDICES_CONSUMER_GROUP_SUFFIX           | ''      | Primary processing hook.                                                                    |
+| INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX | ''      | Scheduled ingestion hook.                                                                   |
+| INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX           | ''      | Incidents hook.                                                                             |
+| ECE_CONSUMER_GROUP_SUFFIX                      | ''      | Entity Change Event hook which publishes to the Platform Events topic.                      |
+| FORMS_HOOK_CONSUMER_GROUP_SUFFIX               | ''      | Forms processing.                                                                           |
 
 ## Applying Configurations
 

@@ -1,0 +1,21 @@
+namespace com.linkedin.schema
+
+/**
+* Lightweight spec used for referencing a particular schema field.
+**/
+record SchemaFieldSpec {
+  /**
+  * The field path
+  */
+  path: string
+
+  /**
+  * The DataHub standard schema field type.
+  */
+  type: string
+
+  /**
+  * The native field type
+  */
+  nativeType: string
+}

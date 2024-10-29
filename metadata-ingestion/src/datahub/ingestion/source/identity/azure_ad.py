@@ -9,6 +9,7 @@ from typing import Any, Dict, Generator, Iterable, List, Optional
 import click
 import requests
 from pydantic.fields import Field
+from requests.adapters import HTTPAdapter, Retry
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
@@ -17,15 +18,17 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    SourceReport,
 )
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -47,11 +50,6 @@ from datahub.metadata.schema_classes import (
     OriginClass,
     OriginTypeClass,
     StatusClass,
-)
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
 )
 
 logger = logging.getLogger(__name__)
@@ -152,7 +150,7 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description="PowerBI Stateful Ingestion Config."
+        default=None, description="Azure AD Stateful Ingestion Config."
     )
 
 
@@ -174,6 +172,9 @@ class AzureADSourceReport(StaleEntityRemovalSourceReport):
 @platform_name("Azure AD")
 @config_class(AzureADConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(
+    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+)
 class AzureADSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
@@ -189,7 +190,7 @@ class AzureADSource(StatefulIngestionSourceBase):
     would like to take actions like adding them to a group or assigning them a role.
 
     For instructions on how to do configure Azure AD OIDC SSO, please read the documentation
-    [here](https://datahubproject.io/docs/authentication/guides/sso/configure-oidc-react-azure).
+    [here](../../../authentication/guides/sso/configure-oidc-react.md#create-an-application-registration-in-microsoft-azure-portal).
 
     ### Extracting DataHub Users
 
@@ -263,11 +264,19 @@ class AzureADSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def __init__(self, config: AzureADConfig, ctx: PipelineContext):
-        super(AzureADSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.report = AzureADSourceReport(
             filtered_tracking=self.config.filtered_tracking
         )
+        session = requests.Session()
+        retries = Retry(
+            total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504]
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        self.session = session
         self.token_data = {
             "grant_type": "client_credentials",
             "client_id": self.config.client_id,
@@ -279,14 +288,6 @@ class AzureADSource(StatefulIngestionSourceBase):
         self.token = self.get_token()
         self.selected_azure_ad_groups: list = []
         self.azure_ad_groups_users: list = []
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=ctx.pipeline_name,
-            run_id=ctx.run_id,
-        )
 
     def get_token(self):
         token_response = requests.post(self.config.token_url, data=self.token_data)
@@ -302,6 +303,14 @@ class AzureADSource(StatefulIngestionSourceBase):
             self.report.report_failure("get_token", error_str)
             click.echo("Error: Token response invalid")
             exit()
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # for future developers: The actual logic of this ingestion wants to be executed, in order:
@@ -328,31 +337,21 @@ class AzureADSource(StatefulIngestionSourceBase):
                         if self.config.mask_group_id
                         else datahub_corp_group_snapshot.urn
                     )
-                    wu = MetadataWorkUnit(id=wu_id, mce=mce)
-                    self.report.report_workunit(wu)
-                    yield wu
+                    yield MetadataWorkUnit(id=wu_id, mce=mce)
 
                     group_origin_mcp = MetadataChangeProposalWrapper(
                         entityUrn=datahub_corp_group_snapshot.urn,
                         aspect=OriginClass(OriginTypeClass.EXTERNAL, "AZURE_AD"),
                     )
                     group_origin_wu_id = f"group-origin-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                    group_origin_wu = MetadataWorkUnit(
-                        id=group_origin_wu_id, mcp=group_origin_mcp
-                    )
-                    self.report.report_workunit(group_origin_wu)
-                    yield group_origin_wu
+                    yield MetadataWorkUnit(id=group_origin_wu_id, mcp=group_origin_mcp)
 
                     group_status_mcp = MetadataChangeProposalWrapper(
                         entityUrn=datahub_corp_group_snapshot.urn,
                         aspect=StatusClass(removed=False),
                     )
                     group_status_wu_id = f"group-status-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                    group_status_wu = MetadataWorkUnit(
-                        id=group_status_wu_id, mcp=group_status_mcp
-                    )
-                    self.report.report_workunit(group_status_wu)
-                    yield group_status_wu
+                    yield MetadataWorkUnit(id=group_status_wu_id, mcp=group_status_mcp)
 
         # Populate GroupMembership Aspects for CorpUsers
         datahub_corp_user_urn_to_group_membership: Dict[
@@ -400,14 +399,6 @@ class AzureADSource(StatefulIngestionSourceBase):
                     datahub_corp_user_snapshots,
                     datahub_corp_user_urn_to_group_membership,
                 )
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report, auto_status_aspect(self.get_workunits_internal())
-            ),
-        )
 
     def _add_group_members_to_group_membership(
         self,
@@ -475,27 +466,21 @@ class AzureADSource(StatefulIngestionSourceBase):
             datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
             mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
             wu_id = f"user-snapshot-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-            wu = MetadataWorkUnit(id=wu_id, mce=mce)
-            self.report.report_workunit(wu)
-            yield wu
+            yield MetadataWorkUnit(id=wu_id, mce=mce)
 
             user_origin_mcp = MetadataChangeProposalWrapper(
                 entityUrn=datahub_corp_user_snapshot.urn,
                 aspect=OriginClass(OriginTypeClass.EXTERNAL, "AZURE_AD"),
             )
             user_origin_wu_id = f"user-origin-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-            user_origin_wu = MetadataWorkUnit(id=user_origin_wu_id, mcp=user_origin_mcp)
-            self.report.report_workunit(user_origin_wu)
-            yield user_origin_wu
+            yield MetadataWorkUnit(id=user_origin_wu_id, mcp=user_origin_mcp)
 
             user_status_mcp = MetadataChangeProposalWrapper(
                 entityUrn=datahub_corp_user_snapshot.urn,
                 aspect=StatusClass(removed=False),
             )
             user_status_wu_id = f"user-status-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-            user_status_wu = MetadataWorkUnit(id=user_status_wu_id, mcp=user_status_mcp)
-            self.report.report_workunit(user_status_wu)
-            yield user_status_wu
+            yield MetadataWorkUnit(id=user_status_wu_id, mcp=user_status_mcp)
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -512,13 +497,13 @@ class AzureADSource(StatefulIngestionSourceBase):
         yield from self._get_azure_ad_data(kind=kind)
 
     def _get_azure_ad_data(self, kind: str) -> Iterable[List]:
-        headers = {"Authorization": "Bearer {}".format(self.token)}
+        headers = {"Authorization": f"Bearer {self.token}"}
         #           'ConsistencyLevel': 'eventual'}
         url = self.config.graph_url + kind
         while True:
             if not url:
                 break
-            response = requests.get(url, headers=headers)
+            response = self.session.get(url, headers=headers)
             if response.status_code == 200:
                 json_data = json.loads(response.text)
                 try:
@@ -529,13 +514,14 @@ class AzureADSource(StatefulIngestionSourceBase):
                 yield json_data["value"]
             else:
                 error_str = (
+                    f"Request URL: {url}. "
                     f"Response status code: {str(response.status_code)}. "
                     f"Response content: {str(response.content)}"
                 )
                 logger.debug(f"URL = {url}")
                 logger.error(error_str)
                 self.report.report_failure("_get_azure_ad_data_", error_str)
-                continue
+                raise Exception(f"Unable to get {url}, error {response.status_code}")
 
     def _map_identity_to_urn(self, func, id_to_extract, mapping_identifier, id_type):
         result, error_str = None, None

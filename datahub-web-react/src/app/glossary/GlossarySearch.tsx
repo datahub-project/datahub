@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
-import { IconStyleType } from '../entity/Entity';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { SearchBar } from '../search/SearchBar';
 import ClickOutside from '../shared/ClickOutside';
 import { useEntityRegistry } from '../useEntityRegistry';
+import GloassarySearchResultItem from './GloassarySearchResultItem';
 
 const GlossarySearchWrapper = styled.div`
     position: relative;
@@ -28,20 +27,10 @@ const ResultsWrapper = styled.div`
     top: 45px;
 `;
 
-const SearchResult = styled(Link)`
-    color: #262626;
-    display: inline-block;
-    height: 100%;
-    padding: 6px 8px;
-    width: 100%;
-    &:hover {
-        background-color: ${ANTD_GRAY[3]};
-        color: #262626;
-    }
-`;
-
-const IconWrapper = styled.span`
-    margin-right: 8px;
+const TermNodeName = styled.span`
+    margin-top: 12px;
+    color: ${ANTD_GRAY[8]};
+    font-weight: bold;
 `;
 
 function GlossarySearch() {
@@ -62,6 +51,21 @@ function GlossarySearch() {
     });
 
     const searchResults = data?.searchAcrossEntities?.searchResults;
+
+    const renderSearchResults = () => (
+        <ResultsWrapper>
+            <TermNodeName>Glossary Terms</TermNodeName>
+            {searchResults?.map((result) => (
+                <GloassarySearchResultItem
+                    key={result.entity.urn}
+                    entity={result.entity}
+                    entityRegistry={entityRegistry}
+                    query={query}
+                    onResultClick={() => setIsSearchBarFocused(false)}
+                />
+            ))}
+        </ResultsWrapper>
+    );
 
     return (
         <GlossarySearchWrapper>
@@ -84,23 +88,7 @@ function GlossarySearch() {
                     entityRegistry={entityRegistry}
                     onFocus={() => setIsSearchBarFocused(true)}
                 />
-                {isSearchBarFocused && searchResults && !!searchResults.length && (
-                    <ResultsWrapper>
-                        {searchResults.map((result) => {
-                            return (
-                                <SearchResult
-                                    to={`${entityRegistry.getEntityUrl(result.entity.type, result.entity.urn)}`}
-                                    onClick={() => setIsSearchBarFocused(false)}
-                                >
-                                    <IconWrapper>
-                                        {entityRegistry.getIcon(result.entity.type, 12, IconStyleType.ACCENT)}
-                                    </IconWrapper>
-                                    {entityRegistry.getDisplayName(result.entity.type, result.entity)}
-                                </SearchResult>
-                            );
-                        })}
-                    </ResultsWrapper>
-                )}
+                {isSearchBarFocused && searchResults && !!searchResults.length && renderSearchResults()}
             </ClickOutside>
         </GlossarySearchWrapper>
     );

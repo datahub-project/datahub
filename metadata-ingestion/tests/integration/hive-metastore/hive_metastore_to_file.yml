@@ -1,0 +1,21 @@
+run_id: hive-metastore-test
+
+source:
+  type: hive-metastore
+  config:
+    host_port: localhost:5432
+    database: metastore
+    username: postgres
+
+    scheme: "postgresql+psycopg2"
+    include_views: True
+    include_tables: True
+
+    schema_pattern:
+      allow:
+        - "^public"
+
+sink:
+  type: file
+  config:
+    filename: "./hive_metastore_mces.json"

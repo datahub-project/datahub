@@ -13,9 +13,13 @@ type Props = {
 export const ViewSelectDropdown = ({ menu, hasViews, onClickCreateView, onClickManageViews, onClickClear }: Props) => {
     return (
         <>
-            <ViewSelectHeader onClickCreateView={onClickCreateView} onClickClear={onClickClear} />
+            <ViewSelectHeader onClickClear={onClickClear} />
             {hasViews && menu}
-            <ViewSelectFooter onClickManageViews={onClickManageViews} />
+            <ViewSelectFooter
+                hasViews={hasViews}
+                onClickCreateView={onClickCreateView}
+                onClickManageViews={onClickManageViews}
+            />
         </>
     );
 };

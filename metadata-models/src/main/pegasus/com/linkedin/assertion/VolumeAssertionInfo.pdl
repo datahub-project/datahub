@@ -1,0 +1,82 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.Urn
+import com.linkedin.dataset.DatasetFilter
+
+/**
+* Attributes defining a dataset Volume Assertion
+*/
+record VolumeAssertionInfo {
+    /**
+     * The type of the volume assertion being monitored.
+     */
+    @Searchable = {}
+    type: enum VolumeAssertionType {
+      /**
+       * A volume assertion that is evaluated against the total row count of a dataset.
+       */
+       ROW_COUNT_TOTAL
+       /**
+       * A volume assertion that is evaluated against an incremental row count of a dataset,
+       * or a row count change.
+       */
+       ROW_COUNT_CHANGE
+       /**
+        * A volume assertion that checks the latest "segment" in a table based on an incrementing
+        * column to check whether it's row count falls into a particular range.
+        *
+        * This can be used to monitor the row count of an incrementing date-partition column segment.
+        */
+       INCREMENTING_SEGMENT_ROW_COUNT_TOTAL
+       /**
+        * A volume assertion that compares the row counts in neighboring "segments" or "partitions"
+        * of an incrementing column.
+        * This can be used to track changes between subsequent date partition
+        * in a table, for example.
+        */
+       INCREMENTING_SEGMENT_ROW_COUNT_CHANGE
+    }
+
+    /**
+    * The entity targeted by this Volume check.
+    */
+    @Searchable = {
+      "fieldType": "URN"
+    }
+    @Relationship = {
+      "name": "Asserts",
+      "entityTypes": [ "dataset" ]
+    }
+    entity: Urn
+
+    /**
+    * Produce FAILURE Assertion Result if the row count of the asset does not meet specific requirements.
+    * Required if type is 'ROW_COUNT_TOTAL'
+    */
+    rowCountTotal: optional RowCountTotal
+
+    /**
+    * Produce FAILURE Assertion Result if the delta row count of the asset does not meet specific requirements
+    * within a given period of time.
+    * Required if type is 'ROW_COUNT_CHANGE'
+    */
+    rowCountChange: optional RowCountChange
+
+    /**
+    * Produce FAILURE Assertion Result if the asset's latest incrementing segment row count total
+    * does not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_TOTAL'
+    */
+    incrementingSegmentRowCountTotal: optional IncrementingSegmentRowCountTotal
+
+    /**
+    * Produce FAILURE Assertion Result if the asset's incrementing segment row count delta
+    * does not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_CHANGE'
+    */
+    incrementingSegmentRowCountChange: optional IncrementingSegmentRowCountChange
+
+    /**
+     * A definition of the specific filters that should be applied, when performing monitoring.
+     * If not provided, there is no filter, and the full table is under consideration.
+     */
+    filter: optional DatasetFilter
+}

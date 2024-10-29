@@ -1,0 +1,15 @@
+namespace com.linkedin.dataproduct
+import com.linkedin.common.Edge
+
+
+/**
+ * Represents an association of assets to a Data Product.
+ **/
+record DataProductAssociation includes Edge {
+
+    /**
+    * If set to true, this asset is an output port of the Data Product.
+    */
+    outputPort: boolean = false
+
+}

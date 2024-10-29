@@ -1,0 +1,39 @@
+{
+  "on": {
+    "types": ["dataset", "container", "dataJob", "dataFlow", "chart", "dashboard"],
+    "conditions": {
+      "or": [
+        {
+          "property": "forms.incompleteForms.urn",
+          "operator": "equals",
+          "values": ["urn:li:form:test"]
+        },
+        {
+          "property": "forms.completedForms.urn",
+          "operator": "equals",
+          "values": ["urn:li:form:test"]
+        }
+      ]
+    }
+  },
+  "rules": {
+    "and": [
+      {
+        "property": "structuredProperties.urn:li:structuredProperty:test.id",
+        "operator": "exists"
+      }
+    ]
+  },
+  "actions": {
+    "passing": [],
+    "failing": [
+      {
+        "type": "SET_FORM_PROMPT_INCOMPLETE",
+        "params": {
+          "formUrn": "urn:li:form:test",
+          "formPromptId": "test-id"
+        }
+      }
+    ]
+  }
+}

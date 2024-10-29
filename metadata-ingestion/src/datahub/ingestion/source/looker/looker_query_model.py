@@ -1,13 +1,9 @@
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Dict, List, cast
 
 from looker_sdk.sdk.api40.models import WriteQuery
 
-
-# Enum whose value is string and compatible with dictionary having string value as key
-class StrEnum(str, Enum):
-    pass
+from datahub.utilities.str_enum import StrEnum
 
 
 class LookerModel(StrEnum):
@@ -72,7 +68,9 @@ class LookerQuery:
             model=cast(str, self.model.value),  # the cast is jut to silent the lint
             view=cast(str, self.explore.value),
             fields=[cast(str, field.value) for field in self.fields],
-            filters={filter_.value: self.filters[filter_] for filter_ in self.filters}
-            if self.filters is not None
-            else {},
+            filters=(
+                {filter_.value: self.filters[filter_] for filter_ in self.filters}
+                if self.filters is not None
+                else {}
+            ),
         )

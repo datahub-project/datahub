@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { MemoryRouter } from 'react-router';
 import { ThemeProvider } from 'styled-components';
 
+import { HelmetProvider } from 'react-helmet-async';
 import { CLIENT_AUTH_COOKIE } from '../../conf/Global';
 import { DatasetEntity } from '../../app/entity/dataset/DatasetEntity';
 import { DataFlowEntity } from '../../app/entity/dataFlow/DataFlowEntity';
@@ -21,6 +22,10 @@ import { ChartEntity } from '../../app/entity/chart/ChartEntity';
 import { DashboardEntity } from '../../app/entity/dashboard/DashboardEntity';
 import { LineageExplorerContext } from '../../app/lineage/utils/LineageExplorerContext';
 import UserContextProvider from '../../app/context/UserContextProvider';
+import { DataPlatformEntity } from '../../app/entity/dataPlatform/DataPlatformEntity';
+import { ContainerEntity } from '../../app/entity/container/ContainerEntity';
+import AppConfigProvider from '../../AppConfigProvider';
+import { BusinessAttributeEntity } from '../../app/entity/businessAttribute/BusinessAttributeEntity';
 
 type Props = {
     children: React.ReactNode;
@@ -41,6 +46,9 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new MLFeatureTableEntity());
     entityRegistry.register(new MLModelEntity());
     entityRegistry.register(new MLModelGroupEntity());
+    entityRegistry.register(new DataPlatformEntity());
+    entityRegistry.register(new ContainerEntity());
+    entityRegistry.register(new BusinessAttributeEntity());
     return entityRegistry;
 }
 
@@ -50,36 +58,40 @@ export default ({ children, initialEntries }: Props) => {
         writable: true,
         value: `${CLIENT_AUTH_COOKIE}=urn:li:corpuser:2`,
     });
-    jest.mock('js-cookie', () => ({ get: () => 'urn:li:corpuser:2' }));
+    vi.mock('js-cookie', () => ({ default: { get: () => 'urn:li:corpuser:2' } }));
 
     return (
-        <ThemeProvider theme={defaultThemeConfig}>
-            <MemoryRouter initialEntries={initialEntries}>
-                <EntityRegistryContext.Provider value={entityRegistry}>
-                    <UserContextProvider>
-                        <LineageExplorerContext.Provider
-                            value={{
-                                expandTitles: false,
-                                showColumns: false,
-                                collapsedColumnsNodes: {},
-                                setCollapsedColumnsNodes: null,
-                                fineGrainedMap: {},
-                                selectedField: null,
-                                setSelectedField: () => {},
-                                highlightedEdges: [],
-                                setHighlightedEdges: () => {},
-                                visibleColumnsByUrn: {},
-                                setVisibleColumnsByUrn: () => {},
-                                columnsByUrn: {},
-                                setColumnsByUrn: () => {},
-                                refetchCenterNode: () => {},
-                            }}
-                        >
-                            {children}
-                        </LineageExplorerContext.Provider>
-                    </UserContextProvider>
-                </EntityRegistryContext.Provider>
-            </MemoryRouter>
-        </ThemeProvider>
+        <HelmetProvider>
+            <ThemeProvider theme={defaultThemeConfig}>
+                <MemoryRouter initialEntries={initialEntries}>
+                    <EntityRegistryContext.Provider value={entityRegistry}>
+                        <UserContextProvider>
+                            <AppConfigProvider>
+                                <LineageExplorerContext.Provider
+                                    value={{
+                                        expandTitles: false,
+                                        showColumns: false,
+                                        collapsedColumnsNodes: {},
+                                        setCollapsedColumnsNodes: null,
+                                        fineGrainedMap: {},
+                                        selectedField: null,
+                                        setSelectedField: () => {},
+                                        highlightedEdges: [],
+                                        setHighlightedEdges: () => {},
+                                        visibleColumnsByUrn: {},
+                                        setVisibleColumnsByUrn: () => {},
+                                        columnsByUrn: {},
+                                        setColumnsByUrn: () => {},
+                                        refetchCenterNode: () => {},
+                                    }}
+                                >
+                                    {children}
+                                </LineageExplorerContext.Provider>
+                            </AppConfigProvider>
+                        </UserContextProvider>
+                    </EntityRegistryContext.Provider>
+                </MemoryRouter>
+            </ThemeProvider>
+        </HelmetProvider>
     );
 };

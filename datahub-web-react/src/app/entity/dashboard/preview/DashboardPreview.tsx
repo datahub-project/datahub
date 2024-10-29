@@ -11,6 +11,9 @@ import {
     ParentContainersResult,
     Deprecation,
     DashboardStatsSummary,
+    DataProduct,
+    EntityPath,
+    Health,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -30,6 +33,7 @@ export const DashboardPreview = ({
     tags,
     glossaryTerms,
     domain,
+    dataProduct,
     container,
     insights,
     logoUrl,
@@ -41,6 +45,9 @@ export const DashboardPreview = ({
     parentContainers,
     deprecation,
     snippet,
+    degree,
+    paths,
+    health,
 }: {
     urn: string;
     platform?: string;
@@ -53,6 +60,7 @@ export const DashboardPreview = ({
     tags?: GlobalTags;
     glossaryTerms?: GlossaryTerms | null;
     domain?: Domain | null;
+    dataProduct?: DataProduct | null;
     container?: Container | null;
     deprecation?: Deprecation | null;
     insights?: Array<SearchInsight> | null;
@@ -64,6 +72,9 @@ export const DashboardPreview = ({
     externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;
     snippet?: React.ReactNode | null;
+    degree?: number;
+    paths?: EntityPath[];
+    health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -84,6 +95,7 @@ export const DashboardPreview = ({
             container={container || undefined}
             glossaryTerms={glossaryTerms || undefined}
             domain={domain}
+            dataProduct={dataProduct}
             deprecation={deprecation}
             insights={insights}
             parentContainers={parentContainers}
@@ -99,6 +111,9 @@ export const DashboardPreview = ({
                     createdMs={createdMs}
                 />
             }
+            degree={degree}
+            paths={paths}
+            health={health || undefined}
         />
     );
 };

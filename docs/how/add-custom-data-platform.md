@@ -12,7 +12,7 @@ your custom Data Platform will persist even between full cleans (nukes) of DataH
 
 ## Changing Default Data Platforms
 
-Simply make a change to the [data_platforms.json](https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json) 
+Simply make a change to the [data_platforms.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml) 
 file to add a custom Data Platform:
 
 ```
@@ -33,6 +33,12 @@ file to add a custom Data Platform:
 
 You can also ingest a Data Platform at runtime using either a file-based ingestion source, or using a normal curl to the
 [GMS Rest.li APIs](https://datahubproject.io/docs/metadata-service#restli-api). 
+
+### Using the cli
+
+```shell
+datahub put platform --name MyCustomDataPlatform --display_name "My Custom Data Platform" --logo "https://<your-logo-url>"
+```
 
 ### Using File-Based Ingestion Recipe
 
@@ -71,7 +77,7 @@ You can also ingest a Data Platform at runtime using either a file-based ingesti
 source:
   type: "file"
   config:
-    filename: "./my-custom-data-platform.json"
+    path: "./my-custom-data-platform.json"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:

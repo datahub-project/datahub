@@ -13,7 +13,7 @@ describe("search", () => {
     cy.visit("/");
     // random string that is unlikely to accidentally have a match
     cy.get("input[data-testid=search-input]").type(
-      "zzzzzzzzzzzzzqqqqqqqqqqqqqzzzzzzqzqzqzqzq{enter}"
+      "zzzzzzzzzzzzzqqqqqqqqqqqqqzzzzzzqzqzqzqzq{enter}",
     );
     cy.wait(5000);
     cy.contains("of 0 results");
@@ -22,9 +22,9 @@ describe("search", () => {
   it("can search, find a result, and visit the dataset page", () => {
     cy.login();
     cy.visit(
-      "/search?filter_entity=DATASET&filter_tags=urn%3Ali%3Atag%3ACypress&page=1&query=users_created"
+      "/search?filter_entity=DATASET&filter_tags=urn%3Ali%3Atag%3ACypress&page=1&query=users created",
     );
-    cy.contains("of 2 result");
+    cy.contains("of 1 result");
 
     cy.contains("Cypress");
 
@@ -51,7 +51,7 @@ describe("search", () => {
   it("can search and get glossary term facets with proper labels", () => {
     cy.login();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)"
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)",
     );
     cy.contains("cypress_logging_events");
 

@@ -1,0 +1,7 @@
+export const EMBED_LOOKUP_NOT_FOUND_REASON = {
+    NO_ENTITY_FOUND: 'NO_ENTITY_FOUND',
+    MULTIPLE_ENTITIES_FOUND: 'MULTIPLE_ENTITIES_FOUND',
+} as const;
+
+export type EmbedLookupNotFoundReason =
+    (typeof EMBED_LOOKUP_NOT_FOUND_REASON)[keyof typeof EMBED_LOOKUP_NOT_FOUND_REASON];

@@ -1,0 +1,48 @@
+{
+    "query_type": "CREATE_TABLE_AS_SELECT",
+    "query_type_props": {
+        "kind": "TABLE"
+    },
+    "query_fingerprint": "4950101f5207463ec1e8637ea686b65823d23f4c4d0682bc0ae560b9abbf82fe",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_diagnoses,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_features,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.test_lineage2,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.test_lineage2,PROD)",
+                "column": "PatientId",
+                "column_type": null,
+                "native_column_type": "INTEGER()"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_diagnoses,PROD)",
+                    "column": "PatientId"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.test_lineage2,PROD)",
+                "column": "BMI",
+                "column_type": null,
+                "native_column_type": "FLOAT()"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_features,PROD)",
+                    "column": "BMI"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "CREATE TABLE demo_user.test_lineage2 AS (SELECT ppd.PatientId, ppf.bmi FROM demo_user.pima_patient_features AS ppf JOIN demo_user.pima_patient_diagnoses AS ppd ON ppd.PatientId = ppf.PatientId) WITH DATA"
+    }
+}

@@ -1,9 +1,8 @@
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import pytest
 from freezegun import freeze_time
 
-from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.metadata import business_glossary
 from tests.test_helpers import mce_helpers
@@ -12,12 +11,15 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 
 def get_default_recipe(
-    glossary_yml_file_path: str, event_output_file_path: str
+    glossary_yml_file_path: str, event_output_file_path: str, enable_auto_id: bool
 ) -> Dict[str, Any]:
     return {
         "source": {
             "type": "datahub-business-glossary",
-            "config": {"file": glossary_yml_file_path},
+            "config": {
+                "file": glossary_yml_file_path,
+                "enable_auto_id": enable_auto_id,
+            },
         },
         "sink": {
             "type": "file",
@@ -28,38 +30,42 @@ def get_default_recipe(
     }
 
 
+@pytest.mark.parametrize(
+    "enable_auto_id, golden_file",
+    [
+        (False, "glossary_events_golden.json"),
+        (True, "glossary_events_auto_id_golden.json"),
+    ],
+)
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_glossary_ingest(mock_datahub_graph, pytestconfig, tmp_path, mock_time):
+def test_glossary_ingest(
+    mock_datahub_graph_instance,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    enable_auto_id,
+    golden_file,
+):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"
 
-    # These paths change from one instance run of the clickhouse docker to the other,
-    # and the FROZEN_TIME does not apply to these.
-    ignore_paths: List[str] = [
-        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['metadata_modification_time'\]",
-        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['data_paths'\]",
-        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['metadata_path'\]",
-    ]
-
     output_mces_path: str = f"{tmp_path}/glossary_events.json"
-    golden_mces_path: str = f"{test_resources_dir}/glossary_events_golden.json"
+    golden_mces_path: str = f"{test_resources_dir}/{golden_file}"
 
     pipeline = Pipeline.create(
         get_default_recipe(
             glossary_yml_file_path=f"{test_resources_dir}/business_glossary.yml",
             event_output_file_path=output_mces_path,
+            enable_auto_id=enable_auto_id,
         )
     )
-    pipeline.ctx.graph = mock_datahub_graph(
-        DatahubClientConfig()
-    )  # Mock to resolve domain
+    pipeline.ctx.graph = mock_datahub_graph_instance
     pipeline.run()
     pipeline.raise_from_status()
 
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        ignore_paths=ignore_paths,
         output_path=output_mces_path,
         golden_path=golden_mces_path,
     )

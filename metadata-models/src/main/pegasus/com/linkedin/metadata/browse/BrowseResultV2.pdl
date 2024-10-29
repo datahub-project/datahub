@@ -1,0 +1,32 @@
+namespace com.linkedin.metadata.browse
+
+/**
+ * The model for the result of a browseV2 query
+ */
+record BrowseResultV2 {
+
+  /**
+   * A list of groups and total number of entities inside those groups under the queried path
+   */
+  groups: array[BrowseResultGroupV2] = [ ]
+
+  /**
+   * Metadata specific to the browse result of the queried path
+   */
+  metadata: BrowseResultMetadata
+
+  /**
+   * Offset of the first entity in the result
+   */
+  from: int
+
+  /**
+   * Size of each page in the result
+   */
+  pageSize: int
+
+  /**
+   * The total number of groups directly under queried path
+   */
+  numGroups: int
+}

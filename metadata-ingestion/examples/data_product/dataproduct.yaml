@@ -1,0 +1,37 @@
+id: pet_of_the_week
+domain: Marketing
+display_name: Pet of the Week Campaign
+description: |-
+  This campaign includes Pet of the Week data.
+
+# List of assets that belong to this Data Product
+assets:
+  - urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_details,PROD)
+  - urn:li:dashboard:(looker,dashboards.19)
+  - urn:li:dataFlow:(airflow,snowflake_load,prod)
+
+owners:
+  - id: urn:li:corpuser:jdoe
+    type: BUSINESS_OWNER
+  - id: urn:li:corpuser:fbar
+    type: urn:li:ownershipType:architect  # Maps to a custom ownership type
+
+# Tags associated with this Data Product
+tags:
+  - urn:li:tag:adoption
+
+# Glossary Terms associated with this Data Product
+terms:
+  - urn:li:glossaryTerm:ClientsAndAccounts.AccountBalance
+
+institutional_memory:
+  elements:
+    - title: URL for campaign
+      description: |-
+        Go here to see the campaign.
+      url: https://example.com/pet_of_the_week
+
+# Custom Properties
+properties:
+  lifecycle: production
+  sla: 7am every day

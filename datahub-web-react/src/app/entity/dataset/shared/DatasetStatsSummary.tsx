@@ -7,9 +7,13 @@ import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
 import { FormattedBytesStat } from './FormattedBytesStat';
+import { countFormatter, needsFormatting } from '../../../../utils/formatter';
+import ExpandingStat from './ExpandingStat';
 
 const StatText = styled.span<{ color: string }>`
     color: ${(props) => props.color};
+    @media (min-width: 1160px) {
+        white-space: nowrap;
 `;
 
 const PopoverContent = styled.div`
@@ -20,34 +24,52 @@ type Props = {
     rowCount?: number | null;
     columnCount?: number | null;
     sizeInBytes?: number | null;
+    totalSqlQueries?: number | null;
     queryCountLast30Days?: number | null;
     uniqueUserCountLast30Days?: number | null;
     lastUpdatedMs?: number | null;
     color?: string;
+    mode?: 'normal' | 'tooltip-content';
+    shouldWrap?: boolean;
 };
 
 export const DatasetStatsSummary = ({
     rowCount,
     columnCount,
     sizeInBytes,
+    totalSqlQueries,
     queryCountLast30Days,
     uniqueUserCountLast30Days,
     lastUpdatedMs,
     color,
+    mode = 'normal',
+    shouldWrap,
 }: Props) => {
-    const displayedColor = color !== undefined ? color : ANTD_GRAY[7];
+    const isTooltipMode = mode === 'tooltip-content';
+    const displayedColor = isTooltipMode ? '' : color ?? ANTD_GRAY[7];
 
     const statsViews = [
         !!rowCount && (
-            <StatText color={displayedColor}>
-                <TableOutlined style={{ marginRight: 8, color: displayedColor }} />
-                <b>{formatNumberWithoutAbbreviation(rowCount)}</b> rows
-                {!!columnCount && (
-                    <>
-                        , <b>{formatNumberWithoutAbbreviation(columnCount)}</b> columns
-                    </>
+            <ExpandingStat
+                disabled={isTooltipMode || !needsFormatting(rowCount)}
+                render={(isExpanded) => (
+                    <StatText color={displayedColor}>
+                        <TableOutlined style={{ marginRight: 8, color: displayedColor }} />
+                        <b>{isExpanded ? formatNumberWithoutAbbreviation(rowCount) : countFormatter(rowCount)}</b> rows
+                        {!!columnCount && (
+                            <>
+                                ,{' '}
+                                <b>
+                                    {isExpanded
+                                        ? formatNumberWithoutAbbreviation(columnCount)
+                                        : countFormatter(columnCount)}
+                                </b>{' '}
+                                columns
+                            </>
+                        )}
+                    </StatText>
                 )}
-            </StatText>
+            />
         ),
         !!sizeInBytes && (
             <StatText color={displayedColor}>
@@ -55,10 +77,11 @@ export const DatasetStatsSummary = ({
                 <FormattedBytesStat bytes={sizeInBytes} />
             </StatText>
         ),
-        !!queryCountLast30Days && (
+        (!!queryCountLast30Days || !!totalSqlQueries) && (
             <StatText color={displayedColor}>
                 <ConsoleSqlOutlined style={{ marginRight: 8, color: displayedColor }} />
-                <b>{formatNumberWithoutAbbreviation(queryCountLast30Days)}</b> queries last month
+                <b>{formatNumberWithoutAbbreviation(queryCountLast30Days || totalSqlQueries)}</b>{' '}
+                {queryCountLast30Days ? <>queries last month</> : <>monthly queries</>}
             </StatText>
         ),
         !!uniqueUserCountLast30Days && (
@@ -84,5 +107,5 @@ export const DatasetStatsSummary = ({
         ),
     ].filter((stat) => stat);
 
-    return <>{statsViews.length > 0 && <StatsSummary stats={statsViews} />}</>;
+    return <>{statsViews.length > 0 && <StatsSummary stats={statsViews} shouldWrap={shouldWrap} />}</>;
 };

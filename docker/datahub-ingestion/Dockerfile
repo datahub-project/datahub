@@ -1,50 +1,64 @@
 # Defining environment
-ARG APP_ENV=prod
-ARG DOCKER_VERSION=latest
+ARG APP_ENV=full
+ARG BASE_IMAGE=acryldata/datahub-ingestion-base
+ARG DOCKER_VERSION=head-full
+ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
+ARG UBUNTU_REPO_URL=http://ports.ubuntu.com/ubuntu-ports
+ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 
-FROM acryldata/datahub-ingestion-base:$DOCKER_VERSION as base
+FROM $BASE_IMAGE:$DOCKER_VERSION AS base
 
-FROM eclipse-temurin:11 as prod-build
-COPY . /datahub-src
-WORKDIR /datahub-src
-# We noticed that the gradle wrapper download failed frequently on in CI on arm64 machines.
-# I suspect this was due because of the QEMU emulation slowdown, combined with the arm64
-# build being starved for CPU by the x86_64 build's codegen step.
-#
-# The middle step will attempt to download gradle wrapper 5 times with exponential backoff.
-# The ./gradlew --version will force the download of the gradle wrapper but is otherwise a no-op.
-# Note that the retry logic will always return success, so we should always attempt to run codegen.
-# Inspired by https://github.com/gradle/gradle/issues/18124#issuecomment-958182335.
-# and https://unix.stackexchange.com/a/82610/378179.
-# This is a workaround for https://github.com/gradle/gradle/issues/18124.
-RUN (for attempt in 1 2 3 4 5; do ./gradlew --version && break ; echo "Failed to download gradle wrapper (attempt $attempt)" && sleep $((2<<$attempt)) ; done ) && \
-    ./gradlew :metadata-events:mxe-schemas:build
+# Optionally set corporate mirror for deb
+USER 0
+ARG DEBIAN_REPO_URL
+ARG UBUNTU_REPO_URL
+RUN if [ "${DEBIAN_REPO_URL}" != "http://deb.debian.org/debian" ] ; then sed -i "s#http.*://deb.debian.org/debian#${DEBIAN_REPO_URL}#g" /etc/apt/sources.list ; fi
+RUN if [ "${UBUNTU_REPO_URL}" != "http://ports.ubuntu.com/ubuntu-ports" ] ; then sed -i "s#http.*://ports.ubuntu.com/ubuntu-ports#${UBUNTU_REPO_URL}#g" /etc/apt/sources.list ; fi
+USER datahub
 
-FROM base as prod-codegen
-COPY --from=prod-build /datahub-src /datahub-src
-RUN cd /datahub-src/metadata-ingestion && \
-    pip install -e ".[base]" && \
-    ./scripts/codegen.sh
+# Optionally set corporate mirror for pip
+ARG PIP_MIRROR_URL
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+ENV UV_INDEX_URL=${PIP_MIRROR_URL}
 
-FROM base as prod-install
-COPY --from=prod-codegen /datahub-src/metadata-ingestion /datahub-ingestion
-COPY --from=prod-codegen /root/.cache/pip /root/.cache/pip
+COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
+COPY --chown=datahub ./metadata-ingestion-modules/airflow-plugin /metadata-ingestion/airflow-plugin
+
 ARG RELEASE_VERSION
-RUN cd /datahub-ingestion && \
-    sed -i.bak "s/__version__ = \"0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub/__init__.py && \
-    cat src/datahub/__init__.py && \
-    pip install ".[all]" && \
-    pip freeze && \
-    # This is required to fix security vulnerability in htrace-core4
-    rm -f /usr/local/lib/python3.10/site-packages/pyspark/jars/htrace-core4-4.1.0-incubating.jar
+WORKDIR /metadata-ingestion
+RUN sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" src/datahub/__init__.py && \
+    sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" airflow-plugin/src/datahub_airflow_plugin/__init__.py && \
+    cat src/datahub/__init__.py | grep __version__ && \
+    cat airflow-plugin/src/datahub_airflow_plugin/__init__.py | grep __version__
 
-FROM base as dev-install
+FROM base AS slim-install
+
+RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv,uid=1000,gid=1000 \
+    UV_LINK_MODE=copy uv pip install -e ".[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]"
+
+FROM base AS full-install-build
+
+USER 0
+RUN apt-get update && apt-get install -y -qq maven
+
+USER datahub
+COPY ./docker/datahub-ingestion/pyspark_jars.sh .
+
+RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv,uid=1000,gid=1000 \
+    UV_LINK_MODE=copy uv pip install -e ".[base,all]" "./airflow-plugin[plugin-v2]" && \
+    ./pyspark_jars.sh && \
+    datahub --version
+
+FROM base AS full-install
+
+COPY --from=full-install-build ${VIRTUAL_ENV} ${VIRTUAL_ENV}
+
+FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
-FROM ${APP_ENV}-install as final
+FROM ${APP_ENV}-install AS final
 
-RUN addgroup --system datahub && adduser --system datahub --ingroup datahub
+WORKDIR /datahub-ingestion
+
 USER datahub
-
-ENTRYPOINT [ "datahub" ]

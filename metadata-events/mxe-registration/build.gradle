@@ -1,15 +1,19 @@
-apply plugin: 'java'
+plugins {
+  id 'java'
+  id 'pegasus'
+}
 
 configurations {
   avroOriginal
 }
 
 dependencies {
-  compile project(':metadata-events:mxe-avro-1.7')
-  compile project(':metadata-models')
-  compile spec.product.pegasus.dataAvro1_6
+  implementation project(':metadata-events:mxe-avro')
+  implementation project(':metadata-models')
+  implementation spec.product.pegasus.dataAvro
 
-  testCompile project(':test-models')
+  testImplementation project(':test-models')
+  testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
 
   avroOriginal project(path: ':metadata-models', configuration: 'avroSchema')
 

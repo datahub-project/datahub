@@ -25,6 +25,6 @@ def test_kafka_state_migration() -> None:
         }
     )
     assert state.urns == [
-        "urn:li:dataset:(urn:li:dataPlatform:kafka,test_topic1,test)",
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,test_topic1,TEST)",
         "urn:li:dataset:(urn:li:dataPlatform:kafka,topic_2,DEV)",
     ]

@@ -37,6 +37,11 @@ def pydantic_renamed_field(
                 values[new_name] = transform(values.pop(old_name))
         return values
 
+    # Hack: Pydantic maintains unique list of validators by referring its __name__.
+    # https://github.com/pydantic/pydantic/blob/v1.10.9/pydantic/main.py#L264
+    # This hack ensures that multiple field renames do not overwrite each other.
+    _validate_field_rename.__name__ = f"{_validate_field_rename.__name__}_{old_name}"
+
     # Why aren't we using pydantic.validator here?
     # The `values` argument that is passed to field validators only contains items
     # that have already been validated in the pre-process phase, which happens if
@@ -44,4 +49,6 @@ def pydantic_renamed_field(
     # validator with pre=True gets all the values that were passed in.
     # Given that a renamed field doesn't show up in the fields list, we can't use
     # the field-level validator, even with a different field name.
-    return pydantic.root_validator(pre=True, allow_reuse=True)(_validate_field_rename)
+    return pydantic.root_validator(pre=True, skip_on_failure=True, allow_reuse=True)(
+        _validate_field_rename
+    )

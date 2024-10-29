@@ -9,13 +9,16 @@ import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab'
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
 import { DataFlowJobsTab } from '../shared/tabs/Entity/DataFlowJobsTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { getDataProduct } from '../shared/utils';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
 /**
  * Definition of the DataHub DataFlow entity.
@@ -56,14 +59,16 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getCollectionName = () => 'Pipelines';
 
+    useEntityQuery = useGetDataFlowQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
             entityType={EntityType.DataFlow}
-            useEntityQuery={useGetDataFlowQuery}
+            useEntityQuery={this.useEntityQuery}
             useUpdateQuery={useUpdateDataFlowMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
             tabs={[
                 {
                     name: 'Documentation',
@@ -76,31 +81,47 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 {
                     name: 'Tasks',
                     component: DataFlowJobsTab,
-                },
-            ]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarTagsSection,
                     properties: {
-                        hasTags: true,
-                        hasTerms: true,
+                        urn,
                     },
                 },
                 {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    name: 'Incidents',
+                    component: IncidentTab,
+                    getDynamicName: (_, dataFlow) => {
+                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents.total;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
-                {
-                    component: SidebarDomainSection,
-                },
             ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+            properties: {
+                defaultOwnerType: OwnershipType.TechnicalOwner,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+    ];
 
     getOverridePropertiesFromEntity = (dataFlow?: DataFlow | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
@@ -113,6 +134,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
     };
 
     renderPreview = (_: PreviewType, data: DataFlow) => {
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
@@ -125,13 +147,16 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
+                health={data.health}
             />
         );
     };
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as DataFlow;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
@@ -146,9 +171,13 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 globalTags={data.globalTags}
                 insights={result.insights}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 jobCount={(data as any).childJobs?.total}
                 deprecation={data.deprecation}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
+                health={data.health}
             />
         );
     };
@@ -173,6 +202,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
 }

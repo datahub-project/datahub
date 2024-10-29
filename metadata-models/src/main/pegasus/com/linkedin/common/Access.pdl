@@ -1,0 +1,15 @@
+namespace com.linkedin.common
+
+
+/**
+ * Aspect used for associating roles to a dataset or any asset
+ */
+@Aspect = {
+  "name": "access"
+}
+record Access {
+  /**
+   * List of Roles which needs to be associated
+   */
+  roles: optional array[RoleAssociation]
+}

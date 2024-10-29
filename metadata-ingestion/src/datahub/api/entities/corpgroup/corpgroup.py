@@ -2,17 +2,19 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from functools import lru_cache
-from typing import TYPE_CHECKING, Callable, Iterable, List, Optional, Union
+from typing import Callable, Iterable, List, Optional, Union
 
 import pydantic
 from pydantic import BaseModel
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.corpuser.corpuser import CorpUser, CorpUserGenerationConfig
+from datahub.configuration.common import ConfigurationError
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     CorpGroupEditableInfoClass,
     CorpGroupInfoClass,
@@ -23,9 +25,6 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     _Aspect,
 )
-
-if TYPE_CHECKING:
-    from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +50,7 @@ class CorpGroup(BaseModel):
         overrideEditable (bool): If True, group information that is editable in the UI will be overridden
         picture_link (Optional[str]): A URL which points to a picture which user wants to set as the photo for the group
         slack (Optional[str]): Slack channel for the group
-        admins (List[Union[str, CorpUser]]): A list of administrator ids (or urns) for the group. You can also provide the user record for the admin inline within this section
+        owners (List[Union[str, CorpUser]]): A list of owner/administrator ids (or urns) for the group. You can also provide the user record for the owner inline within this section
         members (List[Union[str, CorpUser]]): A list of member ids (or urns) for the group.
     """
 
@@ -66,10 +65,12 @@ class CorpGroup(BaseModel):
     overrideEditable: bool = False
     picture_link: Optional[str] = None
     slack: Optional[str] = None
-    admins: List[Union[str, CorpUser]] = []
+    owners: List[Union[str, CorpUser]] = []
     members: List[Union[str, CorpUser]] = []
 
-    @pydantic.validator("admins", "members", each_item=True)
+    _rename_admins_to_owners = pydantic_renamed_field("admins", "owners")
+
+    @pydantic.validator("owners", "members", each_item=True)
     def make_urn_if_needed(v):
         if isinstance(v, str):
             return builder.make_user_urn(v)
@@ -89,8 +90,8 @@ class CorpGroup(BaseModel):
         members_to_create: List[CorpUser] = (
             [u for u in self.members if isinstance(u, CorpUser)] if self.members else []
         )
-        admins_to_create: List[CorpUser] = (
-            [u for u in self.admins if isinstance(u, CorpUser)] if self.admins else []
+        owners_to_create: List[CorpUser] = (
+            [u for u in self.owners if isinstance(u, CorpUser)] if self.owners else []
         )
 
         member_urns: List[str] = (
@@ -98,13 +99,13 @@ class CorpGroup(BaseModel):
             if self.members
             else []
         )
-        admin_urns: List[str] = (
-            [u.urn if isinstance(u, CorpUser) else u for u in self.admins]
-            if self.admins
+        owner_urns: List[str] = (
+            [u.urn if isinstance(u, CorpUser) else u for u in self.owners]
+            if self.owners
             else []
         )
 
-        for m in members_to_create + admins_to_create:
+        for m in members_to_create + owners_to_create:
             if m.urn not in urns_created:
                 yield from m.generate_mcp(
                     generation_config=CorpUserGenerationConfig(
@@ -114,7 +115,7 @@ class CorpGroup(BaseModel):
                 urns_created.add(m.urn)
             else:
                 logger.warn(
-                    f"Supressing emission of member {m.urn} before we already emitted metadata for it"
+                    f"Suppressing emission of member {m.urn} before we already emitted metadata for it"
                 )
 
         aspects: List[_Aspect] = [StatusClass(removed=False)]
@@ -130,7 +131,7 @@ class CorpGroup(BaseModel):
         else:
             aspects.append(
                 CorpGroupInfoClass(
-                    admins=admin_urns,  # deprecated but we fill it out for consistency
+                    admins=owner_urns,  # deprecated but we fill it out for consistency
                     members=member_urns,  # deprecated but we fill it out for consistency
                     groups=[],  # deprecated
                     displayName=self.display_name,
@@ -152,23 +153,22 @@ class CorpGroup(BaseModel):
         for aspect in aspects:
             yield MetadataChangeProposalWrapper(entityUrn=self.urn, aspect=aspect)
 
-        # Unfortunately, admins and members fields in CorpGroupInfo has been deprecated
-        # So we need to emit Ownership and GroupMembership oriented to the individual users
+        # Add owners to the group.
+        if owner_urns:
+            ownership = OwnershipClass(owners=[])
+            for urn in owner_urns:
+                ownership.owners.append(
+                    OwnerClass(owner=urn, type=OwnershipTypeClass.TECHNICAL_OWNER)
+                )
+            yield MetadataChangeProposalWrapper(entityUrn=self.urn, aspect=ownership)
+
+        # Unfortunately, the members in CorpGroupInfo has been deprecated.
+        # So we need to emit GroupMembership oriented to the individual users.
         # TODO: Move this to PATCH MCP-s once these aspects are supported via patch.
         if generation_config.datahub_graph is not None:
             datahub_graph = generation_config.datahub_graph
-            for urn in admin_urns:
-                ownership = datahub_graph.get_aspect(
-                    urn, OwnershipClass
-                ) or OwnershipClass(owners=[])
-                if self.urn not in [owner.owner for owner in ownership.owners]:
-                    ownership.owners = ownership.owners + [
-                        OwnerClass(owner=urn, type=OwnershipTypeClass.TECHNICAL_OWNER)
-                    ]
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=self.urn, aspect=ownership
-                    )
 
+            # Add group membership to each user.
             for urn in member_urns:
                 group_membership = datahub_graph.get_aspect(
                     urn, GroupMembershipClass
@@ -181,41 +181,20 @@ class CorpGroup(BaseModel):
                         entityUrn=urn, aspect=group_membership
                     )
         else:
-            if admin_urns or member_urns:
-                raise Exception(
-                    "Unable to emit group ownership because admins or members are non-empty, and a DataHubGraph instance was not provided."
+            if member_urns:
+                raise ConfigurationError(
+                    "Unable to emit group membership because members is non-empty, and a DataHubGraph instance was not provided."
                 )
 
         # emit status aspects for all user urns referenced (to ensure they get created)
-        for urn in set(admin_urns).union(set(member_urns)):
+        for urn in set(owner_urns).union(set(member_urns)):
             yield MetadataChangeProposalWrapper(
                 entityUrn=urn, aspect=StatusClass(removed=False)
             )
 
-    @lru_cache(maxsize=32)
-    def _datahub_graph_from_datahub_rest_emitter(
-        self, rest_emitter: DatahubRestEmitter
-    ) -> DataHubGraph:
-        """
-        Create a datahub graph instance from a REST Emitter.
-        A stop-gap implementation which is expected to be removed after PATCH support is implemented
-        for membership updates for users <-> groups
-        """
-        graph = DataHubGraph(
-            config=DatahubClientConfig(
-                server=rest_emitter._gms_server,
-                token=rest_emitter._token,
-                timeout_sec=rest_emitter._connect_timeout_sec,
-                retry_status_codes=rest_emitter._retry_status_codes,
-                extra_headers=rest_emitter._session.headers,
-                disable_ssl_verification=rest_emitter._session.verify is False,
-            )
-        )
-        return graph
-
     def emit(
         self,
-        emitter: Union[DatahubRestEmitter, "DatahubKafkaEmitter"],
+        emitter: Emitter,
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         """
@@ -233,7 +212,7 @@ class CorpGroup(BaseModel):
                 # who are passing in a DataHubRestEmitter today
                 # we won't need this in the future once PATCH support is implemented as all emitters
                 # will work
-                datahub_graph = self._datahub_graph_from_datahub_rest_emitter(emitter)
+                datahub_graph = emitter.to_graph()
         for mcp in self.generate_mcp(
             generation_config=CorpGroupGenerationConfig(
                 override_editable=self.overrideEditable, datahub_graph=datahub_graph

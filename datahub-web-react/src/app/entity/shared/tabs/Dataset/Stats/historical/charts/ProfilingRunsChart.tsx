@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { DatasetProfile } from '../../../../../../../../types.generated';
 import ColumnStats from '../../snapshot/ColumnStats';
 import TableStats from '../../snapshot/TableStats';
+import { formatBytes, formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
 
 export const ChartTable = styled(Table)`
     margin-top: 16px;
@@ -11,6 +12,12 @@ export const ChartTable = styled(Table)`
 
 export type Props = {
     profiles: Array<DatasetProfile>;
+};
+
+const bytesFormatter = (bytes: number) => {
+    const formattedBytes = formatBytes(bytes);
+    const fullBytes = formatNumberWithoutAbbreviation(bytes);
+    return `${formattedBytes.number} ${formattedBytes.unit} (${fullBytes} bytes)`;
 };
 
 export default function ProfilingRunsChart({ profiles }: Props) {
@@ -33,6 +40,7 @@ export default function ProfilingRunsChart({ profiles }: Props) {
             timestamp: `${profileDate.toLocaleDateString()} at ${profileDate.toLocaleTimeString()}`,
             rowCount: profile.rowCount?.toString() || 'unknown',
             columnCount: profile.columnCount?.toString() || 'unknown',
+            sizeInBytes: profile.sizeInBytes ? bytesFormatter(profile.sizeInBytes) : 'unknown',
         };
     });
 
@@ -59,6 +67,11 @@ export default function ProfilingRunsChart({ profiles }: Props) {
             key: 'Column Count',
             dataIndex: 'columnCount',
         },
+        {
+            title: 'Size',
+            key: 'Size',
+            dataIndex: 'sizeInBytes',
+        },
     ];
 
     const selectedProfile = (selectedProfileIndex >= 0 && profiles[selectedProfileIndex]) || undefined;
@@ -71,7 +84,7 @@ export default function ProfilingRunsChart({ profiles }: Props) {
     return (
         <>
             {selectedProfile && (
-                <Modal width="100%" footer={null} title={profileModalTitle} visible={showModal} onCancel={onClose}>
+                <Modal width="100%" footer={null} title={profileModalTitle} open={showModal} onCancel={onClose}>
                     <TableStats
                         rowCount={selectedProfile.rowCount || -1}
                         columnCount={selectedProfile.columnCount || -1}

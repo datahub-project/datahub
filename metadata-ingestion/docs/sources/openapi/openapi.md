@@ -2,11 +2,11 @@ The dataset metadata should be defined directly in the Swagger file, section `["
 
 ## Capabilities
 
-The plugin read the swagger file where the endopints are defined and searches for the ones which accept
-a `GET` call: those are the ones supposed to give back the datasets.
+This plugin reads the swagger file where the endpoints are defined, reads example data if provided (for any method), or searches for
+data for the endpoints which do not have example data and accept a `GET` call.
 
 For every selected endpoint defined in the `paths` section,
-the tool searches whether the medatada are already defined in there.
+the tool searches whether the metadata are already defined.
 As example, if in your swagger file there is the `/api/users/` defined as follows:
 
 ```yaml
@@ -27,7 +27,7 @@ paths:
 
 then this plugin has all the information needed to create the dataset in DataHub.
 
-In case there is no example defined, the plugin will try to get the metadata directly from the endpoint.
+In case there is no example defined, the plugin will try to get the metadata directly from the endpoint, if it is a `GET` method.
 So, if in your swagger file you have
 
 ```yaml
@@ -42,7 +42,7 @@ paths:
           description: Return the list of colors
 ```
 
-the tool will make a `GET` call to `https:///test_endpoint.com/colors`
+the tool will make a `GET` call to `https://test_endpoint.com/colors`
 and parse the response obtained.
 
 ### Automatically recorded examples
@@ -53,7 +53,7 @@ Sometimes you can have an endpoint which wants a parameter to work, like
 Since in the OpenApi specifications the listing endpoints are specified
 just before the detailed ones, in the list of the paths, you will find
 
-    https:///test_endpoint.com/colors
+    https://test_endpoint.com/colors
 
 defined before
 
@@ -80,7 +80,7 @@ and this last URL will be called to get back the needed metadata.
 If no useful example is found, a second procedure will try to guess a numerical ID.
 So if we have:
 
-    https:///test_endpoint.com/colors/{colorID}
+    https://test_endpoint.com/colors/{colorID}
 
 and there is no `colorID` example already found by the plugin,
 it will try to put a number one (1) at the parameter place
@@ -120,8 +120,8 @@ paths:
           description: Return details about the group
 ```
 
-and the plugin did not found an example in its previous calls,
-so the tool have no idea about what substitute to the `{name}` part.
+and the plugin did not find an example in its previous calls,
+the tool has no idea about what to substitute for the `{name}` part.
 
 By specifying in the configuration file
 

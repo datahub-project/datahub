@@ -8,12 +8,12 @@ on:
       - ".github/workflows/docker-postgres-setup.yml"
   pull_request:
     branches:
-      - master
+      - "**"
     paths:
       - "docker/postgres-setup/**"
       - ".github/workflows/docker-postgres-setup.yml"
   release:
-    types: [published, edited]
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -27,7 +27,7 @@ jobs:
       publish: ${{ steps.publish.outputs.publish }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: acryldata/sane-checkout-action@v3
       - name: Compute Tag
         id: tag
         run: |
@@ -46,9 +46,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+        uses: acryldata/sane-checkout-action@v3
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -61,4 +59,3 @@ jobs:
           context: .
           file: ./docker/postgres-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
-

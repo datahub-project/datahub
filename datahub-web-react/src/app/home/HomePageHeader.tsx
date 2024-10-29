@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
 import { Typography, Image, Row, Button, Tag } from 'antd';
+import { debounce } from 'lodash';
 import styled, { useTheme } from 'styled-components/macro';
 import { RightOutlined } from '@ant-design/icons';
 import { ManageAccount } from '../shared/ManageAccount';
@@ -16,12 +17,15 @@ import { EntityType, FacetFilterInput } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { useAppConfig } from '../useAppConfig';
+import { useAppConfig, useIsShowAcrylInfoEnabled } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 import { HOME_PAGE_SEARCH_BAR_ID } from '../onboarding/config/HomePageOnboardingConfig';
 import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import { getAutoCompleteInputFromQuickFilter } from '../search/utils/filterUtils';
 import { useUserContext } from '../context/useUserContext';
+import AcrylDemoBanner from './AcrylDemoBanner';
+import DemoButton from '../entity/shared/components/styled/DemoButton';
+import { HALF_SECOND_IN_MS } from '../entity/shared/tabs/Dataset/Queries/utils/constants';
 
 const Background = styled.div`
     width: 100%;
@@ -42,7 +46,7 @@ const styles = {
     navBar: { padding: '24px' },
     searchContainer: { width: '100%', marginTop: '40px' },
     logoImage: { width: 140 },
-    searchBox: { width: '47vw', minWidth: 400, margin: '40px 0px', marginBottom: '12px', maxWidth: '650px' },
+    searchBox: { width: '50vw', minWidth: 400, margin: '40px 0px', marginBottom: '12px', maxWidth: '650px' },
     subtitle: { marginTop: '28px', color: '#FFFFFF', fontSize: 12 },
 };
 
@@ -64,7 +68,7 @@ const NavGroup = styled.div`
 const SuggestionsContainer = styled.div`
     margin: 0px 30px;
     max-width: 650px;
-    width: 47vw;
+    width: 50vw;
     display: flex;
     flex-direction: column;
     justify-content: left;
@@ -142,11 +146,15 @@ export const HomePageHeader = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const [getAutoCompleteResultsForMultiple, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
-    const user = useUserContext()?.user;
+    const userContext = useUserContext();
     const themeConfig = useTheme();
     const appConfig = useAppConfig();
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
     const { selectedQuickFilter } = useQuickFiltersContext();
+    const showAcrylInfo = useIsShowAcrylInfoEnabled();
+    const { user } = userContext;
+    const viewUrn = userContext.localState?.selectedViewUrn;
+    const viewsEnabled = appConfig.config?.viewsConfig?.enabled || false;
 
     useEffect(() => {
         if (suggestionsData !== undefined) {
@@ -155,9 +163,6 @@ export const HomePageHeader = () => {
     }, [suggestionsData]);
 
     const onSearch = (query: string, type?: EntityType, filters?: FacetFilterInput[]) => {
-        if (!query || query.trim().length === 0) {
-            return;
-        }
         analytics.event({
             type: EventType.HomePageSearchEvent,
             query,
@@ -173,19 +178,20 @@ export const HomePageHeader = () => {
         });
     };
 
-    const onAutoComplete = (query: string) => {
+    const onAutoComplete = debounce((query: string) => {
         if (query && query.trim() !== '') {
             getAutoCompleteResultsForMultiple({
                 variables: {
                     input: {
                         query,
                         limit: 10,
+                        viewUrn,
                         ...getAutoCompleteInputFromQuickFilter(selectedQuickFilter),
                     },
                 },
             });
         }
-    };
+    }, HALF_SECOND_IN_MS);
 
     const onClickExploreAll = () => {
         analytics.event({
@@ -207,6 +213,7 @@ export const HomePageHeader = () => {
                 count: 6,
                 filters: [],
                 orFilters: [],
+                viewUrn,
             },
         },
     });
@@ -242,9 +249,11 @@ export const HomePageHeader = () => {
                         pictureLink={user?.editableProperties?.pictureLink || ''}
                         name={(user && entityRegistry.getDisplayName(EntityType.CorpUser, user)) || undefined}
                     />
+                    {showAcrylInfo && <DemoButton />}
                 </NavGroup>
             </Row>
             <HeaderContainer>
+                {showAcrylInfo && <AcrylDemoBanner />}
                 <Image
                     src={
                         appConfig.config !== DEFAULT_APP_CONFIG
@@ -265,7 +274,11 @@ export const HomePageHeader = () => {
                         onQueryChange={onAutoComplete}
                         autoCompleteStyle={styles.searchBox}
                         entityRegistry={entityRegistry}
+                        viewsEnabled={viewsEnabled}
+                        combineSiblings
                         showQuickFilters
+                        showViewAllResults
+                        showCommandK
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (
                         <SuggestionsContainer>

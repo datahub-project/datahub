@@ -24,7 +24,7 @@ query listAccessTokens($input: ListAccessTokenInput!) {
 }
 
 mutation createAccessToken($input: CreateAccessTokenInput!) {
-    createAccessToken(input: $input){
+    createAccessToken(input: $input) {
         accessToken
     }
 }

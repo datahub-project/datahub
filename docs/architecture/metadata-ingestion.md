@@ -6,7 +6,11 @@ title: "Ingestion Framework"
 
 DataHub supports an extremely flexible ingestion architecture that can support push, pull, asynchronous and synchronous models. 
 The figure below describes all the options possible for connecting your favorite system to DataHub. 
-![Ingestion Architecture](../imgs/ingestion-architecture.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-architecture.png"/>
+</p>
+
 
 ## Metadata Change Proposal: The Center Piece 
 

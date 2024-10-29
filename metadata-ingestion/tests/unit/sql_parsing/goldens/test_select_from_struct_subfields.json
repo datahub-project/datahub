@@ -1,0 +1,65 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "eb98657e75b827086b921f27b2b468629b88a972e208ded05ce7478b494c6eb0",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "post_id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "NUMERIC"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)",
+                    "column": "post_id"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)",
+                    "column": "widget.asset.id"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "min_metric",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)",
+                    "column": "widget.metric.metricA"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)",
+                    "column": "widget.metric.metric_b"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT DISTINCT post_id, widget.asset.id, LEAST(widget.metric.metricA, widget.metric.metric_b) AS min_metric FROM data_reporting.abcde_transformed WHERE post_id LIKE ?"
+    }
+}

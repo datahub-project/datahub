@@ -1,6 +1,7 @@
 namespace com.linkedin.policy
 
 import com.linkedin.common.Urn
+import com.linkedin.ownership.OwnershipTypeInfo
 
 /**
  * Information used to filter DataHub actors.
@@ -10,11 +11,21 @@ record DataHubActorFilter {
   /**
    * A specific set of users to apply the policy to (disjunctive)
    */
+  @Searchable = {
+    "/*": {
+      "fieldType": "URN",
+    }
+  }
   users: optional array[Urn]
 
   /**
    * A specific set of groups to apply the policy to (disjunctive)
    */
+  @Searchable = {
+    "/*": {
+      "fieldType": "URN",
+    }
+  }
   groups: optional array[Urn]
 
   /**
@@ -24,13 +35,24 @@ record DataHubActorFilter {
   resourceOwners: boolean = false
 
   /**
+   * Define type of ownership for the policy
+  */
+  resourceOwnersTypes: optional array[Urn]
+
+  /**
    * Whether the filter should apply to all users.
    */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
   allUsers: boolean = false
 
   /**
    * Whether the filter should apply to all groups.
    */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
   allGroups: boolean = false
 
   /**
@@ -40,6 +62,11 @@ record DataHubActorFilter {
     "/*": {
       "name": "IsAssociatedWithRole",
       "entityTypes": [ "dataHubRole" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldType": "URN",
     }
   }
   roles: optional array[Urn]

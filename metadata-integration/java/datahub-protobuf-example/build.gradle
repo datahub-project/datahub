@@ -4,13 +4,17 @@ plugins {
 }
 
 repositories {
-    mavenCentral()
+    if (project.hasProperty('apacheMavenRepositoryUrl')) {
+        maven { url project.getProperty('apacheMavenRepositoryUrl') }
+    } else {
+        mavenCentral()
+    }
     mavenLocal()
 }
 
 ext {
-    protobuf_version = '3.19.3'
-    datahub_protobuf_version = '0.8.45-SNAPSHOT'
+    protobuf_version = '3.25.5'
+    datahub_protobuf_version = '0.14.1'
 }
 
 configurations {
@@ -60,19 +64,14 @@ protobuf {
 task publishSchema(dependsOn: build) {
     description "Publishes protobuf schema in the `main` sourceSet to DataHub"
 
-    def javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(11)
-    }
-
     fileTree("schema").matching {
         exclude "protobuf/meta/**"
-    }.each {f ->
+    }.each { f ->
         doLast {
             javaexec {
-                executable = javaLauncher.get().getExecutablePath().getAsFile().getAbsolutePath()
                 classpath = configurations.datahub
-                main = "datahub.protobuf.Proto2DataHub"
-                args = ["--descriptor", "${projectDir}/build/descriptors/main.dsc", "--file", file(f).getAbsoluteFile()]
+                mainClass = "datahub.protobuf.Proto2DataHub"
+                args = ["--descriptor", "${projectDir}/build/descriptors/main.dsc", "--file", file(f).absolutePath]
             }
         }
     }

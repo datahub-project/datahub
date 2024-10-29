@@ -8,16 +8,19 @@
         "json": {
             "customProperties": {
                 "platform": "glue",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "test-database"
             },
             "name": "test-database",
-            "qualifiedName": "arn:aws:glue:eu-east-1:123412341234:database/test-database"
+            "qualifiedName": "arn:aws:glue:eu-east-1:123412341234:database/test-database",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -32,7 +35,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -47,7 +52,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -64,7 +71,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -205,6 +231,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -216,7 +243,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -233,7 +262,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -248,7 +279,31 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_jsons_markers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+                    "urn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -390,6 +445,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -401,7 +457,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -418,7 +476,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -433,22 +493,31 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "removed": true
+            "path": [
+                {
+                    "id": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+                    "urn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
+                }
+            ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -463,7 +532,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 }
 ]

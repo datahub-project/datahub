@@ -9,13 +9,13 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
-
 @Slf4j
 public class TimelineUtils {
 
-  public static Optional<Pair<ComparableVersion, ChangeTransaction>> semanticVersionChangeTransactionPair(
-      ChangeTransaction changeTransaction) {
-    Optional<ComparableVersion> semanticVersion = createSemanticVersion(changeTransaction.getSemVer());
+  public static Optional<Pair<ComparableVersion, ChangeTransaction>>
+      semanticVersionChangeTransactionPair(ChangeTransaction changeTransaction) {
+    Optional<ComparableVersion> semanticVersion =
+        createSemanticVersion(changeTransaction.getSemVer());
     return semanticVersion.map(version -> Pair.of(version, changeTransaction));
   }
 
@@ -29,21 +29,24 @@ public class TimelineUtils {
     }
   }
 
-  // The SemanticVersion is currently returned from the ChangeTransactions in the format "x.y.z-computed". This function
+  // The SemanticVersion is currently returned from the ChangeTransactions in the format
+  // "x.y.z-computed". This function
   // removes the suffix "computed".
   public static String truncateSemanticVersion(String semanticVersion) {
     String suffix = "-computed";
-    return semanticVersion.endsWith(suffix) ? semanticVersion.substring(0, semanticVersion.lastIndexOf(suffix))
+    return semanticVersion.endsWith(suffix)
+        ? semanticVersion.substring(0, semanticVersion.lastIndexOf(suffix))
         : semanticVersion;
   }
 
-  public static SchemaFieldChange getLastSchemaFieldChange(ChangeEvent changeEvent, long timestamp,
-      String semanticVersion, String versionStamp) {
+  public static SchemaFieldChange getLastSchemaFieldChange(
+      ChangeEvent changeEvent, long timestamp, String semanticVersion, String versionStamp) {
     SchemaFieldChange schemaFieldChange = new SchemaFieldChange();
     schemaFieldChange.setTimestampMillis(timestamp);
     schemaFieldChange.setLastSemanticVersion(truncateSemanticVersion(semanticVersion));
     schemaFieldChange.setChangeType(
-        ChangeOperationType.valueOf(ChangeOperationType.class, changeEvent.getOperation().toString()));
+        ChangeOperationType.valueOf(
+            ChangeOperationType.class, changeEvent.getOperation().toString()));
     schemaFieldChange.setVersionStamp(versionStamp);
 
     String translatedChangeOperationType;
@@ -65,15 +68,16 @@ public class TimelineUtils {
 
     String suffix = "-computed";
     String translatedSemanticVersion =
-        semanticVersion.endsWith(suffix) ? semanticVersion.substring(0, semanticVersion.lastIndexOf(suffix))
+        semanticVersion.endsWith(suffix)
+            ? semanticVersion.substring(0, semanticVersion.lastIndexOf(suffix))
             : semanticVersion;
 
-    String lastSchemaFieldChange = String.format("%s in v%s", translatedChangeOperationType, translatedSemanticVersion);
+    String lastSchemaFieldChange =
+        String.format("%s in v%s", translatedChangeOperationType, translatedSemanticVersion);
     schemaFieldChange.setLastSchemaFieldChange(lastSchemaFieldChange);
 
     return schemaFieldChange;
   }
 
-  private TimelineUtils() {
-  }
+  private TimelineUtils() {}
 }

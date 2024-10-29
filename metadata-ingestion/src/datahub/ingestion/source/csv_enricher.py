@@ -12,17 +12,29 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source_config.csv_enricher import CSVEnricherConfig
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DomainsClass,
+    EditableChartPropertiesClass,
+    EditableContainerPropertiesClass,
+    EditableDashboardPropertiesClass,
+    EditableDataFlowPropertiesClass,
+    EditableDataJobPropertiesClass,
     EditableDatasetPropertiesClass,
+    EditableMLFeaturePropertiesClass,
+    EditableMLFeatureTablePropertiesClass,
+    EditableMLModelGroupPropertiesClass,
+    EditableMLModelPropertiesClass,
+    EditableMLPrimaryKeyPropertiesClass,
+    EditableNotebookPropertiesClass,
     EditableSchemaFieldInfoClass,
     EditableSchemaMetadataClass,
     GlobalTagsClass,
@@ -33,9 +45,9 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     TagAssociationClass,
 )
-from datahub.utilities.source_helpers import auto_workunit_reporter
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.urn import Urn
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 DATASET_ENTITY_TYPE = DatasetUrn.ENTITY_TYPE
 ACTOR = "urn:li:corpuser:ingestion"
@@ -82,27 +94,44 @@ class CSVEnricherReport(SourceReport):
     num_domain_workunits_produced: int = 0
 
 
-@platform_name("CSV")
+@platform_name("CSV Enricher")
 @config_class(CSVEnricherConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.DOMAINS, "Supported by default")
+@capability(SourceCapability.TAGS, "Supported by default")
+@capability(SourceCapability.DESCRIPTIONS, "Supported by default")
+@capability(SourceCapability.OWNERSHIP, "Supported by default")
 class CSVEnricherSource(Source):
     """
-    This plugin is used to apply glossary terms, tags, owners and domain at the entity level. It can also be used to apply tags
-    and glossary terms at the column level. These values are read from a CSV file and can be used to either overwrite
-    or append the above aspects to entities.
+    :::tip Looking to ingest a CSV data file into DataHub, as an asset?
+    Use the [Local File](./s3.md) ingestion source.
+    The CSV enricher is used for enriching entities already ingested into DataHub.
+    :::
 
-    The format of the CSV must be like so, with a few example rows.
+    This plugin is used to bulk upload metadata to Datahub.
+    It will apply glossary terms, tags, description, owners and domain at the entity level. It can also be used to apply tags,
+    glossary terms, and documentation at the column level. These values are read from a CSV file. You have the option to either overwrite
+    or append existing values.
 
-    |resource                                                        |subresource|glossary_terms                      |tags               |owners                                             |ownership_type |description    |domain                     |
-    |----------------------------------------------------------------|-----------|------------------------------------|-------------------|---------------------------------------------------|---------------|---------------|---------------------------|
-    |urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)|           |[urn:li:glossaryTerm:AccountBalance]|[urn:li:tag:Legacy]|[urn:li:corpuser:datahub&#124;urn:li:corpuser:jdoe]|TECHNICAL_OWNER|new description|urn:li:domain:Engineering  |
-    |urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)|field_foo  |[urn:li:glossaryTerm:AccountBalance]|                   |                                                   |               |field_foo!     |                           |
-    |urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)|field_bar  |                                    |[urn:li:tag:Legacy]|                                                   |               |field_bar?     |                           |
+    The format of the CSV is demonstrated below. The header is required and URNs should be surrounded by quotes when they contains commas (most URNs contains commas).
+
+    ```
+    resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain,ownership_type_urn
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub.growth.users,PROD)",,[urn:li:glossaryTerm:Users],[urn:li:tag:HighQuality],[urn:li:corpuser:lfoe|urn:li:corpuser:jdoe],CUSTOM,"description for users table",urn:li:domain:Engineering,urn:li:ownershipType:a0e9176c-d8cf-4b11-963b-f7a1bc2333c9
+    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",first_name,[urn:li:glossaryTerm:FirstName],,,,"first_name description",
+    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",last_name,[urn:li:glossaryTerm:LastName],,,,"last_name description",
+    ```
 
     Note that the first row does not have a subresource populated. That means any glossary terms, tags, and owners will
-    be applied at the entity field. If a subresource IS populated (as it is for the second and third rows), glossary
-    terms and tags will be applied on the subresource. Every row MUST have a resource. Also note that owners can only
-    be applied at the resource level and will be ignored if populated for a row with a subresource.
+    be applied at the entity field. If a subresource is populated (as it is for the second and third rows), glossary
+    terms and tags will be applied on the column. Every row MUST have a resource. Also note that owners can only
+    be applied at the resource level.
+
+    If ownership_type_urn is set then ownership_type must be set to CUSTOM.
+
+    Note that you have the option in your recipe config to write as a PATCH or as an OVERRIDE. This choice will apply to
+    all metadata for the entity, not just a single aspect. So OVERRIDE will override all metadata, including performing
+    deletes if a metadata field is empty. The default is PATCH.
 
     :::note
     This source will not work on very large csv files that do not fit in memory.
@@ -117,11 +146,9 @@ class CSVEnricherSource(Source):
         # Map from entity urn to a list of SubResourceRow.
         self.editable_schema_metadata_map: Dict[str, List[SubResourceRow]] = {}
         self.should_overwrite: bool = self.config.write_semantics == "OVERRIDE"
-        if not self.should_overwrite and not self.ctx.graph:
-            raise ConfigurationError(
-                "With PATCH semantics, the csv-enricher source requires a datahub_api to connect to. "
-                "Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe."
-            )
+
+        if not self.should_overwrite:
+            self.ctx.require_graph(operation="The csv-enricher's PATCH semantics flag")
 
     def get_resource_glossary_terms_work_unit(
         self,
@@ -141,9 +168,7 @@ class CSVEnricherSource(Source):
             # If we want to overwrite or there are no existing terms, create a new GlossaryTerms object
             current_terms = GlossaryTermsClass(term_associations, get_audit_stamp())
         else:
-            current_term_urns: Set[str] = set(
-                [term.urn for term in current_terms.terms]
-            )
+            current_term_urns: Set[str] = {term.urn for term in current_terms.terms}
             term_associations_filtered: List[GlossaryTermAssociationClass] = [
                 association
                 for association in term_associations
@@ -179,7 +204,7 @@ class CSVEnricherSource(Source):
             # If we want to overwrite or there are no existing tags, create a new GlobalTags object
             current_tags = GlobalTagsClass(tag_associations)
         else:
-            current_tag_urns: Set[str] = set([tag.tag for tag in current_tags.tags])
+            current_tag_urns: Set[str] = {tag.tag for tag in current_tags.tags}
             tag_associations_filtered: List[TagAssociationClass] = [
                 association
                 for association in tag_associations
@@ -213,14 +238,21 @@ class CSVEnricherSource(Source):
 
         if not current_ownership:
             # If we want to overwrite or there are no existing tags, create a new GlobalTags object
-            current_ownership = OwnershipClass(owners, get_audit_stamp())
+            current_ownership = OwnershipClass(owners, lastModified=get_audit_stamp())
         else:
-            current_owner_urns: Set[str] = set(
-                [owner.owner for owner in current_ownership.owners]
-            )
-            owners_filtered: List[OwnerClass] = [
-                owner for owner in owners if owner.owner not in current_owner_urns
-            ]
+            owners_filtered: List[OwnerClass] = []
+            for owner in owners:
+                owner_exists = False
+                for current_owner in current_ownership.owners:
+                    if (
+                        owner.owner == current_owner.owner
+                        and owner.type == current_owner.type
+                    ):
+                        owner_exists = True
+                        break
+                if not owner_exists:
+                    owners_filtered.append(owner)
+
             # If there are no new owners to add, we don't need to emit a work unit.
             if len(owners_filtered) <= 0:
                 return None
@@ -264,29 +296,66 @@ class CSVEnricherSource(Source):
         # Check if there is a description to add. If not, return None.
         if not description:
             return None
-
         # If the description is empty, return None.
         if len(description) <= 0:
             return None
+        entityType = guess_entity_type(entity_urn)
 
-        current_editable_properties: Optional[EditableDatasetPropertiesClass] = None
+        entityClass = {
+            "chart": EditableChartPropertiesClass,
+            "dataset": EditableDatasetPropertiesClass,
+            "container": EditableContainerPropertiesClass,
+            "mlPrimaryKey": EditableMLPrimaryKeyPropertiesClass,
+            "mlModel": EditableMLModelPropertiesClass,
+            "mlModelGroup": EditableMLModelGroupPropertiesClass,
+            "mlFeatureTable": EditableMLFeatureTablePropertiesClass,
+            "mlFeature": EditableMLFeaturePropertiesClass,
+            "dashboard": EditableDashboardPropertiesClass,
+            "datajob": EditableDataJobPropertiesClass,
+            "dataflow": EditableDataFlowPropertiesClass,
+            "notebook": EditableNotebookPropertiesClass,
+        }.get(entityType, None)
+
+        if not entityClass:
+            raise ValueError(
+                f"Entity Type {entityType} cannot be operated on using csv-enricher"
+            )
+        current_editable_properties: Optional[
+            Union[
+                EditableDatasetPropertiesClass,
+                EditableContainerPropertiesClass,
+                EditableChartPropertiesClass,
+                EditableMLPrimaryKeyPropertiesClass,
+                EditableMLModelPropertiesClass,
+                EditableMLModelGroupPropertiesClass,
+                EditableMLFeatureTablePropertiesClass,
+                EditableMLFeaturePropertiesClass,
+                EditableDashboardPropertiesClass,
+                EditableDataJobPropertiesClass,
+                EditableDataFlowPropertiesClass,
+                EditableNotebookPropertiesClass,
+            ]
+        ] = None
         if self.ctx.graph and not self.should_overwrite:
             # Get the existing editable properties for the entity from the DataHub graph
             current_editable_properties = self.ctx.graph.get_aspect(
                 entity_urn=entity_urn,
-                aspect_type=EditableDatasetPropertiesClass,
+                aspect_type=entityClass,
             )
 
         if not current_editable_properties:
             # If we want to overwrite or there are no existing editable dataset properties, create a new object
-            current_editable_properties = EditableDatasetPropertiesClass(
-                created=get_audit_stamp(),
-                lastModified=get_audit_stamp(),
+            current_editable_properties = entityClass(
                 description=description,
             )
         else:
             current_editable_properties.description = description
-            current_editable_properties.lastModified = get_audit_stamp()
+
+        if current_editable_properties:  # to satisfy mypy, else this line is redundant
+            if hasattr(current_editable_properties, "created"):
+                current_editable_properties.created = get_audit_stamp()
+            if hasattr(current_editable_properties, "lastModified"):
+                current_editable_properties.lastModified = get_audit_stamp()
 
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
@@ -389,18 +458,16 @@ class CSVEnricherSource(Source):
         field_match = False
         for field_info in current_editable_schema_metadata.editableSchemaFieldInfo:
             if (
-                DatasetUrn._get_simple_field_path_from_v2_field_path(
-                    field_info.fieldPath
-                )
+                get_simple_field_path_from_v2_field_path(field_info.fieldPath)
                 == field_path
             ):
                 # we have some editable schema metadata for this field
                 field_match = True
                 if has_terms:
                     if field_info.glossaryTerms and not self.should_overwrite:
-                        current_term_urns = set(
-                            [term.urn for term in field_info.glossaryTerms.terms]
-                        )
+                        current_term_urns = {
+                            term.urn for term in field_info.glossaryTerms.terms
+                        }
                         term_associations_filtered = [
                             association
                             for association in term_associations
@@ -417,9 +484,9 @@ class CSVEnricherSource(Source):
 
                 if has_tags:
                     if field_info.globalTags and not self.should_overwrite:
-                        current_tag_urns = set(
-                            [tag.tag for tag in field_info.globalTags.tags]
-                        )
+                        current_tag_urns = {
+                            tag.tag for tag in field_info.globalTags.tags
+                        }
                         tag_associations_filtered = [
                             association
                             for association in tag_associations
@@ -496,7 +563,9 @@ class CSVEnricherSource(Source):
         term_urns: List[str] = terms_array_string.split(self.config.array_delimiter)
 
         term_associations: List[GlossaryTermAssociationClass] = [
-            GlossaryTermAssociationClass(term) for term in term_urns
+            GlossaryTermAssociationClass(term)
+            for term in term_urns
+            if term.startswith("urn:li:")
         ]
         return term_associations
 
@@ -509,7 +578,7 @@ class CSVEnricherSource(Source):
         tag_urns: List[str] = tags_array_string.split(self.config.array_delimiter)
 
         tag_associations: List[TagAssociationClass] = [
-            TagAssociationClass(tag) for tag in tag_urns
+            TagAssociationClass(tag) for tag in tag_urns if tag.startswith("urn:li:")
         ]
         return tag_associations
 
@@ -526,18 +595,32 @@ class CSVEnricherSource(Source):
         ownership_type: Union[str, OwnershipTypeClass] = (
             row["ownership_type"] if row["ownership_type"] else OwnershipTypeClass.NONE
         )
+        ownership_type_urn: Optional[str] = None
+        if "ownership_type_urn" in row:
+            ownership_type_urn = (
+                row["ownership_type_urn"] if row["ownership_type_urn"] else None
+            )
+        if (
+            ownership_type_urn is not None
+            and ownership_type != OwnershipTypeClass.CUSTOM
+        ):
+            resource_urn = row["resource"]
+            self.report.report_warning(
+                f"{resource_urn}-invalid-ownership-type",
+                "Ownership type URN is set but ownership type is not CUSTOM. Setting ownership_type to CUSTOM.",
+            )
+            ownership_type = OwnershipTypeClass.CUSTOM
 
         # Sanitizing the owners string to just get the list of owner urns
         owners_array_string: str = sanitize_array_string(row["owners"])
         owner_urns: List[str] = owners_array_string.split(self.config.array_delimiter)
 
         owners: List[OwnerClass] = [
-            OwnerClass(owner_urn, type=ownership_type) for owner_urn in owner_urns
+            OwnerClass(owner_urn, type=ownership_type, typeUrn=ownership_type_urn)
+            for owner_urn in owner_urns
+            if owner_urn.startswith("urn:li:")
         ]
         return owners
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # As per https://stackoverflow.com/a/49150749/5004662, we want to use
@@ -546,12 +629,7 @@ class CSVEnricherSource(Source):
         # As per https://stackoverflow.com/a/63508823/5004662,
         # this is also safe with normal files that don't have a BOM.
         parsed_location = parse.urlparse(self.config.filename)
-        if parsed_location.scheme in ("file", ""):
-            with open(
-                pathlib.Path(self.config.filename), mode="r", encoding="utf-8-sig"
-            ) as f:
-                rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
-        else:
+        if parsed_location.scheme in ("http", "https"):
             try:
                 resp = requests.get(self.config.filename)
                 decoded_content = resp.content.decode("utf-8-sig")
@@ -564,6 +642,9 @@ class CSVEnricherSource(Source):
                 raise ConfigurationError(
                     f"Cannot read remote file {self.config.filename}, error:{e}"
                 )
+        else:
+            with open(pathlib.Path(self.config.filename), encoding="utf-8-sig") as f:
+                rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
 
         for row in rows:
             # We need the resource to move forward

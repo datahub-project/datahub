@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Personal Access Tokens
+# Personal Access Tokens
 
 <FeatureAvailability/>
 
@@ -71,7 +71,11 @@ curl 'http://localhost:8080/entities/urn:li:corpuser:datahub' -H 'Authorization:
 
 Since authorization happens at the GMS level, this means that ingestion is also protected behind access tokens, to use them simply add a `token` to the sink config property as seen below:
 
-![](../imgs/ingestion-with-token.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-with-token.png"/>
+</p>
+
 
 :::note
 
@@ -104,5 +108,5 @@ A PAT represents a user in DataHub, if that user does not have permissions for a
 
 Yes, although not through the UI correctly, you will have to use the [token management graphQL API](../api/graphql/token-management.md) and the user making the request must have `Manage All Access Tokens` permissions.
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+
 

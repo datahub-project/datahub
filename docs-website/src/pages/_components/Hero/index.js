@@ -1,45 +1,97 @@
-import React from "react";
+import React, { useEffect } from "react";
 import clsx from "clsx";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
-import Image from "@theme/IdealImage";
-import { useColorMode } from "@docusaurus/theme-common";
-import { QuestionCircleOutlined } from "@ant-design/icons";
+// import Image from "@theme/IdealImage";
+// import { useColorMode } from "@docusaurus/theme-common";
+import { HeartOutlined } from "@ant-design/icons";
 import styles from "./hero.module.scss";
+<<<<<<< HEAD
 import CodeBlock from "@theme/CodeBlock";
+=======
+import { animate, motion, useMotionValue, useTransform } from "framer-motion";
+// import CodeBlock from "@theme/CodeBlock";
+// import TownhallButton from "../TownhallButton";
+// import { Section } from "../Section";
+>>>>>>> upstream/master
 
-const HeroAnnouncement = ({ message, linkUrl, linkText }) => (
-  <div className={clsx("hero__alert alert alert--primary", styles.hero__alert)}>
-    <span>{message}</span>
-    {linkUrl && (
-      <Link className="button button--primary button--md" href={linkUrl} target="_blank">
-        {linkText}
-      </Link>
-    )}
-  </div>
-);
+// const HeroAnnouncement = ({ message, linkUrl, linkText }) => (
+//   <div className={clsx("hero__alert alert alert--primary", styles.hero__alert)}>
+//     <span>{message}</span>
+//     {linkUrl && (
+//       <Link className="button button--primary button--md" href={linkUrl} target="_blank">
+//         {linkText}
+//       </Link>
+//     )} 
+//   </div>
+// );
 
-const Hero = ({}) => {
-  const { colorMode } = useColorMode();
+const SOLUTION_TEXTS = ["AI Governance", "Data Discovery", "AI Collaboration", "Data Governance", "Data Democratization", "Data Observability"];
+
+const Hero = ({ onOpenTourModal }) => {
+  // const { colorMode } = useColorMode();
+  const textIndex = useMotionValue(0);
+  const baseText = useTransform(textIndex, (latest) => SOLUTION_TEXTS[latest] || "");
+  const count = useMotionValue(0);
+  const rounded = useTransform(count, (latest) => Math.round(latest));
+  const displayText = useTransform(rounded, (latest) =>
+    baseText.get().slice(0, latest)
+  );
+  const updatedThisRound = useMotionValue(true);
+
+  useEffect(() => {
+    animate(count, 60, {
+      type: "tween",
+      duration: 1.5,
+      ease: "easeIn",
+      repeat: Infinity,
+      repeatType: "reverse",
+      repeatDelay: 0.1,
+      onUpdate(latest) {
+        if (updatedThisRound.get() === true && latest > 0) {
+          updatedThisRound.set(false);
+        } else if (updatedThisRound.get() === false && latest === 0) {
+          textIndex.set((textIndex.get() + 1) % SOLUTION_TEXTS.length);
+          updatedThisRound.set(true);
+        }
+      },
+    });
+  }, []);
   return (
     <header className={clsx("hero", styles.hero)}>
       <div className="container">
-        {/* HeroAnnouncement goes here */}
         <div className="hero__content">
-          <div>
-            <h1 className="hero__title">The #1 Open Source Data Catalog</h1>
-            <p className="hero__subtitle">
-              DataHub's extensible metadata platform enables data discovery, data observability and federated governance that helps tame the
-              complexity of your data ecosystem.
-            </p>
-            <Link className="button button--primary button--lg" to={useBaseUrl("docs/")}>
-              Get Started →
-            </Link>
-            <Link className="button button--secondary button--outline button--lg" to="https://slack.datahubproject.io">
-              Join our Slack
+          <div className="hero__text">
+            <div className="hero__title">
+              The <strong>#1 open source</strong><br/>metadata platform.
+            </div>
+            <div className="hero__subtitle">
+              A unified platform for
+              <span>
+                <motion.span>{displayText}</motion.span>
+              </span>
+            </div>
+            <div className="hero__cta">
+              <Link className="cta__primary" to="/cloud">
+                Book a Demo
+              </Link>
+              <a
+                className="cta__secondary"
+                // to="https://www.acryldata.io/tour"
+                onClick={onOpenTourModal}
+              >
+                Product Tour
+              </a>
+            </div>
+            <Link className="hero__footer_cta" to="/docs">
+              Get started with Core →
             </Link>
           </div>
+          <div className="hero__img">
+            <img src={useBaseUrl("/img/hero.png")} />
+          </div>
         </div>
+<<<<<<< HEAD
         <Image className="hero__image" img={require(`/img/diagrams/datahub-flow-diagram-${colorMode}.png`)} alt="DataHub Flow Diagram" />
         <div className="quickstart__content">
             <h1 className="quickstart__title">Start DataHub Now</h1>
@@ -67,6 +119,10 @@ const Hero = ({}) => {
           <Link to={useBaseUrl("docs/features")}>What can I do with DataHub?</Link>
           <Link to={useBaseUrl("docs/architecture/architecture")}>How is DataHub architected?</Link>
           <Link to="https://demo.datahubproject.io">See DataHub in action</Link>
+=======
+        <div className="hero__content_footer">
+          Built with&nbsp;<HeartOutlined />&nbsp;by&nbsp;<a href="https://acryldata.io" target="_blank">Acryl Data</a>&nbsp;and&nbsp;<a href="https://www.acryldata.io/press/founded-by-airbnb-and-linkedin-data-veterans-acryl-data-re-imagines-metadata-management-with-dollar9-million-in-seed-funding" target="_blank">LinkedIn</a>.
+>>>>>>> upstream/master
         </div>
       </div>
     </header>

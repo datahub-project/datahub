@@ -1,0 +1,60 @@
+{
+    "query_type": "CREATE_VIEW",
+    "query_type_props": {
+        "kind": "VIEW"
+    },
+    "query_fingerprint": "00400d6c706790ec92f8f1a9fbe41e05573168b071f32f9dac714180c3ef3b86",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,scott.emp,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,vsal,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,vsal,PROD)",
+                "column": "Department",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,scott.emp,PROD)",
+                    "column": "DEPTNO"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,vsal,PROD)",
+                "column": "Employees",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DOUBLE PRECISION"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,vsal,PROD)",
+                "column": "Salary",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,scott.emp,PROD)",
+                    "column": "SAL"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "CREATE VIEW vsal AS SELECT a.deptno AS \"Department\", a.num_emp / b.total_count AS \"Employees\", a.sal_sum / b.total_sal AS \"Salary\" FROM (SELECT deptno, COUNT() AS num_emp, SUM(sal) AS sal_sum FROM scott.emp WHERE city = ? GROUP BY deptno) a, (SELECT COUNT() AS total_count, SUM(sal) AS total_sal FROM scott.emp WHERE city = ?) b"
+    }
+}

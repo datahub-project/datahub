@@ -15,8 +15,16 @@ to metadata_aspect_v2 table. Arguments:
 2. **NoCodeDataMigrationCleanup**: Cleanses graph index, search index, and key-value store of legacy DataHub data (metadata_aspect table) once
 the No Code Data Migration has completed successfully. No arguments. 
 
-3. **RestoreIndices**: Restores indices by fetching the latest version of each aspect and producing MAE
-
+3. **RestoreIndices**: Restores indices by fetching the latest version of each aspect and producing MAE. Arguments:
+    - *batchSize* (Optional): The number of rows to migrate at a time. Defaults to 1000.
+    - *batchDelayMs* (Optional): The number of milliseconds of delay between migrated batches. Used for rate limiting. Defaults to 250. 
+    - *numThreads* (Optional): The number of threads to use, defaults to 1. Note that this is not used if `urnBasedPagination` is true.
+    - *aspectName* (Optional): The aspect name for producing events.
+    - *urn* (Optional): The urn for producing events.
+    - *urnLike* (Optional): The urn pattern for producing events, using `%` as a wild card
+    - *urnBasedPagination* (Optional): Paginate the SQL results using the urn + aspect string instead of `OFFSET`. Defaults to false,
+        though should improve performance for large amounts of data.
+    
 4. **RestoreBackup**: Restores the storage stack from a backup of the local database
 
 ## Environment Variables
@@ -56,6 +64,9 @@ NEO4J_PASSWORD=datahub
 
 DATAHUB_GMS_HOST=<your-gms-host>>
 DATAHUB_GMS_PORT=8080
+
+# Datahub protocol (default http)
+# DATAHUB_GMS_PROTOCOL=http
 
 DATAHUB_MAE_CONSUMER_HOST=<your-mae-consumer-host>
 DATAHUB_MAE_CONSUMER_PORT=9091

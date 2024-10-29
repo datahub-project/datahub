@@ -3,7 +3,7 @@ import warnings
 
 # Published at https://pypi.org/project/acryl-datahub/.
 __package_name__ = "acryl-datahub"
-__version__ = "0.0.0.dev0"
+__version__ = "1!0.0.0.dev0"
 
 
 def is_dev_mode() -> bool:
@@ -16,9 +16,10 @@ def nice_version_name() -> str:
     return __version__
 
 
-if sys.version_info < (3, 7):
+if sys.version_info < (3, 8):
     warnings.warn(
-        "DataHub requires Python 3.7 or newer. "
+        "DataHub requires Python 3.8 or newer. "
         "Please upgrade your Python version to continue using DataHub.",
         FutureWarning,
+        stacklevel=2,
     )

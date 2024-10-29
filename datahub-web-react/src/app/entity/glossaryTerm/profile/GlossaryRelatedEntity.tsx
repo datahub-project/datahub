@@ -5,7 +5,7 @@ import { EmbeddedListSearchSection } from '../../shared/components/styled/search
 import { useEntityData } from '../../shared/EntityContext';
 
 export default function GlossaryRelatedEntity() {
-    const { entityData }: any = useEntityData();
+    const { entityData } = useEntityData();
 
     const entityUrn = entityData?.urn;
 
@@ -46,6 +46,8 @@ export default function GlossaryRelatedEntity() {
             }}
             emptySearchQuery="*"
             placeholderText="Filter entities..."
+            skipCache
+            applyView
         />
     );
 }

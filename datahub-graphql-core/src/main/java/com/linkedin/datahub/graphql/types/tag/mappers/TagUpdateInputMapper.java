@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.types.tag.mappers;
 
+import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -8,7 +11,9 @@ import com.linkedin.common.OwnershipSource;
 import com.linkedin.common.OwnershipSourceType;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.TagUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
@@ -17,22 +22,23 @@ import com.linkedin.tag.TagProperties;
 import java.util.ArrayList;
 import java.util.Collection;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.Constants.*;
-
-
-public class TagUpdateInputMapper implements InputModelMapper<TagUpdateInput, Collection<MetadataChangeProposal>, Urn> {
+public class TagUpdateInputMapper
+    implements InputModelMapper<TagUpdateInput, Collection<MetadataChangeProposal>, Urn> {
 
   public static final TagUpdateInputMapper INSTANCE = new TagUpdateInputMapper();
 
   public static Collection<MetadataChangeProposal> map(
+      @Nullable final QueryContext context,
       @Nonnull final TagUpdateInput tagUpdate,
       @Nonnull final Urn actor) {
-    return INSTANCE.apply(tagUpdate, actor);
+    return INSTANCE.apply(context, tagUpdate, actor);
   }
 
   @Override
   public Collection<MetadataChangeProposal> apply(
+      @Nullable final QueryContext context,
       @Nonnull final TagUpdateInput tagUpdate,
       @Nonnull final Urn actor) {
     final Collection<MetadataChangeProposal> proposals = new ArrayList<>(2);
@@ -47,6 +53,7 @@ public class TagUpdateInputMapper implements InputModelMapper<TagUpdateInput, Co
     final Owner owner = new Owner();
     owner.setOwner(actor);
     owner.setType(OwnershipType.NONE);
+    owner.setTypeUrn(UrnUtils.getUrn(mapOwnershipTypeToEntity(OwnershipType.NONE.name())));
     owner.setSource(new OwnershipSource().setType(OwnershipSourceType.SERVICE));
     ownership.setOwners(new OwnerArray(owner));
     ownership.setLastModified(auditStamp);
@@ -56,7 +63,8 @@ public class TagUpdateInputMapper implements InputModelMapper<TagUpdateInput, Co
       TagProperties tagProperties = new TagProperties();
       tagProperties.setName(tagUpdate.getName());
       tagProperties.setDescription(tagUpdate.getDescription());
-      proposals.add(updateMappingHelper.aspectToProposal(tagProperties, TAG_PROPERTIES_ASPECT_NAME));
+      proposals.add(
+          updateMappingHelper.aspectToProposal(tagProperties, TAG_PROPERTIES_ASPECT_NAME));
     }
 
     return proposals;

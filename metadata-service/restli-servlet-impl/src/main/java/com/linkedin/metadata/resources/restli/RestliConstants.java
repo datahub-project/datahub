@@ -1,7 +1,7 @@
 package com.linkedin.metadata.resources.restli;
 
 public final class RestliConstants {
-  private RestliConstants() { }
+  private RestliConstants() {}
 
   public static final String FINDER_SEARCH = "search";
   public static final String FINDER_FILTER = "filter";
@@ -24,6 +24,7 @@ public final class RestliConstants {
   public static final String PARAM_FILTER = "filter";
   public static final String PARAM_GROUP = "group";
   public static final String PARAM_SORT = "sort";
+  public static final String PARAM_SORT_CRITERIA = "sortCriteria";
   public static final String PARAM_QUERY = "query";
   public static final String PARAM_FIELD = "field";
   public static final String PARAM_PATH = "path";

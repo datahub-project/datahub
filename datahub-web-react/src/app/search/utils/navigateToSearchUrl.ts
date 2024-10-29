@@ -11,6 +11,7 @@ export const navigateToSearchUrl = ({
     page: newPage = 1,
     filters: newFilters,
     unionType = UnionType.AND,
+    selectedSortOption,
     history,
 }: {
     type?: EntityType;
@@ -18,6 +19,7 @@ export const navigateToSearchUrl = ({
     page?: number;
     filters?: Array<FacetFilterInput>;
     history: RouteComponentProps['history'];
+    selectedSortOption?: string;
     unionType?: UnionType;
 }) => {
     const constructedFilters = newFilters || [];
@@ -31,6 +33,7 @@ export const navigateToSearchUrl = ({
             query: encodeURIComponent(newQuery || ''),
             page: newPage,
             unionType,
+            sortOption: selectedSortOption,
         },
         { arrayFormat: 'comma' },
     );

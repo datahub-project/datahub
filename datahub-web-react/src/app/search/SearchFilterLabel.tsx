@@ -18,10 +18,11 @@ import { StyledTag } from '../entity/shared/components/styled/StyledTag';
 import { capitalizeFirstLetterOnly } from '../shared/textUtil';
 import { DomainLink } from '../shared/tags/DomainLink';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { ENTITY_FILTER_NAME } from './utils/constants';
+import { BROWSE_PATH_V2_FILTER_NAME, ENTITY_FILTER_NAME, MAX_COUNT_VAL } from './utils/constants';
 import CustomAvatar from '../shared/avatar/CustomAvatar';
 import { IconStyleType } from '../entity/Entity';
 import { formatNumber } from '../shared/formatNumber';
+import useGetBrowseV2LabelOverride from './filters/useGetBrowseV2LabelOverride';
 
 type Props = {
     field: string;
@@ -39,11 +40,10 @@ const PreviewImage = styled.img`
     margin-right: 4px;
 `;
 
-const MAX_COUNT_VAL = 10000;
-
 // SearchFilterLabel renders custom labels for entity, tag, term & data platform filters. All other filters use the default behavior.
 export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const filterLabelOverride = useGetBrowseV2LabelOverride(field, value, entityRegistry);
     const countText = hideCount ? '' : ` (${count === MAX_COUNT_VAL ? '10k+' : formatNumber(count)})`;
 
     if (field === ENTITY_FILTER_NAME) {
@@ -62,7 +62,7 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                <StyledTag $colorHash={tag?.urn} $color={tag?.properties?.colorHex}>
+                <StyledTag $colorHash={tag?.urn} $color={tag?.properties?.colorHex} fontSize={10}>
                     {truncatedDisplayName}
                 </StyledTag>
                 {countText}
@@ -113,7 +113,7 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
         return (
             <Tooltip title={displayName}>
                 <Tag closable={false}>
-                    <BookOutlined style={{ marginRight: '3%' }} />
+                    <BookOutlined style={{ marginRight: '4px' }} />
                     {truncatedDisplayName}
                 </Tag>
                 {countText}
@@ -177,7 +177,18 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
         const truncatedDomainName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                <DomainLink domain={domain} name={truncatedDomainName} />
+                <DomainLink domain={domain} name={truncatedDomainName} tagStyle={{ fontSize: 10 }} fontSize={10} />
+                {countText}
+            </Tooltip>
+        );
+    }
+
+    if (entity?.type === EntityType.DataProduct) {
+        const displayName = entityRegistry.getDisplayName(EntityType.DataProduct, entity);
+        const truncatedName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
+        return (
+            <Tooltip title={displayName}>
+                {truncatedName}
                 {countText}
             </Tooltip>
         );
@@ -200,6 +211,11 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
     if (field === 'degree') {
         return <>{value}</>;
     }
+
+    if (field === BROWSE_PATH_V2_FILTER_NAME) {
+        return <>{filterLabelOverride || value}</>;
+    }
+
     return (
         <>
             {value}

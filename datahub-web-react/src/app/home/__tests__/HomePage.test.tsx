@@ -84,4 +84,25 @@ describe('HomePage', () => {
         expect(queryAllByText('Yet Another Dataset').length).toBeGreaterThanOrEqual(1);
         expect(queryAllByText('Fourth Test Dataset').length).toBeGreaterThanOrEqual(1);
     });
+
+    it('renders an explore all link on empty search', async () => {
+        const { getByTestId, queryByText } = render(
+            <MockedProvider
+                mocks={mocks}
+                addTypename
+                defaultOptions={{
+                    watchQuery: { fetchPolicy: 'no-cache' },
+                    query: { fetchPolicy: 'no-cache' },
+                }}
+            >
+                <TestPageContainer>
+                    <HomePage />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        const searchInput = getByTestId('search-input');
+        await waitFor(() => expect(searchInput).toBeInTheDocument());
+        fireEvent.mouseDown(searchInput);
+        await waitFor(() => expect(queryByText('Explore all →')).toBeInTheDocument());
+    });
 });

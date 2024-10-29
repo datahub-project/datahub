@@ -1,18 +1,19 @@
 package com.linkedin.datahub.upgrade.nocode;
 
-import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.entity.ebean.AspectStorageValidationUtil;
-import io.ebean.EbeanServer;
+import com.linkedin.upgrade.DataHubUpgradeState;
+import io.ebean.Database;
 import java.util.function.Function;
 
 public class UpgradeQualificationStep implements UpgradeStep {
 
-  private final EbeanServer _server;
+  private final Database _server;
 
-  UpgradeQualificationStep(EbeanServer server) {
+  UpgradeQualificationStep(Database server) {
     _server = server;
   }
 
@@ -29,30 +30,30 @@ public class UpgradeQualificationStep implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
-
       if (context.parsedArgs().containsKey(NoCodeUpgrade.FORCE_UPGRADE_ARG_NAME)) {
         context.report().addLine("Forced upgrade detected. Proceeding with upgrade...");
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       }
 
       try {
         if (isQualified(_server, context)) {
           // Qualified.
           context.report().addLine("Found qualified upgrade candidate. Proceeding with upgrade...");
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         }
         // Unqualified (Table already exists)
         context.report().addLine("Failed to qualify upgrade candidate. Aborting the upgrade...");
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED, UpgradeStepResult.Action.ABORT);
+        return new DefaultUpgradeStepResult(
+            id(), DataHubUpgradeState.SUCCEEDED, UpgradeStepResult.Action.ABORT);
       } catch (Exception e) {
-        context.report().addLine(String.format("Failed to check if metadata_aspect_v2 table exists: %s", e.toString()));
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        context.report().addLine("Failed to check if metadata_aspect_v2 table exists", e);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
   }
 
   // Check whether the upgrade is needed
-  private boolean isQualified(EbeanServer server, UpgradeContext context) {
+  private boolean isQualified(Database server, UpgradeContext context) {
     boolean v1TableExists = AspectStorageValidationUtil.checkV1TableExists(server);
     if (v1TableExists) {
       context.report().addLine("-- V1 table exists");
@@ -67,8 +68,13 @@ public class UpgradeQualificationStep implements UpgradeStep {
           return true;
         }
         context.report().addLine(String.format("-- V2 table has %d rows", v2TableRowCount));
-        context.report().addLine("-- Since V2 table has records, we will not proceed with the upgrade. ");
-        context.report().addLine("-- If V2 table has significantly less rows, consider running the forced upgrade. ");
+        context
+            .report()
+            .addLine("-- Since V2 table has records, we will not proceed with the upgrade. ");
+        context
+            .report()
+            .addLine(
+                "-- If V2 table has significantly less rows, consider running the forced upgrade. ");
         return false;
       }
       context.report().addLine("-- V2 table does not exist");

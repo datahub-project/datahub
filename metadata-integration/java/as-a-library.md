@@ -4,6 +4,8 @@ In some cases, you might want to construct Metadata events directly and use prog
 
 The [`io.acryl:datahub-client`](https://mvnrepository.com/artifact/io.acryl/datahub-client) Java package offers REST emitter API-s, which can be easily used to emit metadata from your JVM-based systems. For example, the Spark lineage integration uses the Java emitter to emit metadata events from Spark jobs.
 
+> **Pro Tip!** Throughout our API guides, we have examples of using Java API SDK. 
+> Lookout for the `| Java |` tab within our tutorials.
 
 ## Installation
 
@@ -38,7 +40,7 @@ import datahub.client.rest.RestEmitter;
 //...
 RestEmitter emitter = RestEmitter.create(b -> b
                                               .server("http://localhost:8080")
-//Auth token for Managed DataHub              .token(AUTH_TOKEN_IF_NEEDED)
+//Auth token for DataHub Cloud              .token(AUTH_TOKEN_IF_NEEDED)
 //Override default timeout of 10 seconds      .timeoutSec(OVERRIDE_DEFAULT_TIMEOUT_IN_SECONDS)
 //Add additional headers                      .extraHeaders(Collections.singletonMap("Session-token", "MY_SESSION"))
 // Customize HttpClient's connection ttl      .customizeHttpAsyncClient(c -> c.setConnectionTimeToLive(30, TimeUnit.SECONDS))
@@ -167,7 +169,7 @@ If you're interested in looking at the Kafka emitter code, it is available [here
 
 ## File Emitter
 
-The File emitter writes metadata change proposal events (MCPs) into a JSON file that can be later handed off to the Python [File source](docs/generated/ingestion/sources/file.md) for ingestion. This works analogous to the [File sink](../../metadata-ingestion/sink_docs/file.md) in Python. This mechanism can be used when the system producing metadata events doesn't have direct connection to DataHub's REST server or Kafka brokers. The generated JSON file can be transferred later and then ingested into DataHub using the [File source](docs/generated/ingestion/sources/file.md).
+The File emitter writes metadata change proposal events (MCPs) into a JSON file that can be later handed off to the Python [Metadata File source](docs/generated/ingestion/sources/metadata-file.md) for ingestion. This works analogous to the [Metadata File sink](../../metadata-ingestion/sink_docs/metadata-file.md) in Python. This mechanism can be used when the system producing metadata events doesn't have direct connection to DataHub's REST server or Kafka brokers. The generated JSON file can be transferred later and then ingested into DataHub using the [Metadata File source](docs/generated/ingestion/sources/metadata-file.md).
 
 ### Usage
 
@@ -221,5 +223,3 @@ The File emitter only supports writing to the local filesystem currently. If you
 
 Emitter API-s are also supported for:
 - [Python](../../metadata-ingestion/as-a-library.md)
-
-

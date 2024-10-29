@@ -67,7 +67,11 @@ Now, you should have the DataHub plugin registered with Apache Ranger. Next, we'
 
       **DATAHUB** plugin and **ranger_datahub** service is shown in below screenshot: <br/>
       
-      ![Privacera Portal DATAHUB screenshot](../imgs/apache-ranger/datahub-plugin.png)
+      
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apache-ranger/datahub-plugin.png"/>
+</p>
+
 
 4. Create a new policy under service **ranger_datahub** - this will be used to control DataHub authorization. 
 5. Create a test user & assign them to a policy. We'll use the `datahub` user, which is the default root user inside DataHub.
@@ -80,7 +84,11 @@ Now, you should have the DataHub plugin registered with Apache Ranger. Next, we'
       
       DataHub platform access policy screenshot: <br/>
       
-      ![Privacera Portal DATAHUB screenshot](../imgs/apache-ranger/datahub-platform-access-policy.png)
+      
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apache-ranger/datahub-platform-access-policy.png"/>
+</p>
+
 
 Once we've created our first policy, we can set up DataHub to start authorizing requests using Ranger policies. 
 
@@ -178,7 +186,11 @@ then follow the below sections to undo the configuration steps you have performe
 
       **ranger_datahub** service is shown in below screenshot: <br/>
 
-      ![Privacera Portal DATAHUB screenshot](../imgs/apache-ranger/datahub-plugin.png)
+      
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apache-ranger/datahub-plugin.png"/>
+</p>
+
 
    2. Delete **datahub** plugin: Execute below curl command to delete **datahub** plugin
       Replace variables with corresponding values in curl command

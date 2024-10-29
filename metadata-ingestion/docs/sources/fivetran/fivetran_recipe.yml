@@ -1,0 +1,54 @@
+source:
+  type: fivetran
+  config:
+    # Fivetran log connector destination server configurations
+    fivetran_log_config:
+      destination_platform: snowflake
+      # Optional - If destination platform is 'snowflake', provide snowflake configuration.
+      snowflake_destination_config:
+        # Coordinates
+        account_id: "abc48144"
+        warehouse: "COMPUTE_WH"
+        database: "MY_SNOWFLAKE_DB"
+        log_schema: "FIVETRAN_LOG"
+
+        # Credentials
+        username: "${SNOWFLAKE_USER}"
+        password: "${SNOWFLAKE_PASS}"
+        role: "snowflake_role"
+      # Optional - If destination platform is 'bigquery', provide bigquery configuration.
+      bigquery_destination_config:
+        # Credentials
+        credential:
+          private_key_id: "project_key_id"
+          project_id: "project_id"
+          client_email: "client_email"
+          client_id: "client_id"
+          private_key: "private_key"
+        dataset: "fivetran_log_dataset"
+
+    # Optional - filter for certain connector names instead of ingesting everything.
+    # connector_patterns:
+    #   allow:
+    #     - connector_name
+
+    # Optional -- A mapping of the connector's all sources to its database.
+    # sources_to_database:
+    #   connector_id: source_db
+
+    # Optional -- This mapping is optional and only required to configure platform-instance for source
+    # A mapping of Fivetran connector id to data platform instance
+    # sources_to_platform_instance:
+    #   connector_id:
+    #     platform_instance: cloud_instance
+    #     env: DEV
+
+    # Optional -- This mapping is optional and only required to configure platform-instance for destination.
+    # A mapping of Fivetran destination id to data platform instance
+    # destination_to_platform_instance:
+    #   destination_id:
+    #     platform_instance: cloud_instance
+    #     env: DEV
+
+sink:
+  # sink configs

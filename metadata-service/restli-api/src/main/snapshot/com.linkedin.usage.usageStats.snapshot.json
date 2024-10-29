@@ -102,7 +102,8 @@
         } ]
       },
       "doc" : " Metrics associated with this bucket "
-    } ]
+    } ],
+    "deprecated" : "Use DatasetUsageStatistics, or other UsageStatistics records, instead"
   }, "com.linkedin.usage.UsageAggregationMetrics", {
     "type" : "record",
     "name" : "UsageQueryResult",
@@ -155,21 +156,30 @@
     "symbols" : [ "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR", "ALL" ]
   }, "com.linkedin.usage.UserUsageCounts" ],
   "schema" : {
+    "annotations" : {
+      "deprecated" : { }
+    },
     "name" : "usageStats",
     "namespace" : "com.linkedin.usage",
     "path" : "/usageStats",
     "schema" : "com.linkedin.usage.UsageAggregation",
     "doc" : "Rest.li entry point: /usageStats\n\ngenerated from: com.linkedin.metadata.resources.usage.UsageStats",
+    "resourceClass" : "com.linkedin.metadata.resources.usage.UsageStats",
     "simple" : {
       "supports" : [ ],
       "actions" : [ {
+        "annotations" : {
+          "deprecated" : { }
+        },
         "name" : "batchIngest",
+        "javaMethodName" : "batchIngest",
         "parameters" : [ {
           "name" : "buckets",
           "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.usage.UsageAggregation\" }"
         } ]
       }, {
         "name" : "query",
+        "javaMethodName" : "query",
         "parameters" : [ {
           "name" : "resource",
           "type" : "string"
@@ -192,6 +202,7 @@
         "returns" : "com.linkedin.usage.UsageQueryResult"
       }, {
         "name" : "queryRange",
+        "javaMethodName" : "queryRange",
         "parameters" : [ {
           "name" : "resource",
           "type" : "string"

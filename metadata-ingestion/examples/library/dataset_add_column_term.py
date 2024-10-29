@@ -15,22 +15,10 @@ from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
 )
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
-
-def get_simple_field_path_from_v2_field_path(field_path: str) -> str:
-    """A helper function to extract simple . path notation from the v2 field path"""
-    if not field_path.startswith("[version=2.0]"):
-        # not a v2, we assume this is a simple path
-        return field_path
-        # this is a v2 field path
-    tokens = [
-        t for t in field_path.split(".") if not (t.startswith("[") or t.endswith("]"))
-    ]
-
-    return ".".join(tokens)
 
 
 # Inputs -> the column, dataset and the term to set
@@ -97,7 +85,7 @@ if need_write:
         aspect=current_editable_schema_metadata,
     )
     graph.emit(event)
-    log.info(f"Tag {term_to_add} added to column {column} of dataset {dataset_urn}")
+    log.info(f"Term {term_to_add} added to column {column} of dataset {dataset_urn}")
 
 else:
-    log.info(f"Tag {term_to_add} already attached to column {column}, omitting write")
+    log.info(f"Term {term_to_add} already attached to column {column}, omitting write")

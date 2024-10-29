@@ -1,0 +1,33 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "ca9df3c737a7275934a0d3950bc76169f36a5931ccc05967b394849ea1d1863f",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "max_col",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)",
+                    "column": "col1"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)",
+                    "column": "col2"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT GREATEST(col1, COL2) AS max_col FROM mytable"
+    }
+}

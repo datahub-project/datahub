@@ -1,0 +1,8 @@
+source:
+  type: mlflow
+  config:
+    # Coordinates
+    tracking_uri: tracking_uri
+
+sink:
+  # sink configs

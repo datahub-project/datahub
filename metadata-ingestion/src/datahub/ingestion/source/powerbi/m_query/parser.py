@@ -6,7 +6,14 @@ from typing import Dict, List
 import lark
 from lark import Lark, Tree
 
-from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.powerbi.config import (
+    PowerBiDashboardSourceConfig,
+    PowerBiDashboardSourceReport,
+)
+from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+    AbstractDataPlatformInstanceResolver,
+)
 from datahub.ingestion.source.powerbi.m_query import resolver, validator
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     TRACE_POWERBI_MQUERY_PARSER,
@@ -45,52 +52,74 @@ def _parse_expression(expression: str) -> Tree:
 def get_upstream_tables(
     table: Table,
     reporter: PowerBiDashboardSourceReport,
-    native_query_enabled: bool = True,
+    platform_instance_resolver: AbstractDataPlatformInstanceResolver,
+    ctx: PipelineContext,
+    config: PowerBiDashboardSourceConfig,
     parameters: Dict[str, str] = {},
-) -> List[resolver.DataPlatformTable]:
+) -> List[resolver.Lineage]:
+
     if table.expression is None:
-        logger.debug(f"Expression is none for table {table.full_name}")
+        logger.debug(f"There is no M-Query expression in table {table.full_name}")
         return []
 
     parameters = parameters or {}
+
+    logger.debug(
+        f"Processing {table.full_name} m-query expression for lineage extraction. Expression = {table.expression}"
+    )
 
     try:
         parse_tree: Tree = _parse_expression(table.expression)
 
         valid, message = validator.validate_parse_tree(
-            parse_tree, native_query_enabled=native_query_enabled
+            parse_tree, native_query_enabled=config.native_query_parsing
         )
         if valid is False:
             assert message is not None
             logger.debug(f"Validation failed: {message}")
-            reporter.report_warning(table.full_name, message)
+            reporter.info(
+                title="Unsupported M-Query",
+                message="DataAccess function is not present in M-Query expression",
+                context=f"table-full-name={table.full_name}, expression={table.expression}, message={message}",
+            )
             return []
     except (
         BaseException
     ) as e:  # TODO: Debug why BaseException is needed here and below.
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
-            message = "Unsupported m-query expression"
+            title = "Unexpected Character Found"
         else:
-            message = "Failed to parse m-query expression"
+            title = "Unknown Parsing Error"
 
-        reporter.report_warning(table.full_name, message)
-        logger.info(f"{message} for table {table.full_name}: {str(e)}")
-        logger.debug(f"Stack trace for {table.full_name}:", exc_info=e)
+        reporter.warning(
+            title=title,
+            message="Unknown parsing error",
+            context=f"table-full-name={table.full_name}, expression={table.expression}",
+            exc=e,
+        )
         return []
 
+    lineage: List[resolver.Lineage] = []
     try:
-        return resolver.MQueryResolver(
+        lineage = resolver.MQueryResolver(
             table=table,
             parse_tree=parse_tree,
             reporter=reporter,
             parameters=parameters,
-        ).resolve_to_data_platform_table_list()
+        ).resolve_to_data_platform_table_list(
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
 
     except BaseException as e:
-        reporter.report_warning(table.full_name, "Failed to process m-query expression")
-        logger.info(
-            f"Failed to process m-query expression for table {table.full_name}: {str(e)}"
+        reporter.warning(
+            title="Unknown M-Query Pattern",
+            message="Encountered a unknown M-Query Expression",
+            context=f"table-full-name={table.full_name}, expression={table.expression}, message={e}",
+            exc=e,
         )
+
         logger.debug(f"Stack trace for {table.full_name}:", exc_info=e)
 
-    return []
+    return lineage

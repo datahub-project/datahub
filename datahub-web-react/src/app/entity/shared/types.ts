@@ -34,6 +34,12 @@ import {
     FineGrainedLineage,
     EntityPrivileges,
     Embed,
+    FabricType,
+    BrowsePathV2,
+    DataJobInputOutput,
+    ParentDomainsResult,
+    StructuredProperties,
+    Forms,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -45,6 +51,8 @@ export type EntityTab = {
         enabled: (GenericEntityProperties, T) => boolean; // Whether the tab is enabled on the UI. Defaults to true.
     };
     properties?: any;
+    id?: string;
+    getDynamicName?: (GenericEntityProperties, T) => string;
 };
 
 export type EntitySidebarSection = {
@@ -61,20 +69,25 @@ export type EntitySubHeaderSection = {
 
 export type GenericEntityProperties = {
     urn?: string;
+    type?: EntityType;
     name?: Maybe<string>;
     properties?: Maybe<{
+        name?: Maybe<string>;
         description?: Maybe<string>;
         qualifiedName?: Maybe<string>;
         sourceUrl?: Maybe<string>;
         sourceRef?: Maybe<string>;
+        businessAttributeDataType?: Maybe<string>;
     }>;
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;
     ownership?: Maybe<Ownership>;
     domain?: Maybe<DomainAssociation>;
+    dataProduct?: Maybe<EntityRelationshipsResult>;
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;
     customProperties?: Maybe<CustomPropertiesEntry[]>;
+    structuredProperties?: Maybe<StructuredProperties>;
     institutionalMemory?: Maybe<InstitutionalMemory>;
     schemaMetadata?: Maybe<SchemaMetadata>;
     externalUrl?: Maybe<string>;
@@ -93,6 +106,7 @@ export type GenericEntityProperties = {
     status?: Maybe<Status>;
     deprecation?: Maybe<Deprecation>;
     parentContainers?: Maybe<ParentContainersResult>;
+    parentDomains?: Maybe<ParentDomainsResult>;
     children?: Maybe<EntityRelationshipsResult>;
     parentNodes?: Maybe<ParentNodesResult>;
     isAChildren?: Maybe<EntityRelationshipsResult>;
@@ -104,6 +118,10 @@ export type GenericEntityProperties = {
     privileges?: Maybe<EntityPrivileges>;
     embed?: Maybe<Embed>;
     exists?: boolean;
+    origin?: Maybe<FabricType>;
+    browsePathV2?: Maybe<BrowsePathV2>;
+    inputOutput?: Maybe<DataJobInputOutput>;
+    forms?: Maybe<Forms>;
 };
 
 export type GenericEntityUpdate = {
@@ -138,6 +156,8 @@ export type EntityContextType = {
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;
     refetch: () => Promise<any>;
     lineage: FetchedEntity | undefined;
+    shouldRefetchEmbeddedListSearch?: boolean;
+    setShouldRefetchEmbeddedListSearch?: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 export type SchemaContextType = {

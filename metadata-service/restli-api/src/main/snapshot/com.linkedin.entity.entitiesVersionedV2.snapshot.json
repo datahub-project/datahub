@@ -123,8 +123,19 @@
               }, {
                 "name" : "runId",
                 "type" : "string",
-                "doc" : "The run id that produced the metadata. Populated in case of batch-ingestion.",
+                "doc" : "The original run id that produced the metadata. Populated in case of batch-ingestion.",
                 "default" : "no-run-id-provided",
+                "optional" : true
+              }, {
+                "name" : "lastRunId",
+                "type" : "string",
+                "doc" : "The last run id that produced the metadata. Populated in case of batch-ingestion.",
+                "default" : "no-run-id-provided",
+                "optional" : true
+              }, {
+                "name" : "pipelineName",
+                "type" : "string",
+                "doc" : "The ingestion pipeline id that produced the metadata. Populated in case of batch ingestion.",
                 "optional" : true
               }, {
                 "name" : "registryName",
@@ -144,6 +155,11 @@
                 },
                 "doc" : "Additional properties",
                 "optional" : true
+              }, {
+                "name" : "version",
+                "type" : "string",
+                "doc" : "Aspect version\n   Initial implementation will use the aspect version's number, however stored as\n   a string in the case where a different aspect versioning scheme is later adopted.",
+                "optional" : true
               } ]
             },
             "doc" : "The system metadata for this aspect\n",
@@ -160,6 +176,7 @@
     "path" : "/entitiesVersionedV2",
     "schema" : "com.linkedin.entity.EntityResponse",
     "doc" : "Single unified resource for fetching, updating, searching, & browsing versioned DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.entity.EntityVersionedV2Resource",
+    "resourceClass" : "com.linkedin.metadata.resources.entity.EntityVersionedV2Resource",
     "collection" : {
       "identifier" : {
         "name" : "entitiesVersionedV2Id",
@@ -168,6 +185,7 @@
       "supports" : [ "batch_get" ],
       "methods" : [ {
         "method" : "batch_get",
+        "javaMethodName" : "batchGetVersioned",
         "parameters" : [ {
           "name" : "entityType",
           "type" : "string"

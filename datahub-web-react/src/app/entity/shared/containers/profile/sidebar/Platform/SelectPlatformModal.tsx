@@ -105,7 +105,7 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOk, titleOv
         setSelectedPlatforms(selectedPlatforms?.filter((platform) => platform.urn !== val.value));
     };
 
-    const handleOk = async () => {
+    const handleOk = () => {
         if (!selectedPlatforms) {
             return;
         }
@@ -137,7 +137,7 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOk, titleOv
     return (
         <Modal
             title={titleOverride || 'Select Platform'}
-            visible
+            open
             onCancel={onModalClose}
             footer={
                 <>

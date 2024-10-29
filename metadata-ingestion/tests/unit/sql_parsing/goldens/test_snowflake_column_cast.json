@@ -1,0 +1,69 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "3aefbf517edfe6067a2215de3431f133e5e181b2119c8e1c41ca71757f152fa4",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "orderkey",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL(20, 0)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "o_orderkey"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "total_cast_int",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "o_totalprice"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "total_cast_float",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL(16, 4)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "o_totalprice"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT CAST(o.o_orderkey AS DECIMAL(?, ?)) AS orderkey, CAST(o.o_totalprice AS INT) AS total_cast_int, CAST(o.o_totalprice AS DECIMAL(?, ?)) AS total_cast_float FROM snowflake_sample_data.tpch_sf1.orders AS o LIMIT ?"
+    }
+}

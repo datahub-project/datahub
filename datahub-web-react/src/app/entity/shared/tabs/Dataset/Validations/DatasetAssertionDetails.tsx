@@ -150,7 +150,9 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
                     result: result?.type !== AssertionResultType.Failure,
                     title: (
                         <>
+                            {/* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */}
                             <AssertionResultIcon>{getResultIcon(result!.type)}</AssertionResultIcon>
+                            {/* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */}
                             <Typography.Text strong>{getResultText(result!.type)}</Typography.Text>
                         </>
                     ),

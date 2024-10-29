@@ -15,7 +15,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-
 public abstract class BaseReadDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn> {
 
   public static final long FIRST_VERSION = 0;
@@ -41,12 +40,10 @@ public abstract class BaseReadDAO<ASPECT_UNION extends UnionTemplate, URN extend
    * @return a mapping of given keys to the corresponding metadata aspect.
    */
   @Nonnull
-  public abstract Map<AspectKey<URN, ? extends RecordTemplate>, Optional<? extends RecordTemplate>> get(
-      @Nonnull Set<AspectKey<URN, ? extends RecordTemplate>> keys);
+  public abstract Map<AspectKey<URN, ? extends RecordTemplate>, Optional<? extends RecordTemplate>>
+      get(@Nonnull Set<AspectKey<URN, ? extends RecordTemplate>> keys);
 
-  /**
-   * Similar to {@link #get(Set)} but only using only one {@link AspectKey}.
-   */
+  /** Similar to {@link #get(Set)} but only using only one {@link AspectKey}. */
   @Nonnull
   public <ASPECT extends RecordTemplate> Optional<ASPECT> get(@Nonnull AspectKey<URN, ASPECT> key) {
     return (Optional<ASPECT>) get(Collections.singleton(key)).get(key);
@@ -56,21 +53,21 @@ public abstract class BaseReadDAO<ASPECT_UNION extends UnionTemplate, URN extend
    * Similar to {@link #get(AspectKey)} but with each component of the key broken out as arguments.
    */
   @Nonnull
-  public <ASPECT extends RecordTemplate> Optional<ASPECT> get(@Nonnull Class<ASPECT> aspectClass, @Nonnull URN urn,
-      long version) {
+  public <ASPECT extends RecordTemplate> Optional<ASPECT> get(
+      @Nonnull Class<ASPECT> aspectClass, @Nonnull URN urn, long version) {
     return get(new AspectKey<>(aspectClass, urn, version));
   }
 
-  /**
-   * Similar to {@link #get(Class, Urn, long)} but always retrieves the latest version.
-   */
+  /** Similar to {@link #get(Class, Urn, long)} but always retrieves the latest version. */
   @Nonnull
-  public <ASPECT extends RecordTemplate> Optional<ASPECT> get(@Nonnull Class<ASPECT> aspectClass, @Nonnull URN urn) {
+  public <ASPECT extends RecordTemplate> Optional<ASPECT> get(
+      @Nonnull Class<ASPECT> aspectClass, @Nonnull URN urn) {
     return get(aspectClass, urn, LATEST_VERSION);
   }
 
   /**
-   * Similar to {@link #get(Class, Urn)} but retrieves multiple aspects latest versions associated with multiple URNs.
+   * Similar to {@link #get(Class, Urn)} but retrieves multiple aspects latest versions associated
+   * with multiple URNs.
    *
    * <p>The returned {@link Map} contains all the .
    */
@@ -85,20 +82,22 @@ public abstract class BaseReadDAO<ASPECT_UNION extends UnionTemplate, URN extend
       }
     }
 
-    final Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> results = new HashMap<>();
-    get(keys).entrySet().forEach(entry -> {
-      final AspectKey<URN, ? extends RecordTemplate> key = entry.getKey();
-      final URN urn = key.getUrn();
-      results.putIfAbsent(urn, new HashMap<>());
-      results.get(urn).put(key.getAspectClass(), entry.getValue());
-    });
+    final Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>>
+        results = new HashMap<>();
+    get(keys)
+        .entrySet()
+        .forEach(
+            entry -> {
+              final AspectKey<URN, ? extends RecordTemplate> key = entry.getKey();
+              final URN urn = key.getUrn();
+              results.putIfAbsent(urn, new HashMap<>());
+              results.get(urn).put(key.getAspectClass(), entry.getValue());
+            });
 
     return results;
   }
 
-  /**
-   * Similar to {@link #get(Set, Set)} but only for one URN.
-   */
+  /** Similar to {@link #get(Set, Set)} but only for one URN. */
   @Nonnull
   public Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> get(
       @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull URN urn) {
@@ -112,16 +111,15 @@ public abstract class BaseReadDAO<ASPECT_UNION extends UnionTemplate, URN extend
     return results.get(urn);
   }
 
-  /**
-   * Similar to {@link #get(Set, Set)} but only for one aspect.
-   */
+  /** Similar to {@link #get(Set, Set)} but only for one aspect. */
   @Nonnull
   public <ASPECT extends RecordTemplate> Map<URN, Optional<ASPECT>> get(
       @Nonnull Class<ASPECT> aspectClass, @Nonnull Set<URN> urns) {
 
-    return get(Collections.singleton(aspectClass), urns).entrySet()
-        .stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry -> (Optional<ASPECT>) entry.getValue().get(aspectClass)));
+    return get(Collections.singleton(aspectClass), urns).entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey, entry -> (Optional<ASPECT>) entry.getValue().get(aspectClass)));
   }
 
   protected void checkValidAspect(@Nonnull Class<? extends RecordTemplate> aspectClass) {

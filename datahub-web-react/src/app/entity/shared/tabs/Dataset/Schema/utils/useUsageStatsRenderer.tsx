@@ -7,7 +7,7 @@ import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/
 
 const USAGE_BAR_MAX_WIDTH = 50;
 
-const UsageBar = styled.div<{ width: number }>`
+export const UsageBar = styled.div<{ width: number }>`
     width: ${(props) => props.width}px;
     height: 4px;
     background-color: ${geekblue[3]};

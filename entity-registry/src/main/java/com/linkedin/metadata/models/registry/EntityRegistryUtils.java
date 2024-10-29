@@ -8,17 +8,17 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-
 public class EntityRegistryUtils {
-  private EntityRegistryUtils() {
-
-  }
+  private EntityRegistryUtils() {}
 
   public static Map<String, AspectSpec> populateAspectMap(List<EntitySpec> entitySpecs) {
     return entitySpecs.stream()
         .map(EntitySpec::getAspectSpecs)
         .flatMap(Collection::stream)
-        .collect(Collectors.toMap(AspectSpec::getName, Function.identity(), (aspectSpec1, aspectSpec2) -> aspectSpec1));
+        .collect(
+            Collectors.toMap(
+                AspectSpec::getName,
+                Function.identity(),
+                (aspectSpec1, aspectSpec2) -> aspectSpec1));
   }
-
 }

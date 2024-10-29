@@ -1,9 +1,7 @@
 package com.linkedin.gms.factory.kafka;
 
-import com.linkedin.gms.factory.kafka.schemaregistry.AwsGlueSchemaRegistryFactory;
-import com.linkedin.gms.factory.kafka.schemaregistry.KafkaSchemaRegistryFactory;
-import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import java.util.Arrays;
 import java.util.Map;
 import org.apache.avro.generic.IndexedRecord;
@@ -11,84 +9,65 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.context.annotation.PropertySource;
-
+import org.springframework.context.annotation.DependsOn;
 
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
-@EnableConfigurationProperties(KafkaProperties.class)
-@Import({KafkaSchemaRegistryFactory.class, AwsGlueSchemaRegistryFactory.class})
+@DependsOn("configurationProvider")
 public class DataHubKafkaProducerFactory {
 
-  @Value("${kafka.bootstrapServers}")
-  private String kafkaBootstrapServers;
-
-  @Value("${kafka.schemaRegistry.type}")
-  private String schemaRegistryType;
-
-  @Value("${kafka.producer.retryCount}")
-  private String kafkaProducerRetryCount;
-
-  @Value("${kafka.producer.deliveryTimeout}")
-  private String kafkaProducerDeliveryTimeout;
-
-  @Value("${kafka.producer.requestTimeout}")
-  private String kafkaProducerRequestTimeout;
-
-  @Value("${kafka.producer.backoffTimeout}")
-  private String kafkaProducerBackOffTimeout;
-
-  @Autowired
-  @Lazy
-  @Qualifier("kafkaSchemaRegistry")
-  private SchemaRegistryConfig kafkaSchemaRegistryConfig;
-
-  @Autowired
-  @Lazy
-  @Qualifier("awsGlueSchemaRegistry")
-  private SchemaRegistryConfig awsGlueSchemaRegistryConfig;
-
   @Bean(name = "kafkaProducer")
-  protected Producer<String, IndexedRecord> createInstance(KafkaProperties properties) {
+  protected Producer<String, IndexedRecord> createInstance(
+      @Qualifier("configurationProvider") ConfigurationProvider provider,
+      final KafkaProperties properties,
+      @Qualifier("schemaRegistryConfig")
+          final KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
+    KafkaConfiguration kafkaConfiguration = provider.getKafka();
+    return new KafkaProducer<>(
+        buildProducerProperties(schemaRegistryConfig, kafkaConfiguration, properties));
+  }
+
+  public static Map<String, Object> buildProducerProperties(
+      KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig,
+      KafkaConfiguration kafkaConfiguration,
+      KafkaProperties properties) {
     KafkaProperties.Producer producerProps = properties.getProducer();
 
     producerProps.setKeySerializer(StringSerializer.class);
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    if (kafkaBootstrapServers != null && kafkaBootstrapServers.length() > 0) {
-      producerProps.setBootstrapServers(Arrays.asList(kafkaBootstrapServers.split(",")));
+    if (kafkaConfiguration.getBootstrapServers() != null
+        && kafkaConfiguration.getBootstrapServers().length() > 0) {
+      producerProps.setBootstrapServers(
+          Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
-    SchemaRegistryConfig schemaRegistryConfig;
-    if (schemaRegistryType.equals(KafkaSchemaRegistryFactory.TYPE)) {
-      schemaRegistryConfig = kafkaSchemaRegistryConfig;
-    } else {
-      schemaRegistryConfig = awsGlueSchemaRegistryConfig;
-    }
+    Map<String, Object> props = properties.buildProducerProperties(null);
+    props.putAll(
+        kafkaConfiguration.getSerde().getEvent().getProducerProperties(schemaRegistryConfig));
 
-    Map<String, Object> props = properties.buildProducerProperties();
-
-    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, schemaRegistryConfig.getSerializer().getName());
-
-    props.put(ProducerConfig.RETRIES_CONFIG, kafkaProducerRetryCount);
-    props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, kafkaProducerDeliveryTimeout);
-    props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaProducerRequestTimeout);
-    props.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, kafkaProducerBackOffTimeout);
+    props.put(ProducerConfig.RETRIES_CONFIG, kafkaConfiguration.getProducer().getRetryCount());
+    props.put(
+        ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG,
+        kafkaConfiguration.getProducer().getDeliveryTimeout());
+    props.put(
+        ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG,
+        kafkaConfiguration.getProducer().getRequestTimeout());
+    props.put(
+        ProducerConfig.RETRY_BACKOFF_MS_CONFIG,
+        kafkaConfiguration.getProducer().getBackoffTimeout());
+    props.put(
+        ProducerConfig.COMPRESSION_TYPE_CONFIG,
+        kafkaConfiguration.getProducer().getCompressionType());
+    props.put(
+        ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
+        kafkaConfiguration.getProducer().getMaxRequestSize());
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
-    schemaRegistryConfig.getProperties().entrySet()
-      .stream()
-      .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isEmpty())
-      .forEach(entry -> props.put(entry.getKey(), entry.getValue())); 
+    props.putAll(kafkaConfiguration.getSerde().getEvent().getProperties(schemaRegistryConfig));
 
-    return new KafkaProducer<>(props);
+    return props;
   }
 }

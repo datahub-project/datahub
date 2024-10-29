@@ -1,8 +1,11 @@
-@import '~antd/dist/antd.less';
+@import 'antd/dist/antd.less';
+@import './conf/theme/global-variables.less';
 @import './conf/theme/global-overrides.less';
+// Note that theme variables are also applied via an override in the
+// less preprocessor configuration.
 
 @font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  src: local('Mnarope'), url('./fonts/manrope.woff2') format('woff2'), 
+    font-family: 'Manrope';
+    font-style: normal;
+    src: local('Manrope'), url('./fonts/manrope.woff2') format('woff2');
 }

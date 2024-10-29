@@ -6,7 +6,6 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import {
     DESCRIPTION_FILTER_NAME,
     DOMAINS_FILTER_NAME,
-    ENTITY_FILTER_NAME,
     FIELDS_THAT_USE_CONTAINS_OPERATOR,
     FIELD_DESCRIPTIONS_FILTER_NAME,
     FIELD_PATHS_FILTER_NAME,
@@ -91,11 +90,12 @@ export const AdvancedSearchFilterConditionSelect = ({ filter, onUpdate }: Props)
                     }
                 }}
                 size="small"
-                disabled={filter.field === ENTITY_FILTER_NAME}
                 dropdownMatchSelectWidth={false}
             >
                 {Object.keys(labelsForField).map((labelKey) => (
-                    <Option value={labelKey}>{labelsForField[labelKey]}</Option>
+                    <Option key={labelKey} value={labelKey}>
+                        {labelsForField[labelKey]}
+                    </Option>
                 ))}
             </StyledSelect>
         </>

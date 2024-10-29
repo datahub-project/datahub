@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Image, Layout } from 'antd';
-import { Link } from 'react-router-dom';
-import styled, { useTheme } from 'styled-components';
+import { Layout } from 'antd';
+import styled from 'styled-components';
 
 import { SearchBar } from './SearchBar';
 import { ManageAccount } from '../shared/ManageAccount';
@@ -9,9 +8,9 @@ import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
-import { useAppConfig } from '../useAppConfig';
-import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
-import { ViewSelect } from '../entity/view/select/ViewSelect';
+import { useAppConfig, useIsShowAcrylInfoEnabled } from '../useAppConfig';
+import DemoButton from '../entity/shared/components/styled/DemoButton';
+import AppLogoLink from '../shared/AppLogoLink';
 
 const { Header } = Layout;
 
@@ -29,13 +28,6 @@ const styles = {
     },
 };
 
-const LogoImage = styled(Image)`
-    display: inline-block;
-    height: 32px;
-    width: auto;
-    margin-top: 2px;
-`;
-
 const LogoSearchContainer = styled.div`
     display: flex;
     flex: 1;
@@ -46,10 +38,6 @@ const NavGroup = styled.div`
     align-items: center;
     justify-content: flex-end;
     min-width: 200px;
-`;
-
-const ViewSelectContainer = styled.span`
-    margin-right: 14px;
 `;
 
 type Props = {
@@ -81,23 +69,14 @@ export const SearchHeader = ({
     entityRegistry,
 }: Props) => {
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
-    const themeConfig = useTheme();
+    const showAcrylInfo = useIsShowAcrylInfoEnabled();
     const appConfig = useAppConfig();
-    const viewsEnabled = appConfig.config?.viewsConfig?.enabled;
+    const viewsEnabled = appConfig.config?.viewsConfig?.enabled || false;
 
     return (
         <Header style={styles.header as any}>
             <LogoSearchContainer>
-                <Link to="/">
-                    <LogoImage
-                        src={
-                            appConfig.config !== DEFAULT_APP_CONFIG
-                                ? appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl
-                                : undefined
-                        }
-                        preview={false}
-                    />
-                </Link>
+                <AppLogoLink />
                 <SearchBar
                     initialQuery={initialQuery}
                     placeholderText={placeholderText}
@@ -106,18 +85,18 @@ export const SearchHeader = ({
                     onQueryChange={onQueryChange}
                     entityRegistry={entityRegistry}
                     setIsSearchBarFocused={setIsSearchBarFocused}
+                    viewsEnabled={viewsEnabled}
+                    combineSiblings
                     fixAutoComplete
                     showQuickFilters
+                    showViewAllResults
+                    showCommandK
                 />
             </LogoSearchContainer>
             <NavGroup>
-                {viewsEnabled && (
-                    <ViewSelectContainer>
-                        <ViewSelect />
-                    </ViewSelectContainer>
-                )}
                 <HeaderLinks areLinksHidden={isSearchBarFocused} />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
+                {showAcrylInfo && <DemoButton />}
             </NavGroup>
         </Header>
     );

@@ -1,5 +1,5 @@
 import { execSync } from "child_process";
-import * as matter from "gray-matter";
+import matter from "gray-matter";
 import * as fs from "fs";
 import * as path from "path";
 import { Octokit } from "@octokit/rest";
@@ -26,7 +26,7 @@ const sidebars_text = fs.readFileSync(SIDEBARS_DEF_PATH).toString();
 const MyOctokit = Octokit.plugin(retry).plugin(throttling);
 const octokit = new MyOctokit({
   throttle: {
-    onRateLimit: (retryAfter, options) => {
+    onRateLimit: (retryAfter: number, options: any) => {
       // Retry twice after rate limit is hit.
       if (options.request.retryCount <= 2) {
         return true;
@@ -66,7 +66,7 @@ function list_markdown_files(): string[] {
     .trim()
     .split("\n");
   let all_generated_markdown_files = execSync(
-    "cd .. && ls docs/generated/**/**/*.md"
+    "cd .. && ls docs/generated/**/**/*.md && ls docs/generated/**/*.md"
   )
     .toString()
     .trim()
@@ -125,7 +125,6 @@ function list_markdown_files(): string[] {
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
-    /^SECURITY\.md$/,
     /^\s*$/, //Empty string
   ];
 
@@ -157,7 +156,7 @@ function get_slug(filepath: string): string {
   // There's no need to do this cleanup, but it does make the URLs a bit more aesthetic.
 
   if (filepath in hardcoded_slugs) {
-    return hardcoded_slugs[filepath];
+    return hardcoded_slugs[filepath as keyof typeof hardcoded_slugs];
   }
 
   let slug = get_id(filepath);
@@ -177,7 +176,7 @@ const hardcoded_titles = {
   "docs/actions/README.md": "Introduction",
   "docs/actions/concepts.md": "Concepts",
   "docs/actions/quickstart.md": "Quickstart",
-  "docs/saas.md": "Managed DataHub",
+  "docs/saas.md": "DataHub Cloud",
 };
 // titles that have been hardcoded in sidebars.js
 // (for cases where doc is reference multiple times with different titles)
@@ -218,9 +217,10 @@ function markdown_guess_title(
 
   let title: string;
   if (filepath in hardcoded_titles) {
-    title = hardcoded_titles[filepath];
+    title = hardcoded_titles[filepath as keyof typeof hardcoded_titles];
     if (filepath in hardcoded_descriptions) {
-      contents.data.description = hardcoded_descriptions[filepath];
+      contents.data.description =
+        hardcoded_descriptions[filepath as keyof typeof hardcoded_descriptions];
     }
     if (hardcoded_hide_title.includes(filepath)) {
       contents.data.hide_title = true;
@@ -415,7 +415,7 @@ function markdown_process_inline_directives(
         throw new Error(`inline path must be absolute: ${inline_file_path}`);
       }
 
-      console.log(`Inlining ${inline_file_path} into ${filepath}`);
+      // console.log(`Inlining ${inline_file_path} into ${filepath}`);
       const referenced_file = fs.readFileSync(
         path.join("..", inline_file_path),
         "utf8"
@@ -572,6 +572,9 @@ function copy_python_wheels(): void {
   const wheel_dirs = [
     "../metadata-ingestion/dist",
     "../metadata-ingestion-modules/airflow-plugin/dist",
+    "../metadata-ingestion-modules/dagster-plugin/dist",
+    "../metadata-ingestion-modules/prefect-plugin/dist",
+    "../metadata-ingestion-modules/gx-plugin/dist",
   ];
 
   const wheel_output_directory = path.join(STATIC_DIRECTORY, "wheels");

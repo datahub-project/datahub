@@ -1,5 +1,5 @@
 import { dataset1, dataset2, dataJob1, dataset1FetchedEntity, dataset2FetchedEntity } from '../../../Mocks';
-import { EntityType } from '../../../types.generated';
+import { Entity, EntityType } from '../../../types.generated';
 import { Direction, EntityAndType, FetchedEntity } from '../types';
 import { shouldIncludeChildEntity } from '../utils/constructFetchedNode';
 
@@ -55,7 +55,7 @@ describe('shouldIncludeChildEntity', () => {
     it('should return true if the parent has a datajob child that is not a child of the dataset child', () => {
         const updatedDataset1FetchedEntity = {
             ...dataset1FetchedEntity,
-            downstreamChildren: [{ type: EntityType.Dataset, entity: dataset2 }],
+            downstreamChildren: [{ type: EntityType.Dataset, entity: dataset2 as Entity }],
         } as FetchedEntity;
 
         const shouldBeIncluded = shouldIncludeChildEntity(

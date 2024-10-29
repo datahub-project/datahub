@@ -8,7 +8,7 @@ import { getQuickFilterDetails } from './utils';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import analytics, { Event, EventType } from '../../../analytics';
 
-const QuickFilterWrapper = styled(Button)<{ isSelected: boolean }>`
+const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
     border: 1px solid ${ANTD_GRAY[4]};
     border-radius: 16px;
     box-shadow: none;
@@ -18,7 +18,7 @@ const QuickFilterWrapper = styled(Button)<{ isSelected: boolean }>`
     display: flex;
     align-items: center;
     padding: 2px 10px;
-    font-size: 12px;
+    font-size: 14px;
     margin: 4px;
 
     &:hover {
@@ -26,7 +26,7 @@ const QuickFilterWrapper = styled(Button)<{ isSelected: boolean }>`
     }
 
     ${(props) =>
-        props.isSelected &&
+        props.selected &&
         `
         border: 1px solid ${props.theme.styles['primary-color-dark']};
         background-color: ${props.theme.styles['primary-color-light']};
@@ -72,7 +72,7 @@ export default function QuickFilter({ quickFilter }: Props) {
     return (
         <QuickFilterWrapper
             onClick={handleClick}
-            isSelected={isSelected}
+            selected={isSelected}
             data-testid={`quick-filter-${quickFilter.value}`}
         >
             {icon}

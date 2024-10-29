@@ -6,14 +6,19 @@ import { Preview } from './preview/Preview';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { useGetContainerQuery } from '../../../graphql/container.generated';
+import { useGetContainerQuery, GetContainerQuery } from '../../../graphql/container.generated';
 import { ContainerEntitiesTab } from './ContainerEntitiesTab';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { getDataProduct } from '../shared/utils';
+import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
+import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
+import { useAppConfig } from '../../useAppConfig';
 
 /**
  * Definition of the DataHub Container entity.
@@ -60,11 +65,15 @@ export class ContainerEntity implements Entity<Container> {
 
     getCollectionName = () => 'Containers';
 
+    useEntityQuery = useGetContainerQuery;
+
+    appconfig = useAppConfig;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Container}
-            useEntityQuery={useGetContainerQuery}
+            useEntityQuery={this.useEntityQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
@@ -80,33 +89,56 @@ export class ContainerEntity implements Entity<Container> {
                     name: 'Properties',
                     component: PropertiesTab,
                 },
-            ]}
-            sidebarSections={[
                 {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
+                    name: 'Access Management',
+                    component: AccessManagement,
+                    display: {
+                        visible: (_, container: GetContainerQuery) => {
+                            return (
+                                this.appconfig().config.featureFlags.showAccessManagement &&
+                                !!container?.container?.access
+                            );
+                        },
+                        enabled: (_, container: GetContainerQuery) => {
+                            const accessAspect = container?.container?.access;
+                            const rolesList = accessAspect?.roles;
+                            return !!accessAspect && !!rolesList && rolesList.length > 0;
+                        },
                     },
                 },
-                {
-                    component: SidebarOwnerSection,
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                // TODO: Add back once entity-level recommendations are complete.
-                // {
-                //    component: SidebarRecommendationsSection,
-                // },
             ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
 
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+        // TODO: Add back once entity-level recommendations are complete.
+        // {
+        //    component: SidebarRecommendationsSection,
+        // },
+    ];
+
     renderPreview = (_: PreviewType, data: Container) => {
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
@@ -119,6 +151,7 @@ export class ContainerEntity implements Entity<Container> {
                 container={data.container}
                 entityCount={data.entities?.total}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 tags={data.tags}
                 externalUrl={data.properties?.externalUrl}
             />
@@ -127,6 +160,7 @@ export class ContainerEntity implements Entity<Container> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Container;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
@@ -140,10 +174,13 @@ export class ContainerEntity implements Entity<Container> {
                 container={data.container}
                 entityCount={data.entities?.total}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 parentContainers={data.parentContainers}
                 externalUrl={data.properties?.externalUrl}
                 tags={data.tags}
                 glossaryTerms={data.glossaryTerms}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };
@@ -155,6 +192,7 @@ export class ContainerEntity implements Entity<Container> {
     getOverridePropertiesFromEntity = (data: Container) => {
         return {
             name: this.displayName(data),
+            externalUrl: data.properties?.externalUrl,
             entityCount: data.entities?.total,
         };
     };
@@ -174,6 +212,16 @@ export class ContainerEntity implements Entity<Container> {
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
+
+    renderEmbeddedProfile = (urn: string) => (
+        <EmbeddedProfile
+            urn={urn}
+            entityType={EntityType.Container}
+            useEntityQuery={this.useEntityQuery}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
+        />
+    );
 }

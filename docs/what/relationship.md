@@ -2,7 +2,11 @@
 
 A relationship is a named associate between exactly two [entities](entity.md), a source and a destination. 
 
-![metadata-modeling](../imgs/metadata-modeling.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-modeling.png"/>
+</p>
+
 
 From the above graph, a `Group` entity can be linked to a `User` entity via a `HasMember` relationship. 
 Note that the name of the relationship reflects the direction, i.e. pointing from `Group` to `User`. 
@@ -97,9 +101,6 @@ or should there be edges going both ways? The answer is, "doesn’t really matte
 For one, the actual direction doesn’t really impact the execution of graph queries. Most graph DBs are fully capable of traversing edges in reverse direction efficiently.
 
 That being said, generally there’s a more "natural way" to specify the direction of a relationship, which closely relate to how the metadata is stored. For example, the membership information for an LDAP group is generally stored as a list in group’s metadata. As a result, it’s more natural to model a `HasMember` relationship that points from a group to a member, instead of a `IsMemberOf` relationship pointing from member to group.
-
-Since all relationships are explicitly declared, it’s fairly easy for a user to discover what relationships are available and their directionality by inspecting 
-the [relationships directory](../../metadata-models/src/main/pegasus/com/linkedin/metadata/relationship). It’s also possible to provide a UI for the catalog of entities and relationships for analysts who are interested in building complex graph queries to gain insights into the metadata.
 
 ## High Cardinality Relationships
 

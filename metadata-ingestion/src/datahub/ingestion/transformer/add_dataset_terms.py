@@ -73,10 +73,12 @@ class AddDatasetTerms(DatasetTermsTransformer):
         )
         out_glossary_terms: GlossaryTermsClass = GlossaryTermsClass(
             terms=[],
-            auditStamp=in_glossary_terms.auditStamp
-            if in_glossary_terms is not None
-            else AuditStampClass(
-                time=builder.get_sys_time(), actor="urn:li:corpUser:restEmitter"
+            auditStamp=(
+                in_glossary_terms.auditStamp
+                if in_glossary_terms is not None
+                else AuditStampClass(
+                    time=builder.get_sys_time(), actor="urn:li:corpUser:restEmitter"
+                )
             ),
         )
         # Check if user want to keep existing terms
@@ -132,8 +134,9 @@ class PatternAddDatasetTerms(AddDatasetTerms):
     def __init__(self, config: PatternDatasetTermsConfig, ctx: PipelineContext):
         term_pattern = config.term_pattern
         generic_config = AddDatasetTermsConfig(
-            get_terms_to_add=lambda _: [
-                GlossaryTermAssociationClass(urn=urn) for urn in term_pattern.value(_)
+            get_terms_to_add=lambda entity_urn: [
+                GlossaryTermAssociationClass(urn=term_urn)
+                for term_urn in term_pattern.value(entity_urn)
             ],
             replace_existing=config.replace_existing,
             semantics=config.semantics,

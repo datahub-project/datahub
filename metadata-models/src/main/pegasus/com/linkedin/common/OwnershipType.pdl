@@ -6,6 +6,12 @@ namespace com.linkedin.common
 enum OwnershipType {
 
   /**
+   * Set when ownership type is unknown or a when new one is specified as an ownership type entity for which we have no
+   * enum value for. This is used for backwards compatibility
+   */
+  CUSTOM
+
+  /**
    * person or group who is responsible for technical aspects of the asset.
    */
   TECHNICAL_OWNER

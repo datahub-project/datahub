@@ -3,6 +3,7 @@ namespace com.linkedin.glossary
 import com.linkedin.common.Url
 import com.linkedin.common.GlossaryNodeUrn
 import com.linkedin.common.CustomProperties
+import com.linkedin.schema.PrimitiveValueDataType
 
 /**
  * Properties associated with a GlossaryTerm
@@ -23,9 +24,10 @@ record GlossaryTermInfo includes CustomProperties {
    * Display name of the term
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
   }
   name: optional string
 
@@ -75,4 +77,5 @@ record GlossaryTermInfo includes CustomProperties {
    */
   @deprecated
   rawSchema: optional string
+
 }

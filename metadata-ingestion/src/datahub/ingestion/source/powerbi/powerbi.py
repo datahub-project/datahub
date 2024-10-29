@@ -3,14 +3,14 @@
 # Meta Data Ingestion From the Power BI Source
 #
 #########################################################
-
 import logging
-from typing import Iterable, List, Optional, Tuple
+from datetime import datetime
+from typing import Iterable, List, Optional, Tuple, Union
 
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import gen_containers
+from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -20,12 +20,24 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_dashboard_info_to_patch,
+)
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    MetadataWorkUnitProcessor,
+    SourceReport,
+    TestableSource,
+    TestConnectionReport,
+)
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    BIAssetSubTypes,
+    BIContainerSubTypes,
+)
 from datahub.ingestion.source.powerbi.config import (
     Constant,
-    PlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
@@ -35,9 +47,6 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
 )
 from datahub.ingestion.source.powerbi.m_query import parser, resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
-)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -45,33 +54,44 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    FineGrainedLineage,
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
+)
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     BrowsePathsClass,
     ChangeTypeClass,
     ChartInfoClass,
-    ChartKeyClass,
     ContainerClass,
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
+    DatasetFieldProfileClass,
     DatasetLineageTypeClass,
+    DatasetProfileClass,
     DatasetPropertiesClass,
+    EdgeClass,
     GlobalTagsClass,
+    OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
 )
+from datahub.metadata.urns import ChartUrn
+from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 from datahub.utilities.dedup_list import deduplicate_list
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
+from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -96,18 +116,21 @@ class Mapper:
 
     def __init__(
         self,
+        ctx: PipelineContext,
         config: PowerBiDashboardSourceConfig,
         reporter: PowerBiDashboardSourceReport,
         dataplatform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ):
+        self.__ctx = ctx
         self.__config = config
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
+        self.workspace_key: Optional[ContainerKey] = None
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
         if flag is True:
-            return value.lower()
+            return lowercase_dataset_urn(value)
 
         return value
 
@@ -121,9 +144,7 @@ class Mapper:
 
     def new_mcp(
         self,
-        entity_type,
         entity_urn,
-        aspect_name,
         aspect,
         change_type=ChangeTypeClass.UPSERT,
     ):
@@ -131,10 +152,8 @@ class Mapper:
         Create MCP
         """
         return MetadataChangeProposalWrapper(
-            entityType=entity_type,
             changeType=change_type,
             entityUrn=entity_urn,
-            aspectName=aspect_name,
             aspect=aspect,
         )
 
@@ -150,6 +169,58 @@ class Mapper:
             mcp=mcp,
         )
 
+    def extract_dataset_schema(
+        self, table: powerbi_data_classes.Table, ds_urn: str
+    ) -> List[MetadataChangeProposalWrapper]:
+        schema_metadata = self.to_datahub_schema(table)
+        schema_mcp = self.new_mcp(
+            entity_urn=ds_urn,
+            aspect=schema_metadata,
+        )
+        return [schema_mcp]
+
+    def make_fine_grained_lineage_class(
+        self, lineage: resolver.Lineage, dataset_urn: str
+    ) -> List[FineGrainedLineage]:
+        fine_grained_lineages: List[FineGrainedLineage] = []
+
+        if (
+            self.__config.extract_column_level_lineage is False
+            or self.__config.extract_lineage is False
+        ):
+            return fine_grained_lineages
+
+        if lineage is None:
+            return fine_grained_lineages
+
+        logger.info("Extracting column level lineage")
+
+        cll: List[ColumnLineageInfo] = lineage.column_lineage
+
+        for cll_info in cll:
+            downstream = (
+                [builder.make_schema_field_urn(dataset_urn, cll_info.downstream.column)]
+                if cll_info.downstream is not None
+                and cll_info.downstream.column is not None
+                else []
+            )
+
+            upstreams = [
+                builder.make_schema_field_urn(column_ref.table, column_ref.column)
+                for column_ref in cll_info.upstreams
+            ]
+
+            fine_grained_lineages.append(
+                FineGrainedLineage(
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=downstream,
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=upstreams,
+                )
+            )
+
+        return fine_grained_lineages
+
     def extract_lineage(
         self, table: powerbi_data_classes.Table, ds_urn: str
     ) -> List[MetadataChangeProposalWrapper]:
@@ -158,53 +229,126 @@ class Mapper:
         # table.dataset should always be set, but we check it just in case.
         parameters = table.dataset.parameters if table.dataset else {}
 
-        upstreams: List[UpstreamClass] = []
-        upstream_tables: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
-            table, self.__reporter, parameters=parameters
+        upstream: List[UpstreamClass] = []
+        cll_lineage: List[FineGrainedLineage] = []
+
+        upstream_lineage: List[resolver.Lineage] = parser.get_upstream_tables(
+            table=table,
+            reporter=self.__reporter,
+            platform_instance_resolver=self.__dataplatform_instance_resolver,
+            ctx=self.__ctx,
+            config=self.__config,
+            parameters=parameters,
         )
+
         logger.debug(
-            f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_tables}"
+            f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_lineage}"
         )
-        for upstream_table in upstream_tables:
-            if (
-                upstream_table.data_platform_pair.powerbi_data_platform_name
-                not in self.__config.dataset_type_mapping.keys()
-            ):
-                logger.debug(
-                    f"Skipping upstream table for {ds_urn}. The platform {upstream_table.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
+
+        for lineage in upstream_lineage:
+            for upstream_dpt in lineage.upstreams:
+                if (
+                    upstream_dpt.data_platform_pair.powerbi_data_platform_name
+                    not in self.__config.dataset_type_mapping.keys()
+                ):
+                    logger.debug(
+                        f"Skipping upstream table for {ds_urn}. The platform {upstream_dpt.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
+                    )
+                    continue
+
+                upstream_table_class = UpstreamClass(
+                    upstream_dpt.urn,
+                    DatasetLineageTypeClass.TRANSFORMED,
                 )
-                continue
 
-            platform_detail: PlatformDetail = (
-                self.__dataplatform_instance_resolver.get_platform_instance(
-                    upstream_table
+                upstream.append(upstream_table_class)
+
+                # Add column level lineage if any
+                cll_lineage.extend(
+                    self.make_fine_grained_lineage_class(
+                        lineage=lineage,
+                        dataset_urn=ds_urn,
+                    )
                 )
-            )
-            upstream_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=upstream_table.data_platform_pair.datahub_data_platform_name,
-                platform_instance=platform_detail.platform_instance,
-                env=platform_detail.env,
-                name=self.lineage_urn_to_lowercase(upstream_table.full_name),
+
+        if len(upstream) > 0:
+            upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
+                upstreams=upstream,
+                fineGrainedLineages=cll_lineage or None,
             )
 
-            upstream_table_class = UpstreamClass(
-                upstream_urn,
-                DatasetLineageTypeClass.TRANSFORMED,
-            )
-            upstreams.append(upstream_table_class)
-
-        if len(upstreams) > 0:
-            upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
             logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
+
             mcp = MetadataChangeProposalWrapper(
                 entityType=Constant.DATASET,
                 changeType=ChangeTypeClass.UPSERT,
                 entityUrn=ds_urn,
-                aspect=upstream_lineage,
+                aspect=upstream_lineage_class,
             )
             mcps.append(mcp)
 
         return mcps
+
+    def create_datahub_owner_urn(self, user: str) -> str:
+        """
+        Create corpuser urn from PowerBI (configured by| modified by| created by) user
+        """
+        if self.__config.ownership.remove_email_suffix:
+            return builder.make_user_urn(user.split("@")[0])
+        return builder.make_user_urn(f"users.{user}")
+
+    def to_datahub_schema_field(
+        self,
+        field: Union[powerbi_data_classes.Column, powerbi_data_classes.Measure],
+    ) -> SchemaFieldClass:
+        data_type = field.dataType
+        if isinstance(field, powerbi_data_classes.Measure):
+            description = (
+                f"{field.expression} {field.description}"
+                if field.description
+                else field.expression
+            )
+        elif field.description:
+            description = field.description
+        else:
+            description = None
+
+        schema_field = SchemaFieldClass(
+            fieldPath=f"{field.name}",
+            type=SchemaFieldDataTypeClass(type=field.datahubDataType),
+            nativeDataType=data_type,
+            description=description,
+        )
+        return schema_field
+
+    def to_datahub_schema(
+        self,
+        table: powerbi_data_classes.Table,
+    ) -> SchemaMetadataClass:
+        fields = []
+        table_fields = (
+            [self.to_datahub_schema_field(column) for column in table.columns]
+            if table.columns
+            else []
+        )
+        measure_fields = (
+            [self.to_datahub_schema_field(measure) for measure in table.measures]
+            if table.measures
+            else []
+        )
+        fields.extend(table_fields)
+        fields.extend(measure_fields)
+
+        schema_metadata = SchemaMetadataClass(
+            schemaName=table.name,
+            platform=self.__config.platform_urn,
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=fields,
+        )
+
+        return schema_metadata
 
     def to_datahub_dataset(
         self,
@@ -217,52 +361,110 @@ class Mapper:
         """
 
         dataset_mcps: List[MetadataChangeProposalWrapper] = []
+
         if dataset is None:
+            return dataset_mcps
+
+        logger.debug(f"Processing dataset {dataset.name}")
+
+        if not any(
+            [
+                self.__config.filter_dataset_endorsements.allowed(tag)
+                for tag in (dataset.tags or [""])
+            ]
+        ):
+            logger.debug(
+                "Returning empty dataset_mcps as no dataset tag matched with filter_dataset_endorsements"
+            )
             return dataset_mcps
 
         logger.debug(
             f"Mapping dataset={dataset.name}(id={dataset.id}) to datahub dataset"
         )
 
+        if self.__config.extract_datasets_to_containers:
+            dataset_mcps.extend(self.generate_container_for_dataset(dataset))
+
         for table in dataset.tables:
             # Create a URN for dataset
-            ds_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=self.__config.platform_name,
-                name=self.assets_urn_to_lowercase(table.full_name),
-                platform_instance=self.__config.platform_instance,
-                env=self.__config.env,
+            ds_urn = self.assets_urn_to_lowercase(
+                builder.make_dataset_urn_with_platform_instance(
+                    platform=self.__config.platform_name,
+                    name=table.full_name,
+                    platform_instance=self.__config.platform_instance,
+                    env=self.__config.env,
+                )
             )
 
-            logger.debug(f"{Constant.Dataset_URN}={ds_urn}")
+            logger.debug(f"dataset_urn={ds_urn}")
             # Create datasetProperties mcp
+            if table.expression:
+                view_properties = ViewPropertiesClass(
+                    materialized=False,
+                    viewLogic=table.expression,
+                    viewLanguage="m_query",
+                )
+                view_prop_mcp = self.new_mcp(
+                    entity_urn=ds_urn,
+                    aspect=view_properties,
+                )
+                dataset_mcps.extend([view_prop_mcp])
             ds_properties = DatasetPropertiesClass(
                 name=table.name,
                 description=dataset.description,
+                externalUrl=dataset.webUrl,
+                customProperties={
+                    "datasetId": dataset.id,
+                },
             )
 
             info_mcp = self.new_mcp(
-                entity_type=Constant.DATASET,
                 entity_urn=ds_urn,
-                aspect_name=Constant.DATASET_PROPERTIES,
                 aspect=ds_properties,
             )
 
             # Remove status mcp
             status_mcp = self.new_mcp(
-                entity_type=Constant.DATASET,
                 entity_urn=ds_urn,
-                aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
-            dataset_mcps.extend([info_mcp, status_mcp])
+            if self.__config.extract_dataset_schema:
+                dataset_mcps.extend(self.extract_dataset_schema(table, ds_urn))
+
+            subtype_mcp = self.new_mcp(
+                entity_urn=ds_urn,
+                aspect=SubTypesClass(
+                    typeNames=[
+                        BIContainerSubTypes.POWERBI_DATASET_TABLE,
+                    ]
+                ),
+            )
+            # normally, the person who configures the dataset will be the most accurate person for ownership
+            if (
+                self.__config.extract_ownership
+                and self.__config.ownership.dataset_configured_by_as_owner
+                and dataset.configuredBy
+            ):
+                # Dashboard Ownership
+                user_urn = self.create_datahub_owner_urn(dataset.configuredBy)
+                owner_class = OwnerClass(owner=user_urn, type=OwnershipTypeClass.NONE)
+                # Dashboard owner MCP
+                ownership = OwnershipClass(owners=[owner_class])
+                owner_mcp = self.new_mcp(
+                    entity_urn=ds_urn,
+                    aspect=ownership,
+                )
+                dataset_mcps.extend([owner_mcp])
+
+            dataset_mcps.extend([info_mcp, status_mcp, subtype_mcp])
 
             if self.__config.extract_lineage is True:
                 dataset_mcps.extend(self.extract_lineage(table, ds_urn))
 
             self.append_container_mcp(
                 dataset_mcps,
-                workspace,
                 ds_urn,
+                dataset,
             )
 
             self.append_tag_mcp(
@@ -271,8 +473,63 @@ class Mapper:
                 Constant.DATASET,
                 dataset.tags,
             )
+            self.extract_profile(dataset_mcps, workspace, dataset, table, ds_urn)
 
         return dataset_mcps
+
+    def extract_profile(
+        self,
+        dataset_mcps: List[MetadataChangeProposalWrapper],
+        workspace: powerbi_data_classes.Workspace,
+        dataset: powerbi_data_classes.PowerBIDataset,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+    ) -> None:
+        if not self.__config.profiling.enabled:
+            # Profiling not enabled
+            return
+
+        if not self.__config.profile_pattern.allowed(
+            f"{workspace.name}.{dataset.name}.{table.name}"
+        ):
+            logger.info(
+                f"Table {table.name} in {dataset.name}, not allowed for profiling"
+            )
+            return
+        logger.debug(f"Profiling table: {table.name}")
+
+        profile = DatasetProfileClass(timestampMillis=builder.get_sys_time())
+        profile.rowCount = table.row_count
+        profile.fieldProfiles = []
+
+        columns: List[
+            Union[powerbi_data_classes.Column, powerbi_data_classes.Measure]
+        ] = [*(table.columns or []), *(table.measures or [])]
+        for column in columns:
+            allowed_column = self.__config.profile_pattern.allowed(
+                f"{workspace.name}.{dataset.name}.{table.name}.{column.name}"
+            )
+            if column.isHidden or not allowed_column:
+                logger.info(f"Column {column.name} not allowed for profiling")
+                continue
+            measure_profile = column.measure_profile
+            if measure_profile:
+                field_profile = DatasetFieldProfileClass(column.name or "")
+                field_profile.sampleValues = measure_profile.sample_values
+                field_profile.min = measure_profile.min
+                field_profile.max = measure_profile.max
+                field_profile.uniqueCount = measure_profile.unique_count
+                profile.fieldProfiles.append(field_profile)
+
+        profile.columnCount = table.column_count
+
+        mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            entityUrn=ds_urn,
+            aspectName="datasetProfile",
+            aspect=profile,
+        )
+        dataset_mcps.append(mcp)
 
     @staticmethod
     def transform_tags(tags: List[str]) -> GlobalTagsClass:
@@ -302,7 +559,9 @@ class Mapper:
 
         logger.info(f"{Constant.CHART_URN}={chart_urn}")
 
-        ds_input: List[str] = self.to_urn_set(ds_mcps)
+        ds_input: List[str] = self.to_urn_set(
+            [x for x in ds_mcps if x.entityType == Constant.DATASET]
+        )
 
         def tile_custom_properties(tile: powerbi_data_classes.Tile) -> dict:
             custom_properties: dict = {
@@ -332,44 +591,49 @@ class Mapper:
         )
 
         info_mcp = self.new_mcp(
-            entity_type=Constant.CHART,
             entity_urn=chart_urn,
-            aspect_name=Constant.CHART_INFO,
             aspect=chart_info_instance,
         )
 
         # removed status mcp
         status_mcp = self.new_mcp(
-            entity_type=Constant.CHART,
             entity_urn=chart_urn,
-            aspect_name=Constant.STATUS,
             aspect=StatusClass(removed=False),
         )
 
-        # ChartKey status
-        chart_key_instance = ChartKeyClass(
-            dashboardTool=self.__config.platform_name,
-            chartId=Constant.CHART_ID.format(tile.id),
+        # Subtype mcp
+        subtype_mcp = MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
+            aspect=SubTypesClass(
+                typeNames=[BIAssetSubTypes.POWERBI_TILE],
+            ),
         )
 
+        # ChartKey aspect
+        # Note: we previously would emit a ChartKey aspect with incorrect information.
+        # Explicitly emitting this aspect isn't necessary, but we do it here to ensure that
+        # the old, bad data gets overwritten.
         chart_key_mcp = self.new_mcp(
-            entity_type=Constant.CHART,
             entity_urn=chart_urn,
-            aspect_name=Constant.CHART_KEY,
-            aspect=chart_key_instance,
+            aspect=ChartUrn.from_string(chart_urn).to_key_aspect(),
         )
-        browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
+
+        # Browse path
+        browse_path = BrowsePathsClass(paths=[f"/powerbi/{workspace.name}"])
         browse_path_mcp = self.new_mcp(
-            entity_type=Constant.CHART,
             entity_urn=chart_urn,
-            aspect_name=Constant.BROWSERPATH,
             aspect=browse_path,
         )
-        result_mcps = [info_mcp, status_mcp, chart_key_mcp, browse_path_mcp]
+        result_mcps = [
+            info_mcp,
+            status_mcp,
+            subtype_mcp,
+            chart_key_mcp,
+            browse_path_mcp,
+        ]
 
         self.append_container_mcp(
             result_mcps,
-            workspace,
             chart_urn,
         )
 
@@ -423,17 +687,13 @@ class Mapper:
         )
 
         info_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.DASHBOARD_INFO,
             aspect=dashboard_info_cls,
         )
 
         # removed status mcp
         removed_status_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.STATUS,
             aspect=StatusClass(removed=False),
         )
 
@@ -445,9 +705,7 @@ class Mapper:
 
         # Dashboard key
         dashboard_key_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.DASHBOARD_KEY,
             aspect=dashboard_key_cls,
         )
 
@@ -463,9 +721,7 @@ class Mapper:
             # Dashboard owner MCP
             ownership = OwnershipClass(owners=owners)
             owner_mcp = self.new_mcp(
-                entity_type=Constant.DASHBOARD,
                 entity_urn=dashboard_urn,
-                aspect_name=Constant.OWNERSHIP,
                 aspect=ownership,
             )
 
@@ -474,9 +730,7 @@ class Mapper:
             paths=[f"/{Constant.PLATFORM_NAME}/{dashboard.workspace_name}"]
         )
         browse_path_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.BROWSERPATH,
             aspect=browse_path,
         )
 
@@ -492,7 +746,6 @@ class Mapper:
 
         self.append_container_mcp(
             list_of_mcps,
-            workspace,
             dashboard_urn,
         )
 
@@ -508,35 +761,60 @@ class Mapper:
     def append_container_mcp(
         self,
         list_of_mcps: List[MetadataChangeProposalWrapper],
-        workspace: powerbi_data_classes.Workspace,
         entity_urn: str,
+        dataset: Optional[powerbi_data_classes.PowerBIDataset] = None,
     ) -> None:
-        if self.__config.extract_workspaces_to_containers:
-            container_key = workspace.get_workspace_key(
-                platform_name=self.__config.platform_name,
-                platform_instance=self.__config.platform_instance,
-            )
-            container_urn = builder.make_container_urn(
-                guid=container_key.guid(),
-            )
+        if self.__config.extract_datasets_to_containers and isinstance(
+            dataset, powerbi_data_classes.PowerBIDataset
+        ):
+            container_key = dataset.get_dataset_key(self.__config.platform_name)
+        elif self.__config.extract_workspaces_to_containers and self.workspace_key:
+            container_key = self.workspace_key
+        else:
+            return None
 
-            mcp = MetadataChangeProposalWrapper(
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=entity_urn,
-                aspect=ContainerClass(container=f"{container_urn}"),
-            )
-            list_of_mcps.append(mcp)
+        container_urn = builder.make_container_urn(
+            guid=container_key.guid(),
+        )
+        mcp = MetadataChangeProposalWrapper(
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=entity_urn,
+            aspect=ContainerClass(container=f"{container_urn}"),
+        )
+        list_of_mcps.append(mcp)
 
     def generate_container_for_workspace(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
-        workspace_key = workspace.get_workspace_key(self.__config.platform_name)
+        self.workspace_key = workspace.get_workspace_key(
+            platform_name=self.__config.platform_name,
+            platform_instance=self.__config.platform_instance,
+            workspace_id_as_urn_part=self.__config.workspace_id_as_urn_part,
+        )
         container_work_units = gen_containers(
-            container_key=workspace_key,
+            container_key=self.workspace_key,
             name=workspace.name,
-            sub_types=[BIContainerSubTypes.POWERBI_WORKSPACE],
+            sub_types=[workspace.type],
         )
         return container_work_units
+
+    def generate_container_for_dataset(
+        self, dataset: powerbi_data_classes.PowerBIDataset
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        dataset_key = dataset.get_dataset_key(self.__config.platform_name)
+        container_work_units = gen_containers(
+            container_key=dataset_key,
+            name=dataset.name if dataset.name else dataset.id,
+            parent_container_key=self.workspace_key,
+            sub_types=[BIContainerSubTypes.POWERBI_DATASET],
+        )
+
+        # The if statement here is just to satisfy mypy
+        return [
+            wu.metadata
+            for wu in container_work_units
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        ]
 
     def append_tag_mcp(
         self,
@@ -547,9 +825,7 @@ class Mapper:
     ) -> None:
         if self.__config.extract_endorsements_to_tags and tags:
             tags_mcp = self.new_mcp(
-                entity_type=entity_type,
                 entity_urn=entity_urn,
-                aspect_name=Constant.GLOBAL_TAGS,
                 aspect=self.transform_tags(tags),
             )
             list_of_mcps.append(tags_mcp)
@@ -564,14 +840,15 @@ class Mapper:
         logger.debug(f"Mapping user {user.displayName}(id={user.id}) to datahub's user")
 
         # Create an URN for user
-        user_urn = builder.make_user_urn(user.get_urn_part())
-
+        user_id = user.get_urn_part(
+            use_email=self.__config.ownership.use_powerbi_email,
+            remove_email_suffix=self.__config.ownership.remove_email_suffix,
+        )
+        user_urn = builder.make_user_urn(user_id)
         user_key = CorpUserKeyClass(username=user.id)
 
         user_key_mcp = self.new_mcp(
-            entity_type=Constant.CORP_USER,
             entity_urn=user_urn,
-            aspect_name=Constant.CORP_USER_KEY,
             aspect=user_key,
         )
 
@@ -583,7 +860,26 @@ class Mapper:
         user_mcps = []
 
         for user in users:
-            user_mcps.extend(self.to_datahub_user(user))
+            if user:
+                user_rights = [
+                    user.datasetUserAccessRight,
+                    user.reportUserAccessRight,
+                    user.dashboardUserAccessRight,
+                    user.groupUserAccessRight,
+                ]
+                if (
+                    user.principalType == "User"
+                    and self.__config.ownership.owner_criteria
+                    and len(
+                        set(user_rights) & set(self.__config.ownership.owner_criteria)
+                    )
+                    > 0
+                ):
+                    user_mcps.extend(self.to_datahub_user(user))
+                elif self.__config.ownership.owner_criteria is None:
+                    user_mcps.extend(self.to_datahub_user(user))
+                else:
+                    continue
 
         return user_mcps
 
@@ -642,7 +938,8 @@ class Mapper:
 
         # Now add MCPs in sequence
         mcps.extend(ds_mcps)
-        mcps.extend(user_mcps)
+        if self.__config.ownership.create_corp_user:
+            mcps.extend(user_mcps)
         mcps.extend(chart_mcps)
         mcps.extend(dashboard_mcps)
 
@@ -679,7 +976,9 @@ class Mapper:
 
             logger.debug(f"{Constant.CHART_URN}={chart_urn}")
 
-            ds_input: List[str] = self.to_urn_set(ds_mcps)
+            ds_input: List[str] = self.to_urn_set(
+                [x for x in ds_mcps if x.entityType == Constant.DATASET]
+            )
 
             # Create chartInfo mcp
             # Set chartUrl only if tile is created from Report
@@ -692,31 +991,35 @@ class Mapper:
             )
 
             info_mcp = self.new_mcp(
-                entity_type=Constant.CHART,
                 entity_urn=chart_urn,
-                aspect_name=Constant.CHART_INFO,
                 aspect=chart_info_instance,
             )
 
             # removed status mcp
             status_mcp = self.new_mcp(
-                entity_type=Constant.CHART,
                 entity_urn=chart_urn,
-                aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
-            browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
+            # Subtype mcp
+            subtype_mcp = MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=SubTypesClass(
+                    typeNames=[BIAssetSubTypes.POWERBI_PAGE],
+                ),
+            )
+
+            # Browse path
+            browse_path = BrowsePathsClass(
+                paths=[f"/{Constant.PLATFORM_NAME}/{workspace.name}"]
+            )
             browse_path_mcp = self.new_mcp(
-                entity_type=Constant.CHART,
                 entity_urn=chart_urn,
-                aspect_name=Constant.BROWSERPATH,
                 aspect=browse_path,
             )
-            list_of_mcps = [info_mcp, status_mcp, browse_path_mcp]
+            list_of_mcps = [info_mcp, status_mcp, subtype_mcp, browse_path_mcp]
 
             self.append_container_mcp(
                 list_of_mcps,
-                workspace,
                 chart_urn,
             )
 
@@ -761,17 +1064,13 @@ class Mapper:
         )
 
         info_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.DASHBOARD_INFO,
             aspect=dashboard_info_cls,
         )
 
         # removed status mcp
         removed_status_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.STATUS,
             aspect=StatusClass(removed=False),
         )
 
@@ -783,9 +1082,7 @@ class Mapper:
 
         # Dashboard key
         dashboard_key_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.DASHBOARD_KEY,
             aspect=dashboard_key_cls,
         )
         # Report Ownership
@@ -800,9 +1097,7 @@ class Mapper:
             # Report owner MCP
             ownership = OwnershipClass(owners=owners)
             owner_mcp = self.new_mcp(
-                entity_type=Constant.DASHBOARD,
                 entity_urn=dashboard_urn,
-                aspect_name=Constant.OWNERSHIP,
                 aspect=ownership,
             )
 
@@ -811,17 +1106,13 @@ class Mapper:
             paths=[f"/{Constant.PLATFORM_NAME}/{workspace.name}"]
         )
         browse_path_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.BROWSERPATH,
             aspect=browse_path,
         )
 
         sub_type_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=SubTypesClass.ASPECT_NAME,
-            aspect=SubTypesClass(typeNames=[Constant.REPORT_TYPE_NAME]),
+            aspect=SubTypesClass(typeNames=[report.type.value]),
         )
 
         list_of_mcps = [
@@ -837,7 +1128,6 @@ class Mapper:
 
         self.append_container_mcp(
             list_of_mcps,
-            workspace,
             dashboard_urn,
         )
 
@@ -857,11 +1147,10 @@ class Mapper:
     ) -> Iterable[MetadataWorkUnit]:
         mcps: List[MetadataChangeProposalWrapper] = []
 
-        logger.debug(f"Converting dashboard={report.name} to datahub dashboard")
-
+        logger.debug(f"Converting report={report.name} to datahub dashboard")
         # Convert user to CorpUser
         user_mcps = self.to_datahub_users(report.users)
-        # Convert pages to charts. A report has single dataset and same dataset used in pages to create visualization
+        # Convert pages to charts. A report has a single dataset and the same dataset used in pages to create visualization
         ds_mcps = self.to_datahub_dataset(report.dataset, workspace)
         chart_mcps = self.pages_to_chart(report.pages, workspace, ds_mcps)
 
@@ -870,25 +1159,40 @@ class Mapper:
 
         # Now add MCPs in sequence
         mcps.extend(ds_mcps)
-        mcps.extend(user_mcps)
+        if self.__config.ownership.create_corp_user:
+            mcps.extend(user_mcps)
         mcps.extend(chart_mcps)
         mcps.extend(report_mcps)
 
-        # Convert MCP to work_units
-        work_units = map(self._to_work_unit, mcps)
-        return work_units
+        return map(self._to_work_unit, mcps)
 
 
 @platform_name("PowerBI")
 @config_class(PowerBiDashboardSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.OWNERSHIP, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
+@capability(SourceCapability.TAGS, "Enabled by default")
 @capability(
     SourceCapability.OWNERSHIP,
     "Disabled by default, configured using `extract_ownership`",
 )
-class PowerBiDashboardSource(StatefulIngestionSourceBase):
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default, configured using `extract_lineage`.",
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Disabled by default, configured using `extract_column_level_lineage`. ",
+)
+@capability(
+    SourceCapability.DATA_PROFILING,
+    "Optionally enabled via configuration profiling.enabled",
+)
+class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
     - Power BI dashboards, tiles and datasets
@@ -903,14 +1207,17 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
     platform: str = "powerbi"
 
     def __init__(self, config: PowerBiDashboardSourceConfig, ctx: PipelineContext):
-        super(PowerBiDashboardSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.source_config = config
         self.reporter = PowerBiDashboardSourceReport()
         self.dataplatform_instance_resolver = create_dataplatform_instance_resolver(
             self.source_config
         )
         try:
-            self.powerbi_client = PowerBiAPI(self.source_config)
+            self.powerbi_client = PowerBiAPI(
+                config=self.source_config,
+                reporter=self.reporter,
+            )
         except Exception as e:
             logger.warning(e)
             exit(
@@ -918,28 +1225,43 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             )  # Exit pipeline as we are not able to connect to PowerBI API Service. This exit will avoid raising
             # unwanted stacktrace on console
 
-        self.mapper = Mapper(config, self.reporter, self.dataplatform_instance_resolver)
+        self.mapper = Mapper(
+            ctx, config, self.reporter, self.dataplatform_instance_resolver
+        )
 
         # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.source_config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=ctx.pipeline_name,
-            run_id=ctx.run_id,
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
+            self, self.source_config, self.ctx
         )
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        test_report = TestConnectionReport()
+        try:
+            PowerBiAPI(
+                PowerBiDashboardSourceConfig.parse_obj_allow_extras(config_dict),
+                PowerBiDashboardSourceReport(),
+            )
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+        except Exception as e:
+            test_report.basic_connectivity = CapabilityReport(
+                capable=False, failure_reason=str(e)
+            )
+        return test_report
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = PowerBiDashboardSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_allowed_workspaces(self) -> Iterable[powerbi_data_classes.Workspace]:
+    def get_allowed_workspaces(self) -> List[powerbi_data_classes.Workspace]:
         all_workspaces = self.powerbi_client.get_workspaces()
+
         allowed_wrk = [
             workspace
             for workspace in all_workspaces
             if self.source_config.workspace_id_pattern.allowed(workspace.id)
+            and workspace.type in self.source_config.workspace_type_filter
         ]
 
         logger.info(f"Number of workspaces = {len(all_workspaces)}")
@@ -963,6 +1285,191 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             f"Dataset lineage would get ingested for data-platform = {self.source_config.dataset_type_mapping}"
         )
 
+    def extract_independent_datasets(
+        self, workspace: powerbi_data_classes.Workspace
+    ) -> Iterable[MetadataWorkUnit]:
+        if self.source_config.extract_independent_datasets is False:
+            if workspace.independent_datasets:
+                self.reporter.info(
+                    title="Skipped Independent Dataset",
+                    message="Some datasets are not used in any visualizations. To ingest them, enable the `extract_independent_datasets` flag",
+                    context=",".join(
+                        [
+                            dataset.name
+                            for dataset in workspace.independent_datasets
+                            if dataset.name
+                        ]
+                    ),
+                )
+            return
+
+        for dataset in workspace.independent_datasets:
+            yield from auto_workunit(
+                stream=self.mapper.to_datahub_dataset(
+                    dataset=dataset,
+                    workspace=workspace,
+                )
+            )
+
+    def emit_app(
+        self, workspace: powerbi_data_classes.Workspace
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        if workspace.app is None:
+            return
+
+        if not self.source_config.extract_app:
+            self.reporter.info(
+                title="App Ingestion Is Disabled",
+                message="You are missing workspace app metadata. Please set flag `extract_app` to `true` in recipe to ingest workspace app.",
+                context=f"workspace-name={workspace.name}, app-name = {workspace.app.name}",
+            )
+            return
+
+        assets_within_app: List[EdgeClass] = [
+            EdgeClass(
+                destinationUrn=builder.make_dashboard_urn(
+                    platform=self.source_config.platform_name,
+                    platform_instance=self.source_config.platform_instance,
+                    name=powerbi_data_classes.Dashboard.get_urn_part_by_id(
+                        app_dashboard.original_dashboard_id
+                    ),
+                )
+            )
+            for app_dashboard in workspace.app.dashboards
+        ]
+
+        assets_within_app.extend(
+            [
+                EdgeClass(
+                    destinationUrn=builder.make_dashboard_urn(
+                        platform=self.source_config.platform_name,
+                        platform_instance=self.source_config.platform_instance,
+                        name=powerbi_data_classes.Report.get_urn_part_by_id(
+                            app_report.original_report_id
+                        ),
+                    )
+                )
+                for app_report in workspace.app.reports
+            ]
+        )
+
+        if assets_within_app:
+            logger.debug(
+                f"Emitting metadata-workunits for app {workspace.app.name}({workspace.app.id})"
+            )
+
+            app_urn: str = builder.make_dashboard_urn(
+                platform=self.source_config.platform_name,
+                platform_instance=self.source_config.platform_instance,
+                name=powerbi_data_classes.App.get_urn_part_by_id(workspace.app.id),
+            )
+
+            dashboard_info: DashboardInfoClass = DashboardInfoClass(
+                title=workspace.app.name,
+                description=workspace.app.description
+                if workspace.app.description
+                else workspace.app.name,
+                # lastModified=workspace.app.last_update,
+                lastModified=ChangeAuditStamps(
+                    lastModified=AuditStampClass(
+                        actor="urn:li:corpuser:unknown",
+                        time=int(
+                            datetime.strptime(
+                                workspace.app.last_update, "%Y-%m-%dT%H:%M:%S.%fZ"
+                            ).timestamp()
+                        ),
+                    )
+                    if workspace.app.last_update
+                    else None
+                ),
+                dashboards=assets_within_app,
+            )
+
+            # Browse path
+            browse_path: BrowsePathsClass = BrowsePathsClass(
+                paths=[f"/powerbi/{workspace.name}"]
+            )
+
+            yield from MetadataChangeProposalWrapper.construct_many(
+                entityUrn=app_urn,
+                aspects=(
+                    dashboard_info,
+                    browse_path,
+                    StatusClass(removed=False),
+                    SubTypesClass(typeNames=[BIAssetSubTypes.POWERBI_APP]),
+                ),
+            )
+
+    def get_workspace_workunit(
+        self, workspace: powerbi_data_classes.Workspace
+    ) -> Iterable[MetadataWorkUnit]:
+        if self.source_config.extract_workspaces_to_containers:
+            workspace_workunits = self.mapper.generate_container_for_workspace(
+                workspace
+            )
+
+            for workunit in workspace_workunits:
+                # Return workunit to a Datahub Ingestion framework
+                yield workunit
+
+        yield from auto_workunit(self.emit_app(workspace=workspace))
+
+        for dashboard in workspace.dashboards:
+            try:
+                # Fetch PowerBi users for dashboards
+                dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
+                # Increase dashboard and tiles count in report
+                self.reporter.report_dashboards_scanned()
+                self.reporter.report_charts_scanned(count=len(dashboard.tiles))
+            except Exception as e:
+                message = f"Error ({e}) occurred while loading dashboard {dashboard.displayName}(id={dashboard.id}) tiles."
+
+                logger.exception(message, e)
+                self.reporter.report_warning(dashboard.id, message)
+            # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
+            workunits = self.mapper.to_datahub_work_units(dashboard, workspace)
+            for workunit in workunits:
+                wu = self._get_dashboard_patch_work_unit(workunit)
+                if wu is not None:
+                    yield wu
+
+        for report in workspace.reports:
+            for work_unit in self.mapper.report_to_datahub_work_units(
+                report, workspace
+            ):
+                wu = self._get_dashboard_patch_work_unit(work_unit)
+                if wu is not None:
+                    yield wu
+
+        yield from self.extract_independent_datasets(workspace)
+
+    def _get_dashboard_patch_work_unit(
+        self, work_unit: MetadataWorkUnit
+    ) -> Optional[MetadataWorkUnit]:
+        dashboard_info_aspect: Optional[
+            DashboardInfoClass
+        ] = work_unit.get_aspect_of_type(DashboardInfoClass)
+
+        if dashboard_info_aspect and self.source_config.patch_metadata:
+            return convert_dashboard_info_to_patch(
+                work_unit.get_urn(),
+                dashboard_info_aspect,
+                work_unit.metadata.systemMetadata,
+            )
+        else:
+            return work_unit
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        # As modified_workspaces is not idempotent, hence workunit processors are run later for each workspace_id
+        # This will result in creating checkpoint for each workspace_id
+        if self.source_config.modified_since:
+            return []  # Handle these in get_workunits_internal
+        else:
+            return [
+                *super().get_workunit_processors(),
+                self.stale_entity_removal_handler.workunit_processor,
+            ]
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Datahub Ingestion framework invoke this method
@@ -971,49 +1478,43 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         # Validate dataset type mapping
         self.validate_dataset_type_mapping()
         # Fetch PowerBi workspace for given workspace identifier
-        for workspace in self.get_allowed_workspaces():
-            logger.info(f"Scanning workspace id: {workspace.id}")
-            self.powerbi_client.fill_workspace(workspace, self.reporter)
 
-            if self.source_config.extract_workspaces_to_containers:
-                workspace_workunits = self.mapper.generate_container_for_workspace(
-                    workspace
-                )
+        allowed_workspaces = self.get_allowed_workspaces()
+        workspaces_len = len(allowed_workspaces)
 
-                for workunit in workspace_workunits:
-                    # Return workunit to Datahub Ingestion framework
-                    yield workunit
-            for dashboard in workspace.dashboards:
-                try:
-                    # Fetch PowerBi users for dashboards
-                    dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
-                    # Increase dashboard and tiles count in report
-                    self.reporter.report_dashboards_scanned()
-                    self.reporter.report_charts_scanned(count=len(dashboard.tiles))
-                except Exception as e:
-                    message = f"Error ({e}) occurred while loading dashboard {dashboard.displayName}(id={dashboard.id}) tiles."
+        batch_size = (
+            self.source_config.scan_batch_size
+        )  # 100 is the maximum allowed for powerbi scan
+        num_batches = (workspaces_len + batch_size - 1) // batch_size
+        batches = [
+            allowed_workspaces[i * batch_size : (i + 1) * batch_size]
+            for i in range(num_batches)
+        ]
+        for batch_workspaces in batches:
+            for workspace in self.powerbi_client.fill_workspaces(
+                batch_workspaces, self.reporter
+            ):
+                logger.info(f"Processing workspace id: {workspace.id}")
 
-                    logger.exception(message, e)
-                    self.reporter.report_warning(dashboard.id, message)
-                # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
-                workunits = self.mapper.to_datahub_work_units(dashboard, workspace)
-                for workunit in workunits:
-                    # Return workunit to Datahub Ingestion framework
-                    yield workunit
+                if self.source_config.modified_since:
+                    # As modified_workspaces is not idempotent, hence we checkpoint for each powerbi workspace
+                    # Because job_id is used as dictionary key, we have to set a new job_id
+                    # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
+                    self.stale_entity_removal_handler.set_job_id(workspace.id)
+                    self.state_provider.register_stateful_ingestion_usecase_handler(
+                        self.stale_entity_removal_handler
+                    )
 
-            for report in workspace.reports:
-                for work_unit in self.mapper.report_to_datahub_work_units(
-                    report, workspace
-                ):
-                    yield work_unit
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.reporter, auto_status_aspect(self.get_workunits_internal())
-            ),
-        )
+                    yield from self._apply_workunit_processors(
+                        [
+                            *super().get_workunit_processors(),
+                            self.stale_entity_removal_handler.workunit_processor,
+                        ],
+                        self.get_workspace_workunit(workspace),
+                    )
+                else:
+                    # Maintain backward compatibility
+                    yield from self.get_workspace_workunit(workspace)
 
     def get_report(self) -> SourceReport:
         return self.reporter

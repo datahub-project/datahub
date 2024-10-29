@@ -40,6 +40,7 @@ fragment downloadSearchResults on Entity {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -109,6 +110,7 @@ fragment downloadSearchResults on Entity {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -152,8 +154,12 @@ fragment downloadSearchResults on Entity {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on DataFlow {
@@ -186,6 +192,7 @@ fragment downloadSearchResults on Entity {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -215,11 +222,15 @@ fragment downloadSearchResults on Entity {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on GlossaryTerm {
@@ -395,5 +406,34 @@ fragment downloadScrollResult on ScrollResults {
 query getDownloadScrollResults($input: ScrollAcrossEntitiesInput!) {
     scrollAcrossEntities(input: $input) {
         ...downloadScrollResult
+    }
+}
+
+fragment downloadScrollAcrossLineageResult on ScrollAcrossLineageResults {
+    nextScrollId
+    count
+    total
+    searchResults {
+        degree
+        entity {
+            ...downloadSearchResults
+        }
+        matchedFields {
+            name
+            value
+        }
+        insights {
+            text
+            icon
+        }
+    }
+    facets {
+        ...facetFields
+    }
+}
+
+query getDownloadScrollAcrossLineageResults($input: ScrollAcrossLineageInput!) {
+    scrollAcrossLineage(input: $input) {
+        ...downloadScrollAcrossLineageResult
     }
 }

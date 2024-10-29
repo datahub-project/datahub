@@ -2,6 +2,7 @@ import React from "react";
 import Layout from "@theme/Layout";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import { useColorMode } from "@docusaurus/theme-common";
+import Link from "@docusaurus/Link";
 
 import GuildSection from "./_components/GuildSection";
 
@@ -800,6 +801,11 @@ function Guild() {
               <p className="hero__subtitle">
                 Celebrating community members that have gone above and beyond to contribute to the collective success of DataHub
               </p>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <Link className="button button--secondary button--md" to="/champions">
+                See the DataHub Champions (2023) →
+              </Link>
             </div>
           </div>
           {guildSections.map((section, idx) => (

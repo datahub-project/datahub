@@ -5,6 +5,7 @@ import logging
 import os
 import pathlib
 import platform
+import signal
 import subprocess
 import sys
 import tempfile
@@ -15,16 +16,17 @@ from typing import Dict, List, Optional
 
 import click
 import click_spinner
-import pydantic
 import requests
 from expandvars import expandvars
 from requests_file import FileAdapter
 
-from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
+from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DATAHUB_COMPOSE_PROJECT_FILTER,
+    DOCKER_COMPOSE_PROJECT_NAME,
     DockerComposeVersionError,
+    QuickstartStatus,
     check_docker_quickstart,
     get_docker_client,
     run_quickstart_preflight_checks,
@@ -33,9 +35,10 @@ from datahub.cli.quickstart_versioning import QuickstartVersionMappingConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
-from datahub.utilities.sample_data import BOOTSTRAP_MCES_FILE, download_sample_data
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
+_ClickPositiveInt = click.IntRange(min=1)
 
 NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.quickstart.yml"
@@ -60,6 +63,11 @@ KAFKA_SETUP_QUICKSTART_COMPOSE_FILE = (
 )
 
 
+_QUICKSTART_MAX_WAIT_TIME = datetime.timedelta(minutes=10)
+_QUICKSTART_UP_TIMEOUT = datetime.timedelta(seconds=100)
+_QUICKSTART_STATUS_CHECK_INTERVAL = datetime.timedelta(seconds=2)
+
+
 class Architectures(Enum):
     x86 = "x86"
     arm64 = "arm64"
@@ -67,7 +75,7 @@ class Architectures(Enum):
     m2 = "m2"
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def _docker_subprocess_env() -> Dict[str, str]:
     # platform.machine() is equivalent to `uname -m`, as per https://stackoverflow.com/a/45124927/5004662
     DOCKER_COMPOSE_PLATFORM: str = "linux/" + platform.machine()
@@ -150,11 +158,12 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
 
 def _set_environment_variables(
     version: Optional[str],
-    mysql_port: Optional[pydantic.PositiveInt],
-    zk_port: Optional[pydantic.PositiveInt],
-    kafka_broker_port: Optional[pydantic.PositiveInt],
-    schema_registry_port: Optional[pydantic.PositiveInt],
-    elastic_port: Optional[pydantic.PositiveInt],
+    mysql_version: Optional[str],
+    mysql_port: Optional[int],
+    zk_port: Optional[int],
+    kafka_broker_port: Optional[int],
+    schema_registry_port: Optional[int],
+    elastic_port: Optional[int],
     kafka_setup: Optional[bool],
 ) -> None:
     if version is not None:
@@ -164,6 +173,8 @@ def _set_environment_variables(
             )
             version = f"v{version}"
         os.environ["DATAHUB_VERSION"] = version
+    if mysql_version is not None:
+        os.environ["DATAHUB_MYSQL_VERSION"] = mysql_version
     if mysql_port is not None:
         os.environ["DATAHUB_MAPPED_MYSQL_PORT"] = str(mysql_port)
 
@@ -228,9 +239,11 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
     compose_files_for_stopping = (
         quickstart_compose_file
         if quickstart_compose_file
-        else [pathlib.Path(default_quickstart_compose_file)]
-        if default_quickstart_compose_file
-        else None
+        else (
+            [pathlib.Path(default_quickstart_compose_file)]
+            if default_quickstart_compose_file
+            else None
+        )
     )
     if compose_files_for_stopping:
         # docker-compose stop
@@ -241,7 +254,7 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
                 ("-f", f"{path}") for path in compose_files_for_stopping
             ),
             "-p",
-            "datahub",
+            DOCKER_COMPOSE_PROJECT_NAME,
         ]
         try:
             logger.debug(f"Executing {base_command} stop")
@@ -269,7 +282,7 @@ def _backup(backup_file: str) -> int:
         [
             "bash",
             "-c",
-            f"docker exec mysql mysqldump -u root -pdatahub datahub > {resolved_backup_file}",
+            f"docker exec {DOCKER_COMPOSE_PROJECT_NAME}-mysql-1 mysqldump -u root -pdatahub datahub > {resolved_backup_file}",
         ]
     )
     logger.info(
@@ -304,16 +317,15 @@ def _restore(
         assert os.path.exists(
             resolved_restore_file
         ), f"File {resolved_restore_file} does not exist"
-        with open(resolved_restore_file, "r") as fp:
+        with open(resolved_restore_file) as fp:
             result = subprocess.run(
                 [
                     "bash",
                     "-c",
-                    "docker exec -i mysql bash -c 'mysql -uroot -pdatahub datahub '",
+                    f"docker exec -i {DOCKER_COMPOSE_PROJECT_NAME}-mysql-1 bash -c 'mysql -uroot -pdatahub datahub '",
                 ],
                 stdin=fp,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
             )
         if result.returncode != 0:
             logger.error("Failed to run MySQL restore")
@@ -369,7 +381,7 @@ DATAHUB_MAE_CONSUMER_PORT=9091
             )
             env_fp.flush()
             if logger.isEnabledFor(logging.DEBUG):
-                with open(env_fp.name, "r") as env_fp_reader:
+                with open(env_fp.name) as env_fp_reader:
                     logger.debug(f"Env file contents: {env_fp_reader.read()}")
 
             # continue to issue the restore indices command
@@ -385,12 +397,11 @@ DATAHUB_MAE_CONSUMER_PORT=9091
                     "-c",
                     "docker pull acryldata/datahub-upgrade:"
                     + "${DATAHUB_VERSION:-head}"
-                    + f" && docker run --network datahub_network --env-file {env_fp.name} "
+                    + f" && docker run --network {DOCKER_COMPOSE_PROJECT_NAME}_network --env-file {env_fp.name} "
                     + "acryldata/datahub-upgrade:${DATAHUB_VERSION:-head}"
                     + " -u RestoreIndices -a clean",
                 ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
             )
             logger.info(
                 f"Index restore command finished with status {result.returncode}"
@@ -419,7 +430,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     return quickstart_arch
 
 
-@docker.command()
+@docker.command()  # noqa: C901
 @click.option(
     "--version",
     type=str,
@@ -464,35 +475,35 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
 )
 @click.option(
     "--mysql-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing mysql instance running on port 3306, set this to a free port to avoid port conflicts on startup",
 )
 @click.option(
     "--zk-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing zookeeper instance running on port 2181, set this to a free port to avoid port conflicts on startup",
 )
 @click.option(
     "--kafka-broker-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing Kafka broker running on port 9092, set this to a free port to avoid port conflicts on startup",
 )
 @click.option(
     "--schema-registry-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing process running on port 8081, set this to a free port to avoid port conflicts with Kafka schema registry on startup",
 )
 @click.option(
     "--elastic-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing Elasticsearch instance running on port 9092, set this to a free port to avoid port conflicts on startup",
@@ -581,18 +592,18 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
         "arch",
     ]
 )
-def quickstart(
+def quickstart(  # noqa: C901
     version: Optional[str],
     build_locally: bool,
     pull_images: bool,
     quickstart_compose_file: List[pathlib.Path],
     dump_logs_on_failure: bool,
     graph_service_impl: Optional[str],
-    mysql_port: Optional[pydantic.PositiveInt],
-    zk_port: Optional[pydantic.PositiveInt],
-    kafka_broker_port: Optional[pydantic.PositiveInt],
-    schema_registry_port: Optional[pydantic.PositiveInt],
-    elastic_port: Optional[pydantic.PositiveInt],
+    mysql_port: Optional[int],
+    zk_port: Optional[int],
+    kafka_broker_port: Optional[int],
+    schema_registry_port: Optional[int],
+    elastic_port: Optional[int],
     stop: bool,
     backup: bool,
     backup_file: str,
@@ -667,6 +678,7 @@ def quickstart(
     # set version
     _set_environment_variables(
         version=quickstart_execution_plan.docker_tag,
+        mysql_version=quickstart_execution_plan.mysql_tag,
         mysql_port=mysql_port,
         zk_port=zk_port,
         kafka_broker_port=kafka_broker_port,
@@ -682,7 +694,7 @@ def quickstart(
             ("-f", f"{path}") for path in quickstart_compose_file
         ),
         "-p",
-        "datahub",
+        DOCKER_COMPOSE_PROJECT_NAME,
     ]
 
     # Pull and possibly build the latest containers.
@@ -697,14 +709,28 @@ def quickstart(
             # As such, we'll only use the quiet flag if we're in an interactive environment.
             # If we're in quiet mode, then we'll show a spinner instead.
             quiet = not sys.stderr.isatty()
-            with click_spinner.spinner(disable=not quiet):
+            with PerfTimer() as timer, click_spinner.spinner(disable=not quiet):
                 subprocess.run(
                     [*base_command, "pull", *(("-q",) if quiet else ())],
                     check=True,
                     env=_docker_subprocess_env(),
                 )
+
+            telemetry.telemetry_instance.ping(
+                "quickstart-image-pull",
+                {
+                    "status": "success",
+                    "duration": timer.elapsed_seconds(),
+                },
+            )
             click.secho("Finished pulling docker images!")
     except subprocess.CalledProcessError:
+        telemetry.telemetry_instance.ping(
+            "quickstart-image-pull",
+            {
+                "status": "failure",
+            },
+        )
         click.secho(
             "Error while pulling images. Going to attempt to move on to docker compose up assuming the images have "
             "been built locally",
@@ -714,12 +740,7 @@ def quickstart(
     if build_locally:
         logger.info("Building docker images locally...")
         subprocess.run(
-            [
-                *base_command,
-                "build",
-                "--pull",
-                "-q",
-            ],
+            base_command + ["build", "--pull", "-q"],
             check=True,
             env=_docker_subprocess_env(),
         )
@@ -727,21 +748,37 @@ def quickstart(
 
     # Start it up! (with retries)
     click.echo("\nStarting up DataHub...")
-    max_wait_time = datetime.timedelta(minutes=8)
     start_time = datetime.datetime.now()
-    sleep_interval = datetime.timedelta(seconds=2)
-    up_interval = datetime.timedelta(seconds=30)
+    status: Optional[QuickstartStatus] = None
     up_attempts = 0
-    while (datetime.datetime.now() - start_time) < max_wait_time:
-        # Attempt to run docker compose up every `up_interval`.
-        if (datetime.datetime.now() - start_time) > up_attempts * up_interval:
+    while (datetime.datetime.now() - start_time) < _QUICKSTART_MAX_WAIT_TIME:
+        # We must run docker-compose up at least once.
+        # Beyond that, we should run it again if something goes wrong.
+        if up_attempts == 0 or (status and status.needs_up()):
             if up_attempts > 0:
                 click.echo()
-            subprocess.run(
+            up_attempts += 1
+
+            logger.debug(f"Executing docker compose up command, attempt #{up_attempts}")
+            up_process = subprocess.Popen(
                 base_command + ["up", "-d", "--remove-orphans"],
                 env=_docker_subprocess_env(),
             )
-            up_attempts += 1
+            try:
+                up_process.wait(timeout=_QUICKSTART_UP_TIMEOUT.total_seconds())
+            except subprocess.TimeoutExpired:
+                logger.debug("docker compose up timed out, sending SIGTERM")
+                up_process.terminate()
+                try:
+                    up_process.wait(timeout=8)
+                except subprocess.TimeoutExpired:
+                    logger.debug("docker compose up still running, sending SIGKILL")
+                    up_process.kill()
+                    up_process.wait()
+            else:
+                # If the docker process got a keyboard interrupt, raise one here.
+                if up_process.returncode in {128 + signal.SIGINT, -signal.SIGINT}:
+                    raise KeyboardInterrupt
 
         # Check docker health every few seconds.
         status = check_docker_quickstart()
@@ -750,8 +787,10 @@ def quickstart(
 
         # Wait until next iteration.
         click.echo(".", nl=False)
-        time.sleep(sleep_interval.total_seconds())
+        time.sleep(_QUICKSTART_STATUS_CHECK_INTERVAL.total_seconds())
     else:
+        assert status
+
         # Falls through if the while loop doesn't exit via break.
         click.echo()
         with tempfile.NamedTemporaryFile(suffix=".log", delete=False) as log_file:
@@ -830,10 +869,10 @@ def download_compose_files(
     # also allow local files
     request_session = requests.Session()
     request_session.mount("file://", FileAdapter())
-    with open(
-        quickstart_compose_file_name, "wb"
-    ) if quickstart_compose_file_name else tempfile.NamedTemporaryFile(
-        suffix=".yml", delete=False
+    with (
+        open(quickstart_compose_file_name, "wb")
+        if quickstart_compose_file_name
+        else tempfile.NamedTemporaryFile(suffix=".yml", delete=False)
     ) as tmp_file:
         path = pathlib.Path(tmp_file.name)
         quickstart_compose_file_list.append(path)
@@ -854,10 +893,10 @@ def download_compose_files(
         default_consumer_compose_file = (
             Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
         )
-        with open(
-            default_consumer_compose_file, "wb"
-        ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
-            suffix=".yml", delete=False
+        with (
+            open(default_consumer_compose_file, "wb")
+            if default_consumer_compose_file
+            else tempfile.NamedTemporaryFile(suffix=".yml", delete=False)
         ) as tmp_file:
             path = pathlib.Path(tmp_file.name)
             quickstart_compose_file_list.append(path)
@@ -866,6 +905,28 @@ def download_compose_files(
             )
             # Download the quickstart docker-compose file from GitHub.
             quickstart_download_response = request_session.get(consumer_github_file)
+            quickstart_download_response.raise_for_status()
+            tmp_file.write(quickstart_download_response.content)
+            logger.debug(f"Copied to {path}")
+    if kafka_setup:
+        base_url = get_docker_compose_base_url(compose_git_ref)
+        kafka_setup_github_file = f"{base_url}/{KAFKA_SETUP_QUICKSTART_COMPOSE_FILE}"
+
+        default_kafka_compose_file = (
+            Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.kafka-setup.yml"
+        )
+        with (
+            open(default_kafka_compose_file, "wb")
+            if default_kafka_compose_file
+            else tempfile.NamedTemporaryFile(suffix=".yml", delete=False)
+        ) as tmp_file:
+            path = pathlib.Path(tmp_file.name)
+            quickstart_compose_file_list.append(path)
+            click.echo(
+                f"Fetching consumer docker-compose file {kafka_setup_github_file} from GitHub"
+            )
+            # Download the quickstart docker-compose file from GitHub.
+            quickstart_download_response = request_session.get(kafka_setup_github_file)
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
             logger.debug(f"Copied to {path}")
@@ -896,11 +957,6 @@ def valid_restore_options(
 
 @docker.command()
 @click.option(
-    "--path",
-    type=click.Path(exists=True, dir_okay=False),
-    help=f"The MCE json file to ingest. Defaults to downloading {BOOTSTRAP_MCES_FILE} from GitHub",
-)
-@click.option(
     "--token",
     type=str,
     is_flag=False,
@@ -908,12 +964,8 @@ def valid_restore_options(
     help="The token to be used when ingesting, used when datahub is deployed with METADATA_SERVICE_AUTH_ENABLED=true",
 )
 @telemetry.with_telemetry()
-def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
+def ingest_sample_data(token: Optional[str]) -> None:
     """Ingest sample data into a running DataHub instance."""
-
-    if path is None:
-        click.echo("Downloading sample data...")
-        path = str(download_sample_data())
 
     # Verify that docker is up.
     status = check_docker_quickstart()
@@ -927,10 +979,8 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
     click.echo("Starting ingestion...")
     recipe: dict = {
         "source": {
-            "type": "file",
-            "config": {
-                "filename": path,
-            },
+            "type": "demo-data",
+            "config": {},
         },
         "sink": {
             "type": "datahub-rest",
@@ -960,22 +1010,24 @@ def nuke(keep_data: bool) -> None:
     """Remove all Docker containers, networks, and volumes associated with DataHub."""
 
     with get_docker_client() as client:
-        click.echo("Removing containers in the datahub project")
+        click.echo(f"Removing containers in the {DOCKER_COMPOSE_PROJECT_NAME} project")
         for container in client.containers.list(
             all=True, filters=DATAHUB_COMPOSE_PROJECT_FILTER
         ):
             container.remove(v=True, force=True)
 
         if keep_data:
-            click.echo("Skipping deleting data volumes in the datahub project")
+            click.echo(
+                f"Skipping deleting data volumes in the {DOCKER_COMPOSE_PROJECT_NAME} project"
+            )
         else:
-            click.echo("Removing volumes in the datahub project")
+            click.echo(f"Removing volumes in the {DOCKER_COMPOSE_PROJECT_NAME} project")
             for filter in DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS + [
                 DATAHUB_COMPOSE_PROJECT_FILTER
             ]:
                 for volume in client.volumes.list(filters=filter):
                     volume.remove(force=True)
 
-        click.echo("Removing networks in the datahub project")
+        click.echo(f"Removing networks in the {DOCKER_COMPOSE_PROJECT_NAME} project")
         for network in client.networks.list(filters=DATAHUB_COMPOSE_PROJECT_FILTER):
             network.remove()

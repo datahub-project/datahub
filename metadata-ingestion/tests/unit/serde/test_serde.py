@@ -36,15 +36,16 @@ FROZEN_TIME = "2021-07-22 18:54:06"
         "tests/unit/serde/test_serde_usage.json",
         # Profiles with the MetadataChangeProposal format.
         "tests/unit/serde/test_serde_profile.json",
+        # Test one that uses patch.
+        "tests/unit/serde/test_serde_patch.json",
     ],
 )
 def test_serde_to_json(
     pytestconfig: PytestConfig, tmp_path: pathlib.Path, json_filename: str
 ) -> None:
     golden_file = pytestconfig.rootpath / json_filename
+    output_file = tmp_path / "output.json"
 
-    output_filename = "output.json"
-    output_file = tmp_path / output_filename
     pipeline = Pipeline.create(
         {
             "source": {"type": "file", "config": {"filename": str(golden_file)}},
@@ -57,7 +58,7 @@ def test_serde_to_json(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=f"{tmp_path}/{output_filename}",
+        output_path=f"{output_file}",
         golden_path=golden_file,
     )
 
@@ -99,7 +100,7 @@ def test_serde_to_avro(
         fo.seek(0)
         in_records = list(fastavro.reader(fo, return_record_name=True))
         in_mces = [
-            MetadataChangeEventClass.from_obj(record, tuples=True)
+            MetadataChangeEventClass.from_obj(record, tuples=True)  # type: ignore
             for record in in_records
         ]
 
@@ -237,7 +238,7 @@ def test_missing_optional_simple() -> None:
                 "criteria": [
                     {
                         "condition": "EQUALS",
-                        "field": "RESOURCE_TYPE",
+                        "field": "TYPE",
                         "values": ["notebook", "dataset", "dashboard"],
                     }
                 ]
@@ -251,7 +252,7 @@ def test_missing_optional_simple() -> None:
             "criteria": [
                 {
                     "condition": "EQUALS",
-                    "field": "RESOURCE_TYPE",
+                    "field": "TYPE",
                     "values": ["notebook", "dataset", "dashboard"],
                 }
             ]
@@ -266,13 +267,13 @@ def test_missing_optional_simple() -> None:
 def test_missing_optional_in_union() -> None:
     # This one doesn't contain any optional fields and should work fine.
     revised_json = json.loads(
-        '{"lastUpdatedTimestamp":1662356745807,"actors":{"groups":[],"resourceOwners":false,"allUsers":true,"allGroups":false,"users":[]},"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"displayName":"customtest","resources":{"filter":{"criteria":[{"field":"RESOURCE_TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]},"allResources":false},"description":"","state":"ACTIVE","type":"METADATA"}'
+        '{"lastUpdatedTimestamp":1662356745807,"actors":{"groups":[],"resourceOwners":false,"allUsers":true,"allGroups":false,"users":[]},"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"displayName":"customtest","resources":{"filter":{"criteria":[{"field":"TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]},"allResources":false},"description":"","state":"ACTIVE","type":"METADATA"}'
     )
     revised = models.DataHubPolicyInfoClass.from_obj(revised_json)
 
     # This one is missing the optional filters.allResources field.
     original_json = json.loads(
-        '{"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"actors":{"resourceOwners":false,"groups":[],"allGroups":false,"allUsers":true,"users":[]},"lastUpdatedTimestamp":1662356745807,"displayName":"customtest","description":"","resources":{"filter":{"criteria":[{"field":"RESOURCE_TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]}},"state":"ACTIVE","type":"METADATA"}'
+        '{"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"actors":{"resourceOwners":false,"groups":[],"allGroups":false,"allUsers":true,"users":[]},"lastUpdatedTimestamp":1662356745807,"displayName":"customtest","description":"","resources":{"filter":{"criteria":[{"field":"TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]}},"state":"ACTIVE","type":"METADATA"}'
     )
     original = models.DataHubPolicyInfoClass.from_obj(original_json)
 

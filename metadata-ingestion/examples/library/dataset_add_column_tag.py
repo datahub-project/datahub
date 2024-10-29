@@ -15,28 +15,16 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     TagAssociationClass,
 )
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-def get_simple_field_path_from_v2_field_path(field_path: str) -> str:
-    """A helper function to extract simple . path notation from the v2 field path"""
-    if not field_path.startswith("[version=2.0]"):
-        # not a v2, we assume this is a simple path
-        return field_path
-        # this is a v2 field path
-    tokens = [
-        t for t in field_path.split(".") if not (t.startswith("[") or t.endswith("]"))
-    ]
-
-    return ".".join(tokens)
-
-
 # Inputs -> the column, dataset and the tag to set
-column = "address.zipcode"
-dataset_urn = make_dataset_urn(platform="hive", name="realestate_db.sales", env="PROD")
-tag_to_add = make_tag_urn("location")
+column = "user_name"
+dataset_urn = make_dataset_urn(platform="hive", name="fct_users_created", env="PROD")
+tag_to_add = make_tag_urn("deprecated")
 
 
 # First we get the current editable schema metadata

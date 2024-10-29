@@ -11,7 +11,7 @@ class DomainRegistry:
 
     def __init__(
         self,
-        cached_domains: Optional[List[str]] = [],
+        cached_domains: Optional[List[str]] = None,
         graph: Optional[DataHubGraph] = None,
     ):
         self.domain_registry = {}
