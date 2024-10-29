@@ -225,7 +225,7 @@ BEGIN;
                 UPDATE #ProceduresDependencies
                 SET
                     referenced_database_name = si.referenced_db_name
-	              , referenced_schema_name   = si.referenced_schema_name
+	                , referenced_schema_name   = si.referenced_schema_name
                   , referenced_object_type   = si.referenced_type
                   , referenced_entity_name   = si.referenced_name
                   , referenced_id            = si.referenced_object_id

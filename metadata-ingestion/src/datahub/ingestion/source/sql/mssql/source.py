@@ -1,5 +1,5 @@
 import logging
-import os
+import pathlib
 import re
 import urllib.parse
 from collections import defaultdict
@@ -67,6 +67,8 @@ register_custom_type(sqlalchemy.dialects.mssql.MONEY, NumberTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.SMALLMONEY, NumberTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.SQL_VARIANT, UnionTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.UNIQUEIDENTIFIER, StringTypeClass)
+
+SQL_QUERIES_DIR = pathlib.Path(__file__).resolve().parent / "sql_queries"
 
 
 class SQLServerConfig(BasicSQLAlchemyConfig):
@@ -230,12 +232,9 @@ class SQLServerSource(SQLAlchemySource):
     def _populate_table_descriptions(self, conn: Connection, db_name: str) -> None:
         # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
         # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
-        path_to_table_description_query = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "sql_queries/table_description_query.sql",
-        )
+
         table_description_query = open(
-            path_to_table_description_query, mode="r", encoding="utf-8"
+            SQL_QUERIES_DIR / "table_description_query.sql", mode="r", encoding="utf-8"
         ).read()
 
         table_metadata = conn.execute(table_description_query)
@@ -246,12 +245,9 @@ class SQLServerSource(SQLAlchemySource):
             ] = row["table_description"]
 
     def _populate_column_descriptions(self, conn: Connection, db_name: str) -> None:
-        path_to_column_description_query = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "sql_queries/column_description_query.sql",
-        )
+
         column_description_query = open(
-            path_to_column_description_query, mode="r", encoding="utf-8"
+            SQL_QUERIES_DIR / "column_description_query.sql", mode="r", encoding="utf-8"
         ).read()
 
         column_metadata = conn.execute(column_description_query)
@@ -290,22 +286,16 @@ class SQLServerSource(SQLAlchemySource):
 
     def _populate_stored_procedures_dependencies(self, conn: Connection) -> None:
 
-        path_to_stored_procedures_dependencies_query = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "sql_queries/stored_procedures_dependencies_query.sql",
-        )
-        path_to_stored_procedures_dependencies_select = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "sql_queries/stored_procedures_dependencies_select.sql",
-        )
         stored_procedures_dependencies_query = open(
-            path_to_stored_procedures_dependencies_query, mode="r", encoding="utf-8"
+            SQL_QUERIES_DIR / "stored_procedures_dependencies_query.sql",
+            mode="r",
+            encoding="utf-8",
         ).read()
         stored_procedures_dependencies_select = open(
-            path_to_stored_procedures_dependencies_select, mode="r", encoding="utf-8"
+            SQL_QUERIES_DIR / "stored_procedures_dependencies_select.sql",
+            mode="r",
+            encoding="utf-8",
         ).read()
-
-        trans = conn.begin()
 
         conn.execute(stored_procedures_dependencies_query)
 
@@ -328,17 +318,13 @@ class SQLServerSource(SQLAlchemySource):
                     }
                 )
 
-        trans.commit()
-
     def _populate_table_view_dependencies(self, conn: Connection, db_name: str) -> None:
         # see https://learn.microsoft.com/en-us/sql/relational-databases/system-catalog-views/sys-sql-expression-dependencies-transact-sql
 
-        path_to_table_view_dependencies_query = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "sql_queries/table_view_dependencies_query.sql",
-        )
         table_view_dependencies_query = open(
-            path_to_table_view_dependencies_query, mode="r", encoding="utf-8"
+            SQL_QUERIES_DIR / "table_view_dependencies_query.sql",
+            mode="r",
+            encoding="utf-8",
         ).read()
 
         _links = conn.execute(table_view_dependencies_query)
@@ -490,16 +476,11 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
     def _get_jobs(self, conn: Connection, db_name: str) -> Dict[str, Dict[str, Any]]:
-        path_to_extract_jobs_query = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "sql_queries/extract_jobs_query.sql",
-        )
+
         extract_jobs_query = open(
-            path_to_extract_jobs_query, mode="r", encoding="utf-8"
+            SQL_QUERIES_DIR / "extract_jobs_query.sql", mode="r", encoding="utf-8"
         ).read()
-        extract_jobs_query = self.parameterize_query(
-            extract_jobs_query, {"{{db_name}}": db_name}
-        )
+        extract_jobs_query = extract_jobs_query.format(**{"db_name": db_name})
 
         jobs_data = conn.execute(extract_jobs_query)
         jobs: Dict[str, Dict[str, Any]] = {}
@@ -594,9 +575,9 @@ class SQLServerSource(SQLAlchemySource):
 
                 if self.config.mssql_lineage:
                     dependency = self._extract_procedure_dependency(procedure)
-                    data_job.incoming = dependency.get_input_datasets
-                    data_job.input_jobs = dependency.get_input_datajobs
-                    data_job.outgoing = dependency.get_output_datasets
+                    data_job.incoming = dependency.get_input_datasets()
+                    data_job.input_jobs = dependency.get_input_datajobs()
+                    data_job.outgoing = dependency.get_output_datasets()
 
                 procedure_definition, procedure_code = self._get_procedure_code(
                     conn, procedure
@@ -651,15 +632,12 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_inputs(
         conn: Connection, procedure: StoredProcedure
     ) -> List[ProcedureParameter]:
-        path_to_procedure_inputs_query = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "sql_queries/procedure_inputs_query.sql",
-        )
+
         procedure_inputs_query = open(
-            path_to_procedure_inputs_query, mode="r", encoding="utf-8"
+            SQL_QUERIES_DIR / "procedure_inputs_query.sql", mode="r", encoding="utf-8"
         ).read()
-        procedure_inputs_query = SQLServerSource.parameterize_query(
-            procedure_inputs_query, {"{{procedure_name}}": procedure.escape_full_name}
+        procedure_inputs_query = procedure_inputs_query.format(
+            **{"procedure_name": procedure.escape_full_name}
         )
 
         inputs_data = conn.execute(procedure_inputs_query)
@@ -672,19 +650,15 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_code(
         conn: Connection, procedure: StoredProcedure
     ) -> Tuple[Optional[str], Optional[str]]:
-        path_to_procedure_code_query = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "sql_queries/procedure_code_query.sql",
-        )
+
         procedure_code_query = open(
-            path_to_procedure_code_query, mode="r", encoding="utf-8"
+            SQL_QUERIES_DIR / "procedure_code_query.sql", mode="r", encoding="utf-8"
         ).read()
-        procedure_code_query = SQLServerSource.parameterize_query(
-            procedure_code_query,
-            {
-                "{{procedure_db}}": procedure.db,
-                "{{procedure_name}}": procedure.escape_full_name,
-            },
+        procedure_code_query = procedure_code_query.format(
+            **{
+                "procedure_db": procedure.db,
+                "procedure_name": procedure.escape_full_name,
+            }
         )
 
         try:
@@ -717,16 +691,14 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_properties(
         conn: Connection, procedure: StoredProcedure
     ) -> Dict[str, Any]:
-        path_to_procedure_properties_query = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "sql_queries/procedure_properties_query.sql",
-        )
+
         procedure_properties_query = open(
-            path_to_procedure_properties_query, mode="r", encoding="utf-8"
+            SQL_QUERIES_DIR / "procedure_properties_query.sql",
+            mode="r",
+            encoding="utf-8",
         ).read()
-        procedure_properties_query = SQLServerSource.parameterize_query(
-            procedure_properties_query,
-            {"{{procedure_name}}": procedure.escape_full_name},
+        procedure_properties_query = procedure_properties_query.format(
+            **{"procedure_name": procedure.escape_full_name}
         )
 
         properties_data = conn.execute(procedure_properties_query)
@@ -741,15 +713,12 @@ class SQLServerSource(SQLAlchemySource):
     def _get_stored_procedures(
         conn: Connection, db_name: str, schema: str
     ) -> List[Dict[str, str]]:
-        path_to_extract_procedures_query = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "sql_queries/extract_procedures_query.sql",
-        )
+
         extract_procedures_query = open(
-            path_to_extract_procedures_query, mode="r", encoding="utf-8"
+            SQL_QUERIES_DIR / "extract_procedures_query.sql", mode="r", encoding="utf-8"
         ).read()
-        extract_procedures_query = SQLServerSource.parameterize_query(
-            extract_procedures_query, {"{{db_name}}": db_name, "{{schema}}": schema}
+        extract_procedures_query = extract_procedures_query.format(
+            **{"db_name": db_name, "schema": schema}
         )
 
         stored_procedures_data = conn.execute(extract_procedures_query)
@@ -796,12 +765,10 @@ class SQLServerSource(SQLAlchemySource):
                 inspector = inspect(conn)
                 yield inspector
             else:
-                path_to_extract_databases_query = os.path.join(
-                    os.path.dirname(os.path.abspath(__file__)),
-                    "sql_queries/extract_databases_query.sql",
-                )
                 extract_databases_query = open(
-                    path_to_extract_databases_query, mode="r", encoding="utf-8"
+                    SQL_QUERIES_DIR / "extract_databases_query.sql",
+                    mode="r",
+                    encoding="utf-8",
                 ).read()
 
                 databases = conn.execute(extract_databases_query)
@@ -829,9 +796,3 @@ class SQLServerSource(SQLAlchemySource):
             if self.config.convert_urns_to_lowercase
             else qualified_table_name
         )
-
-    @staticmethod
-    def parameterize_query(query: str, params: Dict[str, str]) -> str:
-        for parameter, value in params.items():
-            query = query.replace(parameter, value)
-        return query

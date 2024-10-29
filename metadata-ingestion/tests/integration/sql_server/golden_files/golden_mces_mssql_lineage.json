@@ -759,10 +759,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_one]\nAS\nBEGIN\n\tDECLARE\n\t\t@t1 VARCHAR(MAX)\n\tSELECT @t1 = [id] FROM [schema_with_lineage].[table_number_one];\nEND;\n",
+                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_one]\nAS\nBEGIN\n    DECLARE\n        @t1 VARCHAR(MAX)\n    SELECT @t1 = [id] FROM [schema_with_lineage].[table_number_one];\nEND;\n",
                 "input parameters": "[]",
-                "date_created": "2024-09-19 19:12:18.497000",
-                "date_modified": "2024-09-19 19:12:18.497000"
+                "date_created": "2024-10-29 09:57:05.617000",
+                "date_modified": "2024-10-29 09:57:05.617000"
             },
             "externalUrl": "",
             "name": "LINEAGEDB_MASTER.schema_with_lineage.procedure_number_one",
@@ -805,10 +805,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_two]\nAS\nBEGIN\n\tDECLARE @t1 INT = 1\n\tUPDATE [schema_with_lineage].[view_of_table_number_two] SET [is_updated] = CASE\n                                                                                  \n WHEN @t1 = 1 THEN 1\n\t\t                                                                           ELSE 0 \n\t\t                                                                       END;\nEND;      \n",
+                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_two]\nAS\nBEGIN\n    DECLARE @t1 INT = 1\n    UPDATE [schema_with_lineage].[view_of_table_number_two] SET [is_updated] = CASE\n                                                                            \n       WHEN @t1 = 1 THEN 1\n                                                                                   ELSE 0 \n                                                                               END;\nEND;      \n",
                 "input parameters": "[]",
-                "date_created": "2024-09-19 19:12:18.500000",
-                "date_modified": "2024-09-19 19:12:18.500000"
+                "date_created": "2024-10-29 09:57:05.620000",
+                "date_modified": "2024-10-29 09:57:05.620000"
             },
             "externalUrl": "",
             "name": "LINEAGEDB_MASTER.schema_with_lineage.procedure_number_two",
@@ -851,10 +851,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_three]\nAS\nBEGIN\n\tIF (SELECT order_number FROM [schema_with_lineage].[table_number_three]) > 10\n\t\tINSERT INTO [schema_with_lineage].[table_number_three]([weight]) VALUES ('high')\n\tELSE\n\t\tINSERT INTO \n[schema_with_lineage].[table_number_three]([weight]) VALUES ('low')\nEND;\n",
+                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_three]\nAS\nBEGIN\n    IF (SELECT order_number FROM [schema_with_lineage].[table_number_three]) > 10\n        INSERT INTO [schema_with_lineage].[table_number_three]([weight]) VALUES ('high')\n    ELSE\n  \n      INSERT INTO [schema_with_lineage].[table_number_three]([weight]) VALUES ('low')\nEND;\n",
                 "input parameters": "[]",
-                "date_created": "2024-09-19 19:12:18.503000",
-                "date_modified": "2024-09-19 19:12:18.503000"
+                "date_created": "2024-10-29 09:57:05.623000",
+                "date_modified": "2024-10-29 09:57:05.623000"
             },
             "externalUrl": "",
             "name": "LINEAGEDB_MASTER.schema_with_lineage.procedure_number_three",
@@ -901,10 +901,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_four]\nAS\nBEGIN\n\tDECLARE @t1 VARCHAR(MAX);\n\tSELECT @t1 = [id] FROM [schema_with_lineage].[ghost_table];\n\tINSERT into [schema_with_lineage].[ghost_table] values (UPPER(@t1));\n\t\nEND;",
+                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_four]\nAS\nBEGIN\n    DECLARE @t1 VARCHAR(MAX);\n    SELECT @t1 = [id] FROM [schema_with_lineage].[ghost_table];\n    INSERT into [schema_with_lineage].[ghost_table] values (UPPER(@t1));\n    \nEND;",
                 "input parameters": "[]",
-                "date_created": "2024-09-19 19:12:18.507000",
-                "date_modified": "2024-09-19 19:12:18.507000"
+                "date_created": "2024-10-29 09:57:05.627000",
+                "date_modified": "2024-10-29 09:57:05.627000"
             },
             "externalUrl": "",
             "name": "LINEAGEDB_MASTER.schema_with_lineage.procedure_number_four",

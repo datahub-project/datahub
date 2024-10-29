@@ -12,4 +12,4 @@ SELECT
 FROM msdb.dbo.sysjobs AS job
 INNER JOIN msdb.dbo.sysjobsteps AS steps
     ON job.job_id = steps.job_id
-WHERE database_name = '{{db_name}}';
+WHERE database_name = '{db_name}';

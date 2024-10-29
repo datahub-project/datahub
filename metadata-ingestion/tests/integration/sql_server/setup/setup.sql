@@ -119,35 +119,35 @@ GO
 CREATE PROCEDURE [schema_with_lineage].[procedure_number_one]
 AS
 BEGIN
-	DECLARE
-		@t1 VARCHAR(MAX)
-	SELECT @t1 = [id] FROM [schema_with_lineage].[table_number_one];
+    DECLARE
+        @t1 VARCHAR(MAX)
+    SELECT @t1 = [id] FROM [schema_with_lineage].[table_number_one];
 END;
 GO       
 CREATE PROCEDURE [schema_with_lineage].[procedure_number_two]
 AS
 BEGIN
-	DECLARE @t1 INT = 1
-	UPDATE [schema_with_lineage].[view_of_table_number_two] SET [is_updated] = CASE
+    DECLARE @t1 INT = 1
+    UPDATE [schema_with_lineage].[view_of_table_number_two] SET [is_updated] = CASE
                                                                                    WHEN @t1 = 1 THEN 1
-		                                                                           ELSE 0 
-		                                                                       END;
+                                                                                   ELSE 0 
+                                                                               END;
 END;      
 GO
 CREATE PROCEDURE [schema_with_lineage].[procedure_number_three]
 AS
 BEGIN
-	IF (SELECT order_number FROM [schema_with_lineage].[table_number_three]) > 10
-		INSERT INTO [schema_with_lineage].[table_number_three]([weight]) VALUES ('high')
-	ELSE
-		INSERT INTO [schema_with_lineage].[table_number_three]([weight]) VALUES ('low')
+    IF (SELECT order_number FROM [schema_with_lineage].[table_number_three]) > 10
+        INSERT INTO [schema_with_lineage].[table_number_three]([weight]) VALUES ('high')
+    ELSE
+        INSERT INTO [schema_with_lineage].[table_number_three]([weight]) VALUES ('low')
 END;
 GO 
 CREATE PROCEDURE [schema_with_lineage].[procedure_number_four]
 AS
 BEGIN
-	DECLARE @t1 VARCHAR(MAX);
-	SELECT @t1 = [id] FROM [schema_with_lineage].[ghost_table];
-	INSERT into [schema_with_lineage].[ghost_table] values (UPPER(@t1));
-	
+    DECLARE @t1 VARCHAR(MAX);
+    SELECT @t1 = [id] FROM [schema_with_lineage].[ghost_table];
+    INSERT into [schema_with_lineage].[ghost_table] values (UPPER(@t1));
+    
 END;

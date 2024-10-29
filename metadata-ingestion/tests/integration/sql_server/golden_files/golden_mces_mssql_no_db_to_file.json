@@ -112,11 +112,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "f7aed911-c0d2-4381-b464-62b1d2f1355e",
+                "job_id": "5835571d-5ab3-4b0a-a4fe-6c3b53a984b6",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2024-09-19 19:12:17.580000",
-                "date_modified": "2024-09-19 19:12:17.763000",
+                "date_created": "2024-10-29 09:57:04.740000",
+                "date_modified": "2024-10-29 09:57:04.917000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
@@ -1959,8 +1959,8 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2024-09-19 19:12:17.473000",
-                "date_modified": "2024-09-19 19:12:17.473000"
+                "date_created": "2024-10-29 09:57:04.653000",
+                "date_modified": "2024-10-29 09:57:04.653000"
             },
             "externalUrl": "",
             "name": "DemoData.Foo.Proc.With.SpecialChar",
@@ -4363,10 +4363,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_one]\nAS\nBEGIN\n\tDECLARE\n\t\t@t1 VARCHAR(MAX)\n\tSELECT @t1 = [id] FROM [schema_with_lineage].[table_number_one];\nEND;\n",
+                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_one]\nAS\nBEGIN\n    DECLARE\n        @t1 VARCHAR(MAX)\n    SELECT @t1 = [id] FROM [schema_with_lineage].[table_number_one];\nEND;\n",
                 "input parameters": "[]",
-                "date_created": "2024-09-19 19:12:18.497000",
-                "date_modified": "2024-09-19 19:12:18.497000"
+                "date_created": "2024-10-29 09:57:05.617000",
+                "date_modified": "2024-10-29 09:57:05.617000"
             },
             "externalUrl": "",
             "name": "LINEAGEDB_MASTER.schema_with_lineage.procedure_number_one",
@@ -4407,10 +4407,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_two]\nAS\nBEGIN\n\tDECLARE @t1 INT = 1\n\tUPDATE [schema_with_lineage].[view_of_table_number_two] SET [is_updated] = CASE\n                                                                                  \n WHEN @t1 = 1 THEN 1\n\t\t                                                                           ELSE 0 \n\t\t                                                                       END;\nEND;      \n",
+                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_two]\nAS\nBEGIN\n    DECLARE @t1 INT = 1\n    UPDATE [schema_with_lineage].[view_of_table_number_two] SET [is_updated] = CASE\n                                                                            \n       WHEN @t1 = 1 THEN 1\n                                                                                   ELSE 0 \n                                                                               END;\nEND;      \n",
                 "input parameters": "[]",
-                "date_created": "2024-09-19 19:12:18.500000",
-                "date_modified": "2024-09-19 19:12:18.500000"
+                "date_created": "2024-10-29 09:57:05.620000",
+                "date_modified": "2024-10-29 09:57:05.620000"
             },
             "externalUrl": "",
             "name": "LINEAGEDB_MASTER.schema_with_lineage.procedure_number_two",
@@ -4451,10 +4451,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_three]\nAS\nBEGIN\n\tIF (SELECT order_number FROM [schema_with_lineage].[table_number_three]) > 10\n\t\tINSERT INTO [schema_with_lineage].[table_number_three]([weight]) VALUES ('high')\n\tELSE\n\t\tINSERT INTO \n[schema_with_lineage].[table_number_three]([weight]) VALUES ('low')\nEND;\n",
+                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_three]\nAS\nBEGIN\n    IF (SELECT order_number FROM [schema_with_lineage].[table_number_three]) > 10\n        INSERT INTO [schema_with_lineage].[table_number_three]([weight]) VALUES ('high')\n    ELSE\n  \n      INSERT INTO [schema_with_lineage].[table_number_three]([weight]) VALUES ('low')\nEND;\n",
                 "input parameters": "[]",
-                "date_created": "2024-09-19 19:12:18.503000",
-                "date_modified": "2024-09-19 19:12:18.503000"
+                "date_created": "2024-10-29 09:57:05.623000",
+                "date_modified": "2024-10-29 09:57:05.623000"
             },
             "externalUrl": "",
             "name": "LINEAGEDB_MASTER.schema_with_lineage.procedure_number_three",
@@ -4495,10 +4495,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_four]\nAS\nBEGIN\n\tDECLARE @t1 VARCHAR(MAX);\n\tSELECT @t1 = [id] FROM [schema_with_lineage].[ghost_table];\n\tINSERT into [schema_with_lineage].[ghost_table] values (UPPER(@t1));\n\t\nEND;",
+                "code": "CREATE PROCEDURE [schema_with_lineage].[procedure_number_four]\nAS\nBEGIN\n    DECLARE @t1 VARCHAR(MAX);\n    SELECT @t1 = [id] FROM [schema_with_lineage].[ghost_table];\n    INSERT into [schema_with_lineage].[ghost_table] values (UPPER(@t1));\n    \nEND;",
                 "input parameters": "[]",
-                "date_created": "2024-09-19 19:12:18.507000",
-                "date_modified": "2024-09-19 19:12:18.507000"
+                "date_created": "2024-10-29 09:57:05.627000",
+                "date_modified": "2024-10-29 09:57:05.627000"
             },
             "externalUrl": "",
             "name": "LINEAGEDB_MASTER.schema_with_lineage.procedure_number_four",

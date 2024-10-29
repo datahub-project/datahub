@@ -31,7 +31,6 @@ class ProcedureDependency:
 class ProcedureLineageStream:
     dependencies: List[ProcedureDependency] = field(default_factory=list)
 
-    @property
     def get_input_datasets(self) -> List[str]:
         return [
             make_dataset_urn_with_platform_instance(
@@ -41,10 +40,10 @@ class ProcedureLineageStream:
                 env=dep.env,
             )
             for dep in self.dependencies
-            if dep.type in ("U ", "V ") and dep.incoming
+            if dep.type in ("U ", "V ")
+            and dep.incoming  # Where "U " & "V " are "Table" & "View" according to https://learn.microsoft.com/en-us/sql/relational-databases/system-catalog-views/sys-objects-transact-sql?view=sql-server-ver16
         ]
 
-    @property
     def get_output_datasets(self) -> List[str]:
         return [
             make_dataset_urn_with_platform_instance(
@@ -54,10 +53,10 @@ class ProcedureLineageStream:
                 env=dep.env,
             )
             for dep in self.dependencies
-            if dep.type in ("U ", "V ") and dep.outgoing
+            if dep.type in ("U ", "V ")
+            and dep.outgoing  # Where "U " & "V " are "Table" & "View" according to https://learn.microsoft.com/en-us/sql/relational-databases/system-catalog-views/sys-objects-transact-sql?view=sql-server-ver16
         ]
 
-    @property
     def get_input_datajobs(self) -> List[str]:
         return [
             make_data_job_urn(
@@ -68,14 +67,9 @@ class ProcedureLineageStream:
                 platform_instance=dep.server,
             )
             for dep in self.dependencies
-            if dep.type in ("P ",) and dep.incoming
+            if dep.type in ("P ",)
+            and dep.incoming  # Where "P " is "SQL stored procedure" according to https://learn.microsoft.com/en-us/sql/relational-databases/system-catalog-views/sys-objects-transact-sql?view=sql-server-ver16
         ]
-
-    @property
-    def as_property(self) -> Dict[str, str]:
-        return {
-            f"{dep.db}.{dep.schema}.{dep.name}": dep.type for dep in self.dependencies
-        }
 
 
 @dataclass
