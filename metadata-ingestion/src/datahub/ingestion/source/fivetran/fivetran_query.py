@@ -118,19 +118,31 @@ ORDER BY connector_id, created_at DESC
 
         return f"""\
 SELECT
-    scm.table_id as source_table_id,
-    dcm.table_id as destination_table_id,
-    scm.name as source_column_name,
-    dcm.name as destination_column_name
-FROM {self.db_clause}column_lineage as cl
-JOIN {self.db_clause}source_column_metadata as scm
-  ON cl.source_column_id = scm.id
-JOIN {self.db_clause}destination_column_metadata as dcm
-  ON cl.destination_column_id = dcm.id
--- Only joining source_table_metadata to get the connector_id.
-JOIN {self.db_clause}source_table_metadata as stm
-  ON scm.table_id = stm.id
-WHERE stm.connector_id IN ({formatted_connector_ids})
-QUALIFY ROW_NUMBER() OVER (PARTITION BY stm.connector_id ORDER BY cl.created_at DESC) <= {MAX_COLUMN_LINEAGE_PER_CONNECTOR}
-ORDER BY stm.connector_id, cl.created_at DESC
+    source_table_id,
+    destination_table_id,
+    source_column_name,
+    destination_column_name
+FROM (
+    SELECT
+        stm.connector_id as connector_id,
+        scm.table_id as source_table_id,
+        dcm.table_id as destination_table_id,
+        scm.name as source_column_name,
+        dcm.name as destination_column_name,
+        cl.created_at as created_at,
+        ROW_NUMBER() OVER (PARTITION BY stm.connector_id, cl.source_column_id, cl.destination_column_id ORDER BY cl.created_at DESC) as column_combo_rn
+    FROM {self.db_clause}column_lineage as cl
+    JOIN {self.db_clause}source_column_metadata as scm
+      ON cl.source_column_id = scm.id
+    JOIN {self.db_clause}destination_column_metadata as dcm
+      ON cl.destination_column_id = dcm.id
+    -- Only joining source_table_metadata to get the connector_id.
+    JOIN {self.db_clause}source_table_metadata as stm
+      ON scm.table_id = stm.id
+    WHERE stm.connector_id IN ({formatted_connector_ids})
+)
+-- Ensure that we only get back one entry per (connector, source column, destination column) pair.
+WHERE column_combo_rn = 1
+QUALIFY ROW_NUMBER() OVER (PARTITION BY connector_id ORDER BY created_at DESC) <= {MAX_COLUMN_LINEAGE_PER_CONNECTOR}
+ORDER BY connector_id, created_at DESC
 """
