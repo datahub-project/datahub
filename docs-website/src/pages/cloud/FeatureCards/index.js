@@ -98,13 +98,13 @@ const Features = () => (
                   </div>
                 ))}
               </div>
-              <Link
+              {/* <Link
                 className={clsx("button button--primary button--md", styles.exploreButton)}
                 to={section.cloudPageLink}
                 target="_blank"
               >
                 Explore in DataHub Cloud
-              </Link> 
+              </Link>  */}
             </div>
           </div>
           <div className={clsx("col col--6", styles.coreCard)}>
