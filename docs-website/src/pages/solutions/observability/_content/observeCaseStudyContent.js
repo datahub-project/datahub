@@ -1,5 +1,5 @@
 const caseStudyContent = {
-      title: "See how industry leaders are using DataHub for Discovery today.",
+      title: "See how industry leaders are using DataHub for Observability today.",
       backgroundColor: "#F3F3F6",
       items: [
         {

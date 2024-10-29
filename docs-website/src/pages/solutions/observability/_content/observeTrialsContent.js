@@ -1,5 +1,5 @@
 const trialsContent = {
-      title: "Start measuring and minimizing your compliance risk today.",
+      title: "Start building trust with your stakeholders, today.",
       trialsCardItems: [
         {
           title: "Protect your mission-critical tables, reports, services, and more.",
