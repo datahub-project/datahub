@@ -23,3 +23,4 @@ class DataHubSourceReport(StatefulIngestionReport):
     kafka_parse_errors: LossyDict[str, int] = field(default_factory=LossyDict)
 
     num_timeseries_deletions_dropped: int = 0
+    num_timeseries_soft_deleted_aspects_dropped: int = 0

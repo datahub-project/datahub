@@ -31,11 +31,13 @@ class DataHubKafkaReader(Closeable):
         connection_config: KafkaConsumerConnectionConfig,
         report: DataHubSourceReport,
         ctx: PipelineContext,
+        soft_deleted_urns: List[str] = [],
     ):
         self.config = config
         self.connection_config = connection_config
         self.report = report
         self.group_id = f"{KAFKA_GROUP_PREFIX}-{ctx.pipeline_name}"
+        self.ctx = ctx
 
     def __enter__(self) -> "DataHubKafkaReader":
         self.consumer = DeserializingConsumer(
@@ -94,6 +96,9 @@ class DataHubKafkaReader(Closeable):
                     f"with audit stamp {datetime.fromtimestamp(mcl.created.time / 1000)}"
                 )
                 break
+
+            if mcl.aspectName and mcl.aspectName.lower() in self.config.exclude_aspects:
+                continue
 
             # TODO: Consider storing state in kafka instead, via consumer.commit()
             yield mcl, PartitionOffset(partition=msg.partition(), offset=msg.offset())

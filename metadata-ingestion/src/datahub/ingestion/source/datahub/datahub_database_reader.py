@@ -93,6 +93,23 @@ class DataHubDatabaseReader:
         )
 
     @property
+    def soft_deleted_urns(self) -> str:
+        return f"""
+            SELECT DISTINCT mav.urn
+            FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)} as mav
+            JOIN (
+                SELECT *,
+                JSON_EXTRACT(metadata, '$.removed') as removed
+                FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)}
+                WHERE aspect = "status" AND version = 0
+            ) as sd ON sd.urn = mav.urn
+            WHERE sd.removed = true
+            ORDER BY mav.urn
+            LIMIT %(limit)s
+            OFFSET %(offset)s
+        """
+
+    @property
     def query(self) -> str:
         # May repeat rows for the same date
         # Offset is generally 0, unless we repeat the same createdon twice
@@ -101,13 +118,20 @@ class DataHubDatabaseReader:
         # Relies on createdon order to reflect version order
         # Ordering of entries with the same createdon is handled by VersionOrderer
         return f"""
-            SELECT urn, aspect, metadata, systemmetadata, createdon, version
-            FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)}
-            WHERE createdon >= %(since_createdon)s
-            {"" if self.config.include_all_versions else "AND version = 0"}
+            SELECT * from (
+            SELECT CONCAT(mav.createdon, "-", mav.urn, "-",  mav.aspect, "-", mav.version) as row_id ,mav.urn, mav.aspect, mav.metadata, mav.systemmetadata, mav.createdon, mav.version, removed
+            FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)} as mav
+            LEFT JOIN (SELECT *, JSON_EXTRACT(metadata, '$.removed') as removed from  {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)} where aspect = "status" and version = 0) as sd on sd.urn = mav.urn
+            WHERE 1 = 1
+            {"" if self.config.include_all_versions else "AND mav.version = 0"}
+            {"" if not self.config.exclude_aspects else f"AND LOWER(mav.aspect) NOT IN %(exclude_aspects)s"}
+            AND mav.createdon >= %(since_createdon)s
+            ORDER BY createdon, urn, aspect, version
+            ) as t
+            where  row_id >  %(last_id)s
+            {"" if self.config.include_soft_deleted_entities else "AND (removed = false or removed is NULL)"}
             ORDER BY createdon, urn, aspect, version
             LIMIT %(limit)s
-            OFFSET %(offset)s
         """
 
     def get_aspects(
@@ -123,14 +147,15 @@ class DataHubDatabaseReader:
     def _get_rows(self, from_createdon: datetime, stop_time: datetime) -> Iterable[Row]:
         with self.engine.connect() as conn:
             ts = from_createdon
-            offset = 0
+            last_id = ""
             while ts.timestamp() <= stop_time.timestamp():
                 logger.debug(f"Polling database aspects from {ts}")
                 rows = conn.execute(
                     self.query,
+                    exclude_aspects=list(self.config.exclude_aspects),
                     since_createdon=ts.strftime(DATETIME_FORMAT),
+                    last_id=last_id,
                     limit=self.config.database_query_batch_size,
-                    offset=offset,
                 )
                 if not rows.rowcount:
                     return
@@ -138,11 +163,37 @@ class DataHubDatabaseReader:
                 for i, row in enumerate(rows):
                     yield row
 
-                if ts == row.createdon:
-                    offset += i + 1
+                if last_id == row.row_id:
+                    return
                 else:
+                    last_id = row.row_id
                     ts = row.createdon
-                    offset = 0
+
+    def get_soft_deleted_rows(self) -> Iterable[Row]:
+        """
+        Fetches all soft-deleted entities from the database.
+
+        Yields:
+            Row objects containing URNs of soft-deleted entities
+        """
+        with self.engine.connect() as conn:
+            offset = 0
+
+            while True:
+                logger.debug(f"Polling soft-deleted urns with offset {offset}")
+
+                rows = conn.execute(
+                    self.soft_deleted_urns,
+                    {"limit": self.config.database_query_batch_size, "offset": offset},
+                )
+
+                if not rows.rowcount:
+                    break
+
+                for row in rows:
+                    yield row
+
+                offset += rows.rowcount
 
     def _parse_row(self, row: Row) -> Optional[MetadataChangeProposalWrapper]:
         try:

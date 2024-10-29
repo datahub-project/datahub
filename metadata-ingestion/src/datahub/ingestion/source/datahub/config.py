@@ -1,7 +1,7 @@
 import os
-from typing import Optional
+from typing import Optional, Set
 
-from pydantic import Field, root_validator
+from pydantic import Field, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -33,6 +33,19 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
             "If enabled, include all versions of each aspect. "
             "Otherwise, only include the latest version of each aspect. "
         ),
+    )
+
+    include_soft_deleted_entities: bool = Field(
+        default=True,
+        description=(
+            "If enabled, include entities that have been soft deleted. "
+            "Otherwise, include all entities regardless of removal status. "
+        ),
+    )
+
+    exclude_aspects: Set[str] = Field(
+        default_factory=set,
+        description="Set of aspect names to exclude from ingestion",
     )
 
     database_query_batch_size: int = Field(
@@ -82,6 +95,11 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
     )
 
     urn_pattern: AllowDenyPattern = Field(default=AllowDenyPattern())
+
+    @validator("exclude_aspects", pre=True, each_item=True)
+    def lowercase_exclude_aspects(cls, v):
+        # We lowercase the exclude_aspects to ensure case insensitivity
+        return v.lower()
 
     @root_validator(skip_on_failure=True)
     def check_ingesting_data(cls, values):
