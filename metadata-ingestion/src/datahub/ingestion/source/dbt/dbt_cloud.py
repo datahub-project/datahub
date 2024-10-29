@@ -70,6 +70,7 @@ class DBTCloudConfig(DBTCommonConfig):
                 raise ValueError(
                     "Unable to infer the metadata endpoint from the access URL. Please provide a metadata endpoint."
                 )
+            logger.info(f"Inferred metadata endpoint: {metadata_endpoint}")
             values["metadata_endpoint"] = metadata_endpoint
         return values
 
