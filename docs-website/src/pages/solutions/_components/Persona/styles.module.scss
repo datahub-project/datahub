@@ -122,8 +122,8 @@
 .persona_bg_line {
   width: 100%;
   max-width: 900px;
-  height: 1.9px;
-  background: url("/img/solutions/persona_bg_line.png") repeat center;
+  height: 0;
+  border-bottom: 1px dashed #aaa;
   background-size: contain; 
   position: absolute;
   top: 28%; 
