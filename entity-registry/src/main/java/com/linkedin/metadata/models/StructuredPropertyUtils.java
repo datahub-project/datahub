@@ -120,12 +120,17 @@ public class StructuredPropertyUtils {
       lookupDefinitionFromFilterOrFacetName(
           @Nonnull String fieldOrFacetName, @Nullable AspectRetriever aspectRetriever) {
     if (fieldOrFacetName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + ".")) {
+      // Coming in from the UI this is structuredProperties.<FQN> + any particular specifier for
+      // subfield (.keyword etc)
       String fqn =
           fieldOrFacetName
               .substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1)
               .replace(".keyword", "")
               .replace(".delimited", "");
+
+      // FQN Maps directly to URN with urn:li:structuredProperties:FQN
       Urn urn = toURNFromFQN(fqn);
+
       Map<Urn, Map<String, Aspect>> result =
           Objects.requireNonNull(aspectRetriever)
               .getLatestAspectObjects(
@@ -224,8 +229,7 @@ public class StructuredPropertyUtils {
    * @return the expected structured property urn
    */
   private static Urn toURNFromFQN(@Nonnull String fqn) {
-    return UrnUtils.getUrn(
-        String.join(":", "urn:li", STRUCTURED_PROPERTY_ENTITY_NAME, fqn.replace('_', '.')));
+    return UrnUtils.getUrn(String.join(":", "urn:li", STRUCTURED_PROPERTY_ENTITY_NAME, fqn));
   }
 
   public static void validateFilter(
