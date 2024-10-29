@@ -5,10 +5,13 @@ from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 
 
 @dataclass
-class DremioSourceReport(ProfilingSqlReport, StaleEntityRemovalSourceReport):
+class DremioSourceReport(
+    ProfilingSqlReport, StaleEntityRemovalSourceReport, IngestionStageReport
+):
     num_containers_failed: int = 0
     num_datasets_failed: int = 0
 
@@ -27,3 +30,6 @@ class DremioSourceReport(ProfilingSqlReport, StaleEntityRemovalSourceReport):
             self.views_scanned += 1
         else:
             raise KeyError(f"Unknown entity {ent_type}.")
+
+    def set_ingestion_stage(self, dataset: str, stage: str) -> None:
+        self.report_ingestion_stage_start(f"{dataset}: {stage}")

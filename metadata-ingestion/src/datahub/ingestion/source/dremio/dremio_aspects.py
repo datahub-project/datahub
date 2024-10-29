@@ -21,7 +21,6 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioDatasetType,
     DremioGlossaryTerm,
 )
-from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     AuditStampClass,
@@ -141,19 +140,15 @@ class DremioAspects:
     def __init__(
         self,
         platform: str,
-        profiler: DremioProfiler,
         ui_url: str,
         env: str,
         domain: Optional[str] = None,
         platform_instance: Optional[str] = None,
-        profiling_enabled: bool = False,
     ):
         self.platform = platform
         self.platform_instance = platform_instance
         self.env = env
         self.domain = domain
-        self.profiler = profiler
-        self.profiling_enabled = profiling_enabled
         self.ui_url = ui_url
 
     def get_container_key(
@@ -316,15 +311,6 @@ class DremioAspects:
             )
             yield mcp.as_workunit()
 
-            if self.profiling_enabled:
-                profile_data = dataset.get_profile_data(self.profiler)
-                profile_aspect = self.populate_profile_aspect(profile_data)
-                if profile_aspect:
-                    mcp = MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn,
-                        aspect=profile_aspect,
-                    )
-                yield mcp.as_workunit()
         else:
             logger.warning(
                 f"Dataset {dataset.path}.{dataset.resource_name} has not been queried in Dremio"

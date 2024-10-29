@@ -16,7 +16,6 @@ from datahub.ingestion.source.dremio.dremio_api import (
     DremioEdition,
     DremioEntityContainerType,
 )
-from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
 
 logger = logging.getLogger(__name__)
 
@@ -266,11 +265,6 @@ class DremioDataset:
             self.parents = api_operations.get_view_parents(
                 dataset_id=self.resource_id,
             )
-
-    def get_profile_data(self, profiler: DremioProfiler) -> Dict:
-        full_table_name = '"' + '"."'.join(self.path) + '"."' + self.resource_name + '"'
-        columns = [(col.name, col.data_type) for col in self.columns]
-        return profiler.profile_table(full_table_name, columns)
 
 
 class DremioContainer:

@@ -48,6 +48,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_report.ingestion_stage import PROFILING
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     UpstreamClass,
@@ -118,18 +119,12 @@ class DremioSource(StatefulIngestionSourceBase):
         # Initialize catalog
         self.dremio_catalog = DremioCatalog(dremio_api)
 
-        # Initialize profiler
-        profile_config = self.config.profiling
-        self.profiler = DremioProfiler(dremio_api, profile_config)
-
         # Initialize aspects
         self.dremio_aspects = DremioAspects(
             platform=self.get_platform(),
-            profiler=self.profiler,
             domain=self.config.domain,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            profiling_enabled=self.config.profiling.enabled,
             ui_url=dremio_api.ui_url,
         )
         self.max_workers = config.max_workers
@@ -143,6 +138,9 @@ class DremioSource(StatefulIngestionSourceBase):
             generate_operations=True,
             usage_config=self.config.usage,
         )
+
+        # For profiling
+        self.profiler = DremioProfiler(config, self.report, dremio_api)
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":
@@ -328,6 +326,28 @@ class DremioSource(StatefulIngestionSourceBase):
             self.report.report_workunit(mcp.as_workunit())
             yield mcp.as_workunit()
 
+        # Profiling
+        if self.config.is_profiling_enabled():
+            with ThreadPoolExecutor(
+                max_workers=self.config.profiling.max_workers
+            ) as executor:
+                future_to_dataset = {
+                    executor.submit(self.generate_profiles, dataset): dataset
+                    for dataset in datasets
+                }
+
+                for future in as_completed(future_to_dataset):
+                    dataset_info = future_to_dataset[future]
+                    try:
+                        yield from future.result()
+                    except Exception as exc:
+                        self.report.profiling_skipped_other[
+                            dataset_info.resource_name
+                        ] += 1
+                        self.report.report_failure(
+                            f"Failed to profile dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name}: {exc}"
+                        )
+
     def process_container(
         self, container_info: DremioContainer
     ) -> Iterable[MetadataWorkUnit]:
@@ -431,6 +451,20 @@ class DremioSource(StatefulIngestionSourceBase):
         """
 
         yield from self.dremio_aspects.populate_glossary_term_mcp(glossary_term_info)
+
+    def generate_profiles(
+        self, dataset_info: DremioDataset
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_str = ".".join(dataset_info.path)
+        dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=make_data_platform_urn(self.get_platform()),
+            name=f"dremio.{dataset_name}",
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+        self.report.set_ingestion_stage(dataset_info.resource_name, PROFILING)
+        yield from self.profiler.get_workunits(dataset_info, dataset_urn)
 
     def generate_view_lineage(
         self, dataset_urn: str, parents: List[str]
