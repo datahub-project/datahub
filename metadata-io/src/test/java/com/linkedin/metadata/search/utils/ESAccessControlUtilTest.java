@@ -97,6 +97,7 @@ public class ESAccessControlUtilTest {
           null,
           null,
           null,
+          null,
           null);
 
   private static final String VIEW_PRIVILEGE = "VIEW_ENTITY_PAGE";
@@ -105,6 +106,18 @@ public class ESAccessControlUtilTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
   private static final Urn RESTRICTED_RESULT_URN =
       UrnUtils.getUrn("urn:li:restricted:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
+
+  private static final String PREFIX_MATCH =
+      "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.human";
+  private static final Urn PREFIX_MATCH_URN =
+      UrnUtils.getUrn(
+          "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.humans,PROD)");
+  private static final Urn PREFIX_NO_MATCH_URN =
+      UrnUtils.getUrn(
+          "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.meta_humans,PROD)");
+  private static final Urn RESTRICTED_PREFIX_NO_MATCH_URN =
+      UrnUtils.getUrn(
+          "urn:li:restricted:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.meta_humans,PROD)");
 
   /** Comprehensive list of policy variations */
   private static final Map<String, DataHubPolicyInfo> TEST_POLICIES =
@@ -251,6 +264,30 @@ public class ESAccessControlUtilTest {
                                                   .setValues(
                                                       new StringArray(
                                                           List.of(DOMAIN_A.toString())))))))))
+          .put(
+              "urnPrefixAllUsers",
+              new DataHubPolicyInfo()
+                  .setDisplayName("")
+                  .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                  .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                  .setActors(
+                      new DataHubActorFilter()
+                          .setAllUsers(true)
+                          .setGroups(new UrnArray())
+                          .setUsers(new UrnArray()))
+                  .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+                  .setResources(
+                      new DataHubResourceFilter()
+                          .setFilter(
+                              new PolicyMatchFilter()
+                                  .setCriteria(
+                                      new PolicyMatchCriterionArray(
+                                          List.of(
+                                              new PolicyMatchCriterion()
+                                                  .setField("URN")
+                                                  .setCondition(PolicyMatchCondition.STARTS_WITH)
+                                                  .setValues(
+                                                      new StringArray(List.of(PREFIX_MATCH)))))))))
           .build();
 
   /** User A is a technical owner of the result User B has no ownership */
@@ -264,7 +301,7 @@ public class ESAccessControlUtilTest {
 
     // USER A
     OperationContext userAContext =
-        sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("allUsers")));
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("allUsers")));
 
     SearchResult result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
@@ -272,20 +309,18 @@ public class ESAccessControlUtilTest {
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
     result = mockSearchResult();
-    ESAccessControlUtil.restrictSearchResult(
-        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    ESAccessControlUtil.restrictSearchResult(userAContext, result);
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
     // USER B
-    OperationContext userBContext = sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("allUsers")));
+    OperationContext userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("allUsers")));
     result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
         userBContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
     result = mockSearchResult();
-    ESAccessControlUtil.restrictSearchResult(
-        userBContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    ESAccessControlUtil.restrictSearchResult(userBContext, result);
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
   }
 
@@ -293,7 +328,7 @@ public class ESAccessControlUtilTest {
   public void testSingeUserRestrictions() throws RemoteInvocationException, URISyntaxException {
 
     // USER A
-    OperationContext userAContext = sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("userA")));
+    OperationContext userAContext = sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("userA")));
 
     SearchResult result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
@@ -301,12 +336,11 @@ public class ESAccessControlUtilTest {
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
     result = mockSearchResult();
-    ESAccessControlUtil.restrictSearchResult(
-        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    ESAccessControlUtil.restrictSearchResult(userAContext, result);
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
     // USER B
-    OperationContext userBContext = sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("userA")));
+    OperationContext userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("userA")));
 
     result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
@@ -322,7 +356,7 @@ public class ESAccessControlUtilTest {
 
     // USER A
     OperationContext userAContext =
-        sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("allGroups")));
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("allGroups")));
 
     SearchResult result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
@@ -330,12 +364,12 @@ public class ESAccessControlUtilTest {
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
     result = mockSearchResult();
-    ESAccessControlUtil.restrictSearchResult(
-        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    ESAccessControlUtil.restrictSearchResult(userAContext, result);
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
     // USER B (No Groups!)
-    OperationContext userBContext = sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("allGroups")));
+    OperationContext userBContext =
+        sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("allGroups")));
 
     result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
@@ -352,7 +386,7 @@ public class ESAccessControlUtilTest {
     // GROUP B Policy
     // USER A
     final OperationContext userAContext =
-        sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("groupB")));
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("groupB")));
 
     SearchResult result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
@@ -364,7 +398,7 @@ public class ESAccessControlUtilTest {
 
     // USER B (No Groups!)
     final OperationContext userBContext =
-        sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("groupB")));
+        sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("groupB")));
 
     result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
@@ -377,7 +411,7 @@ public class ESAccessControlUtilTest {
     // Group C Policy
     // USER A
     final OperationContext userAGroupCContext =
-        sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("groupC")));
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("groupC")));
 
     result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
@@ -385,13 +419,12 @@ public class ESAccessControlUtilTest {
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
     result = mockSearchResult();
-    ESAccessControlUtil.restrictSearchResult(
-        userAGroupCContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    ESAccessControlUtil.restrictSearchResult(userAGroupCContext, result);
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
     // USER B (No Groups!)
     final OperationContext userBgroupCContext =
-        sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("groupC")));
+        sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("groupC")));
 
     result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
@@ -407,7 +440,7 @@ public class ESAccessControlUtilTest {
 
     // USER A
     OperationContext userAContext =
-        sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("anyOwner")));
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("anyOwner")));
 
     SearchResult result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
@@ -415,12 +448,11 @@ public class ESAccessControlUtilTest {
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
     result = mockSearchResult();
-    ESAccessControlUtil.restrictSearchResult(
-        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    ESAccessControlUtil.restrictSearchResult(userAContext, result);
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
     // USER B (not an owner)
-    OperationContext userBContext = sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("anyOwner")));
+    OperationContext userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("anyOwner")));
 
     result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
@@ -436,7 +468,7 @@ public class ESAccessControlUtilTest {
 
     // USER A
     final OperationContext userAContext =
-        sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("businessOwner")));
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("businessOwner")));
 
     SearchResult result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
@@ -448,7 +480,7 @@ public class ESAccessControlUtilTest {
 
     // USER B
     final OperationContext userBContext =
-        sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("businessOwner")));
+        sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("businessOwner")));
 
     result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
@@ -464,7 +496,7 @@ public class ESAccessControlUtilTest {
 
     // USER A
     OperationContext userAContext =
-        sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("domainA")));
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("domainA")));
 
     SearchResult result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
@@ -477,7 +509,7 @@ public class ESAccessControlUtilTest {
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
     // USER B
-    OperationContext userBContext = sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("domainA")));
+    OperationContext userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("domainA")));
     result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(
         userBContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
@@ -489,6 +521,28 @@ public class ESAccessControlUtilTest {
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
   }
 
+  @Test
+  public void testPrefixRestrictions() throws RemoteInvocationException, URISyntaxException {
+
+    // USER A
+    OperationContext userAContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("urnPrefixAllUsers")));
+
+    SearchResult result = mockPrefixSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(result.getEntities().size(), 2);
+    assertEquals(result.getEntities().get(0).getEntity(), PREFIX_MATCH_URN);
+    assertEquals(result.getEntities().get(1).getEntity(), RESTRICTED_PREFIX_NO_MATCH_URN);
+
+    result = mockPrefixSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    assertEquals(result.getEntities().size(), 2);
+    assertEquals(result.getEntities().get(0).getEntity(), PREFIX_MATCH_URN);
+    assertEquals(result.getEntities().get(1).getEntity(), PREFIX_NO_MATCH_URN);
+  }
+
   private static RestrictedService mockRestrictedService() {
     RestrictedService mockRestrictedService = mock(RestrictedService.class);
     when(mockRestrictedService.encryptRestrictedUrn(any()))
@@ -498,6 +552,23 @@ public class ESAccessControlUtilTest {
               return UrnUtils.getUrn(urn.toString().replace("urn:li:dataset", "urn:li:restricted"));
             });
     return mockRestrictedService;
+  }
+
+  private static SearchResult mockPrefixSearchResult() {
+    SearchResult result = new SearchResult();
+    result.setFrom(0);
+    result.setPageSize(10);
+    result.setNumEntities(1);
+    result.setEntities(
+        new SearchEntityArray(
+            new SearchEntity()
+                .setEntity(PREFIX_MATCH_URN)
+                .setMatchedFields(new MatchedFieldArray()),
+            new SearchEntity()
+                .setEntity(PREFIX_NO_MATCH_URN)
+                .setMatchedFields(new MatchedFieldArray())));
+    result.setMetadata(mock(SearchResultMetadata.class));
+    return result;
   }
 
   private static SearchResult mockSearchResult() {
@@ -514,18 +585,18 @@ public class ESAccessControlUtilTest {
     return result;
   }
 
-  private static OperationContext sessionWithUserAGroupAandC(Set<DataHubPolicyInfo> policies)
+  private static OperationContext sessionWithUserAGroupAandC(List<DataHubPolicyInfo> policies)
       throws RemoteInvocationException, URISyntaxException {
     return sessionWithUserGroups(USER_A_AUTH, policies, List.of(TEST_GROUP_A, TEST_GROUP_C));
   }
 
-  private static OperationContext sessionWithUserBNoGroup(Set<DataHubPolicyInfo> policies)
+  private static OperationContext sessionWithUserBNoGroup(List<DataHubPolicyInfo> policies)
       throws RemoteInvocationException, URISyntaxException {
     return sessionWithUserGroups(USER_B_AUTH, policies, List.of());
   }
 
   private static OperationContext sessionWithUserGroups(
-      Authentication auth, Set<DataHubPolicyInfo> policies, List<Urn> groups)
+      Authentication auth, List<DataHubPolicyInfo> policies, List<Urn> groups)
       throws RemoteInvocationException, URISyntaxException {
     Urn actorUrn = UrnUtils.getUrn(auth.getActor().toUrnStr());
     Authorizer dataHubAuthorizer =
@@ -538,7 +609,7 @@ public class ESAccessControlUtilTest {
 
     public TestDataHubAuthorizer(
         @Nonnull OperationContext opContext,
-        @Nonnull Set<DataHubPolicyInfo> policies,
+        @Nonnull List<DataHubPolicyInfo> policies,
         @Nonnull Map<Urn, List<Urn>> userGroups,
         @Nonnull Map<Urn, Map<Urn, Set<Urn>>> resourceOwnerTypes)
         throws RemoteInvocationException, URISyntaxException {
@@ -569,6 +640,7 @@ public class ESAccessControlUtilTest {
                     Collectors.groupingBy(
                         Pair::getKey, Collectors.mapping(Pair::getValue, Collectors.toList())));
         policyCache.putAll(byPrivilegeName);
+        policyCache.put(ALL, policies);
       } finally {
         readWriteLock.writeLock().unlock();
       }

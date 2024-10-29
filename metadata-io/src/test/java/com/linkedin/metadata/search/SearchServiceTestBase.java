@@ -14,7 +14,6 @@ import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -63,9 +62,6 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @Nonnull
   protected abstract SearchConfiguration getSearchConfiguration();
-
-  @Nonnull
-  protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
 
   protected OperationContext operationContext;
   private SettingsBuilder settingsBuilder;
@@ -136,10 +132,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             QueryFilterRewriteChain.EMPTY);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            getSearchClient(),
-            getSearchConfiguration(),
-            getCustomSearchConfiguration(),
-            QueryFilterRewriteChain.EMPTY);
+            getSearchClient(), getSearchConfiguration(), null, QueryFilterRewriteChain.EMPTY);
     ESWriteDAO writeDAO = new ESWriteDAO(getSearchClient(), getBulkProcessor(), 1);
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }

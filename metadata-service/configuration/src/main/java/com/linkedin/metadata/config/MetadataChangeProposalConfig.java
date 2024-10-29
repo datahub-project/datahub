@@ -8,6 +8,7 @@ import lombok.experimental.Accessors;
 public class MetadataChangeProposalConfig {
 
   ThrottlesConfig throttle;
+  MCPValidationConfig validation;
   SideEffectsConfig sideEffects;
 
   @Data

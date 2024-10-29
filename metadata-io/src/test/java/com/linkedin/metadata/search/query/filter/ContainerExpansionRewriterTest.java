@@ -39,7 +39,8 @@ import org.opensearch.index.query.TermsQueryBuilder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class ContainerExpansionRewriterTest {
+public class ContainerExpansionRewriterTest
+    extends BaseQueryFilterRewriterTest<ContainerExpansionRewriter> {
   private static final String FIELD_NAME = "container.keyword";
   private final String grandParentUrn = "urn:li:container:grand";
   private final String parentUrn = "urn:li:container:foo";
@@ -74,15 +75,40 @@ public class ContainerExpansionRewriterTest {
                     .searchRetriever(TestOperationContexts.emptySearchRetriever)
                     .build(),
             null,
+            null,
             null);
+  }
+
+  @Override
+  OperationContext getOpContext() {
+    return opContext;
+  }
+
+  @Override
+  ContainerExpansionRewriter getTestRewriter() {
+    return ContainerExpansionRewriter.builder()
+        .config(QueryFilterRewriterConfiguration.ExpansionRewriterConfiguration.DEFAULT)
+        .build();
+  }
+
+  @Override
+  String getTargetField() {
+    return FIELD_NAME;
+  }
+
+  @Override
+  String getTargetFieldValue() {
+    return childUrn;
+  }
+
+  @Override
+  Condition getTargetCondition() {
+    return Condition.ANCESTORS_INCL;
   }
 
   @Test
   public void testTermsQueryRewrite() {
-    ContainerExpansionRewriter test =
-        ContainerExpansionRewriter.builder()
-            .config(QueryFilterRewriterConfiguration.ExpansionRewriterConfiguration.DEFAULT)
-            .build();
+    ContainerExpansionRewriter test = getTestRewriter();
 
     TermsQueryBuilder notTheFieldQuery = QueryBuilders.termsQuery("notTheField", childUrn);
     assertEquals(
@@ -311,7 +337,7 @@ public class ContainerExpansionRewriterTest {
                     new RelatedEntities(
                         "IsPartOf", childUrn, parentUrn, RelationshipDirection.OUTGOING, null))));
 
-    BoolQueryBuilder testQuery = QueryBuilders.boolQuery();
+    BoolQueryBuilder testQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
     testQuery.filter(
         QueryBuilders.boolQuery()
             .filter(
@@ -319,8 +345,11 @@ public class ContainerExpansionRewriterTest {
     testQuery.filter(QueryBuilders.existsQuery("someField"));
     testQuery.should(
         QueryBuilders.boolQuery()
+            .minimumShouldMatch(1)
             .should(
-                QueryBuilders.boolQuery().should(QueryBuilders.termsQuery(FIELD_NAME, childUrn))));
+                QueryBuilders.boolQuery()
+                    .minimumShouldMatch(1)
+                    .should(QueryBuilders.termsQuery(FIELD_NAME, childUrn))));
     testQuery.should(QueryBuilders.existsQuery("someField"));
     testQuery.must(
         QueryBuilders.boolQuery()
@@ -332,7 +361,7 @@ public class ContainerExpansionRewriterTest {
                 QueryBuilders.boolQuery().mustNot(QueryBuilders.termsQuery(FIELD_NAME, childUrn))));
     testQuery.mustNot(QueryBuilders.existsQuery("someField"));
 
-    BoolQueryBuilder expectedRewrite = QueryBuilders.boolQuery();
+    BoolQueryBuilder expectedRewrite = QueryBuilders.boolQuery().minimumShouldMatch(1);
     expectedRewrite.filter(
         QueryBuilders.boolQuery()
             .filter(
@@ -341,8 +370,10 @@ public class ContainerExpansionRewriterTest {
     expectedRewrite.filter(QueryBuilders.existsQuery("someField"));
     expectedRewrite.should(
         QueryBuilders.boolQuery()
+            .minimumShouldMatch(1)
             .should(
                 QueryBuilders.boolQuery()
+                    .minimumShouldMatch(1)
                     .should(QueryBuilders.termsQuery(FIELD_NAME, childUrn, parentUrn))));
     expectedRewrite.should(QueryBuilders.existsQuery("someField"));
     expectedRewrite.must(

@@ -44,7 +44,7 @@ function Home() {
   return !siteConfig.customFields.isSaas ? (
     <Layout
       title={siteConfig.tagline}
-      description="DataHub is a data discovery application built on an extensible data catalog that helps you tame the complexity of diverse data ecosystems."
+      description="DataHub is a metadata management platform, spaning data discovery, observability and governance. It helps you tame the complexity of diverse data ecosystems."
     >
       {isTourModalVisible ? (
         <div className="tourModal">

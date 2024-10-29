@@ -6,12 +6,10 @@ import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
-import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -73,7 +71,9 @@ public class SampleDataFixtureConfiguration {
 
   @Autowired private SearchConfiguration _searchConfiguration;
 
-  @Autowired private CustomSearchConfiguration _customSearchConfiguration;
+  @Autowired
+  @Qualifier("fixtureCustomSearchConfig")
+  private CustomSearchConfiguration _customSearchConfiguration;
 
   @Autowired private QueryFilterRewriteChain queryFilterRewriteChain;
 
@@ -188,11 +188,6 @@ public class SampleDataFixtureConfiguration {
 
   protected ElasticSearchService entitySearchServiceHelper(EntityIndexBuilders indexBuilders)
       throws IOException {
-    CustomConfiguration customConfiguration = new CustomConfiguration();
-    customConfiguration.setEnabled(true);
-    customConfiguration.setFile("search_config_fixture_test.yml");
-    CustomSearchConfiguration customSearchConfiguration =
-        customConfiguration.resolve(new YAMLMapper());
 
     ESSearchDAO searchDAO =
         new ESSearchDAO(
@@ -200,8 +195,9 @@ public class SampleDataFixtureConfiguration {
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             _searchConfiguration,
-            customSearchConfiguration,
-            queryFilterRewriteChain);
+            _customSearchConfiguration,
+            queryFilterRewriteChain,
+            true);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
             _searchClient,

@@ -266,7 +266,6 @@ services:
     volumes:
     - zkdata:/var/lib/zookeeper/data
     - zklogs:/var/lib/zookeeper/log
-version: '3.9'
 volumes:
   broker: null
   esdata: null
