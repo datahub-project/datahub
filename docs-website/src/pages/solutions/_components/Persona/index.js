@@ -12,6 +12,7 @@ const Persona = ({ personaContent }) => {
 
         <div className={clsx(styles.persona_row)}>
           <div className={styles.persona_row_wrapper}>
+            <div className={styles.persona_bg_line}></div>
             {personas.map((persona, index) => (
               <div key={index} className={clsx(styles.persona)}>
                 <div className={clsx(styles.persona_img)}>
@@ -30,9 +31,6 @@ const Persona = ({ personaContent }) => {
         <div className={styles.persona_row_mobile}>
           <img src='/img/solutions/personas-mobile.png' alt="Persona" />
         </div>
-
-
-        <div className={styles.persona_bg_line}></div>
       </div>
       <div className={styles.card_gradient} />
     </div>
