@@ -1,7 +1,8 @@
-package com.linkedin.datahub.upgrade.config;
+package com.linkedin.datahub.upgrade.config.restoreindices;
 
+import com.linkedin.datahub.upgrade.config.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
-import com.linkedin.datahub.upgrade.system.domaindescription.ReindexDomainDescription;
+import com.linkedin.datahub.upgrade.system.restoreindices.domaindescription.ReindexDomainDescription;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.OperationContext;
