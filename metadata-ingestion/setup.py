@@ -276,6 +276,10 @@ s3_base = {
     *path_spec_common,
 }
 
+threading_timeout_common = {
+    "stopit==1.1.2",
+}
+
 abs_base = {
     "azure-core==1.29.4",
     "azure-identity>=1.17.1",
@@ -493,9 +497,12 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": (
-        microsoft_common
-        | {"lark[regex]==1.1.4", "sqlparse", "more-itertools"}
-        | sqlglot_lib
+        (
+            microsoft_common
+            | {"lark[regex]==1.1.4", "sqlparse", "more-itertools"}
+            | sqlglot_lib
+            | threading_timeout_common
+        )
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
