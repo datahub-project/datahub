@@ -1,11 +1,10 @@
 import React from 'react';
 import { render, waitFor, fireEvent, screen } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
-import GlossaryTermsSelector from '../GlossaryTermsSelector';
 import TestPageContainer from '@src/utils/test-utils/TestPageContainer';
 import { GetSearchResultsForMultipleDocument } from '@src/graphql/search.generated';
-import { InMemoryCache } from '@apollo/client';
 import { EntityType } from '@src/types.generated';
+import GlossaryTermsSelector from '../GlossaryTermsSelector';
 
 const mocks = [
     {
@@ -193,7 +192,7 @@ describe('GlossaryTermsSelector', () => {
         await waitFor(() => expect(getByText('Glossary Terms')).toBeInTheDocument());
         await waitFor(() => expect(selectedGlossaryItemPills.length).toBe(initialOptions.length));
     });
-    it('check selected glossary term clear all the selected items ', async () => {
+    it('check selected glossary term clear all the selected items', async () => {
         const { getByTestId, getAllByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
