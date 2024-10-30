@@ -77,6 +77,13 @@ export default function CreatePostForm({ setCreateButtonEnabled, form, editData,
                             className="create-post-description"
                             doNotFocus
                             content={editData?.description || undefined}
+                            onKeyDown={(e) => {
+                                // Preventing the modal from closing when the Enter key is pressed
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                }
+                            }}
                         />
                     </SubFormItem>
                 </TopFormItem>
@@ -110,6 +117,13 @@ export default function CreatePostForm({ setCreateButtonEnabled, form, editData,
                                 doNotFocus
                                 content={editData?.description || undefined}
                                 className="create-post-description"
+                                onKeyDown={(e) => {
+                                    // Preventing the modal from closing when the Enter key is pressed
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                    }
+                                }}
                             />
                         </SubFormItem>
                     </SubFormItem>

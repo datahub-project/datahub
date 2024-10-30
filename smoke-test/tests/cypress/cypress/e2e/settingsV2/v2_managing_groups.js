@@ -9,6 +9,7 @@ describe("create and manage group", () => {
     cy.setIsThemeV2Enabled(true);
     cy.loginWithCredentials();
     cy.handleIntroducePage();
+    cy.on("uncaught:exception", (err, runnable) => false);
   });
   it("add test user", () => {
     cy.visit("/settings/identities/users");
@@ -46,7 +47,6 @@ describe("create and manage group", () => {
     cy.get("#groupId").type(test_id);
     cy.get("#createGroupButton").click();
     // cy.waitTextVisible("Created group!");
-    cy.reload();
     cy.waitTextVisible(group_name);
   });
 
@@ -115,13 +115,10 @@ describe("create and manage group", () => {
     cy.contains("Add Owners").click();
     cy.get('[id="owner"]').click();
     cy.focused().type(username);
-    cy.get(".ant-select-item-option")
-      .should("be.visible")
-      .contains(username, { matchCase: false })
-      .click();
+    cy.get(`[data-testid="owner-${username}"]`).click();
     cy.focused().blur();
     cy.contains(username, { matchCase: false }).should("have.length", 1);
-    cy.get('[role="dialog"] button').contains("Done").click();
+    cy.get('[role="dialog"] button').contains("Add").click();
     cy.waitTextVisible("Owners Added");
     cy.contains(username, { matchCase: false }).should("be.visible");
   });

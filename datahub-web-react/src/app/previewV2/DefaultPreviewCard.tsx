@@ -268,7 +268,7 @@ export default function DefaultPreviewCard({
             {(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
                 <GlossaryPreviewCardDecoration urn={urn} entityData={previewData} displayProperties={undefined} />
             )}
-            {isFullViewCard ? (
+            {isFullViewCard || previewType === PreviewType.HOVER_CARD ? (
                 <>
                     <RowContainer alignment="self-start">
                         {isIconPresent ? (

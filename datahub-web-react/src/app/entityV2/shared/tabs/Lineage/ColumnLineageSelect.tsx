@@ -74,7 +74,9 @@ export default function ColumnsLineageSelect({
                         const fieldPath = downgradeV2FieldPath(field.fieldPath);
                         return (
                             <Select.Option value={field.fieldPath}>
-                                <Tooltip title={fieldPath}>{fieldPath}</Tooltip>
+                                <Tooltip title={fieldPath} showArrow={false}>
+                                    {fieldPath}
+                                </Tooltip>
                             </Select.Option>
                         );
                     })}
@@ -83,13 +85,15 @@ export default function ColumnsLineageSelect({
                         const key = `${field?.schemaField?.fieldPath}-${idx}`;
                         return (
                             <Select.Option key={key} value={field?.schemaField?.fieldPath || ''}>
-                                <Tooltip title={fieldPath}>{fieldPath}</Tooltip>
+                                <Tooltip title={fieldPath} showArrow={false}>
+                                    {fieldPath}
+                                </Tooltip>
                             </Select.Option>
                         );
                     })}
                 </StyledSelect>
             )}
-            <Tooltip title={columnButtonTooltip}>
+            <Tooltip title={columnButtonTooltip} showArrow={false}>
                 <StyledButton
                     type="text"
                     onClick={() => setIsColumnLevelLineage(!isColumnLevelLineage)}

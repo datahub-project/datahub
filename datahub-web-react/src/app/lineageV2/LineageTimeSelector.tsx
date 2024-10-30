@@ -84,7 +84,7 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
     return (
         <>
             {showText ? ( // Conditionally render All Time selection
-                <Tooltip title="Filter lineage edges by observed date" placement="topLeft">
+                <Tooltip title="Filter lineage edges by observed date" placement="topLeft" showArrow={false}>
                     <Button type="text" onClick={() => handleOpenChange(true)}>
                         <CalendarOutlined style={{ marginRight: '4px' }} />
                         <Typography.Text>

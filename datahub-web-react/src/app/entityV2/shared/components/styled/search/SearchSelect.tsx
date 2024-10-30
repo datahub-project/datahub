@@ -2,6 +2,7 @@ import { FilterOutlined } from '@ant-design/icons';
 import { Button, message, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useDebounce } from 'react-use';
 
 import { SearchCfg } from '../../../../../../conf';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
@@ -58,12 +59,15 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
     const entityRegistry = useEntityRegistry();
 
     // Component state
+    const [searchQuery, setSearchQuery] = useState<string>('');
     const [query, setQuery] = useState<string>('');
     const [page, setPage] = useState(1);
     const [filters, setFilters] = useState<Array<FacetFilterInput>>([]);
     const [unionType, setUnionType] = useState(UnionType.AND);
     const [showFilters, setShowFilters] = useState(false);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+
+    useDebounce(() => setSearchQuery(query), 300, [query]);
 
     // Compute search filters
     const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
@@ -86,7 +90,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
         variables: {
             input: {
                 types: finalEntityTypes,
-                query,
+                query: searchQuery,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
                 filters: [...filtersWithoutEntities, finalEntityFilter],

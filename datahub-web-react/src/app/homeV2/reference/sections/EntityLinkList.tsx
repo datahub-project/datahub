@@ -77,7 +77,7 @@ export const EntityLinkList = ({
                     </Tooltip>
                 </Title>
             )}
-            <List>
+            <List data-testid="test">
                 {(!isEmpty &&
                     entities.map((entity) => {
                         return <EntityLink key={`${title}-${entity?.urn}`} entity={entity ?? null} render={render} />;

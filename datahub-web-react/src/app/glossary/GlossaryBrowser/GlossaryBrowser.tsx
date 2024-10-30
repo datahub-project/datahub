@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
+import { LoadingOutlined } from '@ant-design/icons';
+import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../../graphql/glossary.generated';
 import { ChildGlossaryTermFragment } from '../../../graphql/glossaryNode.generated';
 import { GlossaryNode } from '../../../types.generated';
@@ -17,6 +19,18 @@ const BrowserWrapper = styled.div`
     max-height: calc(100% - 47px);
     padding: 10px 20px 20px 20px;
     overflow: auto;
+`;
+
+const LoadingWrapper = styled.div`
+    padding: 8px;
+    display: flex;
+    justify-content: center;
+
+    svg {
+        height: 15px;
+        width: 15px;
+        color: ${ANTD_GRAY[8]};
+    }
 `;
 
 interface Props {
@@ -48,8 +62,17 @@ function GlossaryBrowser(props: Props) {
 
     const { urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
 
-    const { data: nodesData, refetch: refetchNodes } = useGetRootGlossaryNodesQuery({ skip: !!rootNodes });
-    const { data: termsData, refetch: refetchTerms } = useGetRootGlossaryTermsQuery({ skip: !!rootTerms });
+    const {
+        data: nodesData,
+        refetch: refetchNodes,
+        loading: nodesLoading,
+    } = useGetRootGlossaryNodesQuery({ skip: !!rootNodes });
+    const {
+        data: termsData,
+        refetch: refetchTerms,
+        loading: termsLoading,
+    } = useGetRootGlossaryTermsQuery({ skip: !!rootTerms });
+    const loading = nodesLoading || termsLoading;
 
     const displayedNodes = rootNodes || nodesData?.getRootGlossaryNodes?.nodes || [];
     const displayedTerms = rootTerms || termsData?.getRootGlossaryTerms?.terms || [];
@@ -79,6 +102,11 @@ function GlossaryBrowser(props: Props) {
 
     return (
         <BrowserWrapper>
+            {loading && (
+                <LoadingWrapper>
+                    <LoadingOutlined />
+                </LoadingWrapper>
+            )}
             {sortedNodes.map((node) => (
                 <NodeItem
                     key={node.urn}

@@ -6,11 +6,23 @@ import {
     AssertionType,
     AuditStamp,
     DataPlatform,
+    EntityType,
     GlobalTags,
     Monitor,
 } from '@src/types.generated';
 import { AssertionWithMonitorDetails } from '../acrylUtils';
 import { AssertionGroup } from '../acrylTypes';
+
+export type EntityStagedForAssertion = {
+    urn: string;
+    platform: DataPlatform;
+    entityType: EntityType;
+};
+
+export type AssertionBuilderSiblingOptions = {
+    title: string;
+    disabled?: boolean;
+} & Partial<EntityStagedForAssertion>;
 
 export type AssertionListFilter = {
     sortBy: string;

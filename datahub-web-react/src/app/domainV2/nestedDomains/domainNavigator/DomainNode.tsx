@@ -183,7 +183,11 @@ export default function DomainNode({
                         $addLeftPadding={!isCollapsed && !hasDomainChildren}
                         $isSelected={isDomainNodeSelected && !isCollapsed}
                     >
-                        <RotatingTriangle isOpen={isOpen && !isClosing} onClick={toggle} />
+                        <RotatingTriangle
+                            isOpen={isOpen && !isClosing}
+                            onClick={toggle}
+                            dataTestId="open-domain-item"
+                        />
                     </ButtonWrapper>
                 )}
                 <Tooltip placement="right" title={displayName} mouseEnterDelay={0.7} mouseLeaveDelay={0}>

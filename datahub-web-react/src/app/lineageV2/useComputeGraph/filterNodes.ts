@@ -8,6 +8,7 @@ import {
     LineageEdge,
     NodeContext,
     parseEdgeId,
+    setDefault,
 } from '@app/lineageV2/common';
 import { LineageDirection } from '@types';
 
@@ -71,8 +72,8 @@ function pruneEdges({ nodes, edges }: ContextSubset) {
             addToAdjacencyList(newAdjacencyList, LineageDirection.Upstream, downstream, upstream);
             addToAdjacencyList(newAdjacencyList, LineageDirection.Downstream, upstream, downstream);
             if (edge.via) {
-                addToAdjacencyList(newAdjacencyList, LineageDirection.Upstream, edge.via, upstream);
-                addToAdjacencyList(newAdjacencyList, LineageDirection.Downstream, edge.via, downstream);
+                setDefault(newAdjacencyList[LineageDirection.Upstream], edge.via, new Set()).add(upstream);
+                setDefault(newAdjacencyList[LineageDirection.Downstream], edge.via, new Set()).add(downstream);
             }
         }
     });

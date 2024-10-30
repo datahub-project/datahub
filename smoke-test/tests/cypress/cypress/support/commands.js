@@ -132,7 +132,7 @@ Cypress.Commands.add("goToIngestionPage", () => {
 });
 
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
-  cy.visit(`/dataset/${urn}`);
+  cy.visit(`/dataset/${urn}/`);
   cy.wait(5000);
   cy.waitTextVisible(dataset_name);
 });
@@ -569,16 +569,19 @@ Cypress.Commands.add("handleIntroducePage", () => {
   });
 });
 
-Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
-  // intercept the app config query and alert that we are aliasing a response
-  cy.intercept("POST", "/api/v2/graphql", (req) => {
-    aliasQuery(req, "appConfig");
-  });
+const SKIP_INTRODUCE_PAGE_KEY = "skipAcrylIntroducePage";
 
+Cypress.Commands.add("skipIntroducePage", () => {
+  localStorage.setItem(SKIP_INTRODUCE_PAGE_KEY, "true");
+});
+
+Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
   // set the theme V2 enabled flag on/off to show the V2 UI or not
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
-      req.reply((res) => {
+      req.alias = "gqlappConfigQuery";
+
+      req.on("response", (res) => {
         res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
         res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
       });

@@ -11,7 +11,7 @@ import { GlossaryPreviewCardDecoration } from '../../../entityV2/shared/containe
 
 const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperties }>`
     overflow: hidden;
-    border-radius: 5px;
+    border-radius: 8px;
     cursor: pointer;
     width: ${(props) => props.entity.type === EntityType.GlossaryTerm && 'fit-content'};
     border: ${(props) => (props.entity.type === EntityType.GlossaryTerm ? '1px solid #C1C4D0' : 'none')};
@@ -26,7 +26,7 @@ const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperti
 `;
 
 const LinkButton = styled(Link)`
-    padding: 0px;
+    padding: 2px 4px;
     height: auto;
     margin: 4px 0px 4px 0px;
     max-width: 100%; /* Ensure the grid container does not exceed its parent's width */

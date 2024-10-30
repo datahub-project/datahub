@@ -155,10 +155,10 @@ function CreateGlossaryEntityModal(props: Props) {
                         Propose
                     </Button>
                     <Button
+                        type="primary"
                         data-testid="glossary-entity-modal-create-button"
                         onClick={createGlossaryEntity}
                         disabled={createButtonDisabled || !canCreateGlossaryEntity}
-                        type="primary"
                     >
                         Create
                     </Button>

@@ -41,7 +41,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
               }
             : undefined,
     );
-    const [domainSearch, { data: domainSearchData, loading }] = useGetAutoCompleteResultsLazyQuery();
+    const [domainSearch, { data: domainSearchData, loading: searchLoading }] = useGetAutoCompleteResultsLazyQuery();
     const domainSearchResults: Entity[] = domainSearchData?.autoComplete?.entities || [];
 
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
@@ -55,6 +55,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     };
 
     const handleSearch = (text: string) => {
+        console.log('Not calling search');
         if (text) {
             domainSearch({
                 variables: {
@@ -147,7 +148,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         setInputValue('');
     }
 
-    function handleCLickOutside() {
+    function handleClickOutside() {
         // delay closing the domain navigator so we don't get a UI "flash" between showing search results and navigator
         setTimeout(() => setIsFocusedOnInput(false), 0);
     }
@@ -162,8 +163,8 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                     <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
-                        Add
+                    <Button type="primary" id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
+                        Save
                     </Button>
                 </>
             }
@@ -171,7 +172,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         >
             <Form component={false}>
                 <Form.Item>
-                    <ClickOutside onClickOutside={handleCLickOutside}>
+                    <ClickOutside onClickOutside={handleClickOutside}>
                         <Select
                             autoFocus
                             showSearch
@@ -196,7 +197,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                                     style={{ color: ANTD_GRAY[7] }}
                                 />
                             }
-                            options={domainAutocompleteOptions(domainResult, loading, entityRegistry)}
+                            options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
                         />
                         <BrowserWrapper isHidden={!isShowingDomainNavigator}>
                             <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />

@@ -91,7 +91,7 @@ export default function PolicyPrivilegeForm({
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
-    const [recommendedData] = useGetRecommendations([EntityType.Tag]);
+    const { recommendedData } = useGetRecommendations([EntityType.Tag]);
     const tagSearchResults: Array<Entity> =
         tagTermSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
 

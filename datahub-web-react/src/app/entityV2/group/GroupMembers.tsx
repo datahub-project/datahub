@@ -137,6 +137,10 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
 
     const onAddMembers = () => {
         onChangeMembers?.();
+        setTimeout(() => {
+            // Reload the groups list
+            refetch();
+        }, 2000);
     };
 
     const onRemoveMember = (memberUrn: string) => {

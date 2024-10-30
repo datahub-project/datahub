@@ -1,6 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import Modal from 'antd/lib/modal/Modal';
-import { Button, Empty, Select, Spin, message } from 'antd';
+import { Button, Empty, Select, message } from 'antd';
 import { getModalDomContainer } from '@src/utils/focus';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { debounce } from 'lodash';
@@ -53,9 +53,10 @@ export default function SetDataProductModal({
     const [selectedDataProduct, setSelectedDataProduct] = useState<DataProduct | null>(currentDataProduct);
     const inputEl = useRef(null);
 
-    const [getSearchResults, { data, loading }] = useGetAutoCompleteMultipleResultsLazyQuery();
-    const [recommendedData] = useGetRecommendations([EntityType.DataProduct]);
+    const [getSearchResults, { data, loading: searchLoading }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([EntityType.DataProduct]);
     const [showRecommendations, setShowRecommendations] = useState(true);
+    const loading = recommendationsLoading || searchLoading;
 
     const handleSearch = useMemo(() => {
         const fetch = (text: string) => {
@@ -65,7 +66,7 @@ export default function SetDataProductModal({
                         input: {
                             types: [EntityType.DataProduct],
                             query: text.trim(),
-                            limit: 5,
+                            limit: 10,
                         },
                     },
                 });
@@ -138,7 +139,7 @@ export default function SetDataProductModal({
     const loadingOption = {
         label: (
             <LoadingWrapper>
-                <Spin size="default" indicator={<LoadingOutlined />} />
+                <LoadingOutlined />
             </LoadingWrapper>
         ),
         value: 'loading',
@@ -170,8 +171,8 @@ export default function SetDataProductModal({
                     <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="setDataProductButton" disabled={!selectedDataProduct} onClick={onOk}>
-                        Add
+                    <Button type="primary" id="setDataProductButton" disabled={!selectedDataProduct} onClick={onOk}>
+                        Save
                     </Button>
                 </>
             }
@@ -191,11 +192,13 @@ export default function SetDataProductModal({
                 value={selectValue}
                 options={loading ? [loadingOption] : options}
                 notFoundContent={
-                    <Empty
-                        description="No Data Products Found"
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        style={{ color: ANTD_GRAY[7] }}
-                    />
+                    !loading ? (
+                        <Empty
+                            description="No Data Products Found"
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            style={{ color: ANTD_GRAY[7] }}
+                        />
+                    ) : null
                 }
             />
         </Modal>

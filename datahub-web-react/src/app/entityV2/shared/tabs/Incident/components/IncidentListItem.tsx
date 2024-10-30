@@ -183,7 +183,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                     entityUrn: incident.urn,
                     actionType: EntityActionType.ResolvedIncident,
                 });
-                message.success({ content: 'Incident updated! .', duration: 2 });
+                message.success({ content: 'Incident updated!', duration: 2 });
                 setTimeout(() => {
                     refetchEntity?.();
                 }, 3000);

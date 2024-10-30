@@ -68,7 +68,7 @@ function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props
     return (
         <Modal
             data-testid="move-glossary-entity-modal"
-            title="Move"
+            title={`Move ${entityType === EntityType.GlossaryNode ? 'Term Group' : 'Term'}`}
             visible
             onCancel={onClose}
             footer={
@@ -76,7 +76,7 @@ function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={moveGlossaryEntity} data-testid="glossary-entity-modal-move-button">
+                    <Button type="primary" onClick={moveGlossaryEntity} data-testid="glossary-entity-modal-move-button">
                         Move
                     </Button>
                 </>

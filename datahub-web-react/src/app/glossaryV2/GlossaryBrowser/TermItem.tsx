@@ -7,9 +7,11 @@ import { ANTD_GRAY, EDITING_DOCUMENTATION_URL_PARAM, REDESIGN_COLORS } from '../
 import { useGlossaryActiveTabPath } from '../../entityV2/shared/containers/profile/utils';
 import { useEntityRegistry } from '../../useEntityRegistry';
 
-const TermWrapper = styled.div`
-    margin-left: 2px;
-    padding: 11px 0;
+const TermWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
+    padding: 13px 0;
+    padding-left: calc(${(props) => (props.$depth ? props.$depth * 18 + 12 : 18)}px);
+    background-color: ${(props) => props.$isSelected && REDESIGN_COLORS.HIGHLIGHT_PURPLE};
+    display: flex;
 `;
 
 const nameStyles = `
@@ -64,6 +66,7 @@ interface Props {
     selectTerm?: (urn: string, displayName: string) => void;
     includeActiveTabPath?: boolean;
     areChildrenVisible?: boolean;
+    depth: number;
 }
 
 function TermItem(props: Props) {
@@ -85,7 +88,7 @@ function TermItem(props: Props) {
     const isActivelyEditing = activeTabPath.includes(EDITING_DOCUMENTATION_URL_PARAM);
 
     return (
-        <TermWrapper>
+        <TermWrapper $isSelected={entityData?.urn === term.urn} $depth={props.depth}>
             {!isSelecting && (
                 <TermLink
                     to={`${entityRegistry.getEntityUrl(term.type, term.urn)}${

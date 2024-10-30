@@ -66,7 +66,7 @@ function MoveDomainModal(props: Props) {
 
     return (
         <Modal
-            title="Move"
+            title="Move Domain"
             data-testid="move-domain-modal"
             visible
             onCancel={onClose}
@@ -75,7 +75,7 @@ function MoveDomainModal(props: Props) {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={moveDomain} data-testid="move-domain-modal-move-button">
+                    <Button type="primary" onClick={moveDomain} data-testid="move-domain-modal-move-button">
                         Move
                     </Button>
                 </>

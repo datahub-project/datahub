@@ -59,6 +59,7 @@ export default function Tag({
 
     const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
     const [addTagUrn, setAddTagUrn] = useState('');
+    const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
 
     const showTagProfileDrawer = (urn: string) => {
         if (!readOnly) {
@@ -75,8 +76,8 @@ export default function Tag({
         const tagToRemove = tagAssociationToRemove.tag;
         onOpenModal?.();
         Modal.confirm({
-            title: `Do you want to remove ${tagToRemove?.name} tag?`,
-            content: `Are you sure you want to remove the ${tagToRemove?.name} tag?`,
+            title: `Do you want to remove ${displayName} tag?`,
+            content: `Are you sure you want to remove the ${displayName} tag?`,
             onOk() {
                 if (tagAssociationToRemove.associatedUrn || entityUrn) {
                     removeTagMutation({
@@ -107,8 +108,6 @@ export default function Tag({
             closable: true,
         });
     };
-
-    const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
 
     return (
         <>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import SubscriptionDrawer from '../drawer/SubscriptionDrawer';
 import useSubscription from '../useSubscription';
 import useDeleteSubscription from '../useDeleteSubscription';
@@ -29,7 +30,8 @@ export default function SubscribeButtonMenu({
     entityData,
     entityType,
 }: Props) {
-    const entityName = entityData?.name || '';
+    const entityRegistry = useEntityRegistry();
+    const entityName = entityRegistry.getDisplayName(entityType, entityData);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isPersonal, setIsPersonal] = useState(true);
     const [groupUrn, setGroupUrn] = useState<string>();

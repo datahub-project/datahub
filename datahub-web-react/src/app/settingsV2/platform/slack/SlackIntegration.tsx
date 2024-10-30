@@ -21,6 +21,7 @@ import {
     encodeSlackConnection,
     redirectToSlackInstall,
     redirectToSlackRefreshInstallation,
+    useShouldDisplayBotTokensTabFromQueryParams,
 } from './utils';
 import { SlackConnection } from './types';
 import {
@@ -118,7 +119,9 @@ const OBFUSCATED_STARS = '***';
 export const SlackIntegration = () => {
     const appConfig = useAppConfig();
 
-    const isBotTokensTabVisible = appConfig.config.featureFlags?.slackBotTokensConfigEnabled;
+    const isBotTokensTabVisibleByDefault = appConfig.config.featureFlags?.slackBotTokensConfigEnabled;
+    const isBotTokensTabVisibleByQueryParam = useShouldDisplayBotTokensTabFromQueryParams();
+    const isBotTokensTabVisible = isBotTokensTabVisibleByDefault || isBotTokensTabVisibleByQueryParam;
     const [settings, setSettings] = useState<SlackIntegrationSettings>(DEFAULT_SETTINGS);
     const [connection, setConnection] = useState<SlackConnection>(DEFAULT_CONNECTION);
     const [selectTypeValue, setSelectTypeValue] = useState<string>(APP_CONFIG_SELECT_ID);

@@ -39,18 +39,14 @@ const moveDomaintoRootLevel = () => {
 };
 
 const checkSubDomainCreated = () => {
-  cy.get('[data-testid="domain-list-item"]')
-    .find("span.ant-typography")
-    .contains("Marketing")
-    .closest('[data-testid="domain-list-item"]')
-    .find(".ant-btn-ghost")
-    .click();
+  cy.get('[data-testid="open-domain-item"]').click();
   cy.waitTextVisible(domainName);
 };
 const moveDomaintoParent = () => {
   checkSubDomainCreated();
   cy.clickOptionWithText(domainName);
   cy.waitTextVisible(domainName);
+  cy.wait(1000); // wait 1 second while domain data is set in context, otherwise this can flake with no urn in DomainsContext yet
   cy.clickOptionWithTestId("entity-menu-move-button");
   cy.clickOptionWithText("Move To");
   cy.clickOptionWithTestId("move-domain-modal-move-button");
@@ -107,33 +103,29 @@ describe("Verify nested domains test functionalities", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
     cy.loginWithCredentials();
-    cy.wait(2000);
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     cy.goToDomainList();
+    cy.wait(2000);
     handledResizeLoopErrors();
   });
-  // TODO: remove skip here once we fix this test
   it("Verify Create a new domain", () => {
     cy.waitTextVisible("Marketing");
     createDomain();
     cy.waitTextVisible("Domains");
   });
 
-  // TODO: remove skip here once we fix this test
   it("verify Move domain root level to parent level", () => {
     cy.waitTextVisible(domainName);
     moveDomaintoRootLevel();
     cy.goToDomainList();
   });
 
-  // TODO: remove skip here once we fix this test
   it("Verify Move domain parent level to root level", () => {
     moveDomaintoParent();
     cy.waitTextVisible("Moved Domain!");
     cy.goToDomainList();
     cy.waitTextVisible(domainName);
   });
-  // TODO: remove skip here once we fix this test
   it("Verify Documentation tab by adding editing Description and adding link", () => {
     cy.clickOptionWithText(domainName);
     cy.clickOptionWithId("#rc-tabs-0-tab-Documentation");
@@ -154,14 +146,13 @@ describe("Verify nested domains test functionalities", () => {
     cy.clickOptionWithText("Documentation");
     clearAndDelete();
   });
-  // TODO: remove skip here once we fix this test
   it("Verify Right side panel functionalities", () => {
     cy.clickOptionWithText(domainName);
     cy.clickOptionWithTestId("editDocumentation");
     clearAndType("Test documentation");
     cy.clickOptionWithTestId("description-editor-save-button");
-    cy.ensureTextNotPresent("Add Documentation");
     cy.waitTextVisible("Description Updated");
+    cy.ensureTextNotPresent("Add Documentation");
     cy.get("Description Updated").should("not.exist");
     cy.get('[data-testid="edit-documentation-button"]').should("be.visible");
     cy.waitTextVisible("Test documentation");
@@ -191,7 +182,6 @@ describe("Verify nested domains test functionalities", () => {
     cy.clickOptionWithText("Documentation");
     clearAndDelete();
   });
-  // TODO: remove skip here once we fix this test
   it("Verify Edit Domain Name", () => {
     cy.clickFirstOptionWithText(domainName);
     // edit name
@@ -203,13 +193,11 @@ describe("Verify nested domains test functionalities", () => {
       });
     cy.waitTextVisible(`${domainName} Edited`);
   });
-  // TODO: remove skip here once we fix this test
   it("Verify Remove the domain", () => {
     deleteDomain();
     cy.goToDomainList();
     cy.ensureTextNotPresent(domainName);
   });
-  // TODO: remove skip here once we fix this test
   it("Verify Add and delete parent domain from parent domain", () => {
     cy.visit("domain/urn:li:domain:marketing/Documentation");
     cy.get('[aria-label="edit"]').should("be.visible");
@@ -224,7 +212,6 @@ describe("Verify nested domains test functionalities", () => {
     deleteFromDomainDropdown();
     cy.ensureTextNotPresent(domainName);
   });
-  // TODO: remove skip here once we fix this test
   it("Verify Add and delete sub domain", () => {
     cy.visit("domain/urn:li:domain:marketing/Documentation");
     cy.get('[aria-label="edit"]').should("be.visible");
@@ -237,12 +224,12 @@ describe("Verify nested domains test functionalities", () => {
     deleteFromDomainDropdown();
     cy.ensureTextNotPresent(domainName);
   });
-  // TODO: remove skip here once we fix this test
   it("Verify entities tab with adding and deleting assets and performing some actions", () => {
     cy.clickFirstOptionWithText("Marketing");
     cy.clickOptionWithText("Add to Assets");
     cy.waitTextVisible("Add assets to Domain");
     cy.enterTextInSpecificTestId("search-bar", 2, "Baz Chart 2");
+    cy.get('[data-testid="preview-urn:li:chart:(looker,cypress_baz2)"]');
     cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
     cy.clickOptionWithId("#continueButton");
     cy.waitTextVisible("Added assets to Domain!");

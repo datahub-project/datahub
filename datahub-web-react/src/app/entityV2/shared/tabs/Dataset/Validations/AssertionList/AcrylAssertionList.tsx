@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Empty } from 'antd';
+import { Empty, message } from 'antd';
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 import { DataContract, EntityPrivileges } from '@src/types.generated';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../../graphql/monitor.generated';
@@ -11,12 +11,13 @@ import { getFilteredTransformedAssertionData } from './utils';
 import { AssertionMonitorBuilderDrawer } from '../assertion/builder/AssertionMonitorBuilderDrawer';
 import { createCachedAssertionWithMonitor, updateDatasetAssertionsCache } from '../acrylCacheUtils';
 import { AcrylAssertionsSummaryLoading } from '../AcrylAssertionsSummaryLoading';
-import { AssertionTable, AssertionListFilter } from './types';
+import { AssertionTable, AssertionListFilter, EntityStagedForAssertion } from './types';
 import { AssertionListTitleContainer } from './AssertionListTitleContainer';
 import { AcrylAssertionListFilters } from './AcrylAssertionListFilters';
 import { AcrylAssertionListTable } from './AcrylAssertionListTable';
 import { useSetFilterFromURLParams } from './hooks';
 import { ASSERTION_DEFAULT_FILTERS, ASSERTION_DEFAULT_RAW_DATA } from './constant';
+import { useOpenAssertionBuilder } from '../assertion/builder/hooks';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
@@ -24,7 +25,7 @@ import { ASSERTION_DEFAULT_FILTERS, ASSERTION_DEFAULT_RAW_DATA } from './constan
 export const AcrylAssertionList = () => {
     const { urn, entityData, entityType } = useEntityData();
 
-    const [showAssertionBuilder, setShowAssertionBuilder] = useState<boolean>(false);
+    const [authorAssertionForEntity, setAuthorAssertionForEntity] = useState<EntityStagedForAssertion>();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const [visibleAssertions, setVisibleAssertions] = useState<AssertionTable>({
         ...ASSERTION_DEFAULT_RAW_DATA,
@@ -97,11 +98,27 @@ export const AcrylAssertionList = () => {
         return <Empty description="No assertions have run" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
 
+    useOpenAssertionBuilder(() => {
+        if (!entityData?.platform) {
+            message.open({
+                content:
+                    'Could not find platform details for this asset. Please contact support if this issue persists.',
+                type: 'error',
+            });
+            return;
+        }
+        setAuthorAssertionForEntity({
+            entityType,
+            platform: entityData.platform,
+            urn,
+        });
+    });
+
     return (
         <>
             <AssertionListTitleContainer
                 privileges={privileges as EntityPrivileges}
-                setShowAssertionBuilder={setShowAssertionBuilder}
+                onCreateAssertion={(params: EntityStagedForAssertion) => setAuthorAssertionForEntity(params)}
             />
             {assertionMonitorData?.length > 0 && (
                 <AcrylAssertionListFilters
@@ -114,17 +131,21 @@ export const AcrylAssertionList = () => {
             )}
 
             {renderListTable()}
-            {showAssertionBuilder && (
+            {authorAssertionForEntity && (
                 <AssertionMonitorBuilderDrawer
-                    entityUrn={urn}
-                    entityType={entityType}
-                    platformUrn={entityData?.platform?.urn as string}
+                    entityUrn={authorAssertionForEntity.urn}
+                    entityType={authorAssertionForEntity.entityType}
+                    platform={authorAssertionForEntity.platform}
                     onSubmit={(assertion) => {
-                        setShowAssertionBuilder(false);
-                        updateDatasetAssertionsCache(urn, createCachedAssertionWithMonitor(assertion), client);
+                        setAuthorAssertionForEntity(undefined);
+                        updateDatasetAssertionsCache(
+                            authorAssertionForEntity.urn,
+                            createCachedAssertionWithMonitor(assertion),
+                            client,
+                        );
                         setTimeout(() => refetch(), 5000);
                     }}
-                    onCancel={() => setShowAssertionBuilder(false)}
+                    onCancel={() => setAuthorAssertionForEntity(undefined)}
                 />
             )}
         </>

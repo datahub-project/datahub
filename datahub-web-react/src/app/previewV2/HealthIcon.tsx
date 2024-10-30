@@ -36,7 +36,7 @@ const HealthIcon = ({ urn, health, baseUrl, className }: Props) => {
     }
 
     return (
-        <Popover content={<HealthPopover health={health} baseUrl={baseUrl} />} placement="bottom">
+        <Popover content={<HealthPopover health={health} baseUrl={baseUrl} />} placement="bottom" showArrow={false}>
             <IconContainer className={className} data-testid={`${urn}-health-icon`}>
                 {icon}
             </IconContainer>

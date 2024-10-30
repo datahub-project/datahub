@@ -22,10 +22,8 @@ const ItemWrapper = styled.div<ItemWrapperProps>`
     display: flex;
     flex-direction: column;
     font-weight: 700;
-    padding: ${(props) => (props.$isChildNode ? '0' : '0 0 0 13px')};
     position: relative;
     overflow: ${(props) => !props.$isChildNode && 'hidden'};
-    background-color: ${(props) => props.$isSelected && '#F9F8FF'};
 `;
 
 const NodeBadge = styled.span<{ color: string }>`
@@ -39,11 +37,13 @@ const NodeBadge = styled.span<{ color: string }>`
     opacity: 1;
 `;
 
-const NodeWrapper = styled.div`
+const NodeWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
     align-items: center;
     display: flex;
     font-size: 16px;
     padding: 13px 0;
+    background-color: ${(props) => props.$isSelected && REDESIGN_COLORS.HIGHLIGHT_PURPLE};
+    padding-left: calc(${(props) => (props.$depth ? props.$depth * 18 + 12 : 12)}px);
 `;
 
 const StyledRightOutlined = styled(KeyboardArrowRightRounded)<{ isSelected: boolean }>`
@@ -69,9 +69,7 @@ const StyledDownOutlined = styled(KeyboardArrowDownRounded)<{ isSelected: boolea
     }
 `;
 
-const ChildrenWrapper = styled.div<{ hasNodes: boolean }>`
-    margin-left: 18px;
-`;
+const ChildrenWrapper = styled.div``;
 
 const LoadingWrapper = styled.div`
     padding: 8px;
@@ -189,7 +187,7 @@ function NodeItem(props: Props) {
     return (
         <ItemWrapper $isSelected={entityData?.urn === node.urn} $isChildNode={isChildNode}>
             {!isChildNode && <NodeBadge color={glossaryColor} />}
-            <NodeWrapper>
+            <NodeWrapper $isSelected={entityData?.urn === node.urn} $depth={depth}>
                 {areChildrenVisible && (
                     <StyledDownOutlined
                         fontSize="inherit"
@@ -232,7 +230,7 @@ function NodeItem(props: Props) {
                         </LoadingWrapper>
                     )}
                     {data && data.glossaryNode && (
-                        <ChildrenWrapper hasNodes={!!childNodes?.length}>
+                        <ChildrenWrapper>
                             {(childNodes as GlossaryNode[]).map((child) => (
                                 <NodeItem
                                     node={child}
@@ -256,6 +254,7 @@ function NodeItem(props: Props) {
                                             selectTerm={selectTerm}
                                             includeActiveTabPath
                                             key={child.urn}
+                                            depth={depth + 1}
                                         />
                                         <StyledDivider depth={depth + 1} />
                                     </>
