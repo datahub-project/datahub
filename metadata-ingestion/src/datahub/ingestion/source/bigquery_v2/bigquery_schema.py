@@ -121,6 +121,7 @@ class BigqueryTable(BaseTable):
     columns_ignore_from_profiling: List[str] = field(default_factory=list)
     external: bool = False
     constraints: List[BigqueryTableConstraint] = field(default_factory=list)
+    table_type: Optional[str] = None
 
 
 @dataclass
@@ -377,6 +378,7 @@ class BigQuerySchemaApi:
         return BigqueryTable(
             name=table.table_name,
             created=table.created,
+            table_type=table.table_type,
             last_altered=(
                 datetime.fromtimestamp(
                     table.get("last_altered") / 1000, tz=timezone.utc

@@ -42,7 +42,6 @@ framework_common = {
     "python-dateutil>=2.8.0",
     "tabulate",
     "progressbar2",
-    "termcolor>=1.0.0",
     "psutil>=5.8.0",
     "Deprecated",
     "humanfriendly",
@@ -142,7 +141,7 @@ sql_common = (
         # https://github.com/great-expectations/great_expectations/pull/5382/files
         # datahub does not depend on traitlets directly but great expectations does.
         # https://github.com/ipython/traitlets/issues/741
-        "traitlets<5.2.2",
+        "traitlets!=5.2.2",
         "greenlet",
         *cachetools_lib,
     }
@@ -546,7 +545,6 @@ mypy_stubs = {
     "types-pyOpenSSL",
     "types-click-spinner>=0.1.13.1",
     "types-ujson>=5.2.0",
-    "types-termcolor>=1.0.0",
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
     "sqlalchemy2-stubs",

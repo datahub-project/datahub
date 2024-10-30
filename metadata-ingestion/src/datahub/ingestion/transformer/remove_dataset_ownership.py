@@ -3,9 +3,7 @@ from typing import Optional, cast
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import Aspect
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.transformer.dataset_transformer import (
-    DatasetOwnershipTransformer,
-)
+from datahub.ingestion.transformer.dataset_transformer import OwnershipTransformer
 from datahub.metadata.schema_classes import OwnershipClass
 
 
@@ -13,7 +11,7 @@ class ClearDatasetOwnershipConfig(ConfigModel):
     pass
 
 
-class SimpleRemoveDatasetOwnership(DatasetOwnershipTransformer):
+class SimpleRemoveDatasetOwnership(OwnershipTransformer):
     """Transformer that clears all owners on each dataset."""
 
     def __init__(self, config: ClearDatasetOwnershipConfig, ctx: PipelineContext):

@@ -77,6 +77,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #11313 - `datahub get` will no longer return a key aspect for entities that don't exist.
 - #11369 - The default datahub-rest sink mode has been changed to `ASYNC_BATCH`. This requires a server with version 0.14.0+.
 - #11214 Container properties aspect will produce an additional field that will require a corresponding upgrade of server. Otherwise server can reject the aspects.
+- #10190 - `extractor_config.set_system_metadata` of `datahub` source has been moved to be a top level config in the recipe under `flags.set_system_metadata`
 
 ### Potential Downtime
 
