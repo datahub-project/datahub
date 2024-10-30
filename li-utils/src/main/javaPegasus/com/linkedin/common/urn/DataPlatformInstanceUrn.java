@@ -45,9 +45,9 @@ public final class DataPlatformInstanceUrn extends Urn {
           return new DataPlatformInstanceUrn(
               (DataPlatformUrn) key.getAs(0, DataPlatformUrn.class),
               (String) key.getAs(1, String.class));
-        } catch (Exception var3) {
+        } catch (Exception e) {
           throw new URISyntaxException(
-              urn.toString(), "Invalid URN Parameter: '" + var3.getMessage());
+              urn.toString(), "Invalid URN Parameter: '" + e.getMessage());
         }
       }
     }
