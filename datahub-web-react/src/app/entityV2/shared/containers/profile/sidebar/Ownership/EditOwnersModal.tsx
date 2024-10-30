@@ -1,8 +1,9 @@
 import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
+import { Button, Empty, Form, message, Modal, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { getModalDomContainer } from '@src/utils/focus';
-
+import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
+import { LoadingOutlined } from '@ant-design/icons';
 import { CorpUser, Entity, EntityType, OwnerEntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
@@ -27,6 +28,12 @@ const StyleTag = styled(Tag)`
     display: flex;
     justify-content: start;
     align-items: center;
+`;
+
+const LoadingWrapper = styled.div`
+    display: flex;
+    justify-content: center;
+    margin: 5px;
 `;
 
 export enum OperationType {
@@ -103,7 +110,7 @@ export const EditOwnersModal = ({
     const [inputValue, setInputValue] = useState('');
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
-    const { data: ownershipTypesData, loading } = useListOwnershipTypesQuery({
+    const { data: ownershipTypesData, loading: ownershipTypesLoading } = useListOwnershipTypesQuery({
         variables: {
             input: {},
         },
@@ -125,12 +132,16 @@ export const EditOwnersModal = ({
     }, [ownershipTypes, defaultOwnerType]);
 
     // User and group dropdown search results!
-    const [groupSearch, { data: groupSearchData }] = useGetAutoCompleteResultsLazyQuery();
-    const [userSearch, { data: userSearchData }] = useGetAutoCompleteResultsLazyQuery();
+    const [groupSearch, { data: groupSearchData, loading: groupSearchLoading }] = useGetAutoCompleteResultsLazyQuery();
+    const [userSearch, { data: userSearchData, loading: userSearchLoading }] = useGetAutoCompleteResultsLazyQuery();
     const userSearchResults: Array<Entity> = userSearchData?.autoComplete?.entities || [];
     const groupSearchResults: Array<Entity> = groupSearchData?.autoComplete?.entities || [];
     const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
-    const [recommendedData] = useGetRecommendations([EntityType.CorpGroup, EntityType.CorpUser]);
+    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([
+        EntityType.CorpGroup,
+        EntityType.CorpUser,
+    ]);
+    const loading = recommendationsLoading || userSearchLoading || groupSearchLoading;
     const inputEl = useRef(null);
 
     // Invokes the search API as the owner types
@@ -377,8 +388,25 @@ export const EditOwnersModal = ({
                                 value: owner.value.ownerUrn,
                                 label: owner.label,
                             }))}
+                            notFoundContent={
+                                !loading ? (
+                                    <Empty
+                                        description="No Users or Groups Found"
+                                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                        style={{ color: ANTD_GRAY[7] }}
+                                    />
+                                ) : null
+                            }
                         >
-                            {ownerSearchOptions}
+                            {loading ? (
+                                <Select.Option value="loading" key="loading">
+                                    <LoadingWrapper>
+                                        <LoadingOutlined />
+                                    </LoadingWrapper>
+                                </Select.Option>
+                            ) : (
+                                ownerSearchOptions
+                            )}
                         </SelectInput>
                     </Form.Item>
                 </Form.Item>
@@ -386,8 +414,8 @@ export const EditOwnersModal = ({
                     <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
                         <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
                         <Form.Item name="type">
-                            {loading && <Select />}
-                            {!loading && (
+                            {ownershipTypesLoading && <Select />}
+                            {!ownershipTypesLoading && (
                                 <OwnershipTypesSelect
                                     selectedOwnerTypeUrn={selectedOwnerType}
                                     ownershipTypes={ownershipTypes}

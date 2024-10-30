@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { message, Button, Modal, Select, Typography, Tag as CustomTag, Form } from 'antd';
+import { message, Button, Modal, Select, Typography, Tag as CustomTag, Form, Empty } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
@@ -156,10 +156,11 @@ export default function EditTagTermsModal({
     const [proposeTagMutation] = useProposeTagMutation();
     const [proposeTermMutation] = useProposeTermMutation();
 
-    const [tagTermSearch, { data: tagTermSearchData, loading }] = useGetAutoCompleteResultsLazyQuery();
+    const [tagTermSearch, { data: tagTermSearchData, loading: searchLoading }] = useGetAutoCompleteResultsLazyQuery();
 
     const tagSearchResults: Array<Entity> = tagTermSearchData?.autoComplete?.entities || [];
-    const [recommendedData] = useGetRecommendations([EntityType.Tag]);
+    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([EntityType.Tag]);
+    const loading = (recommendationsLoading as boolean) || searchLoading;
     const inputEl = useRef(null);
 
     const handleSearch = (text: string) => {
@@ -611,15 +612,25 @@ export default function EditTagTermsModal({
                             onInputKeyDown={handleKeyDown}
                             dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
                             loading={loading}
+                            notFoundContent={
+                                !loading ? (
+                                    <Empty
+                                        description={`No ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'} found`}
+                                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                        style={{ color: ANTD_GRAY[7] }}
+                                    />
+                                ) : null
+                            }
                         >
-                            {!tagTermSearchData && loading && (
+                            {loading ? (
                                 <Select.Option value="loading">
                                     <LoadingWrapper>
                                         <LoadingOutlined />
                                     </LoadingWrapper>
                                 </Select.Option>
+                            ) : (
+                                tagSearchOptions
                             )}
-                            {!loading && tagSearchOptions}
                         </Select>
                         <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
                             <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} />

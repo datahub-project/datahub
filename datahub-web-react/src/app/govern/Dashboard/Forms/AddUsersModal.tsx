@@ -29,8 +29,8 @@ const AddUsersModal = ({ showUsersModal, setShowUsersModal }: Props) => {
     const userSearchResults: Array<Entity> = userSearchData?.autoComplete?.entities || [];
     const groupSearchResults: Array<Entity> = groupSearchData?.autoComplete?.entities || [];
 
-    const [usersRecommendedData] = useGetRecommendations([EntityType.CorpUser]);
-    const [groupsRecommendedData] = useGetRecommendations([EntityType.CorpGroup]);
+    const { recommendedData: usersRecommendedData } = useGetRecommendations([EntityType.CorpUser]);
+    const { recommendedData: groupsRecommendedData } = useGetRecommendations([EntityType.CorpGroup]);
 
     const [selectedUsers, setSelectedUsers] = useState<
         {

@@ -58,7 +58,7 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
 
     return (
         <Modal
-            title="Create new Data Product"
+            title="Create Data Product"
             onCancel={onClose}
             style={MODAL_BODY_STYLE}
             width={MODAL_WIDTH}
@@ -68,7 +68,7 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={createDataProduct} disabled={!builderState.name}>
+                    <Button type="primary" onClick={createDataProduct} disabled={!builderState.name}>
                         Create
                     </Button>
                 </>

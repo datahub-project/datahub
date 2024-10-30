@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { message, Modal, Button, Select, Tag } from 'antd';
+import { message, Modal, Button, Select, Tag, Empty } from 'antd';
 import { getModalDomContainer } from '@src/utils/focus';
+import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { useAddGroupMembersMutation } from '../../../graphql/group.generated';
 import { CorpUser, Entity, EntityType } from '../../../types.generated';
@@ -8,6 +9,7 @@ import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated'
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetRecommendations } from '../../shared/recommendation';
 import { OwnerLabel } from '../../shared/OwnerLabel';
+import { ANTD_GRAY } from '../shared/constants';
 
 type Props = {
     urn: string;
@@ -26,14 +28,27 @@ const StyleTag = styled(Tag)`
     align-items: center;
 `;
 
+const LoadingWrapper = styled.div`
+    padding: 8px;
+    display: flex;
+    justify-content: center;
+
+    svg {
+        height: 15px;
+        width: 15px;
+        color: ${ANTD_GRAY[8]};
+    }
+`;
+
 export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [selectedMembers, setSelectedMembers] = useState<any[]>([]);
     const [inputValue, setInputValue] = useState('');
     const [addGroupMembersMutation] = useAddGroupMembersMutation();
-    const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
+    const [userSearch, { data: userSearchData, loading: searchLoading }] = useGetSearchResultsLazyQuery();
     const searchResults = userSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
-    const [recommendedData] = useGetRecommendations([EntityType.CorpUser]);
+    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([EntityType.CorpUser]);
+    const loading = recommendationsLoading || searchLoading;
     const inputEl = useRef(null);
 
     const handleUserSearch = (text: string) => {
@@ -139,6 +154,7 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
                         Cancel
                     </Button>
                     <Button
+                        type="primary"
                         disabled={selectedMembers.length === 0}
                         onClick={onAdd}
                         data-testid="modal-add-member-button"
@@ -172,8 +188,25 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
                 onBlur={handleBlur}
                 value={selectedMembers}
                 style={{ width: '100%' }}
+                notFoundContent={
+                    !loading ? (
+                        <Empty
+                            description="No Users Found"
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            style={{ color: ANTD_GRAY[7] }}
+                        />
+                    ) : null
+                }
             >
-                {groupSearchOptions}
+                {loading ? (
+                    <Select.Option value="loading" key="loading">
+                        <LoadingWrapper>
+                            <LoadingOutlined />
+                        </LoadingWrapper>
+                    </Select.Option>
+                ) : (
+                    groupSearchOptions
+                )}
             </SelectInput>
         </Modal>
     );

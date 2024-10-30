@@ -1,6 +1,7 @@
 import { Alert, Empty } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { LoadingOutlined } from '@ant-design/icons';
 import useListDomains from '../../useListDomains';
 import DomainNode from './DomainNode';
 import { Domain } from '../../../../types.generated';
@@ -13,35 +14,55 @@ const NavigatorWrapper = styled.div`
     overflow: auto;
 `;
 
+const LoadingWrapper = styled.div`
+    padding: 8px;
+    display: flex;
+    justify-content: center;
+
+    svg {
+        height: 15px;
+        width: 15px;
+        color: ${ANTD_GRAY[8]};
+    }
+`;
+
 interface Props {
     domainUrnToHide?: string;
     selectDomainOverride?: (domain: Domain) => void;
 }
 
 export default function DomainNavigator({ domainUrnToHide, selectDomainOverride }: Props) {
-    const { sortedDomains, error } = useListDomains({});
+    const { sortedDomains, loading, error } = useListDomains({});
     const noDomainsFound: boolean = !sortedDomains || sortedDomains.length === 0;
+
+    const domainNavigatorNodes = noDomainsFound
+        ? [
+              <Empty
+                  description="No Domains Found"
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  style={{ color: ANTD_GRAY[7] }}
+              />,
+          ]
+        : sortedDomains?.map((domain) => (
+              <DomainNode
+                  key={domain.urn}
+                  domain={domain as Domain}
+                  numDomainChildren={domain.children?.total || 0}
+                  domainUrnToHide={domainUrnToHide}
+                  selectDomainOverride={selectDomainOverride}
+              />
+          ));
 
     return (
         <NavigatorWrapper>
-            {error && <Alert message="Loading Domains failed." showIcon type="error" />}
-            {noDomainsFound && (
-                <Empty
-                    description="No Domains Found"
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    style={{ color: ANTD_GRAY[7] }}
-                />
+            {error && <Alert message="Failed to load domains: An unexpected error occurred.." showIcon type="error" />}
+            {loading ? (
+                <LoadingWrapper>
+                    <LoadingOutlined />
+                </LoadingWrapper>
+            ) : (
+                domainNavigatorNodes
             )}
-            {!noDomainsFound &&
-                sortedDomains?.map((domain) => (
-                    <DomainNode
-                        key={domain.urn}
-                        domain={domain as Domain}
-                        numDomainChildren={domain.children?.total || 0}
-                        domainUrnToHide={domainUrnToHide}
-                        selectDomainOverride={selectDomainOverride}
-                    />
-                ))}
         </NavigatorWrapper>
     );
 }
