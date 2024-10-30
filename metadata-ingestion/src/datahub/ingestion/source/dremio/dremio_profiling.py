@@ -12,7 +12,7 @@ from datahub.ingestion.source.dremio.dremio_api import (
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_entities import DremioDataset
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
-from datahub.metadata._schema_classes import (
+from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
     QuantileClass,

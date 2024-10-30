@@ -22,6 +22,12 @@ source:
       allow:
         - ".*"
 
+    profiling:
+      enabled: true
+      include_field_min_value: false
+      include_field_max_value: false
+
+
 sink:
   type: file
   config:
