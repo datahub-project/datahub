@@ -15,7 +15,7 @@ const Wrapper = styled.div``;
 
 type GlossaryTermSelectorProps = {
     initialOptions: any[];
-    onUpdate?: (values: SelectOption[]) => void;
+    onUpdate: (values: SelectOption[]) => void;
     label?: string;
     placeholder?: string;
     areNodeSelectable?: boolean;

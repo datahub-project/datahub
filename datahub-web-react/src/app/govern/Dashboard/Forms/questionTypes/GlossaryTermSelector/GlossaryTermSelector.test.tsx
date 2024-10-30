@@ -163,6 +163,7 @@ describe('GlossaryTermsSelector', () => {
                 <TestPageContainer>
                     <GlossaryTermsSelector
                         initialOptions={[]}
+                        onUpdate={vitest.fn()}
                         label="Glossary Terms"
                         placeholder="Select allowed glossary terms"
                     />
@@ -173,7 +174,7 @@ describe('GlossaryTermsSelector', () => {
         await waitFor(() => expect(getByText('Glossary Terms')).toBeInTheDocument());
         await waitFor(() => expect(getByText('Select allowed glossary terms')).toBeInTheDocument());
     });
-    it.skip('show number of selected pills in glossary term selector', async () => {
+    it('show number of selected pills in glossary term selector', async () => {
         const { getByText, getAllByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
@@ -181,6 +182,7 @@ describe('GlossaryTermsSelector', () => {
                         initialOptions={initialOptions}
                         label="Glossary Terms"
                         placeholder="Select allowed glossary terms"
+                        onUpdate={vitest.fn()}
                     />
                 </TestPageContainer>
             </MockedProvider>,
@@ -191,11 +193,12 @@ describe('GlossaryTermsSelector', () => {
         await waitFor(() => expect(getByText('Glossary Terms')).toBeInTheDocument());
         await waitFor(() => expect(selectedGlossaryItemPills.length).toBe(initialOptions.length));
     });
-    it.skip('check selected glossary term clear all the selected items ', async () => {
+    it('check selected glossary term clear all the selected items ', async () => {
         const { getByTestId, getAllByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <GlossaryTermsSelector
+                        onUpdate={vitest.fn()}
                         initialOptions={initialOptions}
                         label="Glossary Terms"
                         placeholder="Select allowed glossary terms"
@@ -211,31 +214,4 @@ describe('GlossaryTermsSelector', () => {
         const selectedItemPill = screen.queryByTestId('pill-container');
         expect(selectedItemPill).not.toBeInTheDocument();
     });
-
-    it.skip('check selected glossary term showing when user clicks on dropdown ', async () => {
-        const { getByTestId, getAllByTestId } = render(
-            <MockedProvider mocks={mocks} addTypename={false}>
-                <TestPageContainer>
-                    <GlossaryTermsSelector
-                        initialOptions={initialOptions}
-                        label="Glossary Terms"
-                        placeholder="Select allowed glossary terms"
-                    />
-                </TestPageContainer>
-            </MockedProvider>,
-        );
-        // screen.debug();
-        const dropdownContainer = getByTestId('nested-options-dropdown-container');
-        fireEvent.click(dropdownContainer);
-        screen.debug();
-        const selectedGlossaryItemPills = getAllByTestId('pill-container');
-        // await waitFor(() => expect(selectedGlossaryItemPills.length).toBe(initialOptions.length));
-
-        // const dropdownClearIcon = getByTestId('dropdown-option-clear-icon');
-        // fireEvent.click(dropdownClearIcon);
-        // const selectedItemPill = screen.queryByTestId('pill-container');
-        // expect(selectedItemPill).not.toBeInTheDocument();
-    });
-
-    // const mockOnSubmit = vi.fn(); // Create a mock function
 });
