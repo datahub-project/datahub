@@ -87,7 +87,7 @@ const QuickstartContent = ({}) => {
               <div className="quickstart__text__head">{data.title}</div>
               <div className="quickstart__text__desc">
                 <p dangerouslySetInnerHTML={{ __html: data.description }} />
-                {/* <span className="learn_more">Learn More →</span> */}
+                <a className="learn_more" href={data.link}>Learn More →</a>
               </div>
             </div>
             <div className="quickstart__img">
