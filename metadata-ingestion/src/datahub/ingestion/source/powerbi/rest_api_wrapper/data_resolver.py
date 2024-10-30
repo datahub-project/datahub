@@ -811,7 +811,7 @@ class AdminAPIResolver(DataResolverBase):
             res.raise_for_status()
 
             if res.json()[Constant.STATUS].upper() == Constant.SUCCEEDED:
-                logger.info(f"Scan result is available for scan id({scan_id})")
+                logger.debug(f"Scan result is available for scan id({scan_id})")
                 return True
 
             if retry == max_retry:
@@ -898,8 +898,8 @@ class AdminAPIResolver(DataResolverBase):
         return users
 
     def get_scan_result(self, scan_id: str) -> Optional[dict]:
-        logger.info("Fetching scan result")
-        logger.info(f"{Constant.SCAN_ID}={scan_id}")
+        logger.debug("Fetching scan result")
+        logger.debug(f"{Constant.SCAN_ID}={scan_id}")
         scan_result_get_endpoint = AdminAPIResolver.API_ENDPOINTS[
             Constant.SCAN_RESULT_GET
         ]

@@ -276,6 +276,10 @@ s3_base = {
     *path_spec_common,
 }
 
+threading_timeout_common = {
+    "stopit==1.1.2",
+}
+
 abs_base = {
     "azure-core==1.29.4",
     "azure-identity>=1.17.1",
@@ -484,11 +488,22 @@ plugins: Dict[str, Set[str]] = {
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
-    | {"teradatasqlalchemy>=17.20.0.0,<=20.0.0.2"},
+    | {
+        # On 2024-10-30, teradatasqlalchemy 20.0.0.2 was released. This version seemed to cause issues
+        # in our CI, so we're pinning the version for now.
+        "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
+    },
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
-    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
+    "powerbi": (
+        (
+            microsoft_common
+            | {"lark[regex]==1.1.4", "sqlparse", "more-itertools"}
+            | sqlglot_lib
+            | threading_timeout_common
+        )
+    ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
     "unity-catalog": databricks | sql_common | sqllineage_lib,
