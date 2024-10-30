@@ -23,6 +23,8 @@ def remove_special_characters(native_query: str) -> str:
 
     ansi_escape_regx = re.compile(ANSI_ESCAPE_CHARACTERS)
 
+    logger.debug("Removing ANSI escape characters")
+
     native_query = ansi_escape_regx.sub("", native_query)
 
     return native_query
