@@ -1,3 +1,4 @@
+import functools
 import os
 import pathlib
 from datetime import datetime, timezone
@@ -31,6 +32,10 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
 FROZEN_TIME = "2024-02-06T01:23:45Z"
 
+check_goldens_stream = functools.partial(
+    mce_helpers.check_goldens_stream, ignore_order=False
+)
+
 
 def _ts(ts: int) -> datetime:
     return datetime.fromtimestamp(ts, tz=timezone.utc)
@@ -56,7 +61,7 @@ def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> N
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_basic_lineage.json",
@@ -108,7 +113,7 @@ def test_overlapping_inserts(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_overlapping_inserts.json",
@@ -167,7 +172,7 @@ def test_temp_table(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_temp_table.json",
@@ -229,7 +234,7 @@ def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
         )
         == 4
     )
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_multistep_temp_table.json",
@@ -305,7 +310,7 @@ def test_overlapping_inserts_from_temp_tables(pytestconfig: pytest.Config) -> No
     assert len(report.queries_with_non_authoritative_session) == 1
 
     mcps = list(aggregator.gen_metadata())
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_overlapping_inserts_from_temp_tables.json",
@@ -354,7 +359,7 @@ def test_aggregate_operations(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_aggregate_operations.json",
@@ -392,7 +397,7 @@ def test_view_lineage(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_view_lineage.json",
@@ -423,7 +428,7 @@ def test_known_lineage_mapping(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_known_lineage_mapping.json",
@@ -461,7 +466,7 @@ def test_column_lineage_deduplication(pytestconfig: pytest.Config) -> None:
     # not get any credit for a and b, as they are already covered by query 2,
     # which came later and hence has higher precedence.
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_column_lineage_deduplication.json",
@@ -506,7 +511,7 @@ def test_add_known_query_lineage(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_add_known_query_lineage.json",
@@ -564,7 +569,7 @@ def test_table_rename(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_table_rename.json",
@@ -624,7 +629,7 @@ def test_table_rename_with_temp(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_table_rename_with_temp.json",
@@ -711,7 +716,7 @@ def test_table_swap(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_table_swap.json",
@@ -881,7 +886,7 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_table_swap_with_temp.json",
@@ -908,7 +913,7 @@ def test_create_table_query_mcps(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_create_table_query_mcps.json",
@@ -943,7 +948,7 @@ def test_table_lineage_via_temp_table_disordered_add(
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR
@@ -992,7 +997,7 @@ def test_basic_usage(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_basic_usage.json",
