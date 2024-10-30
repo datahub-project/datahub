@@ -19,6 +19,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -176,11 +177,18 @@ class SupportedDataPlatform(Enum):
 
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
+    all_workspace_count: int = 0
+    filtered_workspace_names: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
+    filtered_workspace_types: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
+
     dashboards_scanned: int = 0
     charts_scanned: int = 0
     filtered_dashboards: List[str] = dataclass_field(default_factory=list)
     filtered_charts: List[str] = dataclass_field(default_factory=list)
-    number_of_workspaces: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -193,9 +201,6 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
 
     def report_charts_dropped(self, view: str) -> None:
         self.filtered_charts.append(view)
-
-    def report_number_of_workspaces(self, number_of_workspaces: int) -> None:
-        self.number_of_workspaces = number_of_workspaces
 
 
 def default_for_dataset_type_mapping() -> Dict[str, str]:
@@ -331,7 +336,7 @@ class PowerBiDashboardSourceConfig(
     )
     workspace_id_as_urn_part: bool = pydantic.Field(
         default=False,
-        description="It is recommended to set this to True only if you have legacy workspaces based on Office 365 groups, as those workspaces can have identical names."
+        description="It is recommended to set this to True only if you have legacy workspaces based on Office 365 groups, as those workspaces can have identical names. "
         "To maintain backward compatibility, this is set to False which uses workspace name",
     )
     # Enable/Disable extracting ownership information of Dashboard
@@ -371,8 +376,8 @@ class PowerBiDashboardSourceConfig(
     # any existing tags defined to those entities
     extract_endorsements_to_tags: bool = pydantic.Field(
         default=False,
-        description="Whether to extract endorsements to tags, note that this may overwrite existing tags. Admin API "
-        "access is required is this setting is enabled",
+        description="Whether to extract endorsements to tags, note that this may overwrite existing tags. "
+        "Admin API access is required if this setting is enabled.",
     )
     filter_dataset_endorsements: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

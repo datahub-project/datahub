@@ -8,7 +8,10 @@
         "json": {
             "customProperties": {
                 "platform": "powerbi",
-                "workspace": "demo-workspace"
+                "workspace": "demo-workspace",
+                "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
+                "workspace_name": "demo-workspace",
+                "workspace_type": "Workspace"
             },
             "name": "demo-workspace"
         }
@@ -3957,7 +3960,10 @@
         "json": {
             "customProperties": {
                 "platform": "powerbi",
-                "workspace": "second-demo-workspace"
+                "workspace": "second-demo-workspace",
+                "workspace_id": "64ED5CAD-7C22-4684-8180-826122881108",
+                "workspace_name": "second-demo-workspace",
+                "workspace_type": "Workspace"
             },
             "name": "second-demo-workspace"
         }

@@ -83,17 +83,19 @@ def get_upstream_tables(
                 context=f"table-full-name={table.full_name}, expression={table.expression}, message={message}",
             )
             return []
+    except KeyboardInterrupt:
+        raise
     except (
         BaseException
     ) as e:  # TODO: Debug why BaseException is needed here and below.
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
-            title = "Unexpected Character Found"
+            error_type = "Unexpected Character Error"
         else:
-            title = "Unknown Parsing Error"
+            error_type = "Unknown Parsing Error"
 
         reporter.warning(
-            title=title,
-            message="Unknown parsing error",
+            title="Unable to extract lineage from M-Query expression",
+            message=f"Got an '{error_type}' while parsing the expression. Lineage will be missing for this table.",
             context=f"table-full-name={table.full_name}, expression={table.expression}",
             exc=e,
         )
