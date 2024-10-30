@@ -42,7 +42,6 @@ framework_common = {
     "python-dateutil>=2.8.0",
     "tabulate",
     "progressbar2",
-    "termcolor>=1.0.0",
     "psutil>=5.8.0",
     "Deprecated",
     "humanfriendly",
@@ -99,9 +98,11 @@ usage_common = {
 }
 
 sqlglot_lib = {
-    # Using an Acryl fork of sqlglot.
+    # We heavily monkeypatch sqlglot.
+    # Prior to the patching, we originally maintained an acryl-sqlglot fork:
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==25.25.2.dev9",
+    "sqlglot[rs]==25.26.0",
+    "patchy==2.8.0",
 }
 
 classification_lib = {
@@ -122,6 +123,10 @@ dbt_common = {
     "more_itertools",
 }
 
+cachetools_lib = {
+    "cachetools",
+}
+
 sql_common = (
     {
         # Required for all SQL sources.
@@ -136,8 +141,9 @@ sql_common = (
         # https://github.com/great-expectations/great_expectations/pull/5382/files
         # datahub does not depend on traitlets directly but great expectations does.
         # https://github.com/ipython/traitlets/issues/741
-        "traitlets<5.2.2",
+        "traitlets!=5.2.2",
         "greenlet",
+        *cachetools_lib,
     }
     | usage_common
     | sqlglot_lib
@@ -213,7 +219,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
-    "cachetools",
+    *cachetools_lib,
 } | classification_lib
 
 trino = {
@@ -442,7 +448,7 @@ plugins: Dict[str, Set[str]] = {
     # mariadb should have same dependency as mysql
     "mariadb": sql_common | {"pymysql>=1.0.2"},
     "okta": {"okta~=1.7.0", "nest-asyncio"},
-    "oracle": sql_common | {"cx_Oracle"},
+    "oracle": sql_common | {"oracledb"},
     "postgres": sql_common | postgres_common,
     "presto": sql_common | pyhive_common | trino,
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
@@ -457,7 +463,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
-    | {"cachetools"},
+    | cachetools_lib,
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "abs": {*abs_base, *data_lake_profiling},
@@ -539,7 +545,6 @@ mypy_stubs = {
     "types-pyOpenSSL",
     "types-click-spinner>=0.1.13.1",
     "types-ujson>=5.2.0",
-    "types-termcolor>=1.0.0",
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
     "sqlalchemy2-stubs",

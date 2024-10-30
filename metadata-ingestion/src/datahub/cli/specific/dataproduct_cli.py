@@ -363,7 +363,7 @@ def remove_owner(urn: str, owner_urn: str) -> None:
     with get_default_graph() as graph:
         _abort_if_non_existent_urn(graph, urn, "remove owners")
         for mcp in dataproduct_patcher.build():
-            print(json.dumps(mcp.to_obj()))
+            click.echo(json.dumps(mcp.to_obj()))
             graph.emit(mcp)
 
 

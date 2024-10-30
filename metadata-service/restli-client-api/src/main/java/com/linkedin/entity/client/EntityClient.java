@@ -36,6 +36,7 @@ import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -523,12 +524,16 @@ public interface EntityClient {
    *
    * @return the urn string ingested
    */
+  @Nullable
   default String ingestProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final MetadataChangeProposal metadataChangeProposal,
       final boolean async)
       throws RemoteInvocationException {
-    return batchIngestProposals(opContext, List.of(metadataChangeProposal), async).get(0);
+    return batchIngestProposals(opContext, List.of(metadataChangeProposal), async).stream()
+        .filter(Objects::nonNull)
+        .findFirst()
+        .orElse(null);
   }
 
   @Deprecated

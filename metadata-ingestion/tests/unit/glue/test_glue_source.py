@@ -267,8 +267,8 @@ def test_platform_config():
 @pytest.mark.parametrize(
     "ignore_resource_links, all_databases_and_tables_result",
     [
-        (True, ({}, [])),
-        (False, ({"test-database": resource_link_database}, target_database_tables)),
+        (True, ([], [])),
+        (False, ([resource_link_database], target_database_tables)),
     ],
 )
 def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_result):
@@ -289,7 +289,7 @@ def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_r
         glue_stubber.add_response(
             "get_tables",
             get_tables_response_for_target_database,
-            {"DatabaseName": "test-database"},
+            {"DatabaseName": "resource-link-test-database"},
         )
 
         assert source.get_all_databases_and_tables() == all_databases_and_tables_result
