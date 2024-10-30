@@ -285,9 +285,9 @@ public class EntityController
 
   @Override
   protected List<GenericEntityV3> buildEntityList(
+      OperationContext opContext,
       Collection<IngestResult> ingestResults,
-      boolean withSystemMetadata,
-      boolean isAsyncAlternateValidation) {
+      boolean withSystemMetadata) {
     List<GenericEntityV3> responseList = new LinkedList<>();
 
     Map<Urn, List<IngestResult>> entityMap =
@@ -310,8 +310,7 @@ public class EntityController
                               .build()))
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       responseList.add(
-          GenericEntityV3.builder()
-              .build(objectMapper, urnAspects.getKey(), aspectsMap, isAsyncAlternateValidation));
+          GenericEntityV3.builder().build(objectMapper, urnAspects.getKey(), aspectsMap));
     }
     return responseList;
   }
@@ -463,6 +462,8 @@ public class EntityController
                     aspect.getValue().get("headers"), new TypeReference<>() {});
           }
 
+          JsonNode jsonNodeAspect = aspect.getValue().get("value");
+
           if (opContext.getValidationContext().isAlternateValidation()) {
             ProposedItem.ProposedItemBuilder builder =
                 ProposedItem.builder()
@@ -472,7 +473,7 @@ public class EntityController
                             .setAspectName(aspect.getKey())
                             .setEntityType(entityUrn.getEntityType())
                             .setChangeType(ChangeType.UPSERT)
-                            .setAspect(GenericRecordUtils.serializeAspect(aspect.getValue()))
+                            .setAspect(GenericRecordUtils.serializeAspect(jsonNodeAspect))
                             .setHeaders(
                                 headers != null ? new StringMap(headers) : null,
                                 SetMode.IGNORE_NULL)
@@ -495,7 +496,7 @@ public class EntityController
                     .recordTemplate(
                         GenericRecordUtils.deserializeAspect(
                             ByteString.copyString(
-                                objectMapper.writeValueAsString(aspect.getValue().get("value")),
+                                objectMapper.writeValueAsString(jsonNodeAspect),
                                 StandardCharsets.UTF_8),
                             GenericRecordUtils.JSON,
                             aspectSpec));
