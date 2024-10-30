@@ -13,6 +13,7 @@ import analytics, { EntityActionType, EventType } from '../../../../../analytics
 import { useUpdateIncidentStatusMutation } from '../../../../../../graphql/mutations.generated';
 import { ResolveIncidentModal } from './ResolveIncidentModal';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
+import CompactMarkdownViewer from '../../Documentation/components/CompactMarkdownViewer';
 
 type Props = {
     incident: any;
@@ -231,7 +232,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             </TitleContainer>
                             <DescriptionContainer>
                                 <IncidentDescriptionLabel>Description</IncidentDescriptionLabel>
-                                <IncidentDescriptionText>{incident?.description}</IncidentDescriptionText>
+                                <CompactMarkdownViewer content={incident?.description} />
                                 {incident.status.state === IncidentState.Resolved ? (
                                     <>
                                         <IncidentDescriptionLabel>Resolution Note</IncidentDescriptionLabel>
