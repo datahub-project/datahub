@@ -145,7 +145,6 @@ class DataHubDatabaseReader:
             urn,
             aspect,
             version
-        limit 1000
         """
 
     def get_aspects(
