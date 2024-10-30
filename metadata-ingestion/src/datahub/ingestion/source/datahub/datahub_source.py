@@ -89,7 +89,7 @@ class DataHubSource(StatefulIngestionSourceBase):
                         "Cannot exclude soft deleted entities without a database connection"
                     )
                 soft_deleted_urns = [
-                    row[0] for row in database_reader.get_soft_deleted_rows()
+                    row["urn"] for row in database_reader.get_soft_deleted_rows()
                 ]
 
             yield from self._get_kafka_workunits(
@@ -135,7 +135,6 @@ class DataHubSource(StatefulIngestionSourceBase):
             self.config.kafka_connection,
             self.report,
             self.ctx,
-            soft_deleted_urns,
         ) as reader:
             mcls = reader.get_mcls(
                 from_offsets=from_offsets, stop_time=self.report.stop_time

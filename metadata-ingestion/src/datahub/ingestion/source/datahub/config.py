@@ -1,7 +1,7 @@
 import os
 from typing import Optional, Set
 
-from pydantic import Field, root_validator, validator
+from pydantic import Field, root_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -95,11 +95,6 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
     )
 
     urn_pattern: AllowDenyPattern = Field(default=AllowDenyPattern())
-
-    @validator("exclude_aspects", pre=True, each_item=True)
-    def lowercase_exclude_aspects(cls, v):
-        # We lowercase the exclude_aspects to ensure case insensitivity
-        return v.lower()
 
     @root_validator(skip_on_failure=True)
     def check_ingesting_data(cls, values):

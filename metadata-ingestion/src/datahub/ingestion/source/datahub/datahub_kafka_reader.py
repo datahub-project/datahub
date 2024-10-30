@@ -31,7 +31,6 @@ class DataHubKafkaReader(Closeable):
         connection_config: KafkaConsumerConnectionConfig,
         report: DataHubSourceReport,
         ctx: PipelineContext,
-        soft_deleted_urns: List[str] = [],
     ):
         self.config = config
         self.connection_config = connection_config
@@ -97,7 +96,8 @@ class DataHubKafkaReader(Closeable):
                 )
                 break
 
-            if mcl.aspectName and mcl.aspectName.lower() in self.config.exclude_aspects:
+            if mcl.aspectName and mcl.aspectName in self.config.exclude_aspects:
+                self.report.num_kafka_excluded_aspects += 1
                 continue
 
             # TODO: Consider storing state in kafka instead, via consumer.commit()
