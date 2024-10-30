@@ -192,6 +192,7 @@ bigquery_common = {
     "google-cloud-resource-manager",
     "more-itertools>=8.12.0",
     "sqlalchemy-bigquery>=1.4.1",
+    *path_spec_common,
 }
 
 clickhouse_common = {
@@ -374,11 +375,11 @@ plugins: Dict[str, Set[str]] = {
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
+    | sqlglot_lib
+    | classification_lib
     | {
-        *sqlglot_lib,
         "google-cloud-datacatalog-lineage==0.2.2",
-    }
-    | classification_lib,
+    },
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
