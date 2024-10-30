@@ -70,6 +70,7 @@ class DBTCloudConfig(DBTCommonConfig):
                 raise ValueError(
                     "Unable to infer the metadata endpoint from the access URL. Please provide a metadata endpoint."
                 )
+            logger.info(f"Inferred metadata endpoint: {metadata_endpoint}")
             values["metadata_endpoint"] = metadata_endpoint
         return values
 
@@ -260,20 +261,6 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class DBTCloudSource(DBTSourceBase, TestableSource):
-    """
-    This source pulls dbt metadata directly from the dbt Cloud APIs.
-
-    You'll need to have a dbt Cloud job set up to run your dbt project, and "Generate docs on run" should be enabled.
-
-    The token should have the "read metadata" permission.
-
-    To get the required IDs, go to the job details page (this is the one with the "Run History" table), and look at the URL.
-    It should look something like this: https://cloud.getdbt.com/next/deploy/107298/projects/175705/jobs/148094.
-    In this example, the account ID is 107298, the project ID is 175705, and the job ID is 148094.
-    """
-
-    # TODO: add some screenshots to the docs
-
     config: DBTCloudConfig
 
     @classmethod
