@@ -558,6 +558,9 @@ jobs:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
           TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-2
         with:
           image-ref: ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: "template"
@@ -615,6 +618,9 @@ jobs:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
           TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-2
         with:
           image-ref: ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: "template"
@@ -671,6 +677,9 @@ jobs:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
           TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-2
         with:
           image-ref: ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: "template"
