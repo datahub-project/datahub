@@ -1,6 +1,7 @@
 import functools
 import importlib.resources as pkg_resource
 import logging
+import os
 from typing import Dict, List
 
 import lark
@@ -19,8 +20,11 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     TRACE_POWERBI_MQUERY_PARSER,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
+from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
 
 logger = logging.getLogger(__name__)
+
+_M_QUERY_PARSE_TIMEOUT = int(os.getenv("DATAHUB_POWERBI_M_QUERY_PARSE_TIMEOUT", 60))
 
 
 @functools.lru_cache(maxsize=1)
@@ -41,7 +45,8 @@ def _parse_expression(expression: str) -> Tree:
     expression = expression.replace("\u00a0", " ")
 
     logger.debug(f"Parsing expression = {expression}")
-    parse_tree: Tree = lark_parser.parse(expression)
+    with threading_timeout(_M_QUERY_PARSE_TIMEOUT):
+        parse_tree: Tree = lark_parser.parse(expression)
 
     if TRACE_POWERBI_MQUERY_PARSER:
         logger.debug(parse_tree.pretty())
@@ -83,17 +88,26 @@ def get_upstream_tables(
                 context=f"table-full-name={table.full_name}, expression={table.expression}, message={message}",
             )
             return []
+    except KeyboardInterrupt:
+        raise
+    except TimeoutException:
+        reporter.warning(
+            title="M-Query Parsing Timeout",
+            message=f"M-Query parsing timed out after {_M_QUERY_PARSE_TIMEOUT} seconds. Lineage for this table will not be extracted.",
+            context=f"table-full-name={table.full_name}, expression={table.expression}",
+        )
+        return []
     except (
         BaseException
     ) as e:  # TODO: Debug why BaseException is needed here and below.
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
-            title = "Unexpected Character Found"
+            error_type = "Unexpected Character Error"
         else:
-            title = "Unknown Parsing Error"
+            error_type = "Unknown Parsing Error"
 
         reporter.warning(
-            title=title,
-            message="Unknown parsing error",
+            title="Unable to extract lineage from M-Query expression",
+            message=f"Got an '{error_type}' while parsing the expression. Lineage will be missing for this table.",
             context=f"table-full-name={table.full_name}, expression={table.expression}",
             exc=e,
         )

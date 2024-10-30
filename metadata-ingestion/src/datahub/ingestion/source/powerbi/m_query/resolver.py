@@ -473,8 +473,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             )
             if v_statement is None:
                 self.reporter.report_warning(
-                    f"{self.table.full_name}-variable-statement",
-                    f"output variable ({current_identifier}) statement not found in table expression",
+                    title="Unable to extract lineage from M-Query expression",
+                    message="Lineage will be incomplete.",
+                    context=f"table-full-name={self.table.full_name}: output-variable={current_identifier} not found in table expression",
                 )
                 return None
 
