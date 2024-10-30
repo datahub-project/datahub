@@ -12,7 +12,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 
 SPECIAL_CHARACTERS = ["#(lf)", "(lf)", "#(tab)"]
 
-ANSI_ESCAPE_CHARACTERS = r'\x1b\[[0-9;]*m'
+ANSI_ESCAPE_CHARACTERS = r"\x1b\[[0-9;]*m"
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +21,11 @@ def remove_special_characters(native_query: str) -> str:
     for char in SPECIAL_CHARACTERS:
         native_query = native_query.replace(char, " ")
 
-    ansi_escape_regx = re.compile(r'\x1b\[[0-9;]*m')
+    ansi_escape_regx = re.compile(ANSI_ESCAPE_CHARACTERS)
 
-    return ansi_escape_regx.sub('', native_query)
+    native_query = ansi_escape_regx.sub("", native_query)
+
+    return native_query
 
 
 def get_tables(native_query: str) -> List[str]:
