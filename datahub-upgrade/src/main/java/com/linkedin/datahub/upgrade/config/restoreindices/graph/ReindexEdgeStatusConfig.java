@@ -1,8 +1,8 @@
-package com.linkedin.datahub.upgrade.config.graph;
+package com.linkedin.datahub.upgrade.config.restoreindices.graph;
 
 import com.linkedin.datahub.upgrade.config.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
-import com.linkedin.datahub.upgrade.system.graph.edgestatus.ReindexEdgeStatus;
+import com.linkedin.datahub.upgrade.system.restoreindices.graph.edgestatus.ReindexEdgeStatus;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.OperationContext;

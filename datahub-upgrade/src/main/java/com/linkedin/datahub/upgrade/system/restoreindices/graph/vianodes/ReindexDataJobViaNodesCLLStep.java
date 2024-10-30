@@ -1,6 +1,6 @@
-package com.linkedin.datahub.upgrade.system.graph.edgestatus;
+package com.linkedin.datahub.upgrade.system.restoreindices.graph.vianodes;
 
-import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.system.AbstractMCLStep;
@@ -12,9 +12,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Nullable;
 
 @Slf4j
-public class ReindexReindexEdgeStatusStep extends AbstractMCLStep {
+public class ReindexDataJobViaNodesCLLStep extends AbstractMCLStep {
 
-  public ReindexReindexEdgeStatusStep(
+  public ReindexDataJobViaNodesCLLStep(
       OperationContext opContext,
       EntityService<?> entityService,
       AspectDao aspectDao,
@@ -26,30 +26,31 @@ public class ReindexReindexEdgeStatusStep extends AbstractMCLStep {
 
   @Override
   public String id() {
-    return "edge-status-reindex-v1";
+    return "via-node-cll-reindex-datajob-v3";
   }
 
   @Nonnull
   @Override
   protected String getAspectName() {
-    return STATUS_ASPECT_NAME;
+    return DATA_JOB_INPUT_OUTPUT_ASPECT_NAME;
   }
 
   @Nullable
   @Override
   protected String getUrnLike() {
-    return null;
+    return "urn:li:" + DATA_JOB_ENTITY_NAME + ":%";
   }
 
   @Override
   /**
    * Returns whether the upgrade should be skipped. Uses previous run history or the environment
-   * variable to determine whether to skip.
+   * variable SKIP_REINDEX_DATA_JOB_INPUT_OUTPUT to determine whether to skip.
    */
   public boolean skip(UpgradeContext context) {
-    boolean envFlagRecommendsSkip = Boolean.parseBoolean(System.getenv("SKIP_REINDEX_EDGE_STATUS"));
+    boolean envFlagRecommendsSkip =
+        Boolean.parseBoolean(System.getenv("SKIP_REINDEX_DATA_JOB_INPUT_OUTPUT"));
     if (envFlagRecommendsSkip) {
-      log.info("Environment variable SKIP_REINDEX_EDGE_STATUS is set to true. Skipping.");
+      log.info("Environment variable SKIP_REINDEX_DATA_JOB_INPUT_OUTPUT is set to true. Skipping.");
     }
     return (super.skip(context) || envFlagRecommendsSkip);
   }
