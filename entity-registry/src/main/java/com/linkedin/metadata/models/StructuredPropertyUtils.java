@@ -223,7 +223,7 @@ public class StructuredPropertyUtils {
    * @param fqn structured property's fqn
    * @return the expected structured property urn
    */
-  private static Urn toURNFromFQN(@Nonnull String fqn) {
+  public static Urn toURNFromFQN(@Nonnull String fqn) {
     return UrnUtils.getUrn(String.join(":", "urn:li", STRUCTURED_PROPERTY_ENTITY_NAME, fqn));
   }
 
