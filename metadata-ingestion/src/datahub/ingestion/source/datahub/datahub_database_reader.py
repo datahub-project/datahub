@@ -130,7 +130,7 @@ class DataHubDatabaseReader:
             ) as sd ON sd.urn = mav.urn
             WHERE 1 = 1
                 {"" if self.config.include_all_versions else "AND mav.version = 0"}
-                {"" if not self.config.exclude_aspects else "AND LOWER(mav.aspect) NOT IN %(exclude_aspects)s"}
+                {"" if not self.config.exclude_aspects else "AND mav.aspect NOT IN %(exclude_aspects)s"}
                 AND mav.createdon >= %(since_createdon)s
             ORDER BY
                 createdon,
