@@ -44,14 +44,6 @@ public class GenericEntityV3 extends LinkedHashMap<String, Object>
 
     public GenericEntityV3 build(
         ObjectMapper objectMapper, @Nonnull Urn urn, Map<String, AspectItem> aspects) {
-      return build(objectMapper, urn, aspects, false);
-    }
-
-    public GenericEntityV3 build(
-        ObjectMapper objectMapper,
-        @Nonnull Urn urn,
-        Map<String, AspectItem> aspects,
-        boolean isAsyncAlternateValidation) {
       Map<String, GenericAspectV3> jsonObjectMap =
           aspects.entrySet().stream()
               .map(
@@ -63,11 +55,6 @@ public class GenericEntityV3 extends LinkedHashMap<String, Object>
                               RecordUtils.toJsonString(entry.getValue().getAspect())
                                   .getBytes(StandardCharsets.UTF_8),
                               new TypeReference<>() {});
-
-                      Map<String, Object> aspectValue =
-                          isAsyncAlternateValidation
-                              ? (Map<String, Object>) aspectValueMap.get("value")
-                              : aspectValueMap;
 
                       Map<String, Object> systemMetadata =
                           entry.getValue().getSystemMetadata() != null
@@ -83,7 +70,7 @@ public class GenericEntityV3 extends LinkedHashMap<String, Object>
                       return Map.entry(
                           aspectName,
                           GenericAspectV3.builder()
-                              .value(aspectValue)
+                              .value(aspectValueMap)
                               .systemMetadata(systemMetadata)
                               .auditStamp(auditStamp)
                               .build());

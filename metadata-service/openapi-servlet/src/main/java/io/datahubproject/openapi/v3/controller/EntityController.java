@@ -286,9 +286,9 @@ public class EntityController
 
   @Override
   protected List<GenericEntityV3> buildEntityList(
+      OperationContext opContext,
       Collection<IngestResult> ingestResults,
-      boolean withSystemMetadata,
-      boolean isAsyncAlternateValidation) {
+      boolean withSystemMetadata) {
     List<GenericEntityV3> responseList = new LinkedList<>();
 
     Map<Urn, List<IngestResult>> entityMap =
@@ -311,8 +311,7 @@ public class EntityController
                               .build()))
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       responseList.add(
-          GenericEntityV3.builder()
-              .build(objectMapper, urnAspects.getKey(), aspectsMap, isAsyncAlternateValidation));
+          GenericEntityV3.builder().build(objectMapper, urnAspects.getKey(), aspectsMap));
     }
     return responseList;
   }

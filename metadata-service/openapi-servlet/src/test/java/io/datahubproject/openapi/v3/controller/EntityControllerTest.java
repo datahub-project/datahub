@@ -246,6 +246,11 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testAlternativeMCPValidation() throws InvalidUrnException, JsonProcessingException {
+    final AspectSpec aspectSpec =
+        entityRegistry
+            .getEntitySpec(STRUCTURED_PROPERTY_ENTITY_NAME)
+            .getAspectSpec(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+
     // Enable Alternative MCP Validation via mock
     OperationContext opContextSpy = spy(opContext);
     ValidationContext mockValidationContext = mock(ValidationContext.class);
@@ -289,14 +294,25 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             opContextSpy,
             testBody,
             opContext.getSessionActorContext().getAuthentication().getActor());
-    AspectSpec aspectSpec =
-        entityRegistry
-            .getEntitySpec(STRUCTURED_PROPERTY_ENTITY_NAME)
-            .getAspectSpec(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+
     GenericAspect aspect =
         testAspectsBatch.getMCPItems().get(0).getMetadataChangeProposal().getAspect();
     RecordTemplate propertyDefinition =
         GenericRecordUtils.deserializeAspect(aspect.getValue(), JSON, aspectSpec);
+    assertEquals(
+        propertyDefinition.data().get("entityTypes"), List.of("urn:li:entityType:datahub.dataset"));
+
+    // test alternative
+    reset(mockValidationContext);
+    when(mockValidationContext.isAlternateValidation()).thenReturn(false);
+    testAspectsBatch =
+        entityController.toMCPBatch(
+            opContextSpy,
+            testBody,
+            opContext.getSessionActorContext().getAuthentication().getActor());
+
+    aspect = testAspectsBatch.getMCPItems().get(0).getMetadataChangeProposal().getAspect();
+    propertyDefinition = GenericRecordUtils.deserializeAspect(aspect.getValue(), JSON, aspectSpec);
     assertEquals(
         propertyDefinition.data().get("entityTypes"), List.of("urn:li:entityType:datahub.dataset"));
   }
