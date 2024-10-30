@@ -690,7 +690,7 @@ def test_dataset_structured_property_soft_delete_search_filter_validation(
         graph_client.get_urns_by_filter(
             extraFilters=[
                 {
-                    "field": to_es_name(dataset_property_name),
+                    "field": to_es_name(property_name=dataset_property_name),
                     "negated": "false",
                     "condition": "EXISTS",
                 }
@@ -710,7 +710,7 @@ def test_dataset_structured_property_soft_delete_search_filter_validation(
             graph_client.get_urns_by_filter(
                 extraFilters=[
                     {
-                        "field": to_es_name(dataset_property_name),
+                        "field": to_es_name(property_name=dataset_property_name),
                         "negated": "false",
                         "condition": "EXISTS",
                     }

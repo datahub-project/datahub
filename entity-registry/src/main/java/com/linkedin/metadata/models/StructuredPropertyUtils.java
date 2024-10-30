@@ -6,7 +6,6 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Status;
@@ -122,11 +121,7 @@ public class StructuredPropertyUtils {
     if (fieldOrFacetName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + ".")) {
       // Coming in from the UI this is structuredProperties.<FQN> + any particular specifier for
       // subfield (.keyword etc)
-      String fqn =
-          fieldOrFacetName
-              .substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1)
-              .replace(".keyword", "")
-              .replace(".delimited", "");
+      String fqn = fieldOrFacetToFQN(fieldOrFacetName);
 
       // FQN Maps directly to URN with urn:li:structuredProperties:FQN
       Urn urn = toURNFromFQN(fqn);
@@ -239,12 +234,13 @@ public class StructuredPropertyUtils {
       return;
     }
 
-    Set<String> fieldNames = new HashSet<>();
+    Set<String> fqns = new HashSet<>();
 
     if (filter.getCriteria() != null) {
       for (Criterion c : filter.getCriteria()) {
         if (c.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
-          fieldNames.add(stripStructuredPropertyPrefix(c.getField()));
+          String fqn = fieldOrFacetToFQN(c.getField());
+          fqns.add(fqn);
         }
       }
     }
@@ -253,24 +249,23 @@ public class StructuredPropertyUtils {
       for (ConjunctiveCriterion cc : filter.getOr()) {
         for (Criterion c : cc.getAnd()) {
           if (c.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
-            fieldNames.add(stripStructuredPropertyPrefix(c.getField()));
+            String fqn = fieldOrFacetToFQN(c.getField());
+            fqns.add(fqn);
           }
         }
       }
     }
 
-    if (!fieldNames.isEmpty()) {
-      validateStructuredPropertyFQN(fieldNames, Objects.requireNonNull(aspectRetriever));
+    if (!fqns.isEmpty()) {
+      validateStructuredPropertyFQN(fqns, Objects.requireNonNull(aspectRetriever));
     }
   }
 
-  private static String stripStructuredPropertyPrefix(String s) {
-    if (s.startsWith(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX)) {
-      return s.substring(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.length() + 1).split("[.]")[0];
-    } else if (s.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
-      return s.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1).split("[.]")[0];
-    }
-    return s;
+  private static String fieldOrFacetToFQN(String fieldOrFacet) {
+    return fieldOrFacet
+        .substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1)
+        .replace(".keyword", "")
+        .replace(".delimited", "");
   }
 
   public static Date toDate(PrimitivePropertyValue value) throws DateTimeParseException {
