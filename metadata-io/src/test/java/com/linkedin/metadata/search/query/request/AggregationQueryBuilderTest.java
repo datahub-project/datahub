@@ -45,6 +45,8 @@ public class AggregationQueryBuilderTest {
   public void setup() throws RemoteInvocationException, URISyntaxException {
     Urn helloUrn = Urn.createFromString("urn:li:structuredProperty:hello");
     Urn abFghTenUrn = Urn.createFromString("urn:li:structuredProperty:ab.fgh.ten");
+    Urn underscoresAndDotsUrn =
+        Urn.createFromString("urn:li:structuredProperty:under.scores.and.dots_make_a_mess");
 
     // legacy
     aspectRetriever = mock(AspectRetriever.class);
@@ -76,6 +78,21 @@ public class AggregationQueryBuilderTest {
                     STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                     new Aspect(structPropAbFghTenDefinition.data()))));
 
+    StructuredPropertyDefinition structPropUnderscoresAndDotsDefinition =
+        new StructuredPropertyDefinition();
+    structPropUnderscoresAndDotsDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
+    structPropUnderscoresAndDotsDefinition.setValueType(
+        Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
+    structPropUnderscoresAndDotsDefinition.setQualifiedName("under.scores.and.dots_make_a_mess");
+    structPropUnderscoresAndDotsDefinition.setDisplayName("under.scores.and.dots_make_a_mess");
+    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(underscoresAndDotsUrn)), anySet()))
+        .thenReturn(
+            Map.of(
+                underscoresAndDotsUrn,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(structPropUnderscoresAndDotsDefinition.data()))));
+
     // V1
     aspectRetrieverV1 = mock(AspectRetriever.class);
     when(aspectRetrieverV1.getEntityRegistry())
@@ -106,6 +123,21 @@ public class AggregationQueryBuilderTest {
                 Map.of(
                     STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                     new Aspect(structPropAbFghTenDefinitionV1.data()))));
+
+    StructuredPropertyDefinition structPropUnderscoresAndDotsDefinitionV1 =
+        new StructuredPropertyDefinition();
+    structPropUnderscoresAndDotsDefinitionV1.setVersion("00000000000001");
+    structPropUnderscoresAndDotsDefinitionV1.setValueType(
+        Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
+    structPropUnderscoresAndDotsDefinitionV1.setQualifiedName("under.scores.and.dots_make_a_mess");
+    structPropUnderscoresAndDotsDefinitionV1.setDisplayName("under.scores.and.dots_make_a_mess");
+    when(aspectRetrieverV1.getLatestAspectObjects(eq(Set.of(underscoresAndDotsUrn)), anySet()))
+        .thenReturn(
+            Map.of(
+                underscoresAndDotsUrn,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(structPropUnderscoresAndDotsDefinitionV1.data()))));
   }
 
   @Test
@@ -280,6 +312,43 @@ public class AggregationQueryBuilderTest {
   }
 
   @Test
+  public void testAggregateOverStructuredPropertyNamespaced() {
+    SearchConfiguration config = new SearchConfiguration();
+    config.setMaxTermBucketSize(25);
+
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    List<AggregationBuilder> aggs =
+        builder.getAggregations(
+            TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
+            List.of("structuredProperties.under.scores.and.dots_make_a_mess"));
+    Assert.assertEquals(aggs.size(), 3);
+    Assert.assertEquals(
+        aggs.stream()
+            .map(aggr -> ((TermsAggregationBuilder) aggr).field())
+            .collect(Collectors.toSet()),
+        Set.of("structuredProperties.under_scores_and_dots_make_a_mess.keyword", DEFAULT_FILTER));
+    // Two structured properties
+    aggs =
+        builder.getAggregations(
+            TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
+            List.of(
+                "structuredProperties.under.scores.and.dots_make_a_mess",
+                "structuredProperties.hello"));
+    Assert.assertEquals(aggs.size(), 4);
+    Assert.assertEquals(
+        aggs.stream()
+            .map(aggr -> ((TermsAggregationBuilder) aggr).field())
+            .collect(Collectors.toSet()),
+        Set.of(
+            "structuredProperties.under_scores_and_dots_make_a_mess.keyword",
+            "structuredProperties.hello.keyword",
+            DEFAULT_FILTER));
+  }
+
+  @Test
   public void testAggregateOverStructuredPropertyV1() {
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -319,6 +388,46 @@ public class AggregationQueryBuilderTest {
             .collect(Collectors.toSet()),
         Set.of(
             "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword",
+            "structuredProperties._versioned.hello.00000000000001.string.keyword",
+            DEFAULT_FILTER));
+  }
+
+  @Test
+  public void testAggregateOverStructuredPropertyNamespacedV1() {
+    SearchConfiguration config = new SearchConfiguration();
+    config.setMaxTermBucketSize(25);
+
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    List<AggregationBuilder> aggs =
+        builder.getAggregations(
+            TestOperationContexts.systemContextNoSearchAuthorization(aspectRetrieverV1),
+            List.of("structuredProperties.under.scores.and.dots_make_a_mess"));
+    Assert.assertEquals(aggs.size(), 3);
+    Assert.assertEquals(
+        aggs.stream()
+            .map(aggr -> ((TermsAggregationBuilder) aggr).field())
+            .collect(Collectors.toSet()),
+        Set.of(
+            "structuredProperties._versioned.under_scores_and_dots_make_a_mess.00000000000001.string.keyword",
+            DEFAULT_FILTER));
+
+    // Two structured properties
+    aggs =
+        builder.getAggregations(
+            TestOperationContexts.systemContextNoSearchAuthorization(aspectRetrieverV1),
+            List.of(
+                "structuredProperties.under.scores.and.dots_make_a_mess",
+                "structuredProperties._versioned.hello.00000000000001.string"));
+    Assert.assertEquals(aggs.size(), 4);
+    Assert.assertEquals(
+        aggs.stream()
+            .map(aggr -> ((TermsAggregationBuilder) aggr).field())
+            .collect(Collectors.toSet()),
+        Set.of(
+            "structuredProperties._versioned.under_scores_and_dots_make_a_mess.00000000000001.string.keyword",
             "structuredProperties._versioned.hello.00000000000001.string.keyword",
             DEFAULT_FILTER));
   }
