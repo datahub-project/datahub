@@ -1028,6 +1028,7 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
     SUPPORTED_NATIVE_QUERY_DATA_PLATFORM: dict = {
         SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name: SupportedDataPlatform.SNOWFLAKE,
         SupportedDataPlatform.AMAZON_REDSHIFT.value.powerbi_data_platform_name: SupportedDataPlatform.AMAZON_REDSHIFT,
+        SupportedDataPlatform.DatabricksMultiCloud_SQL.value.powerbi_data_platform_name: SupportedDataPlatform.DatabricksMultiCloud_SQL,
     }
     current_data_platform: SupportedDataPlatform = SupportedDataPlatform.SNOWFLAKE
 
@@ -1075,6 +1076,27 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             column_lineage=[],
         )
 
+    def get_db_name(self, data_access_tokens: List[str]) -> Optional[str]:
+        # In-case of DatabricksMultiCloud_SQL the database-name is the catalog name,
+        # and that name is not available in SQL statement
+        if (
+            data_access_tokens[0]
+            != SupportedDataPlatform.DatabricksMultiCloud_SQL.value.powerbi_data_platform_name
+        ):
+            return None
+
+        if (
+            len(data_access_tokens) >= 13
+        ):  # Explicit catalog name is set in Database argument
+            return tree_function.strip_char(data_access_tokens[9])
+
+        if (
+            len(data_access_tokens) >= 6 and data_access_tokens[4] == "Catalog"
+        ):  # use Catalog name is database
+            return tree_function.strip_char(data_access_tokens[5])
+
+        return None
+
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> Lineage:
@@ -1089,6 +1111,7 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             )
             logger.debug(f"Flat argument list = {flat_argument_list}")
             return Lineage.empty()
+
         data_access_tokens: List[str] = tree_function.remove_whitespaces_from_list(
             tree_function.token_values(flat_argument_list[0])
         )
@@ -1101,6 +1124,8 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
                 f"NativeQuery is supported only for {self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM}"
             )
 
+            return Lineage.empty()
+
         if len(data_access_tokens[0]) < 3:
             logger.debug(
                 f"Server is not available in argument list for data-platform {data_access_tokens[0]}. Returning empty "
@@ -1111,8 +1136,7 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         self.current_data_platform = self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM[
             data_access_tokens[0]
         ]
-
-        # First argument is the query
+        # The First argument is the query
         sql_query: str = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(flat_argument_list[1])
@@ -1130,10 +1154,12 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
                 server=server,
             )
 
+        database_name: Optional[str] = self.get_db_name(data_access_tokens)
+
         return self.parse_custom_sql(
             query=sql_query,
             server=server,
-            database=None,  # database and schema is available inside custom sql as per PowerBI Behavior
+            database=database_name,
             schema=None,
         )
 

@@ -483,7 +483,7 @@ plugins: Dict[str, Set[str]] = {
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
-    | {"teradatasqlalchemy>=17.20.0.0"},
+    | {"teradatasqlalchemy>=17.20.0.0,<=20.0.0.2"},
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},

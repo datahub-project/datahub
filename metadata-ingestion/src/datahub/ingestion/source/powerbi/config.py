@@ -173,6 +173,11 @@ class SupportedDataPlatform(Enum):
         powerbi_data_platform_name="Databricks", datahub_data_platform_name="databricks"
     )
 
+    DatabricksMultiCloud_SQL = DataPlatformPair(
+        powerbi_data_platform_name="DatabricksMultiCloud",
+        datahub_data_platform_name="databricks",
+    )
+
 
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
