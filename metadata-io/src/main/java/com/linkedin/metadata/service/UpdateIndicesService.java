@@ -180,8 +180,12 @@ public class UpdateIndicesService implements SearchIndicesService {
       updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
     }
 
-    // Step 1. Handle StructuredProperties Index Mapping changes
-    updateIndexMappings(urn, entitySpec, aspectSpec, aspect, previousAspect);
+    try {
+      // Step 1. Handle StructuredProperties Index Mapping changes
+      updateIndexMappings(urn, entitySpec, aspectSpec, aspect, previousAspect);
+    } catch (Exception e) {
+      log.error("Issue with updating index mappings for structured property change", e);
+    }
 
     // Step 2. For all aspects, attempt to update Search
     updateSearchService(opContext, event);
@@ -192,7 +196,8 @@ public class UpdateIndicesService implements SearchIndicesService {
       EntitySpec entitySpec,
       AspectSpec aspectSpec,
       RecordTemplate newValue,
-      RecordTemplate oldValue) {
+      RecordTemplate oldValue)
+      throws CloneNotSupportedException {
     if (structuredPropertiesHookEnabled
         && STRUCTURED_PROPERTY_ENTITY_NAME.equals(entitySpec.getName())
         && STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectSpec.getName())) {
@@ -205,7 +210,7 @@ public class UpdateIndicesService implements SearchIndicesService {
               .orElse(new UrnArray());
 
       StructuredPropertyDefinition newDefinition =
-          new StructuredPropertyDefinition(newValue.data());
+          new StructuredPropertyDefinition(newValue.data().copy());
       newDefinition.getEntityTypes().removeAll(oldEntityTypes);
 
       if (newDefinition.getEntityTypes().size() > 0) {

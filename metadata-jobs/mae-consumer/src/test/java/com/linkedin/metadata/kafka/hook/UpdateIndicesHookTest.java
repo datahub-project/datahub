@@ -6,6 +6,7 @@ import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilte
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.InputField;
@@ -56,6 +57,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.NumberType;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldDataType;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
@@ -101,6 +103,7 @@ public class UpdateIndicesHookTest {
   private Urn actorUrn;
   private UpdateIndicesService updateIndicesService;
   private UpdateIndicesHook reprocessUIHook;
+  private OperationContext opContext;
 
   @Value("${elasticsearch.index.maxArrayLength}")
   private int maxArrayLength;
@@ -133,13 +136,12 @@ public class UpdateIndicesHookTest {
             mockEntityIndexBuilders,
             "MD5");
 
-    OperationContext systemOperationContext =
-        TestOperationContexts.systemContextNoSearchAuthorization();
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
     updateIndicesHook = new UpdateIndicesHook(updateIndicesService, true, false);
-    updateIndicesHook.init(systemOperationContext);
+    updateIndicesHook.init(opContext);
     reprocessUIHook = new UpdateIndicesHook(updateIndicesService, true, true);
-    reprocessUIHook.init(systemOperationContext);
+    reprocessUIHook.init(opContext);
   }
 
   @Test
@@ -476,6 +478,38 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(3)).addEdge(Mockito.any());
     Mockito.verify(mockEntitySearchService, Mockito.times(1))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  public void testUpdateIndexMappings() throws CloneNotSupportedException {
+    // ensure no mutation
+    EntitySpec entitySpec =
+        opContext.getEntityRegistry().getEntitySpec(STRUCTURED_PROPERTY_ENTITY_NAME);
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+
+    StructuredPropertyDefinition oldValueOrigin =
+        new StructuredPropertyDefinition()
+            .setEntityTypes(
+                new UrnArray(
+                    UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,foo1,PROD)"),
+                    UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,foo2,PROD)")));
+    StructuredPropertyDefinition newValueOrigin =
+        new StructuredPropertyDefinition()
+            .setEntityTypes(
+                new UrnArray(
+                    UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,foo2,PROD)"),
+                    UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,foo3,PROD)")));
+
+    StructuredPropertyDefinition oldValue =
+        new StructuredPropertyDefinition(oldValueOrigin.data().copy());
+    StructuredPropertyDefinition newValue =
+        new StructuredPropertyDefinition(newValueOrigin.data().copy());
+
+    updateIndicesService.updateIndexMappings(
+        UrnUtils.getUrn(TEST_DATASET_URN), entitySpec, aspectSpec, newValue, oldValue);
+
+    assertEquals(oldValue, oldValueOrigin, "Ensure no mutation to input objects");
+    assertEquals(newValue, newValueOrigin, "Ensure no mutation to input objects");
   }
 
   private EntityRegistry createMockEntityRegistry() {

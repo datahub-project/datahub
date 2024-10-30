@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.system.domaindescription;
+package com.linkedin.datahub.upgrade.system.restoreindices.structuredproperties;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -11,9 +11,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Nullable;
 
 @Slf4j
-public class ReindexDomainDescriptionStep extends AbstractMCLStep {
+public class PropertyDefinitionsStep extends AbstractMCLStep {
 
-  public ReindexDomainDescriptionStep(
+  public PropertyDefinitionsStep(
       OperationContext opContext,
       EntityService<?> entityService,
       AspectDao aspectDao,
@@ -25,18 +25,18 @@ public class ReindexDomainDescriptionStep extends AbstractMCLStep {
 
   @Override
   public String id() {
-    return "domain-description-v1";
+    return "structured-property-definitions-v1";
   }
 
   @Nonnull
   @Override
   protected String getAspectName() {
-    return DOMAIN_PROPERTIES_ASPECT_NAME;
+    return STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
   }
 
   @Nullable
   @Override
   protected String getUrnLike() {
-    return "urn:li:" + DOMAIN_ENTITY_NAME + ":%";
+    return "urn:li:" + STRUCTURED_PROPERTY_ENTITY_NAME + ":%";
   }
 }

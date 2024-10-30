@@ -12,7 +12,7 @@ import static org.testng.AssertJUnit.assertNotNull;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCPStep;
-import com.linkedin.datahub.upgrade.system.graph.vianodes.ReindexDataJobViaNodesCLL;
+import com.linkedin.datahub.upgrade.system.restoreindices.graph.vianodes.ReindexDataJobViaNodesCLL;
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateDeserializer;
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateSerializer;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;

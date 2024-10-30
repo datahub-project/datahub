@@ -1,8 +1,8 @@
-package com.linkedin.datahub.upgrade.config.graph;
+package com.linkedin.datahub.upgrade.config.restoreindices;
 
 import com.linkedin.datahub.upgrade.config.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
-import com.linkedin.datahub.upgrade.system.graph.vianodes.ReindexDataJobViaNodesCLL;
+import com.linkedin.datahub.upgrade.system.restoreindices.structuredproperties.PropertyDefinitions;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.OperationContext;
@@ -13,18 +13,18 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @Conditional(SystemUpdateCondition.NonBlockingSystemUpdateCondition.class)
-public class ReindexDataJobViaNodesCLLConfig {
+public class PropertyDefinitionsConfig {
 
   @Bean
-  public NonBlockingSystemUpgrade reindexDataJobViaNodesCLL(
+  public NonBlockingSystemUpgrade propertyDefinitions(
       final OperationContext opContext,
       final EntityService<?> entityService,
       final AspectDao aspectDao,
-      @Value("${systemUpdate.dataJobNodeCLL.enabled}") final boolean enabled,
-      @Value("${systemUpdate.dataJobNodeCLL.batchSize}") final Integer batchSize,
-      @Value("${systemUpdate.dataJobNodeCLL.delayMs}") final Integer delayMs,
-      @Value("${systemUpdate.dataJobNodeCLL.limit}") final Integer limit) {
-    return new ReindexDataJobViaNodesCLL(
+      @Value("${systemUpdate.propertyDefinitions.enabled}") final boolean enabled,
+      @Value("${systemUpdate.propertyDefinitions.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.propertyDefinitions.delayMs}") final Integer delayMs,
+      @Value("${systemUpdate.propertyDefinitions.limit}") final Integer limit) {
+    return new PropertyDefinitions(
         opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
   }
 }
