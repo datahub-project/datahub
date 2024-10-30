@@ -95,7 +95,7 @@ public class MCLKafkaListener {
 
       // Here - plug in additional "custom processor hooks"
       for (MetadataChangeLogHook hook : this.hooks) {
-        log.info(
+        log.debug(
             "Invoking MCL hook {} for urn: {}",
             hook.getClass().getSimpleName(),
             event.getEntityUrn());

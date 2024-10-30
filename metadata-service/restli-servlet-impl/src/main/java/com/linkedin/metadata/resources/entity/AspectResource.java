@@ -243,13 +243,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal,
       @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async)
       throws URISyntaxException {
-
-      String urn = metadataChangeProposal.getEntityUrn() != null ? metadataChangeProposal.getEntityUrn().toString() :
-        java.util.Optional.ofNullable(metadataChangeProposal.getEntityKeyAspect()).orElse(new GenericAspect())
-            .getValue().asString(StandardCharsets.UTF_8);
-    String proposedValue = java.util.Optional.ofNullable(metadataChangeProposal.getAspect()).orElse(new GenericAspect())
-        .getValue().asString(StandardCharsets.UTF_8);
-
     final boolean asyncBool;
     if (UNSET.equals(async)) {
       asyncBool = Boolean.parseBoolean(System.getenv(ASYNC_INGEST_DEFAULT_NAME));
@@ -266,8 +259,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             @ActionParam(PARAM_PROPOSALS) @Nonnull MetadataChangeProposal[] metadataChangeProposals,
             @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async)
             throws URISyntaxException {
-        log.info("INGEST PROPOSAL BATCH proposals: {}", Arrays.asList(metadataChangeProposals));
-
         final boolean asyncBool;
         if (UNSET.equals(async)) {
             asyncBool = Boolean.parseBoolean(System.getenv(ASYNC_INGEST_DEFAULT_NAME));

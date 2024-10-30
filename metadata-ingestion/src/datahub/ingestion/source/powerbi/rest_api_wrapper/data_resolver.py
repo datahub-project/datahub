@@ -13,6 +13,7 @@ from urllib3 import Retry
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.source.powerbi.config import Constant
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    App,
     Column,
     Dashboard,
     Measure,
@@ -141,6 +142,13 @@ class DataResolverBase(ABC):
 
     @abstractmethod
     def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
+        pass
+
+    @abstractmethod
+    def _get_app(
+        self,
+        app_id: str,
+    ) -> Optional[Dict]:
         pass
 
     def _get_authority_url(self):
@@ -411,6 +419,37 @@ class DataResolverBase(ABC):
 
             page_number += 1
 
+    def get_app(
+        self,
+        app_id: str,
+    ) -> Optional[App]:
+
+        raw_app: Optional[Dict] = self._get_app(
+            app_id=app_id,
+        )
+
+        if raw_app is None:
+            return None
+
+        assert (
+            Constant.ID in raw_app
+        ), f"{Constant.ID} is required field not present in server response"
+
+        assert (
+            Constant.NAME in raw_app
+        ), f"{Constant.NAME} is required field not present in server response"
+
+        return App(
+            id=raw_app[Constant.ID],
+            name=raw_app[Constant.NAME],
+            description=raw_app.get(Constant.DESCRIPTION),
+            last_update=raw_app.get(Constant.LAST_UPDATE),
+            dashboards=[],  # dashboards and reports of App are available in scan-result response
+            reports=[],  # There is an App section in documentation https://learn.microsoft.com/en-us/rest/api/power-bi/dashboards/get-dashboards-in-group#code-try-0
+            # However the report API mentioned in that section is not returning the reports
+            # We will collect these details from the scan-result.
+        )
+
 
 class RegularAPIResolver(DataResolverBase):
     # Regular access endpoints
@@ -679,6 +718,15 @@ class RegularAPIResolver(DataResolverBase):
             column_count += 1
 
         table.column_count = column_count
+
+    def _get_app(
+        self,
+        app_id: str,
+    ) -> Optional[Dict]:
+        # [Date: 2024/10/18] As per API doc, the service principal approach is not supported for regular API
+        # https://learn.microsoft.com/en-us/rest/api/power-bi/apps/get-app
+
+        return None
 
 
 class AdminAPIResolver(DataResolverBase):
@@ -992,4 +1040,23 @@ class AdminAPIResolver(DataResolverBase):
         profile_pattern: Optional[AllowDenyPattern],
     ) -> None:
         logger.debug("Profile dataset is unsupported in Admin API")
+        return None
+
+    def _get_app(
+        self,
+        app_id: str,
+    ) -> Optional[Dict]:
+
+        app_endpoint = self.API_ENDPOINTS[Constant.GET_WORKSPACE_APP].format(
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            APP_ID=app_id,
+        )
+        # Hit PowerBi
+        logger.debug(f"Request to app URL={app_endpoint}")
+
+        for page in self.itr_pages(endpoint=app_endpoint):
+            for app in page:
+                if Constant.ID in app and app_id == app[Constant.ID]:
+                    return app
+
         return None

@@ -47,7 +47,7 @@ function Home() {
         <div className="container" style={{ paddingTop: '12vh', paddingBottom: '12vh' }}>
           <div className="row row__padded">
             <div className={clsx(styles.col, styles.hero__cta, "col col--7")}>
-              <h1 className={styles.hero__title}>Start your free trial<br />today.</h1>
+              <h1 className={styles.hero__title}>Start with DataHub Cloud<br />today.</h1>
               <div className={clsx(styles.hero__subtitle)}>
                 Unify Discovery, Observability and Governance<br />for data and AI.
               </div>

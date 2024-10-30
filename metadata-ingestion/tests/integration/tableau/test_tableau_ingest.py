@@ -8,14 +8,16 @@ from unittest import mock
 import pytest
 from freezegun import freeze_time
 from requests.adapters import ConnectionError
-from tableauserverclient import Server
+from tableauserverclient import PermissionsRule, Server
 from tableauserverclient.models import (
     DatasourceItem,
+    GroupItem,
     ProjectItem,
     SiteItem,
     ViewItem,
     WorkbookItem,
 )
+from tableauserverclient.models.reference_item import ResourceReference
 
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.mce_builder import make_schema_field_urn
@@ -130,6 +132,43 @@ def side_effect_project_data(*arg, **kwargs):
     project4.parent_id = project1._id
 
     return [project1, project2, project3, project4], mock_pagination
+
+
+def side_effect_group_data(*arg, **kwargs):
+    mock_pagination = mock.MagicMock()
+    mock_pagination.total_available = None
+
+    group1: GroupItem = GroupItem(
+        name="AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer"
+    )
+    group1._id = "79d02655-88e5-45a6-9f9b-eeaf5fe54903-group1"
+    group2: GroupItem = GroupItem(
+        name="AB_XY00-Tableau-Access_A_123_PROJECT_XY_Analyst"
+    )
+    group2._id = "79d02655-88e5-45a6-9f9b-eeaf5fe54903-group2"
+
+    return [group1, group2], mock_pagination
+
+
+def side_effect_workbook_permissions(*arg, **kwargs):
+    project_capabilities1 = {"Read": "Allow", "ViewComments": "Allow"}
+    reference: ResourceReference = ResourceReference(
+        id_="79d02655-88e5-45a6-9f9b-eeaf5fe54903-group1", tag_name="group"
+    )
+    rule1 = PermissionsRule(grantee=reference, capabilities=project_capabilities1)
+
+    project_capabilities2 = {
+        "Read": "Allow",
+        "ViewComments": "Allow",
+        "Delete": "Allow",
+        "Write": "Allow",
+    }
+    reference2: ResourceReference = ResourceReference(
+        id_="79d02655-88e5-45a6-9f9b-eeaf5fe54903-group2", tag_name="group"
+    )
+    rule2 = PermissionsRule(grantee=reference2, capabilities=project_capabilities2)
+
+    return [rule1, rule2]
 
 
 def side_effect_site_data(*arg, **kwargs):
@@ -248,8 +287,10 @@ def mock_sdk_client(
     mock_client.views = mock.Mock()
     mock_client.projects = mock.Mock()
     mock_client.sites = mock.Mock()
+    mock_client.groups = mock.Mock()
 
     mock_client.projects.get.side_effect = side_effect_project_data
+    mock_client.groups.get.side_effect = side_effect_group_data
     mock_client.sites.get.side_effect = side_effect_site_data
     mock_client.sites.get_by_id.side_effect = side_effect_site_get_by_id
 
@@ -259,6 +300,11 @@ def mock_sdk_client(
 
     mock_client.workbooks = mock.Mock()
     mock_client.workbooks.get.side_effect = side_effect_workbook_data
+    workbook_mock = mock.create_autospec(WorkbookItem, instance=True)
+    type(workbook_mock).permissions = mock.PropertyMock(
+        return_value=side_effect_workbook_permissions()
+    )
+    mock_client.workbooks.get_by_id.return_value = workbook_mock
 
     mock_client.views.get.side_effect = side_effect_usage_stat
     mock_client.auth.sign_in.return_value = None
@@ -1150,6 +1196,32 @@ def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
         mock_datahub_graph,
         pipeline_config=new_config,
         pipeline_name="test_tableau_site_name_pattern_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_permission_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_permission_ingestion_mces.json"
+    golden_file_name: str = "tableau_permission_ingestion_mces_golden.json"
+
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "permission_ingestion": {
+            "enable_workbooks": True,
+            "group_name_pattern": {"allow": ["^.*_Consumer$"]},
+        },
+    }
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_pipeline_config,
+        pipeline_name="test_tableau_group_ingest",
     )
 
 
