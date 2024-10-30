@@ -165,7 +165,9 @@ def get_property_from_entity(
     return None
 
 
-def to_es_filter_name(property_name=None, namespace=default_namespace, qualified_name=None):
+def to_es_filter_name(
+    property_name=None, namespace=default_namespace, qualified_name=None
+):
     if property_name:
         return f"structuredProperties.{namespace}.{property_name}"
     else:
