@@ -17,11 +17,6 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 (admin_user, admin_pass) = get_admin_credentials()
 
 
-@pytest.fixture(autouse=True)
-def setup(auth_session):
-    wait_for_writes_to_sync()
-
-
 @pytest.fixture()
 def auth_exclude_filter():
     return {

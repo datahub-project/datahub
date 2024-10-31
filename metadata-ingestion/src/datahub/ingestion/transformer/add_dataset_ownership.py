@@ -13,9 +13,7 @@ from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.transformer.dataset_transformer import (
-    DatasetOwnershipTransformer,
-)
+from datahub.ingestion.transformer.dataset_transformer import OwnershipTransformer
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     MetadataChangeProposalClass,
@@ -37,7 +35,7 @@ class AddDatasetOwnershipConfig(TransformerSemanticsConfigModel):
     is_container: bool = False
 
 
-class AddDatasetOwnership(DatasetOwnershipTransformer):
+class AddDatasetOwnership(OwnershipTransformer):
     """Transformer that adds owners to datasets according to a callback function."""
 
     ctx: PipelineContext

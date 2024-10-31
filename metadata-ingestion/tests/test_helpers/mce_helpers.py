@@ -82,6 +82,7 @@ def check_golden_file(
     golden_path: Union[str, os.PathLike],
     ignore_paths: Sequence[str] = (),
     ignore_paths_v2: Sequence[str] = (),
+    ignore_order: bool = True,
 ) -> None:
     update_golden = pytestconfig.getoption("--update-golden-files")
     copy_output = pytestconfig.getoption("--copy-output-files")
@@ -92,6 +93,7 @@ def check_golden_file(
         copy_output=copy_output,
         ignore_paths=ignore_paths,
         ignore_paths_v2=ignore_paths_v2,
+        ignore_order=ignore_order,
     )
 
 
@@ -100,6 +102,7 @@ def check_goldens_stream(
     outputs: List,
     golden_path: Union[str, os.PathLike],
     ignore_paths: Sequence[str] = (),
+    ignore_order: bool = True,
 ) -> None:
     with tempfile.NamedTemporaryFile() as f:
         write_metadata_file(pathlib.Path(f.name), outputs)
@@ -109,6 +112,7 @@ def check_goldens_stream(
             output_path=f.name,
             golden_path=golden_path,
             ignore_paths=ignore_paths,
+            ignore_order=ignore_order,
         )
 
 

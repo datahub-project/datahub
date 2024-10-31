@@ -69,7 +69,7 @@ const Hero = ({ onOpenTourModal }) => {
             </div>
             <div className="hero__cta">
               <Link className="cta__primary" to="/cloud">
-                Book a Demo
+                Get Cloud
               </Link>
               <a
                 className="cta__secondary"
@@ -80,7 +80,7 @@ const Hero = ({ onOpenTourModal }) => {
               </a>
             </div>
             <Link className="hero__footer_cta" to="/docs">
-              Get started with Core →
+              Get started with Open Source →
             </Link>
           </div>
           <div className="hero__img">

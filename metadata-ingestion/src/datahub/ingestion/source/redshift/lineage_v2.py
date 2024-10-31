@@ -5,6 +5,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 import redshift_connector
 
 from datahub.emitter import mce_builder
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import LineageMode, RedshiftConfig
@@ -39,7 +40,7 @@ from datahub.utilities.perf_timer import PerfTimer
 logger = logging.getLogger(__name__)
 
 
-class RedshiftSqlLineageV2:
+class RedshiftSqlLineageV2(Closeable):
     # does lineage and usage based on SQL parsing.
 
     def __init__(
@@ -56,6 +57,7 @@ class RedshiftSqlLineageV2:
         self.context = context
 
         self.database = database
+
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
@@ -144,10 +146,8 @@ class RedshiftSqlLineageV2:
                     lambda: collections.defaultdict(set)
                 ),
             )
-            for new_urn, original_urn in table_renames.items():
-                self.aggregator.add_table_rename(
-                    original_urn=original_urn, new_urn=new_urn
-                )
+            for entry in table_renames.values():
+                self.aggregator.add_table_rename(entry)
 
         if self.config.table_lineage_mode in {
             LineageMode.SQL_BASED,
@@ -436,3 +436,6 @@ class RedshiftSqlLineageV2:
                 message="Unexpected error(s) while attempting to extract lineage from SQL queries. See the full logs for more details.",
                 context=f"Query Parsing Failures: {self.aggregator.report.observed_query_parse_failures}",
             )
+
+    def close(self) -> None:
+        self.aggregator.close()
