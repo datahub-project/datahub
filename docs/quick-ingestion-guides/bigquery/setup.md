@@ -30,7 +30,7 @@ Please refer to the BigQuery [Permissions](https://cloud.google.com/iam/docs/per
    * [BigQuery Job User](https://cloud.google.com/bigquery/docs/access-control#bigquery.jobUser)
    * [BigQuery Metadata Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer)
    * [BigQuery Resource Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.resourceViewer) -> This role is for Table-Level Lineage and Usage extraction
-   * [Logs View Accessor](https://cloud.google.com/bigquery/docs/access-control#bigquery.dataViewer) -> This role is for Table-Level Lineage and Usage extraction
+   * [Logs View Accessor](https://cloud.google.com/logging/docs/access-control#logging.viewAccessor) -> This role is for Table-Level Lineage and Usage extraction
    * [BigQuery Data Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.dataViewer) -> This role is for Profiling
    * [BigQuery Read Session User](https://cloud.google.com/bigquery/docs/access-control#bigquery.readSessionUser) -> This role is for Profiling
 
