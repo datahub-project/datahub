@@ -278,6 +278,9 @@ s3_base = {
 
 threading_timeout_common = {
     "stopit==1.1.2",
+    # stopit uses pkg_resources internally, which means there's an implied
+    # dependency on setuptools.
+    "setuptools",
 }
 
 abs_base = {
