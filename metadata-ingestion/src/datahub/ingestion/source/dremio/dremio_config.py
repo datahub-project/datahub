@@ -68,9 +68,9 @@ class DremioConnectionConfig(ConfigModel):
         description="Whether this is a Dremio Cloud instance",
     )
 
-    dremio_cloud_region: Literal["US", "EMEA"] = Field(
+    dremio_cloud_region: Literal["US", "EU"] = Field(
         default="US",
-        description="Dremio Cloud region ('US' or 'EMEA')",
+        description="Dremio Cloud region ('US' or 'EU')",
     )
 
     dremio_cloud_project_id: Optional[str] = Field(
