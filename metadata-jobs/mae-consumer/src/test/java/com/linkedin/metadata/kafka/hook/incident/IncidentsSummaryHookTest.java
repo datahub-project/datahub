@@ -53,10 +53,11 @@ public class IncidentsSummaryHookTest {
   @Test
   public void testInvokeNotEnabled() throws Exception {
     IncidentInfo incidentInfo =
-        mockIncidentInfo(
-            ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
+        mockIncidentInfo(ImmutableList.of(TEST_DATASET_URN), IncidentState.ACTIVE);
+
     IncidentService service = mockIncidentService(new IncidentsSummary(), incidentInfo);
     IncidentsSummaryHook hook = new IncidentsSummaryHook(service, false, 100).init(opContext);
+
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, incidentInfo);
@@ -229,6 +230,75 @@ public class IncidentsSummaryHookTest {
   }
 
   @Test(dataProvider = "incidentsSummaryBaseProvider")
+  public void testInvokeIncidentResourcesChanged(IncidentsSummary summary) throws Exception {
+    final IncidentInfo info =
+        mockIncidentInfo(ImmutableList.of(TEST_DATASET_URN), IncidentState.RESOLVED);
+    final IncidentInfo prevIncidentInfo =
+        mockIncidentInfo(
+            ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
+
+    IncidentService service = mockIncidentService(summary, info);
+    IncidentsSummaryHook hook = new IncidentsSummaryHook(service, true, 100).init(opContext);
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_INCIDENT_URN,
+            INCIDENT_INFO_ASPECT_NAME,
+            ChangeType.UPSERT,
+            info,
+            prevIncidentInfo);
+    hook.invoke(event);
+    if (summary == null) {
+      summary = new IncidentsSummary();
+    }
+
+    // first we update dataset 2
+    Mockito.verify(service, Mockito.times(1))
+        .getIncidentsSummary(any(OperationContext.class), eq(TEST_DATASET_2_URN));
+    // incident completely gone
+    IncidentsSummary expectedSummaryDataset2 = new IncidentsSummary(summary.data());
+    expectedSummaryDataset2.setActiveIncidentDetails(
+        new IncidentSummaryDetailsArray(
+            expectedSummaryDataset2.getActiveIncidentDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
+                .collect(Collectors.toList())));
+    expectedSummaryDataset2.setResolvedIncidentDetails(
+        new IncidentSummaryDetailsArray(
+            expectedSummaryDataset2.getResolvedIncidentDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
+                .collect(Collectors.toList())));
+
+    Mockito.verify(service, Mockito.times(1))
+        .getIncidentInfo(any(OperationContext.class), eq(TEST_INCIDENT_URN));
+    Mockito.verify(service, Mockito.times(1))
+        .updateIncidentsSummary(
+            any(OperationContext.class), eq(TEST_DATASET_2_URN), eq(expectedSummaryDataset2));
+
+    // then we update dataset 1
+    Mockito.verify(service, Mockito.times(1))
+        .getIncidentsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
+
+    // incident in resolved list
+    IncidentsSummary expectedSummary = new IncidentsSummary(summary.data());
+    expectedSummary.setActiveIncidentDetails(
+        new IncidentSummaryDetailsArray(
+            expectedSummary.getActiveIncidentDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
+                .collect(Collectors.toList())));
+    expectedSummary.setResolvedIncidentDetails(
+        new IncidentSummaryDetailsArray(
+            expectedSummary.getResolvedIncidentDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_INCIDENT_URN))
+                .collect(Collectors.toList())));
+    expectedSummary
+        .getResolvedIncidentDetails()
+        .add(buildIncidentSummaryDetails(TEST_INCIDENT_URN, info));
+
+    Mockito.verify(service, Mockito.times(1))
+        .updateIncidentsSummary(
+            any(OperationContext.class), eq(TEST_DATASET_URN), eq(expectedSummary));
+  }
+
+  @Test(dataProvider = "incidentsSummaryBaseProvider")
   public void testInvokeIncidentSoftDeleted(IncidentsSummary summary) throws Exception {
     IncidentInfo info =
         mockIncidentInfo(
@@ -328,12 +398,25 @@ public class IncidentsSummaryHookTest {
 
   private MetadataChangeLog buildMetadataChangeLog(
       Urn urn, String aspectName, ChangeType changeType, RecordTemplate aspect) throws Exception {
+    return buildMetadataChangeLog(urn, aspectName, changeType, aspect, null);
+  }
+
+  private MetadataChangeLog buildMetadataChangeLog(
+      Urn urn,
+      String aspectName,
+      ChangeType changeType,
+      RecordTemplate aspect,
+      RecordTemplate prevAspect)
+      throws Exception {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityUrn(urn);
     event.setEntityType(INCIDENT_ENTITY_NAME);
     event.setAspectName(aspectName);
     event.setChangeType(changeType);
     event.setAspect(GenericRecordUtils.serializeAspect(aspect));
+    if (prevAspect != null) {
+      event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(prevAspect));
+    }
     return event;
   }
 }

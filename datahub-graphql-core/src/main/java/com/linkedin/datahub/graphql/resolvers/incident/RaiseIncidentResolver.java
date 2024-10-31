@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.incident;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.incident.IncidentUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
@@ -28,6 +29,9 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
@@ -47,13 +51,27 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
     final QueryContext context = environment.getContext();
     final RaiseIncidentInput input =
         bindArgument(environment.getArgument("input"), RaiseIncidentInput.class);
-    final Urn resourceUrn = Urn.createFromString(input.getResourceUrn());
+    final Urn resourceUrn =
+        input.getResourceUrn() != null ? Urn.createFromString(input.getResourceUrn()) : null;
+    final List<Urn> resourceUrns =
+        new ArrayList<>(
+            input.getResourceUrns() != null
+                ? stringsToUrns(input.getResourceUrns())
+                : Collections.emptyList());
+    if (resourceUrn != null && !resourceUrns.contains(resourceUrn)) {
+      resourceUrns.add(resourceUrn);
+    }
+    if (resourceUrns.isEmpty()) {
+      throw new RuntimeException("At least 1 resource urn must be defined to raise an incident.");
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!isAuthorizedToCreateIncidentForResource(resourceUrn, context)) {
-            throw new AuthorizationException(
-                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          for (Urn urn : resourceUrns) {
+            if (!isAuthorizedToCreateIncidentForResource(urn, context)) {
+              throw new AuthorizationException(
+                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
+            }
           }
 
           try {
@@ -70,7 +88,7 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
                     key,
                     INCIDENT_ENTITY_NAME,
                     INCIDENT_INFO_ASPECT_NAME,
-                    mapIncidentInfo(input, context));
+                    mapIncidentInfo(input, resourceUrns, context));
             return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
           } catch (Exception e) {
             log.error("Failed to create incident. {}", e.getMessage());
@@ -81,7 +99,8 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
         "get");
   }
 
-  private IncidentInfo mapIncidentInfo(final RaiseIncidentInput input, final QueryContext context)
+  private IncidentInfo mapIncidentInfo(
+      final RaiseIncidentInput input, List<Urn> resourceUrns, final QueryContext context)
       throws URISyntaxException {
     final AuditStamp actorStamp =
         new AuditStamp()
@@ -97,8 +116,7 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
     result.setCustomType(input.getCustomType(), SetMode.IGNORE_NULL);
     result.setTitle(input.getTitle(), SetMode.IGNORE_NULL);
     result.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
-    result.setEntities(
-        new UrnArray(ImmutableList.of(Urn.createFromString(input.getResourceUrn()))));
+    result.setEntities(new UrnArray(resourceUrns));
     result.setCreated(
         new AuditStamp()
             .setActor(Urn.createFromString(context.getActorUrn()))

@@ -27,6 +27,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.List;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -82,7 +83,7 @@ public class UpdateIncidentResolverTest {
     UpdateIncidentInput testInput = new UpdateIncidentInput();
     testInput.setTitle("New Title");
     testInput.setDescription("New Description");
-    Long incidentStartedAtNew = 10L;
+    final Long incidentStartedAtNew = 10L;
     testInput.setStartedAt(incidentStartedAtNew);
     testInput.setStatus(
         new com.linkedin.datahub.graphql.generated.IncidentStatusInput(
@@ -91,6 +92,7 @@ public class UpdateIncidentResolverTest {
             "Message 2"));
     testInput.setAssigneeUrns(ImmutableList.of("urn:li:corpuser:test", "urn:li:corpuser:test2"));
     testInput.setPriority(IncidentPriority.LOW);
+    testInput.setResourceUrns(List.of("urn:li:dataset:(test,test,test2)"));
 
     Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_INCIDENT_URN.toString());
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
@@ -105,7 +107,7 @@ public class UpdateIncidentResolverTest {
     expectedInfo.setDescription("New Description");
     expectedInfo.setType(IncidentType.SQL);
     expectedInfo.setEntities(
-        new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:dataset:(test,test,test)"))));
+        new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:dataset:(test,test,test2)"))));
     expectedInfo.setStartedAt(incidentStartedAtNew);
     expectedInfo.setStatus(
         new IncidentStatus()
