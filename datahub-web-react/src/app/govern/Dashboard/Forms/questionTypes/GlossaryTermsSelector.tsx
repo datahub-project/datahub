@@ -98,9 +98,9 @@ const GlossaryTermsSelector = ({
     }, [initialOptions]);
 
     const options =
-        data?.searchAcrossEntities?.searchResults.map((result) => ({
+        data?.searchAcrossEntities?.searchResults?.map((result) => ({
             value: result.entity.urn,
-            label: entityRegistry.getDisplayName(result.entity.type, result.entity),
+            label: result.entity.type ? entityRegistry.getDisplayName(result.entity.type, result.entity) : '',
             isParent: result.entity.type === EntityType.GlossaryNode,
             entity: result.entity,
         })) || [];

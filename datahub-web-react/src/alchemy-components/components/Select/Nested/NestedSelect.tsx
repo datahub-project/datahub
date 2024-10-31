@@ -77,7 +77,13 @@ const SelectActionButtons = ({
     return (
         <ActionButtonsContainer>
             {!!selectedOptions.length && !isDisabled && !isReadOnly && (
-                <StyledClearButton icon="Close" isCircle onClick={handleClearSelection} size={fontSize} />
+                <StyledClearButton
+                    icon="Close"
+                    isCircle
+                    onClick={handleClearSelection}
+                    size={fontSize}
+                    data-testid="dropdown-option-clear-icon"
+                />
             )}
             <Icon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size="xl" color="gray" />
         </ActionButtonsContainer>
@@ -250,6 +256,7 @@ export const NestedSelect = ({
                 isOpen={isOpen}
                 onClick={handleSelectClick}
                 fontSize={size}
+                data-testid="nested-options-dropdown-container"
                 {...props}
             >
                 <SelectLabelDisplay
