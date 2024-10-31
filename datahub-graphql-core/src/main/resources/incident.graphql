@@ -332,8 +332,14 @@ input RaiseIncidentInput {
   description: String
   """
   The resource (dataset, dashboard, chart, dataFlow, etc) that the incident is associated with.
+  This must be present if resourceUrns are not defined.
   """
-  resourceUrn: String!
+  resourceUrn: String
+  """
+  The resources (dataset, dashboard, chart, dataFlow, etc) that the incident is associated with.
+  This must be present and not empty if resourceUrn is not defined.
+  """
+  resourceUrns: [String!]
   """
   The time at which the incident actually started (may be before the date it was raised).
   """
@@ -384,6 +390,12 @@ input UpdateIncidentInput {
   An optional priority for the incident.
   """
   priority: IncidentPriority
+
+  """
+  An optional set of resources that the incident is assigned to.
+  If defined, there must be at least one in the list.
+  """
+  resourceUrns: [String!]
 
   """
   An optional set of user or group assignee urns

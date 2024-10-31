@@ -16,11 +16,27 @@ import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class IncidentUtils {
+
+  public static List<Urn> stringsToUrns(List<String> urns) {
+    return urns.stream()
+        .map(
+            rawUrn -> {
+              try {
+                return Urn.createFromString(rawUrn);
+              } catch (Exception e) {
+                return null;
+              }
+            })
+        .filter(Objects::nonNull)
+        .distinct()
+        .toList();
+  }
 
   public static boolean isAuthorizedToEditIncidentForResource(
       final Urn resourceUrn, final QueryContext context) {

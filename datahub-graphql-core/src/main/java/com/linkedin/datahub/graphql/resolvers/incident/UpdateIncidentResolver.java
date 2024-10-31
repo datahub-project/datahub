@@ -9,6 +9,7 @@ import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -25,6 +26,7 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 
@@ -57,32 +59,53 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
 
           if (info != null) {
             // Check whether the actor has permission to edit the incident.
-            // Currently, this depends on the single entity that the incident is associated with.
-            final Urn resourceUrn = info.getEntities().get(0);
-            if (isAuthorizedToUpdateIncident(resourceUrn, context)) {
-              final AuditStamp actorStamp =
-                  new AuditStamp()
-                      .setActor(UrnUtils.getUrn(context.getActorUrn()))
-                      .setTime(System.currentTimeMillis());
-              updateIncidentInfo(info, input, actorStamp);
-              try {
-                // Finally, create the MetadataChangeProposal.
-                final MetadataChangeProposal proposal =
-                    buildMetadataChangeProposalWithUrn(
-                        incidentUrn, INCIDENT_INFO_ASPECT_NAME, info);
-                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
-                return true;
-              } catch (Exception e) {
-                throw new RuntimeException("Failed to update incident status!", e);
-              }
+            verifyAuthorizationOrThrow(context, info, input);
+
+            final AuditStamp actorStamp =
+                new AuditStamp()
+                    .setActor(UrnUtils.getUrn(context.getActorUrn()))
+                    .setTime(System.currentTimeMillis());
+            updateIncidentInfo(info, input, actorStamp);
+            try {
+              // Finally, create the MetadataChangeProposal.
+              final MetadataChangeProposal proposal =
+                  buildMetadataChangeProposalWithUrn(incidentUrn, INCIDENT_INFO_ASPECT_NAME, info);
+              _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+              return true;
+            } catch (Exception e) {
+              throw new RuntimeException("Failed to update incident status!", e);
             }
-            throw new AuthorizationException(
-                "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
           throw new DataHubGraphQLException(
               "Failed to update incident. Incident does not exist.",
               DataHubGraphQLErrorCode.NOT_FOUND);
         });
+  }
+
+  private void verifyAuthorizationOrThrow(
+      QueryContext context, IncidentInfo info, UpdateIncidentInput input)
+      throws AuthorizationException, IllegalArgumentException {
+    final List<Urn> existingResourceUrns = info.getEntities();
+    for (Urn resourceUrn : existingResourceUrns) {
+      if (!isAuthorizedToUpdateIncident(resourceUrn, context)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+    }
+    if (input.getResourceUrns() != null) {
+      if (input.getResourceUrns().isEmpty()) {
+        throw new IllegalArgumentException("resourceUrns cannot be empty if provided");
+      }
+      final List<Urn> newResourceUrns = IncidentUtils.stringsToUrns(input.getResourceUrns());
+      for (Urn resourceUrn : newResourceUrns) {
+        if (!existingResourceUrns.contains(resourceUrn)) {
+          if (!isAuthorizedToUpdateIncident(resourceUrn, context)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
+        }
+      }
+    }
   }
 
   private void updateIncidentInfo(
@@ -101,6 +124,9 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
     }
     if (input.getStatus() != null) {
       info.setStatus(IncidentUtils.mapIncidentStatus(input.getStatus(), actorStamp));
+    }
+    if (input.getResourceUrns() != null && !input.getResourceUrns().isEmpty()) {
+      info.setEntities(new UrnArray(IncidentUtils.stringsToUrns(input.getResourceUrns())));
     }
   }
 

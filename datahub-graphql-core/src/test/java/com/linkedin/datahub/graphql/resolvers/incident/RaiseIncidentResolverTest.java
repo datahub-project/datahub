@@ -25,6 +25,9 @@ import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
+import java.util.List;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -106,6 +109,39 @@ public class RaiseIncidentResolverTest {
   }
 
   @Test
+  public void testGetFailRequiredFields() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.ingestProposal(
+                any(OperationContext.class),
+                Mockito.any(MetadataChangeProposal.class),
+                Mockito.anyBoolean()))
+        .thenReturn(TEST_INCIDENT_URN.toString());
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    RaiseIncidentInput testInput = new RaiseIncidentInput();
+    testInput.setType(com.linkedin.datahub.graphql.generated.IncidentType.SQL);
+    testInput.setResourceUrns(Collections.emptyList());
+
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+
+    RaiseIncidentResolver resolver = new RaiseIncidentResolver(mockClient);
+    Exception exception =
+        Assert.expectThrows(
+            RuntimeException.class,
+            () -> {
+              resolver.get(mockEnv).get();
+            });
+
+    Assert.assertEquals(
+        exception.getMessage(), "At least 1 resource urn must be defined to raise an incident.");
+  }
+
+  @Test
   public void testGetSuccessRequiredFields() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
@@ -123,6 +159,11 @@ public class RaiseIncidentResolverTest {
     RaiseIncidentInput testInput = new RaiseIncidentInput();
     testInput.setType(com.linkedin.datahub.graphql.generated.IncidentType.SQL);
     testInput.setResourceUrn("urn:li:dataset:(test,test,test)");
+    testInput.setResourceUrns(
+        List.of(
+            "urn:li:dataset:(test,test,test)",
+            "urn:li:dataset:(test,test,test2)",
+            "urn:li:dataset:(test,test,test3)"));
 
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
 
@@ -134,7 +175,12 @@ public class RaiseIncidentResolverTest {
     IncidentInfo expectedInfo = new IncidentInfo();
     expectedInfo.setType(IncidentType.SQL);
     expectedInfo.setEntities(
-        new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:dataset:(test,test,test)"))));
+        new UrnArray(
+            IncidentUtils.stringsToUrns(
+                ImmutableList.of(
+                    "urn:li:dataset:(test,test,test)",
+                    "urn:li:dataset:(test,test,test2)",
+                    "urn:li:dataset:(test,test,test3)"))));
     expectedInfo.setStatus(new IncidentStatus().setState(IncidentState.ACTIVE));
     expectedInfo.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL));
 
