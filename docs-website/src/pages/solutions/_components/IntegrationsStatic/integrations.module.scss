@@ -71,18 +71,22 @@
 
 .slider {
   position: relative;
+  display: flex;
 }
 
 .slide_track {
   display: flex;
-  width: max-content;
+  width: 80%;
   margin: auto;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-evenly;
 }
 
 .slide {
-  width: 100px;
-  height: 100px;
-  margin: auto 3rem;
+  width: 80px;
+  height: 80px;
+  margin: auto 0;
   display: flex;
   justify-content: space-between;
   overflow: hidden;
@@ -99,9 +103,12 @@
     max-width: 100vw;
     min-width: auto;
   }
+  .slide_track {
+    width: 95%;
+  }
   .slide {
-    width: 80px;
-    height: 80px;
-    margin: auto 1rem;
+    width: 40px;
+    height: 40px;
+    margin: auto 0;
   }
 }
