@@ -64,7 +64,20 @@ const mergeArrayOfObjectsByKey = (destinationArray: any[], sourceArray: any[], k
     const destination = convertObjectKeysToLowercase(keyBy(destinationArray, key));
     const source = convertObjectKeysToLowercase(keyBy(sourceArray, key));
 
-    return values(merge(destination, source));
+    const merged = merge(destination, source, {
+        customMerge: (keyMR) => {
+            if (keyMR === 'globalTags') {
+                return (sourceTags, destinationTags) => {
+                    const srcTagsArray = sourceTags.tags || [];
+                    const destTagsArray = destinationTags.tags || [];
+                    return { tags: unionBy(destTagsArray, srcTagsArray, 'tag.urn') };
+                };
+            }
+            return undefined;
+        },
+    });
+
+    return values(merged);
 };
 
 const mergeTags = (destinationArray, sourceArray, _options) => {
