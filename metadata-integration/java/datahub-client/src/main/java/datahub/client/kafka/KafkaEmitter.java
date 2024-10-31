@@ -40,27 +40,12 @@ public class KafkaEmitter implements Emitter {
    * @throws IOException
    */
   public KafkaEmitter(KafkaEmitterConfig config) throws IOException {
-    this.config = config;
-    kafkaConfigProperties = new Properties();
-    kafkaConfigProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, this.config.getBootstrap());
-    kafkaConfigProperties.put(
-        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-        org.apache.kafka.common.serialization.StringSerializer.class);
-    kafkaConfigProperties.put(
-        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-        io.confluent.kafka.serializers.KafkaAvroSerializer.class);
-    kafkaConfigProperties.put("schema.registry.url", this.config.getSchemaRegistryUrl());
-    kafkaConfigProperties.putAll(config.getSchemaRegistryConfig());
-    kafkaConfigProperties.putAll(config.getProducerConfig());
-
-    producer = new KafkaProducer<>(kafkaConfigProperties);
-    _avroSerializer = new AvroSerializer();
-    this.mcpKafkaTopic = DEFAULT_MCP_KAFKA_TOPIC;
+    this(config, DEFAULT_MCP_KAFKA_TOPIC);
   }
 
   /**
    * Constructor that takes in KafkaEmitterConfig
-   * and custom mcp Kafka Topic Name
+   * and mcp Kafka Topic Name
    *
    * @param config
    * @throws IOException
