@@ -47,6 +47,7 @@ const Integrations = () => {
               </div>
           </div>
       </div>
+      <a href="/integrations">See all →</a>
     </div>
   );
 };

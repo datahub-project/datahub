@@ -74,7 +74,9 @@ def get_upstream_tables(
     )
 
     try:
-        parse_tree: Tree = _parse_expression(table.expression)
+        with reporter.m_query_parse_timer:
+            reporter.m_query_parse_attempts += 1
+            parse_tree: Tree = _parse_expression(table.expression)
 
         valid, message = validator.validate_parse_tree(
             parse_tree, native_query_enabled=config.native_query_parsing
@@ -87,10 +89,12 @@ def get_upstream_tables(
                 message="DataAccess function is not present in M-Query expression",
                 context=f"table-full-name={table.full_name}, expression={table.expression}, message={message}",
             )
+            reporter.m_query_parse_validation_errors += 1
             return []
     except KeyboardInterrupt:
         raise
     except TimeoutException:
+        reporter.m_query_parse_timeouts += 1
         reporter.warning(
             title="M-Query Parsing Timeout",
             message=f"M-Query parsing timed out after {_M_QUERY_PARSE_TIMEOUT} seconds. Lineage for this table will not be extracted.",
@@ -102,8 +106,10 @@ def get_upstream_tables(
     ) as e:  # TODO: Debug why BaseException is needed here and below.
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
             error_type = "Unexpected Character Error"
+            reporter.m_query_parse_unexpected_character_errors += 1
         else:
             error_type = "Unknown Parsing Error"
+            reporter.m_query_parse_unknown_errors += 1
 
         reporter.warning(
             title="Unable to extract lineage from M-Query expression",
@@ -112,10 +118,10 @@ def get_upstream_tables(
             exc=e,
         )
         return []
+    reporter.m_query_parse_successes += 1
 
-    lineage: List[resolver.Lineage] = []
     try:
-        lineage = resolver.MQueryResolver(
+        lineage: List[resolver.Lineage] = resolver.MQueryResolver(
             table=table,
             parse_tree=parse_tree,
             reporter=reporter,
@@ -126,14 +132,14 @@ def get_upstream_tables(
             platform_instance_resolver=platform_instance_resolver,
         )
 
+        return lineage
+
     except BaseException as e:
+        reporter.m_query_resolver_errors += 1
         reporter.warning(
             title="Unknown M-Query Pattern",
             message="Encountered a unknown M-Query Expression",
             context=f"table-full-name={table.full_name}, expression={table.expression}, message={e}",
             exc=e,
         )
-
-        logger.debug(f"Stack trace for {table.full_name}:", exc_info=e)
-
-    return lineage
+        return []

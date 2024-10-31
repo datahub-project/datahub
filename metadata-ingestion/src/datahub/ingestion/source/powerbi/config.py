@@ -20,6 +20,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -194,6 +195,15 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     charts_scanned: int = 0
     filtered_dashboards: List[str] = dataclass_field(default_factory=list)
     filtered_charts: List[str] = dataclass_field(default_factory=list)
+
+    m_query_parse_timer: PerfTimer = dataclass_field(default_factory=PerfTimer)
+    m_query_parse_attempts: int = 0
+    m_query_parse_successes: int = 0
+    m_query_parse_timeouts: int = 0
+    m_query_parse_validation_errors: int = 0
+    m_query_parse_unexpected_character_errors: int = 0
+    m_query_parse_unknown_errors: int = 0
+    m_query_resolver_errors: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
