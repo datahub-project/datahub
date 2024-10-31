@@ -647,11 +647,11 @@ class Pipeline:
             return "cyan"
         else:
             if failures:
-                return "red"
+                return "bright_red"
             elif warnings:
-                return "yellow"
+                return "bright_yellow"
             else:
-                return "green"
+                return "bright_green"
 
     def has_failures(self) -> bool:
         return bool(
@@ -735,11 +735,14 @@ class Pipeline:
             return 0
 
     def _handle_uncaught_pipeline_exception(self, exc: Exception) -> None:
-        logger.exception("Ingestion pipeline threw an uncaught exception")
+        logger.exception(
+            f"Ingestion pipeline threw an uncaught exception: {exc}", stacklevel=2
+        )
         self.source.get_report().report_failure(
             title="Pipeline Error",
             message="Ingestion pipeline raised an unexpected exception!",
             exc=exc,
+            log=False,
         )
 
     def _get_structured_report(self) -> Dict[str, Any]:

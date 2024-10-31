@@ -193,6 +193,11 @@
           .learn_more {
             color: #1890FF;
             font-weight: 500;
+
+            &:hover {
+              text-decoration: none !important;
+              opacity: 0.8;
+            }
           }
         }
       }
