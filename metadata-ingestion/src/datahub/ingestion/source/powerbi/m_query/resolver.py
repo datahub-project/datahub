@@ -343,6 +343,22 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
         return argument_list
 
+    def take_first_argument(self, expression: Tree) -> Optional[Tree]:
+
+        # function is not data-access function, lets process function argument
+        first_arg_tree: Optional[Tree] = tree_function.first_arg_list_func(expression)
+
+        if first_arg_tree is None:
+            logger.debug(
+                f"Function invocation without argument in expression = {expression.pretty()}"
+            )
+            self.reporter.report_warning(
+                f"{self.table.full_name}-variable-statement",
+                "Function invocation without argument",
+            )
+            return None
+        return first_arg_tree
+
     def _process_invoke_expression(
         self, invoke_expression: Tree
     ) -> Union[DataAccessFunctionDetail, List[str], None]:
@@ -350,6 +366,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         data_access_func: str = tree_function.make_function_name(letter_tree)
         # The invoke function is either DataAccess function like PostgreSQL.Database(<argument-list>) or
         # some other function like Table.AddColumn or Table.Combine and so on
+
+        logger.debug(f"function-name: {data_access_func}")
+
         if data_access_func in self.data_access_functions:
             arg_list: Optional[Tree] = MQueryResolver.get_argument_list(
                 invoke_expression
@@ -367,19 +386,8 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 identifier_accessor=None,
             )
 
-        # function is not data-access function, lets process function argument
-        first_arg_tree: Optional[Tree] = tree_function.first_arg_list_func(
-            invoke_expression
-        )
-
+        first_arg_tree: Optional[Tree] = self.take_first_argument(invoke_expression)
         if first_arg_tree is None:
-            logger.debug(
-                f"Function invocation without argument in expression = {invoke_expression.pretty()}"
-            )
-            self.reporter.report_warning(
-                f"{self.table.full_name}-variable-statement",
-                "Function invocation without argument",
-            )
             return None
 
         flat_arg_list: List[Tree] = tree_function.flat_argument_list(first_arg_tree)
@@ -388,6 +396,40 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             return None
 
         first_argument: Tree = flat_arg_list[0]  # take first argument only
+
+        # Detect nested function calls in the first argument
+        # M-Query's data transformation pipeline:
+        # 1. Functions typically operate on tables/columns
+        # 2. First argument must be either:
+        #    - A table variable name (referencing data source)
+        #    - Another function that eventually leads to a table
+        #
+        # Example of nested functions:
+        #   #"Split Column by Delimiter2" = Table.SplitColumn(
+        #       Table.TransformColumnTypes(#"Removed Columns1", "KB")
+        #   )
+        #
+        # In this example:
+        # - The inner function Table.TransformColumnTypes takes #"Removed Columns1"
+        #   (a table reference) as its first argument
+        # - Its result is then passed as the first argument to Table.SplitColumn
+        second_invoke_expression: Optional[
+            Tree
+        ] = tree_function.first_invoke_expression_func(first_argument)
+        if second_invoke_expression:
+            # 1. The First argument is function call
+            # 2. That function's first argument references next table variable
+            first_arg_tree = self.take_first_argument(second_invoke_expression)
+            if first_arg_tree is None:
+                return None
+
+            flat_arg_list = tree_function.flat_argument_list(first_arg_tree)
+            if len(flat_arg_list) == 0:
+                logger.debug("flat_arg_list is zero")
+                return None
+
+            first_argument = flat_arg_list[0]  # take first argument only
+
         expression: Optional[Tree] = tree_function.first_list_expression_func(
             first_argument
         )
