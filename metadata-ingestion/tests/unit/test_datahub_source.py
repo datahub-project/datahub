@@ -1,51 +1,41 @@
-from dataclasses import dataclass
+from typing import Any, Dict
 
 import pytest
 
-from datahub.ingestion.source.datahub.datahub_database_reader import (
-    VersionOrderable,
-    VersionOrderer,
-)
-
-
-@dataclass
-class MockRow(VersionOrderable):
-    createdon: int
-    version: int
-    urn: str
+from datahub.ingestion.source.datahub.datahub_database_reader import VersionOrderer
 
 
 @pytest.fixture
 def rows():
     return [
-        MockRow(0, 0, "one"),
-        MockRow(0, 1, "one"),
-        MockRow(0, 0, "two"),
-        MockRow(0, 0, "three"),
-        MockRow(0, 1, "three"),
-        MockRow(0, 2, "three"),
-        MockRow(0, 1, "two"),
-        MockRow(0, 4, "three"),
-        MockRow(0, 5, "three"),
-        MockRow(1, 6, "three"),
-        MockRow(1, 0, "four"),
-        MockRow(2, 0, "five"),
-        MockRow(2, 1, "six"),
-        MockRow(2, 0, "six"),
-        MockRow(3, 0, "seven"),
-        MockRow(3, 0, "eight"),
+        {"createdon": 0, "version": 0, "urn": "one"},
+        {"createdon": 0, "version": 1, "urn": "one"},
+        {"createdon": 0, "version": 0, "urn": "two"},
+        {"createdon": 0, "version": 0, "urn": "three"},
+        {"createdon": 0, "version": 1, "urn": "three"},
+        {"createdon": 0, "version": 2, "urn": "three"},
+        {"createdon": 0, "version": 1, "urn": "two"},
+        {"createdon": 0, "version": 4, "urn": "three"},
+        {"createdon": 0, "version": 5, "urn": "three"},
+        {"createdon": 1, "version": 6, "urn": "three"},
+        {"createdon": 1, "version": 0, "urn": "four"},
+        {"createdon": 2, "version": 0, "urn": "five"},
+        {"createdon": 2, "version": 1, "urn": "six"},
+        {"createdon": 2, "version": 0, "urn": "six"},
+        {"createdon": 3, "version": 0, "urn": "seven"},
+        {"createdon": 3, "version": 0, "urn": "eight"},
     ]
 
 
 def test_version_orderer(rows):
-    orderer = VersionOrderer[MockRow](enabled=True)
+    orderer = VersionOrderer[Dict[str, Any]](enabled=True)
     ordered_rows = list(orderer(rows))
     assert ordered_rows == sorted(
-        ordered_rows, key=lambda x: (x.createdon, x.version == 0)
+        ordered_rows, key=lambda x: (x["createdon"], x["version"] == 0)
     )
 
 
 def test_version_orderer_disabled(rows):
-    orderer = VersionOrderer[MockRow](enabled=False)
+    orderer = VersionOrderer[Dict[str, Any]](enabled=False)
     ordered_rows = list(orderer(rows))
     assert ordered_rows == rows

@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.system.domaindescription;
+package com.linkedin.datahub.upgrade.system.restoreindices.graph.edgestatus;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -11,15 +11,16 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A job that reindexes all domain aspects as part of reindexing descriptions This is required to
- * fix the analytics for domains
+ * A job that reindexes all status aspects as part of the graph edges containing status information.
+ * This is required to make sure previously written status information is present in the graph
+ * index.
  */
 @Slf4j
-public class ReindexDomainDescription implements NonBlockingSystemUpgrade {
+public class ReindexEdgeStatus implements NonBlockingSystemUpgrade {
 
   private final List<UpgradeStep> _steps;
 
-  public ReindexDomainDescription(
+  public ReindexEdgeStatus(
       @Nonnull OperationContext opContext,
       EntityService<?> entityService,
       AspectDao aspectDao,
@@ -30,7 +31,7 @@ public class ReindexDomainDescription implements NonBlockingSystemUpgrade {
     if (enabled) {
       _steps =
           ImmutableList.of(
-              new ReindexDomainDescriptionStep(
+              new ReindexReindexEdgeStatusStep(
                   opContext, entityService, aspectDao, batchSize, batchDelayMs, limit));
     } else {
       _steps = ImmutableList.of();
