@@ -1,7 +1,8 @@
-import { Tabs, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
+import { useHistory, useLocation } from 'react-router';
+import { Tabs } from 'antd';
+import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { useUserContext } from '../../context/useUserContext';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import { useAppConfig } from '../../useAppConfig';
@@ -34,8 +35,8 @@ const StyledTabs = styled(Tabs)<{ isThemeV2: boolean }>`
         }
     `}
 
-    .ant-tabs-nav {
-        margin: 0;
+    .ant-tabs-nav-wrap {
+        margin: 0px 20px;
     }
 
     .ant-tabs-content-holder {
@@ -45,23 +46,6 @@ const StyledTabs = styled(Tabs)<{ isThemeV2: boolean }>`
     .ant-tabs-tabpane {
         height: 100%;
     }
-`;
-
-export const PageHeading = styled(Typography.Text)`
-    font-size: 24px;
-    font-weight: 700;
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
-`;
-
-export const SubHeader = styled(Typography.Text)`
-    font-size: 14px;
-    color: ${REDESIGN_COLORS.SUB_TEXT};
-`;
-
-const StyledHeader = styled(Header)`
-    flex-direction: column;
-    justify-content: center;
-    align-items: unset;
 `;
 
 const documentationTabs = [
@@ -127,10 +111,12 @@ export const TabLayout = () => {
     // Render the dashboard
     return (
         <Layout>
-            <StyledHeader>
-                <PageHeading>Compliance Forms</PageHeading>
-                <SubHeader>Create and manage compliance initiatives for your data assets</SubHeader>
-            </StyledHeader>
+            <Header>
+                <PageTitle
+                    title="Compliance Forms"
+                    subTitle="Create and manage compliance initiatives for your data assets"
+                />
+            </Header>
             {formCreationEnabled ? (
                 <StyledTabs activeKey={currentTab} isThemeV2={isThemeV2} onChange={handleTabChange}>
                     {documentationTabs.map((tab) => {

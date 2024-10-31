@@ -1,33 +1,33 @@
 import { useApolloClient } from '@apollo/client';
 import { PlusCircleOutlined } from '@ant-design/icons';
-import DomainsTitle from '@app/domainV2/nestedDomains/DomainsTitle';
 import { Button, Tooltip } from 'antd';
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { PageRoutes } from '../../../conf/Global';
 import CreateDomainModal from '../CreateDomainModal';
 import { updateListDomainsCache } from '../utils';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 const Wrapper = styled.div`
-    display: inline-flex;
-    gap: 10px;
-
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
     font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
 `;
 
 const StyledButton = styled(Button)`
-    padding: 0;
+    padding: 0px 8px;
     border: none;
     box-shadow: none;
     color: inherit;
     font-size: inherit;
 `;
 
-const StyledLink = styled(Link)`
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+const DomainTitle = styled.div`
+    font-size: 16px;
+    font-weight: bold;
+    color: #374066;
 `;
 
 export default function DomainsSidebarHeader() {
@@ -36,9 +36,7 @@ export default function DomainsSidebarHeader() {
 
     return (
         <Wrapper>
-            <StyledLink to={`${PageRoutes.DOMAINS}`}>
-                <DomainsTitle />
-            </StyledLink>
+            <DomainTitle>Domains</DomainTitle>
             <Tooltip showArrow={false} title="Create new Domain" placement="right">
                 <StyledButton onClick={() => setIsCreatingDomain(true)}>
                     <PlusCircleOutlined style={{ fontSize: 'inherit' }} />

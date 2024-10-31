@@ -5,7 +5,7 @@ import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 export const Layout = styled.div`
     overflow: hidden;
-    margin: 0 12px 12px 0;
+    margin: 0 16px 12px 0;
     border-radius: 8px;
     display: flex;
     flex: 1;
@@ -18,7 +18,7 @@ export const Header = styled.div`
     min-height: 85px;
     align-items: center;
     justify-content: space-between;
-    padding: 0 1rem;
+    padding: 16px 20px 20px 20px;
 `;
 
 export const TabsContainer = styled.div<{ isThemeV2: boolean; formCreationEnabled: boolean }>`

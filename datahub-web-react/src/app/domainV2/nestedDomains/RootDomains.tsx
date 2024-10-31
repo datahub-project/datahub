@@ -10,18 +10,19 @@ import EmptyDomainDescription from '../EmptyDomainDescription';
 
 const DomainsWrapper = styled.div`
     overflow: auto;
-    padding: 0 28px 16px 28px;
+    padding: 0 20px 12px 20px;
 `;
 
 const ResultWrapper = styled.div`
-    padding: 20px;
-    margin: 16px;
+    padding: 16px;
+    margin: 0px;
     display: flex;
     align-items: center;
     background-color: #ffffff;
-    border-radius: 8px;
+    border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
+    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+    border: 1px solid #ebecf0;
 `;
 
 interface Props {

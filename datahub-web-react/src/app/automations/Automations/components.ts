@@ -53,8 +53,7 @@ export const AutomationsContentHeader = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 30px;
-    border-bottom: 1px solid ${sharedStyles.borderColor};
+    padding: 16px 20px 20px 20px;
 
     & h1 {
         color: ${sharedStyles.headingColor};
@@ -74,7 +73,7 @@ export const AutomationsContentHeader = styled.div`
 // Page Body
 
 export const AutomationsContentBody = styled.div`
-    padding: 16px 30px;
+    padding: 0px 20px;
 `;
 
 export const AutomationsBody = styled.div`

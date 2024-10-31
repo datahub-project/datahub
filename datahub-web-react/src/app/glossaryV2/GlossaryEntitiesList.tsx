@@ -33,8 +33,6 @@ const EntitiesWrapper = styled.div<EntitiesWrapperProps>`
     display: flex;
     overflow: auto;
     flex-wrap: wrap;
-    padding: ${(props) => (props.type === EntityType.GlossaryNode && !props.entityData.urn ? '25px 29px' : 0)};
-    gap: ${(props) => (props.type === EntityType.GlossaryNode && !props.entityData.urn ? '14px' : 'unset')};
 `;
 
 const EntityTitle = styled(Typography)`

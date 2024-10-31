@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { uniq, orderBy } from 'lodash';
-
+import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { Button } from '@components';
 import {
     AutomationsPageContainer,
@@ -76,10 +76,7 @@ const AutomationPage = React.memo(() => {
                 )}
                 <AutomationsContent>
                     <AutomationsContentHeader>
-                        <div>
-                            <h1>Automations</h1>
-                            <p>Manage automated actions across your data assets</p>
-                        </div>
+                        <PageTitle title="Automations" subTitle="Manage automated actions across your data assets" />
                         <div>
                             <Button size="lg" icon="Add" onClick={() => setIsCreateOpen(!isCreateOpen)}>
                                 Create

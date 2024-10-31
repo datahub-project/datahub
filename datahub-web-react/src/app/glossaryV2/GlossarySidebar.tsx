@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Button, Tooltip } from 'antd';
 import { PlusCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-import { Link } from 'react-router-dom';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
 import GlossarySearch from './GlossarySearch';
@@ -25,16 +24,18 @@ const SidebarTitleWrapper = styled.div`
     font-size: 20px;
 `;
 
-const StyledLink = styled(Link)`
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
-`;
-
 const StyledButton = styled(Button)`
     padding: 0;
     border: none;
     box-shadow: none;
     color: inherit;
     font-size: inherit;
+`;
+
+const GlossaryTitle = styled.div`
+    font-size: 16px;
+    font-weight: bold;
+    color: #374066;
 `;
 
 export default function GlossarySidebar() {
@@ -51,7 +52,7 @@ export default function GlossarySidebar() {
         <>
             <SidebarWrapper width={width} data-testid="glossary-browser-sidebar">
                 <SidebarTitleWrapper>
-                    <StyledLink to="/glossary">Business Glossary</StyledLink>
+                    <GlossaryTitle>Business Glossary</GlossaryTitle>
                     <Tooltip title="Create Glossary" placement="left" showArrow={false}>
                         <StyledButton onClick={() => setIsCreateNodeModalVisible(true)}>
                             <PlusCircleOutlined style={{ fontSize: 'inherit' }} />

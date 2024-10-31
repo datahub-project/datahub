@@ -1,18 +1,17 @@
-import { useApolloClient } from '@apollo/client';
 import React, { useEffect, useState } from 'react';
-import { Button } from '@src/alchemy-components';
 import styled from 'styled-components/macro';
-import DomainsTitle from './DomainsTitle';
+import { Button } from '@src/alchemy-components';
+import { PageTitle } from '@src/alchemy-components/components/PageTitle';
+import { useApolloClient } from '@apollo/client';
 import RootDomains from './RootDomains';
 import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '../../onboarding/config/DomainsOnboardingConfig';
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
-import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 import CreateDomainModal from '../CreateDomainModal';
 import { updateListDomainsCache } from '../utils';
 import { useDomainsContext as useDomainsContextV2 } from '../DomainsContext';
 
 const PageWrapper = styled.div`
-    background-color: ${ANTD_GRAY_V2[1]};
+    background-color: #ffffff;
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -24,8 +23,7 @@ const PageWrapper = styled.div`
 const Header = styled.div`
     display: flex;
     justify-content: space-between;
-    padding: 32px 24px;
-    font-size: 30px;
+    padding: 16px 20px 20px 20px;
     align-items: center;
 `;
 
@@ -42,7 +40,7 @@ export default function ManageDomainsPageV2() {
         <PageWrapper>
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <Header>
-                <DomainsTitle />
+                <PageTitle title="Domains" subTitle="Group your data assets using hierarchical collections" />
                 <Button
                     id={DOMAINS_CREATE_DOMAIN_ID}
                     onClick={() => setIsCreatingDomain(true)}

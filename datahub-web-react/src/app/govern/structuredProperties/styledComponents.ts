@@ -5,7 +5,7 @@ import styled from 'styled-components';
 export const PageContainer = styled.div`
     overflow: auto;
     margin: 0 12px 12px 0;
-    padding: 16px;
+    padding: 16px 20px 20px 20px;
     border-radius: 8px;
     display: flex;
     flex: 1;

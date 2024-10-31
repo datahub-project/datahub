@@ -23,7 +23,7 @@ const GlossaryItem = styled.div`
     height: 100%;
     position: relative;
     overflow: hidden;
-    padding: 20px 20px 20px 20px;
+    padding: 8px;
 
     .anticon-folder {
         margin-right: 8px;
@@ -53,7 +53,7 @@ const ItemWrapper = styled.div<ItemWrapperProps>`
     &:hover {
         transition: 0.15s;
         background-color: ${REDESIGN_COLORS.LIGHT_GREY};
-        border-radius: 4px;
+        border-radius: 16px;
     }
 `;
 

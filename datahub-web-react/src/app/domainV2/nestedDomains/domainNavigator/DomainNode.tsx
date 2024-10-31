@@ -203,12 +203,7 @@ export default function DomainNode({
                                 mouseEnterDelay={0.7}
                                 mouseLeaveDelay={0}
                             >
-                                <DomainColoredIcon
-                                    domain={domain}
-                                    size={30}
-                                    fontSize={14}
-                                    iconColor={isDomainNodeSelected ? SEARCH_COLORS.TITLE_PURPLE : undefined}
-                                />
+                                <DomainColoredIcon domain={domain} size={30} fontSize={14} />
                             </Tooltip>
                             <DisplayName $isSelected={isDomainNodeSelected && !isCollapsed}>
                                 {!isCollapsed && displayName}

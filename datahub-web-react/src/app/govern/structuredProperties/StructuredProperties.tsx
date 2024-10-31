@@ -1,11 +1,12 @@
+import React, { useState } from 'react';
 import { SearchOutlined } from '@ant-design/icons';
-import { Button, Pill, Text } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType, SearchResult } from '@src/types.generated';
+import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { Tooltip } from 'antd';
-import React, { useState } from 'react';
 import StructuredPropsDrawer from './StructuredPropsDrawer';
 import StructuredPropsTable from './StructuredPropsTable';
 import {
@@ -15,7 +16,6 @@ import {
     PageContainer,
     StyledSearch,
     TableContainer,
-    TitleContainer,
 } from './styledComponents';
 
 const StructuredProperties = () => {
@@ -52,15 +52,11 @@ const StructuredProperties = () => {
         <PageContainer>
             <HeaderContainer>
                 <HeaderContent>
-                    <TitleContainer>
-                        <Text size="xl" weight="bold">
-                            Structured Properties
-                        </Text>
-                        {!!noOfProperties && <Pill label={noOfProperties.toString()} size="sm" clickable={false} />}
-                    </TitleContainer>
-                    <Text color="gray" weight="medium">
-                        Create and manage custom properties for your organization&apos;s data assets
-                    </Text>
+                    <PageTitle
+                        title="Structured Properties"
+                        pillLabel={noOfProperties ? noOfProperties.toString() : undefined}
+                        subTitle="Create and manage custom properties for your data assets"
+                    />
                 </HeaderContent>
                 <Tooltip
                     showArrow={false}

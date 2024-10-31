@@ -33,20 +33,19 @@ const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     align-items: center;
     justify-content: ${(props) => (props.isCollapsed ? 'end' : 'space-between')};
-    padding: 15px 18px 10px 12px;
+    padding: 15px 16px 10px 12px;
     overflow: hidden;
     height: 50px;
 `;
 
 const CloseButton = styled(Button)<{ $isActive }>`
     margin: 0px;
-    padding: 2px 6px;
+    padding: 2px 0px;
     display: flex;
     align-items: center;
     transition: transform ${PLATFORM_BROWSE_TRANSITION_MS}ms ease;
-
     && {
-        color: ${(props) => (props.$isActive ? ANTD_GRAY[9] : ANTD_GRAY[8])};
+        color: ${(props) => (props.$isActive ? ANTD_GRAY[9] : '#8088a3')};
     }
 `;
 

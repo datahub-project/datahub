@@ -1,12 +1,12 @@
-import { Button, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+import { Button } from 'antd';
+import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
 import { GetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
 import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
 import AddGlossaryIcon from '../../images/add-term-group.svg?react';
 import { GlossaryNode, GlossaryTerm } from '../../types.generated';
-import TabToolbar from '../entityV2/shared/components/styled/TabToolbar';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID } from '../onboarding/config/BusinessGlossaryOnboardingConfig';
 import EmptyGlossarySection from './EmptyGlossarySection';
@@ -18,32 +18,11 @@ const MainContentWrapper = styled.div`
     flex-direction: column;
 `;
 
-export const HeaderWrapper = styled(TabToolbar)`
-    padding: 17px 15px 19px 24px;
-    height: auto;
-    box-shadow: none;
-    margin: 0 !important;
-    border-bottom: 1px solid ${REDESIGN_COLORS.BORDER_2};
-`;
-
-const TitleContainer = styled.div`
+export const HeaderWrapper = styled.div`
+    padding: 16px 20px 12px 20px;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-`;
-
-const Title = styled(Typography.Text)`
-    margin-bottom: 0 !important;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
-    font-size: 16px;
-    font-weight: 700;
-`;
-
-const Subtitle = styled(Typography.Text)`
-    font-size: 12px;
-    font-weight: 400;
-    line-height: 13px;
-    color: ${REDESIGN_COLORS.SUB_TEXT};
+    align-items: center;
+    justify-content: space-between;
 `;
 
 const ButtonContainer = styled.div`
@@ -78,6 +57,10 @@ const ButtonContent = styled.div`
     align-items: center;
 `;
 
+const ListWrapper = styled.div`
+    padding: 4px 12px 12px 12px;
+`;
+
 interface Props {
     setIsCreateNodeModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
     hasTermsOrNodes: boolean;
@@ -105,11 +88,11 @@ const GlossaryContentProvider = (props: Props) => {
 
     return (
         <MainContentWrapper data-testid="glossary-entities-list">
-            <HeaderWrapper>
-                <TitleContainer data-testid="glossaryPageV2">
-                    <Title>Business Glossary</Title>
-                    <Subtitle>View and modify your glossaries</Subtitle>
-                </TitleContainer>
+            <HeaderWrapper data-testid="glossaryPageV2">
+                <PageTitle
+                    title="Business Glossary"
+                    subTitle="Classify your data assets and columns using data dictionaries"
+                />
                 <ButtonContainer>
                     <PrimaryButton
                         data-testid="add-term-group-button-v2"
@@ -126,13 +109,15 @@ const GlossaryContentProvider = (props: Props) => {
                     </PrimaryButton>
                 </ButtonContainer>
             </HeaderWrapper>
-            {hasTermsOrNodes && (
-                <GlossaryEntitiesList
-                    nodes={nodes || []}
-                    terms={terms || []}
-                    termsTotal={termsData?.getRootGlossaryTerms?.total}
-                />
-            )}
+            <ListWrapper>
+                {hasTermsOrNodes && (
+                    <GlossaryEntitiesList
+                        nodes={nodes || []}
+                        terms={terms || []}
+                        termsTotal={termsData?.getRootGlossaryTerms?.total}
+                    />
+                )}
+            </ListWrapper>
             {!(termsLoading || nodesLoading) && !hasTermsOrNodes && (
                 <EmptyGlossarySection
                     title="Empty Glossary"
