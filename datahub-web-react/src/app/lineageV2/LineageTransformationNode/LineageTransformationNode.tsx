@@ -117,6 +117,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             dragging={dragging}
             onMouseEnter={() => setHoveredNode(urn)}
             onMouseLeave={() => setHoveredNode(null)}
+            data-testid={`lineage-node-${urn}`}
             isGhost={isGhost}
             isSearchedEntity={isSearchedEntity}
             type={type}

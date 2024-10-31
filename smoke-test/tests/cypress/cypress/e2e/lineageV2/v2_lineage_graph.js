@@ -28,7 +28,7 @@ describe("lineage_graph", () => {
   });
   it("can see full history", () => {
     cy.login();
-    cy.goToEntityLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
+    cy.goToEntityLineageGraphV2(DATASET_ENTITY_TYPE, DATASET_URN);
 
     cy.contains("SampleCypressKafka").should("be.visible");
     cy.contains("SampleCypressHdfs");
@@ -38,7 +38,7 @@ describe("lineage_graph", () => {
 
   it("cannot see any lineage edges for 2021", () => {
     cy.login();
-    cy.goToEntityLineageGraph(
+    cy.goToEntityLineageGraphV2(
       DATASET_ENTITY_TYPE,
       DATASET_URN,
       JAN_1_2021_TIMESTAMP,
@@ -54,7 +54,7 @@ describe("lineage_graph", () => {
   it("can see when the inputs to a data job change", () => {
     cy.login();
     // Between 14 days ago and 7 days ago, only transactions was an input
-    cy.goToEntityLineageGraph(
+    cy.goToEntityLineageGraphV2(
       TASKS_ENTITY_TYPE,
       TRANSACTION_ETL_URN,
       TIMESTAMP_MILLIS_14_DAYS_AGO,
@@ -66,7 +66,7 @@ describe("lineage_graph", () => {
     cy.contains("transactions");
     cy.contains("user_profile").should("not.exist");
     // 1 day ago, user_profile was also added as an input
-    cy.goToEntityLineageGraph(
+    cy.goToEntityLineageGraphV2(
       TASKS_ENTITY_TYPE,
       TRANSACTION_ETL_URN,
       TIMESTAMP_MILLIS_7_DAYS_AGO,
@@ -82,7 +82,7 @@ describe("lineage_graph", () => {
   it("can see when a data job is replaced", () => {
     cy.login();
     // Between 14 days ago and 7 days ago, only temperature_etl_1 was an iput
-    cy.goToEntityLineageGraph(
+    cy.goToEntityLineageGraphV2(
       DATASET_ENTITY_TYPE,
       MONTHLY_TEMPERATURE_DATASET_URN,
       TIMESTAMP_MILLIS_14_DAYS_AGO,
@@ -92,7 +92,7 @@ describe("lineage_graph", () => {
     // cy.contains("temperature_etl_1");
     cy.contains("temperature_etl_2").should("not.exist");
     // Since 7 days ago, temperature_etl_1 has been replaced by temperature_etl_2
-    cy.goToEntityLineageGraph(
+    cy.goToEntityLineageGraphV2(
       DATASET_ENTITY_TYPE,
       MONTHLY_TEMPERATURE_DATASET_URN,
       TIMESTAMP_MILLIS_7_DAYS_AGO,
@@ -106,7 +106,7 @@ describe("lineage_graph", () => {
   it("can see when a dataset join changes", () => {
     cy.login();
     // 8 days ago, both gdp and factor_income were joined to create gnp
-    cy.goToEntityLineageGraph(
+    cy.goToEntityLineageGraphV2(
       DATASET_ENTITY_TYPE,
       GNP_DATASET_URN,
       TIMESTAMP_MILLIS_14_DAYS_AGO,
@@ -116,7 +116,7 @@ describe("lineage_graph", () => {
     cy.contains("gdp");
     cy.contains("factor_income");
     // 1 day ago, factor_income was removed from the join
-    cy.goToEntityLineageGraph(
+    cy.goToEntityLineageGraphV2(
       DATASET_ENTITY_TYPE,
       GNP_DATASET_URN,
       TIMESTAMP_MILLIS_7_DAYS_AGO,

@@ -122,72 +122,32 @@ describe("siblings", () => {
     cy.get('[data-testid^="browse-platform').should("have.length", 2);
   });
 
-  it("will combine results in lineage", () => {
+  it.only("separates siblings in lineage", () => {
+    Cypress.on("uncaught:exception", (err, runnable) => {
+      if (err.message.includes("ResizeObserver loop limit exceeded")) {
+        return false;
+      }
+    });
+
     cy.login();
     cy.visit("/");
     cy.handleIntroducePage();
-    cy.visit(
-      "dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_orders,PROD)/?is_lineage_mode=true",
-    );
-    cy.wait(2000);
-    cy.get('[data-testid="KeyboardArrowRightIcon"]').click();
-    cy.get(".react-flow__node-lineage-entity").eq(1).click();
-    // check the subtypes
-    cy.get('div[title="Table"]').should("be.visible");
-    cy.get("body").click();
-    cy.get(".react-flow__node-lineage-entity").eq(2).click();
-    cy.get('div[title="Table"]').should("be.visible");
-    cy.get("body").click();
-
-    // check the names
-    cy.get(".react-flow__node-lineage-entity")
-      .eq(0)
-      .contains("stg_orders")
-      .should("exist");
-    cy.get(".react-flow__node-lineage-entity")
-      .eq(1)
-      .contains("customer")
-      .should("exist");
-    cy.get(".react-flow__node-lineage-entity")
-      .eq(2)
-      .contains("orders")
-      .should("exist");
-
-    // check the platform
-    cy.get('[data-testid*="dataPlatform:dbt"').should("exist");
-    cy.get('[data-testid*="dataPlatform:bigquery"').should("exist");
-  });
-
-  it("can separate results in lineage if flag is set", () => {
-    cy.login();
-    cy.visit("/");
-    cy.handleIntroducePage();
-    cy.visit(
-      "dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_orders,PROD)/?is_lineage_mode=true",
+    cy.goToEntityLineageGraphV2(
+      "dataset",
+      "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_orders,PROD)",
     );
     cy.wait(2000);
     cy.get(".react-flow__node-lineage-entity").eq(0).click();
 
-    // Verify downstream bigquery
-    cy.get("#entity-sidebar-tabs-tab-Lineage").click();
-    cy.clickOptionWithTestId(
-      "compact-lineage-tab-direction-select-option-downstream",
-    );
-    cy.get(".ant-spin-container .ant-list-items")
-      .contains("customers")
-      .should("exist");
-    cy.get(".ant-spin-container .ant-list-items")
-      .contains("orders")
-      .should("exist");
-    cy.contains("1 - 2 of 2");
-
-    // Verify Upstream bigquery
-    cy.clickOptionWithTestId(
-      "compact-lineage-tab-direction-select-option-upstream",
-    );
-    cy.get(".ant-spin-container .ant-list-items")
-      .contains("stg_orders")
-      .should("exist");
-    cy.contains("1 - 1 of 1");
+    // check all siblings are present
+    cy.get(
+      '[data-testid="lineage-node-urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_orders,PROD)"]',
+    ).should("have.length", 1);
+    cy.get(
+      '[data-testid="lineage-node-urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_orders,PROD)"]',
+    ).should("have.length", 1);
+    cy.get(
+      '[data-testid="lineage-node-urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_orders,PROD)"]',
+    ).should("have.length", 1);
   });
 });

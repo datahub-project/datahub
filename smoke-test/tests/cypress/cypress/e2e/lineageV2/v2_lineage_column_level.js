@@ -14,7 +14,7 @@ describe("column-level lineage graph test", () => {
   });
   it("navigate to lineage graph view and verify that column-level lineage is showing correctly", () => {
     cy.login();
-    cy.goToEntityLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
+    cy.goToEntityLineageGraphV2(DATASET_ENTITY_TYPE, DATASET_URN);
     cy.wait(2000);
     //verify columns not shown by default
     cy.waitTextVisible("SampleCypressHdfs");

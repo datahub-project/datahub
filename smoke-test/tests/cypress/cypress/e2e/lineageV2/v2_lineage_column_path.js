@@ -1,4 +1,5 @@
 import { aliasQuery } from "../utils";
+
 const DATASET_ENTITY_TYPE = "dataset";
 const DATASET_URN =
   "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)";
@@ -39,7 +40,7 @@ describe("column-Level lineage and impact analysis path test", () => {
     // Open dataset with column-level lineage configured an navigate to lineage tab -> visualize lineage
     cy.loginWithCredentials();
     cy.handleIntroducePage();
-    cy.goToEntityLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
+    cy.goToEntityLineageGraphV2(DATASET_ENTITY_TYPE, DATASET_URN);
 
     // Enable “show columns” toggle
     cy.waitTextVisible("SampleCypressHdfs");

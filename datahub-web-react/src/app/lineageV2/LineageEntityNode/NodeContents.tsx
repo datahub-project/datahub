@@ -343,6 +343,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
             expandHeight={expandHeight}
             color={nodeColor}
             $transitionDuration={transitionDuration}
+            data-testid={`lineage-node-${urn}`}
             isGhost={isGhost}
             isSearchedEntity={isSearchedEntity}
         >

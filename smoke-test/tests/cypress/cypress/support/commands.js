@@ -162,6 +162,19 @@ Cypress.Commands.add(
   },
 );
 
+Cypress.Commands.add("goToEntityLineageGraphV2", (entity_type, urn) => {
+  cy.visit(`/${entity_type}/${urn}/Lineage`);
+});
+
+Cypress.Commands.add(
+  "goToEntityLineageGraphV2",
+  (entity_type, urn, start_time_millis, end_time_millis) => {
+    cy.visit(
+      `/${entity_type}/${urn}/Lineage?start_time_millis=${start_time_millis}&end_time_millis=${end_time_millis}`,
+    );
+  },
+);
+
 Cypress.Commands.add("lineageTabClickOnUpstream", () => {
   cy.get(
     '[data-testid="lineage-tab-direction-select-option-downstream"] > b',
