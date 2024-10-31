@@ -1,6 +1,13 @@
 .container {
   display: flex;
   flex-direction: column;
+  >a {
+    text-decoration: none;
+    text-align: center;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+  }
 
   .section_header {
     color: var(--primitives-text-tex-subtext, #777E99);
