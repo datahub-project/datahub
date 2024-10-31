@@ -31,6 +31,7 @@ public class KafkaEmitter implements Emitter {
   private final Properties kafkaConfigProperties;
   private AvroSerializer _avroSerializer;
   private static final int ADMIN_CLIENT_TIMEOUT_MS = 5000;
+  private final String mcpKafkaTopic;
 
   /**
    * The default constructor
@@ -54,6 +55,34 @@ public class KafkaEmitter implements Emitter {
 
     producer = new KafkaProducer<>(kafkaConfigProperties);
     _avroSerializer = new AvroSerializer();
+    this.mcpKafkaTopic = DEFAULT_MCP_KAFKA_TOPIC;
+  }
+
+  /**
+   * Constructor that takes in KafkaEmitterConfig
+   * and custom mcp Kafka Topic Name
+   *
+   * @param config
+   * @throws IOException
+   */
+  public KafkaEmitter(KafkaEmitterConfig config,
+                      String mcpKafkaTopic) throws IOException {
+    this.config = config;
+    kafkaConfigProperties = new Properties();
+    kafkaConfigProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, this.config.getBootstrap());
+    kafkaConfigProperties.put(
+            ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+            org.apache.kafka.common.serialization.StringSerializer.class);
+    kafkaConfigProperties.put(
+            ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+            io.confluent.kafka.serializers.KafkaAvroSerializer.class);
+    kafkaConfigProperties.put("schema.registry.url", this.config.getSchemaRegistryUrl());
+    kafkaConfigProperties.putAll(config.getSchemaRegistryConfig());
+    kafkaConfigProperties.putAll(config.getProducerConfig());
+
+    producer = new KafkaProducer<>(kafkaConfigProperties);
+    _avroSerializer = new AvroSerializer();
+    this.mcpKafkaTopic = mcpKafkaTopic;
   }
 
   @Override
@@ -74,7 +103,7 @@ public class KafkaEmitter implements Emitter {
     GenericRecord genricRecord = _avroSerializer.serialize(mcp);
     ProducerRecord<Object, Object> record =
         new ProducerRecord<>(
-            KafkaEmitter.DEFAULT_MCP_KAFKA_TOPIC, mcp.getEntityUrn().toString(), genricRecord);
+                this.mcpKafkaTopic, mcp.getEntityUrn().toString(), genricRecord);
     org.apache.kafka.clients.producer.Callback callback =
         new org.apache.kafka.clients.producer.Callback() {
 
