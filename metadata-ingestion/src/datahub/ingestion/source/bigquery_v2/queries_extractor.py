@@ -278,7 +278,7 @@ class BigQueryQueriesExtractor(Closeable):
         with self.report.audit_log_load_timer, queries_deduped:
             last_log_time = datetime.now()
             last_report_time = datetime.now()
-            for _, query_instances in queries_deduped.items():
+            for i, (_, query_instances) in enumerate(queries_deduped.items()):
                 for query in query_instances.values():
                     now = datetime.now()
                     if (now - last_log_time).total_seconds() >= 60:
