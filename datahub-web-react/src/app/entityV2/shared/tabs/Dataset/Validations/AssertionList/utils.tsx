@@ -50,13 +50,13 @@ const ASSERTION_TYPE_NAME_MAP = {
     DATA_SCHEMA: 'Schema',
     Unknown: 'Unknown',
 };
-const INACTIVE_STATUS = 'INACTIVE';
+const NO_STATUS = 'NO_STATUS';
 
 const ASSERTION_STATUS_NAME_MAP = {
     FAILURE: 'Failing',
     SUCCESS: 'Passing',
     ERROR: 'Error',
-    [INACTIVE_STATUS]: 'Inactive',
+    [NO_STATUS]: 'No Status',
 };
 
 const STATUS_GROUP_NAME_MAP = { ...ASSERTION_TYPE_NAME_MAP, ...ASSERTION_STATUS_NAME_MAP };
@@ -186,7 +186,7 @@ const CORE_STATUSES = [AssertionResultType.Failure, AssertionResultType.Error, A
 
 // Generate Assertion Group By Status
 const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[]): AssertionStatusGroup[] => {
-    const assertionStatus = [...CORE_STATUSES, AssertionResultType.Init, INACTIVE_STATUS];
+    const assertionStatus = [...CORE_STATUSES, AssertionResultType.Init, NO_STATUS];
 
     const assertionGroup: AssertionStatusGroup[] = [];
 
@@ -194,7 +194,7 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
         const filteredAssertions = assertions.filter((assertion) => {
             const mostRecentRun = assertion.runEvents?.runEvents?.[0];
             const resultType = mostRecentRun?.result?.type;
-            if (status === INACTIVE_STATUS) {
+            if (status === NO_STATUS) {
                 return assertion.info?.type && resultType === undefined;
             }
             return assertion.info?.type && resultType === status;
