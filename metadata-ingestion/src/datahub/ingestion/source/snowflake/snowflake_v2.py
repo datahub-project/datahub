@@ -1,3 +1,4 @@
+import contextlib
 import functools
 import json
 import logging
@@ -149,7 +150,12 @@ class SnowflakeV2Source(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
-        self.connection = self.config.get_connection()
+        # The exit stack helps ensure that we close all the resources we open.
+        self._exit_stack = contextlib.ExitStack()
+
+        self.connection: SnowflakeConnection = self._exit_stack.enter_context(
+            self.config.get_connection()
+        )
 
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary(connection=self.connection)
@@ -157,25 +163,27 @@ class SnowflakeV2Source(
         self.aggregator: Optional[SqlParsingAggregator] = None
 
         if self.config.use_queries_v2 or self.config.include_table_lineage:
-            self.aggregator = SqlParsingAggregator(
-                platform=self.identifiers.platform,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-                graph=self.ctx.graph,
-                eager_graph_load=(
-                    # If we're ingestion schema metadata for tables/views, then we will populate
-                    # schemas into the resolver as we go. We only need to do a bulk fetch
-                    # if we're not ingesting schema metadata as part of ingestion.
-                    not (
-                        self.config.include_technical_schema
-                        and self.config.include_tables
-                        and self.config.include_views
-                    )
-                    and not self.config.lazy_schema_resolver
-                ),
-                generate_usage_statistics=False,
-                generate_operations=False,
-                format_queries=self.config.format_sql_queries,
+            self.aggregator = self._exit_stack.enter_context(
+                SqlParsingAggregator(
+                    platform=self.identifiers.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                    graph=self.ctx.graph,
+                    eager_graph_load=(
+                        # If we're ingestion schema metadata for tables/views, then we will populate
+                        # schemas into the resolver as we go. We only need to do a bulk fetch
+                        # if we're not ingesting schema metadata as part of ingestion.
+                        not (
+                            self.config.include_technical_schema
+                            and self.config.include_tables
+                            and self.config.include_views
+                        )
+                        and not self.config.lazy_schema_resolver
+                    ),
+                    generate_usage_statistics=False,
+                    generate_operations=False,
+                    format_queries=self.config.format_sql_queries,
+                )
             )
             self.report.sql_aggregator = self.aggregator.report
 
@@ -191,14 +199,16 @@ class SnowflakeV2Source(
                     pipeline_name=self.ctx.pipeline_name,
                     run_id=self.ctx.run_id,
                 )
-            self.lineage_extractor = SnowflakeLineageExtractor(
-                config,
-                self.report,
-                connection=self.connection,
-                filters=self.filters,
-                identifiers=self.identifiers,
-                redundant_run_skip_handler=redundant_lineage_run_skip_handler,
-                sql_aggregator=self.aggregator,
+            self.lineage_extractor = self._exit_stack.enter_context(
+                SnowflakeLineageExtractor(
+                    config,
+                    self.report,
+                    connection=self.connection,
+                    filters=self.filters,
+                    identifiers=self.identifiers,
+                    redundant_run_skip_handler=redundant_lineage_run_skip_handler,
+                    sql_aggregator=self.aggregator,
+                )
             )
 
         self.usage_extractor: Optional[SnowflakeUsageExtractor] = None
@@ -213,13 +223,15 @@ class SnowflakeV2Source(
                     pipeline_name=self.ctx.pipeline_name,
                     run_id=self.ctx.run_id,
                 )
-            self.usage_extractor = SnowflakeUsageExtractor(
-                config,
-                self.report,
-                connection=self.connection,
-                filter=self.filters,
-                identifiers=self.identifiers,
-                redundant_run_skip_handler=redundant_usage_run_skip_handler,
+            self.usage_extractor = self._exit_stack.enter_context(
+                SnowflakeUsageExtractor(
+                    config,
+                    self.report,
+                    connection=self.connection,
+                    filter=self.filters,
+                    identifiers=self.identifiers,
+                    redundant_run_skip_handler=redundant_usage_run_skip_handler,
+                )
             )
 
         self.profiling_state_handler: Optional[ProfilingHandler] = None
@@ -444,10 +456,6 @@ class SnowflakeV2Source(
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()
 
-        self.connection = self.config.get_connection()
-        if self.connection is None:
-            return
-
         self.inspect_session_metadata(self.connection)
 
         snowsight_url_builder = None
@@ -513,7 +521,7 @@ class SnowflakeV2Source(
 
             schema_resolver = self.aggregator._schema_resolver
 
-            queries_extractor = SnowflakeQueriesExtractor(
+            queries_extractor: SnowflakeQueriesExtractor = SnowflakeQueriesExtractor(
                 connection=self.connection,
                 config=SnowflakeQueriesExtractorConfig(
                     window=self.config,
@@ -535,6 +543,7 @@ class SnowflakeV2Source(
             # it should be pretty straightforward to refactor this and only initialize the aggregator once.
             self.report.queries_extractor = queries_extractor.report
             yield from queries_extractor.get_workunits_internal()
+            queries_extractor.close()
 
         else:
             if self.config.include_table_lineage and self.lineage_extractor:
@@ -723,7 +732,4 @@ class SnowflakeV2Source(
     def close(self) -> None:
         super().close()
         StatefulIngestionSourceBase.close(self)
-        if self.lineage_extractor:
-            self.lineage_extractor.close()
-        if self.usage_extractor:
-            self.usage_extractor.close()
+        self._exit_stack.close()

@@ -161,6 +161,21 @@
       display: flex;
     }
 
+    .hero__content_footer {
+      align-items: center;
+      justify-content: center;
+      display: flex;
+      width: 100%;
+      color: #FFFFFFcc;
+      margin-top: -2.5rem;
+      font-size: 1rem;
+      font-weight: 400;
+      a, path {
+        color: white;
+        font-weight: 600;
+      }
+    }
+
     // .hero__alert {
     //   margin-bottom: 2rem;
 
@@ -218,6 +233,9 @@
         }
         .hero__cta {
           margin-top: 12px;
+          .cta__primary {
+            margin-bottom: 4px;
+          }
         }
         .hero__footer_cta {
           margin-top: 12px;

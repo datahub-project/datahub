@@ -27,7 +27,8 @@ import utils.ConfigUtil;
 
 @Singleton
 public class KafkaTrackingProducer {
-  private final Logger _logger = LoggerFactory.getLogger(KafkaTrackingProducer.class.getName());
+  private static final Logger logger =
+      LoggerFactory.getLogger(KafkaTrackingProducer.class.getName());
   private static final List<String> KAFKA_SSL_PROTOCOLS =
       Collections.unmodifiableList(
           Arrays.asList(
@@ -35,38 +36,38 @@ public class KafkaTrackingProducer {
               SecurityProtocol.SASL_SSL.name(),
               SecurityProtocol.SASL_PLAINTEXT.name()));
 
-  private final Boolean _isEnabled;
-  private final KafkaProducer<String, String> _producer;
+  private final Boolean isEnabled;
+  private final KafkaProducer<String, String> producer;
 
   @Inject
   public KafkaTrackingProducer(
       @Nonnull Config config,
       ApplicationLifecycle lifecycle,
       final ConfigurationProvider configurationProvider) {
-    _isEnabled = !config.hasPath("analytics.enabled") || config.getBoolean("analytics.enabled");
+    isEnabled = !config.hasPath("analytics.enabled") || config.getBoolean("analytics.enabled");
 
-    if (_isEnabled) {
-      _logger.debug("Analytics tracking is enabled");
-      _producer = createKafkaProducer(config, configurationProvider.getKafka());
+    if (isEnabled) {
+      logger.debug("Analytics tracking is enabled");
+      producer = createKafkaProducer(config, configurationProvider.getKafka());
 
       lifecycle.addStopHook(
           () -> {
-            _producer.flush();
-            _producer.close();
+            producer.flush();
+            producer.close();
             return CompletableFuture.completedFuture(null);
           });
     } else {
-      _logger.debug("Analytics tracking is disabled");
-      _producer = null;
+      logger.debug("Analytics tracking is disabled");
+      producer = null;
     }
   }
 
   public Boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   public void send(ProducerRecord<String, String> record) {
-    _producer.send(record);
+    producer.send(record);
   }
 
   private static KafkaProducer createKafkaProducer(

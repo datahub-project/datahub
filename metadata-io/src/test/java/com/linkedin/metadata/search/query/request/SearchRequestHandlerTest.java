@@ -1,20 +1,34 @@
 package com.linkedin.metadata.search.query.request;
 
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.TestEntitySpecBuilder;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -24,6 +38,8 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,6 +51,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
@@ -626,6 +643,159 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     BoolQueryBuilder mustHaveV1 = (BoolQueryBuilder) shouldQuery.filter().get(1);
     assertEquals(((ExistsQueryBuilder) mustHaveV1.must().get(0)).fieldName(), "browsePaths");
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testInvalidStructuredProperty() {
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    Map<Urn, Map<String, Aspect>> aspectResponse = new HashMap<>();
+    DataMap statusData = new DataMap();
+    statusData.put("removed", true);
+    Aspect status = new Aspect(statusData);
+    Urn structPropUrn = StructuredPropertyUtils.toURNFromFQN("under.scores.and.dots.make_a_mess");
+    aspectResponse.put(structPropUrn, ImmutableMap.of(STATUS_ASPECT_NAME, status));
+    when(aspectRetriever.getLatestAspectObjects(
+            Collections.singleton(structPropUrn), ImmutableSet.of(STATUS_ASPECT_NAME)))
+        .thenReturn(aspectResponse);
+    OperationContext mockRetrieverContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            RetrieverContext.builder()
+                .aspectRetriever(aspectRetriever)
+                .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
+                .build());
+
+    Criterion structuredPropCriterion =
+        buildExistsCriterion("structuredProperties.under.scores.and.dots.make_a_mess");
+
+    CriterionArray criterionArray = new CriterionArray();
+    criterionArray.add(structuredPropCriterion);
+
+    ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
+    conjunctiveCriterion.setAnd(criterionArray);
+
+    ConjunctiveCriterionArray conjunctiveCriterionArray = new ConjunctiveCriterionArray();
+    conjunctiveCriterionArray.add(conjunctiveCriterion);
+
+    Filter filter = new Filter();
+    filter.setOr(conjunctiveCriterionArray);
+
+    BoolQueryBuilder test =
+        SearchRequestHandler.getFilterQuery(
+            mockRetrieverContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            filter,
+            new HashMap<>(),
+            QueryFilterRewriteChain.EMPTY);
+  }
+
+  @Test
+  public void testQueryByDefault() {
+    final Set<String> COMMON =
+        Set.of(
+            "container",
+            "fieldDescriptions",
+            "description",
+            "platform",
+            "fieldPaths",
+            "editedFieldGlossaryTerms",
+            "editedFieldDescriptions",
+            "fieldTags",
+            "id",
+            "editedDescription",
+            "qualifiedName",
+            "domains",
+            "platformInstance",
+            "tags",
+            "urn",
+            "customProperties",
+            "fieldGlossaryTerms",
+            "editedName",
+            "name",
+            "fieldLabels",
+            "glossaryTerms",
+            "editedFieldTags",
+            "displayName",
+            "title");
+
+    Map<EntityType, Set<String>> expectedQueryByDefault =
+        ImmutableMap.<EntityType, Set<String>>builder()
+            .put(
+                EntityType.DASHBOARD,
+                Stream.concat(COMMON.stream(), Stream.of("tool")).collect(Collectors.toSet()))
+            .put(
+                EntityType.CHART,
+                Stream.concat(COMMON.stream(), Stream.of("tool")).collect(Collectors.toSet()))
+            .put(
+                EntityType.MLMODEL,
+                Stream.concat(COMMON.stream(), Stream.of("type")).collect(Collectors.toSet()))
+            .put(
+                EntityType.MLFEATURE_TABLE,
+                Stream.concat(COMMON.stream(), Stream.of("features", "primaryKeys"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.MLFEATURE,
+                Stream.concat(COMMON.stream(), Stream.of("featureNamespace"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.MLPRIMARY_KEY,
+                Stream.concat(COMMON.stream(), Stream.of("featureNamespace"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.DATA_FLOW,
+                Stream.concat(COMMON.stream(), Stream.of("cluster", "orchestrator", "flowId"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.DATA_JOB,
+                Stream.concat(COMMON.stream(), Stream.of("jobId")).collect(Collectors.toSet()))
+            .put(
+                EntityType.GLOSSARY_TERM,
+                Stream.concat(
+                        COMMON.stream(),
+                        Stream.of("values", "parentNode", "relatedTerms", "definition"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.GLOSSARY_NODE,
+                Stream.concat(COMMON.stream(), Stream.of("definition", "parentNode"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.CORP_USER,
+                Stream.concat(
+                        COMMON.stream(), Stream.of("skills", "teams", "ldap", "fullName", "email"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.DOMAIN,
+                Stream.concat(COMMON.stream(), Stream.of("parentDomain"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.SCHEMA_FIELD,
+                Stream.concat(COMMON.stream(), Stream.of("schemaFieldAliases", "parent"))
+                    .collect(Collectors.toSet()))
+            .build();
+
+    for (EntityType entityType : SEARCHABLE_ENTITY_TYPES) {
+      Set<String> expectedEntityQueryByDefault =
+          expectedQueryByDefault.getOrDefault(entityType, COMMON);
+      assertFalse(expectedEntityQueryByDefault.isEmpty());
+
+      EntitySpec entitySpec =
+          operationContext.getEntityRegistry().getEntitySpec(EntityTypeMapper.getName(entityType));
+      SearchRequestHandler handler =
+          SearchRequestHandler.getBuilder(
+              operationContext.getEntityRegistry(),
+              entitySpec,
+              testQueryConfig,
+              null,
+              QueryFilterRewriteChain.EMPTY);
+
+      Set<String> unexpected = new HashSet<>(handler.getDefaultQueryFieldNames());
+      unexpected.removeAll(expectedEntityQueryByDefault);
+
+      assertTrue(
+          unexpected.isEmpty(),
+          String.format(
+              "Consider whether these field(s) for entity %s should be included for general search. Fields: %s If yes, please update the test expectations. If no, please annotate the PDL model with \"queryByDefault\": false",
+              entityType, unexpected));
+    }
   }
 
   private BoolQueryBuilder getQuery(final Criterion filterCriterion) {

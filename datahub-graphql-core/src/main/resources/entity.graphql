@@ -645,7 +645,7 @@ type Mutation {
     updateERModelRelationship(
         "The urn of the ERModelRelationship to update"
         urn: String!,
-        "Input required to updat an existing DataHub View"
+        "Input required to update an existing DataHub View"
         input: ERModelRelationshipUpdateInput!): Boolean
 
     """
@@ -795,7 +795,7 @@ type Mutation {
     updateView(
       "The urn of the View to update"
       urn: String!,
-      "Input required to updat an existing DataHub View"
+      "Input required to update an existing DataHub View"
       input: UpdateViewInput!): DataHubView
 
     """
@@ -1258,6 +1258,11 @@ input LineageInput {
     An optional ending time to filter on
     """
     endTimeMillis: Long
+
+    """
+    If enabled, include entities that do not exist or are soft deleted.
+    """
+    includeGhostEntities: Boolean = false
 }
 
 """
@@ -2721,6 +2726,11 @@ enum FabricType {
     Designates review fabrics
     """
     RVW
+
+    """
+    Designates sandbox fabrics
+    """
+    SANDBOX
 }
 
 """
@@ -2826,6 +2836,11 @@ type Container implements Entity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+	The Roles and the properties to access the container
+	"""
+	access: Access
 
     """
     Experimental API.

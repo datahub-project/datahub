@@ -80,9 +80,9 @@ const DemoForm = ({ formId }) => {
     <div className={clsx(styles.formContainer)}>
       <div className={clsx(styles.formContent)}>
         <div className={clsx(styles.formHeader)}>
-          <div className={clsx(styles.formTitle)}>Book a free Demo</div>
+          <div className={clsx(styles.formTitle)}>Book a Demo</div>
           <div className={clsx(styles.formSubtitle)}>
-            Schedule a personalized demo and get a free a trial.
+            Schedule your personalized demo and get a trial.
           </div>
         </div>
         <div id={`hubspotForm-${formId}`} className={styles.hubspotForm}></div> {/* Use unique ID */}

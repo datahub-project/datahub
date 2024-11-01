@@ -4,9 +4,7 @@ from typing import List, Optional, Set, cast
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.transformer.dataset_transformer import (
-    DatasetOwnershipTransformer,
-)
+from datahub.ingestion.transformer.dataset_transformer import OwnershipTransformer
 from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
@@ -20,7 +18,7 @@ class PatternCleanUpOwnershipConfig(ConfigModel):
     pattern_for_cleanup: List[str]
 
 
-class PatternCleanUpOwnership(DatasetOwnershipTransformer):
+class PatternCleanUpOwnership(OwnershipTransformer):
     """Transformer that clean the ownership URN."""
 
     ctx: PipelineContext

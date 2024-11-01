@@ -53,6 +53,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sql_parsing_aggregator import TableRename
 from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 from datahub.utilities import memory_footprint
 from datahub.utilities.dedup_list import deduplicate_list
@@ -133,7 +134,7 @@ def parse_alter_table_rename(default_schema: str, query: str) -> Tuple[str, str,
     assert isinstance(parsed_query, sqlglot.exp.Alter)
     prev_name = parsed_query.this.name
     rename_clause = parsed_query.args["actions"][0]
-    assert isinstance(rename_clause, sqlglot.exp.RenameTable)
+    assert isinstance(rename_clause, sqlglot.exp.AlterRename)
     new_name = rename_clause.this.name
 
     schema = parsed_query.this.db or default_schema
@@ -504,21 +505,21 @@ class RedshiftLineageExtractor:
             self.report_status(f"extract-{lineage_type.name}", False)
 
     def _update_lineage_map_for_table_renames(
-        self, table_renames: Dict[str, str]
+        self, table_renames: Dict[str, TableRename]
     ) -> None:
         if not table_renames:
             return
 
         logger.info(f"Updating lineage map for {len(table_renames)} table renames")
-        for new_table_urn, prev_table_urn in table_renames.items():
+        for entry in table_renames.values():
             # This table was renamed from some other name, copy in the lineage
             # for the previous name as well.
-            prev_table_lineage = self._lineage_map.get(prev_table_urn)
+            prev_table_lineage = self._lineage_map.get(entry.original_urn)
             if prev_table_lineage:
                 logger.debug(
-                    f"including lineage for {prev_table_urn} in {new_table_urn} due to table rename"
+                    f"including lineage for {entry.original_urn} in {entry.new_urn} due to table rename"
                 )
-                self._lineage_map[new_table_urn].merge_lineage(
+                self._lineage_map[entry.new_urn].merge_lineage(
                     upstreams=prev_table_lineage.upstreams,
                     cll=prev_table_lineage.cll,
                 )
@@ -672,7 +673,7 @@ class RedshiftLineageExtractor:
             for db, schemas in all_tables.items()
         }
 
-        table_renames: Dict[str, str] = {}
+        table_renames: Dict[str, TableRename] = {}
         if self.config.include_table_rename_lineage:
             table_renames, all_tables_set = self._process_table_renames(
                 database=database,
@@ -851,11 +852,11 @@ class RedshiftLineageExtractor:
         database: str,
         connection: redshift_connector.Connection,
         all_tables: Dict[str, Dict[str, Set[str]]],
-    ) -> Tuple[Dict[str, str], Dict[str, Dict[str, Set[str]]]]:
+    ) -> Tuple[Dict[str, TableRename], Dict[str, Dict[str, Set[str]]]]:
         logger.info(f"Processing table renames for db {database}")
 
         # new urn -> prev urn
-        table_renames: Dict[str, str] = {}
+        table_renames: Dict[str, TableRename] = {}
 
         query = self.queries.alter_table_rename_query(
             db_name=database,
@@ -893,7 +894,9 @@ class RedshiftLineageExtractor:
                 env=self.config.env,
             )
 
-            table_renames[new_urn] = prev_urn
+            table_renames[new_urn] = TableRename(
+                prev_urn, new_urn, query_text, timestamp=rename_row.start_time
+            )
 
             # We want to generate lineage for the previous name too.
             all_tables[database][schema].add(prev_name)

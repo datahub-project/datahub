@@ -15,6 +15,7 @@ record TestResults {
         "fieldType": "URN",
         "fieldName": "failingTests"
         "hasValuesFieldName": "hasFailingTests",
+        "queryByDefault": false,
       }
     }
     @Relationship = {
@@ -33,6 +34,7 @@ record TestResults {
         "fieldType": "URN",
         "fieldName": "passingTests",
         "hasValuesFieldName": "hasPassingTests",
+        "queryByDefault": false,
       }
     }
     @Relationship = {

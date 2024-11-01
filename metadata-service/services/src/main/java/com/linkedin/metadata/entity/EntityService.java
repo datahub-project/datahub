@@ -487,7 +487,7 @@ public interface EntityService<U extends ChangeMCP> {
       Map<String, String> conditions,
       boolean hardDelete);
 
-  Set<IngestResult> ingestProposal(
+  List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async);
 
   /**
