@@ -130,7 +130,8 @@ public enum DataHubUsageEventType {
   VIEW_STRUCTURED_PROPERTY_EVENT("ViewStructuredPropertyEvent"),
   APPLY_STRUCTURED_PROPERTY_EVENT("ApplyStructuredPropertyEvent"),
   UPDATE_STRUCTURED_PROPERTY_ON_ASSET_EVENT("UpdateStructuredPropertyOnAssetEvent"),
-  REMOVE_STRUCTURED_PROPERTY_EVENT("RemoveStructuredPropertyEvent");
+  REMOVE_STRUCTURED_PROPERTY_EVENT("RemoveStructuredPropertyEvent"),
+  SSO_CONFIGURATION_EVENT("SSOConfigurationEvent");
 
   private final String type;
 

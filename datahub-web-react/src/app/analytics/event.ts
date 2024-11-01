@@ -7,6 +7,7 @@ import {
     FormType,
     LineageDirection,
     NotificationSinkType,
+    OidcSettings,
     PropertyCardinality,
     PropertyValueInput,
     RecommendationRenderType,
@@ -152,6 +153,7 @@ export enum EventType {
     ApplyStructuredPropertyEvent,
     UpdateStructuredPropertyOnAssetEvent,
     RemoveStructuredPropertyEvent,
+    SSOConfigurationEvent,
 }
 
 /**
@@ -1143,6 +1145,15 @@ export interface InferDocsClickEvent extends BaseEvent {
         | 'query-builder-form';
 }
 
+export type ObfuscatedOidcSettings = { [k in keyof Partial<OidcSettings>]: boolean | string };
+export interface SSOConfigurationEvent extends BaseEvent {
+    type: EventType.SSOConfigurationEvent;
+    action: 'enable-sso' | 'disable-sso' | 'initialize-sso' | 'update-sso' | 'expand-advanced';
+    oldSettings?: ObfuscatedOidcSettings;
+    newSettings?: ObfuscatedOidcSettings;
+    isAdvancedVisible?: boolean; // true if advanced section is opened when user is hitting save
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1272,4 +1283,5 @@ export type Event =
     | ViewStructuredPropertyEvent
     | ApplyStructuredPropertyEvent
     | UpdateStructuredPropertyOnAssetEvent
-    | RemoveStructuredPropertyEvent;
+    | RemoveStructuredPropertyEvent
+    | SSOConfigurationEvent;

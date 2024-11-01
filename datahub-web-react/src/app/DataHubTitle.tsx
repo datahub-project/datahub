@@ -4,6 +4,11 @@ import { useLocation } from 'react-router';
 import { useCustomTheme } from '../customThemeContext';
 import { useAppConfig } from './useAppConfig';
 
+const PATH_FRAGMENT_TO_TITLE_OVERRIDES = {
+    sso: 'SSO',
+    oidc: 'OIDC',
+};
+
 export default function DataHubTitle() {
     const location = useLocation();
     const { config } = useAppConfig();
@@ -13,7 +18,14 @@ export default function DataHubTitle() {
         location.pathname
             .split('/')
             .filter((word) => word !== '')
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .map((rawWord) => {
+                if (rawWord in PATH_FRAGMENT_TO_TITLE_OVERRIDES) {
+                    return PATH_FRAGMENT_TO_TITLE_OVERRIDES[rawWord];
+                }
+                // ie. personal-notifications -> Personal Notifications
+                const words = rawWord.split('-');
+                return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            })
             .join(' | ') ||
         config?.visualConfig?.appTitle ||
         theme?.content.title;

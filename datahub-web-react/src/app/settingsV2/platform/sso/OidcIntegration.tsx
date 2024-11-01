@@ -1,12 +1,31 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Button, Card, Divider, Form, Input, message, Switch, Typography, Row, Col, Alert, Collapse } from 'antd';
-import React, { useEffect, useState } from 'react';
+import { InfoCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import {
+    Button,
+    Divider,
+    Form,
+    Input,
+    message,
+    Switch,
+    Typography,
+    Row,
+    Col,
+    Alert,
+    Collapse,
+    Radio,
+    Space,
+} from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
+import _ from 'lodash';
+import { getColor } from '@src/alchemy-components/theme/utils';
+import { green, yellow } from '@ant-design/colors';
+import { Link } from 'react-router-dom';
+import analytics, { EventType, ObfuscatedOidcSettings } from '@src/app/analytics';
 import { useGetSsoSettingsQuery, useUpdateSsoSettingsMutation } from '../../../../graphql/settings.generated';
 import { OidcSettings } from '../../../../types.generated';
-import { REDESIGN_COLORS } from '../../../entity/shared/constants';
 import { Message } from '../../../shared/Message';
 import { PlatformSsoIntegrationBreadcrumb } from '../PlatformSsoIntegrationBreadcrumb';
+import { OidcIntegrationHint } from './OidcIntegrationHint';
 
 const Page = styled.div`
     width: 100%;
@@ -30,13 +49,58 @@ const StyledInput = styled(Input)`
     width: 240px;
 `;
 
-const InstructionsCard = styled(Card)`
-    padding: 4px 4px 0px 4px;
-    margin: 0px 16px 16px 0px;
+const ExampleDiscoveryUrl = styled(Typography.Text)`
+    background-color: ${getColor('gray', 1500)};
+    padding: 2px 6px;
+    margin-top: 4px;
+    color: ${getColor('gray', 400)};
+    display: inline-block;
+`;
+const UpdateButton = styled(Button)`
+    font-size: 0.8rem;
+    padding: 12px 20px;
+    height: auto;
+    width: auto;
+    margin-bottom: 24px;
+    border: 0;
+    color: white;
+    background-color: ${getColor('violet', 500)};
+    &:hover,
+    &:active,
+    &:focus {
+        color: white;
+        background-color: ${getColor('violet', 400)};
+    }
+`;
+const ConfigSuccessfulBanner = styled.div`
+    background-color: ${green[0]};
+    color: ${green[8]};
+    border-radius: 8px;
+    border: 1px solid ${green[6]};
+    padding: 8px 16px;
+    margin: 18px 0 25px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
 `;
 
-const InstructionsTitle = styled(Typography.Text)`
-    padding: 8px;
+const ConfigDisabledBanner = styled.div`
+    background-color: ${yellow[0]};
+    color: ${yellow[8]};
+    border-radius: 8px;
+    border: 1px solid ${yellow[6]};
+    padding: 8px 16px;
+    margin: 18px 0 25px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+`;
+
+const ToggleEnableButton = styled.div`
+    text-decoration: underline;
+    font-weight: 600;
+    cursor: pointer;
+    color: black;
 `;
 
 const DEFAULT_SETTINGS: OidcSettings = {
@@ -46,6 +110,8 @@ const DEFAULT_SETTINGS: OidcSettings = {
     discoveryUri: '',
 };
 
+const BASE_URL = `${window.location.origin}`;
+
 const isConfigAbsent = (field: any): boolean => {
     if (field === null || field === undefined) {
         return true;
@@ -53,27 +119,56 @@ const isConfigAbsent = (field: any): boolean => {
     return false;
 };
 
-export const OidcIntegration = () => {
-    const [oidcSettings, setOidcSettings] = useState<OidcSettings>(DEFAULT_SETTINGS);
-    const baseUrl = `${window.location.origin}`;
+// NOTE: Do not put anything sensitive here
+const WHITELISTED_FIELDS_FOR_ANALYTICS: (keyof OidcSettings)[] = [
+    'userNameClaim',
+    'userNameClaimRegex',
+    'groupsClaim',
+    'scope',
+    'clientAuthenticationMethod',
+    'preferredJwsAlgorithm',
+];
 
-    // TODO: Determine the best way to avoid this duplicate query. (Or cache)
+const oidcSettingsToObfuscatedAnalyticsReport = (settings: OidcSettings): ObfuscatedOidcSettings => {
+    const map: ObfuscatedOidcSettings = {};
+    return Object.entries(settings)
+        .map((entry) =>
+            entry[1] === WHITELISTED_FIELDS_FOR_ANALYTICS.includes(entry[0] as keyof OidcSettings)
+                ? String(entry[1])
+                : !!entry[1],
+        )
+        .reduce((o, entry) => ({ ...o, [entry[0]]: entry[1] }), map);
+};
+
+export const OidcIntegration = () => {
     const { data, loading, error, refetch } = useGetSsoSettingsQuery();
+
+    const persistedOidcSettings = data?.globalSettings?.ssoSettings?.oidcSettings;
+
     const [updateSsoSettings] = useUpdateSsoSettingsMutation();
 
-    useEffect(() => {
-        if (data?.globalSettings?.ssoSettings?.oidcSettings) {
-            setOidcSettings(data?.globalSettings?.ssoSettings?.oidcSettings);
-        }
-    }, [data, setOidcSettings]);
+    const [oidcSettings, setOidcSettings] = useState<OidcSettings>(DEFAULT_SETTINGS);
 
-    const updateOidcSettings = () => {
-        const { __typename: typename, ...parsedOidcSettings } = oidcSettings;
-        console.log(typename);
+    // We will customize on save behavior and tips rendering depending on if SSO is currently enabled
+    const isIntegrationEnabled = oidcSettings.enabled;
+    // This will determine what tips we show in the banner, and whether we should automatically enable on update
+    const isIntegrationConfigured =
+        persistedOidcSettings?.clientId && persistedOidcSettings?.clientSecret && persistedOidcSettings?.discoveryUri;
+    // for analytics
+    const isAdvancedSectionExpandedRef = useRef(false);
+
+    useEffect(() => {
+        if (persistedOidcSettings) {
+            setOidcSettings(persistedOidcSettings);
+        }
+    }, [persistedOidcSettings, setOidcSettings]);
+
+    const updateOidcSettings = (settings: OidcSettings) => {
+        const parsedOidcSettings = _.omit(settings, '__typename');
         updateSsoSettings({
             variables: {
                 input: {
-                    baseUrl,
+                    baseUrl: BASE_URL,
                     oidcSettings: parsedOidcSettings,
                 },
             },
@@ -90,6 +185,48 @@ export const OidcIntegration = () => {
             });
     };
 
+    const toggleSSOEnabled = () => {
+        const newSettings: OidcSettings = { ...oidcSettings, enabled: !oidcSettings.enabled };
+        setOidcSettings(newSettings);
+        updateOidcSettings(newSettings);
+        analytics.event({
+            type: EventType.SSOConfigurationEvent,
+            action: oidcSettings.enabled ? 'disable-sso' : 'enable-sso',
+        });
+    };
+
+    const saveOidcSettings = () => {
+        const settingsToSave: OidcSettings = isIntegrationConfigured
+            ? oidcSettings
+            : { ...oidcSettings, enabled: true };
+
+        analytics.event({
+            type: EventType.SSOConfigurationEvent,
+            action: isIntegrationConfigured ? 'initialize-sso' : 'update-sso',
+            newSettings: oidcSettingsToObfuscatedAnalyticsReport(settingsToSave),
+            oldSettings: persistedOidcSettings
+                ? oidcSettingsToObfuscatedAnalyticsReport(persistedOidcSettings)
+                : undefined,
+            isAdvancedVisible: isAdvancedSectionExpandedRef.current,
+        });
+        updateOidcSettings(settingsToSave);
+    };
+
+    const configuredBanner = isIntegrationEnabled ? (
+        <ConfigSuccessfulBanner>
+            <InfoCircleOutlined style={{ marginRight: 8 }} />
+            <span>The SSO integration is ready! Sign out and log back in with SSO to test it out.</span>
+            <div style={{ flexGrow: 1 }} />
+            <ToggleEnableButton onClick={toggleSSOEnabled}>Disable SSO</ToggleEnableButton>
+        </ConfigSuccessfulBanner>
+    ) : (
+        <ConfigDisabledBanner>
+            <WarningOutlined style={{ marginRight: 8 }} />
+            <span>The SSO integration is disabled.</span>
+            <div style={{ flexGrow: 1 }} />
+            <ToggleEnableButton onClick={toggleSSOEnabled}>Enable</ToggleEnableButton>
+        </ConfigDisabledBanner>
+    );
     return (
         <Page>
             <ContentContainer>
@@ -99,21 +236,19 @@ export const OidcIntegration = () => {
                 <Typography.Title level={3}>OIDC</Typography.Title>
                 <Typography.Text type="secondary">Configure SSO with your OIDC provider</Typography.Text>
                 <Divider />
+                {isIntegrationConfigured
+                    ? configuredBanner
+                    : !loading && <OidcIntegrationHint visible={!isIntegrationConfigured} />}
                 <Row>
-                    <Col xs={12} xl={12}>
+                    <Col xl={12} xs={12}>
                         <Form layout="vertical">
-                            <Form.Item label={<Typography.Text strong>Enabled</Typography.Text>}>
-                                <Typography.Text type="secondary">Turn the integration on or off.</Typography.Text>
-                                <SettingValueContainer>
-                                    <Switch
-                                        checked={oidcSettings.enabled}
-                                        onChange={(checked) => setOidcSettings({ ...oidcSettings, enabled: checked })}
-                                    />
-                                </SettingValueContainer>
-                            </Form.Item>
-                            <Form.Item required label={<Typography.Text strong>Client ID</Typography.Text>}>
+                            <Form.Item
+                                required
+                                requiredMark="optional"
+                                label={<Typography.Text strong>Client ID</Typography.Text>}
+                            >
                                 <Typography.Text type="secondary">
-                                    Unique Client ID issued by the identity provider..
+                                    Unique Client ID issued by the identity provider.
                                 </Typography.Text>
                                 <SettingValueContainer>
                                     <StyledInput
@@ -128,7 +263,11 @@ export const OidcIntegration = () => {
                                     />
                                 </SettingValueContainer>
                             </Form.Item>
-                            <Form.Item required label={<Typography.Text strong>Client Secret</Typography.Text>}>
+                            <Form.Item
+                                required
+                                requiredMark="optional"
+                                label={<Typography.Text strong>Client Secret</Typography.Text>}
+                            >
                                 <Typography.Text type="secondary">
                                     Unique Client Secret issued by the identity provider. This will be <b> encrypted</b>{' '}
                                     and stored securely in DataHub.
@@ -147,12 +286,19 @@ export const OidcIntegration = () => {
                                     />
                                 </SettingValueContainer>
                             </Form.Item>
-                            <Form.Item required label={<Typography.Text strong>Discovery URI</Typography.Text>}>
-                                <Typography.Text type="secondary">The IdP OIDC discovery url.</Typography.Text>
+                            <Form.Item
+                                required
+                                requiredMark="optional"
+                                label={<Typography.Text strong>Discovery URI</Typography.Text>}
+                            >
+                                <Typography.Text type="secondary">
+                                    The IdP OIDC discovery url. It will end with
+                                </Typography.Text>
+                                <ExampleDiscoveryUrl>/.well-known/openid-configuration</ExampleDiscoveryUrl>.
                                 <SettingValueContainer>
                                     <StyledInput
                                         value={oidcSettings.discoveryUri || ''}
-                                        placeholder="https://domain.idp.com/.well-known/openid-configuration"
+                                        placeholder="https://<idp-base-path>/.well-known/openid-configuration"
                                         onChange={(e) =>
                                             setOidcSettings({
                                                 ...oidcSettings,
@@ -162,79 +308,86 @@ export const OidcIntegration = () => {
                                     />
                                 </SettingValueContainer>
                             </Form.Item>
-                            <Collapse ghost style={{ marginLeft: -16, marginBottom: 10 }}>
+                            <Form.Item label={<Typography.Text strong>User Provisioning Strategy</Typography.Text>}>
+                                <Radio.Group
+                                    onChange={(e) => {
+                                        const isJIT = e.target.value === 1;
+                                        setOidcSettings({
+                                            ...oidcSettings,
+                                            jitProvisioningEnabled: isJIT,
+                                            preProvisioningRequired: !isJIT,
+                                            extractGroupsEnabled: oidcSettings.extractGroupsEnabled && isJIT,
+                                        });
+                                    }}
+                                    value={oidcSettings.jitProvisioningEnabled ? 1 : 2}
+                                >
+                                    <Space direction="vertical">
+                                        <Radio value={1}>
+                                            <Typography.Text>
+                                                Just-in-Time (JIT) Provisioning <i>(Default)</i>
+                                            </Typography.Text>
+                                            <br />
+                                            <Typography.Text type="secondary">
+                                                Automatically creates a DataHub User on login if one does not exist.
+                                            </Typography.Text>
+                                        </Radio>
+                                        <Radio value={2}>
+                                            <Typography.Text>Pre-Provisioning DataHub Users</Typography.Text>
+                                            <br />
+                                            <Typography.Text type="secondary">
+                                                Only allows login for pre-provisioned DataHub Users.
+                                                <br />
+                                                <i>
+                                                    Requires configuring <Link to="/ingestion">SSO ingestion</Link> to
+                                                    create DataHub Users.
+                                                </i>
+                                            </Typography.Text>
+                                        </Radio>
+                                    </Space>
+                                </Radio.Group>
+                            </Form.Item>
+                            <Form.Item label={<Typography.Text strong>Extract Groups</Typography.Text>}>
+                                <Typography.Text type="secondary">
+                                    Extracts Group membership from the{' '}
+                                    <b style={{ backgroundColor: '#f9f9f9' }}>groups</b> claim in the OIDC profile by
+                                    default. Automatically creates a DataHub Group if one does not exist.
+                                    <br />
+                                    <i>Requires JIT Provisioning.</i>
+                                </Typography.Text>
+                                <SettingValueContainer>
+                                    <Switch
+                                        disabled={!oidcSettings.jitProvisioningEnabled}
+                                        checked={
+                                            !isConfigAbsent(oidcSettings.extractGroupsEnabled)
+                                                ? (oidcSettings.extractGroupsEnabled as boolean)
+                                                : false
+                                        }
+                                        onChange={(checked) =>
+                                            setOidcSettings({
+                                                ...oidcSettings,
+                                                extractGroupsEnabled: checked,
+                                            })
+                                        }
+                                    />
+                                </SettingValueContainer>
+                            </Form.Item>
+                            <Collapse
+                                ghost
+                                style={{ marginLeft: -16, marginBottom: 10 }}
+                                onChange={(keys) => {
+                                    isAdvancedSectionExpandedRef.current = !!keys.length;
+                                    if (isAdvancedSectionExpandedRef.current) {
+                                        analytics.event({
+                                            type: EventType.SSOConfigurationEvent,
+                                            action: 'expand-advanced',
+                                        });
+                                    }
+                                }}
+                            >
                                 <Collapse.Panel
                                     header={<Typography.Text type="secondary">Advanced</Typography.Text>}
                                     key="1"
                                 >
-                                    <Form.Item
-                                        label={<Typography.Text strong>JIT Provisioning Enabled</Typography.Text>}
-                                    >
-                                        <Typography.Text type="secondary">
-                                            Whether DataHub users should be provisioned on login if they do not exist.
-                                            Defaults to <b> true</b>
-                                        </Typography.Text>
-                                        <SettingValueContainer>
-                                            <Switch
-                                                checked={
-                                                    !isConfigAbsent(oidcSettings.jitProvisioningEnabled)
-                                                        ? (oidcSettings.jitProvisioningEnabled as boolean)
-                                                        : true
-                                                }
-                                                onChange={(checked) =>
-                                                    setOidcSettings({
-                                                        ...oidcSettings,
-                                                        jitProvisioningEnabled: checked,
-                                                    })
-                                                }
-                                            />
-                                        </SettingValueContainer>
-                                    </Form.Item>
-                                    <Form.Item
-                                        label={<Typography.Text strong>Pre-Provisioning Required</Typography.Text>}
-                                    >
-                                        <Typography.Text type="secondary">
-                                            Whether the user should already exist in DataHub on login, failing login if
-                                            they are not. Defaults to <b> false</b>
-                                        </Typography.Text>
-                                        <SettingValueContainer>
-                                            <Switch
-                                                checked={
-                                                    !isConfigAbsent(oidcSettings.preProvisioningRequired)
-                                                        ? (oidcSettings.preProvisioningRequired as boolean)
-                                                        : false
-                                                }
-                                                onChange={(checked) =>
-                                                    setOidcSettings({
-                                                        ...oidcSettings,
-                                                        preProvisioningRequired: checked,
-                                                    })
-                                                }
-                                            />
-                                        </SettingValueContainer>
-                                    </Form.Item>
-                                    <Form.Item label={<Typography.Text strong>Extract Groups Enabled</Typography.Text>}>
-                                        <Typography.Text type="secondary">
-                                            Whether groups should be extracted from a claim in the OIDC profile. Only
-                                            applies if JIT provisioning is enabled. Groups will be created if they do
-                                            not exist. Defaults to <b> false</b>
-                                        </Typography.Text>
-                                        <SettingValueContainer>
-                                            <Switch
-                                                checked={
-                                                    !isConfigAbsent(oidcSettings.extractGroupsEnabled)
-                                                        ? (oidcSettings.extractGroupsEnabled as boolean)
-                                                        : false
-                                                }
-                                                onChange={(checked) =>
-                                                    setOidcSettings({
-                                                        ...oidcSettings,
-                                                        extractGroupsEnabled: checked,
-                                                    })
-                                                }
-                                            />
-                                        </SettingValueContainer>
-                                    </Form.Item>
                                     <Form.Item label={<Typography.Text strong>User Name Claim</Typography.Text>}>
                                         <Typography.Text type="secondary">
                                             The attribute / claim used to derive the DataHub username. Defaults to
@@ -273,10 +426,29 @@ export const OidcIntegration = () => {
                                         </SettingValueContainer>
                                     </Form.Item>
 
+                                    <Form.Item label={<Typography.Text strong>Groups Claim</Typography.Text>}>
+                                        <Typography.Text type="secondary">
+                                            The OIDC claim to extract groups information from. Defaults to{' '}
+                                            <b> groups</b>.
+                                        </Typography.Text>
+                                        <SettingValueContainer>
+                                            <StyledInput
+                                                value={oidcSettings?.groupsClaim || 'groups'}
+                                                placeholder="groups"
+                                                onChange={(e) =>
+                                                    setOidcSettings({
+                                                        ...oidcSettings,
+                                                        groupsClaim: e.target.value,
+                                                    })
+                                                }
+                                            />
+                                        </SettingValueContainer>
+                                    </Form.Item>
+
                                     <Form.Item label={<Typography.Text strong>Scope</Typography.Text>}>
                                         <Typography.Text type="secondary">
                                             String representing the requested scope from the IdP. Defaults to{' '}
-                                            <b> oidc email profile</b>.
+                                            <b> openid email profile</b>.
                                         </Typography.Text>
                                         <SettingValueContainer>
                                             <StyledInput
@@ -312,24 +484,6 @@ export const OidcIntegration = () => {
                                             />
                                         </SettingValueContainer>
                                     </Form.Item>
-                                    <Form.Item label={<Typography.Text strong>Groups Claim</Typography.Text>}>
-                                        <Typography.Text type="secondary">
-                                            The OIDC claim to extract groups information from. Defaults to{' '}
-                                            <b> groups</b>.
-                                        </Typography.Text>
-                                        <SettingValueContainer>
-                                            <StyledInput
-                                                value={oidcSettings?.groupsClaim || 'groups'}
-                                                placeholder="groups"
-                                                onChange={(e) =>
-                                                    setOidcSettings({
-                                                        ...oidcSettings,
-                                                        groupsClaim: e.target.value,
-                                                    })
-                                                }
-                                            />
-                                        </SettingValueContainer>
-                                    </Form.Item>
                                     <Form.Item
                                         label={<Typography.Text strong>Preferred Jws Algorithm</Typography.Text>}
                                     >
@@ -350,73 +504,9 @@ export const OidcIntegration = () => {
                                 </Collapse.Panel>
                             </Collapse>
                         </Form>
-                        <Button
-                            disabled={
-                                !oidcSettings.clientId || !oidcSettings.clientSecret || !oidcSettings.discoveryUri
-                            }
-                            style={{ marginBottom: 12 }}
-                            onClick={() => updateOidcSettings()}
-                        >
-                            Update
-                        </Button>
-                    </Col>
-                    <Col xs={12} xl={12}>
-                        <InstructionsCard
-                            title={
-                                <>
-                                    <InfoCircleOutlined style={{ color: REDESIGN_COLORS.BLUE }} />
-                                    <InstructionsTitle strong>Prerequisites</InstructionsTitle>
-                                </>
-                            }
-                        >
-                            <Typography.Paragraph>
-                                Enabling the SSO OIDC integration requires that you first register as a client with your
-                                Identity Provider. Instructions are provided below for common OIDC Identity Providers.
-                                For more detailed information, please read the official{' '}
-                                <a
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    href="https://datahubproject.io/docs/authentication/guides/sso/configure-oidc-react"
-                                >
-                                    DataHub docs
-                                </a>
-                                .
-                                <ul>
-                                    <li>
-                                        <a target="_blank" rel="noreferrer" href="https://www.okta.com/openid-connect/">
-                                            Okta
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            href="https://developers.google.com/identity/protocols/oauth2/openid-connect"
-                                        >
-                                            Google
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            href="https://docs.microsoft.com/en-us/azure/active-directory/fundamentals/auth-oidc"
-                                        >
-                                            Azure AD
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            href="https://www.keycloak.org/docs/latest/securing_apps/"
-                                        >
-                                            Keycloak
-                                        </a>
-                                    </li>
-                                </ul>
-                            </Typography.Paragraph>
-                        </InstructionsCard>
+                        <UpdateButton onClick={saveOidcSettings}>
+                            {isIntegrationConfigured ? 'Update' : 'Connect'}
+                        </UpdateButton>
                     </Col>
                 </Row>
             </ContentContainer>
