@@ -20,7 +20,7 @@ export const DATA_PRODUCT_FILTER_NAME = 'dataProduct';
 export const OWNERS_FILTER_NAME = 'owners';
 export const TYPE_NAMES_FILTER_NAME = 'typeNames';
 export const PLATFORM_FILTER_NAME = 'platform';
-export const DATA_PLATFORM_INSTANCE_FILTER_NAME = 'dataPlatformInstance';
+export const DATA_PLATFORM_INSTANCE_FILTER_NAME = 'platformInstance';
 export const FIELD_TAGS_FILTER_NAME = 'fieldTags';
 export const EDITED_FIELD_TAGS_FILTER_NAME = 'editedFieldTags';
 export const FIELD_GLOSSARY_TERMS_FILTER_NAME = 'fieldGlossaryTerms';
@@ -108,7 +108,7 @@ export const FIELD_TO_LABEL = {
     origin: 'Environment',
     degree: 'Degree',
     '_entityType␞typeNames': 'Type',
-    dataPlatformInstance: 'Platform Instance',
+    platformInstance: 'Platform Instance',
     hasActiveIncidents: 'Has Active Incidents',
     hasFailingAssertions: 'Has Failing Assertions',
     [BROWSE_PATH_V2_FILTER_NAME]: 'Path',

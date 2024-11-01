@@ -5,6 +5,7 @@ import React from 'react';
 import {
     BookOutlined,
     CloseCircleOutlined,
+    EnvironmentOutlined,
     DatabaseOutlined,
     DeleteOutlined,
     FileOutlined,
@@ -176,12 +177,14 @@ export const ORIGIN_FILTER: FilterField = {
     field: ORIGIN_FILTER_NAME,
     displayName: FIELD_TO_LABEL[ORIGIN_FILTER_NAME],
     type: FieldType.ENUM,
+    icon: <EnvironmentOutlined />,
 };
 
 export const DATA_PLATFORM_INSTANCE_FILTER: FilterField = {
     field: DATA_PLATFORM_INSTANCE_FILTER_NAME,
     displayName: FIELD_TO_LABEL[DATA_PLATFORM_INSTANCE_FILTER_NAME],
     type: FieldType.ENTITY,
+    icon: <DatabaseOutlined />,
     entityTypes: [EntityType.DataPlatformInstance],
 };
 
