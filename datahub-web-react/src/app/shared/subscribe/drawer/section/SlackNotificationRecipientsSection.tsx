@@ -302,10 +302,10 @@ export default function SlackNotificationRecipientSection() {
                         destinationSettings={
                             isPersonal
                                 ? {
-                                      userHandle: slack.subscription.channel || '',
+                                      userHandle: slack.subscription.channel || settingsSlackChannel || '',
                                   }
                                 : {
-                                      channels: [slack.subscription.channel || ''],
+                                      channels: [slack.subscription.channel || settingsSlackChannel || ''],
                                   }
                         }
                     />
