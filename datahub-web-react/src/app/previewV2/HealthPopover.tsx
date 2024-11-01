@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { Health, HealthStatus, HealthStatusType } from '../../types.generated';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';
 
 const Content = styled.div`
     display: flex;
@@ -62,10 +63,11 @@ interface Props {
 }
 
 export default function HealthPopover({ health, baseUrl }: Props) {
+    const linkProps = useEmbeddedProfileLinkProps();
     return (
         <Content data-testid="assertions-details">
             {health.map((item) => (
-                <StyledLink key={item.type} to={`${baseUrl}${healthUrlSuffix(item)}`}>
+                <StyledLink key={item.type} to={`${baseUrl}${healthUrlSuffix(item)}`} {...linkProps}>
                     <Icon>{healthIcon(item)}</Icon>
                     <Message>{healthMessage(item)}</Message>
                 </StyledLink>
