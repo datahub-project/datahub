@@ -64,7 +64,7 @@ class BigQueryQueriesSource(Source):
             schema_api=BigQuerySchemaApi(
                 self.report.schema_api_perf,
                 self.connection,
-                projects_client=self.config.connection.get_projects_client(),
+                projects_client=self.connection,
             ),
             config=self.config,
             structured_report=self.report,
