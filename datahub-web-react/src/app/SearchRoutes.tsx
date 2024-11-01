@@ -62,10 +62,9 @@ export const SearchRoutes = (): JSX.Element => {
     const businessAttributesFlag = useBusinessAttributesFlag();
     const appConfigContextLoaded = useIsAppConfigContextLoaded();
 
-    const canManageStructuredProperties =
-        config?.featureFlags?.showManageStructuredProperties && me.platformPrivileges?.manageStructuredProperties;
-    const canManageForms =
-        config?.featureFlags?.documentationFormsEnabled && me?.platformPrivileges?.manageDocumentationForms;
+    const showStructuredProperties =
+        config?.featureFlags?.showManageStructuredProperties &&
+        (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
 
     return (
         <FinalSearchablePage>
@@ -123,7 +122,7 @@ export const SearchRoutes = (): JSX.Element => {
                     path={`${PageRoutes.GLOSSARY}*`}
                     render={() => (isThemeV2 ? <GlossaryRoutesV2 /> : <GlossaryRoutes />)}
                 />
-                {canManageStructuredProperties && (
+                {showStructuredProperties && (
                     <Route path={PageRoutes.STRUCTURED_PROPERTIES} render={() => <StructuredProperties />} />
                 )}
                 <Route
@@ -146,14 +145,8 @@ export const SearchRoutes = (): JSX.Element => {
                 {includeGovernDashboard && (
                     <>
                         <Route exact path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
-
-                        {canManageForms && (
-                            <>
-                                <Route path={PageRoutes.NEW_FORM} render={() => <CreateForm mode="create" />} />
-
-                                <Route path={PageRoutes.EDIT_FORM} render={() => <CreateForm mode="edit" />} />
-                            </>
-                        )}
+                        <Route path={PageRoutes.NEW_FORM} render={() => <CreateForm mode="create" />} />
+                        <Route path={PageRoutes.EDIT_FORM} render={() => <CreateForm mode="edit" />} />
                     </>
                 )}
                 <Route component={NoPageFound} />

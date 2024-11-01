@@ -924,6 +924,14 @@ public class PoliciesConfig {
               EDIT_ENTITY_PRIVILEGE,
               DELETE_ENTITY_PRIVILEGE));
 
+  // Properties Privileges
+  public static final ResourcePrivileges FORMS_PRIVILEGES =
+      ResourcePrivileges.of(
+          "form",
+          "Forms",
+          "Forms",
+          ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EXISTS_ENTITY_PRIVILEGE));
+
   // ERModelRelationship Privileges
   public static final ResourcePrivileges ER_MODEL_RELATIONSHIP_PRIVILEGES =
       ResourcePrivileges.of(
@@ -971,6 +979,7 @@ public class PoliciesConfig {
           ER_MODEL_RELATIONSHIP_PRIVILEGES,
           BUSINESS_ATTRIBUTE_PRIVILEGES,
           STRUCTURED_PROPERTIES_PRIVILEGES,
+          FORMS_PRIVILEGES,
           ML_FEATURE_PRIVILEGES,
           ML_MODEL_PRIVILEGES);
 

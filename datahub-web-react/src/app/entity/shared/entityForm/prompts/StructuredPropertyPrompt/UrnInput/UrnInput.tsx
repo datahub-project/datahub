@@ -106,7 +106,7 @@ export default function UrnInput({
                     onDeselectValue(urn);
                     setSearchValue('');
                 }}
-                onSearch={(value: string) => handleSearch(value.trim())}
+                onSearch={(value: string) => handleSearch(value)}
                 tagRender={tagRender}
                 value={selectedEntities.map((e) => e.urn)}
                 searchValue={searchValue}
