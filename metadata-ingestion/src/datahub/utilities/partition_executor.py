@@ -53,7 +53,10 @@ class PartitionExecutor(Closeable):
         self.max_workers = max_workers
         self.max_pending = max_pending
 
-        self._executor = ThreadPoolExecutor(max_workers=max_workers)
+        self._executor = ThreadPoolExecutor(
+            max_workers=max_workers,
+            thread_name_prefix=self.__class__.__name__,
+        )
 
         # Each pending or executing request will acquire a permit from this semaphore.
         self._semaphore = BoundedSemaphore(max_pending + max_workers)
@@ -261,11 +264,17 @@ class BatchPartitionExecutor(Closeable):
         self.min_process_interval = min_process_interval
         assert self.max_workers > 1
 
-        # We add one here to account for the clearinghouse worker thread.
-        self._executor = ThreadPoolExecutor(max_workers=max_workers + 1)
+        self._executor = ThreadPoolExecutor(
+            # We add one here to account for the clearinghouse worker thread.
+            max_workers=max_workers + 1,
+            thread_name_prefix=self.__class__.__name__,
+        )
         self._clearinghouse_started = False
 
+        # pending_count includes the length of the pending list, plus the
+        # number of items sitting in the clearinghouse's internal queue.
         self._pending_count = BoundedSemaphore(max_pending)
+
         self._pending: "queue.Queue[Optional[_BatchPartitionWorkItem]]" = queue.Queue(
             maxsize=max_pending
         )
