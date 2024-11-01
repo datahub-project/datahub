@@ -112,7 +112,7 @@ def get_upstream_tables(
             reporter.m_query_parse_unknown_errors += 1
 
         reporter.warning(
-            title="Unable to extract lineage from M-Query expression",
+            title="Unable to parse M-Query expression",
             message=f"Got an '{error_type}' while parsing the expression. Lineage will be missing for this table.",
             context=f"table-full-name={table.full_name}, expression={table.expression}",
             exc=e,
@@ -132,6 +132,10 @@ def get_upstream_tables(
             platform_instance_resolver=platform_instance_resolver,
         )
 
+        if lineage:
+            reporter.m_query_resolver_successes += 1
+        else:
+            reporter.m_query_resolver_no_lineage += 1
         return lineage
 
     except BaseException as e:

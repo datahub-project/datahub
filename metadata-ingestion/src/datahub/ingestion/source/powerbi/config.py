@@ -204,6 +204,8 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_parse_unexpected_character_errors: int = 0
     m_query_parse_unknown_errors: int = 0
     m_query_resolver_errors: int = 0
+    m_query_resolver_no_lineage: int = 0
+    m_query_resolver_successes: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
