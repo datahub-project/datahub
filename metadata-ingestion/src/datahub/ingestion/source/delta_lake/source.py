@@ -384,7 +384,7 @@ class DeltaLakeSource(Source):
         parsed = urlparse(path)
         prefix = parsed.path.lstrip("/")
         container_client = self.azure_client.get_container_client(
-            parsed.netloc.split('@')[0]
+            parsed.netloc.split("@")[0]
         )
 
         try:
@@ -393,8 +393,7 @@ class DeltaLakeSource(Source):
                     yield f"abfss://{parsed.netloc}/{item['name']}"
         except Exception as e:
             self.report.report_failure(
-                "azure-folders",
-                f"Failed to list ABFSS folders: {e}"
+                "azure-folders", f"Failed to list ABFSS folders: {e}"
             )
 
     def local_get_folders(self, path: str) -> Iterable[str]:
