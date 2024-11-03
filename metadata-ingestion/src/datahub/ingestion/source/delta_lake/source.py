@@ -29,6 +29,12 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
+from datahub.ingestion.source.azure.abs_folder_utils import get_abs_tags
+from datahub.ingestion.source.azure.abs_utils import (
+    get_container_name,
+    get_abs_prefix,
+    strip_abs_prefix,
+)
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
 from datahub.ingestion.source.delta_lake.delta_lake_utils import (
@@ -110,6 +116,13 @@ class DeltaLakeSource(Source):
             ):
                 raise ValueError("AWS Config must be provided for S3 base path.")
             self.s3_client = self.source_config.s3.aws_config.get_s3_client()
+        elif self.source_config.is_azure:
+            if (
+                self.source_config.azure is None
+                or self.source_config.azure.azure_config is None
+            ):
+                raise ValueError("Azure Config must be provided for ABFSS base path")
+            self.azure_client = self.source_config.azure.get_azure_client()
 
         # self.profiling_times_taken = []
         config_report = {
@@ -203,9 +216,12 @@ class DeltaLakeSource(Source):
 
         logger.debug(f"Ingesting table {table_name} from location {path}")
         if self.source_config.relative_path is None:
-            browse_path: str = (
-                strip_s3_prefix(path) if self.source_config.is_s3 else path.strip("/")
-            )
+            if self.source_config.is_s3:
+                browse_path = strip_s3_prefix(path)
+            elif self.source_config.is_azure:
+                browse_path = strip_abs_prefix(path)
+            else:
+                browse_path = path.strip("/")
         else:
             browse_path = path.split(self.source_config.base_path)[1].strip("/")
 
@@ -271,6 +287,26 @@ class DeltaLakeSource(Source):
             )
             if s3_tags is not None:
                 dataset_snapshot.aspects.append(s3_tags)
+        if (
+            self.source_config.is_azure
+            and self.source_config.azure
+            and (
+                self.source_config.azure.use_azure_container_tags
+                or self.source_config.azure.use_azure_blob_tags
+            )
+        ):
+            container_name = get_container_name(path)
+            abs_prefix = get_abs_prefix(path)
+            abs_tags = get_abs_tags(
+                container_name,
+                abs_prefix,
+                dataset_urn,
+                self.source_config.azure.azure_config,
+                self.ctx,
+                self.source_config.azure.use_abs_blob_tags,
+            )
+            if abs_tags is not None:
+                dataset_snapshot.aspects.append(abs_tags)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         yield MetadataWorkUnit(id=str(delta_table.metadata().id), mce=mce)
 
@@ -301,6 +337,19 @@ class DeltaLakeSource(Source):
             if aws_config.aws_endpoint_url:
                 opts["AWS_ENDPOINT_URL"] = aws_config.aws_endpoint_url
             return opts
+        elif self.source_config.is_azure:
+            azure_config = self.source_config.azure.azure_config
+            creds = azure_config.get_credentials()
+            opts = {
+                "AZURE_STORAGE_ACCOUNT_NAME": azure_config.account_name,
+                "AZURE_STORAGE_CONTAINER_NAME": azure_config.container_name,
+                "AZURE_TENANT_ID": creds.get("tenant_id") or "",
+                "AZURE_CLIENT_ID": creds.get("client_id") or "",
+                "AZURE_CLIENT_SECRET": creds.get("client_secret") or "",
+                "AZURE_STORAGE_SAS_TOKEN": creds.get("sas_token") or "",
+                "AZURE_STORAGE_ACCOUNT_KEY": creds.get("account_key") or ""
+            }
+            return opts
         else:
             return {}
 
@@ -317,6 +366,8 @@ class DeltaLakeSource(Source):
     def get_folders(self, path: str) -> Iterable[str]:
         if self.source_config.is_s3:
             return self.s3_get_folders(path)
+        elif self.source_config.is_azure:
+            return self.azure_get_folders(path)
         else:
             return self.local_get_folders(path)
 
@@ -327,6 +378,19 @@ class DeltaLakeSource(Source):
         ):
             for o in page.get("CommonPrefixes", []):
                 yield f"{parse_result.scheme}://{parse_result.netloc}/{o.get('Prefix')}"
+
+    def azure_get_folders(self, path: str) -> Iterable[str]:
+        """List folders from Azure Storage."""
+        parsed = urlparse(path)
+        prefix = parsed.path.lstrip('/')
+        container_client = self.azure_client.get_container_client(parsed.netloc.split('@')[0])
+
+        try:
+            for item in container_client.walk_blobs(name_starts_with=prefix):
+                if isinstance(item, dict) and item.get("is_directory", False):
+                    yield f"abfss://{parsed.netloc}/{item['name']}"
+        except Exception as e:
+            self.report.report_failure("azure-folders", f"Failed to list ABFSS folders: {e}")
 
     def local_get_folders(self, path: str) -> Iterable[str]:
         if not os.path.isdir(path):

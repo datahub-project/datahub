@@ -15,6 +15,9 @@ from datahub.configuration.source_common import (
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 
+from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
+from datahub.ingestion.source.azure.abs_utils import is_abs_uri
+
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
@@ -35,10 +38,19 @@ class S3(ConfigModel):
         description="# Whether or not to create tags in datahub from the s3 object",
     )
 
+class Azure(ConfigModel):
+    """Azure configuration for Delta Lake source"""
+    azure_config: Optional[AzureConnectionConfig] = Field(
+        default=None, description="Azure configuration"
+    )
+    use_abs_blob_tags: Optional[bool] = Field(
+        False,
+        description="Whether or not to create tags in datahub from Azure blob metadata",
+    )
 
 class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     base_path: str = Field(
-        description="Path to table (s3 or local file system). If path is not a delta table path "
+        description="Path to table (s3, abfss, or local file system). If path is not a delta table path "
         "then all subfolders will be scanned to detect and ingest delta tables."
     )
     relative_path: Optional[str] = Field(
@@ -73,10 +85,15 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     )
 
     s3: Optional[S3] = Field()
+    azure: Optional[Azure] = Field()
 
     @cached_property
     def is_s3(self):
         return is_s3_uri(self.base_path or "")
+
+    @cached_property
+    def is_azure(self):
+        return is_abs_uri(self.base_path or "")
 
     @cached_property
     def complete_path(self):
