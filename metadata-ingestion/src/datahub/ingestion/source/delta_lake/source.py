@@ -347,7 +347,7 @@ class DeltaLakeSource(Source):
                 "AZURE_CLIENT_ID": creds.get("client_id") or "",
                 "AZURE_CLIENT_SECRET": creds.get("client_secret") or "",
                 "AZURE_STORAGE_SAS_TOKEN": creds.get("sas_token") or "",
-                "AZURE_STORAGE_ACCOUNT_KEY": creds.get("account_key") or ""
+                "AZURE_STORAGE_ACCOUNT_KEY": creds.get("account_key") or "",
             }
             return opts
         else:
@@ -382,15 +382,20 @@ class DeltaLakeSource(Source):
     def azure_get_folders(self, path: str) -> Iterable[str]:
         """List folders from Azure Storage."""
         parsed = urlparse(path)
-        prefix = parsed.path.lstrip('/')
-        container_client = self.azure_client.get_container_client(parsed.netloc.split('@')[0])
+        prefix = parsed.path.lstrip("/")
+        container_client = self.azure_client.get_container_client(
+            parsed.netloc.split('@')[0]
+        )
 
         try:
             for item in container_client.walk_blobs(name_starts_with=prefix):
                 if isinstance(item, dict) and item.get("is_directory", False):
                     yield f"abfss://{parsed.netloc}/{item['name']}"
         except Exception as e:
-            self.report.report_failure("azure-folders", f"Failed to list ABFSS folders: {e}")
+            self.report.report_failure(
+                "azure-folders",
+                f"Failed to list ABFSS folders: {e}"
+            )
 
     def local_get_folders(self, path: str) -> Iterable[str]:
         if not os.path.isdir(path):
