@@ -53,7 +53,6 @@ import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetFilter;
 import com.linkedin.dataset.DatasetFilterType;
@@ -66,15 +65,16 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.patch.builder.AssertionsSummaryPatchBuilder;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -1402,24 +1402,18 @@ public class AssertionServiceTest {
                             .setAnd(
                                 new CriterionArray(
                                     ImmutableList.of(
-                                        new Criterion()
-                                            .setField(PASSING_ASSERTIONS_INDEX_FIELD_NAME)
-                                            .setValue(TEST_ASSERTION_URN.toString())
-                                            .setValues(
-                                                new StringArray(
-                                                    ImmutableList.of(
-                                                        TEST_ASSERTION_URN.toString())))))),
+                                        CriterionUtils.buildCriterion(
+                                            PASSING_ASSERTIONS_INDEX_FIELD_NAME,
+                                            Condition.EQUAL,
+                                            TEST_ASSERTION_URN.toString())))),
                         new ConjunctiveCriterion()
                             .setAnd(
                                 new CriterionArray(
                                     ImmutableList.of(
-                                        new Criterion()
-                                            .setField(FAILING_ASSERTIONS_INDEX_FIELD_NAME)
-                                            .setValue(TEST_ASSERTION_URN.toString())
-                                            .setValues(
-                                                new StringArray(
-                                                    ImmutableList.of(
-                                                        TEST_ASSERTION_URN.toString())))))))));
+                                        CriterionUtils.buildCriterion(
+                                            FAILING_ASSERTIONS_INDEX_FIELD_NAME,
+                                            Condition.EQUAL,
+                                            TEST_ASSERTION_URN.toString())))))));
 
     Mockito.when(
             mockClient.searchAcrossEntities(

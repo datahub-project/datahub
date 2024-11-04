@@ -20,6 +20,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.service.AssertionService;
+import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -154,10 +155,8 @@ public class MigrateFreshnessAssertionCronToSinceTheLastCheck extends UpgradeSte
   private static Filter getFilter() {
     // Condition: is freshness assertion with scheduleType as cron
     Criterion isCronFreshnessAssertion =
-        new Criterion()
-            .setField("scheduleType")
-            .setCondition(Condition.EQUAL)
-            .setValue(FreshnessAssertionScheduleType.CRON.name());
+        CriterionUtils.buildCriterion(
+            "scheduleType", Condition.EQUAL, FreshnessAssertionScheduleType.CRON.name());
 
     CriterionArray criterionArray = new CriterionArray();
     criterionArray.add(isCronFreshnessAssertion);

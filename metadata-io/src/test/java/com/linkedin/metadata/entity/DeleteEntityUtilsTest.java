@@ -10,6 +10,7 @@ import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.grammar.PdlSchemaParser;
 import com.linkedin.data.schema.resolver.DefaultDataSchemaResolver;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
@@ -418,7 +419,9 @@ public class DeleteEntityUtilsTest extends TestCase {
     criterionArray.add(
         new Criterion()
             .setField("structuredPropertyPromptUrns")
-            .setValue(deletedPropertyUrn.toString())
+            .setValues(new StringArray(deletedPropertyUrn.toString()))
+            .setNegated(false)
+            .setValue("")
             .setCondition(Condition.EQUAL));
     Filter expectedFilter =
         new Filter()

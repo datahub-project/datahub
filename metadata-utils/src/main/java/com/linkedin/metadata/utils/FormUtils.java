@@ -57,10 +57,6 @@ public class FormUtils {
     groupUrns.forEach(groupUrn -> ownershipUrns.add(groupUrn.toString()));
 
     // create filter for entities owned by this user or one of their groups
-    return new Criterion()
-        .setField("owners")
-        .setValues(ownershipUrns)
-        .setValue(ownershipUrns.get(0))
-        .setCondition(Condition.EQUAL);
+    return CriterionUtils.buildCriterion("owners", Condition.EQUAL, ownershipUrns);
   }
 }

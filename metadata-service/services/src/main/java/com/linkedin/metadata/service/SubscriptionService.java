@@ -21,6 +21,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.subscription.EntityChangeDetailsArray;
@@ -602,37 +603,26 @@ public class SubscriptionService extends BaseService {
 
   @Nonnull
   private Criterion buildEntityCriterion(@Nonnull final Urn entityUrn) {
-    final Criterion entityCriterion = new Criterion();
-    entityCriterion.setField(ENTITY_URN_FIELD_NAME);
-    entityCriterion.setValue(entityUrn.toString());
-    entityCriterion.setCondition(Condition.EQUAL);
-    return entityCriterion;
+    return CriterionUtils.buildCriterion(
+        ENTITY_URN_FIELD_NAME, Condition.EQUAL, entityUrn.toString());
   }
 
   @Nonnull
   private Criterion buildAssertionCriterion(@Nonnull final Urn assertionUrn) {
-    final Criterion criterion = new Criterion();
-    criterion.setField(ENTITY_CHANGE_TYPES_FILTER_INCLUDE_ASSERTIONS_FIELD_NAME);
-    criterion.setValue(assertionUrn.toString());
-    criterion.setCondition(Condition.EQUAL);
-    return criterion;
+    return CriterionUtils.buildCriterion(
+        ENTITY_CHANGE_TYPES_FILTER_INCLUDE_ASSERTIONS_FIELD_NAME,
+        Condition.EQUAL,
+        assertionUrn.toString());
   }
 
   @Nonnull
   private Criterion buildActorCriterion(@Nonnull final Urn actorUrn) {
-    final Criterion actorCriterion = new Criterion();
-    actorCriterion.setField(ACTOR_URN_FIELD_NAME);
-    actorCriterion.setValue(actorUrn.toString());
-    actorCriterion.setCondition(Condition.EQUAL);
-    return actorCriterion;
+    return CriterionUtils.buildCriterion(
+        ACTOR_URN_FIELD_NAME, Condition.EQUAL, actorUrn.toString());
   }
 
   @Nonnull
   private Criterion buildActorTypeCriterion(@Nonnull final String actorType) {
-    final Criterion actorTypeCriterion = new Criterion();
-    actorTypeCriterion.setField(ACTOR_TYPE_FIELD_NAME);
-    actorTypeCriterion.setValue(actorType);
-    actorTypeCriterion.setCondition(Condition.EQUAL);
-    return actorTypeCriterion;
+    return CriterionUtils.buildCriterion(ACTOR_TYPE_FIELD_NAME, Condition.EQUAL, actorType);
   }
 }

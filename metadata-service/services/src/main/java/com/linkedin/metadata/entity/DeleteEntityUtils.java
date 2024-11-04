@@ -24,9 +24,9 @@ import com.linkedin.form.FormPromptArray;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.List;
 import java.util.ListIterator;
@@ -322,10 +322,8 @@ public class DeleteEntityUtils {
   public static Filter getFilterForStructuredPropertyDeletion(@Nonnull final Urn deletedUrn) {
     final CriterionArray criterionArray = new CriterionArray();
     criterionArray.add(
-        new Criterion()
-            .setField("structuredPropertyPromptUrns")
-            .setValue(deletedUrn.toString())
-            .setCondition(Condition.EQUAL));
+        CriterionUtils.buildCriterion(
+            "structuredPropertyPromptUrns", Condition.EQUAL, deletedUrn.toString()));
     return new Filter()
         .setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criterionArray)));
   }

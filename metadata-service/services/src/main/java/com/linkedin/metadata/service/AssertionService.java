@@ -36,7 +36,6 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.dataset.DatasetFilter;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -46,14 +45,15 @@ import com.linkedin.metadata.aspect.patch.builder.AssertionsSummaryPatchBuilder;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.AssertionKey;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -1214,11 +1214,7 @@ public class AssertionService extends BaseService {
     return new ConjunctiveCriterion()
         .setAnd(
             new CriterionArray(
-                ImmutableList.of(
-                    new Criterion()
-                        .setField(field)
-                        .setValue(value)
-                        .setValues(new StringArray(ImmutableList.of(value))))));
+                ImmutableList.of(CriterionUtils.buildCriterion(field, Condition.EQUAL, value))));
   }
 
   public Urn upsertCustomAssertion(

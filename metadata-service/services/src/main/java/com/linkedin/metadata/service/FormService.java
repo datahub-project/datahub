@@ -16,7 +16,6 @@ import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.form.DynamicFormAssignment;
@@ -44,6 +43,7 @@ import com.linkedin.metadata.test.definition.expression.Query;
 import com.linkedin.metadata.test.definition.literal.StringListLiteral;
 import com.linkedin.metadata.test.definition.operator.OperatorType;
 import com.linkedin.metadata.test.definition.operator.Predicate;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.FormUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
@@ -1803,21 +1803,15 @@ public class FormService extends BaseService {
     // first, create a filter for the userUrn or the groupUrns matching the form actor assignment
     final CriterionArray assignedUserArray = new CriterionArray();
     assignedUserArray.add(
-        new Criterion()
-            .setField("assignedUsers")
-            .setValue(userUrn.toString())
-            .setCondition(Condition.EQUAL));
+        CriterionUtils.buildCriterion("assignedUsers", Condition.EQUAL, userUrn.toString()));
 
     List<Urn> uniqueGroupUrns = new HashSet<>(groupUrns).stream().collect(Collectors.toList());
     final CriterionArray assignedGroupsArray = new CriterionArray();
     assignedGroupsArray.add(
-        new Criterion()
-            .setField("assignedGroups")
-            .setValue("")
-            .setValues(
-                new StringArray(
-                    uniqueGroupUrns.stream().map(Urn::toString).collect(Collectors.toList())))
-            .setCondition(Condition.EQUAL));
+        CriterionUtils.buildCriterion(
+            "assignedGroups",
+            Condition.EQUAL,
+            uniqueGroupUrns.stream().map(Urn::toString).collect(Collectors.toList())));
 
     Filter filter =
         new Filter()

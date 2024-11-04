@@ -8,20 +8,20 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.SerializedValueContentType;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.dataplatform.slack.SlackUserInfo;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.platformresource.PlatformResourceInfo;
 import io.datahubproject.metadata.context.OperationContext;
@@ -94,17 +94,11 @@ public class SlackMemberResolutionUtils {
         .setAnd(
             new CriterionArray(
                 ImmutableList.of(
-                    new Criterion()
-                        .setField(field)
-                        .setValue(value)
-                        .setValues(new StringArray(ImmutableList.of(value))),
-                    new Criterion()
-                        .setField(PLATFORM_RESOURCE_TYPE_KEYS_SEARCH_FIELD)
-                        .setValue(PLATFORM_RESOURCE_TYPE_KEYS_SEARCH_FIELD_VALUE)
-                        .setValues(
-                            new StringArray(
-                                ImmutableList.of(
-                                    PLATFORM_RESOURCE_TYPE_KEYS_SEARCH_FIELD_VALUE))))));
+                    CriterionUtils.buildCriterion(field, Condition.EQUAL, value),
+                    CriterionUtils.buildCriterion(
+                        PLATFORM_RESOURCE_TYPE_KEYS_SEARCH_FIELD,
+                        Condition.EQUAL,
+                        PLATFORM_RESOURCE_TYPE_KEYS_SEARCH_FIELD_VALUE))));
   }
 
   @Nullable

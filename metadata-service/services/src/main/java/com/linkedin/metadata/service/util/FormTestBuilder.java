@@ -19,12 +19,12 @@ import com.linkedin.form.FormPrompt;
 import com.linkedin.form.GlossaryTermsParams;
 import com.linkedin.form.OwnershipParams;
 import com.linkedin.metadata.models.EntitySpecUtils;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
@@ -394,8 +394,7 @@ public class FormTestBuilder {
   private static ConjunctiveCriterion buildFieldExistsConjunctiveCriterion(
       @Nonnull String fieldName) {
     CriterionArray descriptionCriterionArray = new CriterionArray();
-    Criterion descriptionCriterion =
-        new Criterion().setField(fieldName).setCondition(Condition.EXISTS).setValue("");
+    Criterion descriptionCriterion = CriterionUtils.buildExistsCriterion(fieldName);
     descriptionCriterionArray.add(descriptionCriterion);
     return new ConjunctiveCriterion().setAnd(descriptionCriterionArray);
   }
