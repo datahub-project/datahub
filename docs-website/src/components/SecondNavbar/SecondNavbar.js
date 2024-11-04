@@ -11,6 +11,10 @@ function SecondNavbarContent() {
   const { colorMode, setColorMode } = useColorMode();
   const location = useLocation();
   const isDocsPath = location.pathname.startsWith('/docs');
+
+  const isAcrylSidebar = location.pathname.includes('/managed-datahub');
+  const isCoreSidebar = !isAcrylSidebar;
+
   if (!isDocsPath) {
     return null;
   }
@@ -18,6 +22,20 @@ function SecondNavbarContent() {
   return (
     <div className={clsx(styles.secondNavbar, colorMode === 'dark' && styles.darkMode)}>
       <div className={styles.container}>
+        <div className={styles.coreCloudSwitch}>
+          <Link
+            className={clsx(styles.docsSwitchButton, isCoreSidebar && styles.activeButton)}
+            to="/docs/features"
+          >
+            DataHub Core
+          </Link>
+          <Link
+            className={clsx(styles.docsSwitchButton, isAcrylSidebar && styles.activeButton)}
+            to="/docs/managed-datahub/managed-datahub-overview"
+          >
+            DataHub Cloud
+          </Link>
+        </div>
         <div className={styles.versionDropdown}>
           <DocsVersionDropdownNavbarItem
             docsPluginId="default"
