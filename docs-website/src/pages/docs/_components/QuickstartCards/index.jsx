@@ -12,7 +12,7 @@ const quickstartContent =  [
 {
     title: "Learn about DataHub Cloud",
     icon: "acryl-logo-transparent-mark",
-    to: "managed-datahub/managed-datahub-overview",
+    to: "cloud/managed-datahub-overview",
     color: '#091013',
     fontColor: '#FFF',
 }

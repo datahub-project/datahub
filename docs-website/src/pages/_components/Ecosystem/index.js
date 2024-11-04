@@ -53,7 +53,7 @@ const Ecosystem = () => {
                 </Link>
               </div>
               <div className={styles.itemWrappersRow}>
-                <Link className={styles.item3} to="/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor" target="_blank">
+                <Link className={styles.item3} to="/docs/cloud/operator-guide/setting-up-remote-ingestion-executor" target="_blank">
                 <img src={useBaseUrl("/img/link_arrow_open.png")} className={styles.itemLinkOpenArrow} />
                   <div className={styles.item_content}>
                     <img
