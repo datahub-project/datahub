@@ -13,6 +13,8 @@ import DemoForm from "./DemoForm";
 import ServiceBell from "@servicebell/widget";
 import DemoFormModal from "./DemoFormModal";
 
+const SERVICE_BELL_ID = "00892146e5bc46d98d55ecc2b2fa67e2";
+
 function Home() {
   const context = useDocusaurusContext();
   const { siteConfig = {} } = context;
@@ -26,7 +28,7 @@ function Home() {
   }
 
   useEffect(() => {
-    ServiceBell("init", "00892146e5bc46d98d55ecc2b2fa67e2", { hidden: false });
+    ServiceBell("init", SERVICE_BELL_ID, { hidden: false });
   }, []);
 
   return !siteConfig.customFields.isSaas ? (
