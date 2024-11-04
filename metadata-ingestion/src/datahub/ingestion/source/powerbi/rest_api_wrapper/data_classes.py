@@ -96,6 +96,9 @@ class Workspace:
             instance=platform_instance,
         )
 
+    def format_name_for_logger(self) -> str:
+        return f"{self.name} ({self.id})"
+
 
 @dataclass
 class DataSource:
