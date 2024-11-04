@@ -38,8 +38,10 @@ class S3(ConfigModel):
         description="# Whether or not to create tags in datahub from the s3 object",
     )
 
+
 class Azure(ConfigModel):
     """Azure configuration for Delta Lake source"""
+
     azure_config: Optional[AzureConnectionConfig] = Field(
         default=None, description="Azure configuration"
     )
@@ -47,6 +49,7 @@ class Azure(ConfigModel):
         False,
         description="Whether or not to create tags in datahub from Azure blob metadata",
     )
+
 
 class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     base_path: str = Field(
