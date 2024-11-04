@@ -3,6 +3,7 @@ import string
 from datetime import datetime, timezone
 from typing import cast
 from unittest import mock
+from unittest.mock import MagicMock
 
 import pytest
 from freezegun import freeze_time
@@ -157,6 +158,9 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                 ),
             )
         )
+
+        pipeline.graph = mock.MagicMock()
+        pipeline.source.platform_resource_repository = mock.MagicMock()  # type: ignore
         pipeline.run()
         pipeline.pretty_print_summary()
         pipeline.raise_from_status()
