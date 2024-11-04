@@ -31,8 +31,8 @@ from datahub.ingestion.source.aws.s3_util import (
 )
 from datahub.ingestion.source.azure.abs_folder_utils import get_abs_tags
 from datahub.ingestion.source.azure.abs_utils import (
-    get_container_name,
     get_abs_prefix,
+    get_container_name,
     strip_abs_prefix,
 )
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
