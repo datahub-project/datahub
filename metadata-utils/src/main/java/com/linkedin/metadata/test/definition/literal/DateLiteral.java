@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import com.linkedin.metadata.test.definition.value.DateType;
 import com.linkedin.metadata.test.definition.value.ValueType;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.regex.Matcher;
@@ -44,7 +43,7 @@ public class DateLiteral implements Literal {
     return matcher.matches();
   }
 
-  private static LocalDateTime resolveRelativeDate(String relativeDate) {
+  private static ZonedDateTime resolveRelativeDate(String relativeDate) {
     // Regular expression to parse the relative date
     Pattern pattern = Pattern.compile("^([+-])(\\d+)(d|m|h|w|y|min)$");
     Matcher matcher = pattern.matcher(relativeDate);
@@ -54,7 +53,7 @@ public class DateLiteral implements Literal {
       long amount = Long.parseLong(matcher.group(2));
       String unit = matcher.group(3);
 
-      LocalDateTime now = LocalDateTime.now();
+      ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
       switch (unit) {
         case "min":
           return sign.equals("+") ? now.plusMinutes(amount) : now.minusMinutes(amount);
@@ -77,9 +76,7 @@ public class DateLiteral implements Literal {
   }
 
   public String resolveValue() {
-    LocalDateTime localDateTime = resolveRelativeDate(this.value);
-    // Convert LocalDateTime to ZonedDateTime using the specified ZoneId
-    ZonedDateTime zonedDateTime = localDateTime.atZone(ZoneId.systemDefault());
+    ZonedDateTime zonedDateTime = resolveRelativeDate(this.value);
     // Convert ZonedDateTime to Instant
     Instant instant = zonedDateTime.toInstant();
     // Return the epoch millisecond value of the instant
