@@ -1,8 +1,8 @@
 name: PR Comment
 
 on:
-  pull_request:
-    types: [opened]
+  pull_request_target:
+    types: [opened, updated]
 
 permissions:
   pull-requests: write
