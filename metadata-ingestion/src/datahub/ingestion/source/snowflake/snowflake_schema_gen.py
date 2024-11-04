@@ -827,7 +827,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if not snowflake_tag:
             linked_resource_set = LinkedResourceSet(urns=[tag_urn])
             linked_resource_set.add(tag_urn)
-            tag_entities.SnowflakeTag(
+            snowflake_tag = tag_entities.SnowflakeTag(
                 datahub_urns=linked_resource_set,
                 managed_by_datahub=False,
                 id=snowflake_tag_id,
