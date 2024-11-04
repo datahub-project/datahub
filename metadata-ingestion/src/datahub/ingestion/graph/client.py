@@ -1241,11 +1241,11 @@ class DataHubGraph(DatahubRestEmitter):
         Args:
             urn: The urn of the entity to soft-delete.
         """
-        self.change_soft_delete_status(
+        self.set_soft_delete_status(
             urn=urn, run_id=run_id, deletion_timestamp=deletion_timestamp, delete=True
         )
 
-    def change_soft_delete_status(
+    def set_soft_delete_status(
         self,
         urn: str,
         delete: bool,

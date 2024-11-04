@@ -217,11 +217,11 @@ def references(urn: str, dry_run: bool, force: bool) -> None:
 @click.option("--urn", required=True, type=str, help="the urn of the entity")
 def undo_by_filter(urn: str) -> None:
     """
-    Allows to un-soft delete by filters
+    Undo a soft deletion of an entity
     """
     graph = get_default_graph()
     logger.info(f"Using {graph}")
-    graph.change_soft_delete_status(urn=urn, delete=False)
+    graph.set_soft_delete_status(urn=urn, delete=False)
 
 
 @delete.command(no_args_is_help=True)
