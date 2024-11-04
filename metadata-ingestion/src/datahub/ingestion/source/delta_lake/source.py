@@ -5,6 +5,7 @@ import time
 from typing import Dict, Iterable, List
 from urllib.parse import urlparse
 
+from azure.identity import ClientSecretCredential
 from deltalake import DeltaTable
 
 from datahub.emitter.mce_builder import (
@@ -122,7 +123,7 @@ class DeltaLakeSource(Source):
                 or self.source_config.azure.azure_config is None
             ):
                 raise ValueError("Azure Config must be provided for ABFSS base path")
-            self.azure_client = self.source_config.azure.get_azure_client()
+            self.azure_client = self.source_config.azure.azure_config.get_azure_client()
 
         # self.profiling_times_taken = []
         config_report = {
@@ -290,10 +291,7 @@ class DeltaLakeSource(Source):
         if (
             self.source_config.is_azure
             and self.source_config.azure
-            and (
-                self.source_config.azure.use_azure_container_tags
-                or self.source_config.azure.use_azure_blob_tags
-            )
+            and self.source_config.azure.use_abs_blob_tags
         ):
             container_name = get_container_name(path)
             abs_prefix = get_abs_prefix(path)
@@ -340,15 +338,21 @@ class DeltaLakeSource(Source):
         elif self.source_config.is_azure:
             azure_config = self.source_config.azure.azure_config
             creds = azure_config.get_credentials()
-            opts = {
-                "AZURE_STORAGE_ACCOUNT_NAME": azure_config.account_name,
-                "AZURE_STORAGE_CONTAINER_NAME": azure_config.container_name,
-                "AZURE_TENANT_ID": creds.get("tenant_id") or "",
-                "AZURE_CLIENT_ID": creds.get("client_id") or "",
-                "AZURE_CLIENT_SECRET": creds.get("client_secret") or "",
-                "AZURE_STORAGE_SAS_TOKEN": creds.get("sas_token") or "",
-                "AZURE_STORAGE_ACCOUNT_KEY": creds.get("account_key") or "",
-            }
+            if isinstance(creds, ClientSecretCredential):
+                opts = {
+                    "AZURE_TENANT_ID": azure_config.tenant_id or "",
+                    "AZURE_CLIENT_ID": azure_config.client_id or "",
+                    "AZURE_CLIENT_SECRET": azure_config.client_secret or "",
+                }
+            else:
+                if azure_config.sas_token:
+                    opts = {
+                        "AZURE_STORAGE_SAS_TOKEN": azure_config.sas_token,
+                    }
+                else:
+                    opts = {
+                        "AZURE_STORAGE_ACCOUNT_KEY": azure_config.account_key or "",
+                    }
             return opts
         else:
             return {}
