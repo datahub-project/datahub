@@ -137,6 +137,93 @@ Execute the ingestion recipe:
 datahub ingest -c delta.s3.dhub.yaml
 ```
 
+### Delta Table on Azure Storage
+
+#### Step 1: Create a Delta Table
+Use the following PySpark code to create a sample Delta table in Azure Storage:
+
+```python
+from pyspark.sql import SparkSession
+from delta.tables import DeltaTable
+import uuid
+import random
+
+def generate_data():
+    return [(y, m, d, str(uuid.uuid4()), str(random.randrange(10000) % 26 + 65) * 3, random.random()*10000)
+    for d in range(1, 29)
+    for m in range(1, 13)
+    for y in range(2000, 2021)]
+
+# Configure Spark with Delta Lake and Azure Storage support
+jar_packages = [
+    "io.delta:delta-core_2.12:1.2.1",
+    "org.apache.hadoop:hadoop-azure:3.2.0",
+    "com.microsoft.azure:azure-storage:8.6.6"
+]
+
+spark = SparkSession.builder \
+    .appName("delta-azure-quickstart") \
+    .master("local[*]") \
+    .config("spark.jars.packages", ",".join(jar_packages)) \
+    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
+    .getOrCreate()
+
+# Configure Azure Storage access
+storage_account = "your-storage-account"
+container_name = "your-container"
+
+# Configure Spark properties for Azure Storage
+spark.conf.set(
+    f"fs.azure.account.key.{storage_account}.dfs.core.windows.net",
+    "your-account-key"
+)
+
+# Create and write sample data
+table_path = f"abfss://{container_name}@{storage_account}.dfs.core.windows.net/sales-table"
+columns = ["year", "month", "day", "sale_id", "customer", "total_cost"]
+
+spark.sparkContext.parallelize(generate_data()) \
+    .toDF(columns) \
+    .repartition(1) \
+    .write \
+    .format("delta") \
+    .save(table_path)
+
+# Read and verify the data
+df = spark.read.format("delta").load(table_path)
+df.show()
+```
+
+#### Step 2: Create DataHub Ingestion Recipe
+Create a YAML file (delta.azure.dhub.yaml) with the following configuration:
+
+```yaml
+source:
+  type: "delta-lake"
+  config:
+    base_path: "https://your-storage-account.dfs.core.windows.net/your-container/sales-table"
+    azure:
+      azure_config:
+        account_name: "your-storage-account"
+        container_name: "your-container"
+        account_key: "*****"
+      
+      # Optional: Enable Azure metadata ingestion
+      use_abs_blob_tags: true
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+```
+
+#### Step 3: Execute the Ingestion
+Run the following command to start the ingestion:
+```bash
+datahub ingest -c delta.azure.dhub.yaml
+```
+
 ### Note
 
 The above recipes are minimal recipes. Please refer to [Config Details](#config-details) section for the full configuration.

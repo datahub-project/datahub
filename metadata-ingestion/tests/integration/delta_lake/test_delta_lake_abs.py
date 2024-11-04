@@ -56,7 +56,7 @@ def azure_container(azurite_runner):
     )
 
     blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-    container_name = "my-test-container"
+    container_name = "test-container"
     container_client = blob_service_client.create_container(container_name)
     return container_client
 
@@ -86,11 +86,13 @@ def test_delta_lake_ingest_azure(pytestconfig, tmp_path, test_resources_dir):
                 "type": "delta-lake",
                 "config": {
                     "env": "DEV",
-                    "base_path": "abfs://my-test-container/delta_tables/sales",
+                    "base_path": f"http://localhost:{AZURITE_BLOB_PORT}/devstoreaccount1/test-container/delta_tables/sales",
                     "azure": {
-                        "account_name": "devstoreaccount1",
-                        "account_key": "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==",
-                        "endpoint": f"http://localhost:{AZURITE_BLOB_PORT}",
+                        "azure_config": {
+                            "account_name": "devstoreaccount1",
+                            "account_key": "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==",
+                            "endpoint": f"http://localhost:{AZURITE_BLOB_PORT}",
+                        },
                     },
                 },
             },

@@ -14,7 +14,6 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
-
 from datahub.ingestion.source.azure.abs_utils import is_abs_uri
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 
