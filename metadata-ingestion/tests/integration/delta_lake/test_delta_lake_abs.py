@@ -34,7 +34,7 @@ def test_resources_dir(pytestconfig):
 def azurite_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     container_name = "azurite_test"
     with docker_compose_runner(
-            test_resources_dir / "docker-compose-azure.yml", container_name
+        test_resources_dir / "docker-compose.yml", container_name
     ) as docker_services:
         wait_for_port(
             docker_services,
@@ -63,7 +63,9 @@ def azure_container(azurite_runner):
 
 @pytest.fixture(scope="module", autouse=True)
 def populate_azure_storage(pytestconfig, azure_container):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/delta_lake/test_data/"
+    test_resources_dir = (
+        pytestconfig.rootpath / "tests/integration/delta_lake/test_data/"
+    )
 
     for root, *dirs, files in os.walk(test_resources_dir):
         for file in files:
@@ -109,3 +111,4 @@ def test_delta_lake_ingest_azure(pytestconfig, tmp_path, test_resources_dir):
         output_path=tmp_path / "delta_lake_azure_mces.json",
         golden_path=test_resources_dir / "delta_lake_azure_mces_golden.json",
     )
+    
