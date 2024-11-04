@@ -405,6 +405,7 @@ class FeastRepositorySource(Source):
                 entity = self.feature_store.get_entity(entity_name)
                 yield self._get_entity_workunit(feature_view, entity)
 
+            for field in feature_view.features:
                 yield self._get_feature_workunit(feature_view, field)
 
             yield self._get_feature_view_workunit(feature_view)
