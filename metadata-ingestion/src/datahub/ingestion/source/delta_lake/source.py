@@ -351,11 +351,13 @@ class DeltaLakeSource(Source):
 
             if isinstance(creds, ClientSecretCredential):
                 # Service Principal auth
-                opts.update({
-                    "AZURE_TENANT_ID": azure_config.tenant_id or "",
-                    "AZURE_CLIENT_ID": azure_config.client_id or "",
-                    "AZURE_CLIENT_SECRET": azure_config.client_secret or "",
-                })
+                opts.update(
+                    {
+                        "AZURE_TENANT_ID": azure_config.tenant_id or "",
+                        "AZURE_CLIENT_ID": azure_config.client_id or "",
+                        "AZURE_CLIENT_SECRET": azure_config.client_secret or "",
+                    }
+                )
             elif azure_config.sas_token and creds == azure_config.sas_token:
                 # SAS token auth
                 opts["AZURE_STORAGE_SAS_TOKEN"] = azure_config.sas_token
