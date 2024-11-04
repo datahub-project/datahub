@@ -647,7 +647,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if self.report.is_tag_processed(tag_identifier):
             return
 
-        self.report.report_tag_processed(tag_identifier)
+        self.report.report_tag_processed(
+            f"{tag.database}.{tag.schema}.{tag_identifier}"
+        )
 
         yield from self.gen_tag_workunits(tag)
 

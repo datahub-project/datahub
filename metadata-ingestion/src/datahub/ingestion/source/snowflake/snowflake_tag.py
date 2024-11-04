@@ -165,7 +165,7 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
 
         allowed_tags = []
         for tag in tags:
-            tag_identifier = tag.display_name()
+            tag_identifier = f"{tag.database}.{tag.schema}.{tag.display_name()}"
             self.report.report_entity_scanned(tag_identifier, "tag")
             if not self.config.tag_pattern.allowed(tag_identifier):
                 self.report.report_dropped(tag_identifier)
