@@ -6,7 +6,6 @@ from typing import Dict, Iterable, List
 from urllib.parse import urlparse
 
 from azure.identity import ClientSecretCredential
-
 from deltalake import DeltaTable
 
 from datahub.emitter.mce_builder import (

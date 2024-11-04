@@ -90,8 +90,8 @@ def test_delta_lake_ingest_azure(pytestconfig, tmp_path, test_resources_dir):
                     "azure": {
                         "azure_config": {
                             "account_name": "devstoreaccount1",
+                            "container_name": "test-container",
                             "account_key": "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==",
-                            "endpoint": f"http://localhost:{AZURITE_BLOB_PORT}",
                         },
                     },
                 },
