@@ -23,11 +23,14 @@ import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -160,8 +163,27 @@ public class EntityController
           Map.Entry<String, JsonNode> aspect = aspectItr.next();
 
           AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).get();
+          JsonNode jsonNodeAspect = aspect.getValue().get("value");
 
-          if (aspectSpec != null) {
+          if (opContext.getValidationContext().isAlternateValidation()) {
+            ProposedItem.ProposedItemBuilder builder =
+                ProposedItem.builder()
+                    .metadataChangeProposal(
+                        new MetadataChangeProposal()
+                            .setEntityUrn(entityUrn)
+                            .setAspectName(aspect.getKey())
+                            .setEntityType(entityUrn.getEntityType())
+                            .setChangeType(ChangeType.UPSERT)
+                            .setAspect(GenericRecordUtils.serializeAspect(jsonNodeAspect))
+                            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata()))
+                    .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
+                    .entitySpec(
+                        opContext
+                            .getAspectRetriever()
+                            .getEntityRegistry()
+                            .getEntitySpec(entityUrn.getEntityType()));
+            items.add(builder.build());
+          } else if (aspectSpec != null) {
             ChangeItemImpl.ChangeItemImplBuilder builder =
                 ChangeItemImpl.builder()
                     .urn(entityUrn)
@@ -170,7 +192,7 @@ public class EntityController
                     .recordTemplate(
                         GenericRecordUtils.deserializeAspect(
                             ByteString.copyString(
-                                objectMapper.writeValueAsString(aspect.getValue().get("value")),
+                                objectMapper.writeValueAsString(jsonNodeAspect),
                                 StandardCharsets.UTF_8),
                             GenericRecordUtils.JSON,
                             aspectSpec));
@@ -181,7 +203,7 @@ public class EntityController
                       objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata"))));
             }
 
-            items.add(builder.build(opContext.getRetrieverContext().get().getAspectRetriever()));
+            items.add(builder.build(opContext.getAspectRetrieverOpt().get()));
           }
         }
       }
@@ -261,9 +283,10 @@ public class EntityController
         true);
   }
 
-  @Override
   protected List<GenericEntityV2> buildEntityList(
-      Set<IngestResult> ingestResults, boolean withSystemMetadata) {
+      OperationContext opContext,
+      Collection<IngestResult> ingestResults,
+      boolean withSystemMetadata) {
     List<GenericEntityV2> responseList = new LinkedList<>();
 
     Map<Urn, List<IngestResult>> entityMap =
@@ -282,7 +305,10 @@ public class EntityController
       responseList.add(
           GenericEntityV2.builder()
               .urn(urnAspects.getKey().toString())
-              .build(objectMapper, aspectsMap));
+              .build(
+                  objectMapper,
+                  aspectsMap,
+                  opContext.getValidationContext().isAlternateValidation()));
     }
     return responseList;
   }

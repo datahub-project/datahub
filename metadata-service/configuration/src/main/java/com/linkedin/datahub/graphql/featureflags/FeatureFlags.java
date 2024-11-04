@@ -23,4 +23,5 @@ public class FeatureFlags {
   private boolean dataContractsEnabled = false;
   private boolean editableDatasetNameEnabled = false;
   private boolean showSeparateSiblings = false;
+  private boolean alternateMCPValidation = false;
 }

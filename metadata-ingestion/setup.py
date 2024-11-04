@@ -42,7 +42,6 @@ framework_common = {
     "python-dateutil>=2.8.0",
     "tabulate",
     "progressbar2",
-    "termcolor>=1.0.0",
     "psutil>=5.8.0",
     "Deprecated",
     "humanfriendly",
@@ -99,9 +98,11 @@ usage_common = {
 }
 
 sqlglot_lib = {
-    # Using an Acryl fork of sqlglot.
+    # We heavily monkeypatch sqlglot.
+    # Prior to the patching, we originally maintained an acryl-sqlglot fork:
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==25.20.2.dev6",
+    "sqlglot[rs]==25.26.0",
+    "patchy==2.8.0",
 }
 
 classification_lib = {
@@ -122,6 +123,10 @@ dbt_common = {
     "more_itertools",
 }
 
+cachetools_lib = {
+    "cachetools",
+}
+
 sql_common = (
     {
         # Required for all SQL sources.
@@ -136,8 +141,9 @@ sql_common = (
         # https://github.com/great-expectations/great_expectations/pull/5382/files
         # datahub does not depend on traitlets directly but great expectations does.
         # https://github.com/ipython/traitlets/issues/741
-        "traitlets<5.2.2",
+        "traitlets!=5.2.2",
         "greenlet",
+        *cachetools_lib,
     }
     | usage_common
     | sqlglot_lib
@@ -167,7 +173,7 @@ path_spec_common = {
 
 looker_common = {
     # Looker Python SDK
-    "looker-sdk==23.0.0",
+    "looker-sdk>=23.0.0",
     # This version of lkml contains a fix for parsing lists in
     # LookML files with spaces between an item and the following comma.
     # See https://github.com/joshtemple/lkml/issues/73.
@@ -186,6 +192,7 @@ bigquery_common = {
     "google-cloud-resource-manager",
     "more-itertools>=8.12.0",
     "sqlalchemy-bigquery>=1.4.1",
+    *path_spec_common,
 }
 
 clickhouse_common = {
@@ -213,7 +220,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
-    "cachetools",
+    *cachetools_lib,
 } | classification_lib
 
 trino = {
@@ -269,6 +276,13 @@ s3_base = {
     *path_spec_common,
 }
 
+threading_timeout_common = {
+    "stopit==1.1.2",
+    # stopit uses pkg_resources internally, which means there's an implied
+    # dependency on setuptools.
+    "setuptools",
+}
+
 abs_base = {
     "azure-core==1.29.4",
     "azure-identity>=1.17.1",
@@ -321,6 +335,13 @@ sac = {
     "Authlib",
 }
 
+superset_common = {
+    "requests",
+    "sqlalchemy",
+    "great_expectations",
+    "greenlet",
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -361,11 +382,11 @@ plugins: Dict[str, Set[str]] = {
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
+    | sqlglot_lib
+    | classification_lib
     | {
-        *sqlglot_lib,
         "google-cloud-datacatalog-lineage==0.2.2",
-    }
-    | classification_lib,
+    },
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
@@ -435,7 +456,7 @@ plugins: Dict[str, Set[str]] = {
     # mariadb should have same dependency as mysql
     "mariadb": sql_common | {"pymysql>=1.0.2"},
     "okta": {"okta~=1.7.0", "nest-asyncio"},
-    "oracle": sql_common | {"cx_Oracle"},
+    "oracle": sql_common | {"oracledb"},
     "postgres": sql_common | postgres_common,
     "presto": sql_common | pyhive_common | trino,
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
@@ -450,7 +471,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
-    | {"cachetools"},
+    | cachetools_lib,
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "abs": {*abs_base, *data_lake_profiling},
@@ -462,23 +483,30 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib,
     "slack": slack,
-    "superset": {
-        "requests",
-        "sqlalchemy",
-        "great_expectations",
-        "greenlet",
-    },
+    "superset": superset_common,
+    "preset": superset_common,
     # FIXME: I don't think tableau uses sqllineage anymore so we should be able
     # to remove that dependency.
     "tableau": {"tableauserverclient>=0.24.0"} | sqllineage_lib | sqlglot_lib,
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
-    | {"teradatasqlalchemy>=17.20.0.0"},
+    | {
+        # On 2024-10-30, teradatasqlalchemy 20.0.0.2 was released. This version seemed to cause issues
+        # in our CI, so we're pinning the version for now.
+        "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
+    },
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
-    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
+    "powerbi": (
+        (
+            microsoft_common
+            | {"lark[regex]==1.1.4", "sqlparse", "more-itertools"}
+            | sqlglot_lib
+            | threading_timeout_common
+        )
+    ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
     "unity-catalog": databricks | sql_common | sqllineage_lib,
@@ -536,7 +564,6 @@ mypy_stubs = {
     "types-pyOpenSSL",
     "types-click-spinner>=0.1.13.1",
     "types-ujson>=5.2.0",
-    "types-termcolor>=1.0.0",
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
     "sqlalchemy2-stubs",
