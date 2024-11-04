@@ -8,7 +8,7 @@ describe("create and manage group", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
     cy.loginWithCredentials();
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     cy.on("uncaught:exception", (err, runnable) => false);
   });
   it("add test user", () => {
@@ -30,7 +30,7 @@ describe("create and manage group", () => {
       cy.contains("Accepted invite!").should("not.exist");
       cy.wait(5000);
       // cy.hideOnboardingTour();
-      cy.handleIntroducePage();
+      cy.skipIntroducePage();
       cy.waitTextVisible(username);
     });
   });

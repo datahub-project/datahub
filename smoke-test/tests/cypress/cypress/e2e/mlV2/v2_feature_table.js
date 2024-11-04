@@ -18,7 +18,7 @@ describe("features", () => {
     cy.contains("CypressFeatureTag");
 
     // navigate to sources
-    cy.contains("Sources").click(); //datahub-fork/smoke-test/tests/cypress/cypress/e2e/containers/containers.js
+    cy.contains("Sources").click(); // datahub-fork/smoke-test/tests/cypress/cypress/e2e/containers/containers.js
 
     // feature & primary key sources are visible
     cy.contains("SampleCypressHdfsDataset");

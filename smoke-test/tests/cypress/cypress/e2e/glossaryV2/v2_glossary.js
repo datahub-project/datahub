@@ -37,7 +37,7 @@ describe("glossary", () => {
   });
   it("go to glossary page, create terms, term group", () => {
     cy.loginWithCredentials();
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     nevigateGlossaryPage();
     cy.clickOptionWithTestId("add-term-group-button-v2");
     cy.addViaModal(

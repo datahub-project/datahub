@@ -24,7 +24,7 @@ describe("view select", () => {
     });
 
     cy.visit("/");
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     cy.goToStarSearchList();
     cy.ensureElementPresent("#browse-v2");
     // Create a View from the select

@@ -421,16 +421,19 @@ export const IntroduceYourselfMainContent = () => {
                     <Select
                         placeholder="Select your Role"
                         suffixIcon={<KeyboardArrowDownOutlinedIcon />}
+                        data-testid="introduce-role-select"
                         size="large"
                         style={selectStyles}
                         onChange={handleRoleChange}
-                        options={updatedRoles.map((key) => ({
-                            value: key,
-                            label: key,
-                        }))}
                         showSearch
                         autoFocus
-                    />
+                    >
+                        {updatedRoles.map((role) => (
+                            <Select.Option key={role} value={role} data-testid={`role-option-${role}`}>
+                                {role}
+                            </Select.Option>
+                        ))}
+                    </Select>
                 </SelectWrapper>
                 <SelectWrapper>
                     <SettingsOutlinedIcon />

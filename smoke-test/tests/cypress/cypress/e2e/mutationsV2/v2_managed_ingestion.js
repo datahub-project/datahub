@@ -7,13 +7,13 @@ describe("run managed ingestion", () => {
     cy.setIsThemeV2Enabled(true);
   });
   it("create run managed ingestion source", () => {
-    let number = Math.floor(Math.random() * 100000);
-    let testName = `cypress test source ${number}`;
-    let cli_version = "0.12.0";
+    const number = Math.floor(Math.random() * 100000);
+    const testName = `cypress test source ${number}`;
+    const cli_version = "0.12.0";
     cy.login();
     cy.goToIngestionPage();
     cy.contains("Loading ingestion sources...").should("not.exist");
-    //cy.clickOptionWithText("Create new source");
+    // cy.clickOptionWithText("Create new source");
     cy.clickOptionWithTestId("create-ingestion-source-button");
     cy.get('[placeholder="Search data sources..."]').type("other");
     cy.clickOptionWithTextToScrollintoView("Other");

@@ -56,7 +56,7 @@ describe("glossary sidebar navigation test", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
     cy.loginWithCredentials();
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
   });
 
   it("create term and term parent group, move and delete term group", () => {

@@ -30,30 +30,28 @@ const downloadCsvFile = (filename) => {
 describe("download lineage results to .csv file", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
-    cy.on("uncaught:exception", (err, runnable) => {
-      return false;
-    });
+    cy.on("uncaught:exception", (err, runnable) => false);
   });
 
   it("download and verify lineage results for 1st, 2nd and 3+ degree of dependencies", () => {
     cy.loginWithCredentials();
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     cy.goToDataset(test_dataset, "SampleCypressKafkaDataset");
     cy.get('[data-node-key="Lineage"]').first().should("be.visible").click();
 
     // Verify 1st degree of dependencies
     cy.contains("Impact Analysis").click();
     downloadCsvFile("first_degree_results.csv");
-    let first_degree_csv = cy.readFile(
+    const first_degree_csv = cy.readFile(
       "cypress/downloads/first_degree_results.csv",
     );
-    first_degree.forEach(function (urn) {
+    first_degree.forEach((urn) => {
       first_degree_csv.should("contain", urn);
     });
-    second_degree.forEach(function (urn) {
+    second_degree.forEach((urn) => {
       first_degree_csv.should("not.contain", urn);
     });
-    third_degree_plus.forEach(function (urn) {
+    third_degree_plus.forEach((urn) => {
       first_degree_csv.should("not.contain", urn);
     });
 
@@ -61,16 +59,16 @@ describe("download lineage results to .csv file", () => {
     cy.get('[data-testid="facet-degree-2"]').click().wait(5000);
     cy.contains(/1 - [7-8] of [7-8]/);
     downloadCsvFile("second_degree_results.csv");
-    let second_degree_csv = cy.readFile(
+    const second_degree_csv = cy.readFile(
       "cypress/downloads/second_degree_results.csv",
     );
-    first_degree.forEach(function (urn) {
+    first_degree.forEach((urn) => {
       second_degree_csv.should("contain", urn);
     });
-    second_degree.forEach(function (urn) {
+    second_degree.forEach((urn) => {
       second_degree_csv.should("contain", urn);
     });
-    third_degree_plus.forEach(function (urn) {
+    third_degree_plus.forEach((urn) => {
       second_degree_csv.should("not.contain", urn);
     });
 
@@ -78,16 +76,16 @@ describe("download lineage results to .csv file", () => {
     cy.get('[data-testid="facet-degree-3+"]').click().wait(5000);
     cy.contains(/1 - 10/);
     downloadCsvFile("third_plus_degree_results.csv");
-    let third_degree_csv = cy.readFile(
+    const third_degree_csv = cy.readFile(
       "cypress/downloads/third_plus_degree_results.csv",
     );
-    first_degree.forEach(function (urn) {
+    first_degree.forEach((urn) => {
       third_degree_csv.should("contain", urn);
     });
-    second_degree.forEach(function (urn) {
+    second_degree.forEach((urn) => {
       third_degree_csv.should("contain", urn);
     });
-    third_degree_plus.forEach(function (urn) {
+    third_degree_plus.forEach((urn) => {
       third_degree_csv.should("contain", urn);
     });
   });

@@ -1,22 +1,22 @@
-let datasetUrn =
+const datasetUrn =
   "urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)";
-let datasetName = "DatasetToProposeOn";
+const datasetName = "DatasetToProposeOn";
 
-let clickSchemaLevel = (field_id, text_to_click) => {
-  cy.get('[data-testid="' + field_id + '"]').within(() =>
+const clickSchemaLevel = (field_id, text_to_click) => {
+  cy.get(`[data-testid="${field_id}"]`).within(() =>
     cy.contains(text_to_click).click(),
   );
 };
 
-let clickAddTagsSchemaLevel = (field_id) => {
+const clickAddTagsSchemaLevel = (field_id) => {
   clickSchemaLevel(field_id, "Add Tags");
 };
 
-let clickAddTermsSchemaLevel = (field_id) => {
+const clickAddTermsSchemaLevel = (field_id) => {
   clickSchemaLevel(field_id, "Add Terms");
 };
 
-let createProposalOnModal = (to_type, text) => {
+const createProposalOnModal = (to_type, text) => {
   cy.get(".ant-select-selector").eq(2).type(to_type);
   cy.wait(1000);
   cy.get(".rc-virtual-list").find("div").contains(to_type).click();
@@ -26,37 +26,33 @@ let createProposalOnModal = (to_type, text) => {
   cy.wait(2000);
 };
 
-let acceptProposalDatasetPage = (to_type, thing) => {
+const acceptProposalDatasetPage = (to_type, thing) => {
   cy.waitTextVisible(to_type);
-  cy.get('[data-testid="proposed-' + thing + "-" + to_type + '"]')
+  cy.get(`[data-testid="proposed-${thing}-${to_type}"]`)
     .first()
     .should("be.visible")
     .click({ force: true });
-  cy.get('[data-testid="proposal-accept-button-' + to_type + '"]').click({
+  cy.get(`[data-testid="proposal-accept-button-${to_type}"]`).click({
     force: true,
   });
-  cy.get('[data-testid="proposed-' + thing + "-" + to_type + '"]').should(
-    "not.exist",
-  );
+  cy.get(`[data-testid="proposed-${thing}-${to_type}"]`).should("not.exist");
 };
 
-let rejectProposalDatasetPage = (to_type, thing) => {
+const rejectProposalDatasetPage = (to_type, thing) => {
   cy.waitTextVisible(to_type);
-  cy.get('[data-testid="proposed-' + thing + "-" + to_type + '"]')
+  cy.get(`[data-testid="proposed-${thing}-${to_type}"]`)
     .first()
     .should("be.visible")
     .click({ force: true });
-  cy.get('[data-testid="proposal-reject-button-' + to_type + '"]').click({
+  cy.get(`[data-testid="proposal-reject-button-${to_type}"]`).click({
     force: true,
   });
-  cy.get('[data-testid="proposed-' + thing + "-" + to_type + '"]').should(
-    "not.exist",
-  );
+  cy.get(`[data-testid="proposed-${thing}-${to_type}"]`).should("not.exist");
 };
 
-let removeTagSchemaLevel = (field_id, element, tagORTerm, text) => {
+const removeTagSchemaLevel = (field_id, element, tagORTerm, text) => {
   cy.get(".ant-drawer-content").contains(tagORTerm).should("be.visible");
-  cy.get("[data-testid=" + field_id + "]").within(() => {
+  cy.get(`[data-testid=${field_id}]`).within(() => {
     cy.contains(element, tagORTerm)
       .find(".ant-tag-close-icon")
       .click({ force: true });
@@ -86,9 +82,7 @@ const deletePreviousEntity = (entity, locator, entityName, message) => {
 };
 
 describe("schemaProposals", () => {
-  Cypress.on("uncaught:exception", (err, runnable) => {
-    return false;
-  });
+  Cypress.on("uncaught:exception", (err, runnable) => false);
 
   it("can propose a schema-level tag and then decline tag proposal from the dataset page", () => {
     cy.login();

@@ -16,7 +16,7 @@ describe("column-level lineage graph test", () => {
     cy.login();
     cy.goToEntityLineageGraphV2(DATASET_ENTITY_TYPE, DATASET_URN);
     cy.wait(2000);
-    //verify columns not shown by default
+    // verify columns not shown by default
     cy.waitTextVisible("SampleCypressHdfs");
     cy.waitTextVisible("SampleCypressHive");
     cy.waitTextVisible("cypress_logging");

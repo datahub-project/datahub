@@ -1,4 +1,5 @@
 import { aliasQuery, hasOperationName } from "../utils";
+
 const test_id = Math.floor(Math.random() * 100000);
 const test_email = `${test_id}@acryl.io`;
 const datasetUrn =
@@ -7,9 +8,7 @@ const datasetName = "daily_temperature";
 
 describe("entity subscription test", () => {
   beforeEach(() => {
-    cy.on("uncaught:exception", (err, runnable) => {
-      return false;
-    });
+    cy.on("uncaught:exception", (err, runnable) => false);
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       aliasQuery(req, "appConfig");
     });

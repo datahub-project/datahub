@@ -1,11 +1,11 @@
 describe("auto-complete", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
+    cy.skipIntroducePage();
     cy.login();
     // look for a dataset
     cy.visit("/");
     cy.wait(2000);
-    cy.handleIntroducePage();
   });
 
   it("should see auto-complete results after typing in a search query", () => {

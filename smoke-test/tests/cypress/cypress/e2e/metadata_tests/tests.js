@@ -4,7 +4,7 @@ const urn =
   "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)";
 const datasetName = "SampleCypressHdfsDataset";
 const number = Math.floor(Math.random() * 100000);
-const testName = "Cypress Tag Test " + number;
+const testName = `Cypress Tag Test ${number}`;
 const testDescription = "Cyprress test description";
 
 const setTestsConfigFlag = (isOn) => {

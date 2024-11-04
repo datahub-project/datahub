@@ -5,13 +5,11 @@ describe("schema blame", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
   });
-  Cypress.on("uncaught:exception", (err, runnable) => {
-    return false;
-  });
+  Cypress.on("uncaught:exception", (err, runnable) => false);
 
   it("can activate the blame view and verify for the latest version of a dataset", () => {
     cy.login();
-    cy.visit("/dataset/" + urn);
+    cy.visit(`/dataset/${urn}`);
     cy.get("#column-field_baz").should("be.visible");
     cy.get("body").click();
 
@@ -39,7 +37,7 @@ describe("schema blame", () => {
 
   it("can activate the blame view and verify for an older version of a dataset", () => {
     cy.login();
-    cy.visit("/dataset/" + urn);
+    cy.visit(`/dataset/${urn}`);
     cy.get("#column-field_baz").should("be.visible");
     cy.get("body").click();
     cy.get(".ant-select-selection-item")

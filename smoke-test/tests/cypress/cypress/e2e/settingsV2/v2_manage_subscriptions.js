@@ -46,7 +46,7 @@ describe("entity subscription test", () => {
     // Configure a slack integration in settings
     setSubscriptionsEnabledFlag(true);
     cy.loginWithCredentials();
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     cy.goToIntegrationsSettings();
     cy.waitTextVisible("Users & Groups");
     cy.clickOptionWithText("Slack");
