@@ -541,18 +541,26 @@ class BigQuerySchemaApi:
                         table_name=constraint.table_name,
                         type=constraint.constraint_type,
                         field_path=constraint.column_name,
-                        referenced_project_id=constraint.referenced_catalog
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
-                        referenced_dataset=constraint.referenced_schema
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
-                        referenced_table_name=constraint.referenced_table
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
-                        referenced_column_name=constraint.referenced_column
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
+                        referenced_project_id=(
+                            constraint.referenced_catalog
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_dataset=(
+                            constraint.referenced_schema
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_table_name=(
+                            constraint.referenced_table
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_column_name=(
+                            constraint.referenced_column
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
                     )
                 )
             self.report.num_get_table_constraints_for_dataset_api_requests += 1

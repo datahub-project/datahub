@@ -1161,9 +1161,11 @@ class BigQuerySchemaGenerator:
             # fields=[],
             fields=self.gen_schema_fields(
                 columns,
-                table.constraints
-                if (isinstance(table, BigqueryTable) and table.constraints)
-                else [],
+                (
+                    table.constraints
+                    if (isinstance(table, BigqueryTable) and table.constraints)
+                    else []
+                ),
             ),
             foreignKeys=foreign_keys if foreign_keys else None,
         )
