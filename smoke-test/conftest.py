@@ -15,16 +15,19 @@ from tests.utils import (
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 
 
+def build_auth_session():
+    wait_for_healthcheck_util(requests)
+    return TestSessionWrapper(get_frontend_session())
+
+
 @pytest.fixture(scope="session")
 def auth_session():
-    wait_for_healthcheck_util(requests)
-    auth_session = TestSessionWrapper(get_frontend_session())
+    auth_session = build_auth_session()
     yield auth_session
     auth_session.destroy()
 
 
-@pytest.fixture(scope="session")
-def graph_client(auth_session) -> DataHubGraph:
+def build_graph_client(auth_session):
     print(auth_session.cookies)
     graph: DataHubGraph = DataHubGraph(
         config=DatahubClientConfig(
@@ -32,6 +35,11 @@ def graph_client(auth_session) -> DataHubGraph:
         )
     )
     return graph
+
+
+@pytest.fixture(scope="session")
+def graph_client(auth_session) -> DataHubGraph:
+    return build_graph_client(auth_session)
 
 
 def pytest_sessionfinish(session, exitstatus):
