@@ -111,4 +111,3 @@ def test_delta_lake_ingest_azure(pytestconfig, tmp_path, test_resources_dir):
         output_path=tmp_path / "delta_lake_azure_mces.json",
         golden_path=test_resources_dir / "delta_lake_azure_mces_golden.json",
     )
-    
