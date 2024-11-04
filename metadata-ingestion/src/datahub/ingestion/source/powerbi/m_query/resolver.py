@@ -356,8 +356,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             )
             if arg_list is None:
                 self.reporter.report_warning(
-                    f"{self.table.full_name}-arg-list",
-                    f"Argument list not found for data-access-function {data_access_func}",
+                    title="M-Query Resolver Error",
+                    message="Unable to extract lineage from parsed M-Query expression (missing argument list)",
+                    context=f"{self.table.full_name}: argument list not found for data-access-function {data_access_func}",
                 )
                 return None
 
@@ -377,8 +378,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 f"Function invocation without argument in expression = {invoke_expression.pretty()}"
             )
             self.reporter.report_warning(
-                f"{self.table.full_name}-variable-statement",
-                "Function invocation without argument",
+                title="M-Query Resolver Error",
+                message="Unable to extract lineage from parsed M-Query expression (function invocation without argument)",
+                context=f"{self.table.full_name}: function invocation without argument",
             )
             return None
 
@@ -403,8 +405,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                     f"Either list_expression or type_expression is not found = {invoke_expression.pretty()}"
                 )
                 self.reporter.report_warning(
-                    f"{self.table.full_name}-variable-statement",
-                    "Function argument expression is not supported",
+                    title="M-Query Resolver Error",
+                    message="Unable to extract lineage from parsed M-Query expression (function argument expression is not supported)",
+                    context=f"{self.table.full_name}: function argument expression is not supported",
                 )
                 return None
 
@@ -473,8 +476,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             )
             if v_statement is None:
                 self.reporter.report_warning(
-                    f"{self.table.full_name}-variable-statement",
-                    f"output variable ({current_identifier}) statement not found in table expression",
+                    title="Unable to extract lineage from M-Query expression",
+                    message="Lineage will be incomplete.",
+                    context=f"table-full-name={self.table.full_name}: output-variable={current_identifier} not found in table expression",
                 )
                 return None
 
