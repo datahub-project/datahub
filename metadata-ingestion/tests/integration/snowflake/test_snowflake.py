@@ -3,7 +3,6 @@ import string
 from datetime import datetime, timezone
 from typing import cast
 from unittest import mock
-from unittest.mock import MagicMock
 
 import pytest
 from freezegun import freeze_time
