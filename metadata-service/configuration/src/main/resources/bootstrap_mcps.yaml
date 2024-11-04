@@ -48,3 +48,9 @@ bootstrap:
       optional: true
       mcps_location: "bootstrap_mcps/ingestion-datahub-usage-reporting.yaml"
       values_env: "DATAHUB_USAGE_REPORTING_BOOTSTRAP_VALUES"
+
+    - name: ingestion-datahub-forms-reporting
+      version: v1
+      optional: true
+      mcps_location: "bootstrap_mcps/ingestion-datahub-forms-reporting.yaml"
+      values_env: "DATAHUB_FORMS_REPORTING_BOOTSTRAP_VALUES"
