@@ -19,6 +19,8 @@ from feast import (
 from feast.data_source import DataSource
 from pydantic import Field
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
@@ -47,6 +49,9 @@ from datahub.metadata.schema_classes import (
     MLPrimaryKeyPropertiesClass,
     StatusClass,
 )
+
+from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
+
 
 # FIXME: ValueType module cannot be used as a type
 _field_type_mapping: Dict[Union[ValueType, feast.types.FeastType], str] = {
@@ -365,13 +370,41 @@ class FeastRepositorySource(Source):
         config = FeastRepositorySourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def _add_tags_to_feature(self, feature_urn: str, tag_data: dict):
+        """
+        Attach tags to a feature in DataHub using tag data from a Field.
+
+        Args:
+            feature_urn (str): The URN of the feature to attach tags to.
+            tag_data (dict): Tag data with "name" for tag name.
+        """
+        feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
+
+        tag_name = tag_data.get("name")
+        if tag_name:
+            # Create tag association
+            tag_association = TagAssociationClass(tag=make_tag_urn(tag_name))
+            global_tags_aspect = GlobalTagsClass(tags=[tag_association])
+
+            # Create and emit the MetadataChangeProposalWrapper for tags
+            tag_event = MetadataChangeProposalWrapper(
+                entityUrn=feature_urn,
+                aspect=global_tags_aspect,
+            )
+
+            return MetadataWorkUnit(id=feature_view_name, mcp=tag_event)
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+
+        yield from self._add_tags_to_feature(
+            'urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,feature_store.visitor_actions_view)',
+            tag_data={"name": "Legacy"})
+
         for feature_view in self.feature_store.list_feature_views():
             for entity_name in feature_view.entities:
                 entity = self.feature_store.get_entity(entity_name)
                 yield self._get_entity_workunit(feature_view, entity)
 
-            for field in feature_view.features:
                 yield self._get_feature_workunit(feature_view, field)
 
             yield self._get_feature_view_workunit(feature_view)
@@ -384,3 +417,4 @@ class FeastRepositorySource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
+

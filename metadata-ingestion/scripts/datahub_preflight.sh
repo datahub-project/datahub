@@ -1,4 +1,4 @@
-#!/bin/bash -e
+ #!/bin/bash -e
 
 #From https://stackoverflow.com/questions/4023830/how-to-compare-two-strings-in-dot-separated-version-format-in-bash
 verlte() {
@@ -45,7 +45,7 @@ arm64_darwin_preflight() {
   	pip3 install --no-use-pep517 scipy
   fi
 
-  brew_install "openssl@1.1"
+  brew_install "openssl@3.0.14"
   brew install "postgresql@14"
 
   # postgresql installs libs in a strange way
