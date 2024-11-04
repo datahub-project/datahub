@@ -2,6 +2,10 @@ import itertools
 import logging
 from typing import Dict, Iterable, List, Optional, Union
 
+from datahub.api.entities.external.external_entities import (
+    LinkedResourceSet,
+    PlatformResourceRepository,
+)
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -20,6 +24,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.snowflake import tag_entities
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
     SNOWFLAKE_DATABASE,
@@ -54,6 +59,11 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
     SnowsightUrlBuilder,
+)
+from datahub.ingestion.source.snowflake.tag_entities import (
+    SnowflakeSystem,
+    SnowflakeTagId,
+    SnowflakeTagSyncContext,
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -96,6 +106,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
+from datahub.metadata.urns import TagUrn
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
@@ -155,6 +166,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         profiler: Optional[SnowflakeProfiler],
         aggregator: Optional[SqlParsingAggregator],
         snowsight_url_builder: Optional[SnowsightUrlBuilder],
+        platform_resource_repository: Optional[PlatformResourceRepository],
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
@@ -180,6 +192,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # These are populated as side-effects of get_workunits_internal.
         self.databases: List[SnowflakeDatabase] = []
         self.aggregator: Optional[SqlParsingAggregator] = aggregator
+        self.platform_resource_repository = platform_resource_repository
 
     def get_connection(self) -> SnowflakeConnection:
         return self.connection
@@ -629,7 +642,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             yield from self.gen_dataset_workunits(view, schema_name, db_name)
 
     def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
-        tag_identifier = tag.identifier()
+        tag_identifier = tag.display_name()
 
         if self.report.is_tag_processed(tag_identifier):
             return
@@ -716,7 +729,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if table.tags:
             tag_associations = [
                 TagAssociation(
-                    tag=make_tag_urn(self.snowflake_identifier(tag.identifier()))
+                    tag=make_tag_urn(self.snowflake_identifier(tag.display_name()))
                 )
                 for tag in table.tags
             ]
@@ -783,16 +796,74 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         )
 
     def gen_tag_workunits(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
-        tag_urn = make_tag_urn(self.snowflake_identifier(tag.identifier()))
 
+        assert (
+            self.platform_resource_repository
+        ), "Platform resource repository is required"
+
+        tag_urn = make_tag_urn(tag.name)
         tag_properties_aspect = TagProperties(
             name=tag.display_name(),
-            description=f"Represents the Snowflake tag `{tag._id_prefix_as_str()}` with value `{tag.value}`.",
+            description=f"Represents the Snowflake tag `{tag.display_name()}` with value `{tag.value}`.",
         )
+
+        snowflake_system = SnowflakeSystem(snowflake_config=self.config)
+
+        tag_sync_context = SnowflakeTagSyncContext(
+            account_id=self.config.account_id,
+            tag_database=tag.database,
+            tag_schema=tag.schema,
+        )
+        snowflake_tag_id = SnowflakeTagId.from_datahub_tag(
+            tag_urn=TagUrn.from_string(tag_urn), tag_sync_context=tag_sync_context
+        )
+
+        snowflake_tag = snowflake_system.get(
+            snowflake_tag_id, self.platform_resource_repository
+        )
+
+        if not snowflake_tag:
+            linked_resource_set = LinkedResourceSet(urns=[tag_urn])
+            linked_resource_set.add(tag_urn)
+            tag_entities.SnowflakeTag(
+                datahub_urns=linked_resource_set,
+                managed_by_datahub=False,
+                id=snowflake_tag_id,
+                allowed_values=None,
+            )
+            logger.info(
+                f"Snowflake tag {tag.display_name()} not found in platform_resource_repository. Creating new one..."
+            )
+        else:
+            try:
+                ret = snowflake_tag.datahub_linked_resources().add(tag_urn)
+            except ValueError as e:
+                logger.error(f"Failed to add tag {tag.display_name()}. Error: {e}")
+                return
+            if ret:
+                logger.info(
+                    f"Snowflake tag {tag.display_name()} added in platform_resource_repository"
+                )
+            else:
+                logger.info(
+                    f"Snowflake tag {tag.display_name()} already exists in platform_resource_repository"
+                )
+                return
+        if not snowflake_tag:
+            return
+
+        platform_resource = snowflake_tag.as_platform_resource()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=tag_urn, aspect=tag_properties_aspect
         ).as_workunit()
+
+        for mcp in platform_resource.to_mcps():
+            yield mcp.as_workunit()
+
+        self.platform_resource_repository.cache[
+            platform_resource.id
+        ] = platform_resource
 
     def gen_schema_metadata(
         self,
@@ -835,7 +906,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             [
                                 TagAssociation(
                                     make_tag_urn(
-                                        self.snowflake_identifier(tag.identifier())
+                                        self.snowflake_identifier(tag.display_name())
                                     )
                                 )
                                 for tag in table.column_tags[col.name]
@@ -928,7 +999,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
             ),
             tags=(
-                [self.snowflake_identifier(tag.identifier()) for tag in database.tags]
+                [self.snowflake_identifier(tag.display_name()) for tag in database.tags]
                 if database.tags
                 else None
             ),
@@ -981,7 +1052,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 else None
             ),
             tags=(
-                [self.snowflake_identifier(tag.identifier()) for tag in schema.tags]
+                [self.snowflake_identifier(tag.display_name()) for tag in schema.tags]
                 if schema.tags
                 else None
             ),
