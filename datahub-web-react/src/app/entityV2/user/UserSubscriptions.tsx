@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { List, Pagination } from 'antd';
 import { ANTD_GRAY_V2 } from '@src/app/entity/shared/constants';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 import { useListSubscriptionsQuery } from '../../../graphql/subscriptions.generated';
 import { scrollToTop } from '../../shared/searchUtils';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -10,26 +11,27 @@ import { CompactUserSubscriptions } from './CompactUserSubscriptions';
 import { SidebarSection } from '../shared/containers/profile/sidebar/SidebarSection';
 
 const UserSubscriptionsWrapper = styled.div`
-    height: calc(100vh - 114px);
-    overflow: auto;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 `;
 
 const PaginationContainer = styled.div`
     display: flex;
     justify-content: center;
+    background-color: #ffffff;
+    width: 100%;
+    border-top: 1px solid ${colors.gray[100]};
 `;
 
 const StyledPagination = styled(Pagination)`
-    margin: 40px;
+    margin: 8px;
 `;
 
 export const StyledList = styled(List)`
-    overflow-y: auto;
-    height: 100%;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
     background-color: ${ANTD_GRAY_V2[1]};
     padding: 12px;
-    flex: 1;
     &::-webkit-scrollbar {
         height: 12px;
         width: 5px;
@@ -40,6 +42,8 @@ export const StyledList = styled(List)`
         -webkit-border-radius: 1ex;
         -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
     }
+    overflow: auto;
+    flex: 1;
 ` as typeof List;
 
 export const ListItem = styled.div<{ isSelectMode: boolean }>`
@@ -48,9 +52,11 @@ export const ListItem = styled.div<{ isSelectMode: boolean }>`
     align-items: center;
     background-color: #ffffff;
     border-radius: 10px;
-    overflow: hidden;
     transition: margin-bottom 0.3s ease;
     border: 1px solid #ebecf0;
+    margin-bottom: 12px;
+    overflow: hidden;
+    position: relative;
 `;
 
 const PAGE_SIZE = 10;
@@ -89,7 +95,7 @@ export const UserSubscriptions = ({ isCompact, urn }: Props) => {
                 renderItem={(subscription) => {
                     const { entity } = subscription;
                     return (
-                        <ListItem isSelectMode={false}>
+                        <ListItem key={entity.urn} isSelectMode={false}>
                             {entityRegistry.renderPreview(entity.type, PreviewType.SEARCH, entity)}
                         </ListItem>
                     );

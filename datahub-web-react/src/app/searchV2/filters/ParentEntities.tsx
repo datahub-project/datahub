@@ -60,7 +60,7 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
             <ParentNodesWrapper>
                 {hasHiddenEntities &&
                     [...Array(numHiddenEntities)].map((index) => (
-                        <React.Fragment key={`icons-${index}`}>
+                        <React.Fragment key={`icons-${index || 0}`}>
                             <FolderOpenOutlined />
                             <ContextPathSeparator />
                         </React.Fragment>

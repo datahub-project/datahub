@@ -33,7 +33,7 @@ export const UserBasicInfoContainer = ({ name, dataHubRoleName, email, role, sla
                         <Tooltip title={name}>
                             <span>{name || <EmptyValue />}</span>
                         </Tooltip>
-                        ,{dataHubRoleName && <RoleName>{dataHubRoleName}</RoleName>}
+                        {dataHubRoleName ? <RoleName>{dataHubRoleName}</RoleName> : null}
                     </Name>
                     <TitleRole>{role || <EmptyValue color={REDESIGN_COLORS.WHITE} />}</TitleRole>
                 </NameTitleContainer>

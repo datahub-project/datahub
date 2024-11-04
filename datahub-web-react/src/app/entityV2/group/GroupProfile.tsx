@@ -1,11 +1,12 @@
 import React, { useContext, useState } from 'react';
-import { Col, Row } from 'antd';
+import { Col } from 'antd';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetGrantedPrivilegesQuery } from '@src/graphql/policy.generated';
 import { ReadOutlined } from '@ant-design/icons';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import { OriginType, EntityRelationshipsResult, Ownership, EntityType } from '../../../types.generated';
@@ -28,7 +29,7 @@ import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/Entit
 import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
 import SidebarCollapsibleHeader from '../shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../shared/constants';
+import { REDESIGN_COLORS } from '../shared/constants';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -53,12 +54,9 @@ const GroupProfileWrapper = styled.div`
 
     background-color: ${REDESIGN_COLORS.WHITE};
     border-radius: 8px;
-`;
-
-const Content = styled.div`
-    color: #262626;
-    height: calc(100vh - 60px);
-
+    overflow: hidden;
+    height: 100%;
+    display: flex;
     &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
         padding-left: 15px;
     }
@@ -253,23 +251,19 @@ export default function GroupProfile({ urn }: Props) {
             {loading && <Message type="loading" content="Loading..." style={messageStyle} />}
             {data && data?.corpGroup && (
                 <GroupProfileWrapper>
-                    <Row>
-                        <Col xl={7} lg={7} md={7} sm={24} xs={24}>
-                            <GroupSidebar sidebarData={sidebarData} refetch={refetch} />
-                        </Col>
-                        <Col
-                            xl={17}
-                            lg={17}
-                            md={17}
-                            sm={24}
-                            xs={24}
-                            style={{ borderLeft: `1px solid ${ANTD_GRAY['4.5']}` }}
-                        >
-                            <Content>
-                                <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
-                            </Content>
-                        </Col>
-                    </Row>
+                    <Col xl={7} lg={7} md={7} sm={24} xs={24} style={{ height: '100%' }}>
+                        <GroupSidebar sidebarData={sidebarData} refetch={refetch} />
+                    </Col>
+                    <Col
+                        xl={17}
+                        lg={17}
+                        md={17}
+                        sm={24}
+                        xs={24}
+                        style={{ borderLeft: `1px solid ${colors.gray[100]}`, height: '100%' }}
+                    >
+                        <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
+                    </Col>
                 </GroupProfileWrapper>
             )}
         </EntityContext.Provider>
