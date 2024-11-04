@@ -18,6 +18,9 @@ from datahub.emitter.mce_builder import (
     make_dashboard_urn,
     make_dataset_urn,
     make_domain_urn,
+    make_data_platform_urn,
+    make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
 )
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
@@ -29,6 +32,14 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
+    infer_output_schema,
+)
+
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
@@ -43,23 +54,59 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
+
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
     Status,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
+    DatasetSnapshot,
     ChartSnapshot,
     DashboardSnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    OwnershipClass,
+    OwnershipTypeClass,
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
+    UpstreamLineageClass,
+    UpstreamClass,
+    DatasetLineageTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    GlobalTagsClass,
+    TagAssociationClass,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    NullType,
+    SchemaField,
+    SchemaFieldDataType,
+)
+from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayType,
+    BooleanType,
+    BytesType,
+    MySqlDDL,
+    NullType,
+    NumberType,
+    RecordType,
+    SchemaField,
+    SchemaFieldDataType,
+    SchemaMetadata,
+    StringType,
+    TimeType,
+)
+from typing import Dict, Iterable, List, Optional, Type, Union
+
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +129,119 @@ chart_type_from_viz_type = {
     "box_plot": ChartTypeClass.BAR,
 }
 
+SUPERSET_FIELD_TYPE_MAPPINGS: Dict[
+        str,
+        Type[
+            Union[
+                ArrayType,
+                BytesType,
+                BooleanType,
+                NumberType,
+                RecordType,
+                StringType,
+                TimeType,
+                NullType,
+            ]
+        ],
+    ] = {
+        "BYTES": BytesType,
+        "BOOL": BooleanType,
+        "BOOLEAN": BooleanType,
+        "DOUBLE": NumberType,
+        "DOUBLE PRECISION": NumberType,
+        "DECIMAL": NumberType,
+        "NUMERIC": NumberType,
+        "BIGNUMERIC": NumberType,
+        "BIGDECIMAL": NumberType,
+        "FLOAT64": NumberType,
+        "INT": NumberType,
+        "INT64": NumberType,
+        "SMALLINT": NumberType,
+        "INTEGER": NumberType,
+        "BIGINT": NumberType,
+        "TINYINT": NumberType,
+        "BYTEINT": NumberType,
+        "STRING": StringType,
+        "TIME": TimeType,
+        "TIMESTAMP": TimeType,
+        "DATE": TimeType,
+        "DATETIME": TimeType,
+        "GEOGRAPHY": NullType,
+        "JSON": NullType,
+        "INTERVAL": NullType,
+        "ARRAY": ArrayType,
+        "STRUCT": RecordType,
+        "CHARACTER VARYING": StringType,
+        "CHARACTER": StringType,
+        "CHAR": StringType,
+        "TIMESTAMP WITHOUT TIME ZONE": TimeType,
+        "REAL": NumberType,
+        "VARCHAR": StringType,
+        "TIMESTAMPTZ": TimeType,
+        "GEOMETRY": NullType,
+        "HLLSKETCH": NullType,
+        "TIMETZ": TimeType,
+        "VARBYTE": StringType,
+    }
+TEST_DATA = [
+        {
+            "advanced_data_type": None,
+            "changed_on": "2023-01-11T01:11:09.374478",
+            "column_name": "dag_id",
+            "created_on": "2023-01-08T03:22:23.799933",
+            "description": None,
+            "expression": None,
+            "extra": "{}",
+            "filterable": True,
+            "groupby": True,
+            "id": 1276,
+            "is_active": True,
+            "is_dttm": False,
+            "python_date_format": None,
+            "type": "VARCHAR(1000)",
+            "type_generic": 1,
+            "uuid": "2a745bb2-06fe-4e97-8f78-b5cfc765c8f9",
+            "verbose_name": None
+        },
+        {
+            "advanced_data_type": None,
+            "changed_on": "2023-01-11T01:11:09.374498",
+            "column_name": "is_paused",
+            "created_on": "2023-01-08T03:22:23.799972",
+            "description": None,
+            "expression": None,
+            "extra": "{}",
+            "filterable": True,
+            "groupby": True,
+            "id": 1277,
+            "is_active": True,
+            "is_dttm": False,
+            "python_date_format": None,
+            "type": "BOOLEAN",
+            "type_generic": 3,
+            "uuid": "1d028edb-8f9a-4ec9-bb1e-3078c3fc1fac",
+            "verbose_name": None
+        },
+        {
+            "advanced_data_type": None,
+            "changed_on": "2023-01-11T01:11:09.374505",
+            "column_name": "is_subdag",
+            "created_on": "2023-01-08T03:22:23.799995",
+            "description": None,
+            "expression": None,
+            "extra": "{}",
+            "filterable": True,
+            "groupby": True,
+            "id": 1278,
+            "is_active": True,
+            "is_dttm": False,
+            "python_date_format": None,
+            "type": "BOOLEAN",
+            "type_generic": 3,
+            "uuid": "d73e0acf-5671-4281-8626-870562495b96",
+            "verbose_name": None
+        }
+    ]
 
 class SupersetConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
@@ -104,7 +264,7 @@ class SupersetConfig(
     api_key: Optional[str] = Field(default=None, description="Preset.io API key.")
     api_secret: Optional[str] = Field(default=None, description="Preset.io API secret.")
     manager_uri: str = Field(
-        default="https://api.app.preset.io", description="Preset.io API URL"
+        default="https://api.app.preset.io/", description="Preset.io API URL"
     )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -156,13 +316,15 @@ def get_filter_name(filter_obj):
     return f"{clause} {column} {operator} {comparator}"
 
 
+def format_to_full_name(change_by_data):
+    return change_by_data.get('first_name') + " " + change_by_data.get('last_name')
+
 @platform_name("Superset")
 @config_class(SupersetConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
 )
-@capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class SupersetSource(StatefulIngestionSourceBase):
     """
@@ -189,6 +351,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 graph=self.ctx.graph,
             )
         self.session = self.login()
+        self.owners_dict = self.get_all_dataset_owners() #these function names might need to be changed
 
     def login(self) -> requests.Session:
         login_response = requests.post(
@@ -241,13 +404,18 @@ class SupersetSource(StatefulIngestionSourceBase):
             platform_name = get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
         if platform_name == "awsathena":
             return "athena"
+        if platform_name == "clickhousedb":
+            return "clickhouse"
         return platform_name
-
+    
     @lru_cache(maxsize=None)
-    def get_datasource_urn_from_id(self, datasource_id):
+    def get_dataset_info(self, dataset_id):
         dataset_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/dataset/{datasource_id}"
+            f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}"
         ).json()
+        return dataset_response
+    
+    def get_datasource_urn_from_id(self, dataset_response, platform_instance):
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
@@ -258,13 +426,39 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         if database_id and table_name:
             return make_dataset_urn(
-                platform=self.get_platform_from_database_id(database_id),
+                platform=platform_instance,
                 name=".".join(
                     name for name in [database_name, schema_name, table_name] if name
                 ),
                 env=self.config.env,
             )
         return None
+
+    def get_all_dataset_owners(self) -> Iterable[MetadataWorkUnit]:
+        #make this more readable, 
+        current_dataset_page = 1
+        total_owners = PAGE_SIZE # i could just set this to 100
+        owners_dict = {}
+
+        while current_dataset_page * PAGE_SIZE <= total_owners:
+            full_owners_response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/dataset/related/owners",
+                params=f"q=(page:{current_dataset_page},page_size:{100})",
+            )
+            if full_owners_response.status_code != 200:
+                logger.warning(f"Failed to get dataset data: {full_owners_response.text}")
+            full_owners_response.raise_for_status()
+
+            current_dataset_page += 1
+
+            payload = full_owners_response.json()
+            total_owners = payload["count"]
+            for owner_data in payload["result"]:
+                email = owner_data["extra"]["email"]
+                value = owner_data["value"]
+                owners_dict[value] = email
+
+        return owners_dict
 
     def construct_dashboard_from_api_data(self, dashboard_data):
         dashboard_urn = make_dashboard_urn(
@@ -396,7 +590,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         chart_url = f"{self.config.display_uri}{chart_data.get('url', '')}"
 
         datasource_id = chart_data.get("datasource_id")
-        datasource_urn = self.get_datasource_urn_from_id(datasource_id)
+
+        dataset_response = self.get_dataset_info(datasource_id)
+        datasource_urn = self.get_datasource_urn_from_id(dataset_response, 'preset')
 
         params = json.loads(chart_data.get("params"))
         metrics = [
@@ -475,9 +671,232 @@ class SupersetSource(StatefulIngestionSourceBase):
                     entity_urn=chart_snapshot.urn,
                 )
 
+    def gen_schema_fields(self, column_data):
+        ## TODO: Remove column limit
+        schema_fields: List[SchemaField] = []
+        for col in column_data:
+            data_type = SUPERSET_FIELD_TYPE_MAPPINGS.get(col.get("type"))
+            field = SchemaField(
+                fieldPath=col.get("column_name"),
+                type=SchemaFieldDataType(data_type() if data_type else NullType()),
+                nativeDataType="",
+                description=col.get("column_name"),
+                nullable=True,
+            )
+            schema_fields.append(field)
+        return schema_fields
+
+
+    def gen_schema_metadata(
+        self,
+        dataset_urn: str,
+        dataset_response: dict,
+    ) -> Iterable[MetadataWorkUnit]:
+        dataset_response = dataset_response.get("result", {})
+        column_data = dataset_response.get("columns", [])
+        schema_metadata = SchemaMetadata(
+            schemaName=dataset_response.get("table_name"),
+            platform=make_data_platform_urn('preset'),
+            version=0,
+            hash="",
+            platformSchema=MySqlDDL(tableSchema=""),
+            fields=self.gen_schema_fields(column_data),
+        )
+        return schema_metadata
+
+    ## Redshift/Platform URN -> Just need to make sure to follow this: "{database}.{schema}.{table.name}"
+    def gen_dataset_urn(self, datahub_dataset_name: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=datahub_dataset_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+    
+## Ingestion for Preset Dataset
+    def construct_dataset_from_dataset_data(self, dataset_data):
+        dataset_response = self.get_dataset_info(dataset_data.get("id"))
+        datasource_urn = self.get_datasource_urn_from_id(dataset_response, 'preset')
+        ## Check API format for dataset
+        modified_actor = f"urn:li:corpuser:{(dataset_data.get('changed_by') or {}).get('username', 'unknown')}"
+        modified_ts = int(
+            dp.parse(dataset_data.get("changed_on_utc", "now")).timestamp() * 1000
+        )
+        table_name = dataset_data.get("table_name", "")
+        database_id = dataset_response.get("result", {}).get("database", {}).get("id")
+        upstream_warehouse_db_name = dataset_response.get("result", {}).get("database", {}).get("database_name")
+        upstream_warehouse_platform = self.get_platform_from_database_id(database_id)
+        sql = dataset_response.get("result", {}).get("sql")
+        # note: the API does not currently supply created_by usernames due to a bug
+        last_modified = ChangeAuditStamps(
+            created=None,
+            lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
+        )
+        dataset_url = f"{self.config.display_uri}{dataset_data.get('explore_url', '')}"
+        metrics = [
+            metric.get("metric_name")
+            for metric in (dataset_response.get("result", {}).get("metrics", []))
+        ]
+
+        owners = [
+                owner.get("first_name") + "_" + str(owner.get("id"))
+                for owner in (dataset_response.get("result", {}).get("owners", []))
+        ]
+
+        custom_properties = {
+            "Metrics": ", ".join(metrics),
+            "Owners": ", ".join(owners),
+        }
+
+        dataset_info = DatasetPropertiesClass(
+            name=table_name,
+            description="",
+            lastModified=TimeStamp(time=modified_ts),
+            externalUrl=dataset_url,
+            customProperties=custom_properties,
+        )
+
+        owners_list = []
+        for owner in dataset_response.get("result", {}).get("owners", []): #what if there are no owners?
+            owner_id = owner.get("id")
+            owner_email = self.owners_dict.get(owner_id)
+            modified_owner = f"urn:li:corpuser:{owner_email}" #change name of variable
+            
+            # logger.info(f"WE ARE HERE")
+            # logger.info(f"modified_onwers are {(modified_owner)}")
+            owners_list.append(modified_owner)
+
+            # import pdb; pdb.set_trace()
+            # print(owners_list)
+
+
+
+        #what is my logic here?
+        # i am trying to loop over all owners returned in dataset response, get their id, and then get their email from the owners_dict
+        # then use their email to update datahub's urn for the owner and set default to technical onwer as well'
+
+        owners_info = OwnershipClass(
+            owners=owners_list, #need to test if passing in the modified owner urn even works  
+            ownerTypes=[OwnershipTypeClass.TECHNICAL_OWNER],
+        )
+
+        #build map of owner id -> email [DONE]       
+        # check if ownership exist! [NOT DONE YET]
+
+
+        ## Create Lineage:
+        db_platform_instance = self.get_platform_from_database_id(database_id)
+
+        if sql:
+            #To Account for virtual datasets
+            tag_urn = f"urn:li:tag:{self.platform}:virtual"
+            parsed_query_object = create_lineage_sql_parsed_result(
+                query=sql,
+                default_db=upstream_warehouse_db_name,
+                platform=upstream_warehouse_platform,
+                platform_instance=None,
+                env=self.config.env,
+            )
+
+            cll: List[ColumnLineageInfo] = (
+                parsed_query_object.column_lineage
+                if parsed_query_object.column_lineage is not None
+                else []
+            )
+
+            fine_grained_lineages: List[FineGrainedLineageClass] = []
+
+            table_urn = None
+
+            for cll_info in cll:
+                if table_urn is None:
+                    for column_ref in cll_info.upstreams:
+                        table_urn = column_ref.table
+                        break
+
+                downstream = (
+                    [make_schema_field_urn(datasource_urn, cll_info.downstream.column)]
+                    if cll_info.downstream is not None
+                    and cll_info.downstream.column is not None
+                    else []
+                )
+                upstreams = [
+                    make_schema_field_urn(column_ref.table, column_ref.column)
+                    for column_ref in cll_info.upstreams
+                ]
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=downstream,
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=upstreams,
+                    )
+                )
+
+            upstream_lineage = UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                        dataset=input_table_urn,
+                    )
+                    for input_table_urn in parsed_query_object.in_tables
+                ],
+                fineGrainedLineages=fine_grained_lineages,
+            )
+        else:
+            ## To account for Physical datasets
+            tag_urn = f"urn:li:tag:{self.platform}:physical"
+            upstream_dataset = self.get_datasource_urn_from_id(dataset_response, db_platform_instance)
+            upstream_lineage = UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                        dataset=upstream_dataset,
+                    )
+                ]
+            )
+
+        dataset_snapshot = DatasetSnapshot(
+            urn=datasource_urn,
+            aspects=[self.gen_schema_metadata(datasource_urn, dataset_response), dataset_info, upstream_lineage, GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)]), owners_info],
+        )
+        return dataset_snapshot
+
+    def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
+        current_dataset_page = 0
+        # We will set total datasets to the actual number after we get the response
+        total_datasets = PAGE_SIZE
+
+        while current_dataset_page * PAGE_SIZE <= total_datasets:
+            full_dataset_response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/dataset/",
+                params=f"q=(page:{current_dataset_page},page_size:{PAGE_SIZE})",
+            )
+            if full_dataset_response.status_code != 200:
+                logger.warning(f"Failed to get dataset data: {full_dataset_response.text}")
+            full_dataset_response.raise_for_status()
+
+            current_dataset_page += 1
+
+            payload = full_dataset_response.json()
+            total_datasets = payload["count"]
+            for dataset_data in payload["result"]:
+                # if dataset_data.get("id") != 287:
+                #     continue
+                dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
+                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+                yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+                yield from self._get_domain_wu(
+                    title=dataset_data.get("table_name", ""),
+                    entity_urn=dataset_snapshot.urn,
+                 )
+            #     break
+            # break
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
         yield from self.emit_chart_mces()
+        yield from self.emit_dataset_mces()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
