@@ -1,5 +1,6 @@
 import os
 import subprocess
+import logging
 
 import freezegun
 import pytest
@@ -9,6 +10,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
+logger = logging.getLogger(__name__)
 pytestmark = pytest.mark.integration_batch_2
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -67,18 +69,36 @@ def populate_azure_storage(pytestconfig, azure_container):
         pytestconfig.rootpath / "tests/integration/delta_lake/test_data/"
     )
 
+    logger.info(f"Files in test_resources_dir {test_resources_dir}:")
+    for root, _dirs, files in os.walk(test_resources_dir):
+        for file in files:
+            logger.info(f"Found file: {os.path.join(root, file)}")
+
     for root, _dirs, files in os.walk(test_resources_dir):
         for file in files:
             full_path = os.path.join(root, file)
             rel_path = os.path.relpath(full_path, test_resources_dir)
-            with open(full_path, "rb") as data:
-                azure_container.upload_blob(name=rel_path, data=data)
+            try:
+                with open(full_path, "rb") as data:
+                    azure_container.upload_blob(
+                        name=rel_path,
+                        data=data,
+                        overwrite=True
+                    )
+                logger.info(f"Uploaded {rel_path}")
+            except Exception as e:
+                logger.error(f"Failed to upload {rel_path}: {e}")
+
+    blobs = list(azure_container.list_blobs())
+    logger.info("Uploaded blobs:")
+    for blob in blobs:
+        logger.info(f"  {blob.name}")
+
     yield
 
 
 @freezegun.freeze_time("2023-01-01 00:00:00+00:00")
 def test_delta_lake_ingest_azure(pytestconfig, tmp_path, test_resources_dir):
-    # Run the metadata ingestion pipeline.
     pipeline = Pipeline.create(
         {
             "run_id": "delta-lake-azure-test",
@@ -104,10 +124,11 @@ def test_delta_lake_ingest_azure(pytestconfig, tmp_path, test_resources_dir):
             },
         }
     )
+
+    logger.info(f"Starting pipeline run with base_path: {pipeline.config['source']['config']['base_path']}")
     pipeline.run()
     pipeline.raise_from_status()
 
-    # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "delta_lake_azure_mces.json",
