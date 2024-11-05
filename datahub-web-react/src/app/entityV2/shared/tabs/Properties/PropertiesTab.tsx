@@ -1,4 +1,5 @@
 import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
+import { Maybe, StructuredProperties } from '@src/types.generated';
 import { Empty, Table } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -36,6 +37,7 @@ interface Props {
     properties?: {
         fieldPath?: string;
         fieldUrn?: string;
+        fieldProperties?: Maybe<StructuredProperties>;
         refetch?: () => void;
     };
 }
@@ -43,6 +45,7 @@ interface Props {
 export const PropertiesTab = ({ properties }: Props) => {
     const fieldPath = properties?.fieldPath;
     const fieldUrn = properties?.fieldUrn;
+    const fieldProperties = properties?.fieldProperties;
     const refetch = properties?.refetch;
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
@@ -82,10 +85,13 @@ export const PropertiesTab = ({ properties }: Props) => {
         fieldPath || null,
         filterText,
     );
+
     // only show entity custom properties on entity level, not on field level
     const customProperties = !fieldPath ? getFilteredCustomProperties(filterText, entityData) || [] : [];
     const customPropertyRows = mapCustomPropertiesToPropertyRows(customProperties);
-    const dataSource: PropertyRow[] = structuredPropertyRows.concat(customPropertyRows);
+    const dataSource: PropertyRow[] = structuredPropertyRows
+        .concat(customPropertyRows)
+        .filter((row) => !row.structuredProperty?.settings?.isHidden);
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -93,7 +99,12 @@ export const PropertiesTab = ({ properties }: Props) => {
 
     return (
         <>
-            <TabHeader setFilterText={setFilterText} fieldUrn={fieldUrn} refetch={refetch} />
+            <TabHeader
+                setFilterText={setFilterText}
+                fieldUrn={fieldUrn}
+                fieldProperties={fieldProperties}
+                refetch={refetch}
+            />
             <StyledTable
                 pagination={false}
                 // typescript is complaining that default sort order is not a valid column field- overriding this here

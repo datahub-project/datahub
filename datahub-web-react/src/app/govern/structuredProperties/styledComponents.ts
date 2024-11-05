@@ -232,11 +232,17 @@ export const StyledCollapse = styled(Collapse)`
 
 export const CollapseHeader = styled.div`
     border-top: 1px solid ${colors.gray[1400]};
-    border-bottom: 1px solid ${colors.gray[1400]};
     padding: 16px 0;
     margin-left: -16px;
     width: calc(100% + 32px);
     padding: 16px;
+    margin-top: 12px;
+`;
+
+export const TogglesContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
 `;
 
 export const StyledSpin = styled(Spin)`

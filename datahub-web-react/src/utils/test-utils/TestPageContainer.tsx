@@ -31,6 +31,7 @@ import { DomainEntity } from '../../app/entity/domain/DomainEntity';
 import { DataProductEntity } from '../../app/entity/dataProduct/DataProductEntity';
 import CustomThemeProvider from '../../CustomThemeProvider';
 import { DataPlatformInstanceEntity } from '../../app/entity/dataPlatformInstance/DataPlatformInstanceEntity';
+import { SchemaFieldPropertiesEntity } from '../../app/entity/schemaField/SchemaFieldPropertiesEntity';
 
 type Props = {
     children: React.ReactNode;
@@ -57,6 +58,7 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new DomainEntity());
     entityRegistry.register(new DataProductEntity());
     entityRegistry.register(new DataPlatformInstanceEntity());
+    entityRegistry.register(new SchemaFieldPropertiesEntity());
     return entityRegistry;
 }
 

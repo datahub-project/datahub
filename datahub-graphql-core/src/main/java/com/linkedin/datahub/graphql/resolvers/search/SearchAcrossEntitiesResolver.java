@@ -186,6 +186,12 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                             new CriterionArray(
                                 ImmutableList.of(
                                     CriterionUtils.buildCriterion(
-                                        "filterStatus", Condition.EQUAL, "ENABLED")))))));
+                                        "filterStatus", Condition.EQUAL, "ENABLED")))),
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    CriterionUtils.buildCriterion(
+                                        "showInSearchFilters", Condition.EQUAL, "true")))))));
   }
 }

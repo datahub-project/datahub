@@ -58,7 +58,12 @@ export default function FieldProperties({ expandedField }: Props) {
         <>
             <Header>
                 Properties
-                <AddPropertyButton fieldUrn={schemaFieldEntity?.urn} refetch={refetch} isV1Drawer />
+                <AddPropertyButton
+                    fieldUrn={schemaFieldEntity?.urn}
+                    fieldProperties={schemaFieldEntity.structuredProperties}
+                    refetch={refetch}
+                    isV1Drawer
+                />
             </Header>
             <PropertiesWrapper>
                 {properties.map((structuredProp) => {

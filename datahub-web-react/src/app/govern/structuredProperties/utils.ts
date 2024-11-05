@@ -5,6 +5,7 @@ import {
     PropertyCardinality,
     StructuredPropertyEntity,
     StructuredPropertyFilterStatus,
+    StructuredPropertySettings,
 } from '@src/types.generated';
 
 export type StructuredProp = {
@@ -19,7 +20,8 @@ export type StructuredProp = {
     };
     immutable?: boolean;
     allowedValues?: AllowedValue[];
-    filterStatus?: StructuredPropertyFilterStatus;
+    settings?: StructuredPropertySettings | null;
+    filterStatus?: StructuredPropertyFilterStatus; // deprecated, need to support for backwards compatibility
 };
 
 export const valueTypes = [
@@ -167,6 +169,13 @@ export const isStringOrNumberTypeSelected = (selectedType: string) => {
         selectedType === 'numberList'
     )
         return true;
+    return false;
+};
+
+export const canBeAssetBadge = (selectedType: string, allowedValues?: AllowedValue[]) => {
+    if (selectedType === 'string' || selectedType === 'number') {
+        return !!allowedValues?.length;
+    }
     return false;
 };
 

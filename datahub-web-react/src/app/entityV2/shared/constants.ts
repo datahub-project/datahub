@@ -188,6 +188,9 @@ export const EMPTY_MESSAGES = {
         title: 'Is not Inherited by any Glossary Terms',
         description: 'Terms can be inherited by other terms to represent an "Is A" style relationship.',
     },
+    structuredProps: {
+        title: 'No value set',
+    },
 };
 
 export const ELASTIC_MAX_COUNT = 10000;

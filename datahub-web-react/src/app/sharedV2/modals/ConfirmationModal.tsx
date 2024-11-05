@@ -33,7 +33,7 @@ interface Props {
     handleConfirm: (e: any) => void;
     handleClose: () => void;
     modalTitle?: string;
-    modalText?: string;
+    modalText?: string | React.ReactNode;
     closeButtonText?: string;
     confirmButtonText?: string;
 }

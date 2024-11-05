@@ -433,6 +433,11 @@ fragment searchResultsWithoutSchemaField on Entity {
         browsePathV2 {
             ...browsePathV2Fields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on Role {
         id
@@ -551,6 +556,11 @@ fragment searchResultsWithoutSchemaField on Entity {
         browsePathV2 {
             ...browsePathV2Fields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on Chart {
         chartId
@@ -627,6 +637,11 @@ fragment searchResultsWithoutSchemaField on Entity {
         health {
             ...entityHealth
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on DataFlow {
         flowId
@@ -667,6 +682,11 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         health {
             ...entityHealth
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
         }
     }
     ... on DataJob {
@@ -720,6 +740,11 @@ fragment searchResultsWithoutSchemaField on Entity {
         health {
             ...entityHealth
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on GlossaryTerm {
         name
@@ -745,6 +770,11 @@ fragment searchResultsWithoutSchemaField on Entity {
         domain {
             ...entityDomain
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on GlossaryNode {
         ...glossaryNode
@@ -767,6 +797,11 @@ fragment searchResultsWithoutSchemaField on Entity {
             ...displayPropertiesFields
         }
         ...domainEntitiesFields
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on Container {
         properties {
@@ -807,6 +842,11 @@ fragment searchResultsWithoutSchemaField on Entity {
         # browsePathV2 {
         #     ...browsePathV2Fields
         # }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLFeatureTable {
         name
@@ -832,12 +872,27 @@ fragment searchResultsWithoutSchemaField on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLFeature {
         ...nonRecursiveMLFeature
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLModel {
         name
@@ -854,6 +909,11 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
         }
     }
     ... on MLModelGroup {
@@ -872,6 +932,11 @@ fragment searchResultsWithoutSchemaField on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on Tag {
         name
@@ -886,6 +951,11 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on DataProduct {
         ...dataProductSearchFields
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on ERModelRelationship {
         urn

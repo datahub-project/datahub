@@ -1,4 +1,5 @@
 import { SearchOutlined } from '@ant-design/icons';
+import { Maybe, StructuredProperties } from '@src/types.generated';
 import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -20,10 +21,11 @@ const TableHeader = styled.div`
 interface Props {
     setFilterText: (text: string) => void;
     fieldUrn?: string;
+    fieldProperties?: Maybe<StructuredProperties>;
     refetch?: () => void;
 }
 
-export default function TabHeader({ setFilterText, fieldUrn, refetch }: Props) {
+export default function TabHeader({ setFilterText, fieldUrn, fieldProperties, refetch }: Props) {
     return (
         <TableHeader>
             <StyledInput
@@ -32,7 +34,7 @@ export default function TabHeader({ setFilterText, fieldUrn, refetch }: Props) {
                 allowClear
                 prefix={<SearchOutlined />}
             />
-            <AddPropertyButton fieldUrn={fieldUrn} refetch={refetch} />
+            <AddPropertyButton fieldUrn={fieldUrn} fieldProperties={fieldProperties} refetch={refetch} />
         </TableHeader>
     );
 }

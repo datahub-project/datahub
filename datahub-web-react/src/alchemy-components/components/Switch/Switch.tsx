@@ -1,8 +1,7 @@
+import { Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
-
+import { IconContainer, Label, Required, Slider, StyledIcon, StyledInput, SwitchContainer } from './components';
 import { SwitchProps } from './types';
-
-import { Label, Required, StyledInput, Slider, SwitchContainer, StyledIcon, IconContainer } from './components';
 
 export const switchDefaults: SwitchProps = {
     label: 'Label',
@@ -25,6 +24,8 @@ export const Switch = ({
     isChecked = switchDefaults.isChecked,
     isDisabled = switchDefaults.isDisabled,
     isRequired = switchDefaults.isRequired,
+    labelHoverText,
+    disabledHoverText,
     ...props
 }: SwitchProps) => {
     const [checked, setChecked] = useState(isChecked);
@@ -36,10 +37,12 @@ export const Switch = ({
     const id = props.id || `switchToggle-${label}`;
 
     return (
-        <SwitchContainer labelPosition={labelPosition || 'left'}>
-            <Label id={id} aria-label={label}>
-                {label} {isRequired && <Required>*</Required>}
-            </Label>
+        <SwitchContainer labelPosition={labelPosition || 'left'} isDisabled={isDisabled}>
+            <Tooltip title={labelHoverText} showArrow={false}>
+                <Label id={id} aria-label={label}>
+                    {label} {isRequired && <Required>*</Required>}
+                </Label>
+            </Tooltip>
             <StyledInput
                 type="checkbox"
                 checked={checked}
@@ -51,18 +54,20 @@ export const Switch = ({
                 aria-checked={checked}
                 {...props}
             />
-            <Slider size={size} isSquare={isSquare} isDisabled={isDisabled}>
-                <IconContainer>
-                    {icon && (
-                        <StyledIcon
-                            icon={icon}
-                            color={checked ? colorScheme || 'violet' : 'inherit'}
-                            size={size || 'md'}
-                            checked={checked}
-                        />
-                    )}
-                </IconContainer>
-            </Slider>
+            <Tooltip title={isDisabled && disabledHoverText ? disabledHoverText : undefined} showArrow={false}>
+                <Slider size={size} isSquare={isSquare} isDisabled={isDisabled}>
+                    <IconContainer>
+                        {icon && (
+                            <StyledIcon
+                                icon={icon}
+                                color={checked ? colorScheme || 'violet' : 'inherit'}
+                                size={size || 'md'}
+                                checked={checked}
+                            />
+                        )}
+                    </IconContainer>
+                </Slider>
+            </Tooltip>
         </SwitchContainer>
     );
 };

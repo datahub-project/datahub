@@ -7,8 +7,10 @@ import Icon, {
 } from '@ant-design/icons';
 import * as React from 'react';
 import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '../../../graphql/glossaryTerm.generated';
+import GlossaryTermIcon from '../../../images/collections_bookmark.svg?react';
 import BookOutlined from '../../../images/glossary_term_material_logo.svg?react';
 import { EntityType, GlossaryTerm, SearchResult } from '../../../types.generated';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { FetchedEntity } from '../../lineage/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
@@ -17,22 +19,21 @@ import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityActionItem } from '../shared/entity/EntityActions';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { GenericEntityProperties } from '../../entity/shared/types';
+import GlossaryRelatedAssetsTabHeader from './GlossaryRelatedAssetsTabHeader';
 import { Preview } from './preview/Preview';
 import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
 import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';
-import GlossaryTermIcon from '../../../images/collections_bookmark.svg?react';
-import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
-import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
-import GlossaryRelatedAssetsTabHeader from './GlossaryRelatedAssetsTabHeader';
 import { RelatedTermTypes } from './profile/GlossaryRelatedTermsResult';
-import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
@@ -174,6 +175,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         },
         {
             component: SharingAssetSection,
+        },
+        {
+            component: SidebarStructuredProperties,
         },
     ];
 

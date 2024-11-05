@@ -1,29 +1,30 @@
-import * as React from 'react';
 import { DotChartOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { MlFeatureTable, EntityType, SearchResult } from '../../../types.generated';
-import { Preview } from './preview/Preview';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { GenericEntityProperties } from '../../entity/shared/types';
+import * as React from 'react';
 import { useGetMlFeatureTableQuery } from '../../../graphql/mlFeatureTable.generated';
+import { EntityType, MlFeatureTable, SearchResult } from '../../../types.generated';
+import { GenericEntityProperties } from '../../entity/shared/types';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import MlFeatureTableFeatures from './profile/features/MlFeatureTableFeatures';
-import Sources from './profile/Sources';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct, isOutputPort } from '../shared/utils';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
-import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import { Preview } from './preview/Preview';
+import MlFeatureTableFeatures from './profile/features/MlFeatureTableFeatures';
+import Sources from './profile/Sources';
 
 const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION]);
 
@@ -135,6 +136,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         },
         {
             component: SharingAssetSection,
+        },
+        {
+            component: SidebarStructuredProperties,
         },
     ];
 

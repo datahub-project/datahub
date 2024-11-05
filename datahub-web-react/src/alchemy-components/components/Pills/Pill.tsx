@@ -22,6 +22,7 @@ export function Pill({
     id,
     onClickRightIcon,
     onClickLeftIcon,
+    onPillClick,
 }: PillProps) {
     return (
         <PillContainer
@@ -31,6 +32,7 @@ export function Pill({
             clickable={clickable}
             id={id}
             data-testid="pill-container"
+            onClick={onPillClick}
         >
             {leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />}
             {label}

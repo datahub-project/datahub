@@ -1,12 +1,13 @@
+import { CloseOutlined } from '@ant-design/icons';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
 import { ActionsAndStatusSection } from '@app/previewV2/shared';
 import { Button, Typography } from 'antd';
 import React, { ReactNode } from 'react';
-import { CloseOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import {
+    BrowsePathV2,
     Container,
     CorpUser,
     DataProduct,
@@ -21,28 +22,27 @@ import {
     Maybe,
     Owner,
     SearchInsight,
-    BrowsePathV2,
 } from '../../types.generated';
 import { EntityMenuActions, PreviewType } from '../entityV2/Entity';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { GlossaryPreviewCardDecoration } from '../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
+import { EntityMenuItems } from '../entityV2/shared/EntityDropdown/EntityMenuActions';
+import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import { usePreviewData } from '../entityV2/shared/PreviewContext';
+import { useSearchContext } from '../search/context/SearchContext';
 import useContentTruncation from '../shared/useContentTruncation';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
 import ColoredBackgroundPlatformIconGroup from './ColoredBackgroundPlatformIconGroup';
-import ContextPath from './ContextPath';
-import EntityHeader from './EntityHeader';
-import { EntityMenuItems } from '../entityV2/shared/EntityDropdown/EntityMenuActions';
-import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
-import DefaultPreviewCardFooter from './DefaultPreviewCardFooter';
-import { GlossaryPreviewCardDecoration } from '../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
-import { useSearchContext } from '../search/context/SearchContext';
 import { CompactView } from './CompactView';
+import ContextPath from './ContextPath';
+import DefaultPreviewCardFooter from './DefaultPreviewCardFooter';
+import EntityHeader from './EntityHeader';
 
-import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
 import { useEntityContext, useEntityData } from '../entity/shared/EntityContext';
-import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from './utils';
 import { removeMarkdown } from '../entityV2/shared/components/styled/StripMarkdownText';
+import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '../entityV2/shared/utils';
+import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from './utils';
 
 const TransparentButton = styled(Button)`
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
@@ -261,6 +261,7 @@ export default function DefaultPreviewCard({
             health={health}
             degree={degree}
             connectionName={previewData?.name}
+            previewData={previewData}
         />
     );
     return (

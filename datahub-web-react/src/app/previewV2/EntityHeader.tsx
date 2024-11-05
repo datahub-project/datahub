@@ -1,15 +1,17 @@
+import { Tooltip } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Tooltip } from 'antd';
 import styled from 'styled-components';
-import SearchTextHighlighter from '../searchV2/matches/SearchTextHighlighter';
-import { PreviewType } from '../entityV2/Entity';
 import { Deprecation, Health, Maybe } from '../../types.generated';
-import { REDESIGN_COLORS, SEARCH_COLORS } from '../entityV2/shared/constants';
+import { GenericEntityProperties } from '../entity/shared/types';
+import { PreviewType } from '../entityV2/Entity';
 import { DeprecationPill } from '../entityV2/shared/components/styled/DeprecationPill';
-import HealthIcon from './HealthIcon';
+import { REDESIGN_COLORS, SEARCH_COLORS } from '../entityV2/shared/constants';
+import StructuredPropertyBadge from '../entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { getNumberWithOrdinal } from '../entityV2/shared/utils';
+import SearchTextHighlighter from '../searchV2/matches/SearchTextHighlighter';
 import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';
+import HealthIcon from './HealthIcon';
 
 const EntityTitleContainer = styled.div`
     display: flex;
@@ -70,6 +72,7 @@ interface EntityHeaderProps {
     health: Health[] | undefined;
     degree?: number;
     connectionName?: Maybe<string>;
+    previewData?: GenericEntityProperties | null;
 }
 
 const EntityHeader: React.FC<EntityHeaderProps> = ({
@@ -83,6 +86,7 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
     health,
     degree,
     connectionName,
+    previewData,
 }) => {
     const linkProps = useEmbeddedProfileLinkProps();
 
@@ -112,6 +116,7 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
             )}
             {deprecation?.deprecated && <DeprecationPill urn={urn} deprecation={deprecation} showUndeprecate />}
             {health && <HealthIcon urn={urn} health={health} baseUrl={url} />}
+            <StructuredPropertyBadge entityData={previewData} />
         </EntityTitleContainer>
     );
 };

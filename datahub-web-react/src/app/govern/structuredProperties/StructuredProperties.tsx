@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { SearchOutlined } from '@ant-design/icons';
 import { Button } from '@src/alchemy-components';
+import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType, SearchResult } from '@src/types.generated';
-import { PageTitle } from '@src/alchemy-components/components/PageTitle';
+import { EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { Tooltip } from 'antd';
 import StructuredPropsDrawer from './StructuredPropsDrawer';
 import StructuredPropsTable from './StructuredPropsTable';
@@ -47,6 +47,9 @@ const StructuredProperties = () => {
 
     const searchAcrossEntities = data?.searchAcrossEntities;
     const noOfProperties = searchAcrossEntities?.searchResults?.length;
+    const badgeProperty = searchAcrossEntities?.searchResults.find(
+        (prop) => (prop.entity as StructuredPropertyEntity).settings?.showAsAssetBadge,
+    )?.entity;
 
     return (
         <PageContainer>
@@ -107,6 +110,7 @@ const StructuredProperties = () => {
                 setSelectedProperty={setSelectedProperty}
                 inputs={inputs}
                 searchAcrossEntities={searchAcrossEntities}
+                badgeProperty={badgeProperty as StructuredPropertyEntity}
             />
         </PageContainer>
     );

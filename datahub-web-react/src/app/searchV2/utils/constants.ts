@@ -38,7 +38,7 @@ export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const CHART_TYPE_FILTER_NAME = 'type';
 export const LAST_MODIFIED_FILTER_NAME = 'lastModifiedAt';
 export const STRUCTURED_PROPERTIES_FILTER_NAME = 'structuredProperties.';
-
+export const ENTITY_TYPES_FILTER_NAME = 'entityTypes';
 export const COMPLETED_FORMS_FILTER_NAME = 'completedForms';
 export const INCOMPLETE_FORMS_FILTER_NAME = 'incompleteForms';
 export const VERIFIED_FORMS_FILTER_NAME = 'verifiedForms';

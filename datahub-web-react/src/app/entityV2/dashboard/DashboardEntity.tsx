@@ -18,8 +18,8 @@ import {
 import { Dashboard, EntityType, LineageDirection, SearchResult } from '../../../types.generated';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import { LOOKER_URN, MODE_URN } from '../../ingest/source/builder/constants';
-import { MatchedFieldList } from '../../searchV2/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
+import { MatchedFieldList } from '../../searchV2/matches/MatchedFieldList';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
@@ -39,19 +39,20 @@ import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSec
 import { getDashboardPopularityTier, isValuePresent } from '../shared/containers/profile/sidebar/shared/utils';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
+import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import { DashboardChartsTab } from '../shared/tabs/Entity/DashboardChartsTab';
 import { DashboardDatasetsTab } from '../shared/tabs/Entity/DashboardDatasetsTab';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarTitleActionType, getDataProduct, isOutputPort, getDashboardLastUpdatedMs } from '../shared/utils';
+import { SidebarTitleActionType, getDashboardLastUpdatedMs, getDataProduct, isOutputPort } from '../shared/utils';
 import { DashboardPreview } from './preview/DashboardPreview';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
 import DashboardSummaryTab from './summary/DashboardSummaryTab';
-import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
-import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
@@ -232,6 +233,9 @@ export class DashboardEntity implements Entity<Dashboard> {
         },
         {
             component: SharingAssetSection,
+        },
+        {
+            component: SidebarStructuredProperties,
         },
     ];
 

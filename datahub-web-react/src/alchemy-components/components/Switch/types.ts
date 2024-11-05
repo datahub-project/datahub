@@ -1,4 +1,4 @@
-import { SizeOptions, ColorOptions } from '@components/theme/config';
+import { ColorOptions, SizeOptions } from '@components/theme/config';
 import { InputHTMLAttributes } from 'react';
 import { IconNames } from '../Icon';
 
@@ -14,4 +14,6 @@ export interface SwitchProps extends Omit<InputHTMLAttributes<HTMLInputElement>,
     isChecked?: boolean;
     isDisabled?: boolean;
     isRequired?: boolean;
+    labelHoverText?: string;
+    disabledHoverText?: string;
 }

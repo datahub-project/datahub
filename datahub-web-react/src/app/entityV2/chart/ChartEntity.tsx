@@ -11,9 +11,9 @@ import {
 import * as React from 'react';
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '../../../graphql/chart.generated';
 import { Chart, EntityType, LineageDirection, SearchResult } from '../../../types.generated';
-import { MatchedFieldList } from '../../searchV2/matches/MatchedFieldList';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import { LOOKER_URN, MODE, MODE_URN } from '../../ingest/source/builder/constants';
+import { MatchedFieldList } from '../../searchV2/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../searchV2/matches/matchedInputFieldRenderer';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
@@ -34,11 +34,13 @@ import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSec
 import { getChartPopularityTier, isValuePresent } from '../shared/containers/profile/sidebar/shared/utils';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
@@ -46,7 +48,6 @@ import { SidebarTitleActionType, getDashboardLastUpdatedMs, getDataProduct, isOu
 import { ChartPreview } from './preview/ChartPreview';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import ChartSummaryTab from './summary/ChartSummaryTab';
-import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
@@ -234,6 +235,9 @@ export class ChartEntity implements Entity<Chart> {
         },
         {
             component: SharingAssetSection,
+        },
+        {
+            component: SidebarStructuredProperties,
         },
     ];
 

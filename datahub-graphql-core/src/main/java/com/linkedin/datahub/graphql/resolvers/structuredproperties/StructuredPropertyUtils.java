@@ -37,7 +37,8 @@ public class StructuredPropertyUtils {
     if (settings.isIsHidden()) {
       if (settings.isShowInSearchFilters()
           || settings.isShowInAssetSummary()
-          || settings.isShowAsAssetBadge()) {
+          || settings.isShowAsAssetBadge()
+          || settings.isShowInColumnsTable()) {
         throw new IllegalArgumentException(
             "Cannot have property isHidden = true while other display location settings are also true.");
       }
