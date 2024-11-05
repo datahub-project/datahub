@@ -122,8 +122,12 @@ class DeltaLakeSource(Source):
                 self.source_config.azure is None
                 or self.source_config.azure.azure_config is None
             ):
-                raise ValueError("Azure Config must be provided for Azure Blob Storage path")
-            self.azure_client = self.source_config.azure.azure_config.get_blob_service_client()
+                raise ValueError(
+                    "Azure Config must be provided for Azure Blob Storage path"
+                )
+            self.azure_client = (
+                self.source_config.azure.azure_config.get_blob_service_client()
+            )
 
         # self.profiling_times_taken = []
         config_report = {
@@ -220,12 +224,23 @@ class DeltaLakeSource(Source):
             if self.source_config.is_s3:
                 browse_path = strip_s3_prefix(path)
             elif self.source_config.is_azure:
-                if path.startswith('abfss://'):
-                    browse_path = '/'.join(path.split('/', 3)[3:])
+                if path.startswith("abfss://"):
+                    browse_path = "/".join(path.split("/", 3)[3:])
+                elif path.startswith(("http://", "https://")):
+                    parsed_url = urlparse(path)
+                    if ".blob.core.windows.net" in parsed_url.netloc:
+                        # Regular Azure Storage
+                        browse_path = strip_abs_prefix(path)
+                    else:
+                        # Azurite or other local endpoint
+                        # Skip the account name and container parts of the path
+                        path_parts = parsed_url.path.split("/")
+                        if len(path_parts) > 2:
+                            browse_path = "/".join(path_parts[2:])
+                        else:
+                            browse_path = ""
                 else:
-                    browse_path = strip_abs_prefix(path)
-            else:
-                browse_path = path.strip("/")
+                    browse_path = path.strip("/")
         else:
             browse_path = path.split(self.source_config.base_path)[1].strip("/")
 
@@ -353,23 +368,27 @@ class DeltaLakeSource(Source):
 
             if is_azurite:
                 # For Azurite, we need to specify the endpoint URL and allow HTTP
-                opts.update({
-                    "azure_storage_connection_string": (
-                        f"DefaultEndpointsProtocol={parsed_url.scheme};"
-                        f"AccountName={azure_config.account_name};"
-                        f"AccountKey={azure_config.account_key};"
-                        f"BlobEndpoint={parsed_url.scheme}://{parsed_url.netloc}/{azure_config.account_name}"
-                    ),
-                    "allow_http_connection": "true",
-                })
+                opts.update(
+                    {
+                        "azure_storage_connection_string": (
+                            f"DefaultEndpointsProtocol={parsed_url.scheme};"
+                            f"AccountName={azure_config.account_name};"
+                            f"AccountKey={azure_config.account_key};"
+                            f"BlobEndpoint={parsed_url.scheme}://{parsed_url.netloc}/{azure_config.account_name}"
+                        ),
+                        "allow_http_connection": "true",
+                    }
+                )
             else:
                 # For real Azure Storage, handle different auth methods
                 if isinstance(creds, ClientSecretCredential):
-                    opts.update({
-                        "tenant_id": azure_config.tenant_id,
-                        "client_id": azure_config.client_id,
-                        "client_secret": azure_config.client_secret,
-                    })
+                    opts.update(
+                        {
+                            "tenant_id": azure_config.tenant_id,
+                            "client_id": azure_config.client_id,
+                            "client_secret": azure_config.client_secret,
+                        }
+                    )
                 else:
                     opts["credential"] = creds
 
@@ -414,8 +433,10 @@ class DeltaLakeSource(Source):
 
             container_client = self.azure_client.get_container_client(container_name)
 
-            for blob in container_client.walk_blobs(name_starts_with=prefix, delimiter='/'):
-                if hasattr(blob, 'prefix'):
+            for blob in container_client.walk_blobs(
+                    name_starts_with=prefix, delimiter="/"
+            ):
+                if hasattr(blob, "prefix"):
                     # Preserve the original URL scheme (http for Azurite, https for Azure)
                     folder_path = (
                         f"{parsed_url.scheme}://{parsed_url.netloc}/"
