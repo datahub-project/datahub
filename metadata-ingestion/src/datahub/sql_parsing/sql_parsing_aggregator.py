@@ -134,7 +134,7 @@ class QueryMetadata:
 
     upstreams: List[UrnStr]  # this is direct upstreams, which may be temp tables
     column_lineage: List[ColumnLineageInfo]
-    column_usage: Dict[UrnStr, Set[UrnStr]]
+    column_usage: Dict[UrnStr, Set[UrnStr]]  # TODO: Change to an OrderedSet
     confidence_score: float
 
     used_temp_tables: bool = True
@@ -537,8 +537,13 @@ class SqlParsingAggregator(Closeable):
         return query
 
     @functools.lru_cache(maxsize=128)
-    def _name_from_urn(self, urn: UrnStr) -> str:
-        name = DatasetUrn.from_string(urn).name
+    def _name_from_urn(self, urn: UrnStr) -> Optional[str]:
+        urn_obj = DatasetUrn.from_string(urn)
+        if urn_obj.platform != self.platform.urn():
+            # If this is external (e.g. s3), we don't know the name.
+            return None
+
+        name = urn_obj.name
         if (
             platform_instance := self._schema_resolver.platform_instance
         ) and name.startswith(platform_instance):
@@ -549,14 +554,22 @@ class SqlParsingAggregator(Closeable):
     def is_temp_table(self, urn: UrnStr) -> bool:
         if self._is_temp_table is None:
             return False
-        return self._is_temp_table(self._name_from_urn(urn))
+        name = self._name_from_urn(urn)
+        if name is None:
+            # External tables are not temp tables.
+            return False
+        return self._is_temp_table(name)
 
-    def is_allowed_table(self, urn: UrnStr) -> bool:
+    def is_allowed_table(self, urn: UrnStr, allow_external: bool = True) -> bool:
         if self.is_temp_table(urn):
             return False
         if self._is_allowed_table is None:
             return True
-        return self._is_allowed_table(self._name_from_urn(urn))
+        name = self._name_from_urn(urn)
+        if name is None:
+            # Treat external tables specially.
+            return allow_external
+        return self._is_allowed_table(name)
 
     def add(
         self,
@@ -852,7 +865,7 @@ class SqlParsingAggregator(Closeable):
             upstream_fields = parsed.column_usage or {}
             for upstream_urn in parsed.upstreams:
                 # If the upstream table is a temp table or otherwise denied by filters, don't log usage for it.
-                if not self.is_allowed_table(upstream_urn) or (
+                if not self.is_allowed_table(upstream_urn, allow_external=False) or (
                     require_out_table_schema
                     and not self._schema_resolver.has_urn(upstream_urn)
                 ):
@@ -1426,7 +1439,7 @@ class SqlParsingAggregator(Closeable):
         for upstream in query.upstreams:
             query_subject_urns.add(upstream)
             if self.generate_query_subject_fields:
-                for column in query.column_usage.get(upstream, []):
+                for column in sorted(query.column_usage.get(upstream, [])):
                     query_subject_urns.add(
                         builder.make_schema_field_urn(upstream, column)
                     )

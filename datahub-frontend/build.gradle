@@ -12,6 +12,12 @@ ext {
   docker_dir = 'datahub-frontend'
 }
 
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+  }
+}
+
 model {
   // Must specify the dependency here as "stage" is added by rule based model.
   tasks.myTar {

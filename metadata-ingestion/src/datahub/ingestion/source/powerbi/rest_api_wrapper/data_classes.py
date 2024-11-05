@@ -38,6 +38,35 @@ class DatasetKey(ContainerKey):
 
 
 @dataclass
+class AppDashboard:
+    id: str
+    original_dashboard_id: str
+
+
+@dataclass
+class AppReport:
+    id: str
+    original_report_id: str
+
+
+@dataclass
+class App:
+    id: str
+    name: str
+    description: Optional[str]
+    last_update: Optional[str]
+    dashboards: List["AppDashboard"]
+    reports: List["AppReport"]
+
+    def get_urn_part(self):
+        return App.get_urn_part_by_id(self.id)
+
+    @staticmethod
+    def get_urn_part_by_id(id_: str) -> str:
+        return f"apps.{id_}"
+
+
+@dataclass
 class Workspace:
     id: str
     name: str
@@ -49,6 +78,7 @@ class Workspace:
     dashboard_endorsements: Dict[str, List[str]]
     scan_result: dict
     independent_datasets: List["PowerBIDataset"]
+    app: Optional["App"]
 
     def get_urn_part(self, workspace_id_as_urn_part: Optional[bool] = False) -> str:
         # shouldn't use workspace name, as they can be the same?
@@ -65,6 +95,9 @@ class Workspace:
             platform=platform_name,
             instance=platform_instance,
         )
+
+    def format_name_for_logger(self) -> str:
+        return f"{self.name} ({self.id})"
 
 
 @dataclass
@@ -235,7 +268,11 @@ class Report:
     tags: List[str]
 
     def get_urn_part(self):
-        return f"reports.{self.id}"
+        return Report.get_urn_part_by_id(self.id)
+
+    @staticmethod
+    def get_urn_part_by_id(id_: str) -> str:
+        return f"reports.{id_}"
 
 
 @dataclass
@@ -273,7 +310,11 @@ class Dashboard:
     webUrl: Optional[str]
 
     def get_urn_part(self):
-        return f"dashboards.{self.id}"
+        return Dashboard.get_urn_part_by_id(self.id)
+
+    @staticmethod
+    def get_urn_part_by_id(id_: str) -> str:
+        return f"dashboards.{id_}"
 
     def __members(self):
         return (self.id,)
