@@ -39,6 +39,9 @@ def _get_dialect_str(platform: str) -> str:
         # let the fuzzy resolution logic handle it.
         # MariaDB is a fork of MySQL, so we reuse the same dialect.
         return "mysql, normalization_strategy = lowercase"
+    # Dremio is based upon drill. Not 100% compatibility
+    elif platform == "dremio":
+        return "drill"
     else:
         return platform
 
