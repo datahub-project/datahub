@@ -42,6 +42,9 @@
       flex: 1;
     }
     .cardLink {
+      user-select: none;
+      -webkit-user-drag: none;
+
       color: #000;
       
       &:hover {
@@ -88,6 +91,8 @@
           z-index: 10;
           filter: brightness(2);
           opacity: .9;
+          user-select: none;
+          -webkit-user-drag: none;
         }
         .cardImageBackground {
           position: absolute;
