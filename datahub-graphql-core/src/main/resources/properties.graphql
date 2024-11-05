@@ -50,6 +50,11 @@ type StructuredPropertyEntity implements Entity {
     definition: StructuredPropertyDefinition!
 
     """
+    Definition of this structured property including its name
+    """
+    settings: StructuredPropertySettings
+
+    """
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -123,8 +128,39 @@ type StructuredPropertyDefinition {
 
     """
     The filter status of this structured property - whether it will show up in search filters or not
+    Deprecated! Use structuredPropertySettings.showInSearchFilters instead
     """
-    filterStatus: StructuredPropertyFilterStatus!
+    filterStatus: StructuredPropertyFilterStatus! @deprecated(reason: "Use structuredPropertySettings.showInSearchFilters instead")
+}
+
+"""
+Settings specific to a structured property entity
+"""
+type StructuredPropertySettings {
+    """
+    Whether or not this asset should be hidden in the main application
+    """
+    isHidden: Boolean!
+
+    """
+    Whether or not this asset should be displayed as a search filter
+    """
+    showInSearchFilters: Boolean!
+
+    """
+    Whether or not this asset should be displayed in the asset sidebar
+    """
+    showInAssetSummary: Boolean!
+
+    """
+    Whether or not this asset should be displayed as an asset badge on other asset's headers
+    """
+    showAsAssetBadge: Boolean!
+
+    """
+    Whether or not this asset should be displayed as a column in the schema field table in a Dataset's "Columns" tab.
+    """
+    showInColumnsTable: Boolean!
 }
 
 """
@@ -412,6 +448,11 @@ input CreateStructuredPropertyInput {
     The filter status of this structured property - whether it will show up in search filters or not
     """
     filterStatus: StructuredPropertyFilterStatus
+
+    """
+    Settings for this structured property
+    """
+    settings: StructuredPropertySettingsInput
 }
 
 """
@@ -497,6 +538,10 @@ input UpdateStructuredPropertyInput {
     The filter status of this structured property - whether it will show up in search filters or not
     """
     filterStatus: StructuredPropertyFilterStatus
+    """
+    Settings for this structured property
+    """
+    settings: StructuredPropertySettingsInput
 }
 
 """
@@ -519,3 +564,34 @@ input DeleteStructuredPropertyInput {
     """
     urn: String!
 }
+
+"""
+Settings for a structured property
+"""
+input StructuredPropertySettingsInput {
+    """
+    Whether or not this asset should be hidden in the main application
+    """
+    isHidden: Boolean
+
+    """
+    Whether or not this asset should be displayed as a search filter
+    """
+    showInSearchFilters: Boolean
+
+    """
+    Whether or not this asset should be displayed in the asset sidebar
+    """
+    showInAssetSummary: Boolean
+
+    """
+    Whether or not this asset should be displayed as an asset badge on other asset's headers
+    """
+    showAsAssetBadge: Boolean
+
+    """
+    Whether or not this asset should be displayed as a column in the schema field table in a Dataset's "Columns" tab.
+    """
+    showInColumnsTable: Boolean
+}
+

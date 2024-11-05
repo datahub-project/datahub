@@ -19,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.StringValue;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyDefinition;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyFilterStatus;
+import com.linkedin.datahub.graphql.generated.StructuredPropertySettings;
 import com.linkedin.datahub.graphql.generated.TypeQualifier;
 import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -58,6 +59,8 @@ public class StructuredPropertyMapper
     MappingHelper<StructuredPropertyEntity> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, (this::mapStructuredPropertyDefinition));
+    mappingHelper.mapToResult(
+        STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME, (this::mapStructuredPropertySettings));
     mappingHelper.mapToResult(
         ORIGIN_ASPECT_NAME,
         (entity, dataMap) ->
@@ -119,6 +122,21 @@ public class StructuredPropertyMapper
           allowedValues.add(allowedValue);
         });
     return allowedValues;
+  }
+
+  private void mapStructuredPropertySettings(
+      @Nonnull StructuredPropertyEntity extendedProperty, @Nonnull DataMap dataMap) {
+    com.linkedin.structured.StructuredPropertySettings gmsSettings =
+        new com.linkedin.structured.StructuredPropertySettings(dataMap);
+    StructuredPropertySettings settings = new StructuredPropertySettings();
+
+    settings.setIsHidden(gmsSettings.isIsHidden());
+    settings.setShowInSearchFilters(gmsSettings.isShowInSearchFilters());
+    settings.setShowInAssetSummary(gmsSettings.isShowInAssetSummary());
+    settings.setShowAsAssetBadge(gmsSettings.isShowAsAssetBadge());
+    settings.setShowInColumnsTable(gmsSettings.isShowInColumnsTable());
+
+    extendedProperty.setSettings(settings);
   }
 
   private DataTypeEntity createDataTypeEntity(final Urn dataTypeUrn) {
