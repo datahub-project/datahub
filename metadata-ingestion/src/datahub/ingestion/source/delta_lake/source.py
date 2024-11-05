@@ -224,10 +224,12 @@ class DeltaLakeSource(Source):
             if self.source_config.is_s3:
                 browse_path = strip_s3_prefix(path)
             elif self.source_config.is_azure:
-                if path.startswith(('http://', 'https://')):
+                if path.startswith(("http://", "https://")):
                     container_name = get_container_name(path)
                     prefix = get_key_prefix(path)
-                    browse_path = f"{container_name}/{prefix}" if prefix else container_name
+                    browse_path = (
+                        f"{container_name}/{prefix}" if prefix else container_name
+                    )
                 else:
                     browse_path = strip_abs_prefix(path)
             else:
@@ -362,14 +364,15 @@ class DeltaLakeSource(Source):
                     {
                         "fs.azure.account.oauth2.client.id": azure_config.client_id,
                         "fs.azure.account.oauth2.client.secret": azure_config.client_secret,
-                        "fs.azure.account.oauth2.client.endpoint":
-                            f"https://login.microsoftonline.com/{azure_config.tenant_id}/oauth2/token",
+                        "fs.azure.account.oauth2.client.endpoint": f"https://login.microsoftonline.com/{azure_config.tenant_id}/oauth2/token",
                     }
                 )
             elif azure_config.account_key:
                 connection_string += f"AccountKey={azure_config.account_key};"
             elif azure_config.sas_token:
-                connection_string += f"SharedAccessSignature={azure_config.sas_token.lstrip('?')};"
+                connection_string += (
+                    f"SharedAccessSignature={azure_config.sas_token.lstrip('?')};"
+                )
 
             if not isinstance(creds, ClientSecretCredential):
                 connection_string += f"BlobEndpoint={self.source_config.base_path.split('/' + azure_config.container_name)[0]}/"
