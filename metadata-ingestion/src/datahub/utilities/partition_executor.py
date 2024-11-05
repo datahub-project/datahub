@@ -294,6 +294,9 @@ class BatchPartitionExecutor(Closeable):
         def _handle_batch_completion(
             batch: List[_BatchPartitionWorkItem], future: Future
         ) -> None:
+            nonlocal workers_available
+            workers_available += 1
+
             with clearinghouse_state_lock:
                 for item in batch:
                     keys_no_longer_in_flight.add(item.key)

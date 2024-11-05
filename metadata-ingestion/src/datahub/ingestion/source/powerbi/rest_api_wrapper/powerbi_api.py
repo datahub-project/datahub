@@ -13,6 +13,9 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.rest_api_wrapper import data_resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FIELD_TYPE_MAPPING,
+    App,
+    AppDashboard,
+    AppReport,
     Column,
     Dashboard,
     Measure,
@@ -264,6 +267,7 @@ class PowerBiAPI:
                 dashboard_endorsements={},
                 scan_result={},
                 independent_datasets=[],
+                app=None,  # It will be populated in _fill_metadata_from_scan_result method
             )
             for workspace in groups
         ]
@@ -299,7 +303,7 @@ class PowerBiAPI:
                 )
             return None
 
-        logger.info("Waiting for scan to complete")
+        logger.debug("Waiting for scan to complete")
         if (
             self.__admin_api_resolver.wait_for_scan_to_complete(
                 scan_id=scan_id, timeout=self.__config.scan_timeout
@@ -351,22 +355,32 @@ class PowerBiAPI:
         logger.debug("Processing scan result for datasets")
 
         for dataset_dict in datasets:
-            dataset_instance: PowerBIDataset = self._get_resolver().get_dataset(
-                workspace=workspace,
-                dataset_id=dataset_dict[Constant.ID],
-            )
+            dataset_id = dataset_dict[Constant.ID]
+            try:
+                dataset_instance = self._get_resolver().get_dataset(
+                    workspace=workspace,
+                    dataset_id=dataset_id,
+                )
+                if dataset_instance is None:
+                    continue
+            except Exception as e:
+                self.reporter.warning(
+                    title="Unable to fetch dataset details",
+                    message="Skipping this dataset due to the error. Metadata will be incomplete.",
+                    context=f"workspace={workspace.name}, dataset-id={dataset_id}",
+                    exc=e,
+                )
+                continue
 
             # fetch + set dataset parameters
             try:
                 dataset_parameters = self._get_resolver().get_dataset_parameters(
                     workspace_id=workspace.id,
-                    dataset_id=dataset_dict[Constant.ID],
+                    dataset_id=dataset_id,
                 )
                 dataset_instance.parameters = dataset_parameters
             except Exception as e:
-                logger.info(
-                    f"Unable to fetch dataset parameters for {dataset_dict[Constant.ID]}: {e}"
-                )
+                logger.info(f"Unable to fetch dataset parameters for {dataset_id}: {e}")
 
             if self.__config.extract_endorsements_to_tags:
                 dataset_instance.tags = self._parse_endorsement(
@@ -423,6 +437,87 @@ class PowerBiAPI:
                 dataset_instance.tables.append(table)
         return dataset_map
 
+    def get_app(
+        self,
+        app_id: str,
+    ) -> Optional[App]:
+        return self.__admin_api_resolver.get_app(
+            app_id=app_id,
+        )
+
+    def _populate_app_details(
+        self, workspace: Workspace, workspace_metadata: Dict
+    ) -> None:
+        # App_id is not present at the root level of workspace_metadata.
+        # It can be found in the workspace_metadata.dashboards or workspace_metadata.reports lists.
+
+        # Workspace_metadata contains duplicate entries for all dashboards and reports that we have included
+        # in the app.
+        # The duplicate entries for a report contain key `originalReportObjectId` referencing to
+        # an actual report id of workspace. The duplicate entries for a dashboard contain `displayName` where
+        # displayName is generated from displayName of original dashboard with prefix "App"
+        app_id: Optional[str] = None
+        app_reports: List[AppReport] = []
+        # Filter app reports
+        for report in workspace_metadata.get(Constant.REPORTS) or []:
+            if report.get(Constant.APP_ID):
+                app_reports.append(
+                    AppReport(
+                        id=report[Constant.ID],
+                        original_report_id=report[Constant.ORIGINAL_REPORT_OBJECT_ID],
+                    )
+                )
+                if app_id is None:  # In PowerBI one workspace can have one app
+                    app_id = report.get(Constant.APP_ID)
+
+        raw_app_dashboards: List[Dict] = []
+        # Filter app dashboards
+        for dashboard in workspace_metadata.get(Constant.DASHBOARDS) or []:
+            if dashboard.get(Constant.APP_ID):
+                raw_app_dashboards.append(dashboard)
+                if app_id is None:  # In PowerBI, one workspace contains one app
+                    app_id = report[Constant.APP_ID]
+
+        # workspace doesn't have an App. Above two loops can be avoided
+        # if app_id is available at root level in workspace_metadata
+        if app_id is None:
+            logger.debug(f"Workspace {workspace.name} does not contain an app.")
+            return
+
+        app: Optional[App] = self.get_app(app_id=app_id)
+        if app is None:
+            self.__reporter.info(
+                title="App Not Found",
+                message="The workspace includes an app, but its metadata is missing from the API response.",
+                context=f"workspace_name={workspace.name}",
+            )
+            return
+
+        # Map to find out which dashboards belongs to the App
+        workspace_dashboard_map: Dict[str, Dict] = {
+            raw_dashboard[Constant.DISPLAY_NAME]: raw_dashboard
+            for raw_dashboard in raw_app_dashboards
+        }
+
+        app_dashboards: List[AppDashboard] = []
+        for dashboard in workspace_metadata.get(Constant.DASHBOARDS) or []:
+            app_dashboard_display_name = f"[App] {dashboard[Constant.DISPLAY_NAME]}"  # A Dashboard is considered part of an App if the workspace_metadata contains a Dashboard with a label formatted as "[App] <DashboardName>".
+            if (
+                app_dashboard_display_name in workspace_dashboard_map
+            ):  # This dashboard is part of the App
+                app_dashboards.append(
+                    AppDashboard(
+                        id=workspace_dashboard_map[app_dashboard_display_name][
+                            Constant.ID
+                        ],
+                        original_dashboard_id=dashboard[Constant.ID],
+                    )
+                )
+
+        app.reports = app_reports
+        app.dashboards = app_dashboards
+        workspace.app = app
+
     def _fill_metadata_from_scan_result(
         self,
         workspaces: List[Workspace],
@@ -463,6 +558,7 @@ class PowerBiAPI:
                 dashboard_endorsements={},
                 scan_result={},
                 independent_datasets=[],
+                app=None,  # It is getting set from scan-result
             )
             cur_workspace.scan_result = workspace_metadata
             cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
@@ -478,10 +574,13 @@ class PowerBiAPI:
                 )
             else:
                 logger.info(
-                    "Skipping endorsements tag as extract_endorsements_to_tags is set to "
-                    "false "
+                    "Skipping endorsements tag as extract_endorsements_to_tags is not enabled"
                 )
 
+            self._populate_app_details(
+                workspace=cur_workspace,
+                workspace_metadata=workspace_metadata,
+            )
             workspaces.append(cur_workspace)
 
         return workspaces
@@ -550,6 +649,9 @@ class PowerBiAPI:
     def fill_workspaces(
         self, workspaces: List[Workspace], reporter: PowerBiDashboardSourceReport
     ) -> Iterable[Workspace]:
+        logger.info(
+            f"Fetching initial metadata for workspaces: {[workspace.format_name_for_logger() for workspace in workspaces]}"
+        )
 
         workspaces = self._fill_metadata_from_scan_result(workspaces=workspaces)
         # First try to fill the admin detail as some regular metadata contains lineage to admin metadata

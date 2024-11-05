@@ -121,6 +121,7 @@ class BigqueryTable(BaseTable):
     columns_ignore_from_profiling: List[str] = field(default_factory=list)
     external: bool = False
     constraints: List[BigqueryTableConstraint] = field(default_factory=list)
+    table_type: Optional[str] = None
 
 
 @dataclass
@@ -174,7 +175,7 @@ class BigQuerySchemaApi:
 
     def get_query_result(self, query: str) -> RowIterator:
         def _should_retry(exc: BaseException) -> bool:
-            logger.debug(f"Exception occured for job query. Reason: {exc}")
+            logger.debug(f"Exception occurred for job query. Reason: {exc}")
             # Jobs sometimes fail with transient errors.
             # This is not currently handled by the python-bigquery client.
             # https://github.com/googleapis/python-bigquery/issues/23
@@ -196,7 +197,7 @@ class BigQuerySchemaApi:
     def get_projects(self, max_results_per_page: int = 100) -> List[BigqueryProject]:
         def _should_retry(exc: BaseException) -> bool:
             logger.debug(
-                f"Exception occured for project.list api. Reason: {exc}. Retrying api request..."
+                f"Exception occurred for project.list api. Reason: {exc}. Retrying api request..."
             )
             self.report.num_list_projects_retry_request += 1
             return True
@@ -377,6 +378,7 @@ class BigQuerySchemaApi:
         return BigqueryTable(
             name=table.table_name,
             created=table.created,
+            table_type=table.table_type,
             last_altered=(
                 datetime.fromtimestamp(
                     table.get("last_altered") / 1000, tz=timezone.utc
