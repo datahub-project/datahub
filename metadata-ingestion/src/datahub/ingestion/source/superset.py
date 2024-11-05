@@ -192,65 +192,8 @@ SUPERSET_FIELD_TYPE_MAPPINGS: Dict[
         "TIMETZ": TimeType,
         "VARBYTE": StringType,
     }
-TEST_DATA = [
-        {
-            "advanced_data_type": None,
-            "changed_on": "2023-01-11T01:11:09.374478",
-            "column_name": "dag_id",
-            "created_on": "2023-01-08T03:22:23.799933",
-            "description": None,
-            "expression": None,
-            "extra": "{}",
-            "filterable": True,
-            "groupby": True,
-            "id": 1276,
-            "is_active": True,
-            "is_dttm": False,
-            "python_date_format": None,
-            "type": "VARCHAR(1000)",
-            "type_generic": 1,
-            "uuid": "2a745bb2-06fe-4e97-8f78-b5cfc765c8f9",
-            "verbose_name": None
-        },
-        {
-            "advanced_data_type": None,
-            "changed_on": "2023-01-11T01:11:09.374498",
-            "column_name": "is_paused",
-            "created_on": "2023-01-08T03:22:23.799972",
-            "description": None,
-            "expression": None,
-            "extra": "{}",
-            "filterable": True,
-            "groupby": True,
-            "id": 1277,
-            "is_active": True,
-            "is_dttm": False,
-            "python_date_format": None,
-            "type": "BOOLEAN",
-            "type_generic": 3,
-            "uuid": "1d028edb-8f9a-4ec9-bb1e-3078c3fc1fac",
-            "verbose_name": None
-        },
-        {
-            "advanced_data_type": None,
-            "changed_on": "2023-01-11T01:11:09.374505",
-            "column_name": "is_subdag",
-            "created_on": "2023-01-08T03:22:23.799995",
-            "description": None,
-            "expression": None,
-            "extra": "{}",
-            "filterable": True,
-            "groupby": True,
-            "id": 1278,
-            "is_active": True,
-            "is_dttm": False,
-            "python_date_format": None,
-            "type": "BOOLEAN",
-            "type_generic": 3,
-            "uuid": "d73e0acf-5671-4281-8626-870562495b96",
-            "verbose_name": None
-        }
-    ]
+
+platform_without_databases = ["druid"]
 
 class SupersetConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
@@ -422,7 +365,8 @@ class SupersetSource(StatefulIngestionSourceBase):
     @lru_cache(maxsize=None)
     def get_dataset_info(self, dataset_id):
         dataset_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}"
+            f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
+            # params={"include_rendered_sql": "true"}, -- Enable this when we have a way to parse jinja templating
         ).json()
         return dataset_response
     
@@ -647,17 +591,19 @@ class SupersetSource(StatefulIngestionSourceBase):
             payload = chart_response.json()
             total_charts = payload["count"]
             for chart_data in payload["result"]:
-                chart_snapshot = self.construct_chart_from_chart_data(chart_data)
+                try:
+                    chart_snapshot = self.construct_chart_from_chart_data(chart_data)
 
-                mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-                yield from self._get_domain_wu(
-                    title=chart_data.get("slice_name", ""),
-                    entity_urn=chart_snapshot.urn,
-                )
+                    mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+                    yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+                    yield from self._get_domain_wu(
+                        title=chart_data.get("slice_name", ""),
+                        entity_urn=chart_snapshot.urn,
+                    )
+                except Exception as e:
+                    logger.info(f'Error: {e}')
 
     def gen_schema_fields(self, column_data):
-        ## TODO: Remove column limit
         schema_fields: List[SchemaField] = []
         for col in column_data:
             data_type = SUPERSET_FIELD_TYPE_MAPPINGS.get(col.get("type"))
@@ -705,7 +651,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             entity_urn=term_urn,
             aspects=["glossaryTermInfo"],
         )
-
         if result.get("glossaryTermInfo"):
             return True
         return False
@@ -722,8 +667,8 @@ class SupersetSource(StatefulIngestionSourceBase):
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
         upstream_warehouse_db_name = dataset_response.get("result", {}).get("database", {}).get("database_name")
         upstream_warehouse_platform = self.get_platform_from_database_id(database_id)
-        sql = dataset_response.get("result", {}).get("sql")
-        # note: the API does not currently supply created_by usernames due to a bug
+        # We preference Rendered SQL over SQL if the dataset contains jinja templating
+        sql = dataset_response.get("result", {}).get("rendered_sql") or dataset_response.get("result", {}).get("sql")        # note: the API does not currently supply created_by usernames due to a bug
         last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
         dataset_url = f"{self.config.display_uri}{dataset_data.get('explore_url', '')}"
         metrics = [
@@ -735,7 +680,6 @@ class SupersetSource(StatefulIngestionSourceBase):
                 owner.get("first_name") + "_" + str(owner.get("id"))
                 for owner in (dataset_response.get("result", {}).get("owners", []))
         ]
-
         custom_properties = {
             "Metrics": ", ".join(metrics),
             "Owners": ", ".join(owners),
@@ -748,47 +692,47 @@ class SupersetSource(StatefulIngestionSourceBase):
             externalUrl=dataset_url,
             customProperties=custom_properties,
         )
+        aspects_items = []
+
 
         metrics = dataset_response.get("result", {}).get("metrics", [])
         glossary_term_urns = []
         if metrics:
             for metric in metrics:
-                ## We only sync in certified metrics
-                if "certified_by" in metric.get("extra", {}):
-                    
-                    expression = metric.get("expression", "")
-                    certification_details = metric.get("extra", "")
-                    metric_name = metric.get("metric_name", "")
-                    description = metric.get("description", "")
-                    term_urn = make_term_urn(metric_name)
+                    if dataset_response.get("result", {}).get("extra", {}) and "certification" in dataset_response.get("result", {}).get("extra", {}):
+                        expression = metric.get("expression", "")
+                        certification_details = metric.get("extra", "")
+                        metric_name = metric.get("metric_name", "")
+                        description = metric.get("description", "")
+                        term_urn = make_term_urn(metric_name)
 
+                        if self.check_if_term_exists(term_urn):
+                            logger.info(f"Term {term_urn} already exists")
+                            glossary_term_urns.append(GlossaryTermAssociationClass(urn=term_urn))
+                            continue
 
-                    if self.check_if_term_exists(term_urn):
-                        logger.info(f"Term {term_urn} already exists")
+                        term_properties_aspect = GlossaryTermInfoClass(
+                            name=metric_name,
+                            definition=f"Description: {description} \nSql Expression: {expression} \nCertification details: {certification_details}",
+                            termSource="",
+                        )
+
+                        event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+                            entityUrn=term_urn,
+                            aspect=term_properties_aspect,
+                        )
+
+                        # Create rest emitter
+                        rest_emitter = DatahubRestEmitter(gms_server=self.sink_config.get("server", ""), token=self.sink_config.get("token", ""))
+                        rest_emitter.emit(event)
+                        logger.info(f"Created Glossary term {term_urn}")
                         glossary_term_urns.append(GlossaryTermAssociationClass(urn=term_urn))
-                        continue
 
-                    term_properties_aspect = GlossaryTermInfoClass(
-                        definition=f"Description: {description} \nSql Expression: {expression} \nCertification details: {certification_details}",
-                        termSource="",
-                    )
-
-                    event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-                        entityUrn=term_urn,
-                        aspect=term_properties_aspect,
-                    )
-
-                    # Create rest emitter
-                    rest_emitter = DatahubRestEmitter(gms_server=self.sink_config.get("server", ""), token=self.sink_config.get("token", ""))
-                    rest_emitter.emit(event)
-                    logger.info(f"Created Glossary term {term_urn}")
-                    glossary_term_urns.append(GlossaryTermAssociationClass(urn=term_urn))
-
-        
-        glossary_terms = GlossaryTermsClass(terms=glossary_term_urns, auditStamp=last_modified)
+        if glossary_term_urns:
+            glossary_terms = GlossaryTermsClass(terms=glossary_term_urns, auditStamp=last_modified)
+            aspects_items.append(glossary_terms)
         # Create Lineage:
         db_platform_instance = self.get_platform_from_database_id(database_id)
-
         if sql:
             # To Account for virtual datasets
             tag_urn = f"urn:li:tag:{self.platform}:virtual"
@@ -858,10 +802,11 @@ class SupersetSource(StatefulIngestionSourceBase):
                 ]
             )
         global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
+        aspects_items.extend([self.gen_schema_metadata(datasource_urn, dataset_response), dataset_info, upstream_lineage, global_tags])
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
-            aspects=[self.gen_schema_metadata(datasource_urn, dataset_response), dataset_info, glossary_terms, upstream_lineage, global_tags],
+            aspects=aspects_items,
         )
         return dataset_snapshot
 
@@ -869,7 +814,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         current_dataset_page = 0
         # We will set total datasets to the actual number after we get the response
         total_datasets = PAGE_SIZE
-
+        failed_datasets = []
         while current_dataset_page * PAGE_SIZE <= total_datasets:
             full_dataset_response = self.session.get(
                 f"{self.config.connect_uri}/api/v1/dataset/",
@@ -883,9 +828,8 @@ class SupersetSource(StatefulIngestionSourceBase):
 
             payload = full_dataset_response.json()
             total_datasets = payload["count"]
+
             for dataset_data in payload["result"]:
-                if dataset_data.get("id") != 287:
-                    continue
                 dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
@@ -894,11 +838,12 @@ class SupersetSource(StatefulIngestionSourceBase):
                     entity_urn=dataset_snapshot.urn,
                 )
 
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
         yield from self.emit_chart_mces()
         yield from self.emit_dataset_mces()
+
+
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
