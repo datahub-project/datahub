@@ -9,7 +9,7 @@ import TabItem from '@theme/TabItem';
 
 <TabItem value="google" label="Google Identity">
 
-### Register the app
+### First, register the app
 
 #### Create a project in the Google API Console
 
@@ -38,7 +38,7 @@ Next, click **Add or Remove Scopes**. Select the following scope and click **Sav
 - openid
 
 
-### Obtain Client Credentials & Discovery URL
+### Finally, obtain client credentials and discovery url
 
 The goal of this step should be to obtain the following values, which will need to be configured before deploying DataHub:
 
@@ -73,7 +73,7 @@ You will now receive a pair of values, a client id and a client secret. Bookmark
 
 <TabItem value="okta" label="Okta">
 
-### Register the app
+### First, register the app
 
 #### Create an application in Okta Developer Console
 
@@ -95,7 +95,7 @@ can set if to `https://your-datahub-domain.com/authenticate`. If you're just tes
 :::
 
 
-### Obtain Client Credentials & Discovery URL
+### Finally, obtain client credentials and discovery url
 
 The goal of this step should be to obtain the following values, which will need to be configured before deploying DataHub:
 
@@ -131,7 +131,7 @@ At this point, you should be looking at a screen like the following:
 
 <TabItem value="azure" label="Azure">
 
-### Register the app
+### First, register the app
 
 #### Create an application registration in Microsoft Azure portal
 
@@ -190,7 +190,7 @@ At this point, you should be looking at a screen like the following:
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-api-permissions.png"/>
 </p>
 
-### Obtain Client Credentials & Discovery URL
+### Finally, obtain client credentials and discovery url
 
 The goal of this step should be to obtain the following values, which will need to be configured before deploying DataHub:
 
