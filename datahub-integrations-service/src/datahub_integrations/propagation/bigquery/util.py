@@ -327,7 +327,18 @@ class BigqueryTagHelper(Closeable):
             raise ValueError(
                 f"Invalid entity urn {entity_urn}, can only handle Dataset and SchemaField urns."
             )
-        table = self.bq_client.get_table(dataset_urn.name)
+        try:
+            table = self.bq_client.get_table(dataset_urn.name)
+        except google_exceptions.NotFound:
+            logger.error(
+                f"Table {dataset_urn.name} not found. Can't apply description {docs}"
+            )
+            return
+        except google_exceptions.Forbidden:
+            logger.error(
+                f"Access Denied to table {dataset_urn.name}. Can't apply description {docs}. Please, add the required permissions."
+            )
+            return
 
         if isinstance(parsed_entity_urn, DatasetUrn):
             table.description = docs
@@ -360,8 +371,19 @@ class BigqueryTagHelper(Closeable):
             raise ValueError(
                 f"Invalid entity urn {entity_urn}, can only handle Dataset and SchemaField urns."
             )
+        try:
+            table = self.bq_client.get_table(dataset_urn.name)
+        except google_exceptions.NotFound:
+            logger.error(
+                f"Table {dataset_urn.name} not found. Can't apply tag/term {tag_or_term_urn}"
+            )
+            return
+        except google_exceptions.Forbidden:
+            logger.error(
+                f"Access Denied to table {dataset_urn.name}. Can't apply tag/term  {tag_or_term_urn}. Please, add the required permissions."
+            )
+            return
 
-        table = self.bq_client.get_table(dataset_urn.name)
         if isinstance(parsed_entity_urn, DatasetUrn):
             tag_urn = Urn.from_string(tag_or_term_urn)
             if not isinstance(tag_urn, TagUrn):
@@ -400,7 +422,7 @@ class BigqueryTagHelper(Closeable):
                 return
             glossary_urn = GlossaryTermUrn.from_string(tag_or_term_urn)
             glossary_term, parents = self.get_glossary_tags_from_urn(glossary_urn)
-            bq_tag = self._create_tag(glossary_term, parents)
+            bq_tag = self._create_policy_tag(glossary_term, parents)
             simplified_field_path = get_simple_field_path_from_v2_field_path(
                 parsed_entity_urn.field_path
             )
@@ -487,6 +509,16 @@ class BigqueryTagHelper(Closeable):
         taxonomies = self.ptm_client.list_taxonomies(parent=location)
         return list(taxonomies)
 
+    def _find_taxonomy(self) -> Optional[Taxonomy]:
+        if not self.taxonomies:
+            self.taxonomies = self._list_taxonomies()
+
+        for t in self.taxonomies:
+            if t.display_name == self.config.taxonomy:
+                return t
+
+        return None
+
     def _create_taxonomy(self, taxonomy_name: str, description: str) -> Taxonomy:
         location: Optional[str] = None
         if self.bq_project and self.bq_location:
@@ -497,24 +529,34 @@ class BigqueryTagHelper(Closeable):
         taxonomy = Taxonomy()
         taxonomy.display_name = taxonomy_name
         taxonomy.description = description
-        if not self.taxonomies:
-            self.taxonomies = self._list_taxonomies()
 
-        for t in self.taxonomies:
-            if t.display_name == taxonomy_name:
-                if t.description != description:
-                    t.description = description
-                    self.ptm_client.update_taxonomy(taxonomy=t)
-                    logger.debug(f"Taxonomy {taxonomy} updated")
-                    return t
-                else:
-                    logger.debug(f"Taxonomy {taxonomy.display_name} already exists")
-                    return t
+        existing_taxonomy = self._find_taxonomy()
+        if existing_taxonomy:
+            if existing_taxonomy.description != description:
+                existing_taxonomy.description = description
+                logger.debug(f"Taxonomy {taxonomy}  exists but updated. Updating...")
+                self.ptm_client.update_taxonomy(taxonomy=existing_taxonomy)
+                return existing_taxonomy
+            else:
+                logger.debug(f"Taxonomy {taxonomy.display_name} already exists")
+                return existing_taxonomy
 
-        created_taxonomy = self.ptm_client.create_taxonomy(
-            parent=location, taxonomy=taxonomy
-        )
-        self.taxonomies.append(created_taxonomy)
+        try:
+            created_taxonomy = self.ptm_client.create_taxonomy(
+                parent=location, taxonomy=taxonomy
+            )
+            self.taxonomies.append(created_taxonomy)
+        except google_exceptions.AlreadyExists:
+            logger.info(
+                f"Taxonomy {taxonomy.display_name} already exists. Fetching it."
+            )
+            # If the taxonomy already exists, we will try to fetch it and return it
+            existing_taxonomy = self._find_taxonomy()
+            if not existing_taxonomy:
+                raise ValueError(
+                    f"Taxonomy {taxonomy.display_name} already exists but couldn't be found."
+                )
+            return existing_taxonomy
 
         logger.info(f"Taxonomy created: {created_taxonomy.name}")
         return created_taxonomy
@@ -603,7 +645,7 @@ class BigqueryTagHelper(Closeable):
 
         return None
 
-    def _create_tag(
+    def _create_policy_tag(
         self,
         glossaryTerm: DataHubGlossaryTerm,
         parents: List[DataHubGlossaryNode],

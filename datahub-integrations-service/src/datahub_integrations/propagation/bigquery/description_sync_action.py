@@ -97,18 +97,19 @@ class DescriptionSyncAction(Action):
         if self.config.enabled and event.event_type == "EntityChangeEvent_v1":
             assert isinstance(event.event, EntityChangeEvent)
             assert self.ctx.graph is not None
+            logger.info(f"Processing event {event.event}")
             semantic_event = event.event
             parameters = semantic_event._inner_dict.get("__parameters_json", {})
 
             docs: Optional[str] = None
             if semantic_event.category == "DOCUMENTATION":
                 docs = parameters["description"]
+            else:
+                return None
 
             if not docs:
-                # HACK: Because of this, we are unable to _remove_ documentation from entities.
-                logger.debug(
-                    f"Skipping empty documentation for {semantic_event.entityUrn}"
-                )
+                # Description can't be deleted we ignore these changes
+                logger.info("No description found. Skipping description sync.")
                 return None
 
             enity_urn = Urn.create_from_string(semantic_event.entityUrn)
