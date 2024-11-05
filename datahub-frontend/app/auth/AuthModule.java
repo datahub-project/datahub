@@ -13,6 +13,7 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.name.Named;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.metadata.models.registry.EmptyEntityRegistry;
@@ -208,11 +209,13 @@ public class AuthModule extends AbstractModule {
 
     return new SystemRestliEntityClient(
         buildRestliClient(),
-        new ExponentialBackoff(_configs.getInt(ENTITY_CLIENT_RETRY_INTERVAL)),
-        _configs.getInt(ENTITY_CLIENT_NUM_RETRIES),
-        configurationProvider.getCache().getClient().getEntityClient(),
-        Math.max(1, _configs.getInt(ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE)),
-        Math.max(1, _configs.getInt(ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY)));
+            EntityClientConfig.builder()
+                    .backoffPolicy(new ExponentialBackoff(_configs.getInt(ENTITY_CLIENT_RETRY_INTERVAL)))
+                    .retryCount(_configs.getInt(ENTITY_CLIENT_NUM_RETRIES))
+                    .batchGetV2Size(_configs.getInt(ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE))
+                    .batchGetV2Concurrency(2)
+                    .build(),
+        configurationProvider.getCache().getClient().getEntityClient());
   }
 
   @Provides
