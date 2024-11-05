@@ -163,7 +163,9 @@ public abstract class GenericEntitiesController<
       throws URISyntaxException;
 
   protected abstract List<E> buildEntityList(
-      Set<IngestResult> ingestResults, boolean withSystemMetadata);
+      OperationContext opContext,
+      Collection<IngestResult> ingestResults,
+      boolean withSystemMetadata);
 
   protected abstract E buildGenericEntity(
       @Nonnull String aspectName,
@@ -510,12 +512,13 @@ public abstract class GenericEntitiesController<
     }
 
     AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor());
-    Set<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
+    List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {
-      return ResponseEntity.ok(buildEntityList(results, withSystemMetadata));
+      return ResponseEntity.ok(buildEntityList(opContext, results, withSystemMetadata));
     } else {
-      return ResponseEntity.accepted().body(buildEntityList(results, withSystemMetadata));
+      return ResponseEntity.accepted()
+          .body(buildEntityList(opContext, results, withSystemMetadata));
     }
   }
 
@@ -602,7 +605,7 @@ public abstract class GenericEntitiesController<
             jsonAspect,
             authentication.getActor());
 
-    Set<IngestResult> results =
+    List<IngestResult> results =
         entityService.ingestProposal(
             opContext,
             AspectsBatchImpl.builder()

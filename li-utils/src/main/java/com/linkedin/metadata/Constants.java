@@ -458,5 +458,11 @@ public class Constants {
   // DAO
   public static final long LATEST_VERSION = 0;
 
+  // Logging MDC
+  public static final String MDC_ENTITY_URN = "entityUrn";
+  public static final String MDC_ASPECT_NAME = "aspectName";
+  public static final String MDC_ENTITY_TYPE = "entityType";
+  public static final String MDC_CHANGE_TYPE = "changeType";
+
   private Constants() {}
 }

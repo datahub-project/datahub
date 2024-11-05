@@ -39,7 +39,8 @@ import org.opensearch.index.query.TermsQueryBuilder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class ContainerExpansionRewriterTest {
+public class ContainerExpansionRewriterTest
+    extends BaseQueryFilterRewriterTest<ContainerExpansionRewriter> {
   private static final String FIELD_NAME = "container.keyword";
   private final String grandParentUrn = "urn:li:container:grand";
   private final String parentUrn = "urn:li:container:foo";
@@ -74,15 +75,40 @@ public class ContainerExpansionRewriterTest {
                     .searchRetriever(TestOperationContexts.emptySearchRetriever)
                     .build(),
             null,
+            null,
             null);
+  }
+
+  @Override
+  OperationContext getOpContext() {
+    return opContext;
+  }
+
+  @Override
+  ContainerExpansionRewriter getTestRewriter() {
+    return ContainerExpansionRewriter.builder()
+        .config(QueryFilterRewriterConfiguration.ExpansionRewriterConfiguration.DEFAULT)
+        .build();
+  }
+
+  @Override
+  String getTargetField() {
+    return FIELD_NAME;
+  }
+
+  @Override
+  String getTargetFieldValue() {
+    return childUrn;
+  }
+
+  @Override
+  Condition getTargetCondition() {
+    return Condition.ANCESTORS_INCL;
   }
 
   @Test
   public void testTermsQueryRewrite() {
-    ContainerExpansionRewriter test =
-        ContainerExpansionRewriter.builder()
-            .config(QueryFilterRewriterConfiguration.ExpansionRewriterConfiguration.DEFAULT)
-            .build();
+    ContainerExpansionRewriter test = getTestRewriter();
 
     TermsQueryBuilder notTheFieldQuery = QueryBuilders.termsQuery("notTheField", childUrn);
     assertEquals(

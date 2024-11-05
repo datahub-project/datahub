@@ -24,6 +24,11 @@ from datahub.ingestion.source.gc.dataprocess_cleanup import (
     DataProcessCleanupConfig,
     DataProcessCleanupReport,
 )
+from datahub.ingestion.source.gc.execution_request_cleanup import (
+    DatahubExecutionRequestCleanup,
+    DatahubExecutionRequestCleanupConfig,
+    DatahubExecutionRequestCleanupReport,
+)
 from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
     SoftDeletedEntitiesCleanup,
     SoftDeletedEntitiesCleanupConfig,
@@ -70,9 +75,18 @@ class DataHubGcSourceConfig(ConfigModel):
         description="Configuration for soft deleted entities cleanup",
     )
 
+    execution_request_cleanup: Optional[DatahubExecutionRequestCleanupConfig] = Field(
+        default=None,
+        description="Configuration for execution request cleanup",
+    )
+
 
 @dataclass
-class DataHubGcSourceReport(DataProcessCleanupReport, SoftDeletedEntitiesReport):
+class DataHubGcSourceReport(
+    DataProcessCleanupReport,
+    SoftDeletedEntitiesReport,
+    DatahubExecutionRequestCleanupReport,
+):
     expired_tokens_revoked: int = 0
 
 
@@ -97,6 +111,7 @@ class DataHubGcSource(Source):
         self.graph = ctx.require_graph("The DataHubGc source")
         self.dataprocess_cleanup: Optional[DataProcessCleanup] = None
         self.soft_deleted_entities_cleanup: Optional[SoftDeletedEntitiesCleanup] = None
+        self.execution_request_cleanup: Optional[DatahubExecutionRequestCleanup] = None
 
         if self.config.dataprocess_cleanup:
             self.dataprocess_cleanup = DataProcessCleanup(
@@ -108,6 +123,12 @@ class DataHubGcSource(Source):
                 self.config.soft_deleted_entities_cleanup,
                 self.report,
                 self.config.dry_run,
+            )
+        if self.config.execution_request_cleanup:
+            self.execution_request_cleanup = DatahubExecutionRequestCleanup(
+                config=self.config.execution_request_cleanup,
+                graph=self.graph,
+                report=self.report,
             )
 
     @classmethod
@@ -130,6 +151,8 @@ class DataHubGcSource(Source):
             yield from self.dataprocess_cleanup.get_workunits_internal()
         if self.soft_deleted_entities_cleanup:
             self.soft_deleted_entities_cleanup.cleanup_soft_deleted_entities()
+        if self.execution_request_cleanup:
+            self.execution_request_cleanup.run()
         yield from []
 
     def truncate_indices(self) -> None:

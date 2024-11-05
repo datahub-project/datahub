@@ -82,6 +82,8 @@ chart_type_from_viz_type = {
     "box_plot": ChartTypeClass.BAR,
 }
 
+platform_without_databases = ["druid"]
+
 
 class SupersetConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
@@ -252,17 +254,30 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{datasource_id}"
         ).json()
+
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
+        platform = self.get_platform_from_database_id(database_id)
+
         database_name = (
             dataset_response.get("result", {}).get("database", {}).get("database_name")
         )
         database_name = self.config.database_alias.get(database_name, database_name)
 
+        # Druid do not have a database concept and has a limited schema concept, but they are nonetheless reported
+        # from superset. There is only one database per platform instance, and one schema named druid, so it would be
+        # redundant to systemically store them both in the URN.
+        if platform in platform_without_databases:
+            database_name = None
+
+        if platform == "druid" and schema_name == "druid":
+            # Follow DataHub's druid source convention.
+            schema_name = None
+
         if database_id and table_name:
             return make_dataset_urn(
-                platform=self.get_platform_from_database_id(database_id),
+                platform=platform,
                 name=".".join(
                     name for name in [database_name, schema_name, table_name] if name
                 ),
