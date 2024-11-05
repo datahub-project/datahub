@@ -1,4 +1,5 @@
 from typing import Dict, Optional, Union
+from urllib.parse import urlparse
 
 from azure.identity import ClientSecretCredential
 from azure.storage.blob import BlobServiceClient
@@ -59,10 +60,19 @@ class AzureConnectionConfig(ConfigModel):
         )
 
     def get_blob_service_client(self):
-        return BlobServiceClient(
-            account_url=f"https://{self.account_name}.blob.core.windows.net",
-            credential=f"{self.get_credentials()}",
-        )
+        if self.base_path.startswith("http://"):  # Azurite
+            connection_string = (
+                f"DefaultEndpointsProtocol=http;"
+                f"AccountName={self.account_name};"
+                f"AccountKey={self.account_key};"
+                f"BlobEndpoint=http://{urlparse(self.base_path).netloc}/{self.account_name}"
+            )
+            return BlobServiceClient.from_connection_string(connection_string)
+        else:  # Real Azure Storage
+            return BlobServiceClient(
+                account_url=f"https://{self.account_name}.blob.core.windows.net",
+                credential=self.get_credentials(),
+            )
 
     def get_data_lake_service_client(self) -> DataLakeServiceClient:
         return DataLakeServiceClient(
