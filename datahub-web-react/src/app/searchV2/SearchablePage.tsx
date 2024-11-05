@@ -19,7 +19,9 @@ import { getAutoCompleteInputFromQuickFilter } from './utils/filterUtils';
 import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import { useUserContext } from '../context/useUserContext';
 import { useSelectedSortOption } from '../search/context/SearchContext';
+import { NavSidebar as NavSidebarRedesign } from '../homeV2/layout/navBarRedesign/NavSidebar';
 import { NavSidebar } from '../homeV2/layout/NavSidebar';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
 const Body = styled.div`
     display: flex;
@@ -27,8 +29,9 @@ const Body = styled.div`
     flex: 1;
 `;
 
-const BodyBackground = styled.div`
-    background-color: ${REDESIGN_COLORS.BACKGROUND};
+const BodyBackground = styled.div<{ isShowNavBarRedesign?: boolean }>`
+    background-color: ${(props) =>
+        props.isShowNavBarRedesign ? REDESIGN_COLORS.BACKGROUUND_NAVBAR_REDESIGN : REDESIGN_COLORS.BACKGROUND};
     position: fixed;
     height: 100%;
     width: 100%;
@@ -39,13 +42,19 @@ const Navigation = styled.div`
     z-index: 200;
 `;
 
-const Content = styled.div`
-    border-radius: 8px;
+const Content = styled.div<{ isShowNavBarRedesign?: boolean }>`
+    border-radius: ${(props) => (props.isShowNavBarRedesign ? '12px' : '8px')};
     margin-top: 72px;
+    ${(props) =>
+        props.isShowNavBarRedesign &&
+        `
+        margin-right: 20px;
+        margin-bottom: 16px;  
+    `}
     flex: 1;
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 72px);
+    max-height: ${(props) => (props.isShowNavBarRedesign ? 'calc(100vh - 88px)' : 'calc(100vh - 72px)')};
     width: 100%;
     overflow: auto;
 `;
@@ -70,6 +79,7 @@ export const SearchablePage = ({ children }: Props) => {
         ? decodeURIComponent(params.query ? (params.query as string) : '')
         : '';
     const selectedSortOption = useSelectedSortOption();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
@@ -135,6 +145,8 @@ export const SearchablePage = ({ children }: Props) => {
         }
     }, [currentQuery, getAutoCompleteResults, viewUrn]);
 
+    const FinalNavBar = isShowNavBarRedesign ? NavSidebarRedesign : NavSidebar;
+
     return (
         <>
             <SearchHeader
@@ -150,12 +162,12 @@ export const SearchablePage = ({ children }: Props) => {
                 onQueryChange={autoComplete}
                 entityRegistry={entityRegistry}
             />
-            <BodyBackground />
+            <BodyBackground isShowNavBarRedesign={isShowNavBarRedesign} />
             <Body>
                 <Navigation>
-                    <NavSidebar />
+                    <FinalNavBar />
                 </Navigation>
-                <Content>{children}</Content>
+                <Content isShowNavBarRedesign={isShowNavBarRedesign}>{children}</Content>
             </Body>
         </>
     );

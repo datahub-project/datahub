@@ -11,6 +11,7 @@ import CreateGlossaryEntityModal from '../entityV2/shared/EntityDropdown/CreateG
 import { EntityType } from '../../types.generated';
 import { useUserContext } from '../context/useUserContext';
 import { useGetRootGlossaryNodesQuery } from '../../graphql/glossary.generated';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
 const SidebarTitleWrapper = styled.div`
     display: flex;
@@ -47,10 +48,15 @@ export default function GlossarySidebar() {
     const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
 
     const width = useSidebarWidth(0.2);
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     return (
         <>
-            <SidebarWrapper width={width} data-testid="glossary-browser-sidebar">
+            <SidebarWrapper
+                width={width}
+                data-testid="glossary-browser-sidebar"
+                isShowNavBarRedesign={isShowNavBarRedesign}
+            >
                 <SidebarTitleWrapper>
                     <GlossaryTitle>Business Glossary</GlossaryTitle>
                     <Tooltip title="Create Glossary" placement="left" showArrow={false}>

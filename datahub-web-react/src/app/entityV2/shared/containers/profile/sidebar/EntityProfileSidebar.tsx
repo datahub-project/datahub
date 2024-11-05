@@ -1,6 +1,7 @@
 /* eslint-disable prefer-template */
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { SEARCH_COLORS } from '../../../constants';
 import { EntitySidebarTab, TabContextType, TabRenderType } from '../../../types';
@@ -13,9 +14,11 @@ export const StyledEntitySidebarContainer = styled.div<{
     $width?: number;
     backgroundColor?: string;
     isFocused?: boolean;
+    isShowNavBarRedesign?: boolean;
 }>`
     flex: 1;
     overflow: auto;
+    box-shadow: 0px 0px 6px 0px rgba(93, 102, 139, 0.2);
     ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
     ${(props) => props.isCollapsed && 'min-width: 56px; max-width: 56px;'}
     ${(props) => props.backgroundColor && `background-color: ${props.backgroundColor};`}
@@ -24,14 +27,20 @@ export const StyledEntitySidebarContainer = styled.div<{
         display: none;
     }
 
-    margin: ${(props) => (props.isFocused ? '12px 12px 12px 0px' : '0px 0px 0px 0px')};
+    margin: ${(props) => {
+        if (props.isFocused) return props.isShowNavBarRedesign ? '12px 0px 0px 0px' : '12px 12px 12px 0px';
+        return '0px 0px 0px 0px';
+    }};
     transition: max-width 0.3s ease-in-out, min-width 0.3s ease-in-out;
 `;
 
-export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean }>`
+export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; isShowNavBarRedesign?: boolean }>`
     background-color: #ffffff;
     box-shadow: ${(props) => (props.isCard ? '0px 0px 5px rgba(0, 0, 0, 0.08)' : 'none')};
-    border-radius: ${(props) => (props.isCard ? '8px' : 'none')};
+    border-radius: ${(props) => {
+        if (!props.isCard) return 'none';
+        return props.isShowNavBarRedesign ? '12px' : '8px';
+    }};
     border: none;
     overflow: hidden;
     height: 100%;
@@ -109,6 +118,7 @@ export default function EntityProfileSidebar({
     className,
 }: Props) {
     const { isClosed } = useContext(EntitySidebarContext);
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     // TODO: Allow selecting a tab via the URL.
     const [selectedTabName, setSelectedTabName] = useState(tabs[0].name);
@@ -124,8 +134,9 @@ export default function EntityProfileSidebar({
             id="entity-profile-sidebar"
             isFocused={focused}
             className={className}
+            isShowNavBarRedesign={isShowNavBarRedesign}
         >
-            <StyledSidebar isCard={isCardLayout} isFocused={focused}>
+            <StyledSidebar isCard={isCardLayout} isFocused={focused} isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ContentContainer isVisible={!isClosed}>
                     {!hideCollapse && (
                         <SidebarCollapsibleHeader currentTab={selectedTab} headerDropdownItems={headerDropdownItems} />

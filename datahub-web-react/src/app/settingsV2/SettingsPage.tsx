@@ -40,18 +40,26 @@ import analytics, { EventType } from '../analytics';
 import { GlobalCfg } from '../../conf';
 import { isLoggedInVar } from '../auth/checkAuthStatus';
 import { useIsThemeV2 } from '../useIsThemeV2';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const PageContainer = styled.div`
+const PageContainer = styled.div<{ isShowNavBarRedesign?: boolean }>`
     display: flex;
     overflow: auto;
     flex: 1;
-    background-color: white;
-    border-radius: 8px;
+    background-color: ${(props) => (props.isShowNavBarRedesign ? 'inherit' : 'white')};
+    border-radius: ${(props) => (props.isShowNavBarRedesign ? '12px' : '8px')};
+    gap: ${(props) => (props.isShowNavBarRedesign ? '16px' : '0')};
 `;
 
-const SettingsBarContainer = styled.div`
+const SettingsBarContainer = styled.div<{ isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
-    border-right: 1px solid ${ANTD_GRAY[5]};
+    ${(props) => !props.isShowNavBarRedesign && `border-right: 1px solid ${ANTD_GRAY[5]};`}
+    ${(props) =>
+        props.isShowNavBarRedesign &&
+        `
+        border-radius: 12px;
+        background-color: white;
+    `}
     display: flex;
     flex-direction: column;
 `;
@@ -76,6 +84,18 @@ const ThinDivider = styled(Divider)`
 
 const ItemTitle = styled.span`
     margin-left: 8px;
+`;
+
+const SettingsContentContainer = styled.div`
+    border-radius: 12px;
+    width: 100%;
+    display: flex;
+    overflow: auto;
+    background-color: white;
+`;
+
+const StyledMenu = styled(Menu)<{ isShowNavBarRedesign?: boolean }>`
+    ${(props) => props.isShowNavBarRedesign && `border-radius: 0 0 12px 12px;`}
 `;
 
 const ACRYL_PATHS = [
@@ -139,6 +159,7 @@ export const SettingsPage = () => {
     const showAccessTokens = me && me?.platformPrivileges?.generatePersonalAccessTokens;
 
     const isThemeV2 = useIsThemeV2();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const handleLogout = () => {
         analytics.event({ type: EventType.LogOutEvent });
@@ -147,9 +168,11 @@ export const SettingsPage = () => {
         me.updateLocalState({ selectedViewUrn: undefined });
     };
 
+    const FinalSettingsContentContainer = isShowNavBarRedesign ? SettingsContentContainer : React.Fragment;
+
     return (
-        <PageContainer>
-            <SettingsBarContainer>
+        <PageContainer isShowNavBarRedesign={isShowNavBarRedesign}>
+            <SettingsBarContainer isShowNavBarRedesign={isShowNavBarRedesign}>
                 <SettingsBarHeader>
                     <PageTitle level={3}>Settings</PageTitle>
                     <Typography.Paragraph type="secondary">Manage your DataHub settings.</Typography.Paragraph>
@@ -167,11 +190,12 @@ export const SettingsPage = () => {
                     )}
                 </SettingsBarHeader>
                 <ThinDivider />
-                <Menu
+                <StyledMenu
                     selectable={false}
                     mode="inline"
                     style={menuStyle}
                     selectedKeys={[activePath]}
+                    isShowNavBarRedesign={isShowNavBarRedesign}
                     onClick={(newPath) => {
                         history.replace(`${url}/${newPath.key}`);
                     }}
@@ -265,15 +289,17 @@ export const SettingsPage = () => {
                             <ItemTitle>Appearance</ItemTitle>
                         </Menu.Item>
                     </Menu.ItemGroup>
-                </Menu>
+                </StyledMenu>
             </SettingsBarContainer>
             <Switch>
-                <Route exact path={path}>
-                    <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${DEFAULT_PATH.path}`} />
-                </Route>
-                {PATHS.map((p) => (
-                    <Route path={`${path}/${p.path.replace('/', '')}`} render={() => p.content} key={p.path} />
-                ))}
+                <FinalSettingsContentContainer>
+                    <Route exact path={path}>
+                        <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${DEFAULT_PATH.path}`} />
+                    </Route>
+                    {PATHS.map((p) => (
+                        <Route path={`${path}/${p.path.replace('/', '')}`} render={() => p.content} key={p.path} />
+                    ))}
+                </FinalSettingsContentContainer>
             </Switch>
         </PageContainer>
     );

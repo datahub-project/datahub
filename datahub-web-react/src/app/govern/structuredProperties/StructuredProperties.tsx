@@ -7,6 +7,7 @@ import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { Tooltip } from 'antd';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import StructuredPropsDrawer from './StructuredPropsDrawer';
 import StructuredPropsTable from './StructuredPropsTable';
 import {
@@ -19,6 +20,7 @@ import {
 } from './styledComponents';
 
 const StructuredProperties = () => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
@@ -52,7 +54,7 @@ const StructuredProperties = () => {
     )?.entity;
 
     return (
-        <PageContainer>
+        <PageContainer isShowNavBarRedesign={isShowNavBarRedesign}>
             <HeaderContainer>
                 <HeaderContent>
                     <PageTitle

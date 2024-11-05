@@ -19,15 +19,25 @@ import { RightSidebar } from './layout/RightSidebar';
 import { useRedirectToIntroduceYourself } from './introduce/useRedirectToIntroduceYourself';
 import { SearchablePage } from '../searchV2/SearchablePage';
 import PersonalizationLoadingModal from './persona/PersonalizationLoadingModal';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const Container = styled.div`
+const Container = styled.div<{ isShowNavBarRedesign?: boolean }>`
     flex: 1;
     display: flex;
     overflow: hidden;
+    ${(props) =>
+        props.isShowNavBarRedesign &&
+        `
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0px 0px 6px 0px rgba(93, 102, 139, 0.20);
+    `}
 `;
 
 export const HomePage = () => {
     useRedirectToIntroduceYourself();
+
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     useEffect(() => {
         analytics.event({ type: EventType.HomePageViewEvent });
@@ -50,7 +60,7 @@ export const HomePage = () => {
                 ]}
             />
             <SearchablePage>
-                <Container data-testid="home-page-content-container">
+                <Container data-testid="home-page-content-container" isShowNavBarRedesign={isShowNavBarRedesign}>
                     <LeftSidebar />
                     <CenterContent />
                     <RightSidebar />

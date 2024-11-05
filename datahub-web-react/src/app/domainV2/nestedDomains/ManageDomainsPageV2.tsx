@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components/macro';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { Button } from '@src/alchemy-components';
+import styled from 'styled-components/macro';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { useApolloClient } from '@apollo/client';
 import RootDomains from './RootDomains';
@@ -10,14 +11,14 @@ import CreateDomainModal from '../CreateDomainModal';
 import { updateListDomainsCache } from '../utils';
 import { useDomainsContext as useDomainsContextV2 } from '../DomainsContext';
 
-const PageWrapper = styled.div`
+const PageWrapper = styled.div<{ isShowNavBarRedesign?: boolean }>`
     background-color: #ffffff;
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border-radius: 8px;
-    margin-left: 12px;
+    border-radius: ${(props) => (props.isShowNavBarRedesign ? '12px' : '8px')};
+    margin-left: ${(props) => (props.isShowNavBarRedesign ? '0' : '12px')};
 `;
 
 const Header = styled.div`
@@ -31,13 +32,14 @@ export default function ManageDomainsPageV2() {
     const { setEntityData } = useDomainsContextV2();
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
     const client = useApolloClient();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     useEffect(() => {
         setEntityData(null);
     }, [setEntityData]);
 
     return (
-        <PageWrapper>
+        <PageWrapper isShowNavBarRedesign={isShowNavBarRedesign}>
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <Header>
                 <PageTitle title="Domains" subTitle="Group your data assets using hierarchical collections" />

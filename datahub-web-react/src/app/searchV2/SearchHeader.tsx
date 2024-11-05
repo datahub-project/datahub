@@ -7,6 +7,7 @@ import { AutoCompleteResultForEntity } from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
 import { useAppConfig } from '../useAppConfig';
 import OnboardingContext from '../onboarding/OnboardingContext';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
 const styles = {
     input: {
@@ -40,8 +41,8 @@ const Header = styled(Layout)`
     justify-content: space-between;
 `;
 
-const HeaderBackground = styled.div`
-    background-color: #171723;
+const HeaderBackground = styled.div<{ isShowNavBarRedesign?: boolean }>`
+    background-color: ${(props) => (props.isShowNavBarRedesign ? 'initial' : '#171723')};
     position: fixed;
     height: 100px;
     width: 100%;
@@ -81,10 +82,11 @@ export const SearchHeader = ({
     const appConfig = useAppConfig();
     const viewsEnabled = appConfig.config?.viewsConfig?.enabled || false;
     const { isUserInitializing } = useContext(OnboardingContext);
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     return (
         <>
-            <HeaderBackground />
+            <HeaderBackground isShowNavBarRedesign={isShowNavBarRedesign} />
             <Wrapper>
                 <Header>
                     <SearchBarContainer>

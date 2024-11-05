@@ -10,16 +10,21 @@ const sidebarWidth = '250px';
 
 // Page Container
 
-export const AutomationsPageContainer = styled.div`
-    max-width: 99%;
-    min-height: 98%;
+export const AutomationsPageContainer = styled.div<{ isShowNavBarRedesign?: boolean }>`
+    ${(props) =>
+        !props.isShowNavBarRedesign &&
+        `
+        max-width: 99%;
+        min-height: 98%;
+        z-index: 100;
+    `}
     overflow: hidden;
+    ${(props) => props.isShowNavBarRedesign && 'min-height: 100%;'}
     // TODO: Readd for sidebar
     // display: grid;
     // grid-template-columns: ${sidebarWidth} 1fr;
     // grid-template-rows: 1fr;
     gap: 16px;
-    z-index: 100;
 
     font-family: ${sharedStyles.fontFamily};
 `;
@@ -45,10 +50,14 @@ export const AutomationsContent = styled.div`
 
 // Page Header
 
-export const AutomationsContentHeader = styled.div`
-    position: sticky;
-    top: 0;
-    z-index: 70;
+export const AutomationsContentHeader = styled.div<{ isShowNavBarRedesign?: boolean }>`
+    ${(props) =>
+        !props.isShowNavBarRedesign &&
+        `
+        position: sticky;
+        top: 0;
+        z-index: 70;
+    `}
     background-color: #fff;
     display: flex;
     justify-content: space-between;
@@ -72,8 +81,15 @@ export const AutomationsContentHeader = styled.div`
 
 // Page Body
 
-export const AutomationsContentBody = styled.div`
+export const ScrollableContent = styled.div`
+    overflow-x: hidden;
+    overflow-y: auto;
+    height: 100%;
+`;
+
+export const AutomationsContentBody = styled.div<{ isShowNavBarRedesign?: boolean }>`
     padding: 0px 20px;
+    ${(props) => props.isShowNavBarRedesign && 'height: calc(100% - 150px);'}
 `;
 
 export const AutomationsBody = styled.div`

@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { UnionType } from '../utils/constants';
 import { SEARCH_RESULTS_FILTERS_V2_INTRO } from '../../onboarding/config/SearchOnboardingConfig';
 import SearchFilters from './SearchFilters';
 
-const Section = styled.div<{ removePadding?: boolean }>`
-    padding: ${(props) => (props.removePadding ? '8px 20px 4px 20px' : '8px 12px 0px 12px')};
+const Section = styled.div<{ removePadding?: boolean; isShowNavBarRedesign?: boolean }>`
+    padding: ${(props) => {
+        if (props.removePadding) return '8px 20px 4px 20px';
+        return props.isShowNavBarRedesign ? '0' : '8px 12px 0px 12px';
+    }};
     position: relative;
 `;
 
@@ -30,6 +34,7 @@ export default function SearchFiltersSection({
     onChangeUnionType,
 }: Props) {
     const [finalAvailableFilters, setFinalAvailableFilters] = useState(availableFilters);
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     /**
      * Only update the active filters if we are done loading. Prevents jitter!
@@ -41,7 +46,11 @@ export default function SearchFiltersSection({
     }, [availableFilters, loading, finalAvailableFilters]);
 
     return (
-        <Section id={SEARCH_RESULTS_FILTERS_V2_INTRO} data-testid="search-filters-v2">
+        <Section
+            id={SEARCH_RESULTS_FILTERS_V2_INTRO}
+            data-testid="search-filters-v2"
+            isShowNavBarRedesign={isShowNavBarRedesign}
+        >
             <SearchFilters
                 loading={loading}
                 availableFilters={finalAvailableFilters}

@@ -12,11 +12,12 @@ import GlossaryEntityItem from './GlossaryEntityItem';
 
 interface GlossaryEntityWrapperProps {
     termsTotal?: number | undefined;
+    isShowNavBarRedesign?: boolean;
 }
 
 const GlossaryEntityWrapper = styled.div<GlossaryEntityWrapperProps>`
     overflow: auto;
-    height: ${(props) => (props.termsTotal ? '70vh' : '80vh')};
+    height: ${(props) => !props.isShowNavBarRedesign && `height: ${props.termsTotal ? '70vh' : '80vh'};`};
 `;
 
 interface EntitiesWrapperProps {

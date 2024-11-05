@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Button, Divider, Tooltip } from 'antd';
 import styled from 'styled-components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import useSidebarWidth from '../../sharedV2/sidebar/useSidebarWidth';
 import DomainsSidebarHeader from './DomainsSidebarHeader';
 import DomainNavigator from './domainNavigator/DomainNavigator';
@@ -15,18 +16,20 @@ const StyledEntitySidebarContainer = styled.div<{
     isCollapsed: boolean;
     $width?: number;
     backgroundColor?: string;
+    isShowNavBarRedesign?: boolean;
 }>`
     flex-shrink: 0;
     max-height: 100%;
 
     width: ${(props) => (props.isCollapsed ? '63px' : `${props.$width}px`)};
-    margin-bottom: 12px;
+    margin-bottom: ${(props) => (props.isShowNavBarRedesign ? '0' : '12px')};
     transition: width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
 
     background-color: #ffffff;
-    border-radius: 8px;
+    border-radius: ${(props) => (props.isShowNavBarRedesign ? '12px' : '8px')};
     display: flex;
     flex-direction: column;
+    ${(props) => props.isShowNavBarRedesign && 'margin-right: 16px;'}
 `;
 
 const Controls = styled.div<{ isCollapsed: boolean }>`
@@ -69,13 +72,19 @@ const StyledSidebar = styled.div`
 export default function ManageDomainsSidebarV2() {
     const width = useSidebarWidth(0.2);
     const [isClosed, setIsClosed] = useState(false);
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const unhideSidebar = useCallback(() => {
         setIsClosed(false);
     }, []);
 
     return (
-        <StyledEntitySidebarContainer isCollapsed={isClosed} $width={width} id="browse-v2">
+        <StyledEntitySidebarContainer
+            isCollapsed={isClosed}
+            $width={width}
+            id="browse-v2"
+            isShowNavBarRedesign={isShowNavBarRedesign}
+        >
             <Controls isCollapsed={isClosed}>
                 {!isClosed && <DomainsSidebarHeader />}
                 <Tooltip

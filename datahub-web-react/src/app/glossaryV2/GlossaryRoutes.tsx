@@ -11,11 +11,13 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { useAppConfig } from '../useAppConfig';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { shouldShowGlossary } from '../identity/user/UserUtils';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const ContentWrapper = styled.div`
+const ContentWrapper = styled.div<{ isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex: 1;
     overflow: hidden;
+    gap: ${(props) => (props.isShowNavBarRedesign ? '16px' : '0')};
 `;
 
 export default function GlossaryRoutes() {
@@ -29,6 +31,7 @@ export default function GlossaryRoutes() {
     const canManageGlossary = authenticatedUser?.platformPrivileges.manageGlossaries || false;
     const hideGlossary = !!appConfig?.config?.visualConfig?.hideGlossary;
     const showGlossary = shouldShowGlossary(canManageGlossary, hideGlossary);
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     return (
         <GlossaryEntityContext.Provider
@@ -42,7 +45,7 @@ export default function GlossaryRoutes() {
                 setIsSidebarOpen,
             }}
         >
-            <ContentWrapper>
+            <ContentWrapper isShowNavBarRedesign={isShowNavBarRedesign}>
                 <GlossarySidebar />
                 <Switch>
                     {entityRegistry.getGlossaryEntities().map((entity) => (

@@ -3,14 +3,14 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import styled from 'styled-components';
 import { RotatingButton } from '../../shared/components';
 
-export const SidebarWrapper = styled.div<{ width: number }>`
+export const SidebarWrapper = styled.div<{ width: number; isShowNavBarRedesign?: boolean }>`
     max-height: 100%;
     width: ${(props) => props.width}px;
     min-width: ${(props) => props.width}px;
     display: ${(props) => (props.width ? 'block' : 'none')};
     background-color: #fff;
-    border-radius: 8px;
-    margin-bottom: 12px;
+    border-radius: ${(props) => (props.isShowNavBarRedesign ? '12px' : '8px')};
+    margin-bottom: ${(props) => (props.isShowNavBarRedesign ? '0' : '12px')};
 `;
 
 export function RotatingTriangle({

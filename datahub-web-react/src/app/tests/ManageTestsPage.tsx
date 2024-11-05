@@ -13,11 +13,13 @@ import { SearchBar } from '../search/SearchBar';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { filterTests } from './utils';
 import { NewTestButton } from './NewTestButton';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const Container = styled.div`
+const Container = styled.div<{ isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
-    height: 100%;
     background-color: #fff;
+    height: 100%;
+    ${(props) => props.isShowNavBarRedesign && 'border-radius: 12px;'}
 `;
 
 const Header = styled.div`
@@ -62,6 +64,7 @@ const testSearchInputStyle = {
 export const ManageTestsPage = () => {
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -84,7 +87,7 @@ export const ManageTestsPage = () => {
     const filteredTests = filterTests(filterText, tests as any);
 
     return (
-        <Container>
+        <Container isShowNavBarRedesign={isShowNavBarRedesign}>
             {!data && loading && <Message type="loading" content="Loading tests..." />}
             {error && message.error({ content: `Failed to load Tests! An unexpected error occurred.`, duration: 3 })}
             <Header>

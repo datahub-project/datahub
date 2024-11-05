@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { useHistory, useLocation } from 'react-router';
 import { Tabs } from 'antd';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useUserContext } from '../../context/useUserContext';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import { useAppConfig } from '../../useAppConfig';
@@ -66,6 +67,7 @@ export const TabLayout = () => {
     const { config } = useAppConfig();
     const { formCreationEnabled } = config.featureFlags;
     const isThemeV2 = useIsThemeV2();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const history = useHistory();
     const location = useLocation();
 
@@ -110,7 +112,7 @@ export const TabLayout = () => {
 
     // Render the dashboard
     return (
-        <Layout>
+        <Layout isShowNavBarRedesign={isShowNavBarRedesign}>
             <Header>
                 <PageTitle
                     title="Compliance Forms"

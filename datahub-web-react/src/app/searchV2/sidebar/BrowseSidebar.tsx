@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 import { Button, Divider, Tooltip, Typography } from 'antd';
 import { ProfileSidebarResizer } from '@src/app/entityV2/shared/containers/profile/sidebar/ProfileSidebarResizer';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import EntityBrowse from './EntityBrowse';
 import PlatformBrowse from './PlatformBrowse';
 import { useIsPlatformBrowseMode } from './BrowseContext';
@@ -18,6 +19,7 @@ const StyledEntitySidebarContainer = styled.div<{
     isHidden: boolean;
     $width?: number;
     backgroundColor?: string;
+    isShowNavBarRedesign?: boolean;
 }>`
     flex: 1;
     overflow: hidden;
@@ -29,7 +31,12 @@ const StyledEntitySidebarContainer = styled.div<{
         display: none;
     }
 
-    margin: ${(props) => (props.isCollapsed ? '12px' : '12px 0 12px 12px')};
+    margin: ${(props) => {
+        if (props.isShowNavBarRedesign) {
+            return props.isCollapsed ? '12px 12px 0 0' : '12px 0 0 0';
+        }
+        return props.isCollapsed ? '12px' : '12px 0 12px 12px';
+    }};
     transition: max-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out,
         min-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
 
@@ -108,6 +115,7 @@ const BrowseSidebar = ({ visible }: Props) => {
     const isPlatformBrowseMode = useIsPlatformBrowseMode();
     const [isClosed, setIsClosed] = useState(false);
     const [isHidden, setIsHidden] = useState(false);
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const [sidebarWidth, setSidebarWidth] = useState(MIN_BROWSWER_WIDTH);
 
@@ -124,6 +132,7 @@ const BrowseSidebar = ({ visible }: Props) => {
                 isCollapsed={isClosed}
                 isHidden={isHidden}
                 $width={sidebarWidth}
+                isShowNavBarRedesign={isShowNavBarRedesign}
                 id="browse-v2"
             >
                 <Controls isCollapsed={isClosed}>

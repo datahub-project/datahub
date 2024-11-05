@@ -3,6 +3,7 @@ import React from 'react';
 import { Skeleton } from 'antd';
 import { FcHighPriority, FcLeave, FcMediumPriority } from 'react-icons/fc';
 import styled from 'styled-components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { Body, PrimaryHeading } from '../components';
 
@@ -77,37 +78,47 @@ export const ChartError = () => (
 );
 
 // View if the Integration Service is offline
-export const IntegrationServiceOffline = () => (
-    <Container>
-        <Body>
-            <FlexWrapper>
-                <div style={{ textAlign: 'center', fontSize: '18px' }}>
-                    <PrimaryHeading>Your Compliance Form Initiatives</PrimaryHeading>
-                    <p style={{ marginTop: '1rem' }}>Oops! It seems like compliance form metrics are missing 🤔</p>
-                    <p>Either you haven&apos;t set up your compliance forms and reporting, or our systems are down.</p>
-                    <p>Please try again later!</p>
-                </div>
-            </FlexWrapper>
-        </Body>
-    </Container>
-);
+export const IntegrationServiceOffline = () => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    return (
+        <Container>
+            <Body isShowNavBarRedesign={isShowNavBarRedesign}>
+                <FlexWrapper>
+                    <div style={{ textAlign: 'center', fontSize: '18px' }}>
+                        <PrimaryHeading>Your Compliance Form Initiatives</PrimaryHeading>
+                        <p style={{ marginTop: '1rem' }}>Oops! It seems like compliance form metrics are missing 🤔</p>
+                        <p>
+                            Either you haven&apos;t set up your compliance forms and reporting, or our systems are down.
+                        </p>
+                        <p>Please try again later!</p>
+                    </div>
+                </FlexWrapper>
+            </Body>
+        </Container>
+    );
+};
 
 // View if the user doesn't have the required permissions
-export const MissingPermissions = () => (
-    <Container>
-        <Body>
-            <FlexWrapper>
-                <div style={{ textAlign: 'center', fontSize: '18px' }}>
-                    <PrimaryHeading>Your Compliance Form Initiatives</PrimaryHeading>
-                    <p style={{ marginTop: '1rem' }}>
-                        Oops! It seems like you don&apos;t have permission to view this page
-                    </p>
-                    <p>Contact your admin to gain access.</p>
-                </div>
-            </FlexWrapper>
-        </Body>
-    </Container>
-);
+export const MissingPermissions = () => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    return (
+        <Container>
+            <Body isShowNavBarRedesign={isShowNavBarRedesign}>
+                <FlexWrapper>
+                    <div style={{ textAlign: 'center', fontSize: '18px' }}>
+                        <PrimaryHeading>Your Compliance Form Initiatives</PrimaryHeading>
+                        <p style={{ marginTop: '1rem' }}>
+                            Oops! It seems like you don&apos;t have permission to view this page
+                        </p>
+                        <p>Contact your admin to gain access.</p>
+                    </div>
+                </FlexWrapper>
+            </Body>
+        </Container>
+    );
+};
 
 const LoadingPermissionsWrapper = styled.div`
     text-align: center;
