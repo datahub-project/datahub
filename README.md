@@ -35,6 +35,7 @@ HOSTED_DOCS_ONLY-->
 [![YouTube](https://img.shields.io/youtube/channel/subscribers/UC3qFQC5IiwR5fvWEqi_tJ5w?style=social)](https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w)
 [![Medium](https://img.shields.io/badge/Medium-12100E?style=for-the-badge&logo=medium&logoColor=white)](https://medium.com/datahub-project)
 [![Follow](https://img.shields.io/twitter/follow/datahubproject?label=Follow&style=social)](https://twitter.com/datahubproject)
+[![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20DataHub%20Guru-006BFF)](https://gurubase.io/g/datahub)
 ### 🏠 Hosted DataHub Docs (Courtesy of Acryl Data): [datahubproject.io](https://datahubproject.io/docs)
 
 ---
