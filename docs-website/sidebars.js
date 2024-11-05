@@ -550,6 +550,7 @@ module.exports = {
         {
           "Frontend Authentication": [
             "docs/authentication/guides/jaas",
+            "docs/authentication/guides/sso/initialize-oidc",
             "docs/authentication/guides/sso/configure-oidc-react",
             "docs/authentication/guides/sso/configure-oidc-behind-proxy",
           ],
