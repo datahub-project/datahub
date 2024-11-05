@@ -43,6 +43,7 @@ class DataHubEventsConsumer:
         self.default_lookback_days = lookback_days
         self.offset_id = offset_id
         self.offsets_store: Optional[ResourceBasedOffsetsStore] = None
+        self.graph = graph
         if consumer_id is not None:
             # Case 1: Provided a consumer id to load offsets for
             self.consumer_id = consumer_id
@@ -76,6 +77,8 @@ class DataHubEventsConsumer:
         Returns:
             ExternalEventsResponse: A Pydantic model containing the response data.
         """
+
+        # TODO: Push the following into AcrylDataHubGraph, or DataHubGraph if migrated back to DataHub.
         endpoint = f"{self.base_url}/v1/events/poll"
         resolved_offset_id = offset_id or self.offset_id
         params = {
@@ -86,10 +89,13 @@ class DataHubEventsConsumer:
             "lookbackWindowDays": self.default_lookback_days,
         }
 
+        # Important: We need to add headers for authentication from the base graph object.
+        headers = {**self.graph._session.headers}
+
         # Remove None values from params
         params = {k: v for k, v in params.items() if v is not None}
 
-        response = requests.get(endpoint, params=params)
+        response = requests.get(endpoint, params=params, headers=headers)
         response.raise_for_status()  # Raise an exception for HTTP errors
         external_events_response = ExternalEventsResponse.parse_obj(response.json())
         self.offset_id = external_events_response.offsetId

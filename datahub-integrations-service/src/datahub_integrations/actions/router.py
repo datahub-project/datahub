@@ -144,12 +144,11 @@ async def start_or_restart_action(
     if pipeline_manager.is_running(action_urn):
         logger.info(f"Stopping action {action_urn}.")
         await pipeline_manager.stop_pipeline(action_urn)
-
+    executor_id = get_executor_id_from_details(action_details)
     try:
-        recipe = get_config_from_details(action_urn, action_details)
-        executor_id = get_executor_id_from_details(action_details)
+        recipe = get_config_from_details(action_urn, action_details, executor_id)
 
-        logger.debug(f"Starting action {action_urn} with recipe: {recipe}")
+        logger.info(f"Starting action {action_urn} with recipe: {recipe}")
         await pipeline_manager.start_pipeline(action_urn, recipe, executor_id)
     except Exception as e:
         if throw:
@@ -161,7 +160,9 @@ async def start_or_restart_action(
             )
 
 
-def get_config_from_details(action_urn: str, action_details: dict) -> dict:
+def get_config_from_details(
+    action_urn: str, action_details: dict, executor_id: str
+) -> dict:
     # TODO Respect version / other execution parameters from action_details.
     if len(secret_stores) == 0:
         secret_stores.append(
@@ -177,10 +178,10 @@ def get_config_from_details(action_urn: str, action_details: dict) -> dict:
             )
         )
 
+    strict_secret_resolution = executor_id == DEFAULT_EXECUTOR_ID
     action_details_recipe = resolve_recipe(
-        action_details["config"]["recipe"], secret_stores
+        action_details["config"]["recipe"], secret_stores, strict_secret_resolution
     )
-
     action_name = action_urn
     consumer_group_prefix = os.getenv("KAFKA_PROPERTIES_GROUP_ID")
     if consumer_group_prefix:
@@ -264,6 +265,7 @@ async def rollback_action(action_urn: str) -> str:
     try:
         action_spec = _get_action_spec(action_urn)
         config = action_spec.action_run.unresolved_config
+        executor_id = get_executor_id_from_details(config)
     except NoSuchPipeline:
         try:
             updated_details = await _get_action_details(action_urn)
@@ -271,8 +273,8 @@ async def rollback_action(action_urn: str) -> str:
             raise HTTPException(
                 status.HTTP_404_NOT_FOUND, f"Action {action_urn} not found."
             )
-        config = get_config_from_details(action_urn, updated_details)
         executor_id = get_executor_id_from_details(updated_details)
+        config = get_config_from_details(action_urn, updated_details, executor_id)
 
     try:
         await pipeline_manager.rollback_pipeline(
@@ -327,10 +329,11 @@ async def bootstrap_action(action_urn: str) -> str:
     try:
         action_spec = _get_action_spec(action_urn)
         config = action_spec.action_run.unresolved_config
+        executor_id = get_executor_id_from_details(config)
     except NoSuchPipeline:
         updated_details = await _get_action_details(action_urn)
-        config = get_config_from_details(action_urn, updated_details)
         executor_id = get_executor_id_from_details(updated_details)
+        config = get_config_from_details(action_urn, updated_details, executor_id)
 
     try:
         await pipeline_manager.bootstrap_pipeline(

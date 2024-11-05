@@ -13,9 +13,8 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
-from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.telemetry.telemetry import telemetry_instance
-from datahub_actions.pipeline.pipeline import Pipeline
 from datahub_actions.pipeline.pipeline_config import PipelineConfig
 from tenacity import before_log, retry, stop_after_attempt, wait_exponential
 
@@ -43,10 +42,8 @@ def run_action_remotely(
     action_urn: str, action_recipe: dict, executor_id: str, stage: Stage
 ) -> None:
 
-    # Initialize the pipeline, just to get the Graph Instance referred to.
-    pipeline: Pipeline = Pipeline.create(action_recipe)
-    graph = pipeline.action.ctx.graph.graph
-
+    # Initialize graph
+    graph = get_default_graph()
     # TODO: Support stages remotely. We'll need to disable through the UI
     if stage != Stage.LIVE:
         raise Exception(
