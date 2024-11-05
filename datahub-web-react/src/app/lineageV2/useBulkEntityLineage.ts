@@ -36,13 +36,14 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
         setDataVersion,
         setDisplayVersion,
     } = useContext(LineageNodesContext);
-    shownUrns.sort();
     const prevShownUrns = usePrevious(shownUrns);
 
     const [memoizedShownUrns, setMemoizedShownUrns] = useState<string[]>([]);
     useEffect(() => {
         // TODO: Implement string[] equality?
-        if (JSON.stringify(prevShownUrns) !== JSON.stringify(shownUrns)) {
+        const sortedShownUrns = shownUrns.slice().sort();
+        const prevSortedShownUrns = prevShownUrns?.slice().sort();
+        if (JSON.stringify(prevSortedShownUrns) !== JSON.stringify(sortedShownUrns)) {
             setMemoizedShownUrns(shownUrns);
         }
     }, [prevShownUrns, shownUrns]);

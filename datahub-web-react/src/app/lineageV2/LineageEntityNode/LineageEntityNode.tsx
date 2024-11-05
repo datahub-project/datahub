@@ -40,7 +40,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const { urn, type, entity, id, fetchStatus, isExpanded } = data;
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const { rootUrn } = useContext(LineageNodesContext);
-    const { numNodes, setHoveredNode } = useContext(LineageDisplayContext);
+    const { shownUrns, setHoveredNode } = useContext(LineageDisplayContext);
     const { searchQuery, searchedEntity } = useContext(LineageVisualizationContext);
 
     const [showColumns, setShowColumns] = useState(false);
@@ -52,7 +52,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
         setPageIndex(0);
     }, [filterText, onlyWithLineage, setPageIndex]);
 
-    const transitionDuration = numNodes <= MAX_NODES_FOR_TRANSITION ? TRANSITION_DURATION_MS : 0;
+    const transitionDuration = shownUrns.length <= MAX_NODES_FOR_TRANSITION ? TRANSITION_DURATION_MS : 0;
 
     const { paginatedColumns, extraHighlightedColumns, numFilteredColumns, numColumnsWithLineage, numColumnsTotal } =
         useDisplayedColumns({

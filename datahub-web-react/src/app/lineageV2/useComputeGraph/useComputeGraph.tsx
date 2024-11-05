@@ -42,7 +42,7 @@ export default function useComputeGraph(urn: string, type: EntityType): Processe
     );
 
     const prevHideTransformations = usePrevious(hideTransformations);
-    const [flowNodes, flowEdges, resetPositions] = useMemo(
+    const { flowNodes, flowEdges, resetPositions } = useMemo(
         () => {
             const smallContext = { nodes, edges, adjacencyList };
             console.debug(smallContext);
@@ -64,11 +64,19 @@ export default function useComputeGraph(urn: string, type: EntityType): Processe
 
             const { displayedNodes, parents } = getDisplayedNodes(urn, orderedNodes, newSmallContext);
             const nodeBuilder = new NodeBuilder(urn, type, displayedNodes, parents);
-            return [
-                nodeBuilder.createNodes(newSmallContext.adjacencyList, ignoreSchemaFieldStatus),
-                nodeBuilder.createEdges(newSmallContext.edges),
-                prevHideTransformations !== hideTransformations,
-            ];
+
+            const orderIndices = {
+                [urn]: 0,
+                ...Object.fromEntries(orderedNodes[LineageDirection.Downstream].map((e, idx) => [e.id, idx + 1])),
+                ...Object.fromEntries(orderedNodes[LineageDirection.Upstream].map((e, idx) => [e.id, -idx - 1])),
+            };
+            return {
+                flowNodes: nodeBuilder
+                    .createNodes(newSmallContext.adjacencyList, ignoreSchemaFieldStatus)
+                    .sort((a, b) => (orderIndices[a.id] || 0) - (orderIndices[b.id] || 0)),
+                flowEdges: nodeBuilder.createEdges(newSmallContext.edges),
+                resetPositions: prevHideTransformations !== hideTransformations,
+            };
         }, // eslint-disable-next-line react-hooks/exhaustive-deps
         [
             urn,
@@ -82,6 +90,7 @@ export default function useComputeGraph(urn: string, type: EntityType): Processe
             prevHideTransformations,
             showGhostEntities,
             ignoreSchemaFieldStatus,
+            dataVersion,
         ],
     );
 

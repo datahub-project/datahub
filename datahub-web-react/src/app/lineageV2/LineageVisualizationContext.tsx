@@ -7,6 +7,7 @@ interface VisualizationContext {
     setSearchQuery: (query: string) => void;
     searchedEntity: Urn | null;
     setSearchedEntity: (entity: Urn | null) => void;
+    isFocused: boolean;
 }
 
 const LineageVisualizationContext = React.createContext<VisualizationContext>({
@@ -14,6 +15,7 @@ const LineageVisualizationContext = React.createContext<VisualizationContext>({
     setSearchQuery: () => {},
     searchedEntity: null,
     setSearchedEntity: () => {},
+    isFocused: false,
 });
 
 export default LineageVisualizationContext;

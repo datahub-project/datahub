@@ -297,7 +297,7 @@ interface DisplayContext {
     highlightedEdges: Set<string>;
     fineGrainedLineage: FineGrainedLineage;
     fineGrainedOperations: Map<FineGrainedOperationRef, FineGrainedOperation>;
-    numNodes: number;
+    shownUrns: string[];
     refetchUrn: (urn: string) => void;
 }
 
@@ -319,7 +319,7 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
         upstream: new Map(),
     },
     fineGrainedOperations: new Map(),
-    numNodes: 0,
+    shownUrns: [],
     refetchUrn: () => {},
 });
 

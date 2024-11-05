@@ -1,12 +1,12 @@
 import { SearchOutlined } from '@ant-design/icons';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { LineageNode } from '@app/lineageV2/common';
+import { LineageDisplayContext, LineageNodesContext } from '@app/lineageV2/common';
 import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import { Button } from '@components';
 import { Input, InputRef } from 'antd';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
-import { Panel, useReactFlow } from 'reactflow';
+import { Panel } from 'reactflow';
 import styled from 'styled-components';
 
 const StyledPanel = styled(Panel)`
@@ -107,22 +107,21 @@ export default function SearchControl() {
 }
 
 function useComputeMatchedNodes() {
-    const { getNodes } = useReactFlow<LineageNode>();
+    const { nodes } = useContext(LineageNodesContext);
+    const { shownUrns } = useContext(LineageDisplayContext);
     const { searchQuery } = useContext(LineageVisualizationContext);
 
     return useMemo(() => {
         if (!searchQuery) return [];
 
-        const nodes = getNodes();
-        return nodes
-            .filter(
-                (node) =>
-                    'entity' in node.data &&
-                    (node.data.entity?.name.toLowerCase()?.includes(searchQuery.toLowerCase()) ||
-                        node.data.entity?.parent?.name?.toLowerCase().includes(searchQuery.toLowerCase())),
-            )
-            .map((node) => node.id);
-    }, [getNodes, searchQuery]);
+        return shownUrns.filter((urn) => {
+            const entity = nodes.get(urn)?.entity;
+            return (
+                entity?.name.toLowerCase()?.includes(searchQuery.toLowerCase()) ||
+                entity?.parent?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        });
+    }, [searchQuery, shownUrns, nodes]);
 }
 
 function useAssignSearchedEntity(matchedNodes: string[]) {
@@ -149,6 +148,8 @@ function useAssignSearchedEntity(matchedNodes: string[]) {
 }
 
 function useCaptureKeyboardSearch(inputRef: React.RefObject<InputRef>, setIsFocused: (value: boolean) => void) {
+    const { isFocused } = useContext(LineageVisualizationContext);
+
     const handleKeyPress = useCallback(
         (e: KeyboardEvent) => {
             // Capture ctrl-f or cmd-f
@@ -162,14 +163,19 @@ function useCaptureKeyboardSearch(inputRef: React.RefObject<InputRef>, setIsFocu
     );
 
     useEffect(() => {
-        document.addEventListener('keydown', handleKeyPress);
-        return () => {
-            document.removeEventListener('keydown', handleKeyPress);
-        };
-    }, [handleKeyPress]);
+        if (isFocused) {
+            document.addEventListener('keydown', handleKeyPress);
+            return () => {
+                document.removeEventListener('keydown', handleKeyPress);
+            };
+        }
+        return () => {};
+    }, [handleKeyPress, isFocused]);
 }
 
 function useCaptureEscape(isOpen: boolean, close: () => void) {
+    const { isFocused } = useContext(LineageVisualizationContext);
+
     const handleKeyPress = useCallback(
         (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
@@ -180,12 +186,12 @@ function useCaptureEscape(isOpen: boolean, close: () => void) {
     );
 
     useEffect(() => {
-        if (isOpen) {
+        if (isFocused && isOpen) {
             document.addEventListener('keydown', handleKeyPress);
             return () => {
                 document.removeEventListener('keydown', handleKeyPress);
             };
         }
         return () => {};
-    }, [isOpen, handleKeyPress]);
+    }, [isOpen, handleKeyPress, isFocused]);
 }

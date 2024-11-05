@@ -49,6 +49,7 @@ export default MemoizedLineageVisualization;
 
 function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const [searchQuery, setSearchQuery] = useState('');
+    const [isFocused, setIsFocused] = useState(false);
     const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
 
@@ -57,7 +58,7 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
 
     return (
         <LineageVisualizationContext.Provider
-            value={{ searchQuery, setSearchQuery, searchedEntity, setSearchedEntity }}
+            value={{ searchQuery, setSearchQuery, searchedEntity, setSearchedEntity, isFocused }}
         >
             <StyledReactFlow
                 defaultNodes={initialNodes}
@@ -81,6 +82,9 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                 fitView
                 fitViewOptions={{ maxZoom: 1, duration: 0 }}
                 $edgesOnTop={!!highlightedEdges.size}
+                tabIndex={0} // Allow focus for keyboard shortcuts
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
             >
                 <Background variant={BackgroundVariant.Lines} />
                 <ZoomControls />
