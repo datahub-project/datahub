@@ -123,6 +123,43 @@ public class DataHubUsageReportingTest {
         actualInfo.getConfig().getExtraArgs().get("extra_pip_requirements"), "[\"foo\",\"bar\"]");
   }
 
+  @Test
+  public void testAcrylCloudPackageTemplateMCP() throws Exception {
+    environmentVariables.set(
+        TEST_VALUES_ENV,
+        OP_CONTEXT
+            .getObjectMapper()
+            .writeValueAsString(
+                Map.of(
+                    "ingestion",
+                    Map.of(
+                        "acryl-cloud-package",
+                        "acryl-datahub-cloud[datahub-usage-reporting]==0.3.7rc2"))));
+
+    final EntityService<?> entityService = mock(EntityService.class);
+    final UpgradeManager upgradeManager =
+        loadContext("bootstrapmcp_usagereporting/test.yaml", entityService);
+
+    // run the upgrade
+    upgradeManager.execute(OP_CONTEXT, "BootstrapMCP", List.of());
+
+    ArgumentCaptor<AspectsBatchImpl> batchArgumentCaptor =
+        ArgumentCaptor.forClass(AspectsBatchImpl.class);
+
+    verify(entityService, times(1))
+        .ingestProposal(any(OperationContext.class), batchArgumentCaptor.capture(), eq(true));
+
+    AspectsBatchImpl actualBatch = batchArgumentCaptor.getValue();
+    assertEquals(actualBatch.getMCPItems().size(), 1);
+
+    DataHubIngestionSourceInfo actualInfo =
+        actualBatch.getMCPItems().get(0).getAspect(DataHubIngestionSourceInfo.class);
+
+    assertEquals(
+        actualInfo.getConfig().getExtraArgs().get("extra_pip_requirements"),
+        "[\"acryl-datahub-cloud[datahub-usage-reporting]==0.3.7rc2\",\"polars\",\"elasticsearch==7.13.4\",\"numpy<2\",\"scipy\",\"opensearch-py==2.4.2\",\"pyarrow\"]");
+  }
+
   private static UpgradeManager loadContext(String configFile, EntityService<?> entityService)
       throws IOException {
     // hasn't run
