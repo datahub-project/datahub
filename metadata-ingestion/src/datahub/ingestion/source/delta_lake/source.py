@@ -434,7 +434,7 @@ class DeltaLakeSource(Source):
             container_client = self.azure_client.get_container_client(container_name)
 
             for blob in container_client.walk_blobs(
-                    name_starts_with=prefix, delimiter="/"
+                name_starts_with=prefix, delimiter="/"
             ):
                 if hasattr(blob, "prefix"):
                     # Preserve the original URL scheme (http for Azurite, https for Azure)
