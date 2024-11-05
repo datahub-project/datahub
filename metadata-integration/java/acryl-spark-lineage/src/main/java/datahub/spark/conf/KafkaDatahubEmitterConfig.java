@@ -19,8 +19,7 @@ public class KafkaDatahubEmitterConfig implements DatahubEmitterConfig {
     this.mcpTopic = KafkaEmitter.DEFAULT_MCP_KAFKA_TOPIC;
   }
 
-  public KafkaDatahubEmitterConfig(KafkaEmitterConfig kafkaEmitterConfig,
-                                   String mcpTopic) {
+  public KafkaDatahubEmitterConfig(KafkaEmitterConfig kafkaEmitterConfig, String mcpTopic) {
     this.kafkaEmitterConfig = kafkaEmitterConfig;
     this.mcpTopic = mcpTopic;
   }

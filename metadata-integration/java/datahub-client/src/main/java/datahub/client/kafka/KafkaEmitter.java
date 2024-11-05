@@ -36,31 +36,29 @@ public class KafkaEmitter implements Emitter {
   /**
    * The default constructor
    *
-   * @param config
-   * @throws IOException
+   * @param config KafkaEmitterConfig
+   * @throws IOException when Avro Serialization fails
    */
   public KafkaEmitter(KafkaEmitterConfig config) throws IOException {
     this(config, DEFAULT_MCP_KAFKA_TOPIC);
   }
 
   /**
-   * Constructor that takes in KafkaEmitterConfig
-   * and mcp Kafka Topic Name
+   * Constructor that takes in KafkaEmitterConfig and mcp Kafka Topic Name
    *
-   * @param config
-   * @throws IOException
+   * @param config KafkaEmitterConfig
+   * @throws IOException when Avro Serialization fails
    */
-  public KafkaEmitter(KafkaEmitterConfig config,
-                      String mcpKafkaTopic) throws IOException {
+  public KafkaEmitter(KafkaEmitterConfig config, String mcpKafkaTopic) throws IOException {
     this.config = config;
     kafkaConfigProperties = new Properties();
     kafkaConfigProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, this.config.getBootstrap());
     kafkaConfigProperties.put(
-            ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-            org.apache.kafka.common.serialization.StringSerializer.class);
+        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+        org.apache.kafka.common.serialization.StringSerializer.class);
     kafkaConfigProperties.put(
-            ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-            io.confluent.kafka.serializers.KafkaAvroSerializer.class);
+        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+        io.confluent.kafka.serializers.KafkaAvroSerializer.class);
     kafkaConfigProperties.put("schema.registry.url", this.config.getSchemaRegistryUrl());
     kafkaConfigProperties.putAll(config.getSchemaRegistryConfig());
     kafkaConfigProperties.putAll(config.getProducerConfig());
@@ -87,8 +85,7 @@ public class KafkaEmitter implements Emitter {
       throws IOException {
     GenericRecord genricRecord = _avroSerializer.serialize(mcp);
     ProducerRecord<Object, Object> record =
-        new ProducerRecord<>(
-                this.mcpKafkaTopic, mcp.getEntityUrn().toString(), genricRecord);
+        new ProducerRecord<>(this.mcpKafkaTopic, mcp.getEntityUrn().toString(), genricRecord);
     org.apache.kafka.clients.producer.Callback callback =
         new org.apache.kafka.clients.producer.Callback() {
 

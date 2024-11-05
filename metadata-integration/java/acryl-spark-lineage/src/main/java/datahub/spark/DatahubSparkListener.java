@@ -191,8 +191,7 @@ public class DatahubSparkListener extends SparkListener {
         if (sparkConf.hasPath(SparkConfigParser.KAFKA_MCP_TOPIC)) {
           String mcpTopic = sparkConf.getString(SparkConfigParser.KAFKA_MCP_TOPIC);
           return Optional.of(new KafkaDatahubEmitterConfig(kafkaEmitterConfig.build(), mcpTopic));
-        }
-        else {
+        } else {
           return Optional.of(new KafkaDatahubEmitterConfig(kafkaEmitterConfig.build()));
         }
       case "file":

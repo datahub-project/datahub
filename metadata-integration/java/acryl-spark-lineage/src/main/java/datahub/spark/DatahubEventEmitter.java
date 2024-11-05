@@ -83,9 +83,9 @@ public class DatahubEventEmitter extends EventEmitter {
         try {
           emitter =
               Optional.of(
-                      new KafkaEmitter(
-                              datahubKafkaEmitterConfig.getKafkaEmitterConfig(),
-                              datahubKafkaEmitterConfig.getMcpTopic()));
+                  new KafkaEmitter(
+                      datahubKafkaEmitterConfig.getKafkaEmitterConfig(),
+                      datahubKafkaEmitterConfig.getMcpTopic()));
         } catch (IOException e) {
           throw new RuntimeException(e);
         }
