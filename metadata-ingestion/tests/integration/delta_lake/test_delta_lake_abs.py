@@ -67,7 +67,7 @@ def populate_azure_storage(pytestconfig, azure_container):
         pytestconfig.rootpath / "tests/integration/delta_lake/test_data/"
     )
 
-    for root, *dirs, files in os.walk(test_resources_dir):
+    for root, _dirs, files in os.walk(test_resources_dir):
         for file in files:
             full_path = os.path.join(root, file)
             rel_path = os.path.relpath(full_path, test_resources_dir)
