@@ -500,6 +500,12 @@ class PowerBiDashboardSourceConfig(
         description="Whether to ingest workspace app. Requires DataHub server 0.14.2+.",
     )
 
+    m_query_parse_timeout: int = pydantic.Field(
+        default=60,
+        description="Timeout for PowerBI M-query parsing in seconds. Table-level lineage is determined by analyzing the M-query expression. "
+        "Increase this value if you encounter the 'M-Query Parsing Timeout' message in the connector report.",
+    )
+
     @root_validator(skip_on_failure=True)
     def validate_extract_column_level_lineage(cls, values: Dict) -> Dict:
         flags = [

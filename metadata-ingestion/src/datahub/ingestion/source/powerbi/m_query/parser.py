@@ -37,7 +37,7 @@ def get_lark_parser() -> Lark:
     return Lark(grammar, start="let_expression", regex=True)
 
 
-def _parse_expression(expression: str) -> Tree:
+def _parse_expression(expression: str, parse_timeout: int = 60) -> Tree:
     lark_parser: Lark = get_lark_parser()
 
     # Replace U+00a0 NO-BREAK SPACE with a normal space.
@@ -45,7 +45,7 @@ def _parse_expression(expression: str) -> Tree:
     expression = expression.replace("\u00a0", " ")
 
     logger.debug(f"Parsing expression = {expression}")
-    with threading_timeout(_M_QUERY_PARSE_TIMEOUT):
+    with threading_timeout(parse_timeout):
         parse_tree: Tree = lark_parser.parse(expression)
 
     if TRACE_POWERBI_MQUERY_PARSER:
@@ -76,7 +76,9 @@ def get_upstream_tables(
     try:
         with reporter.m_query_parse_timer:
             reporter.m_query_parse_attempts += 1
-            parse_tree: Tree = _parse_expression(table.expression)
+            parse_tree: Tree = _parse_expression(
+                table.expression, parse_timeout=config.m_query_parse_timeout
+            )
 
         valid, message = validator.validate_parse_tree(
             parse_tree, native_query_enabled=config.native_query_parsing
