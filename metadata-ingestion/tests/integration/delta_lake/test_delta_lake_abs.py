@@ -81,9 +81,7 @@ def populate_azure_storage(pytestconfig, azure_container):
             try:
                 with open(full_path, "rb") as data:
                     azure_container.upload_blob(
-                        name=rel_path,
-                        data=data,
-                        overwrite=True
+                        name=rel_path, data=data, overwrite=True
                     )
                 logger.info(f"Uploaded {rel_path}")
             except Exception as e:
@@ -125,7 +123,9 @@ def test_delta_lake_ingest_azure(pytestconfig, tmp_path, test_resources_dir):
         }
     )
 
-    logger.info(f"Starting pipeline run with base_path: {pipeline.config['source']['config']['base_path']}")
+    logger.info(
+        f"Starting pipeline run with base_path: {pipeline.config['source']['config']['base_path']}"
+    )
     pipeline.run()
     pipeline.raise_from_status()
 
