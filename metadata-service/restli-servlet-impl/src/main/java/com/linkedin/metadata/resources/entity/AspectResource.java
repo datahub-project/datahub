@@ -4,6 +4,7 @@ import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
 import static com.datahub.authorization.AuthUtil.isAPIOperationsAuthorized;
+import static com.linkedin.metadata.Constants.RESTLI_SUCCESS;
 import static com.linkedin.metadata.authorization.ApiGroup.COUNTS;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
@@ -330,7 +331,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             }
 
             // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
-            return "success";
+            return RESTLI_SUCCESS;
           } catch (ValidationException e) {
             throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
           }
