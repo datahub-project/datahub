@@ -21,6 +21,16 @@
       "description": "<i>\"We found DataHub to provide excellent coverage for our needs. What we appreciate most about DataHub is <b>its powerful API platform.</b>\"<br /><br /><div style='color: gray;'>— Jean-Pierre Dijcks, Sr. Dir. Product Management at VISA</div></i><br />"
     },
     {
+      "name": "Apple",
+      "slug": "apple",
+      "link": "https://youtu.be/5eFZuzG4c-s?feature=shared",
+      "linkType": "video",
+      "tagline": "How Apple built a solid foundation for observability, governance, and data sharing with DataHub",
+      "category": "B2B & B2C",
+      "platform": "cloud",
+      "description": "Discover how DataHub provides a solid foundation for observability, governance, and data sharing, while we explore its role in managing AI and data metadata."
+    },
+    {
       "name": "Notion",
       "slug": "notion",
       "imageUrl": "/img/logos/companies/notion.png",

@@ -89,7 +89,8 @@ class StructuredProperties(ConfigModel):
     @validator("urn", pre=True, always=True)
     def urn_must_be_present(cls, v, values):
         if not v:
-            assert "id" in values, "id must be present if urn is not"
+            if "id" not in values:
+                raise ValueError("id must be present if urn is not")
             return f"urn:li:structuredProperty:{values['id']}"
         return v
 
@@ -153,7 +154,10 @@ class StructuredProperties(ConfigModel):
         structured_property: Optional[
             StructuredPropertyDefinitionClass
         ] = graph.get_aspect(urn, StructuredPropertyDefinitionClass)
-        assert structured_property is not None
+        if structured_property is None:
+            raise Exception(
+                "StructuredPropertyDefinition aspect is None. Unable to create structured property."
+            )
         return StructuredProperties(
             urn=urn,
             qualified_name=structured_property.qualifiedName,

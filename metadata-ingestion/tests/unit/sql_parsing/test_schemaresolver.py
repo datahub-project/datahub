@@ -41,6 +41,11 @@ def test_get_urn_for_table_lowercase():
         == "urn:li:dataset:(urn:li:dataPlatform:mssql,uppercased-instance.database.dataset.table,PROD)"
     )
 
+    assert (
+        schema_resolver.get_urn_for_table(table=table, lower=True, mixed=True)
+        == "urn:li:dataset:(urn:li:dataPlatform:mssql,Uppercased-Instance.database.dataset.table,PROD)"
+    )
+
 
 def test_get_urn_for_table_not_lower_should_keep_capital_letters():
     schema_resolver = SchemaResolver(
