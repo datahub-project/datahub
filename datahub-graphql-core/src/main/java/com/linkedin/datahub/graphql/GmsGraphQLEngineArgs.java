@@ -35,6 +35,7 @@ import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.service.DimensionTypeService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
@@ -88,6 +89,7 @@ public class GmsGraphQLEngineArgs {
   BusinessAttributeService businessAttributeService;
   ConnectionService connectionService;
   AssertionService assertionService;
+  DimensionTypeService dimensionTypeService;
 
   // any fork specific args should go below this line
 }

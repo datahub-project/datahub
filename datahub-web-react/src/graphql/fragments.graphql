@@ -285,6 +285,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     browsePathV2 {
         ...browsePathV2Fields
     }
+    dataQuality {
+        ...dataQualityFields
+    }
 }
 
 fragment nonRecursiveDataFlowFields on DataFlow {
@@ -1098,6 +1101,41 @@ fragment browsePathV2Fields on BrowsePathV2 {
             }
         }
     }
+}
+
+fragment dataQualityFields on DataQuality {
+    changeAuditStamps {
+        created {
+            time
+            actor
+        }
+        lastModified {
+            time
+            actor
+        }
+    }
+    datasetDimensionInfo {
+        ...dataQualityDimensionInfoFields
+    }
+    schemaFieldDimensionInfos {
+        schemaFieldURN
+        schemaFieldDimensionInfo {
+            ...dataQualityDimensionInfoFields
+        }
+    }
+}
+
+fragment dataQualityDimensionInfoFields on DataQualityDimensionInfo {
+    dimensions {
+        dimensionUrn
+        currentScore
+        historicalWeightedScore
+        scoreType
+        note
+    }
+    toolName
+    recordCount
+    note
 }
 
 fragment entityDisplayNameFields on Entity {

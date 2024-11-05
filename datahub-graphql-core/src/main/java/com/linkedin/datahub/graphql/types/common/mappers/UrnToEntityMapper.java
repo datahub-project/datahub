@@ -33,6 +33,7 @@ import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
+import com.linkedin.datahub.graphql.generated.DimensionNameEntity;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.datahub.graphql.generated.Role;
@@ -224,6 +225,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new BusinessAttribute();
       ((BusinessAttribute) partialEntity).setUrn(input.toString());
       ((BusinessAttribute) partialEntity).setType(EntityType.BUSINESS_ATTRIBUTE);
+    }
+    if (input.getEntityType().equals(DIMENSION_TYPE_ENTITY_NAME)) {
+      partialEntity = new DimensionNameEntity();
+      ((DimensionNameEntity) partialEntity).setUrn(input.toString());
+      ((DimensionNameEntity) partialEntity).setType(EntityType.DIMENSION_NAME);
     }
     return partialEntity;
   }

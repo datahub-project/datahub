@@ -34,6 +34,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
+import com.linkedin.metadata.service.DimensionTypeService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
@@ -201,6 +202,10 @@ public class GraphQLEngineFactory {
   @Qualifier("assertionService")
   private AssertionService assertionService;
 
+  @Autowired
+  @Qualifier("dimensionTypeService")
+  private DimensionTypeService dimensionTypeService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -257,6 +262,7 @@ public class GraphQLEngineFactory {
     args.setBusinessAttributeService(businessAttributeService);
     args.setConnectionService(_connectionService);
     args.setAssertionService(assertionService);
+    args.setDimensionTypeService(dimensionTypeService);
     return new GmsGraphQLEngine(args).builder().build();
   }
 

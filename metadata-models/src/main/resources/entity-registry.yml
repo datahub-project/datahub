@@ -627,6 +627,13 @@ entities:
       - dataPlatformInstance
       - platformResourceInfo
       - status
+  - name: dimensionNameType
+    doc: DimensionName Type represents the user-created Dimension for a dataset or schemafield.
+    category: core
+    keyAspect: dimensionTypeKey
+    aspects:
+      - dimensionTypeInfo
+      - status
 events:
 plugins:
   aspectPayloadValidators:

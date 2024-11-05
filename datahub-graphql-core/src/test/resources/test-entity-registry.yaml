@@ -313,4 +313,11 @@ entities:
   keyAspect: schemaFieldKey
   aspects:
     - businessAttributes
+- name: dimensionNameType
+  doc: DimensionName Type represents the user-created Dimension for a dataset or schemafield.
+  category: core
+  keyAspect: dimensionTypeKey
+  aspects:
+    - dimensionTypeInfo
+    - status
 events:

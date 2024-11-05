@@ -258,6 +258,10 @@ import com.linkedin.datahub.graphql.resolvers.ownership.CreateOwnershipTypeResol
 import com.linkedin.datahub.graphql.resolvers.ownership.DeleteOwnershipTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.ListOwnershipTypesResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.UpdateOwnershipTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.dimension.CreateDimensionNameResolver;
+import com.linkedin.datahub.graphql.resolvers.dimension.DeleteDimensionNameResolver;
+import com.linkedin.datahub.graphql.resolvers.dimension.ListDimensionNameResolver;
+import com.linkedin.datahub.graphql.resolvers.dimension.UpdateDimensionNameResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
@@ -365,6 +369,7 @@ import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
 import com.linkedin.datahub.graphql.types.notebook.NotebookType;
 import com.linkedin.datahub.graphql.types.ownership.OwnershipType;
+import com.linkedin.datahub.graphql.types.dimension.DimensionNameType;
 import com.linkedin.datahub.graphql.types.policy.DataHubPolicyType;
 import com.linkedin.datahub.graphql.types.query.QueryType;
 import com.linkedin.datahub.graphql.types.restricted.RestrictedType;
@@ -399,6 +404,7 @@ import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
+import com.linkedin.metadata.service.DimensionTypeService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
@@ -469,6 +475,7 @@ public class GmsGraphQLEngine {
   private final ERModelRelationshipService erModelRelationshipService;
   private final FormService formService;
   private final RestrictedService restrictedService;
+  private final DimensionTypeService dimensionTypeService;
   private ConnectionService connectionService;
   private AssertionService assertionService;
 
@@ -527,6 +534,7 @@ public class GmsGraphQLEngine {
   private final FormType formType;
   private final IncidentType incidentType;
   private final RestrictedType restrictedType;
+  private final DimensionNameType dimensionNameType;
 
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
@@ -593,6 +601,7 @@ public class GmsGraphQLEngine {
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
     this.assertionService = args.assertionService;
+    this.dimensionTypeService = args.dimensionTypeService;
 
     this.businessAttributeService = args.businessAttributeService;
     this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
@@ -646,6 +655,7 @@ public class GmsGraphQLEngine {
     this.formType = new FormType(entityClient);
     this.incidentType = new IncidentType(entityClient);
     this.restrictedType = new RestrictedType(entityClient, restrictedService);
+    this.dimensionNameType = new DimensionNameType(entityClient);
 
     this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
     this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
@@ -696,7 +706,8 @@ public class GmsGraphQLEngine {
                 formType,
                 incidentType,
                 restrictedType,
-                businessAttributeType));
+                businessAttributeType,
+                dimensionNameType));
     this.loadableTypes = new ArrayList<>(entityTypes);
     // Extend loadable types with types from the plugins
     // This allows us to offer search and browse capabilities out of the box for
@@ -796,6 +807,7 @@ public class GmsGraphQLEngine {
     configureConnectionResolvers(builder);
     configureDeprecationResolvers(builder);
     configureMetadataAttributionResolver(builder);
+    configureDimensionNameResolver(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -1100,7 +1112,9 @@ public class GmsGraphQLEngine {
                     "listBusinessAttributes", new ListBusinessAttributesResolver(this.entityClient))
                 .dataFetcher(
                     "docPropagationSettings",
-                    new DocPropagationSettingsResolver(this.settingsService)));
+                    new DocPropagationSettingsResolver(this.settingsService))
+                .dataFetcher(
+                    "listDimensionNames", new ListDimensionNameResolver(this.entityClient)));
   }
 
   private DataFetcher getEntitiesResolver() {
@@ -1361,8 +1375,13 @@ public class GmsGraphQLEngine {
               .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient))
               .dataFetcher(
                   "updateDocPropagationSettings",
-                  new UpdateDocPropagationSettingsResolver(this.settingsService));
-
+                  new UpdateDocPropagationSettingsResolver(this.settingsService))
+              .dataFetcher(
+                  "createDimensionName", new CreateDimensionNameResolver(this.dimensionTypeService))
+              .dataFetcher(
+                  "updateDimensionName", new UpdateDimensionNameResolver(this.dimensionTypeService))
+              .dataFetcher(
+                  "deleteDimensionName", new DeleteDimensionNameResolver(this.dimensionTypeService));
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
                 .dataFetcher(
