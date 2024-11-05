@@ -219,6 +219,6 @@ public class BootstrapMCPUtilTest {
         OP_CONTEXT
             .getObjectMapper()
             .readTree(
-                "{\"source\":{\"type\":\"datahub-gc\",\"config\":{\"cleanup_expired_tokens\":false,\"truncate_indices\":true,\"dataprocess_cleanup\":{\"retention_days\":10,\"delete_empty_data_jobs\":true,\"delete_empty_data_flows\":true,\"hard_delete_entities\":false,\"keep_last_n\":5},\"soft_deleted_entities_cleanup\":{\"retention_days\":10}}}}"));
+                "{\"source\":{\"type\":\"datahub-gc\",\"config\":{\"cleanup_expired_tokens\":false,\"truncate_indices\":true,\"dataprocess_cleanup\":{\"retention_days\":10,\"delete_empty_data_jobs\":true,\"delete_empty_data_flows\":true,\"hard_delete_entities\":false,\"keep_last_n\":5},\"soft_deleted_entities_cleanup\":{\"retention_days\":10},\"execution_request_cleanup\":{\"keep_history_min_count\":10,\"keep_history_max_count\":1000,\"keep_history_max_days\":30,\"batch_read_size\":100,\"enabled\":false}}}}"));
   }
 }
