@@ -138,8 +138,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             TimeUnit.SECONDS, // thread keep-alive time
             new ArrayBlockingQueue<>(
                 entityClientConfig.getBatchGetV2QueueSize()), // fixed size queue
-            new ThreadPoolExecutor.AbortPolicy() // optional - this is the default
-            );
+            new ThreadPoolExecutor.CallerRunsPolicy());
     this.batchIngestPool =
         new ThreadPoolExecutor(
             entityClientConfig.getBatchIngestConcurrency(), // core threads
@@ -148,8 +147,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             TimeUnit.SECONDS, // thread keep-alive time
             new ArrayBlockingQueue<>(
                 entityClientConfig.getBatchIngestQueueSize()), // fixed size queue
-            new ThreadPoolExecutor.AbortPolicy() // optional - this is the default
-            );
+            new ThreadPoolExecutor.CallerRunsPolicy());
   }
 
   @Override
