@@ -68,6 +68,7 @@ class DremioConnectionConfig(ConfigModel):
         description="Whether this is a Dremio Cloud instance",
     )
 
+    # https://docs.dremio.com/cloud/reference/api/#api-endpoint
     dremio_cloud_region: Literal["US", "EU"] = Field(
         default="US",
         description="Dremio Cloud region ('US' or 'EU')",

@@ -285,8 +285,9 @@ class DremioSource(StatefulIngestionSourceBase):
             except Exception as exc:
                 self.report.num_containers_failed += 1  # Increment failed containers
                 self.report.report_failure(
-                    "Failed to process Dremio container",
-                    f"Failed to process container {'.'.join(container.path)}.{container.container_name}: {exc}",
+                    message="Failed to process Dremio container",
+                    context=f"{'.'.join(container.path)}.{container.container_name}",
+                    exc=exc,
                 )
 
         # Process Datasets
@@ -299,10 +300,11 @@ class DremioSource(StatefulIngestionSourceBase):
                     f"Dremio dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name} emitted successfully"
                 )
             except Exception as exc:
-                self.report.num_datasets_failed += 1  # Increment failed containers
+                self.report.num_datasets_failed += 1  # Increment failed datasets
                 self.report.report_failure(
-                    "Failed to process Dremio dataset",
-                    f"Failed to process dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name}: {exc}",
+                    message="Failed to process Dremio dataset",
+                    context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
+                    exc=exc,
                 )
 
         # Optionally Process Query Lineage
@@ -317,8 +319,9 @@ class DremioSource(StatefulIngestionSourceBase):
                 yield from self.process_glossary_term(glossary_term)
             except Exception as exc:
                 self.report.report_failure(
-                    "Failed to process Glossary terms",
-                    f"Failed to process glossary term {glossary_term.glossary_term}: {exc}",
+                    message="Failed to process Glossary terms",
+                    context=f"{glossary_term.glossary_term}",
+                    exc=exc,
                 )
 
         # Generate workunit for aggregated SQL parsing results
@@ -345,7 +348,9 @@ class DremioSource(StatefulIngestionSourceBase):
                             dataset_info.resource_name
                         ] += 1
                         self.report.report_failure(
-                            f"Failed to profile dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name}: {exc}"
+                            message="Failed to profile dataset",
+                            context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
+                            exc=exc,
                         )
 
     def process_container(
@@ -526,8 +531,9 @@ class DremioSource(StatefulIngestionSourceBase):
                     future.result()
                 except Exception as exc:
                     self.report.report_failure(
-                        "Failed to process dremio query",
-                        f"Failed to process query {query.job_id}: {exc}",
+                        message="Failed to process dremio query",
+                        context=f"{query.job_id}: {exc}",
+                        exc=exc,
                     )
 
     def process_query(self, query: DremioQuery) -> None:

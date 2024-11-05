@@ -23,7 +23,7 @@ source:
     #Optional
     source_mappings:
       - platform: s3
-        platform_name: samples
+        source_name: samples
 
     #Optional
     schema_pattern:

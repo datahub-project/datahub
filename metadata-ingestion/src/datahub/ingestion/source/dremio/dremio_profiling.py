@@ -44,7 +44,8 @@ class DremioProfiler:
     ) -> Iterable[MetadataWorkUnit]:
         if not dataset.columns:
             self.report.warning(
-                f"Skipping profiling for {dataset.resource_name} as no columns found for table"
+                message="Skipping profiling as no columns found for table",
+                context=f"{dataset.resource_name}",
             )
             self.report.profiling_skipped_other[dataset.resource_name] += 1
             return
@@ -58,7 +59,8 @@ class DremioProfiler:
         if not self.config.profile_pattern.allowed(full_table_name):
             self.report.profiling_skipped_table_profile_pattern[full_table_name] += 1
             self.report.warning(
-                f"Table {full_table_name} is not allowed for profiling due to profile pattern"
+                message="Profiling is restricted due to the specified profile pattern.",
+                context=f"{full_table_name}",
             )
             return
 
@@ -120,8 +122,9 @@ class DremioProfiler:
                 self.report.profiling_skipped_other[table_name] += 1
                 profile_results.append(self._create_empty_profile_result(chunk))
                 self.report.warning(
-                    title=f"Error profiling chunk of {table_name}",
-                    message=str(e),
+                    message="Error in profiling for table",
+                    context=f"{table_name}",
+                    exc=e,
                 )
         return self._combine_profile_results(profile_results)
 

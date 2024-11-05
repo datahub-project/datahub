@@ -255,7 +255,9 @@ class DremioAPIOperations:
             response = self.post(url="/sql", data=json.dumps({"sql": query}))
 
             if "errorMessage" in response:
-                self.report.failure(f"SQL Error: {response['errorMessage']}")
+                self.report.failure(
+                    message="SQL Error", context=f"{response['errorMessage']}"
+                )
                 raise DremioAPIException(f"SQL Error: {response['errorMessage']}")
 
             job_id = response["id"]
@@ -493,8 +495,9 @@ class DremioAPIOperations:
                 )
             except DremioAPIException as e:
                 self.report.warning(
-                    title=f"{schema.subclass} {schema.container_name} had no tables or views",
-                    message=str(e),
+                    message="Container has no tables or views",
+                    context=f"{schema.subclass} {schema.container_name}",
+                    exc=e,
                 )
 
         tables = []
@@ -706,8 +709,9 @@ class DremioAPIOperations:
                     "Location {} contains no tables or views. Skipping...".format(id)
                 )
                 self.report.warning(
-                    title="Failed to get tables or view, skipping",
-                    message=f"Failed with {str(exc)}",
+                    message="Failed to get tables or views",
+                    context=f"{id}",
+                    exc=exc,
                 )
 
             return containers
