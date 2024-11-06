@@ -54,7 +54,12 @@ public class SearchBasedFormAssignmentManager {
 
         ScrollResult results =
             entityClient.scrollAcrossEntities(
-                opContext.withSearchFlags(searchFlags -> searchFlags.setSkipCache(true)),
+                opContext.withSearchFlags(
+                    searchFlags ->
+                        searchFlags
+                            .setSkipCache(true)
+                            .setRewriteQuery(
+                                false)), // skip rewriting query until metadata tests can handle it
                 ENTITY_TYPES,
                 "*",
                 null,

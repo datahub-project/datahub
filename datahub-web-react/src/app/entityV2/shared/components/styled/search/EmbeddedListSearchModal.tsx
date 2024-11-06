@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import { Button, Modal } from 'antd';
 import styled from 'styled-components';
-import { AndFilterInput, EntityType, FacetFilterInput, SortCriterion } from '../../../../../../types.generated';
+import {
+    AndFilterInput,
+    EntityType,
+    FacetFilterInput,
+    SearchFlags,
+    SortCriterion,
+} from '../../../../../../types.generated';
 import { EmbeddedListSearch } from './EmbeddedListSearch';
 import { UnionType } from '../../../../../search/utils/constants';
 import { FilterSet } from './types';
@@ -35,6 +41,8 @@ type Props = {
     height?: string;
     sort?: SortCriterion;
     entityTypes?: EntityType[];
+    searchFlags?: SearchFlags;
+    convertToPredicate?: boolean;
 };
 
 export const EmbeddedListSearchModal = ({
@@ -54,6 +62,8 @@ export const EmbeddedListSearchModal = ({
     height,
     sort,
     entityTypes,
+    searchFlags,
+    convertToPredicate,
 }: Props) => {
     // Component state
     const [query, setQuery] = useState<string>('');
@@ -107,6 +117,8 @@ export const EmbeddedListSearchModal = ({
                     applyView={applyView}
                     sort={sort}
                     entityTypes={entityTypes}
+                    searchFlags={searchFlags}
+                    convertToPredicate={convertToPredicate}
                 />
             </SearchContainer>
         </Modal>

@@ -72,6 +72,9 @@ public class SearchFlagsInputMapper
     if (searchFlags.getFetchExtraFields() != null) {
       result.setFetchExtraFields(new StringArray(searchFlags.getFetchExtraFields()));
     }
+    if (searchFlags.getRewriteQuery() != null) {
+      result.setRewriteQuery(searchFlags.getRewriteQuery());
+    }
     return result;
   }
 }

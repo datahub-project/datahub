@@ -14,6 +14,7 @@ import {
     FacetFilterInput,
     FacetMetadata,
     SearchAcrossEntitiesInput,
+    SearchFlags,
     SortCriterion,
 } from '../../../../../../types.generated';
 import analytics, { EventType } from '../../../../../analytics';
@@ -127,6 +128,8 @@ type Props = {
     applyView?: boolean;
     showFilterBar?: boolean;
     sort?: SortCriterion;
+    searchFlags?: SearchFlags;
+    convertToPredicate?: boolean;
 };
 
 export const EmbeddedListSearch = ({
@@ -159,6 +162,8 @@ export const EmbeddedListSearch = ({
     applyView = false,
     showFilterBar = true,
     sort,
+    searchFlags,
+    convertToPredicate,
 }: Props) => {
     const userContext = useUserContext();
 
@@ -202,6 +207,8 @@ export const EmbeddedListSearch = ({
                 count: SearchCfg.RESULTS_PER_PAGE,
                 orFilters: generateOrFilters(unionType, filters),
                 scrollId: null,
+                searchFlags,
+                convertToPredicate,
             },
         },
         skip: true,
@@ -215,7 +222,9 @@ export const EmbeddedListSearch = ({
         orFilters: finalFilters,
         viewUrn: applyView ? selectedViewUrn : undefined,
         sortInput: sort ? { sortCriterion: sort } : undefined,
-        ...(skipCache && { searchFlags: { skipCache: true } }),
+        searchFlags,
+        convertToPredicate,
+        ...(skipCache && { searchFlags: { ...searchFlags, skipCache: true } }),
     };
 
     const { data, loading, error, refetch } = useGetSearchResults({
@@ -361,7 +370,7 @@ export const EmbeddedListSearch = ({
                     onSearch={(q) => onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string))}
                     placeholderText={placeholderText}
                     onToggleFilters={onToggleFilters}
-                    downloadSearchResults={(input) => refetchForDownload(input)}
+                    downloadSearchResults={(input) => refetchForDownload({ searchFlags, convertToPredicate, ...input })}
                     filters={finalFilters}
                     query={finalQuery}
                     isSelectMode={isSelectMode}
