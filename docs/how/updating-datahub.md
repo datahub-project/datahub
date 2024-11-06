@@ -34,6 +34,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
      `datahub delete --platform powerbi --soft` and then re-ingest with the latest CLI version, ensuring the `include_workspace_name_in_dataset_urn` configuration is set to true.
 
 - #11701: The Fivetran `sources_to_database` field is deprecated in favor of setting directly within `sources_to_platform_instance.<key>.database`.
+- #11742: For PowerBi ingestion, `use_powerbi_email` is now enabled by default when extracting ownership information.
 
 ### Breaking Changes
 
@@ -45,6 +46,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #11619 - schema field/column paths can no longer be duplicated within the schema
 - #11570 - The `DatahubClientConfig`'s server field no longer defaults to `http://localhost:8080`. Be sure to explicitly set this.
 - #11570 - If a `datahub_api` is explicitly passed to a stateful ingestion config provider, it will be used. We previously ignored it if the pipeline context also had a graph object.
+- #11518 - DataHub Garbage Collection: Various entities that are soft-deleted (after 10d) or are timeseries *entities* (dataprocess, execution requests) will be removed automatically using logic in the `datahub-gc` ingestion source.
 
 ### Potential Downtime
 
