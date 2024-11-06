@@ -519,7 +519,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 self.reporter.report_warning(
                     title="Unable to extract lineage from M-Query expression",
                     message="Lineage will be incomplete.",
-                    context=f"table-full-name={self.table.full_name}: output-variable={current_identifier} not found in table expression",
+                    context=f"table-full-name={self.table.full_name}, expression = {self.table.expression}, output-variable={current_identifier} not found in table expression",
                 )
                 return None
 
