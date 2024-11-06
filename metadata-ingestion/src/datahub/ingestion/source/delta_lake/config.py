@@ -158,7 +158,7 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
 
         # Validate Azure configuration
         if has_azure and (
-                not values.get("azure") or not values.get("azure").azure_config
+            not values.get("azure") or not values.get("azure").azure_config
         ):
             raise ValueError(
                 "Azure configuration required for Azure Blob Storage paths"
@@ -185,4 +185,3 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         if v and v < 0:
             return None
         return v
-
