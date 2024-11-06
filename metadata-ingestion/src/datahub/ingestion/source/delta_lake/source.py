@@ -28,12 +28,14 @@ from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_key_prefix,
+    is_s3_uri,
     strip_s3_prefix,
 )
 from datahub.ingestion.source.azure.abs_folder_utils import get_abs_tags
 from datahub.ingestion.source.azure.abs_utils import (
     get_abs_prefix,
     get_container_name,
+    is_abs_uri,
     strip_abs_prefix,
 )
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
@@ -110,20 +112,30 @@ class DeltaLakeSource(Source):
         super().__init__(ctx)
         self.source_config = config
         self.report = DeltaLakeSourceReport()
-        if self.source_config.is_s3:
+
+        self.s3_client = None
+        self.azure_client = None
+
+        # Get paths safely
+        paths = getattr(self.source_config, "paths_to_scan", []) or []
+
+        if not paths:
+            return
+
+        if any(path and is_s3_uri(path) for path in paths):
             if (
                 self.source_config.s3 is None
                 or self.source_config.s3.aws_config is None
             ):
-                raise ValueError("AWS Config must be provided for S3 base path.")
+                raise ValueError("AWS Config must be provided for S3 base paths.")
             self.s3_client = self.source_config.s3.aws_config.get_s3_client()
-        elif self.source_config.is_azure:
+        elif any(path and is_abs_uri(path) for path in paths):
             if (
                 self.source_config.azure is None
                 or self.source_config.azure.azure_config is None
             ):
                 raise ValueError(
-                    "Azure Config must be provided for Azure Blob Storage path"
+                    "Azure Config must be provided for Azure Blob Storage paths"
                 )
             self.azure_client = (
                 self.source_config.azure.azure_config.get_blob_service_client()
@@ -218,6 +230,7 @@ class DeltaLakeSource(Source):
             logger.debug(
                 f"Skipping table ({table_name}) present at location {path} as table pattern does not match"
             )
+            return
 
         logger.debug(f"Ingesting table {table_name} from location {path}")
         if self.source_config.relative_path is None:
@@ -235,7 +248,11 @@ class DeltaLakeSource(Source):
             else:
                 browse_path = path.strip("/")
         else:
-            browse_path = path.split(self.source_config.base_path)[1].strip("/")
+            base_path = next(iter(self.source_config.paths_to_scan), "")
+            if base_path:
+                browse_path = path.split(base_path)[1].strip("/")
+            else:
+                browse_path = path.strip("/")
 
         data_platform_urn = make_data_platform_urn(self.source_config.platform)
         logger.info(f"Creating dataset urn with name: {browse_path}")
@@ -255,7 +272,7 @@ class DeltaLakeSource(Source):
             "table_creation_time": str(delta_table.metadata().created_time),
             "id": str(delta_table.metadata().id),
             "version": str(delta_table.version()),
-            "location": self.source_config.complete_path,
+            "location": path,
         }
         if self.source_config.require_files:
             customProperties["number_of_files"] = str(get_file_count(delta_table))
@@ -353,20 +370,27 @@ class DeltaLakeSource(Source):
         ):
             azure_config = self.source_config.azure.azure_config
             creds = azure_config.get_credentials()
-            parsed_url = urlparse(self.source_config.base_path)
+            table_path = next(iter(self.source_config.paths_to_scan), "")
+            parsed_url = urlparse(table_path)
 
-            opts = {"fs.azure.account.name": str(azure_config.account_name or "")}
+            opts: Dict[str, str] = {}
 
-            connection_string_parts = [
-                f"DefaultEndpointsProtocol={parsed_url.scheme}",
-                f"AccountName={azure_config.account_name}",
-            ]
+            if azure_config.account_name:
+                opts["fs.azure.account.name"] = str(azure_config.account_name)
+
+            connection_parts = []
+            if parsed_url.scheme:
+                connection_parts.append(f"DefaultEndpointsProtocol={parsed_url.scheme}")
+            if azure_config.account_name:
+                connection_parts.append(f"AccountName={azure_config.account_name}")
 
             if isinstance(creds, ClientSecretCredential):
-                if (
-                    azure_config.client_id
-                    and azure_config.client_secret
-                    and azure_config.tenant_id
+                if all(
+                    [
+                        azure_config.client_id,
+                        azure_config.client_secret,
+                        azure_config.tenant_id,
+                    ]
                 ):
                     opts.update(
                         {
@@ -376,26 +400,32 @@ class DeltaLakeSource(Source):
                             "fs.azure.account.oauth2.client.secret": str(
                                 azure_config.client_secret
                             ),
-                            "fs.azure.account.oauth2.client.endpoint": f"https://login.microsoftonline.com/{azure_config.tenant_id}/oauth2/token",
+                            "fs.azure.account.oauth2.client.endpoint": (
+                                f"https://login.microsoftonline.com/{azure_config.tenant_id}/oauth2/token"
+                            ),
                         }
                     )
             else:
                 if azure_config.account_key:
-                    connection_string_parts.append(
-                        f"AccountKey={azure_config.account_key}"
-                    )
+                    connection_parts.append(f"AccountKey={azure_config.account_key}")
                 elif azure_config.sas_token:
-                    connection_string_parts.append(
+                    connection_parts.append(
                         f"SharedAccessSignature={str(azure_config.sas_token or '').lstrip('?')}"
                     )
 
-                if not isinstance(creds, ClientSecretCredential):
-                    endpoint = f"{self.source_config.base_path.split('/' + str(azure_config.container_name))[0]}/"
-                    connection_string_parts.append(f"BlobEndpoint={endpoint}")
+                if (
+                    not isinstance(creds, ClientSecretCredential)
+                    and azure_config.container_name
+                    and table_path
+                ):
+                    container_part = f"/{azure_config.container_name}"
+                    endpoint = table_path.split(container_part)[0] + "/"
+                    connection_parts.append(f"BlobEndpoint={endpoint}")
                     opts["fs.azure.account.connection.string"] = ";".join(
-                        connection_string_parts
+                        filter(None, connection_parts)
                     )
-            return opts
+
+            return {k: str(v) for k, v in opts.items() if v is not None}
         else:
             return {}
 
@@ -468,7 +498,8 @@ class DeltaLakeSource(Source):
         self.storage_options = self.get_storage_options()
 
         for path in self.source_config.complete_paths:
-            yield from self.process_folder(path)
+            if path:
+                yield from self.process_folder(path)
 
     def get_report(self) -> SourceReport:
         return self.report

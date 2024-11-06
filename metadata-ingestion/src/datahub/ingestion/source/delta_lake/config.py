@@ -97,37 +97,41 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
 
     @cached_property
     def is_s3(self) -> bool:
+        first_path = next(iter(self.paths_to_scan), "")
         return bool(
             self.s3 is not None
             and self.s3.aws_config is not None
-            and is_s3_uri(self.base_path or "")
+            and is_s3_uri(first_path)
         )
 
     @cached_property
     def is_azure(self) -> bool:
+        first_path = next(iter(self.paths_to_scan), "")
         return bool(
             self.azure is not None
             and self.azure.azure_config is not None
-            and is_abs_uri(self.base_path or "")
+            and is_abs_uri(first_path)
         )
 
     @cached_property
-    def complete_path(self):
-        complete_path = self.base_path
+    def complete_paths(self) -> List[str]:
+        paths: List[str] = []
+        base_paths = self.paths_to_scan
         if self.relative_path is not None:
-            complete_path = (
-                f"{complete_path.rstrip('/')}/{self.relative_path.lstrip('/')}"
+            paths.extend(
+                f"{path.rstrip('/')}/{self.relative_path.lstrip('/')}"
+                for path in base_paths
             )
-
-        return complete_path
+        else:
+            paths.extend(base_paths)
+        return paths
 
     @property
     def paths_to_scan(self) -> List[str]:
-        """Returns list of paths to scan, combining base_path and base_paths."""
-        paths = []
-        if self.base_paths:
+        paths: List[str] = []
+        if self.base_paths is not None:
             paths.extend(self.base_paths)
-        if self.base_path:
+        if self.base_path is not None:
             paths.append(self.base_path)
         if not paths:
             raise ValueError("At least one path must be specified via base_paths")
@@ -136,7 +140,7 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     @root_validator
     def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         base_path = values.get("base_path")
-        base_paths = values.get("base_paths", [])
+        base_paths = values.get("base_paths", []) or []
 
         # Ensure at least one path is provided
         if not base_path and not base_paths:
@@ -146,23 +150,27 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         paths = []
         if base_paths:
             paths.extend(base_paths)
-        if base_path:
+        if base_path is not None:
             paths.append(base_path)
 
         has_s3 = any(is_s3_uri(path) for path in paths)
         has_azure = any(is_abs_uri(path) for path in paths)
 
         # Validate S3 configuration
-        if has_s3 and (not values.get("s3") or not values.get("s3").aws_config):
-            raise ValueError("AWS configuration required for S3 paths")
+        s3_config = values.get("s3")
+        if has_s3:
+            if not s3_config:
+                raise ValueError("S3 configuration required for S3 paths")
+            if not getattr(s3_config, "aws_config", None):
+                raise ValueError("AWS configuration required for S3 paths")
 
         # Validate Azure configuration
-        if has_azure and (
-            not values.get("azure") or not values.get("azure").azure_config
-        ):
-            raise ValueError(
-                "Azure configuration required for Azure Blob Storage paths"
-            )
+        azure_config = values.get("azure")
+        if has_azure:
+            if not azure_config:
+                raise ValueError("Azure configuration required for Azure Blob Storage paths")
+            if not getattr(azure_config, "azure_config", None):
+                raise ValueError("Azure connection config required for Azure Blob Storage paths")
 
         # Validate that all paths are of compatible types
         if has_s3 and has_azure:
