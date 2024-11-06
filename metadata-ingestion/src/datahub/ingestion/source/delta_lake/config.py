@@ -51,14 +51,15 @@ class Azure(ConfigModel):
 
 
 class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
-    base_path: str = Field(
-        default=None,
-        exclude=True,
-    )
     base_paths: Optional[List[str]] = Field(
         default=None,
         description="List of paths to tables (s3, abfss, or local file system). If a path is not a delta table path "
         "then all subfolders will be scanned to detect and ingest delta tables.",
+    )
+    # Not included in documentation, but kept for backwards compatibility
+    base_path: Optional[str] = Field(
+        default=None,
+        exclude=True,
     )
     relative_path: Optional[str] = Field(
         default=None,

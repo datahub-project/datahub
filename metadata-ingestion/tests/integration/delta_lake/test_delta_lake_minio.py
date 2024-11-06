@@ -112,3 +112,41 @@ def test_delta_lake_ingest(pytestconfig, tmp_path, test_resources_dir):
         output_path=tmp_path / "delta_lake_minio_mces.json",
         golden_path=test_resources_dir / "delta_lake_minio_mces_golden.json",
     )
+
+def test_delta_lake_ingest_base_paths(pytestconfig, tmp_path, test_resources_dir):
+    # Run the metadata ingestion pipeline.
+    pipeline = Pipeline.create(
+        {
+            "run_id": "delta-lake-test",
+            "source": {
+                "type": "delta-lake",
+                "config": {
+                    "env": "DEV",
+                    "base_paths": ["s3://my-test-bucket/delta_tables/sales"],
+                    "s3": {
+                        "aws_config": {
+                            "aws_access_key_id": "miniouser",
+                            "aws_secret_access_key": "miniopassword",
+                            "aws_endpoint_url": f"http://localhost:{MINIO_PORT}",
+                            "aws_region": "us-east-1",
+                        },
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/delta_lake_minio_mces.json",
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "delta_lake_minio_mces.json",
+        golden_path=test_resources_dir / "delta_lake_minio_mces_golden.json",
+    )

@@ -135,3 +135,44 @@ def test_delta_lake_ingest_azure(pytestconfig, tmp_path, test_resources_dir):
         output_path=tmp_path / "delta_lake_azure_mces.json",
         golden_path=test_resources_dir / "delta_lake_azure_mces_golden.json",
     )
+
+@freezegun.freeze_time("2023-01-01 00:00:00+00:00")
+def test_delta_lake_ingest_azure_base_paths(pytestconfig, tmp_path, test_resources_dir):
+    base_path = f"http://localhost:{AZURITE_BLOB_PORT}/devstoreaccount1/test-container/delta_tables/sales"
+
+    # Run the metadata ingestion pipeline.
+    pipeline = Pipeline.create(
+        {
+            "run_id": "delta-lake-azure-test",
+            "source": {
+                "type": "delta-lake",
+                "config": {
+                    "env": "DEV",
+                    "base_paths": [base_path],
+                    "azure": {
+                        "azure_config": {
+                            "account_name": "devstoreaccount1",
+                            "container_name": "test-container",
+                            "account_key": "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==",
+                        },
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/delta_lake_azure_mces.json",
+                },
+            },
+        }
+    )
+
+    logger.info(f"Starting pipeline run with base_path: {base_path}")
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "delta_lake_azure_mces.json",
+        golden_path=test_resources_dir / "delta_lake_azure_mces_golden.json",
+    )
