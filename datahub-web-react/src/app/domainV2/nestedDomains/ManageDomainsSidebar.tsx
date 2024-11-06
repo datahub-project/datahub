@@ -35,7 +35,7 @@ const StyledEntitySidebarContainer = styled.div<{
 const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     align-items: center;
-    justify-content: ${(props) => (props.isCollapsed ? 'end' : 'space-between')};
+    justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
     padding: 15px 16px 10px 12px;
     overflow: hidden;
     height: 50px;

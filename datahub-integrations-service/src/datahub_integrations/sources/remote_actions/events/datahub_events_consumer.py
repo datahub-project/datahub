@@ -5,6 +5,13 @@ from typing import List, Optional
 import requests
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from pydantic import BaseModel, Field
+from requests.exceptions import ConnectionError, HTTPError
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from datahub_integrations.sources.remote_actions.events.resource_offsets_store import (
     ResourceBasedOffsetsStore,
@@ -56,6 +63,12 @@ class DataHubEventsConsumer:
                 f"Starting DataHub Events Consumer with id {consumer_id} at offset id {self.offset_id}"
             )
 
+    @retry(
+        retry=retry_if_exception_type((HTTPError, ConnectionError)),
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        stop=stop_after_attempt(3),
+        reraise=True,
+    )
     def poll_events(
         self,
         topic: str,

@@ -211,6 +211,7 @@ class RemoteActionRunner:
                 "executionRequests"
             ][0]
             # If the latest result is not there yet, OR it is there in running state, it is considered running.
+            # TODO: Add a zombie check here. If there is a PENDING run that has not been picked up in some time, we can force it to run again.
             return (
                 "result" not in latest_execution
                 or latest_execution["result"] is None

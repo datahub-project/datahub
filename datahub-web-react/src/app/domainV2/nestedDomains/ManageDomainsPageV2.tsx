@@ -42,7 +42,7 @@ export default function ManageDomainsPageV2() {
         <PageWrapper isShowNavBarRedesign={isShowNavBarRedesign}>
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <Header>
-                <PageTitle title="Domains" subTitle="Group your data assets using hierarchical collections" />
+                <PageTitle title="Domains" subTitle="Group data assets using hierarchical collections" />
                 <Button
                     id={DOMAINS_CREATE_DOMAIN_ID}
                     onClick={() => setIsCreatingDomain(true)}
