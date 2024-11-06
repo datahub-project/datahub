@@ -78,10 +78,25 @@ export const EditOwnersModal = ({
     const renderSearchResult = (entity: Entity) => {
         const avatarUrl =
             (entity.type === EntityType.CorpUser && (entity as CorpUser).editableProperties?.pictureLink) || undefined;
+        const isCorpUser = (entity.type as EntityType) === EntityType.CorpUser;
+        const displayCorpUserDepartmentName =
+            (entity.type === EntityType.CorpUser && (entity as CorpUser).properties?.departmentName) || '';
+        const displayCorpUserUserName = (entity.type === EntityType.CorpUser && (entity as CorpUser).username) || '';
+    
         const displayName = entityRegistry.getDisplayName(entity.type, entity);
+        const concatenatedValue = isCorpUser
+            ? displayName
+                  .concat(displayCorpUserUserName ? ` - ${displayCorpUserUserName}` : '')
+                  .concat(displayCorpUserDepartmentName ? ` - ${displayCorpUserDepartmentName}` : '')
+            : displayName;
+    
         return (
-            <Select.Option value={entity.urn} key={entity.urn}>
-                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
+            <Select.Option
+                key={entity.urn}
+                value={entity.urn}
+                label={<OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />}
+            >
+                <OwnerLabel name={concatenatedValue} avatarUrl={avatarUrl} type={entity.type} />
             </Select.Option>
         );
     };
@@ -381,6 +396,7 @@ export const EditOwnersModal = ({
                                 value: owner.value.ownerUrn,
                                 label: owner.label,
                             }))}
+                            optionLabelProp="label"
                         >
                             {ownerSearchOptions}
                         </SelectInput>

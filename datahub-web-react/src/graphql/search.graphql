@@ -417,6 +417,7 @@ fragment searchResultsWithoutSchemaField on Entity {
             lastName
             fullName
             email
+            departmentName
         }
         info {
             active
@@ -426,6 +427,7 @@ fragment searchResultsWithoutSchemaField on Entity {
             lastName
             fullName
             email
+            departmentName
         }
         editableProperties {
             displayName
