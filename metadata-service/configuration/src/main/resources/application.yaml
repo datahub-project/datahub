@@ -584,6 +584,7 @@ featureFlags:
   showDatasetFeaturesSearchSortOptions: ${SHOW_DATASET_FEATURES_SEARCH_SORT_OPTIONS:false} # Enables showing sort by row count, query count, update count, size in bytes.
   showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
   showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:false} # If turned on, show the newly designed nav bar in the V2 experience
+  showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

@@ -95,6 +95,7 @@ export const DEFAULT_APP_CONFIG = {
         showDatasetFeaturesSearchSortOptions: false,
         showManageStructuredProperties: false,
         showNavBarRedesign: false,
+        showAutoCompleteResults: false,
     },
     chromeExtensionConfig: {
         enabled: false,

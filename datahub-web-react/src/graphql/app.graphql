@@ -114,6 +114,7 @@ query appConfig {
             showDatasetFeaturesSearchSortOptions
             showManageStructuredProperties
             showNavBarRedesign
+            showAutoCompleteResults
         }
         chromeExtensionConfig {
             enabled

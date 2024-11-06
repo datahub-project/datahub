@@ -256,6 +256,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                 _featureFlags.isShowDatasetFeaturesSearchSortOptions())
             .setShowManageStructuredProperties(_featureFlags.isShowManageStructuredProperties())
             .setShowNavBarRedesign(_featureFlags.isShowNavBarRedesign())
+            .setShowAutoCompleteResults(_featureFlags.isShowAutoCompleteResults())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

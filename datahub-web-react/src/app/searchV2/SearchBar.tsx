@@ -25,7 +25,7 @@ import { ViewSelect } from '../entityV2/view/select/ViewSelect';
 import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
 import { CommandK } from './CommandK';
 import { V2_SEARCH_BAR_VIEWS } from '../onboarding/configV2/HomePageOnboardingConfig';
-import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
+import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;
@@ -186,33 +186,18 @@ export const SearchBar = ({
     const [searchQuery, setSearchQuery] = useState<string | undefined>(initialQuery);
     const [selected, setSelected] = useState<string>();
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+    const appConfig = useAppConfig();
     const [isFocused, setIsFocused] = useState(false);
     const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
     const isShowSeparateSiblingsEnabled = useIsShowSeparateSiblingsEnabled();
+    const userUrn = useUserContext().user?.urn;
     const finalCombineSiblings = isShowSeparateSiblingsEnabled ? false : combineSiblings;
-
-    const updateQuickFilterAutoCompleteOption = useCallback(() => {
-        return {
-            label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
-            options: [
-                {
-                    value: 'quick-filter-unique-key',
-                    type: '',
-                    label: <QuickFilters searchQuery={searchQuery} setIsDropdownVisible={setIsDropdownVisible} />,
-                    style: { padding: '8px', cursor: 'auto' },
-                    disabled: true,
-                },
-            ],
-        };
-    }, [searchQuery]);
-
-    const quickFilterAutoCompleteOption = updateQuickFilterAutoCompleteOption();
+    const effectiveQuery = searchQuery !== undefined ? searchQuery : initialQuery || '';
+    const showAutoCompleteResults = appConfig?.config?.featureFlags?.showAutoCompleteResults;
 
     useEffect(() => setSelected(initialQuery), [initialQuery]);
 
-    const userUrn = useUserContext().user?.urn;
-
-    const { data } = useListRecommendationsQuery({
+    const { data: recommendationData } = useListRecommendationsQuery({
         variables: {
             input: {
                 userUrn: userUrn as string,
@@ -225,24 +210,40 @@ export const SearchBar = ({
         skip: hideRecommendations || !userUrn,
     });
 
-    const effectiveQuery = searchQuery !== undefined ? searchQuery : initialQuery || '';
-
-    const onClickExploreAll = useCallback(() => {
-        analytics.event({ type: EventType.SearchBarExploreAllClickEvent });
-        setSelectedQuickFilter(null);
-        setIsDropdownVisible(false);
-        navigateToSearchUrl({ query: '*', history });
-    }, [history, setSelectedQuickFilter]);
+    const quickFilterAutoCompleteOption = useMemo(() => {
+        if (!showQuickFilters) {
+            return null;
+        }
+        if (!showAutoCompleteResults) {
+            // If we've disabled showing any autocomplete results, we also hide the "Filter By" flow.
+            return null;
+        }
+        if (!quickFilters?.length) {
+            return null;
+        }
+        return {
+            label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
+            options: [
+                {
+                    value: 'quick-filter-unique-key',
+                    type: '',
+                    label: <QuickFilters searchQuery={searchQuery} setIsDropdownVisible={setIsDropdownVisible} />,
+                    style: { padding: '8px', cursor: 'auto' },
+                    disabled: true,
+                },
+            ],
+        };
+    }, [searchQuery, quickFilters, showAutoCompleteResults, showQuickFilters]);
 
     const emptyQueryOptions = useMemo(() => {
         const moduleOptions =
-            data?.listRecommendations?.modules.map((module) => ({
+            recommendationData?.listRecommendations?.modules.map((module) => ({
                 label: <EntityTypeLabel>{module.title}</EntityTypeLabel>,
                 options: [...module.content.map((content) => renderRecommendedQuery(content.value))],
             })) || [];
 
         return moduleOptions;
-    }, [data?.listRecommendations?.modules]);
+    }, [recommendationData?.listRecommendations?.modules]);
 
     const autoCompleteQueryOptions = useMemo(() => {
         if (effectiveQuery === '' || !showViewAllResults) return [];
@@ -280,6 +281,7 @@ export const SearchBar = ({
     }, [finalCombineSiblings, effectiveQuery, suggestions]);
 
     const previousSelectedQuickFilterValue = usePrevious(selectedQuickFilter?.value);
+
     useEffect(() => {
         // if we change the selected quick filter, re-issue auto-complete
         if (searchQuery && selectedQuickFilter?.value !== previousSelectedQuickFilterValue) {
@@ -294,13 +296,18 @@ export const SearchBar = ({
         };
     }, [setSelectedQuickFilter]);
 
-    const quickFilterOption = useMemo(() => {
-        return showQuickFilters && quickFilters && quickFilters.length > 0 ? [quickFilterAutoCompleteOption] : [];
-    }, [quickFilters, showQuickFilters, quickFilterAutoCompleteOption]);
+    const onClickExploreAll = useCallback(() => {
+        analytics.event({ type: EventType.SearchBarExploreAllClickEvent });
+        setSelectedQuickFilter(null);
+        setIsDropdownVisible(false);
+        navigateToSearchUrl({ query: '*', history });
+    }, [history, setSelectedQuickFilter]);
 
     const options = useMemo(() => {
-        const content = autoCompleteEntityOptions.length ? autoCompleteEntityOptions : emptyQueryOptions;
-        const baseOptions: any[] = [...autoCompleteQueryOptions, ...quickFilterOption, ...content];
+        const autoCompleteOptions =
+            showAutoCompleteResults && autoCompleteEntityOptions.length ? autoCompleteEntityOptions : emptyQueryOptions;
+        const quickFilterOptions = quickFilterAutoCompleteOption ? [quickFilterAutoCompleteOption] : [];
+        const baseOptions: any[] = [...autoCompleteQueryOptions, ...quickFilterOptions, ...autoCompleteOptions];
 
         if (showViewAllResults) {
             baseOptions.push({
@@ -320,8 +327,9 @@ export const SearchBar = ({
         emptyQueryOptions,
         autoCompleteEntityOptions,
         autoCompleteQueryOptions,
-        quickFilterOption,
+        quickFilterAutoCompleteOption,
         showViewAllResults,
+        showAutoCompleteResults,
         onClickExploreAll,
     ]);
 
@@ -429,7 +437,7 @@ export const SearchBar = ({
                             } as Event);
                         }
                     }}
-                    onSearch={onQueryChange}
+                    onSearch={showAutoCompleteResults ? onQueryChange : undefined}
                     defaultValue={initialQuery || undefined}
                     value={selected}
                     onChange={(v) => setSelected(filterSearchQuery(v as string))}

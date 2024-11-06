@@ -49,4 +49,5 @@ public class FeatureFlags {
   private boolean showDatasetFeaturesSearchSortOptions = false;
   private boolean showManageStructuredProperties = false;
   private boolean showNavBarRedesign = false;
+  private boolean showAutoCompleteResults = false;
 }

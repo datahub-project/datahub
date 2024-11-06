@@ -1298,6 +1298,11 @@ type FeatureFlagsConfig {
   If turned on, show the newly designed nav bar in the V2 experience
   """
   showNavBarRedesign: Boolean!
+
+  """
+  If turned on, we display auto complete results. Otherwise, do not.
+  """
+  showAutoCompleteResults: Boolean!
 }
 
 """
