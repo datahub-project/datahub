@@ -363,6 +363,7 @@ plugins: Dict[str, Set[str]] = {
     # Source plugins
     # sqlalchemy-bigquery is included here since it provides an implementation of
     # a SQLalchemy-conform STRUCT type definition
+    "aerospike": {"aerospike>=15.0.0"} | classification_lib,
     "athena": sql_common
     # We need to set tenacity lower than 8.4.0 as
     # this version has missing dependency asyncio
@@ -593,6 +594,7 @@ base_dev_requirements = {
         dependency
         for plugin in [
             "abs",
+            "aerospike",
             "athena",
             "bigquery",
             "clickhouse",
@@ -682,6 +684,7 @@ entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
         "abs = datahub.ingestion.source.abs.source:ABSSource",
+        "aerospike = datahub.ingestion.source.aerospike:AerospikeSource",
         "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
         "datahub = datahub.ingestion.source.datahub.datahub_source:DataHubSource",

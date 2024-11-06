@@ -36,7 +36,10 @@ import qlikLogo from '../../../../images/qliklogo.png';
 import sigmaLogo from '../../../../images/sigmalogo.png';
 import sacLogo from '../../../../images/saclogo.svg';
 import datahubLogo from '../../../../images/datahublogo.png';
+import aerospikeLogo from '../../../../images/aerospike.png';
 
+export const AEROSPIKE = 'aerospike';
+export const AEROSPIKE_URN = `urn:li:dataPlatform:${AEROSPIKE}`;
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
 export const AZURE = 'azure-ad';
@@ -133,6 +136,7 @@ export const DATAHUB_BUSINESS_GLOSSARY = 'datahub-business-glossary';
 export const DATAHUB_URN = `urn:li:dataPlatform:${DATAHUB}`;
 
 export const PLATFORM_URN_TO_LOGO = {
+    [AEROSPIKE_URN]: aerospikeLogo,
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
     [BIGQUERY_URN]: bigqueryLogo,

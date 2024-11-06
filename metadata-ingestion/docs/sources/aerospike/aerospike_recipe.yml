@@ -1,0 +1,17 @@
+source:
+  type: aerospike
+  config:
+    # Coordinates
+    hosts:
+      - - host1
+        - 3000
+      - - host2
+        - 3000
+
+    # Credentials
+    user: user
+    password: pass
+
+
+sink:
+  # sink configs
