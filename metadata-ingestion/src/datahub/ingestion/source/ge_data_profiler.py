@@ -1397,6 +1397,8 @@ class DatahubGEProfiler:
 def _get_column_types_to_ignore(dialect_name: str) -> List[str]:
     if dialect_name.lower() == POSTGRESQL:
         return ["JSON"]
+    elif dialect_name.lower() == BIGQUERY:
+        return ["ARRAY", "STRUCT", "GEOGRAPHY", "JSON"]
 
     return []
 
