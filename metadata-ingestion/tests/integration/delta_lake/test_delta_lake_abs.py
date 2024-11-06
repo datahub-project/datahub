@@ -136,6 +136,7 @@ def test_delta_lake_ingest_azure(pytestconfig, tmp_path, test_resources_dir):
         golden_path=test_resources_dir / "delta_lake_azure_mces_golden.json",
     )
 
+
 @freezegun.freeze_time("2023-01-01 00:00:00+00:00")
 def test_delta_lake_ingest_azure_base_paths(pytestconfig, tmp_path, test_resources_dir):
     base_path = f"http://localhost:{AZURITE_BLOB_PORT}/devstoreaccount1/test-container/delta_tables/sales"

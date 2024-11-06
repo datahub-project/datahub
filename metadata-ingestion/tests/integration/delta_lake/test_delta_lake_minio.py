@@ -113,6 +113,7 @@ def test_delta_lake_ingest(pytestconfig, tmp_path, test_resources_dir):
         golden_path=test_resources_dir / "delta_lake_minio_mces_golden.json",
     )
 
+@freezegun.freeze_time("2023-01-01 00:00:00+00:00")
 def test_delta_lake_ingest_base_paths(pytestconfig, tmp_path, test_resources_dir):
     # Run the metadata ingestion pipeline.
     pipeline = Pipeline.create(
