@@ -1,6 +1,7 @@
 import warnings
 import pytest
 
+
 @pytest.fixture(autouse=True)
 def handle_base_path_warning():
     warnings.filterwarnings(
