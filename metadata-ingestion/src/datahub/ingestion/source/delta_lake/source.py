@@ -368,8 +368,12 @@ class DeltaLakeSource(Source):
                 ):
                     opts.update(
                         {
-                            "fs.azure.account.oauth2.client.id": str(azure_config.client_id),
-                            "fs.azure.account.oauth2.client.secret": str(azure_config.client_secret),
+                            "fs.azure.account.oauth2.client.id": str(
+                                azure_config.client_id
+                            ),
+                            "fs.azure.account.oauth2.client.secret": str(
+                                azure_config.client_secret
+                            ),
                             "fs.azure.account.oauth2.client.endpoint": f"https://login.microsoftonline.com/{azure_config.tenant_id}/oauth2/token",
                         }
                     )
