@@ -90,12 +90,18 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     azure: Optional[Azure] = Field()
 
     @cached_property
-    def is_s3(self):
-        return is_s3_uri(self.base_path or "")
+    def is_s3(self) -> bool:
+        return bool(
+            self.s3 is not None
+            and self.s3.aws_config is not None
+        )
 
     @cached_property
-    def is_azure(self):
-        return is_abs_uri(self.base_path or "")
+    def is_azure(self) -> bool:
+        return bool(
+            self.azure is not None
+            and self.azure.azure_config is not None
+        )
 
     @cached_property
     def complete_path(self):
