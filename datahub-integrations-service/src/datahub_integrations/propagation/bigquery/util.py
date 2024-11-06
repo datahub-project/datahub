@@ -144,7 +144,9 @@ class BigqueryTagHelper(Closeable):
             urn=glossary_node_urn, node=node_info
         )
         if node_info.parentNode:
-            return self.get_glossary_nodes(node_info.parentNode) + [node_info]
+            return self.get_glossary_nodes(node_info.parentNode) + [
+                datahub_glossary_node
+            ]
         else:
             return [datahub_glossary_node]
 
@@ -501,9 +503,14 @@ class BigqueryTagHelper(Closeable):
 
     def _list_taxonomies(self) -> List[Taxonomy]:
         location: Optional[str] = None
-        if self.bq_project and self.bq_location:
+        project_id = (
+            self.config.taxonomy_project_id
+            if self.config.taxonomy_project_id
+            else self.bq_project
+        )
+        if project_id and self.bq_location:
             location = PolicyTagManagerClient.common_location_path(
-                self.bq_project, self.bq_location
+                project_id, self.bq_location
             )
 
         taxonomies = self.ptm_client.list_taxonomies(parent=location)
@@ -547,16 +554,9 @@ class BigqueryTagHelper(Closeable):
             )
             self.taxonomies.append(created_taxonomy)
         except google_exceptions.AlreadyExists:
-            logger.info(
-                f"Taxonomy {taxonomy.display_name} already exists. Fetching it."
+            raise ValueError(
+                f"Taxonomy {taxonomy.display_name} exists but is inaccessible. This typically occurs when another taxonomy with the same name exists in the same location. To resolve this you should either delete the existing one or specify `taxonomy_project_id` in your config and ensure the service account has proper access permissions"
             )
-            # If the taxonomy already exists, we will try to fetch it and return it
-            existing_taxonomy = self._find_taxonomy()
-            if not existing_taxonomy:
-                raise ValueError(
-                    f"Taxonomy {taxonomy.display_name} already exists but couldn't be found."
-                )
-            return existing_taxonomy
 
         logger.info(f"Taxonomy created: {created_taxonomy.name}")
         return created_taxonomy

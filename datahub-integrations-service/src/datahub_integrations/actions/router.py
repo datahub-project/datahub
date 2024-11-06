@@ -148,7 +148,7 @@ async def start_or_restart_action(
     try:
         recipe = get_config_from_details(action_urn, action_details, executor_id)
 
-        logger.info(f"Starting action {action_urn} with recipe: {recipe}")
+        logger.debug(f"Starting action {action_urn}")
         await pipeline_manager.start_pipeline(action_urn, recipe, executor_id)
     except Exception as e:
         if throw:
