@@ -69,6 +69,15 @@ def get_tables(native_query: str) -> List[str]:
     return tables
 
 
+def remove_drop_statement(query: str) -> str:
+    # Certain PowerBI M-Queries contain a combination of DROP and SELECT statements within SQL, causing SQLParser to fail on these queries.
+    # Therefore, these occurrences are being removed.
+    # Regular expression to match patterns like "DROP TABLE IF EXISTS #<identifier>;"
+    pattern = r"DROP TABLE IF EXISTS #\w+;"
+
+    return re.sub(pattern, "", query)
+
+
 def parse_custom_sql(
     ctx: PipelineContext,
     query: str,
@@ -81,7 +90,7 @@ def parse_custom_sql(
 
     logger.debug("Using sqlglot_lineage to parse custom sql")
 
-    sql_query = remove_special_characters(query)
+    sql_query = remove_drop_statement(remove_special_characters(query))
 
     logger.debug(f"Processing native query = {sql_query}")
 

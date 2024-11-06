@@ -74,25 +74,26 @@ def get_upstream_tables(
     )
 
     try:
-        with reporter.m_query_parse_timer:
-            reporter.m_query_parse_attempts += 1
-            parse_tree: Tree = _parse_expression(
-                table.expression, parse_timeout=config.m_query_parse_timeout
-            )
-
         valid, message = validator.validate_parse_tree(
-            parse_tree, native_query_enabled=config.native_query_parsing
+            table.expression, native_query_enabled=config.native_query_parsing
         )
         if valid is False:
             assert message is not None
             logger.debug(f"Validation failed: {message}")
             reporter.info(
                 title="Unsupported M-Query",
-                message="DataAccess function is not present in M-Query expression",
+                message=message,
                 context=f"table-full-name={table.full_name}, expression={table.expression}, message={message}",
             )
             reporter.m_query_parse_validation_errors += 1
             return []
+
+        with reporter.m_query_parse_timer:
+            reporter.m_query_parse_attempts += 1
+            parse_tree: Tree = _parse_expression(
+                table.expression, parse_timeout=config.m_query_parse_timeout
+            )
+
     except KeyboardInterrupt:
         raise
     except TimeoutException:
