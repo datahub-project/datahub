@@ -1,9 +1,9 @@
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 import pydantic
 from cached_property import cached_property
-from pydantic import Field
+from pydantic import Field, root_validator
 from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern
@@ -52,8 +52,13 @@ class Azure(ConfigModel):
 
 class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     base_path: str = Field(
-        description="Path to table (s3, abfss, or local file system). If path is not a delta table path "
-        "then all subfolders will be scanned to detect and ingest delta tables."
+        default=None,
+        exclude=True,
+    )
+    base_paths: Optional[List[str]] = Field(
+        default=None,
+        description="List of paths to tables (s3, abfss, or local file system). If a path is not a delta table path "
+                    "then all subfolders will be scanned to detect and ingest delta tables.",
     )
     relative_path: Optional[str] = Field(
         default=None,
@@ -86,8 +91,8 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         "When set to `False`, number_of_files in delta table can not be reported.",
     )
 
-    s3: Optional[S3] = Field()
-    azure: Optional[Azure] = Field()
+    s3: Optional[S3] = Field(default=None)
+    azure: Optional[Azure] = Field(default=None)
 
     @cached_property
     def is_s3(self) -> bool:
@@ -115,8 +120,64 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
 
         return complete_path
 
+    @pydantic.validator("base_path")
+    def warn_base_path_deprecated(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            logger.warning(
+                "The 'base_path' option is deprecated and will be removed in a future release. "
+                "Please use 'base_paths' instead. "
+                "Example: base_paths: ['{path}']".format(path=v)
+            )
+        return v
+
     @pydantic.validator("version_history_lookback")
     def negative_version_history_implies_no_limit(cls, v):
         if v and v < 0:
             return None
         return v
+
+    @root_validator
+    def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        base_path = values.get("base_path")
+        base_paths = values.get("base_paths", [])
+
+        # Ensure at least one path is provided
+        if not base_path and not base_paths:
+            raise ValueError("Either base_path or base_paths must be specified")
+
+        # Combine paths for validation
+        paths = []
+        if base_paths:
+            paths.extend(base_paths)
+        if base_path:
+            paths.append(base_path)
+
+        has_s3 = any(is_s3_uri(path) for path in paths)
+        has_azure = any(is_abs_uri(path) for path in paths)
+
+        # Validate S3 configuration
+        if has_s3 and (not values.get("s3") or not values.get("s3").aws_config):
+            raise ValueError("AWS configuration required for S3 paths")
+
+        # Validate Azure configuration
+        if has_azure and (not values.get("azure") or not values.get("azure").azure_config):
+            raise ValueError("Azure configuration required for Azure Blob Storage paths")
+
+        # Validate that all paths are of compatible types
+        if has_s3 and has_azure:
+            raise ValueError("Cannot mix S3 and Azure paths in the same source")
+
+        return values
+
+    @property
+    def paths_to_scan(self) -> List[str]:
+        """Returns list of paths to scan, combining base_path and base_paths."""
+
+        paths = []
+        if self.base_paths:
+            paths.extend(self.base_paths)
+        if self.base_path:
+            paths.append(self.base_path)
+        if not paths:
+            raise ValueError("At least one path must be specified via base_paths")
+        return paths

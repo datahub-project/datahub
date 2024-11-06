@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import time
+from collections import defaultdict
 from typing import Dict, Iterable, List
 from urllib.parse import urlparse
 
@@ -346,13 +347,17 @@ class DeltaLakeSource(Source):
             if aws_config.aws_endpoint_url:
                 opts["AWS_ENDPOINT_URL"] = aws_config.aws_endpoint_url
             return opts
-        elif self.source_config.is_azure:
+        elif (
+                self.source_config.is_azure
+                and self.source_config.azure
+                and self.source_config.azure.azure_config
+        ):
             azure_config = self.source_config.azure.azure_config
             creds = azure_config.get_credentials()
             parsed_url = urlparse(self.source_config.base_path)
 
-            opts: Dict[str, str] = {
-                "fs.azure.account.name": str(azure_config.account_name or ""),
+            opts = {
+                "fs.azure.account.name": str(azure_config.account_name or "")
             }
 
             connection_string_parts = [
@@ -393,8 +398,7 @@ class DeltaLakeSource(Source):
                     opts["fs.azure.account.connection.string"] = ";".join(
                         connection_string_parts
                     )
-
-            return {k: v for k, v in opts.items() if v}
+            return opts
         else:
             return {}
 
@@ -465,7 +469,9 @@ class DeltaLakeSource(Source):
             self.source_config.env,
         )
         self.storage_options = self.get_storage_options()
-        yield from self.process_folder(self.source_config.complete_path)
+
+        for path in self.source_config.complete_paths:
+            yield from self.process_folder(path)
 
     def get_report(self) -> SourceReport:
         return self.report
