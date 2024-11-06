@@ -658,20 +658,22 @@ public class AggregationQueryBuilder {
     Set<QueryOperation> queryOperations = Predicate.extractQueryOperationsForPredicate(predicate);
     queryOperations.forEach(
         queryOperation -> {
-          String fieldName =
+          List<String> fieldNames =
               resolveField(
                   new Query(queryOperation.getQuery().getQuery()),
                   searchableFieldPaths,
                   searchableFieldTypes,
                   opContext.getAspectRetriever());
-          List<String> values =
-              queryOperation.getValues().stream()
-                  .map(literal -> getSearchValueField(literal, fieldName, opContext))
-                  .flatMap(StringArray::stream)
-                  .collect(Collectors.toList());
-          Criterion criterion = CriterionUtils.buildCriterion(fieldName, Condition.EQUAL, values);
-          addFacetFiltersToAggregationMetadata(
-              criterion, originalMetadata, opContext.getAspectRetriever());
+          for (String fieldName : fieldNames) {
+            List<String> values =
+                queryOperation.getValues().stream()
+                    .map(literal -> getSearchValueField(literal, fieldName, opContext))
+                    .flatMap(StringArray::stream)
+                    .collect(Collectors.toList());
+            Criterion criterion = CriterionUtils.buildCriterion(fieldName, Condition.EQUAL, values);
+            addFacetFiltersToAggregationMetadata(
+                criterion, originalMetadata, opContext.getAspectRetriever());
+          }
         });
     return originalMetadata;
   }

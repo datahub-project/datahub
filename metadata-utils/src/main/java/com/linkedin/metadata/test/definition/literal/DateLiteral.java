@@ -5,8 +5,9 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import com.linkedin.metadata.test.definition.value.DateType;
 import com.linkedin.metadata.test.definition.value.ValueType;
+import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -43,8 +44,7 @@ public class DateLiteral implements Literal {
     return matcher.matches();
   }
 
-  private static ZonedDateTime resolveRelativeDate(String relativeDate) {
-    // Regular expression to parse the relative date
+  private static Instant resolveRelativeDate(String relativeDate) {
     Pattern pattern = Pattern.compile("^([+-])(\\d+)(d|m|h|w|y|min)$");
     Matcher matcher = pattern.matcher(relativeDate);
 
@@ -53,20 +53,29 @@ public class DateLiteral implements Literal {
       long amount = Long.parseLong(matcher.group(2));
       String unit = matcher.group(3);
 
-      ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
+      Instant now = Instant.now();
+      boolean isAddition = sign.equals("+");
+
       switch (unit) {
         case "min":
-          return sign.equals("+") ? now.plusMinutes(amount) : now.minusMinutes(amount);
+          return now.plus(Duration.ofMinutes(isAddition ? amount : -amount));
         case "h":
-          return sign.equals("+") ? now.plusHours(amount) : now.minusHours(amount);
+          return now.plus(Duration.ofHours(isAddition ? amount : -amount));
         case "d":
-          return sign.equals("+") ? now.plusDays(amount) : now.minusDays(amount);
+          return now.plus(Duration.ofDays(isAddition ? amount : -amount));
         case "w":
-          return sign.equals("+") ? now.plusWeeks(amount) : now.minusWeeks(amount);
+          return now.plus(Duration.ofDays((isAddition ? amount : -amount) * 7));
         case "m":
-          return sign.equals("+") ? now.plusMonths(amount) : now.minusMonths(amount);
         case "y":
-          return sign.equals("+") ? now.plusYears(amount) : now.minusYears(amount);
+          // For months and years, we need to use ZonedDateTime because these are
+          // calendar-based periods that don't have a fixed duration
+          ZonedDateTime zdt = ZonedDateTime.now(ZoneOffset.systemDefault());
+          if (unit.equals("m")) {
+            zdt = isAddition ? zdt.plusMonths(amount) : zdt.minusMonths(amount);
+          } else {
+            zdt = isAddition ? zdt.plusYears(amount) : zdt.minusYears(amount);
+          }
+          return zdt.toInstant();
         default:
           throw new IllegalArgumentException("Unsupported time unit: " + unit);
       }
@@ -76,10 +85,7 @@ public class DateLiteral implements Literal {
   }
 
   public String resolveValue() {
-    ZonedDateTime zonedDateTime = resolveRelativeDate(this.value);
-    // Convert ZonedDateTime to Instant
-    Instant instant = zonedDateTime.toInstant();
-    // Return the epoch millisecond value of the instant
+    Instant instant = resolveRelativeDate(this.value);
     return String.valueOf(instant.toEpochMilli());
   }
 

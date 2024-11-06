@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -323,22 +324,24 @@ public class ESPredicateUtils {
       OperationContext opContext) {
     List<Operand> operands = predicate.operands().get();
     Query query = (Query) operands.get(0).getExpression();
-    String resolvedField =
+    List<String> resolvedFields =
         resolveField(
             query, searchableFieldPaths, searchableFieldTypes, opContext.getAspectRetriever());
-    Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName =
-        determineKeyword(
-            resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
-    StringArray values =
-        getSearchValueField(operands.get(1).getExpression(), finalFieldName, opContext);
-    TermsQueryBuilder termsQueryBuilder =
-        QueryBuilders.termsQuery(
-            finalFieldName,
-            values.stream()
-                .map(value -> resolveFieldValue(resolvedFieldTypes, value))
-                .collect(Collectors.toList()));
-    queryBuilder.should(termsQueryBuilder);
+    for (String resolvedField : resolvedFields) {
+      Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
+      String finalFieldName =
+          determineKeyword(
+              resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
+      StringArray values =
+          getSearchValueField(operands.get(1).getExpression(), finalFieldName, opContext);
+      TermsQueryBuilder termsQueryBuilder =
+          QueryBuilders.termsQuery(
+              finalFieldName,
+              values.stream()
+                  .map(value -> resolveFieldValue(resolvedFieldTypes, value))
+                  .collect(Collectors.toList()));
+      queryBuilder.should(termsQueryBuilder);
+    }
     queryBuilder.minimumShouldMatch(1);
   }
 
@@ -369,7 +372,7 @@ public class ESPredicateUtils {
   }
 
   @Nonnull
-  public static String resolveField(
+  public static List<String> resolveField(
       Query query,
       Map<PathSpec, String> fieldPaths,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
@@ -377,35 +380,43 @@ public class ESPredicateUtils {
     List<String> queryParts = query.getQuery().getQueryParts();
     // Handle virtual field mapping
     if (queryParts.size() == 1 && INDEX_VIRTUAL_FIELD.equals(queryParts.get(0))) {
-      return ES_INDEX_FIELD;
+      return Collections.singletonList(ES_INDEX_FIELD);
     }
     // Handle urn mapping
     if (queryParts.size() == 1 && URN_FIELD.equals(queryParts.get(0))) {
-      return URN_FIELD;
+      return Collections.singletonList(URN_FIELD);
     }
     // If field is already resolved to a searchable field, just use it
     if (searchableFieldTypes.containsKey(query.getQuery().getQuery())) {
-      return query.getQuery().getQuery();
+      String queryFieldName = query.getQuery().getQuery();
+      final Optional<List<String>> maybeFieldToExpand =
+          Optional.ofNullable(FIELDS_TO_EXPANDED_FIELDS_LIST.get(queryFieldName));
+      return maybeFieldToExpand.orElseGet(() -> Collections.singletonList(queryFieldName));
     }
 
     // Handle structured properties
     if (STRUCTURED_PROPERTY_MAPPING_FIELD.equals(queryParts.get(0))) {
-      return StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(
-              query.getQuery().getQuery(), aspectRetriever)
-          .map(
-              urnDefinition ->
-                  STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
-                      + StructuredPropertyUtils.toElasticsearchFieldName(
-                          urnDefinition.getFirst(), urnDefinition.getSecond()))
-          .orElseThrow(
-              () -> new IllegalArgumentException("Unable to find field path for query: " + query));
+      return Collections.singletonList(
+          StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(
+                  query.getQuery().getQuery(), aspectRetriever)
+              .map(
+                  urnDefinition ->
+                      STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
+                          + StructuredPropertyUtils.toElasticsearchFieldName(
+                              urnDefinition.getFirst(), urnDefinition.getSecond()))
+              .orElseThrow(
+                  () ->
+                      new IllegalArgumentException(
+                          "Unable to find field path for query: " + query)));
     }
     // Try to resolve by path
     String fieldName = fieldPaths.get(new PathSpec(queryParts));
     if (fieldName == null) {
       throw new IllegalArgumentException("Unable to find field path for query: " + query);
     }
-    return fieldName;
+    final Optional<List<String>> maybeFieldToExpand =
+        Optional.ofNullable(FIELDS_TO_EXPANDED_FIELDS_LIST.get(fieldName));
+    return maybeFieldToExpand.orElseGet(() -> Collections.singletonList(fieldName));
   }
 
   public static Set<String> resolveFieldTypes(
@@ -466,18 +477,21 @@ public class ESPredicateUtils {
     // Starts With must be a Query followed by a StringListLiteral of values to match the query
     // value to, always has exactly 2 ops
     Query query = (Query) operands.get(0).getExpression();
-    String resolvedField =
+    List<String> resolvedFields =
         resolveField(
             query, searchableFieldPaths, searchableFieldTypes, opContext.getAspectRetriever());
-    Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName =
-        determineKeyword(
-            resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
-    StringArray values =
-        getSearchValueField(operands.get(1).getExpression(), finalFieldName, opContext);
+    for (String resolvedField : resolvedFields) {
+      Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
+      String finalFieldName =
+          determineKeyword(
+              resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
+      StringArray values =
+          getSearchValueField(operands.get(1).getExpression(), finalFieldName, opContext);
+      // We don't resolve values here, must be treated as a string
+      values.forEach(
+          value -> queryBuilder.should(QueryBuilders.prefixQuery(finalFieldName, value)));
+    }
     queryBuilder.minimumShouldMatch(1);
-    // We don't resolve values here, must be treated as a string
-    values.forEach(value -> queryBuilder.should(QueryBuilders.prefixQuery(finalFieldName, value)));
   }
 
   // TODO: Evaluators for these two are equivalent and could be condensed, note that the naming of
@@ -514,19 +528,23 @@ public class ESPredicateUtils {
     // Contains String must be a Query followed by a StringListLiteral of values to match the query
     // value to, always has exactly 2 ops
     Query query = (Query) operands.get(0).getExpression();
-    String resolvedField =
+    List<String> resolvedFields =
         resolveField(
             query, searchableFieldPaths, searchableFieldTypes, opContext.getAspectRetriever());
-    Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName =
-        determineKeyword(
-            resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
-    StringArray values =
-        getSearchValueField(operands.get(1).getExpression(), finalFieldName, opContext);
+    for (String resolvedField : resolvedFields) {
+      Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
+      String finalFieldName =
+          determineKeyword(
+              resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
+      StringArray values =
+          getSearchValueField(operands.get(1).getExpression(), finalFieldName, opContext);
+      // We don't resolve values here, must be treated as string
+      values.forEach(
+          value ->
+              queryBuilder.should(
+                  QueryBuilders.queryStringQuery("*" + value + "*").field(finalFieldName)));
+    }
     queryBuilder.minimumShouldMatch(1);
-    // We don't resolve values here, must be treated as string
-    values.forEach(
-        value -> QueryBuilders.queryStringQuery("*" + value + "*").field(finalFieldName));
   }
 
   // Regex match must be a Query followed by a StringListLiteral of regex strings to match against,
@@ -543,18 +561,21 @@ public class ESPredicateUtils {
     // Regex Match must be a Query followed by a StringListLiteral of values to match the query
     // value to, always has exactly 2 ops
     Query query = (Query) operands.get(0).getExpression();
-    String resolvedField =
+    List<String> resolvedFields =
         resolveField(
             query, searchableFieldPaths, searchableFieldTypes, opContext.getAspectRetriever());
-    Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName =
-        determineKeyword(
-            resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
-    StringArray values =
-        getSearchValueField(operands.get(1).getExpression(), finalFieldName, opContext);
+    for (String resolvedField : resolvedFields) {
+      Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
+      String finalFieldName =
+          determineKeyword(
+              resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
+      StringArray values =
+          getSearchValueField(operands.get(1).getExpression(), finalFieldName, opContext);
+      // We don't resolve values here, must be treated as a string
+      values.forEach(
+          value -> queryBuilder.should(QueryBuilders.regexpQuery(finalFieldName, value)));
+    }
     queryBuilder.minimumShouldMatch(1);
-    // We don't resolve values here, must be treated as a string
-    values.forEach(value -> QueryBuilders.regexpQuery(finalFieldName, value));
   }
 
   // Greater Than must be a query followed by a StringListLiteral of values to evaluate a greater
@@ -572,20 +593,23 @@ public class ESPredicateUtils {
     // Greater Than must be a Query followed by a StringListLiteral of values to match the query
     // value to, always has exactly 2 ops
     Query query = (Query) operands.get(0).getExpression();
-    String resolvedField =
+    List<String> resolvedFields =
         resolveField(
             query, searchableFieldPaths, searchableFieldTypes, opContext.getAspectRetriever());
-    Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName =
-        determineKeyword(
-            resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
-    StringArray values =
-        getSearchValueField(operands.get(1).getExpression(), finalFieldName, opContext);
+    for (String resolvedField : resolvedFields) {
+      Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
+      String finalFieldName =
+          determineKeyword(
+              resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
+      StringArray values =
+          getSearchValueField(operands.get(1).getExpression(), finalFieldName, opContext);
+      values.forEach(
+          value ->
+              queryBuilder.should(
+                  QueryBuilders.rangeQuery(finalFieldName)
+                      .gt(resolveFieldValue(resolvedFieldTypes, value))));
+    }
     queryBuilder.minimumShouldMatch(1);
-    values.forEach(
-        value ->
-            QueryBuilders.rangeQuery(finalFieldName)
-                .gt(resolveFieldValue(resolvedFieldTypes, value)));
   }
 
   // Less Than must be a query followed by a StringListLiteral of values to evaluate a greater than
@@ -603,20 +627,23 @@ public class ESPredicateUtils {
     // Greater Than must be a Query followed by a StringListLiteral of values to match the query
     // value to, always has exactly 2 ops
     Query query = (Query) operands.get(0).getExpression();
-    String resolvedField =
+    List<String> resolvedFields =
         resolveField(
             query, searchableFieldPaths, searchableFieldTypes, opContext.getAspectRetriever());
-    Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName =
-        determineKeyword(
-            resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
-    StringArray values =
-        getSearchValueField(operands.get(1).getExpression(), finalFieldName, opContext);
+    for (String resolvedField : resolvedFields) {
+      Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
+      String finalFieldName =
+          determineKeyword(
+              resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
+      StringArray values =
+          getSearchValueField(operands.get(1).getExpression(), finalFieldName, opContext);
+      values.forEach(
+          value ->
+              queryBuilder.should(
+                  QueryBuilders.rangeQuery(finalFieldName)
+                      .lt(resolveFieldValue(resolvedFieldTypes, value))));
+    }
     queryBuilder.minimumShouldMatch(1);
-    values.forEach(
-        value ->
-            QueryBuilders.rangeQuery(finalFieldName)
-                .lt(resolveFieldValue(resolvedFieldTypes, value)));
   }
 
   // Exists must be a Query, always has exactly 1 op
@@ -630,14 +657,18 @@ public class ESPredicateUtils {
     List<Operand> operands = predicate.getOperands().get();
 
     Query query = (Query) operands.get(0).getExpression();
-    String resolvedField =
+    List<String> resolvedFields =
         resolveField(
             query, searchableFieldPaths, searchableFieldTypes, opContext.getAspectRetriever());
-    Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName =
-        determineKeyword(
-            resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
-    queryBuilder.must(QueryBuilders.existsQuery(finalFieldName));
+    for (String resolvedField : resolvedFields) {
+      Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
+      String finalFieldName =
+          determineKeyword(
+              resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
+      queryBuilder.should(QueryBuilders.existsQuery(finalFieldName));
+    }
+
+    queryBuilder.minimumShouldMatch(1);
   }
 
   // Is False must be a Query, always has exactly 1 op
@@ -651,14 +682,17 @@ public class ESPredicateUtils {
     List<Operand> operands = predicate.getOperands().get();
 
     Query query = (Query) operands.get(0).getExpression();
-    String resolvedField =
+    List<String> resolvedFields =
         resolveField(
             query, searchableFieldPaths, searchableFieldTypes, opContext.getAspectRetriever());
-    Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName =
-        determineKeyword(
-            resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
-    queryBuilder.must(QueryBuilders.termQuery(finalFieldName, Boolean.FALSE));
+    for (String resolvedField : resolvedFields) {
+      Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
+      String finalFieldName =
+          determineKeyword(
+              resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
+      queryBuilder.should(QueryBuilders.termQuery(finalFieldName, Boolean.FALSE));
+    }
+    queryBuilder.minimumShouldMatch(1);
   }
 
   // Is True must be a Query, always has exactly 1 op
@@ -672,14 +706,17 @@ public class ESPredicateUtils {
     List<Operand> operands = predicate.getOperands().get();
 
     Query query = (Query) operands.get(0).getExpression();
-    String resolvedField =
+    List<String> resolvedFields =
         resolveField(
             query, searchableFieldPaths, searchableFieldTypes, opContext.getAspectRetriever());
-    Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName =
-        determineKeyword(
-            resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
-    queryBuilder.must(QueryBuilders.termQuery(finalFieldName, Boolean.TRUE));
+    for (String resolvedField : resolvedFields) {
+      Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
+      String finalFieldName =
+          determineKeyword(
+              resolvedField, resolvedFieldTypes, isTimeseries, opContext.getAspectRetriever());
+      queryBuilder.should(QueryBuilders.termQuery(finalFieldName, Boolean.TRUE));
+    }
+    queryBuilder.minimumShouldMatch(1);
   }
 
   private static void evaluateNotPredicate(
