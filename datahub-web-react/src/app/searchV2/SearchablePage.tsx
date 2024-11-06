@@ -38,8 +38,8 @@ const BodyBackground = styled.div<{ isShowNavBarRedesign?: boolean }>`
     z-index: -2;
 `;
 
-const Navigation = styled.div`
-    z-index: 200;
+const Navigation = styled.div<{ isShowNavBarRedesign?: boolean }>`
+    z-index: ${(props) => (props.isShowNavBarRedesign ? 10 : 200)};
 `;
 
 const Content = styled.div<{ isShowNavBarRedesign?: boolean }>`
@@ -164,7 +164,7 @@ export const SearchablePage = ({ children }: Props) => {
             />
             <BodyBackground isShowNavBarRedesign={isShowNavBarRedesign} />
             <Body>
-                <Navigation>
+                <Navigation isShowNavBarRedesign={isShowNavBarRedesign}>
                     <FinalNavBar />
                 </Navigation>
                 <Content isShowNavBarRedesign={isShowNavBarRedesign}>{children}</Content>

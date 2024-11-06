@@ -19,17 +19,19 @@ import analytics, { Event, EventType } from '../analytics';
 import RecommendedOption from './autoComplete/RecommendedOption';
 import SectionHeader, { EntityTypeLabel } from './autoComplete/SectionHeader';
 import { useUserContext } from '../context/useUserContext';
-import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import ViewAllSearchItem from './ViewAllSearchItem';
 import { ViewSelect } from '../entityV2/view/select/ViewSelect';
 import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
 import { CommandK } from './CommandK';
 import { V2_SEARCH_BAR_VIEWS } from '../onboarding/configV2/HomePageOnboardingConfig';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import useSearchViewAll from './useSearchViewAll';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
 
-const StyledAutoComplete = styled(AutoComplete)`
+const StyledAutoComplete = styled(AutoComplete)<{ isShowNavBarRedesign?: boolean }>`
     width: 100%;
-    max-width: 540px;
+    max-width: ${(props) => (props.isShowNavBarRedesign ? '423px' : '540px')};
 `;
 
 const SkeletonContainer = styled.div`
@@ -45,10 +47,12 @@ const SkeletonButton = styled(Skeleton.Button)`
     }
 `;
 
-const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean }>`
+const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean; isShowNavBarRedesign?: boolean }>`
     padding: 0 30px;
     align-items: center;
-    border: 2px solid transparent;
+    border: ${(props) => (props.isShowNavBarRedesign ? '1px solid #EBECF0' : '2px solid transparent')};
+    ${(props) => props.isShowNavBarRedesign && 'box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07)'};
+
     transition: border-color 0.3s ease;
 
     ${(props) =>
@@ -61,7 +65,12 @@ const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean }>`
     `}
 `;
 
-const StyledSearchBar = styled(Input)<{ $textColor?: string; $placeholderColor?: string; viewsEnabled?: boolean }>`
+const StyledSearchBar = styled(Input)<{
+    $textColor?: string;
+    $placeholderColor?: string;
+    viewsEnabled?: boolean;
+    isShowNavBarRedesign?: boolean;
+}>`
     &&& {
         border-radius: 8px;
         height: 40px;
@@ -79,11 +88,12 @@ const StyledSearchBar = styled(Input)<{ $textColor?: string; $placeholderColor?:
     }
 
     > .ant-input::placeholder {
-        color: ${(props) => props.$placeholderColor || '#dcdcdc'};
+        color: ${(props) =>
+            props.$placeholderColor || (props.isShowNavBarRedesign ? REDESIGN_COLORS.GREY_300 : '#dcdcdc')};
     }
 
     > .ant-input {
-        color: ${(props) => props.$textColor || '#fff'};
+        color: ${(props) => props.$textColor || (props.isShowNavBarRedesign ? '#000' : '#fff')};
     }
 
     .ant-input-clear-icon {
@@ -109,8 +119,16 @@ const ViewSelectContainer = styled.div`
     }
 `;
 
-const SearchIcon = styled(SearchOutlined)`
-    color: #dcdcdc;
+const SearchIcon = styled(SearchOutlined)<{ isShowNavBarRedesign?: boolean }>`
+    color: ${(props) => (props.isShowNavBarRedesign ? REDESIGN_COLORS.GREY_300 : '#dcdcdc')};
+    ${(props) =>
+        props.isShowNavBarRedesign &&
+        `
+        && svg {
+            width: 20px;
+            height: 20px;
+        }    
+    `}
 `;
 
 const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
@@ -192,6 +210,8 @@ export const SearchBar = ({
     const isShowSeparateSiblingsEnabled = useIsShowSeparateSiblingsEnabled();
     const userUrn = useUserContext().user?.urn;
     const finalCombineSiblings = isShowSeparateSiblingsEnabled ? false : combineSiblings;
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+    const searchViewAll = useSearchViewAll();
     const effectiveQuery = searchQuery !== undefined ? searchQuery : initialQuery || '';
     const showAutoCompleteResults = appConfig?.config?.featureFlags?.showAutoCompleteResults;
 
@@ -297,11 +317,9 @@ export const SearchBar = ({
     }, [setSelectedQuickFilter]);
 
     const onClickExploreAll = useCallback(() => {
-        analytics.event({ type: EventType.SearchBarExploreAllClickEvent });
-        setSelectedQuickFilter(null);
+        searchViewAll();
         setIsDropdownVisible(false);
-        navigateToSearchUrl({ query: '*', history });
-    }, [history, setSelectedQuickFilter]);
+    }, [searchViewAll]);
 
     const options = useMemo(() => {
         const autoCompleteOptions =
@@ -396,6 +414,7 @@ export const SearchBar = ({
     return (
         <AutoCompleteContainer
             viewsEnabled={viewsEnabled}
+            isShowNavBarRedesign={isShowNavBarRedesign}
             id={id}
             style={viewsEnabled ? viewsEnabledStyle : style}
             ref={searchBarWrapperRef}
@@ -407,6 +426,7 @@ export const SearchBar = ({
             ) : (
                 <StyledAutoComplete
                     data-testid="search-bar"
+                    isShowNavBarRedesign={isShowNavBarRedesign}
                     defaultActiveFirstOption={false}
                     style={autoCompleteStyle}
                     options={options}
@@ -475,10 +495,12 @@ export const SearchBar = ({
                         onFocus={handleFocus}
                         onBlur={handleBlur}
                         viewsEnabled={viewsEnabled}
+                        isShowNavBarRedesign={isShowNavBarRedesign}
                         allowClear={(isFocused && { clearIcon: <ClearIcon /> }) || false}
                         prefix={
                             <>
                                 <SearchIcon
+                                    isShowNavBarRedesign={isShowNavBarRedesign}
                                     onClick={() => {
                                         handleSearch(
                                             filterSearchQuery(searchQuery || ''),

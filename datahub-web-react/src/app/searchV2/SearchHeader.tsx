@@ -1,6 +1,7 @@
 import React, { useContext, useState } from 'react';
-import { Layout } from 'antd';
+import { Button, Layout } from 'antd';
 import styled from 'styled-components';
+import { ArrowRight } from '@phosphor-icons/react';
 import { V2_SEARCH_BAR_ID } from '../onboarding/configV2/HomePageOnboardingConfig';
 import { SearchBar } from './SearchBar';
 import { AutoCompleteResultForEntity } from '../../types.generated';
@@ -9,26 +10,30 @@ import { useAppConfig } from '../useAppConfig';
 import OnboardingContext from '../onboarding/OnboardingContext';
 import { useNavBarContext } from '../homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '../homeV2/layout/navBarRedesign/NavBarToggler';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import useSearchViewAll from './useSearchViewAll';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const styles = {
-    input: {
-        backgroundColor: '#343444',
-    },
-    searchBox: {
-        maxWidth: 620,
-        minWidth: 400,
-    },
-    searchBoxContainer: {
-        padding: 0,
-        display: 'flex',
-        justifyContent: 'center',
-        width: '620px',
-        minWidth: '400px',
-    },
+const getStyles = (isShowNavBarRedesign?: boolean) => {
+    return {
+        input: {
+            backgroundColor: isShowNavBarRedesign ? 'white' : '#343444',
+        },
+        searchBox: {
+            maxWidth: isShowNavBarRedesign ? '100%' : 620,
+            minWidth: isShowNavBarRedesign ? 300 : 400,
+        },
+        searchBoxContainer: {
+            padding: 0,
+            display: 'flex',
+            justifyContent: 'center',
+            width: isShowNavBarRedesign ? '439px' : '620px',
+            minWidth: '400px',
+        },
+    };
 };
 
-const Wrapper = styled.div<{ isNavBarCollapsed?: boolean; isShowNavBarRedesign?: boolean }>`
+const Wrapper = styled.div<{ isShowNavBarRedesign?: boolean }>`
     position: fixed;
     width: 100%;
     ${(props) =>
@@ -41,7 +46,7 @@ const Wrapper = styled.div<{ isNavBarCollapsed?: boolean; isShowNavBarRedesign?:
 
 const Header = styled(Layout)<{ isNavBarCollapsed?: boolean; isShowNavBarRedesign?: boolean }>`
     background-color: transparent;
-    height: ${(props) => (props.isShowNavBarRedesign ? '60px' : '72px')};
+    height: 72px;
     display: flex;
     ${(props) => {
         if (!props.isShowNavBarRedesign) return '';
@@ -69,14 +74,35 @@ const HeaderBackground = styled.div<{ isShowNavBarRedesign?: boolean }>`
 const SearchBarContainer = styled.div<{ isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex: 1;
+    align-items: center;
     ${(props) =>
         !props.isShowNavBarRedesign &&
         `
-        align-items: center;
         justify-content: center;
         margin-left: 80px;
         margin-top: 6px;
     `}
+`;
+
+const StyledButton = styled(Button)`
+    color: ${REDESIGN_COLORS.BODY_TEXT_GREY};
+    text-align: center;
+
+    font-family: Mulish;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: normal;
+
+    display: flex;
+    gap: 4px;
+    align-items: center;
+
+    &:hover,
+    :active,
+    :focus {
+        color: ${REDESIGN_COLORS.GREY_300};
+    }
 `;
 
 type Props = {
@@ -104,12 +130,14 @@ export const SearchHeader = ({
     const viewsEnabled = appConfig.config?.viewsConfig?.enabled || false;
     const { isUserInitializing } = useContext(OnboardingContext);
     const { isCollapsed } = useNavBarContext();
+    const searchViewAll = useSearchViewAll();
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const styles = getStyles(isShowNavBarRedesign);
 
     return (
         <>
             <HeaderBackground isShowNavBarRedesign={isShowNavBarRedesign} />
-            <Wrapper isNavBarCollapsed={isCollapsed}>
+            <Wrapper isShowNavBarRedesign={isShowNavBarRedesign}>
                 <Header isShowNavBarRedesign={isShowNavBarRedesign} isNavBarCollapsed={isCollapsed}>
                     {isShowNavBarRedesign && isCollapsed && <NavBarToggler iconSize={20} />}
                     <SearchBarContainer isShowNavBarRedesign={isShowNavBarRedesign}>
@@ -133,6 +161,11 @@ export const SearchHeader = ({
                             showViewAllResults
                             showCommandK
                         />
+                        {isShowNavBarRedesign && (
+                            <StyledButton type="link" onClick={searchViewAll}>
+                                View all <ArrowRight />
+                            </StyledButton>
+                        )}
                     </SearchBarContainer>
                 </Header>
             </Wrapper>

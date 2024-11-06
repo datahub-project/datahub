@@ -3,6 +3,7 @@ import { useHistory } from 'react-router';
 import { Popover } from 'antd';
 import styled from 'styled-components';
 import { debounce } from 'lodash';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useListMyViewsQuery, useListGlobalViewsQuery } from '../../../../graphql/view.generated';
 import { useUserContext } from '../../../context/useUserContext';
 import { DataHubView, DataHubViewType } from '../../../../types.generated';
@@ -123,6 +124,8 @@ export const ViewSelect = () => {
     const [filterText, setFilterText] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const [selectedViewName, setSelectedView] = useState<string>('');
+
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const selectRef = useRef(null);
 
@@ -309,7 +312,7 @@ export const ViewSelect = () => {
                 popupVisible={false}
                 ref={selectRef}
             >
-                {renderSelectedView({ selectedViewName, onClear })}
+                {renderSelectedView({ selectedViewName, onClear, isShowNavBarRedesign })}
             </Popover>
             {viewBuilderDisplayState.visible && (
                 <ViewBuilder
