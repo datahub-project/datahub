@@ -21,6 +21,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
+    make_user_urn,
 )
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
@@ -70,6 +71,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     OwnershipClass,
+    OwnerClass,
     OwnershipTypeClass,
     ChartInfoClass,
     ChartTypeClass,
@@ -435,15 +437,15 @@ class SupersetSource(StatefulIngestionSourceBase):
         return None
 
     def get_all_dataset_owners(self) -> Iterable[MetadataWorkUnit]:
-        #make this more readable, 
+        # We will set total datasets to the actual number after we get the response
         current_dataset_page = 1
-        total_owners = PAGE_SIZE # i could just set this to 100
+        total_owners = PAGE_SIZE
         owners_dict = {}
 
         while current_dataset_page * PAGE_SIZE <= total_owners:
             full_owners_response = self.session.get(
                 f"{self.config.connect_uri}/api/v1/dataset/related/owners",
-                params=f"q=(page:{current_dataset_page},page_size:{100})",
+                params=f"q=(page:{current_dataset_page},page_size:{PAGE_SIZE})",
             )
             if full_owners_response.status_code != 200:
                 logger.warning(f"Failed to get dataset data: {full_owners_response.text}")
@@ -457,7 +459,6 @@ class SupersetSource(StatefulIngestionSourceBase):
                 email = owner_data["extra"]["email"]
                 value = owner_data["value"]
                 owners_dict[value] = email
-
         return owners_dict
 
     def construct_dashboard_from_api_data(self, dashboard_data):
@@ -757,32 +758,24 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
         owners_list = []
-        for owner in dataset_response.get("result", {}).get("owners", []): #what if there are no owners?
+        for owner in dataset_response.get("result", {}).get("owners", []):
             owner_id = owner.get("id")
             owner_email = self.owners_dict.get(owner_id)
-            modified_owner = f"urn:li:corpuser:{owner_email}" #change name of variable
-            
-            # logger.info(f"WE ARE HERE")
-            # logger.info(f"modified_onwers are {(modified_owner)}")
-            owners_list.append(modified_owner)
-
-            # import pdb; pdb.set_trace()
-            # print(owners_list)
-
-
-
-        #what is my logic here?
-        # i am trying to loop over all owners returned in dataset response, get their id, and then get their email from the owners_dict
-        # then use their email to update datahub's urn for the owner and set default to technical onwer as well'
+            #build list of owner urns
+            if owner_email is not None:
+                owners_urn = make_user_urn(owner_email)
+                owners_list.append(owners_urn)
 
         owners_info = OwnershipClass(
-            owners=owners_list, #need to test if passing in the modified owner urn even works  
-            ownerTypes=[OwnershipTypeClass.TECHNICAL_OWNER],
+            owners=[
+                OwnerClass(
+                    owner=urn,
+                    #default as Technical Owners from Preset
+                    type=OwnershipTypeClass.TECHNICAL_OWNER,
+                )
+                for urn in (owners_list or [])
+            ],
         )
-
-        #build map of owner id -> email [DONE]       
-        # check if ownership exist! [NOT DONE YET]
-
 
         ## Create Lineage:
         db_platform_instance = self.get_platform_from_database_id(database_id)
@@ -881,17 +874,13 @@ class SupersetSource(StatefulIngestionSourceBase):
             payload = full_dataset_response.json()
             total_datasets = payload["count"]
             for dataset_data in payload["result"]:
-                # if dataset_data.get("id") != 287:
-                #     continue
                 dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
                 yield from self._get_domain_wu(
                     title=dataset_data.get("table_name", ""),
                     entity_urn=dataset_snapshot.urn,
-                 )
-            #     break
-            # break
+                )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
