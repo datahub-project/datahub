@@ -176,7 +176,7 @@ A: Ensure that the service account used for the automation has the necessary per
 
 ### Q: Can table description removed?
 
-No, the sync can only modify table description but it won't remove description from a table.
+No, the sync can only modify table description but it won't remove or clear a description from a table. 
 
 ## Related Documentation
 
