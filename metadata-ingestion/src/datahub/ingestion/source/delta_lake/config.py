@@ -91,11 +91,19 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
 
     @cached_property
     def is_s3(self) -> bool:
-        return bool(self.s3 is not None and self.s3.aws_config is not None and is_s3_uri(self.base_path or ""))
+        return bool(
+            self.s3 is not None
+            and self.s3.aws_config is not None
+            and is_s3_uri(self.base_path or "")
+        )
 
     @cached_property
     def is_azure(self) -> bool:
-        return bool(self.azure is not None and self.azure.azure_config is not None and is_abs_uri(self.base_path or ""))
+        return bool(
+            self.azure is not None
+            and self.azure.azure_config is not None
+            and is_abs_uri(self.base_path or "")
+        )
 
     @cached_property
     def complete_path(self):
