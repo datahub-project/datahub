@@ -258,7 +258,9 @@ class OwnershipMapping(ConfigModel):
         default=True, description="Whether ingest PowerBI user as Datahub Corpuser"
     )
     use_powerbi_email: bool = pydantic.Field(
-        default=False,
+        # TODO: Deprecate and remove this config, since the non-email format
+        # doesn't make much sense.
+        default=True,
         description="Use PowerBI User email to ingest as corpuser, default is powerbi user identifier",
     )
     remove_email_suffix: bool = pydantic.Field(
