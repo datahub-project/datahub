@@ -12,13 +12,16 @@ services:
     command: server /data --console-address ":9001"
 
   azurite:
-    image: mcr.microsoft.com/azure-storage/azurite
+    image: mcr.microsoft.com/azure-storage/azurite:3.23.0
     container_name: "azurite_test"
     ports:
-      - 10000:10000  # Blob service
-      - 10001:10001  # Queue service
-      - 10002:10002  # Table service
-    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0
-    volumes:
-      - ./azurite_data:/data
+      - 10000:10000
+      - 10001:10001
+      - 10002:10002
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --loose
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:10000" ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
 
