@@ -29,34 +29,34 @@ const Body = styled.div`
     flex: 1;
 `;
 
-const BodyBackground = styled.div<{ isShowNavBarRedesign?: boolean }>`
+const BodyBackground = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) =>
-        props.isShowNavBarRedesign ? REDESIGN_COLORS.BACKGROUUND_NAVBAR_REDESIGN : REDESIGN_COLORS.BACKGROUND};
+        props.$isShowNavBarRedesign ? REDESIGN_COLORS.BACKGROUUND_NAVBAR_REDESIGN : REDESIGN_COLORS.BACKGROUND};
     position: fixed;
     height: 100%;
     width: 100%;
     z-index: -2;
 `;
 
-const Navigation = styled.div<{ isShowNavBarRedesign?: boolean }>`
-    z-index: ${(props) => (props.isShowNavBarRedesign ? 10 : 200)};
+const Navigation = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    z-index: ${(props) => (props.$isShowNavBarRedesign ? 0 : 200)};
 `;
 
-const Content = styled.div<{ isShowNavBarRedesign?: boolean }>`
-    border-radius: ${(props) => (props.isShowNavBarRedesign ? '12px' : '8px')};
-    margin-top: 72px;
+const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
+    margin-top: ${(props) => (props.$isShowNavBarRedesign ? '56px' : '72px')};
     ${(props) =>
-        props.isShowNavBarRedesign &&
+        props.$isShowNavBarRedesign &&
         `
-        margin-right: 20px;
-        margin-bottom: 16px;  
+        padding: 11px 15px 11px 4px;
     `}
     flex: 1;
     display: flex;
     flex-direction: column;
-    max-height: ${(props) => (props.isShowNavBarRedesign ? 'calc(100vh - 88px)' : 'calc(100vh - 72px)')};
+    max-height: ${(props) => (props.$isShowNavBarRedesign ? 'calc(100vh - 56px)' : 'calc(100vh - 72px)')};
     width: 100%;
-    overflow: auto;
+    overflow: ${(props) => (props.$isShowNavBarRedesign ? 'hidden' : 'auto')};
 `;
 
 const FIFTH_SECOND_IN_MS = 100;
@@ -162,12 +162,12 @@ export const SearchablePage = ({ children }: Props) => {
                 onQueryChange={autoComplete}
                 entityRegistry={entityRegistry}
             />
-            <BodyBackground isShowNavBarRedesign={isShowNavBarRedesign} />
+            <BodyBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Body>
-                <Navigation isShowNavBarRedesign={isShowNavBarRedesign}>
+                <Navigation $isShowNavBarRedesign={isShowNavBarRedesign}>
                     <FinalNavBar />
                 </Navigation>
-                <Content isShowNavBarRedesign={isShowNavBarRedesign}>{children}</Content>
+                <Content $isShowNavBarRedesign={isShowNavBarRedesign}>{children}</Content>
             </Body>
         </>
     );

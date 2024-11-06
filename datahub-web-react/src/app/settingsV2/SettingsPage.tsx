@@ -42,26 +42,33 @@ import { isLoggedInVar } from '../auth/checkAuthStatus';
 import { useIsThemeV2 } from '../useIsThemeV2';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const PageContainer = styled.div<{ isShowNavBarRedesign?: boolean }>`
+const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     overflow: auto;
     flex: 1;
-    background-color: ${(props) => (props.isShowNavBarRedesign ? 'inherit' : 'white')};
-    border-radius: ${(props) => (props.isShowNavBarRedesign ? '12px' : '8px')};
-    gap: ${(props) => (props.isShowNavBarRedesign ? '16px' : '0')};
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
+    ${(props) => !props.$isShowNavBarRedesign && 'background-color: white;'}
+    gap: ${(props) => (props.$isShowNavBarRedesign ? '16px' : '0')};
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        padding: 5px;
+    `}
 `;
 
-const SettingsBarContainer = styled.div<{ isShowNavBarRedesign?: boolean }>`
+const SettingsBarContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
-    ${(props) => !props.isShowNavBarRedesign && `border-right: 1px solid ${ANTD_GRAY[5]};`}
+    ${(props) => !props.$isShowNavBarRedesign && `border-right: 1px solid ${ANTD_GRAY[5]};`}
     ${(props) =>
-        props.isShowNavBarRedesign &&
+        props.$isShowNavBarRedesign &&
         `
-        border-radius: 12px;
+        border-radius: ${props.theme.styles['border-radius-navbar-redesign']};
         background-color: white;
     `}
     display: flex;
     flex-direction: column;
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};`}
 `;
 
 const SettingsBarHeader = styled.div`
@@ -87,15 +94,18 @@ const ItemTitle = styled.span`
 `;
 
 const SettingsContentContainer = styled.div`
-    border-radius: 12px;
+    border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
     width: 100%;
     display: flex;
     overflow: auto;
     background-color: white;
+    box-shadow: ${(props) => props.theme.styles['box-shadow-navbar-redesign']};
 `;
 
-const StyledMenu = styled(Menu)<{ isShowNavBarRedesign?: boolean }>`
-    ${(props) => props.isShowNavBarRedesign && `border-radius: 0 0 12px 12px;`}
+const StyledMenu = styled(Menu)<{ $isShowNavBarRedesign?: boolean }>`
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `border-radius: 0 0 ${props.theme.styles['border-radius-navbar-redesign']} ${props.theme.styles['border-radius-navbar-redesign']};`}
 `;
 
 const ACRYL_PATHS = [
@@ -171,8 +181,8 @@ export const SettingsPage = () => {
     const FinalSettingsContentContainer = isShowNavBarRedesign ? SettingsContentContainer : React.Fragment;
 
     return (
-        <PageContainer isShowNavBarRedesign={isShowNavBarRedesign}>
-            <SettingsBarContainer isShowNavBarRedesign={isShowNavBarRedesign}>
+        <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
+            <SettingsBarContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <SettingsBarHeader>
                     <PageTitle level={3}>Settings</PageTitle>
                     <Typography.Paragraph type="secondary">Manage your DataHub settings.</Typography.Paragraph>
@@ -195,7 +205,7 @@ export const SettingsPage = () => {
                     mode="inline"
                     style={menuStyle}
                     selectedKeys={[activePath]}
-                    isShowNavBarRedesign={isShowNavBarRedesign}
+                    $isShowNavBarRedesign={isShowNavBarRedesign}
                     onClick={(newPath) => {
                         history.replace(`${url}/${newPath.key}`);
                     }}

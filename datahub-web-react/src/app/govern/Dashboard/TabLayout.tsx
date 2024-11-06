@@ -112,7 +112,7 @@ export const TabLayout = () => {
 
     // Render the dashboard
     return (
-        <Layout isShowNavBarRedesign={isShowNavBarRedesign}>
+        <Layout $isShowNavBarRedesign={isShowNavBarRedesign}>
             <Header>
                 <PageTitle
                     title="Compliance Forms"

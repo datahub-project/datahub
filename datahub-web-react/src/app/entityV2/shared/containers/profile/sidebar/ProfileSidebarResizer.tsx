@@ -1,3 +1,4 @@
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -7,14 +8,15 @@ type Props = {
     isSidebarOnLeft?: boolean;
 };
 
-const ResizerBar = styled.div`
+const ResizerBar = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     min-height: 100%;
     width: 4px;
     cursor: col-resize;
-    margin-right: 12px;
+    ${(props) => !props.$isShowNavBarRedesign && 'margin-right: 12px;'}
 `;
 
 export const ProfileSidebarResizer = ({ setSidePanelWidth, initialSize, isSidebarOnLeft }: Props) => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     let dragState: { initialX: number; initialSize: number } | undefined;
 
     const dragContinue = (event: MouseEvent) => {
@@ -48,6 +50,7 @@ export const ProfileSidebarResizer = ({ setSidePanelWidth, initialSize, isSideba
             onMouseDown={(event) => {
                 onDrag(event);
             }}
+            $isShowNavBarRedesign={isShowNavBarRedesign}
         />
     );
 };

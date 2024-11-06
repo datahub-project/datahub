@@ -15,11 +15,18 @@ import { filterTests } from './utils';
 import { NewTestButton } from './NewTestButton';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const Container = styled.div<{ isShowNavBarRedesign?: boolean }>`
+const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
     background-color: #fff;
     height: 100%;
-    ${(props) => props.isShowNavBarRedesign && 'border-radius: 12px;'}
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        border-radius: ${props.theme.styles['border-radius-navbar-redesign']};
+        margin: 5px;
+        overflow: hidden;
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+    `}
 `;
 
 const Header = styled.div`
@@ -87,7 +94,7 @@ export const ManageTestsPage = () => {
     const filteredTests = filterTests(filterText, tests as any);
 
     return (
-        <Container isShowNavBarRedesign={isShowNavBarRedesign}>
+        <Container $isShowNavBarRedesign={isShowNavBarRedesign}>
             {!data && loading && <Message type="loading" content="Loading tests..." />}
             {error && message.error({ content: `Failed to load Tests! An unexpected error occurred.`, duration: 3 })}
             <Header>

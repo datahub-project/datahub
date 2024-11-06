@@ -15,18 +15,13 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
         border: 0;
         display: flex;
         align-items: center;
+        ${(props) => props.isCollapsed && 'width: 36px;'}
     }
 
     && svg {
         color: #8088a3;
-        width: 24px;
-        height: 24px;
-    }
-
-    && .ant-menu-item-icon {
-        color: #8088a3;
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
     }
 
     && .ant-menu-title-content {
@@ -41,7 +36,6 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
         align-items: center;
         height: 36px;
         line-height: 24px;
-        ${(props) => props.isCollapsed && 'width: 36px;'}
     }
 
     &:hover {
@@ -70,10 +64,6 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
         && svg {
             color: #533fd1;
         }
-
-        && .filled {
-            fill: #8088a3;
-        }
     }
 `;
 
@@ -85,16 +75,17 @@ const Icon = styled.div`
 type Props = {
     item: NavBarMenuBaseItem;
     isCollapsed?: boolean;
+    isSelected?: boolean;
 } & MenuItemProps;
 
-export default function NavBarMenuItem({ item, isCollapsed, ...props }: Props) {
+export default function NavBarMenuItem({ item, isCollapsed, isSelected, ...props }: Props) {
     const history = useHistory();
 
     const redirect = (link: string | undefined) => link && history.push(link);
 
     const component = (
         <StyledMenuItem isCollapsed={isCollapsed} onClick={() => redirect(item.link)} {...props}>
-            <Icon>{item.icon}</Icon>
+            <Icon>{isSelected ? item.selectedIcon || item.icon : item.icon}</Icon>
             {!isCollapsed && (
                 <Text size="md" type="div">
                     {item.title}

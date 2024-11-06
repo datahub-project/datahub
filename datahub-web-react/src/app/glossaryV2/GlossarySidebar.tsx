@@ -13,6 +13,14 @@ import { useUserContext } from '../context/useUserContext';
 import { useGetRootGlossaryNodesQuery } from '../../graphql/glossary.generated';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
+const StyledSidebarWrapper = styled(SidebarWrapper)<{ $isEntityProfile?: boolean }>`
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        margin: ${props.$isEntityProfile ? '5px 0px 6px 5px' : '0px 4px 0px 0px'};
+    `}
+`;
+
 const SidebarTitleWrapper = styled.div`
     display: flex;
     justify-content: space-between;
@@ -39,7 +47,11 @@ const GlossaryTitle = styled.div`
     color: #374066;
 `;
 
-export default function GlossarySidebar() {
+type Props = {
+    isEntityProfile?: boolean;
+};
+
+export default function GlossarySidebar({ isEntityProfile }: Props) {
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
 
     const { refetch: refetchForNodes } = useGetRootGlossaryNodesQuery();
@@ -52,10 +64,11 @@ export default function GlossarySidebar() {
 
     return (
         <>
-            <SidebarWrapper
+            <StyledSidebarWrapper
                 width={width}
                 data-testid="glossary-browser-sidebar"
-                isShowNavBarRedesign={isShowNavBarRedesign}
+                $isShowNavBarRedesign={isShowNavBarRedesign}
+                $isEntityProfile={isEntityProfile}
             >
                 <SidebarTitleWrapper>
                     <GlossaryTitle>Business Glossary</GlossaryTitle>
@@ -67,7 +80,7 @@ export default function GlossarySidebar() {
                 </SidebarTitleWrapper>
                 <GlossarySearch />
                 <GlossaryBrowser openToEntity />
-            </SidebarWrapper>
+            </StyledSidebarWrapper>
             {isCreateNodeModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryNode}

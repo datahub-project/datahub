@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Route, Switch } from 'react-router-dom';
+import { matchPath, Route, Switch, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { PageRoutes } from '../../conf/Global';
 import { EntityType } from '../../types.generated';
@@ -11,12 +11,14 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { DomainsContext } from './DomainsContext';
 import ManageDomainsPageV2 from './nestedDomains/ManageDomainsPageV2';
 import ManageDomainsSidebar from './nestedDomains/ManageDomainsSidebar';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const ContentWrapper = styled.div`
+const ContentWrapper = styled.div<{ $isShowNavBarRedesign?: boolean; $isEntityProfile?: boolean }>`
     display: flex;
     overflow: hidden;
     border-radius: 8px;
     flex: 1;
+    ${(props) => !props.$isEntityProfile && props.$isShowNavBarRedesign && 'padding: 5px;'}
 `;
 
 export default function DomainRoutes() {
@@ -24,11 +26,16 @@ export default function DomainRoutes() {
     const [entityData, setEntityData] = useState<GenericEntityProperties | null>(null);
     const [isSidebarClosed, setIsSidebarClosed] = useState(true);
     const entitySidebarWidth = useSidebarWidth();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    const location = useLocation();
+    const isEntityProfile =
+        matchPath(location.pathname, `/${entityRegistry.getPathName(EntityType.Domain)}/:urn`) !== null;
 
     return (
         <DomainsContext.Provider value={{ entityData, setEntityData }}>
-            <ContentWrapper>
-                <ManageDomainsSidebar />
+            <ContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign} $isEntityProfile={isEntityProfile}>
+                <ManageDomainsSidebar isEntityProfile={isEntityProfile} />
                 <Switch>
                     <EntitySidebarContext.Provider
                         value={{

@@ -1,6 +1,7 @@
 import { Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from './utils';
@@ -21,6 +22,15 @@ const StyledSourceTable = styled(StyledTable)`
         }
     }
 ` as typeof StyledTable;
+
+const StyledSourceTableWithNavBarRedesign = styled(StyledSourceTable)`
+    overflow: hidden;
+
+    &&& .ant-table-body {
+        overflow-y: auto;
+        height: calc(100vh - 450px);
+    }
+` as typeof StyledSourceTable;
 
 interface Props {
     lastRefresh: number;
@@ -43,6 +53,8 @@ function IngestionSourceTable({
     onDelete,
     onRefresh,
 }: Props) {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+
     const tableColumns = [
         {
             title: 'Type',
@@ -127,10 +139,13 @@ function IngestionSourceTable({
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
     }));
 
+    const FinalStyledSourceTable = isShowNavBarRedesign ? StyledSourceTableWithNavBarRedesign : StyledSourceTable;
+
     return (
-        <StyledSourceTable
+        <FinalStyledSourceTable
             columns={tableColumns}
             dataSource={tableData}
+            scroll={isShowNavBarRedesign ? { y: 'max-content' } : {}}
             rowKey="urn"
             rowClassName={(record, _) => (record.cliIngestion ? 'cliIngestion' : '')}
             locale={{

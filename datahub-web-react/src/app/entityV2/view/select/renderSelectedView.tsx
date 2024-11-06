@@ -6,17 +6,17 @@ import CloseIcon from '@mui/icons-material/Close';
 import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../../shared/constants';
 import { ViewLabel } from './styledComponents';
 
-const SelectButton = styled(Button)<{ $selectedViewName: string; isShowNavBarRedesign?: boolean }>`
+const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => (props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
     border-color: ${(props) => {
         if (props.$selectedViewName) return SEARCH_COLORS.TITLE_PURPLE;
-        return props.isShowNavBarRedesign ? REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1 : 'transparent';
+        return props.$isShowNavBarRedesign ? REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1 : 'transparent';
     }};
     color: ${ANTD_GRAY[1]};
     max-width: 150px;
 
     ${(props) =>
-        props.isShowNavBarRedesign &&
+        props.$isShowNavBarRedesign &&
         `
         height: 28px;
         padding: 4px 8px;
@@ -35,7 +35,7 @@ const SelectButton = styled(Button)<{ $selectedViewName: string; isShowNavBarRed
         color: ${ANTD_GRAY[1]};
 
         ${(props) =>
-            props.isShowNavBarRedesign &&
+            props.$isShowNavBarRedesign &&
             `
             & svg {
                 color: ${ANTD_GRAY[1]};
@@ -51,7 +51,7 @@ const SelectButton = styled(Button)<{ $selectedViewName: string; isShowNavBarRed
         border-color: ${(props) => (props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
 
         ${(props) =>
-            props.isShowNavBarRedesign &&
+            props.$isShowNavBarRedesign &&
             `
             & svg {
                 color: ${REDESIGN_COLORS.GREY_300};
@@ -91,8 +91,8 @@ const CloseIconStyle = styled(CloseIcon)`
     color: ${SEARCH_COLORS.TITLE_PURPLE};
 `;
 
-const LanguageIconStyle = styled(LanguageIcon)<{ isShowNavBarRedesign?: boolean }>`
-    font-size: ${(props) => (props.isShowNavBarRedesign ? '20px' : '18px')} !important;
+const LanguageIconStyle = styled(LanguageIcon)<{ $isShowNavBarRedesign?: boolean }>`
+    font-size: ${(props) => (props.$isShowNavBarRedesign ? '20px' : '18px')} !important;
 `;
 
 type Props = {
@@ -104,10 +104,10 @@ type Props = {
 export const renderSelectedView = ({ selectedViewName, isShowNavBarRedesign, onClear }: Props) => {
     return (
         <SelectButtonContainer>
-            <SelectButton $selectedViewName={selectedViewName} isShowNavBarRedesign={isShowNavBarRedesign}>
+            <SelectButton $selectedViewName={selectedViewName} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <Tooltip showArrow={false} title={selectedViewName} placement="bottom">
                     <ViewLabel>
-                        {selectedViewName || <LanguageIconStyle isShowNavBarRedesign={isShowNavBarRedesign} />}
+                        {selectedViewName || <LanguageIconStyle $isShowNavBarRedesign={isShowNavBarRedesign} />}
                     </ViewLabel>
                 </Tooltip>
             </SelectButton>

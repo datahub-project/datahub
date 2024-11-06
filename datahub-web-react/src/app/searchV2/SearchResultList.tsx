@@ -15,15 +15,16 @@ import { CombinedSearchResult } from './utils/combineSiblingsInSearchResults';
 import { PreviewType } from '../entity/Entity';
 import { useInitializeSearchResultCards } from '../entityV2/shared/components/styled/search/useInitializeSearchResultCards';
 import { useSearchContext } from '../search/context/SearchContext';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
 export const MATCHES_CONTAINER_HEIGHT = 52;
 
-const ResultList = styled(List)`
+const ResultList = styled(List)<{ $isShowNavBarRedesign?: boolean }>`
     &&& {
         margin-top: 8px;
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
-        padding: 0px 12px 0px 16px;
+        padding: ${(props) => (props.$isShowNavBarRedesign ? '0px 3px 0px 12px' : '0px 12px 0px 16px')};
         border-radius: 0px;
     }
 `;
@@ -42,13 +43,14 @@ export const ResultWrapper = styled.div<{
     selected: boolean;
     areMatchesExpanded: boolean;
     isFullViewCard: boolean;
+    $isShowNavBarRedesign?: boolean;
 }>`
     // z-index: 2;
     ${(props) =>
         props.showUpdatedStyles &&
         `    
         background-color: white;
-        border-radius: 8px;
+        border-radius: ${props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
         padding: 16px 20px;
         box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
         border-bottom: 1px solid ${ANTD_GRAY[5]};
@@ -73,7 +75,7 @@ export const ResultWrapper = styled.div<{
         if (props.areMatchesExpanded) {
             marginBottomValue = MATCHES_CONTAINER_HEIGHT + 20;
         } else if (props.isFullViewCard) {
-            marginBottomValue = 20;
+            marginBottomValue = props.$isShowNavBarRedesign ? 16 : 20;
         } else {
             marginBottomValue = 10;
         }
@@ -156,6 +158,7 @@ export const SearchResultList = ({
     onCardClick,
     setAreAllEntitiesSelected,
 }: Props) => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
     const showSearchFiltersV2 = useIsSearchV2();
@@ -223,6 +226,7 @@ export const SearchResultList = ({
     return (
         <ResultList<React.FC<ListProps<CombinedSearchResult>>>
             id="search-result-list"
+            $isShowNavBarRedesign={isShowNavBarRedesign}
             dataSource={searchResults}
             split={false}
             locale={{ emptyText: (!loading && <EmptySearchResults suggestions={suggestions} />) || <></> }}
@@ -245,6 +249,7 @@ export const SearchResultList = ({
                                 onClick={() => onClickResult(item, index)}
                                 ref={refs[index]}
                                 isFullViewCard={isFullViewCard}
+                                $isShowNavBarRedesign={isShowNavBarRedesign}
                             >
                                 <ListItem
                                     isSelectMode={isSelectMode}

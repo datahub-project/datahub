@@ -14,8 +14,8 @@ import {
     useRejectProposalsMutation,
 } from '../../../graphql/actionRequest.generated';
 
-const ActionRequestsContainer = styled.div<{ isShowNavBarRedesign?: boolean }>`
-    ${(props) => props.isShowNavBarRedesign && 'height: calc(100% - 200px);'}
+const ActionRequestsContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    ${(props) => props.$isShowNavBarRedesign && 'height: calc(100% - 200px);'}
 `;
 
 const Container = styled.div`
@@ -28,9 +28,9 @@ const ActionRequestsTitle = styled(Typography.Title)`
     }
 `;
 
-const ActionRequestsStyledList = styled(List)<{ isShowNavBarRedesign?: boolean }>`
+const ActionRequestsStyledList = styled(List)<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
-        props.isShowNavBarRedesign &&
+        props.$isShowNavBarRedesign &&
         `
         overflow-x: hidden;
         overflow-y: auto;
@@ -221,11 +221,11 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
                     </Button>
                 </BulkActions>
             </TabToolbar>
-            <ActionRequestsContainer isShowNavBarRedesign={isShowNavBarRedesign}>
+            <ActionRequestsContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                 {title && <ActionRequestsTitle level={2}>{title}</ActionRequestsTitle>}
                 <ActionRequestsStyledList
                     bordered
-                    isShowNavBarRedesign={isShowNavBarRedesign}
+                    $isShowNavBarRedesign={isShowNavBarRedesign}
                     locale={{
                         emptyText: <Empty description="No Requests!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}

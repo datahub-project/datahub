@@ -5,6 +5,7 @@ import colors from '@src/alchemy-components/theme/foundations/colors';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '../../../graphql/user.generated';
 import { EntityRelationship, EntityType } from '../../../types.generated';
@@ -47,18 +48,26 @@ const defaultTabDisplayConfig = {
 /**
  * Styled Components
  */
-const UserProfileWrapper = styled.div`
+const UserProfileWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     &&& .ant-tabs-nav {
         margin: 0;
     }
     background-color: #fff;
-    border-radius: 8px;
     height: 100%;
     overflow: hidden;
     display: flex;
     &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
         padding-left: 15px;
     }
+
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        margin: 5px;
+    `}
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
 `;
 
 export const EmptyValue = styled.div`
@@ -84,6 +93,7 @@ const Tabs = styled.div``;
  * Responsible for reading & writing users.
  */
 export default function UserProfile({ urn }: Props) {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const isCompact = React.useContext(CompactContext);
@@ -209,7 +219,7 @@ export default function UserProfile({ urn }: Props) {
         >
             <EntityHead />
             {error && <ErrorSection />}
-            <UserProfileWrapper>
+            <UserProfileWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <Col xl={7} lg={7} md={7} sm={24} xs={24} style={{ height: '100%' }}>
                     <UserSideBar sidebarData={sidebarData} refetch={refetch} />
                 </Col>

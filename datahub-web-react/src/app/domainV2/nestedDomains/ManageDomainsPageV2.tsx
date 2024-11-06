@@ -11,14 +11,16 @@ import CreateDomainModal from '../CreateDomainModal';
 import { updateListDomainsCache } from '../utils';
 import { useDomainsContext as useDomainsContextV2 } from '../DomainsContext';
 
-const PageWrapper = styled.div<{ isShowNavBarRedesign?: boolean }>`
+const PageWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: #ffffff;
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border-radius: ${(props) => (props.isShowNavBarRedesign ? '12px' : '8px')};
-    margin-left: ${(props) => (props.isShowNavBarRedesign ? '0' : '12px')};
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
+    margin-left: ${(props) => (props.$isShowNavBarRedesign ? '0' : '12px')};
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};`}
 `;
 
 const Header = styled.div`
@@ -39,7 +41,7 @@ export default function ManageDomainsPageV2() {
     }, [setEntityData]);
 
     return (
-        <PageWrapper isShowNavBarRedesign={isShowNavBarRedesign}>
+        <PageWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <Header>
                 <PageTitle title="Domains" subTitle="Group data assets using hierarchical collections" />

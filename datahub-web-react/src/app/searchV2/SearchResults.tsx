@@ -85,11 +85,11 @@ const SearchResultsContainer = styled.div`
     height: 100%;
 `;
 
-const SearchResultsScrollContainer = styled.div<{ isShowNavBarRedesign?: boolean }>`
+const SearchResultsScrollContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex-direction: column;
     height: 100%;
-    ${(props) => !props.isShowNavBarRedesign && 'overflow-y: scroll;'}
+    ${(props) => !props.$isShowNavBarRedesign && 'overflow-y: scroll;'}
 `;
 
 const LeftControlsContainer = styled.div`
@@ -113,18 +113,18 @@ const SearchMenuContainer = styled.div`
     align-items: center;
 `;
 
-const SearchResultListContainer = styled.div<{ v2Styles: boolean; isShowNavBarRedesign?: boolean }>`
+const SearchResultListContainer = styled.div<{ v2Styles: boolean; $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex-direction: column;
-    ${({ v2Styles, isShowNavBarRedesign }) =>
+    ${({ v2Styles, $isShowNavBarRedesign }) =>
         v2Styles &&
         `
         flex: 1;
         overflow-x: hidden;        
         overflow-y: auto;
-        ${isShowNavBarRedesign && 'scrollbar-width: none;'}
+        ${$isShowNavBarRedesign && 'scrollbar-width: none;'}
     `}
-    margin: 4px 12px 4px 0px;
+    margin: ${(props) => (props.$isShowNavBarRedesign ? '5px 4px 5px 0px' : '4px 12px 4px 0px')};
 `;
 
 const CustomSwitch = styled.div`
@@ -269,11 +269,11 @@ export const SearchResults = ({
                         {(error && <ErrorSection />) ||
                             (loading && !combinedSiblingSearchResults.length && <SearchResultsLoadingSection />) ||
                             (combinedSiblingSearchResults && (
-                                <SearchResultsScrollContainer isShowNavBarRedesign={isShowNavBarRedesign}>
+                                <SearchResultsScrollContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                                     <SearchResultsContainer>
                                         <SearchResultListContainer
                                             v2Styles={showSearchFiltersV2}
-                                            isShowNavBarRedesign={isShowNavBarRedesign}
+                                            $isShowNavBarRedesign={isShowNavBarRedesign}
                                         >
                                             <PaginationInfoContainer v2Styles={showSearchFiltersV2}>
                                                 <LeftControlsContainer>

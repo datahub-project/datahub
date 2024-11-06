@@ -14,69 +14,70 @@ import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import useSearchViewAll from './useSearchViewAll';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const getStyles = (isShowNavBarRedesign?: boolean) => {
+const getStyles = ($isShowNavBarRedesign?: boolean) => {
     return {
         input: {
-            backgroundColor: isShowNavBarRedesign ? 'white' : '#343444',
+            backgroundColor: $isShowNavBarRedesign ? 'white' : '#343444',
         },
         searchBox: {
-            maxWidth: isShowNavBarRedesign ? '100%' : 620,
-            minWidth: isShowNavBarRedesign ? 300 : 400,
+            maxWidth: $isShowNavBarRedesign ? '100%' : 620,
+            minWidth: $isShowNavBarRedesign ? 300 : 400,
         },
         searchBoxContainer: {
             padding: 0,
             display: 'flex',
             justifyContent: 'center',
-            width: isShowNavBarRedesign ? '439px' : '620px',
+            width: $isShowNavBarRedesign ? '439px' : '620px',
             minWidth: '400px',
         },
     };
 };
 
-const Wrapper = styled.div<{ isShowNavBarRedesign?: boolean }>`
+const Wrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     position: fixed;
     width: 100%;
     ${(props) =>
-        !props.isShowNavBarRedesign &&
+        !props.$isShowNavBarRedesign &&
         `
         line-height: 20px;
         padding: 0px 12px;
     `}
 `;
 
-const Header = styled(Layout)<{ isNavBarCollapsed?: boolean; isShowNavBarRedesign?: boolean }>`
+const Header = styled(Layout)<{ isNavBarCollapsed?: boolean; $isShowNavBarRedesign?: boolean }>`
     background-color: transparent;
-    height: 72px;
+    height: ${(props) => (props.$isShowNavBarRedesign ? '56px' : '72px')};
     display: flex;
     ${(props) => {
-        if (!props.isShowNavBarRedesign) return '';
-        return `padding-left: ${props.isNavBarCollapsed ? '78px;' : '268px'};`;
+        if (!props.$isShowNavBarRedesign) return '';
+        return `padding-left: ${props.isNavBarCollapsed ? '78px;' : '272px'};`;
     }}
     ${(props) =>
-        props.isShowNavBarRedesign &&
+        props.$isShowNavBarRedesign &&
         `
+        margin-top: 8px;
         gap: 16px;
         flex-direction: row;
         transition: padding 250ms ease-in-out;
     `}
-    ${(props) => !props.isNavBarCollapsed && 'justify-content: space-between;'}
+    ${(props) => props.$isShowNavBarRedesign && !props.isNavBarCollapsed && 'justify-content: space-between;'}
     align-items: center;
 `;
 
-const HeaderBackground = styled.div<{ isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => (props.isShowNavBarRedesign ? 'initial' : '#171723')};
+const HeaderBackground = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    ${(props) => !props.$isShowNavBarRedesign && 'background-color: #171723;'}
     position: fixed;
     height: 100px;
     width: 100%;
     z-index: -1;
 `;
 
-const SearchBarContainer = styled.div<{ isShowNavBarRedesign?: boolean }>`
+const SearchBarContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex: 1;
     align-items: center;
     ${(props) =>
-        !props.isShowNavBarRedesign &&
+        !props.$isShowNavBarRedesign &&
         `
         justify-content: center;
         margin-left: 80px;
@@ -136,11 +137,11 @@ export const SearchHeader = ({
 
     return (
         <>
-            <HeaderBackground isShowNavBarRedesign={isShowNavBarRedesign} />
-            <Wrapper isShowNavBarRedesign={isShowNavBarRedesign}>
-                <Header isShowNavBarRedesign={isShowNavBarRedesign} isNavBarCollapsed={isCollapsed}>
+            <HeaderBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
+            <Wrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
+                <Header $isShowNavBarRedesign={isShowNavBarRedesign} isNavBarCollapsed={isCollapsed}>
                     {isShowNavBarRedesign && isCollapsed && <NavBarToggler iconSize={20} />}
-                    <SearchBarContainer isShowNavBarRedesign={isShowNavBarRedesign}>
+                    <SearchBarContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                         <SearchBar
                             isLoading={isUserInitializing || !appConfig.loaded}
                             id={V2_SEARCH_BAR_ID}
@@ -155,6 +156,7 @@ export const SearchHeader = ({
                             entityRegistry={entityRegistry}
                             setIsSearchBarFocused={setIsSearchBarFocused}
                             viewsEnabled={viewsEnabled}
+                            isShowNavBarRedesign={isShowNavBarRedesign}
                             combineSiblings
                             fixAutoComplete
                             showQuickFilters

@@ -1,16 +1,5 @@
 import React, { useContext } from 'react';
-import {
-    ApiOutlined,
-    BookOutlined,
-    DatabaseOutlined,
-    FileDoneOutlined,
-    FormOutlined,
-    QuestionCircleOutlined,
-    SettingOutlined,
-    UnorderedListOutlined,
-} from '@ant-design/icons';
 import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
-import DomainIcon from '@src/app/domainV2/DomainIcon';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
 import { useHandleOnboardingTour } from '@src/app/onboarding/useHandleOnboardingTour';
@@ -18,9 +7,22 @@ import { useUpdateEducationStepsAllowList } from '@src/app/onboarding/useUpdateE
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
 import { EntityType } from '@src/types.generated';
-import { FaRegUserCircle } from 'react-icons/fa';
-import { HiOutlineClipboardList } from 'react-icons/hi';
-import { Lightning, SquaresFour, TrendUp } from '@phosphor-icons/react';
+import {
+    BuildingOffice,
+    Cylinder,
+    FileLock,
+    Gear,
+    Heartbeat,
+    Lightning,
+    ListChecks,
+    Plugs,
+    Question,
+    SquaresFour,
+    TestTube,
+    TextColumns,
+    TrendUp,
+    UserCircle,
+} from '@phosphor-icons/react';
 import styled, { useTheme } from 'styled-components';
 import AcrylIcon from '../../../../images/acryl-light-mark.svg?react';
 import { useUserContext } from '../../../context/useUserContext';
@@ -43,9 +45,9 @@ const Container = styled.div`
 const Content = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     flex-direction: column;
-    padding: 16px;
+    padding: 17px 9px 17px 17px;
     height: 100%;
-    width: ${(props) => (props.isCollapsed ? '72px' : '267px')};
+    width: ${(props) => (props.isCollapsed ? '60px' : '267px')};
     transition: width 250ms ease-in-out;
     overflow-x: hidden;
 `;
@@ -95,14 +97,14 @@ export const NavSidebar = () => {
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
 
-    const showIngestion =
+    const showDataSources =
         config.managedIngestionConfig.enabled &&
         me &&
         me.platformPrivileges?.manageIngestion &&
         me.platformPrivileges?.manageSecrets;
 
     // Update education steps allow list
-    useUpdateEducationStepsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
+    useUpdateEducationStepsAllowList(!!showDataSources, HOME_PAGE_INGESTION_ID);
 
     const customLogoUrl = appConfig.config.visualConfig.logoUrl;
     const hasCustomLogo = customLogoUrl && customLogoUrl !== DEFAULT_LOGO;
@@ -123,13 +125,24 @@ export const NavSidebar = () => {
                 type: NavBarMenuItemTypes.Item,
                 title: 'Home',
                 icon: <SquaresFour />,
+                selectedIcon: <SquaresFour weight="fill" />,
                 key: 'home',
                 link: PageRoutes.ROOT,
             },
             {
                 type: NavBarMenuItemTypes.Item,
+                title: 'Data Sources',
+                key: 'dataSources',
+                isHidden: !showDataSources,
+                icon: <Plugs />,
+                selectedIcon: <Plugs weight="fill" />,
+                link: PageRoutes.INGESTION,
+            },
+            {
+                type: NavBarMenuItemTypes.Item,
                 title: 'Tasks',
-                icon: <HiOutlineClipboardList />,
+                icon: <ListChecks />,
+                selectedIcon: <ListChecks weight="fill" />,
                 key: 'tasks',
                 isHidden: !showActionRequests,
                 link: PageRoutes.ACTION_REQUESTS,
@@ -138,6 +151,7 @@ export const NavSidebar = () => {
                 type: NavBarMenuItemTypes.Item,
                 title: 'Analytics',
                 icon: <TrendUp />,
+                selectedIcon: <TrendUp weight="fill" />,
                 key: 'analytics',
                 isHidden: !showAnalytics,
                 link: PageRoutes.ANALYTICS,
@@ -151,39 +165,44 @@ export const NavSidebar = () => {
                         type: NavBarMenuItemTypes.Item,
                         title: 'Glossary',
                         key: 'glossary',
-                        icon: <BookOutlined />,
+                        icon: <Cylinder />,
+                        selectedIcon: <Cylinder weight="fill" />,
                         link: PageRoutes.GLOSSARY,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
                         title: 'Domains',
                         key: 'domains',
-                        icon: <DomainIcon />,
+                        icon: <BuildingOffice />,
+                        selectedIcon: <BuildingOffice weight="fill" />,
                         link: PageRoutes.DOMAINS,
-                    },
-                    {
-                        type: NavBarMenuItemTypes.Item,
-                        title: 'Automations',
-                        description: 'Manage automated actions across your data assets',
-                        icon: <Lightning />,
-                        key: 'automations',
-                        link: PageRoutes.AUTOMATIONS,
-                        isHidden: !showAutomations,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
                         title: 'Tests',
                         key: 'tests',
                         isHidden: !showTests,
-                        icon: <FileDoneOutlined />,
+                        icon: <TestTube />,
+                        selectedIcon: <TestTube weight="fill" />,
                         link: PageRoutes.TESTS,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Automations',
+                        description: 'Manage automated actions across your data assets',
+                        icon: <Lightning />,
+                        selectedIcon: <Lightning weight="fill" />,
+                        key: 'automations',
+                        link: PageRoutes.AUTOMATIONS,
+                        isHidden: !showAutomations,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
                         title: 'Compliance Forms',
                         key: 'complianceForms',
                         isHidden: !showDocumentationCenter,
-                        icon: <FormOutlined />,
+                        icon: <FileLock />,
+                        selectedIcon: <FileLock weight="fill" />,
                         link: PageRoutes.GOVERN_DASHBOARD,
                     },
                     {
@@ -191,7 +210,8 @@ export const NavSidebar = () => {
                         title: 'Structured Properties',
                         key: 'structuredProperties',
                         isHidden: !showStructuredProperties,
-                        icon: <UnorderedListOutlined />,
+                        icon: <TextColumns />,
+                        selectedIcon: <TextColumns weight="fill" />,
                         link: PageRoutes.STRUCTURED_PROPERTIES,
                     },
                 ],
@@ -206,16 +226,9 @@ export const NavSidebar = () => {
                         title: 'Data Health',
                         key: 'dataHealth',
                         isHidden: !showDatasetHealth,
-                        icon: <DatabaseOutlined />,
+                        icon: <Heartbeat />,
+                        selectedIcon: <Heartbeat weight="fill" />,
                         link: PageRoutes.DATASET_HEALTH_DASHBOARD,
-                    },
-                    {
-                        type: NavBarMenuItemTypes.Item,
-                        title: 'Ingestion',
-                        key: 'ingestion',
-                        isHidden: !showIngestion,
-                        icon: <ApiOutlined />,
-                        link: PageRoutes.INGESTION,
                     },
                 ],
             },
@@ -227,21 +240,24 @@ export const NavSidebar = () => {
             {
                 type: NavBarMenuItemTypes.Item,
                 title: 'Profile',
-                icon: <FaRegUserCircle />,
+                icon: <UserCircle />,
+                selectedIcon: <UserCircle weight="fill" />,
                 key: 'profile',
                 link: `/${entityRegistry.getPathName(EntityType.CorpUser)}/${userContext.urn}`,
             },
             {
                 type: NavBarMenuItemTypes.Item,
                 title: 'Settings',
-                icon: <SettingOutlined />,
+                icon: <Gear />,
+                selectedIcon: <Gear weight="fill" />,
                 key: 'settings',
                 link: '/settings',
             },
             {
                 type: NavBarMenuItemTypes.Dropdown,
                 title: 'Help',
-                icon: <QuestionCircleOutlined />,
+                icon: <Question />,
+                selectedIcon: <Question weight="fill" />,
                 key: 'help',
                 items: [
                     {

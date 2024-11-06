@@ -10,11 +10,18 @@ import { IncidentsSummary } from './incident/IncidentsSummary';
 import { EntityType } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
 
-const Container = styled.div<{ isShowNavBarRedesign?: boolean }>`
+const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     height: 100%;
     background-color: white;
-    border-radius: ${(props) => (props.isShowNavBarRedesign ? '12px' : '8px')};
-    ${(props) => props.isShowNavBarRedesign && 'overflow:hidden;'}
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        overflow:hidden;
+        margin: 5px;
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+    `}
 `;
 
 const Header = styled.div`
@@ -39,13 +46,13 @@ const SubTitle = styled(Typography.Paragraph)`
     }
 `;
 
-const Content = styled.div<{ isShowNavBarRedesign?: boolean }>`
+const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-left: 40px;
     padding-right: 40px;
     padding-top: 20px;
-    background-color: ${(props) => (props.isShowNavBarRedesign ? 'white' : ANTD_GRAY[2])};
+    background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : ANTD_GRAY[2])};
     ${(props) =>
-        props.isShowNavBarRedesign &&
+        props.$isShowNavBarRedesign &&
         `
         overflow-y: auto;
         height: calc(100% - 115px);
@@ -112,7 +119,7 @@ export const DatasetHealthPage = () => {
     const total = data?.searchAcrossEntities?.total || 0;
 
     return (
-        <Container isShowNavBarRedesign={isShowNavBarRedesign}>
+        <Container $isShowNavBarRedesign={isShowNavBarRedesign}>
             <Header>
                 <Title level={3}>
                     <StyledDatabaseOutlined />
@@ -120,7 +127,7 @@ export const DatasetHealthPage = () => {
                 </Title>
                 <SubTitle type="secondary">{PAGE_SUB_TITLE}</SubTitle>
             </Header>
-            <Content isShowNavBarRedesign={isShowNavBarRedesign}>
+            <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ContentSectionTitle level={3}>Overview</ContentSectionTitle>
                 <ContentSection>
                     <LeftColumn>

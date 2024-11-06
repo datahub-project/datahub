@@ -12,10 +12,19 @@ import {
 } from '../onboarding/config/IngestionOnboardingConfig';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const PageContainer = styled.div<{ isShowNavBarRedesign?: boolean }>`
+const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
     background-color: white;
-    border-radius: ${(props) => (props.isShowNavBarRedesign ? '12px' : '8px')};
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        overflow: hidden;
+        margin: 5px;
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        height: 100%;
+    `}
 `;
 
 const PageHeaderContainer = styled.div`
@@ -73,7 +82,7 @@ export const ManageIngestionPage = () => {
     };
 
     return (
-        <PageContainer isShowNavBarRedesign={isShowNavBarRedesign}>
+        <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID, INGESTION_REFRESH_SOURCES_ID]} />
             <PageHeaderContainer>
                 <PageTitle level={3}>Manage Data Sources</PageTitle>

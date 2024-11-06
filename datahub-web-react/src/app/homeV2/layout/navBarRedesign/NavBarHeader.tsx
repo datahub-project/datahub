@@ -11,7 +11,7 @@ const Container = styled.div<{ isCollapsed?: boolean }>`
     min-height: 40px;
     align-items: center;
     gap: 8px;
-    ${(props) => props.isCollapsed && 'padding-left: 8px;'}
+    ${(props) => props.isCollapsed && 'padding-left: 6px;'}
     transition: padding 250ms ease-in-out;
 `;
 
@@ -19,13 +19,13 @@ const Logotype = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     border-radius: 4px;
     background: white;
 
     & svg {
-        height: 15px;
+        height: 20px;
     }
 `;
 

@@ -54,7 +54,7 @@ const StructuredProperties = () => {
     )?.entity;
 
     return (
-        <PageContainer isShowNavBarRedesign={isShowNavBarRedesign}>
+        <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <HeaderContainer>
                 <HeaderContent>
                     <PageTitle

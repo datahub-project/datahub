@@ -11,6 +11,8 @@ export interface NavBarContextType {
     setState: (newState: NavBarStateType) => void;
     isCollapsed: boolean;
     toggle: () => void;
+    selectedKey: string;
+    setSelectedKey: (key: string) => void;
 }
 
 export const NavBarContext = React.createContext<NavBarContextType>({
@@ -18,6 +20,8 @@ export const NavBarContext = React.createContext<NavBarContextType>({
     setState: () => {},
     isCollapsed: true,
     toggle: () => {},
+    selectedKey: '',
+    setSelectedKey: () => {},
 });
 
 export const useNavBarContext = () => useContext(NavBarContext);
@@ -28,6 +32,7 @@ interface Props {
 
 export const NavBarProvider = ({ children }: Props) => {
     const [state, setState] = useState<NavBarStateType>(NavBarStateType.Collapsed);
+    const [selectedKey, setSelectedKey] = useState<string>('');
 
     const isCollapsed = useMemo(() => state === NavBarStateType.Collapsed, [state]);
     const toggle = () => {
@@ -52,6 +57,8 @@ export const NavBarProvider = ({ children }: Props) => {
                 setState,
                 isCollapsed,
                 toggle,
+                selectedKey,
+                setSelectedKey,
             }}
         >
             {children}

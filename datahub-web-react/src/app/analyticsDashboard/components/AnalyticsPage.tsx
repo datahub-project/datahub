@@ -14,18 +14,23 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useUserContext } from '../../context/useUserContext';
 import { useIsThemeV2 } from '../../useIsThemeV2';
 
-const PageContainer = styled.div<{ isV2: boolean; isShowNavBarRedesign?: boolean }>`
+const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
-    margin-right: ${(props) => {
-        if (props.isV2 && props.isShowNavBarRedesign) return '0';
-        return props.isV2 ? '24px' : '0';
-    }};
-    margin-bottom: ${(props) => {
-        if (props.isV2 && props.isShowNavBarRedesign) return '0';
-        return props.isV2 ? '24px' : '0';
-    }};
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        margin: 5px;
+        overflow: auto;
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+    `}
+    ${(props) =>
+        !props.$isShowNavBarRedesign &&
+        `
+        margin-right: ${props.isV2 ? '24px' : '0'};
+        margin-bottom: ${props.isV2 ? '24px' : '0'};
+    `}
     border-radius: ${(props) => {
-        if (props.isV2 && props.isShowNavBarRedesign) return '12px';
+        if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
         return props.isV2 ? '8px' : '0';
     }};
 `;
@@ -110,7 +115,7 @@ export const AnalyticsPage = () => {
 
     const isLoading = highlightLoading || chartLoading || domainLoading || metadataAnalyticsLoading;
     return (
-        <PageContainer isV2={isV2} isShowNavBarRedesign={isShowNavBarRedesign}>
+        <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
             {isLoading && <Message type="loading" content="Loading…" style={{ marginTop: '10%' }} />}
             <HighlightGroup>
                 {highlightError && (

@@ -14,11 +14,14 @@ export const StyledEntitySidebarContainer = styled.div<{
     $width?: number;
     backgroundColor?: string;
     isFocused?: boolean;
-    isShowNavBarRedesign?: boolean;
+    $isShowNavBarRedesign?: boolean;
 }>`
     flex: 1;
     overflow: auto;
-    box-shadow: 0px 0px 6px 0px rgba(93, 102, 139, 0.2);
+    box-shadow: ${(props) =>
+        props.$isShowNavBarRedesign
+            ? props.theme.styles['box-shadow-navbar-redesign']
+            : '0px 0px 6px 0px rgba(93, 102, 139, 0.2)'};
     ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
     ${(props) => props.isCollapsed && 'min-width: 56px; max-width: 56px;'}
     ${(props) => props.backgroundColor && `background-color: ${props.backgroundColor};`}
@@ -28,18 +31,22 @@ export const StyledEntitySidebarContainer = styled.div<{
     }
 
     margin: ${(props) => {
-        if (props.isFocused) return props.isShowNavBarRedesign ? '12px 0px 0px 0px' : '12px 12px 12px 0px';
-        return '0px 0px 0px 0px';
+        if (props.$isShowNavBarRedesign) {
+            return props.isFocused ? '6px 5px 5px 9px' : '4px 4px 4px 8px';
+        }
+        return props.isFocused ? '12px 12px 12px 0px' : '0px 0px 0px 0px';
     }};
+    ${(props) =>
+        props.$isShowNavBarRedesign && `border-radius: ${props.theme.styles['border-radius-navbar-redesign']};`}
     transition: max-width 0.3s ease-in-out, min-width 0.3s ease-in-out;
 `;
 
-export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; isShowNavBarRedesign?: boolean }>`
+export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; $isShowNavBarRedesign?: boolean }>`
     background-color: #ffffff;
     box-shadow: ${(props) => (props.isCard ? '0px 0px 5px rgba(0, 0, 0, 0.08)' : 'none')};
     border-radius: ${(props) => {
         if (!props.isCard) return 'none';
-        return props.isShowNavBarRedesign ? '12px' : '8px';
+        return props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px';
     }};
     border: none;
     overflow: hidden;
@@ -134,9 +141,9 @@ export default function EntityProfileSidebar({
             id="entity-profile-sidebar"
             isFocused={focused}
             className={className}
-            isShowNavBarRedesign={isShowNavBarRedesign}
+            $isShowNavBarRedesign={isShowNavBarRedesign}
         >
-            <StyledSidebar isCard={isCardLayout} isFocused={focused} isShowNavBarRedesign={isShowNavBarRedesign}>
+            <StyledSidebar isCard={isCardLayout} isFocused={focused} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ContentContainer isVisible={!isClosed}>
                     {!hideCollapse && (
                         <SidebarCollapsibleHeader currentTab={selectedTab} headerDropdownItems={headerDropdownItems} />

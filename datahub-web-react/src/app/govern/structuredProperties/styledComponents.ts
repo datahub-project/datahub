@@ -2,17 +2,24 @@ import { colors, Icon, typography } from '@src/alchemy-components';
 import { Checkbox, Collapse, Divider, Drawer, Form, Input, Modal, Select, Spin, Typography } from 'antd';
 import styled from 'styled-components';
 
-export const PageContainer = styled.div<{ isShowNavBarRedesign?: boolean }>`
+export const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     overflow: auto;
-    margin: ${(props) => (props.isShowNavBarRedesign ? '0' : '0 12px 12px 0')};
+    margin: ${(props) => (props.$isShowNavBarRedesign ? '0' : '0 12px 12px 0')};
     padding: 16px 20px 20px 20px;
-    border-radius: ${(props) => (props.isShowNavBarRedesign ? '12px' : '8px')};
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;
     flex: 1;
     flex-direction: column;
     gap: 20px;
     background-color: ${colors.white};
-    ${(props) => props.isShowNavBarRedesign && 'max-height: calc(100vh - 88px);'};
+    ${(props) => props.$isShowNavBarRedesign && 'max-height: calc(100vh - 88px);'};
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        margin: 5px;
+    `}
 `;
 
 export const HeaderContainer = styled.div`

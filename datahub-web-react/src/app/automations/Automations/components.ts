@@ -10,16 +10,23 @@ const sidebarWidth = '250px';
 
 // Page Container
 
-export const AutomationsPageContainer = styled.div<{ isShowNavBarRedesign?: boolean }>`
+export const AutomationsPageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
-        !props.isShowNavBarRedesign &&
+        !props.$isShowNavBarRedesign &&
         `
         max-width: 99%;
         min-height: 98%;
         z-index: 100;
     `}
     overflow: hidden;
-    ${(props) => props.isShowNavBarRedesign && 'min-height: 100%;'}
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        height: 100%;
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        border-radius: ${props.theme.styles['border-radius-navbar-redesign']};
+        margin: 5px;
+    `}
     // TODO: Readd for sidebar
     // display: grid;
     // grid-template-columns: ${sidebarWidth} 1fr;
@@ -50,9 +57,9 @@ export const AutomationsContent = styled.div`
 
 // Page Header
 
-export const AutomationsContentHeader = styled.div<{ isShowNavBarRedesign?: boolean }>`
+export const AutomationsContentHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
-        !props.isShowNavBarRedesign &&
+        !props.$isShowNavBarRedesign &&
         `
         position: sticky;
         top: 0;
@@ -87,9 +94,9 @@ export const ScrollableContent = styled.div`
     height: 100%;
 `;
 
-export const AutomationsContentBody = styled.div<{ isShowNavBarRedesign?: boolean }>`
+export const AutomationsContentBody = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding: 0px 20px;
-    ${(props) => props.isShowNavBarRedesign && 'height: calc(100% - 150px);'}
+    ${(props) => props.$isShowNavBarRedesign && 'height: calc(100% - 150px);'}
 `;
 
 export const AutomationsBody = styled.div`

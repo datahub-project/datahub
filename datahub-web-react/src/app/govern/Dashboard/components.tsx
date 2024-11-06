@@ -3,14 +3,16 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
-export const Layout = styled.div<{ isShowNavBarRedesign?: boolean }>`
+export const Layout = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     overflow: hidden;
-    margin: ${(props) => (props.isShowNavBarRedesign ? '0' : '0 16px 12px 0')};
-    border-radius: ${(props) => (props.isShowNavBarRedesign ? '12px' : '8px')};
+    margin: ${(props) => (props.$isShowNavBarRedesign ? '5px' : '0 16px 12px 0')};
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;
     flex: 1;
     flex-direction: column;
     background-color: #fff;
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};`}
 `;
 
 export const Header = styled.div`
@@ -162,11 +164,11 @@ export const Filters = styled.div`
     align-items: center;
 `;
 
-export const Body = styled.div<{ isShowNavBarRedesign?: boolean }>`
+export const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     display: flex;
     flex-direction: column;
-    background-color: ${(props) => (props.isShowNavBarRedesign ? 'white' : '#f8f9fa')};
+    background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : '#f8f9fa')};
     padding: 1rem;
 `;
 

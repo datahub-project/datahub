@@ -83,7 +83,7 @@ export const IntegrationServiceOffline = () => {
 
     return (
         <Container>
-            <Body isShowNavBarRedesign={isShowNavBarRedesign}>
+            <Body $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <FlexWrapper>
                     <div style={{ textAlign: 'center', fontSize: '18px' }}>
                         <PrimaryHeading>Your Compliance Form Initiatives</PrimaryHeading>
@@ -105,7 +105,7 @@ export const MissingPermissions = () => {
 
     return (
         <Container>
-            <Body isShowNavBarRedesign={isShowNavBarRedesign}>
+            <Body $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <FlexWrapper>
                     <div style={{ textAlign: 'center', fontSize: '18px' }}>
                         <PrimaryHeading>Your Compliance Form Initiatives</PrimaryHeading>

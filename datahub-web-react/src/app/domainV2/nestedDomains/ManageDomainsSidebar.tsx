@@ -16,20 +16,27 @@ const StyledEntitySidebarContainer = styled.div<{
     isCollapsed: boolean;
     $width?: number;
     backgroundColor?: string;
-    isShowNavBarRedesign?: boolean;
+    $isShowNavBarRedesign?: boolean;
+    $isEntityProfile?: boolean;
 }>`
     flex-shrink: 0;
     max-height: 100%;
 
     width: ${(props) => (props.isCollapsed ? '63px' : `${props.$width}px`)};
-    margin-bottom: ${(props) => (props.isShowNavBarRedesign ? '0' : '12px')};
+    margin-bottom: ${(props) => (props.$isShowNavBarRedesign ? '0' : '12px')};
     transition: width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
 
     background-color: #ffffff;
-    border-radius: ${(props) => (props.isShowNavBarRedesign ? '12px' : '8px')};
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;
     flex-direction: column;
-    ${(props) => props.isShowNavBarRedesign && 'margin-right: 16px;'}
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        margin: ${props.$isEntityProfile ? '5px 12px 5px 5px' : '0 16px 0 0'};
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+    `}
 `;
 
 const Controls = styled.div<{ isCollapsed: boolean }>`
@@ -69,7 +76,11 @@ const StyledSidebar = styled.div`
     flex-direction: column;
 `;
 
-export default function ManageDomainsSidebarV2() {
+type Props = {
+    isEntityProfile?: boolean;
+};
+
+export default function ManageDomainsSidebarV2({ isEntityProfile }: Props) {
     const width = useSidebarWidth(0.2);
     const [isClosed, setIsClosed] = useState(false);
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -83,7 +94,8 @@ export default function ManageDomainsSidebarV2() {
             isCollapsed={isClosed}
             $width={width}
             id="browse-v2"
-            isShowNavBarRedesign={isShowNavBarRedesign}
+            $isShowNavBarRedesign={isShowNavBarRedesign}
+            $isEntityProfile={isEntityProfile}
         >
             <Controls isCollapsed={isClosed}>
                 {!isClosed && <DomainsSidebarHeader />}

@@ -21,16 +21,17 @@ import { SearchablePage } from '../searchV2/SearchablePage';
 import PersonalizationLoadingModal from './persona/PersonalizationLoadingModal';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const Container = styled.div<{ isShowNavBarRedesign?: boolean }>`
+const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     display: flex;
     overflow: hidden;
     ${(props) =>
-        props.isShowNavBarRedesign &&
+        props.$isShowNavBarRedesign &&
         `
         background: white;
-        border-radius: 12px;
-        box-shadow: 0px 0px 6px 0px rgba(93, 102, 139, 0.20);
+        border-radius: ${props.theme.styles['border-radius-navbar-redesign']};
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        margin: 5px;
     `}
 `;
 
@@ -60,7 +61,7 @@ export const HomePage = () => {
                 ]}
             />
             <SearchablePage>
-                <Container data-testid="home-page-content-container" isShowNavBarRedesign={isShowNavBarRedesign}>
+                <Container data-testid="home-page-content-container" $isShowNavBarRedesign={isShowNavBarRedesign}>
                     <LeftSidebar />
                     <CenterContent />
                     <RightSidebar />

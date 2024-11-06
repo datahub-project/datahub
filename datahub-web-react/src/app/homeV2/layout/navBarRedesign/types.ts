@@ -20,12 +20,12 @@ export interface NavBarMenuBaseElement {
 
 export interface NavBarMenuBaseItem extends NavBarMenuBaseElement {
     icon: React.ReactNode;
+    selectedIcon?: React.ReactNode;
     title: string;
 }
 
 export type NavBarMenuLinkItem = NavBarMenuBaseItem & {
     type: NavBarMenuItemTypes.Item;
-    icon: React.ReactNode;
     title: string;
 };
 

@@ -18,17 +18,19 @@ import { useUserContext } from '../context/useUserContext';
 import GlossaryContentProvider from './GlossaryContentProvider';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const GlossaryWrapper = styled.div<{ isShowNavBarRedesign?: boolean }>`
+const GlossaryWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex: 1;
     height: 100%;
     background-color: white;
-    border-radius: ${(props) => (props.isShowNavBarRedesign ? '12px' : '8px')};
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']}`}
 `;
 
-const MainWrapper = styled.div<{ isShowNavBarRedesign?: boolean }>`
+const MainWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
-    margin: ${(props) => (props.isShowNavBarRedesign ? '0' : '0 16px 12px 12px')};
+    margin: ${(props) => (props.$isShowNavBarRedesign ? '0' : '0 16px 12px 12px')};
 `;
 
 const BusinessGlossaryPage = () => {
@@ -76,7 +78,7 @@ const BusinessGlossaryPage = () => {
                     BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
                 ]}
             />
-            <MainWrapper isShowNavBarRedesign={isShowNavBarRedesign}>
+            <MainWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 {/* TODO: Once the api for getting the stats data is available, we need to change this condition accordingly */}
                 {/* {termsData?.getRootGlossaryTerms?.total !== 0 && (
                     <GlossaryStatsProvider
@@ -86,7 +88,7 @@ const BusinessGlossaryPage = () => {
                         approvedGlossaryTerms={2}
                     />
                 )} */}
-                <GlossaryWrapper isShowNavBarRedesign={isShowNavBarRedesign}>
+                <GlossaryWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                     {(termsLoading || nodesLoading) && (
                         <Message type="loading" content="Loading Glossary..." style={{ marginTop: '10%' }} />
                     )}

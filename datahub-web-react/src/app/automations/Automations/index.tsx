@@ -74,14 +74,14 @@ const AutomationPage = React.memo(() => {
 
     return (
         <>
-            <AutomationsPageContainer isShowNavBarRedesign={isShowNavBarRedesign}>
+            <AutomationsPageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                 {!hideSidebar && (
                     <AutomationsSidebar>
                         <h1>Sidebar</h1>
                     </AutomationsSidebar>
                 )}
                 <AutomationsContent>
-                    <AutomationsContentHeader isShowNavBarRedesign={isShowNavBarRedesign}>
+                    <AutomationsContentHeader $isShowNavBarRedesign={isShowNavBarRedesign}>
                         <PageTitle title="Automations" subTitle="Manage automated actions across your data assets" />
                         <div>
                             <Button size="lg" icon="Add" onClick={() => setIsCreateOpen(!isCreateOpen)}>
@@ -89,7 +89,7 @@ const AutomationPage = React.memo(() => {
                             </Button>
                         </div>
                     </AutomationsContentHeader>
-                    <AutomationsContentBody isShowNavBarRedesign={isShowNavBarRedesign}>
+                    <AutomationsContentBody $isShowNavBarRedesign={isShowNavBarRedesign}>
                         <AutomationsContentTabs>
                             {orderBy(tabs, ['count'], ['desc']).map((tab) => (
                                 <AutomationsContentTab
