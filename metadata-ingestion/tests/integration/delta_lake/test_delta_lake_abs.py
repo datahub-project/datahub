@@ -97,6 +97,9 @@ def populate_azure_storage(pytestconfig, azure_container):
 
 @freezegun.freeze_time("2023-01-01 00:00:00+00:00")
 def test_delta_lake_ingest_azure(pytestconfig, tmp_path, test_resources_dir):
+    base_path = f"http://localhost:{AZURITE_BLOB_PORT}/devstoreaccount1/test-container/delta_tables/sales"
+
+    # Run the metadata ingestion pipeline.
     pipeline = Pipeline.create(
         {
             "run_id": "delta-lake-azure-test",
@@ -104,7 +107,7 @@ def test_delta_lake_ingest_azure(pytestconfig, tmp_path, test_resources_dir):
                 "type": "delta-lake",
                 "config": {
                     "env": "DEV",
-                    "base_path": f"http://localhost:{AZURITE_BLOB_PORT}/devstoreaccount1/test-container/delta_tables/sales",
+                    "base_path": base_path,
                     "azure": {
                         "azure_config": {
                             "account_name": "devstoreaccount1",
@@ -123,9 +126,7 @@ def test_delta_lake_ingest_azure(pytestconfig, tmp_path, test_resources_dir):
         }
     )
 
-    logger.info(
-        f"Starting pipeline run with base_path: {pipeline.config['source']['config']['base_path']}"
-    )
+    logger.info(f"Starting pipeline run with base_path: {base_path}")
     pipeline.run()
     pipeline.raise_from_status()
 

@@ -349,34 +349,38 @@ class DeltaLakeSource(Source):
         elif self.source_config.is_azure:
             azure_config = self.source_config.azure.azure_config
             creds = azure_config.get_credentials()
+            parsed_url = urlparse(self.source_config.base_path)
 
-            opts = {
-                "fs.azure.account.name": azure_config.account_name,
+            opts: Dict[str, str] = {
+                "fs.azure.account.name": str(azure_config.account_name or ""),
             }
 
-            connection_string = (
-                f"DefaultEndpointsProtocol={urlparse(self.source_config.base_path).scheme};"
-                f"AccountName={azure_config.account_name};"
-            )
+            connection_string_parts = [
+                f"DefaultEndpointsProtocol={parsed_url.scheme}",
+                f"AccountName={azure_config.account_name}",
+            ]
 
             if isinstance(creds, ClientSecretCredential):
-                opts.update(
-                    {
-                        "fs.azure.account.oauth2.client.id": azure_config.client_id,
-                        "fs.azure.account.oauth2.client.secret": azure_config.client_secret,
-                        "fs.azure.account.oauth2.client.endpoint": f"https://login.microsoftonline.com/{azure_config.tenant_id}/oauth2/token",
-                    }
-                )
-            elif azure_config.account_key:
-                connection_string += f"AccountKey={azure_config.account_key};"
-            elif azure_config.sas_token:
-                connection_string += (
-                    f"SharedAccessSignature={azure_config.sas_token.lstrip('?')};"
-                )
+                if azure_config.client_id and azure_config.client_secret and azure_config.tenant_id:
+                    opts.update(
+                        {
+                            "fs.azure.account.oauth2.client.id": str(azure_config.client_id),
+                            "fs.azure.account.oauth2.client.secret": str(azure_config.client_secret),
+                            "fs.azure.account.oauth2.client.endpoint": f"https://login.microsoftonline.com/{azure_config.tenant_id}/oauth2/token",
+                        }
+                    )
+            else:
+                if azure_config.account_key:
+                    connection_string_parts.append(f"AccountKey={azure_config.account_key}")
+                elif azure_config.sas_token:
+                    connection_string_parts.append(
+                        f"SharedAccessSignature={str(azure_config.sas_token or '').lstrip('?')}"
+                    )
 
-            if not isinstance(creds, ClientSecretCredential):
-                connection_string += f"BlobEndpoint={self.source_config.base_path.split('/' + azure_config.container_name)[0]}/"
-                opts["fs.azure.account.connection.string"] = connection_string
+                if not isinstance(creds, ClientSecretCredential):
+                    endpoint = f"{self.source_config.base_path.split('/' + str(azure_config.container_name))[0]}/"
+                    connection_string_parts.append(f"BlobEndpoint={endpoint}")
+                    opts["fs.azure.account.connection.string"] = ";".join(connection_string_parts)
 
             return {k: v for k, v in opts.items() if v}
         else:
