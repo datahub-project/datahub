@@ -9,6 +9,14 @@
 // - Added below pattern in argument_list
 //          |   WS_INLINE? SQL_STRING
 //          |   WS_INLINE? SQL_STRING "," argument_list
+// - Added subtract_expression
+// - Updated relational_expression, here below are the updates
+//      |   subtract_expression
+//      |   subtract_expression "<" relational_expression
+//      |   subtract_expression ">" relational_expression
+//      |   subtract_expression "<=" relational_expression
+//      |   subtract_expression ">=" relational_expression
+
 
 lexical_unit:   lexical_elements?
 
@@ -290,16 +298,27 @@ equality_expression:    WS_INLINE? relational_expression
                    |    relational_expression WS_INLINE? "<>" WS_INLINE? equality_expression
 
 relational_expression:  additive_expression
+                    |   subtract_expression
                     |   additive_expression "<" relational_expression
                     |   additive_expression ">" relational_expression
                     |   additive_expression "<=" relational_expression
                     |   additive_expression ">=" relational_expression
+                    |   subtract_expression "<" relational_expression
+                    |   subtract_expression ">" relational_expression
+                    |   subtract_expression "<=" relational_expression
+                    |   subtract_expression ">=" relational_expression
+
 
 additive_expression:    multiplicative_expression
                     |   multiplicative_expression "+" additive_expression
                     |   multiplicative_expression WS_INLINE? "_" WS_INLINE? additive_expression
                     |   multiplicative_expression  WS_INLINE? NEWLINE? WS_INLINE? "&" WS_INLINE? NEWLINE? WS_INLINE? additive_expression
 
+
+subtract_expression:    multiplicative_expression
+                    |   multiplicative_expression "-" additive_expression
+                    |   multiplicative_expression WS_INLINE? "_" WS_INLINE? additive_expression
+                    |   multiplicative_expression  WS_INLINE? NEWLINE? WS_INLINE? "&" WS_INLINE? NEWLINE? WS_INLINE? additive_expression
 
 multiplicative_expression:  WS_INLINE? metadata_expression
                         |   metadata_expression WS_INLINE? "*" WS_INLINE? multiplicative_expression
