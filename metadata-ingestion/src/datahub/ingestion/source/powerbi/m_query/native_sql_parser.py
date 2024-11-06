@@ -10,7 +10,12 @@ from datahub.sql_parsing.sqlglot_lineage import (
     create_lineage_sql_parsed_result,
 )
 
-SPECIAL_CHARACTERS = ["#(lf)", "(lf)", "#(tab)"]
+# It is the PowerBI M-Query way to mentioned \n , \t
+SPECIAL_CHARACTERS = {
+    "#(lf)": "\n",
+    "(lf)": "\n",
+    "#(tab)": "\t",
+}
 
 ANSI_ESCAPE_CHARACTERS = r"\x1b\[[0-9;]*m"
 
@@ -19,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def remove_special_characters(native_query: str) -> str:
     for char in SPECIAL_CHARACTERS:
-        native_query = native_query.replace(char, " ")
+        native_query = native_query.replace(char, SPECIAL_CHARACTERS[char])
 
     ansi_escape_regx = re.compile(ANSI_ESCAPE_CHARACTERS)
 

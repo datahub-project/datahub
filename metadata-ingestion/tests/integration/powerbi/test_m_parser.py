@@ -998,6 +998,7 @@ def test_databricks_multicloud():
 
 def test_snowflake_multi_function_call():
     q = M_QUERIES[32]
+
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         columns=[],
         measures=[],
