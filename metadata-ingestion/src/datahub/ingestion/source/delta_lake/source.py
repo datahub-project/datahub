@@ -2,11 +2,13 @@ import json
 import logging
 import os
 import time
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 from urllib.parse import urlparse
 
 from azure.identity import ClientSecretCredential
+from azure.storage.blob import BlobServiceClient
 from deltalake import DeltaTable
+from mypy_boto3_s3 import S3Client
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -113,11 +115,10 @@ class DeltaLakeSource(Source):
         self.source_config = config
         self.report = DeltaLakeSourceReport()
 
-        self.s3_client = None
-        self.azure_client = None
+        s3_client: Optional[S3Client]
+        azure_client: Optional[BlobServiceClient]
 
-        # Get paths safely
-        paths = getattr(self.source_config, "paths_to_scan", []) or []
+        paths: List[str] = getattr(self.source_config, "paths_to_scan", []) or []
 
         if not paths:
             return
@@ -448,6 +449,8 @@ class DeltaLakeSource(Source):
             return self.local_get_folders(path)
 
     def s3_get_folders(self, path: str) -> Iterable[str]:
+        if self.s3_client is None:
+            return []
         parse_result = urlparse(path)
         for page in self.s3_client.get_paginator("list_objects_v2").paginate(
             Bucket=parse_result.netloc, Prefix=parse_result.path[1:], Delimiter="/"
@@ -458,6 +461,8 @@ class DeltaLakeSource(Source):
     def azure_get_folders(self, path: str) -> Iterable[str]:
         """List folders from Azure Blob Storage."""
 
+        if self.azure_client is None:
+            return []
         try:
             container_name = get_container_name(path)
             prefix = get_key_prefix(path)

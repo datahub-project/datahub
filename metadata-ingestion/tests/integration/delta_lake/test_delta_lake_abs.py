@@ -17,6 +17,12 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 AZURITE_BLOB_PORT = 10000
 
 
+warnings.filterwarnings(
+    "ignore",
+    message="The 'base_path' option is deprecated",
+    module="datahub.ingestion.source.delta_lake.config",
+)
+
 def is_azurite_up(container_name: str) -> bool:
     """Check if Azurite blob storage is responsive on a container"""
     cmd = f"docker logs {container_name} 2>&1 | grep 'Azurite Blob service is successfully listening'"

@@ -95,25 +95,25 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     s3: Optional[S3] = Field(default=None)
     azure: Optional[Azure] = Field(default=None)
 
-    @cached_property
+    @cached_property  # type: ignore
     def is_s3(self) -> bool:
-        first_path = next(iter(self.paths_to_scan), "")
+        table_path = next(iter(self.paths_to_scan), "")
         return bool(
             self.s3 is not None
             and self.s3.aws_config is not None
-            and is_s3_uri(first_path)
+            and is_s3_uri(table_path)
         )
 
-    @cached_property
+    @cached_property  # type: ignore
     def is_azure(self) -> bool:
-        first_path = next(iter(self.paths_to_scan), "")
+        table_path = next(iter(self.paths_to_scan), "")
         return bool(
             self.azure is not None
             and self.azure.azure_config is not None
-            and is_abs_uri(first_path)
+            and is_abs_uri(table_path)
         )
 
-    @cached_property
+    @property
     def complete_paths(self) -> List[str]:
         paths: List[str] = []
         base_paths = self.paths_to_scan
