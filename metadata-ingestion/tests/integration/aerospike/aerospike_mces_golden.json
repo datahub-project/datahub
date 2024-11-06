@@ -4038,77 +4038,11 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.large_set,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)"
-                },
-                {
-                    "id": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed",
-                    "urn": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "aerospike-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.large_set,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:aerospike",
             "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "aerospike-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.large_set,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)"
-                },
-                {
-                    "id": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed",
-                    "urn": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "aerospike-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.second_set,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed"
         }
     },
     "systemMetadata": {
@@ -4201,7 +4135,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "nullableMixedType",
+                    "fieldPath": "nullMixedType",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -4220,7 +4154,7 @@
                             "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "float",
+                    "nativeDataType": "double",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -4244,10 +4178,13 @@
                             "com.linkedin.schema.ArrayType": {}
                         }
                     },
-                    "nativeDataType": "ARRAY",
+                    "nativeDataType": "list",
                     "recursive": false,
                     "isPartOfKey": false
                 }
+            ],
+            "primaryKeys": [
+                "PK"
             ]
         }
     },
@@ -4284,31 +4221,6 @@
         "json": {
             "platform": "urn:li:dataPlatform:aerospike",
             "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "aerospike-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.second_set,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)"
-                },
-                {
-                    "id": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed",
-                    "urn": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed"
-                }
-            ]
         }
     },
     "systemMetadata": {

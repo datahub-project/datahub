@@ -24,13 +24,8 @@ def test_aerospike_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
                 "source": {
                     "type": "aerospike",
                     "config": {
-                        # "connect_uri": "mongodb://localhost:57017",
-                        # "username": "mongoadmin",
-                        # "password": "examplepass",
-                        # "username": "admin",
                         "inferSchemaDepth": -1,
                         "platform_instance": "instance",
-                        "schemaSamplingSize": None,
                     },
                 },
                 "sink": {
@@ -50,39 +45,38 @@ def test_aerospike_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
             output_path=tmp_path / "aerospike_mces.json",
             golden_path=test_resources_dir / "aerospike_mces_golden.json",
         )
-        #
-        # # Run the metadata ingestion pipeline.
-        # pipeline = Pipeline.create(
-        #     {
-        #         "run_id": "mongodb-test-small-schema-size",
-        #         "source": {
-        #             "type": "mongodb",
-        #             "config": {
-        #                 "connect_uri": "mongodb://localhost:57017",
-        #                 "username": "mongoadmin",
-        #                 "password": "examplepass",
-        #                 "maxSchemaSize": 10,
-        #                 "platform_instance": "instance",
-        #             },
-        #         },
-        #         "sink": {
-        #             "type": "file",
-        #             "config": {
-        #                 "filename": f"{tmp_path}/mongodb_mces_small_schema_size.json",
-        #             },
-        #         },
-        #     }
-        # )
-        # pipeline.run()
-        # pipeline.raise_from_status()
-        #
-        # # Verify the output.
-        # mce_helpers.check_golden_file(
-        #     pytestconfig,
-        #     output_path=tmp_path / "mongodb_mces_small_schema_size.json",
-        #     golden_path=test_resources_dir
-        #     / "mongodb_mces_small_schema_size_golden.json",
-        # )
+
+        # Run the metadata ingestion pipeline.
+        pipeline = Pipeline.create(
+            {
+                "run_id": "aerospike-test-small-schema-size",
+                "source": {
+                    "type": "aerospike",
+                    "config": {
+                        "inferSchemaDepth": -1,
+                        "maxSchemaSize": 10,
+                        "platform_instance": "instance",
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/aerospike_mces_small_schema_size.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        # Verify the output.
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "aerospike_mces_small_schema_size.json",
+            golden_path=test_resources_dir
+            / "aerospike_mces_small_schema_size_golden.json",
+        )
+
 
 def populate_aerospike():
     write_policy = {"key": aerospike.POLICY_KEY_SEND}
@@ -99,7 +93,7 @@ def populate_aerospike():
     ]
 
     second_set = [
-        {"name": "apple", "rating": 10, "varieties": ["honey crisp", "red delicious", "fuji"], "tasty": True, "mixedType": 2, "nullMixedType": "a"},
+        {"name": "apple", "rating": 10.0, "varieties": ["honey crisp", "red delicious", "fuji"], "tasty": True, "mixedType": 2, "nullMixedType": "a"},
         {"name": "orange", "rating": 9, "varieties": ["clementine", "navel"], "tasty": True, "mixedType": "abc", "nullMixedType": True},
         {"name": "kiwi", "rating": 1000000000000000000, "tasty": True, "mixedType": {"fieldA": "a", "fieldTwo": 2}}
     ]

@@ -16,9 +16,13 @@ from datahub.configuration.source_common import (
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
-    make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import (
+    DatabaseKey,
+    add_dataset_to_container,
+    gen_containers,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -61,6 +65,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
 )
+from datahub.metadata.urns import DatasetUrn
 
 logger = logging.getLogger(__name__)
 
@@ -258,6 +263,7 @@ class AerospikeSource(StatefulIngestionSourceBase):
     config: AerospikeConfig
     report: AerospikeSourceReport
     aerospike_client: aerospike.Client
+    platform: str = "aerospike"
 
     def __init__(self, ctx: PipelineContext, config: AerospikeConfig):
         super().__init__(config, ctx)
@@ -347,8 +353,6 @@ class AerospikeSource(StatefulIngestionSourceBase):
         return SchemaFieldDataType(type=TypeClass())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        platform = "aerospike"
-
         sets_info: str = (
             self.aerospike_client.info_random_node("sets")
             .removeprefix("sets\t")
@@ -394,9 +398,9 @@ class AerospikeSource(StatefulIngestionSourceBase):
                     self.report.report_dropped(dataset_name)
                     continue
 
-                dataset_urn = make_dataset_urn_with_platform_instance(
-                    platform=platform,
-                    name=dataset_name,
+                dataset_urn = DatasetUrn.create_from_ids(
+                    platform_id=self.platform,
+                    table_name=dataset_name,
                     env=self.config.env,
                     platform_instance=self.config.platform_instance,
                 )
@@ -405,9 +409,9 @@ class AerospikeSource(StatefulIngestionSourceBase):
                 data_platform_instance = None
                 if self.config.platform_instance:
                     data_platform_instance = DataPlatformInstanceClass(
-                        platform=make_data_platform_urn(platform),
+                        platform=make_data_platform_urn(self.platform),
                         instance=make_dataplatform_instance_urn(
-                            platform, self.config.platform_instance
+                            self.platform, self.config.platform_instance
                         ),
                     )
 
@@ -425,79 +429,16 @@ class AerospikeSource(StatefulIngestionSourceBase):
                 schema_metadata: Optional[SchemaMetadata] = None
 
                 if self.config.inferSchemaDepth != 0:
-                    set_schema = construct_schema_aerospike(
-                        client=self.aerospike_client,
+                    schema_metadata = self._infer_schema_metadata(
                         as_set=curr_set,
-                        delimiter=".",
-                        records_per_second=self.config.records_per_second,
-                        sample_size=self.config.schemaSamplingSize,
-                    )
-
-                    if self.config.inferSchemaDepth != -1:
-                        # Infer schema only at the bins level
-                        set_schema = {
-                            k: v
-                            for k, v in set_schema.items()
-                            if len(k) <= self.config.inferSchemaDepth
-                        }
-
-                    # initialize the schema for the set
-                    canonical_schema: List[SchemaField] = []
-                    max_schema_size = self.config.maxSchemaSize
-                    set_schema_size = len(set_schema.values())
-                    set_fields: Union[
-                        List[SchemaDescription], ValuesView[SchemaDescription]
-                    ] = set_schema.values()
-                    assert max_schema_size is not None
-                    if set_schema_size > max_schema_size:
-                        # downsample the schema, using frequency as the sort key
-                        self.report.report_warning(
-                            title="Too many schema fields",
-                            message=f"Downsampling the collection schema because it has too many schema fields. Configured threshold is {max_schema_size}",
-                            context=f"Schema Size: {set_schema_size}, Collection: {dataset_urn}",
-                        )
-                        # Add this information to the custom properties so user can know they are looking at downsampled schema
-                        dataset_properties.customProperties["schema.downsampled"] = "True"
-                        dataset_properties.customProperties["schema.totalFields"] = f"{set_schema_size}"
-
-                    logger.debug(f"Size of set fields = {len(set_fields)}")
-                    # append each schema field (sort so output is consistent)
-                    for schema_field in sorted(
-                        set_fields,
-                        key=lambda x: (
-                            -x["count"],
-                            x["delimited_name"],
-                        ),  # Negate `count` for descending order, `delimited_name` stays the same for ascending
-                    )[0:max_schema_size]:
-                        field = SchemaField(
-                            fieldPath=schema_field["delimited_name"],
-                            nativeDataType=self.get_aerospike_type_string(
-                                schema_field["type"], dataset_name
-                            ),
-                            type=self.get_field_type(
-                                schema_field["type"], dataset_name
-                            ),
-                            description=None,
-                            nullable=schema_field["nullable"],
-                            recursive=False,
-                        )
-                        canonical_schema.append(field)
-
-                    # create schema metadata object for set
-                    schema_metadata = SchemaMetadata(
-                        schemaName=curr_set.set,
-                        platform=f"urn:li:dataPlatform:{platform}",
-                        version=0,
-                        hash="",
-                        platformSchema=SchemalessClass(),
-                        fields=canonical_schema,
-                        primaryKeys=["PK"],
+                        dataset_urn=dataset_urn,
+                        dataset_properties=dataset_properties,
                     )
 
                 yield from [
                     mcp.as_workunit()
                     for mcp in MetadataChangeProposalWrapper.construct_many(
-                        entityUrn=dataset_urn,
+                        entityUrn=dataset_urn.urn(),
                         aspects=[
                             schema_metadata,
                             dataset_properties,
@@ -505,6 +446,81 @@ class AerospikeSource(StatefulIngestionSourceBase):
                         ],
                     )
                 ]
+
+    def _infer_schema_metadata(
+            self,
+            dataset_urn: DatasetUrn,
+            as_set: AerospikeSet,
+            dataset_properties: DatasetPropertiesClass,
+    ) -> SchemaMetadata:
+        set_schema = construct_schema_aerospike(
+            client=self.aerospike_client,
+            as_set=as_set,
+            delimiter=".",
+            records_per_second=self.config.records_per_second,
+            sample_size=self.config.schemaSamplingSize,
+        )
+
+        if self.config.inferSchemaDepth != -1:
+            # Infer schema only at the bins level
+            set_schema = {
+                k: v
+                for k, v in set_schema.items()
+                if len(k) <= self.config.inferSchemaDepth
+            }
+
+        # initialize the schema for the set
+        canonical_schema: List[SchemaField] = []
+        max_schema_size = self.config.maxSchemaSize
+        set_schema_size = len(set_schema.values())
+        set_fields: Union[
+            List[SchemaDescription], ValuesView[SchemaDescription]
+        ] = set_schema.values()
+        assert max_schema_size is not None
+        if set_schema_size > max_schema_size:
+            # downsample the schema, using frequency as the sort key
+            self.report.report_warning(
+                title="Too many schema fields",
+                message=f"Downsampling the collection schema because it has too many schema fields. Configured threshold is {max_schema_size}",
+                context=f"Schema Size: {set_schema_size}, Collection: {dataset_urn}",
+            )
+            # Add this information to the custom properties so user can know they are looking at downsampled schema
+            dataset_properties.customProperties["schema.downsampled"] = "True"
+            dataset_properties.customProperties["schema.totalFields"] = f"{set_schema_size}"
+
+        logger.debug(f"Size of set fields = {len(set_fields)}")
+        # append each schema field (sort so output is consistent)
+        for schema_field in sorted(
+                set_fields,
+                key=lambda x: (
+                        -x["count"],
+                        x["delimited_name"],
+                ),  # Negate `count` for descending order, `delimited_name` stays the same for ascending
+        )[0:max_schema_size]:
+            field = SchemaField(
+                fieldPath=schema_field["delimited_name"],
+                nativeDataType=self.get_aerospike_type_string(
+                    schema_field["type"], dataset_urn.name
+                ),
+                type=self.get_field_type(
+                    schema_field["type"], dataset_urn.name
+                ),
+                description=None,
+                nullable=schema_field["nullable"],
+                recursive=False,
+            )
+            canonical_schema.append(field)
+
+        # create schema metadata object for set
+        return SchemaMetadata(
+            schemaName=as_set.set,
+            platform=dataset_urn.platform,
+            version=0,
+            hash="",
+            platformSchema=SchemalessClass(),
+            fields=canonical_schema,
+            primaryKeys=["PK"],
+        )
 
     def xdr_sets(self, namespace: str, sets: List[str]) -> Dict[str, List[str]]:
         sets_dc: Dict[str, List[str]] = {key: [] for key in sets}
