@@ -251,7 +251,7 @@ class DremioSQLQueries:
         SELECT
             *
         FROM
-            SYS.PROJECT.HISTORY.JOBS
+            sys.project.history.jobs
         WHERE
             STATUS = 'COMPLETED'
             AND ARRAY_SIZE(queried_datasets)>0
