@@ -242,7 +242,7 @@ class DremioSQLQueries:
         SYS.JOBS_RECENT
     WHERE
         STATUS = 'COMPLETED'
-        AND LENGTH(queried_datasets)>0
+        AND ARRAY_SIZE(queried_datasets)>0
         AND user_name != '$dremio$'
         AND query_type not like '%INTERNAL%'
     """
@@ -254,7 +254,7 @@ class DremioSQLQueries:
             SYS.PROJECT.HISTORY.JOBS
         WHERE
             STATUS = 'COMPLETED'
-            AND LENGTH(queried_datasets)>0
+            AND ARRAY_SIZE(queried_datasets)>0
             AND user_name != '$dremio$'
             AND query_type not like '%INTERNAL%'
         """
