@@ -58,7 +58,7 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     base_paths: Optional[List[str]] = Field(
         default=None,
         description="List of paths to tables (s3, abfss, or local file system). If a path is not a delta table path "
-                    "then all subfolders will be scanned to detect and ingest delta tables.",
+        "then all subfolders will be scanned to detect and ingest delta tables.",
     )
     relative_path: Optional[str] = Field(
         default=None,
@@ -160,8 +160,12 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
             raise ValueError("AWS configuration required for S3 paths")
 
         # Validate Azure configuration
-        if has_azure and (not values.get("azure") or not values.get("azure").azure_config):
-            raise ValueError("Azure configuration required for Azure Blob Storage paths")
+        if has_azure and (
+            not values.get("azure") or not values.get("azure").azure_config
+        ):
+            raise ValueError(
+                "Azure configuration required for Azure Blob Storage paths"
+            )
 
         # Validate that all paths are of compatible types
         if has_s3 and has_azure:
