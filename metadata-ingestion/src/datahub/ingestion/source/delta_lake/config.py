@@ -168,9 +168,13 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         azure_config = values.get("azure")
         if has_azure:
             if not azure_config:
-                raise ValueError("Azure configuration required for Azure Blob Storage paths")
+                raise ValueError(
+                    "Azure configuration required for Azure Blob Storage paths"
+                )
             if not getattr(azure_config, "azure_config", None):
-                raise ValueError("Azure connection config required for Azure Blob Storage paths")
+                raise ValueError(
+                    "Azure connection config required for Azure Blob Storage paths"
+                )
 
         # Validate that all paths are of compatible types
         if has_s3 and has_azure:
