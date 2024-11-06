@@ -281,15 +281,6 @@ class FivetranSource(StatefulIngestionSourceBase):
         for mcp in datajob.generate_mcp(materialize_iolets=False):
             yield mcp.as_workunit()
 
-        # Materialize the upstream referenced datasets.
-        # We assume that the downstreams are materialized by other ingestion sources.
-        for iolet in datajob.inlets:
-            # We don't want these to be tracked by stateful ingestion.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=str(iolet),
-                aspect=StatusClass(removed=False),
-            ).as_workunit(is_primary_source=False)
-
         # Map Fivetran's job/sync history entity with Datahub's data process entity
         if len(connector.jobs) >= MAX_JOBS_PER_CONNECTOR:
             self.report.warning(
