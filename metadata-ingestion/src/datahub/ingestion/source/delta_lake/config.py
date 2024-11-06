@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 
 import pydantic
 from cached_property import cached_property
@@ -121,21 +121,17 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
 
         return complete_path
 
-    @pydantic.validator("base_path")
-    def warn_base_path_deprecated(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            logger.warning(
-                "The 'base_path' option is deprecated and will be removed in a future release. "
-                "Please use 'base_paths' instead. "
-                "Example: base_paths: ['{path}']".format(path=v)
-            )
-        return v
-
-    @pydantic.validator("version_history_lookback")
-    def negative_version_history_implies_no_limit(cls, v):
-        if v and v < 0:
-            return None
-        return v
+    @property
+    def paths_to_scan(self) -> List[str]:
+        """Returns list of paths to scan, combining base_path and base_paths."""
+        paths = []
+        if self.base_paths:
+            paths.extend(self.base_paths)
+        if self.base_path:
+            paths.append(self.base_path)
+        if not paths:
+            raise ValueError("At least one path must be specified via base_paths")
+        return paths
 
     @root_validator
     def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
@@ -161,12 +157,8 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
             raise ValueError("AWS configuration required for S3 paths")
 
         # Validate Azure configuration
-        if has_azure and (
-            not values.get("azure") or not values.get("azure").azure_config
-        ):
-            raise ValueError(
-                "Azure configuration required for Azure Blob Storage paths"
-            )
+        if has_azure and (not values.get("azure") or not values.get("azure").azure_config):
+            raise ValueError("Azure configuration required for Azure Blob Storage paths")
 
         # Validate that all paths are of compatible types
         if has_s3 and has_azure:
@@ -174,15 +166,18 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
 
         return values
 
-    @property
-    def paths_to_scan(self) -> List[str]:
-        """Returns list of paths to scan, combining base_path and base_paths."""
+    @pydantic.validator("base_path")
+    def warn_base_path_deprecated(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            logger.warning(
+                "The 'base_path' option is deprecated and will be removed in a future release. "
+                "Please use 'base_paths' instead. "
+                "Example: base_paths: ['{path}']".format(path=v)
+            )
+        return v
 
-        paths = []
-        if self.base_paths:
-            paths.extend(self.base_paths)
-        if self.base_path:
-            paths.append(self.base_path)
-        if not paths:
-            raise ValueError("At least one path must be specified via base_paths")
-        return paths
+    @pydantic.validator("version_history_lookback")
+    def negative_version_history_implies_no_limit(cls, v):
+        if v and v < 0:
+            return None
+        return v
