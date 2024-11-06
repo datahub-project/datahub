@@ -10,6 +10,11 @@ const FlexWrapper = styled.div`
     display: flex;
     gap: 8px;
     width: 100%;
+    justify-content: center;
+`;
+
+const HeaderWrapper = styled.div`
+    margin-top: 10px;
 `;
 
 const MainMenuWrapper = styled.div`
@@ -27,13 +32,16 @@ type Props = {
 export default function NavSkeleton({ isCollapsed }: Props) {
     const menuItem = (
         <FlexWrapper>
-            {!isCollapsed && <SkeletonButton active style={{ width: '235px', height: '24px' }} />}
+            <SkeletonButton
+                active
+                style={{ width: isCollapsed ? '24px' : '235px', height: '24px', minWidth: '24px' }}
+            />
         </FlexWrapper>
     );
 
     return (
         <>
-            <FlexWrapper>{menuItem}</FlexWrapper>
+            <HeaderWrapper>{menuItem}</HeaderWrapper>
             <MainMenuWrapper>
                 {menuItem}
                 {menuItem}

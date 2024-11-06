@@ -1,14 +1,18 @@
-import { Sidebar } from '@phosphor-icons/react';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import NavBarToggler from './NavBarToggler';
+import { useNavBarContext } from './NavBarContext';
 
-const Container = styled.div`
+const Container = styled.div<{ isCollapsed?: boolean }>`
     display: flex;
     width: 100%;
     height: 40px;
+    min-height: 40px;
     align-items: center;
     gap: 8px;
+    ${(props) => props.isCollapsed && 'padding-left: 8px;'}
+    transition: padding 250ms ease-in-out;
 `;
 
 const Logotype = styled.div`
@@ -29,13 +33,7 @@ const Title = styled.div`
     color: #374066;
     font-style: normal;
     font: 700 16px/40px Mulish;
-`;
-
-const StyledNavBarToggle = styled(Sidebar)`
-    cursor: pointer;
-    margin: 0 0 0 auto;
-    height: 15px;
-    width: 15px;
+    text-wrap: nowrap;
 `;
 
 const StyledLink = styled(Link)`
@@ -50,13 +48,15 @@ type Props = {
 };
 
 export default function NavBarHeader({ logotype }: Props) {
+    const { isCollapsed } = useNavBarContext();
+
     return (
-        <Container>
+        <Container isCollapsed={isCollapsed}>
             <StyledLink to="/">
                 <Logotype>{logotype}</Logotype>
-                <Title>Acryl Data</Title>
+                {!isCollapsed ? <Title>Acryl Data</Title> : null}
             </StyledLink>
-            <StyledNavBarToggle />
+            {!isCollapsed && <NavBarToggler iconSize={15} />}
         </Container>
     );
 }

@@ -6,6 +6,7 @@ import QuickFiltersProvider from '../providers/QuickFiltersProvider';
 import SearchContextProvider from './search/context/SearchContextProvider';
 import EntityRegistryProvider from './EntityRegistryProvider';
 import GlobalSettingsContextProvider from './context/GlobalSettings/GlobalSettingsContextProvider';
+import { NavBarProvider } from './homeV2/layout/navBarRedesign/NavBarContext';
 
 interface Props {
     children: React.ReactNode;
@@ -19,7 +20,9 @@ export default function AppProviders({ children }: Props) {
                     <EducationStepsProvider>
                         <QuickFiltersProvider>
                             <SearchContextProvider>
-                                <GlobalSettingsContextProvider>{children}</GlobalSettingsContextProvider>
+                                <GlobalSettingsContextProvider>
+                                    <NavBarProvider>{children}</NavBarProvider>
+                                </GlobalSettingsContextProvider>
                             </SearchContextProvider>
                         </QuickFiltersProvider>
                     </EducationStepsProvider>

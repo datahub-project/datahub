@@ -2,11 +2,12 @@ import React from 'react';
 import { Menu, MenuItemProps } from 'antd';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
+import { Text } from '@src/alchemy-components';
 import { NavBarMenuBaseItem } from './types';
 
-const StyledMenuItem = styled(Menu.Item)`
+const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
     &&& {
-        padding: 8px;
+        padding: 4px 8px;
         margin: 0;
         margin-bottom: 0;
         height: 36px;
@@ -22,6 +23,12 @@ const StyledMenuItem = styled(Menu.Item)`
         height: 24px;
     }
 
+    && .ant-menu-item-icon {
+        color: #8088a3;
+        width: 24px;
+        height: 24px;
+    }
+
     && .ant-menu-title-content {
         color: #5f6685;
         font-family: Mulish;
@@ -30,7 +37,11 @@ const StyledMenuItem = styled(Menu.Item)`
         font-weight: 500;
         line-height: 36px;
         display: flex;
+        gap: 8px;
+        align-items: center;
         height: 36px;
+        line-height: 24px;
+        ${(props) => props.isCollapsed && 'width: 36px;'}
     }
 
     &:hover {
@@ -66,18 +77,29 @@ const StyledMenuItem = styled(Menu.Item)`
     }
 `;
 
+const Icon = styled.div`
+    width: 20px;
+    height: 20px;
+`;
+
 type Props = {
     item: NavBarMenuBaseItem;
+    isCollapsed?: boolean;
 } & MenuItemProps;
 
-export default function NavBarMenuItem({ item, ...props }: Props) {
+export default function NavBarMenuItem({ item, isCollapsed, ...props }: Props) {
     const history = useHistory();
 
     const redirect = (link: string | undefined) => link && history.push(link);
 
     const component = (
-        <StyledMenuItem icon={item.icon} onClick={() => redirect(item.link)} {...props}>
-            {item.title}
+        <StyledMenuItem isCollapsed={isCollapsed} onClick={() => redirect(item.link)} {...props}>
+            <Icon>{item.icon}</Icon>
+            {!isCollapsed && (
+                <Text size="md" type="div">
+                    {item.title}
+                </Text>
+            )}
         </StyledMenuItem>
     );
 

@@ -11,6 +11,7 @@ const NavBarMenuItemGroup = styled(Menu.ItemGroup)`
         font-style: normal;
         font-weight: 700;
         line-height: normal;
+        min-height: 38px;
     }
 `;
 

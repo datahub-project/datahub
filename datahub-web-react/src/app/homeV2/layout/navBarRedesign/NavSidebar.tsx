@@ -30,18 +30,24 @@ import NavBarHeader from './NavBarHeader';
 import NavBarMenu from './NavBarMenu';
 import NavSkeleton from './NavBarSkeleton';
 import { NavBarMenuDropdownItemElement, NavBarMenuItems, NavBarMenuItemTypes } from './types';
+import { useNavBarContext } from './NavBarContext';
 
 const Container = styled.div`
     height: 100vh;
     background-color: ${REDESIGN_COLORS.BACKGROUUND_NAVBAR_REDESIGN};
+    display: flex;
+    flex: column;
+    align-items: center;
 `;
 
-const Content = styled.div`
+const Content = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     flex-direction: column;
     padding: 16px;
     height: 100%;
-    width: 267px;
+    width: ${(props) => (props.isCollapsed ? '72px' : '267px')};
+    transition: width 250ms ease-in-out;
+    overflow-x: hidden;
 `;
 
 const CustomLogo = styled.img`
@@ -65,6 +71,8 @@ const MenuWrapper = styled.div`
 export const NavSidebar = () => {
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
+
+    const { isCollapsed } = useNavBarContext();
     const appConfig = useAppConfig();
     const userContext = useUserContext();
     const me = useUserContext();
@@ -290,9 +298,9 @@ export const NavSidebar = () => {
 
     return (
         <Container>
-            <Content>
+            <Content isCollapsed={isCollapsed}>
                 {showSkeleton ? (
-                    <NavSkeleton />
+                    <NavSkeleton isCollapsed={isCollapsed} />
                 ) : (
                     <>
                         <NavBarHeader logotype={logoComponent} />

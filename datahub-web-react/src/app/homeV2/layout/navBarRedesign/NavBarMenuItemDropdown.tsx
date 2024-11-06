@@ -6,9 +6,10 @@ import { NavBarMenuDropdownItem } from './types';
 
 type Props = {
     item: NavBarMenuDropdownItem;
+    isCollapsed?: boolean;
 } & MenuItemProps;
 
-export default function NavBarMenuItemDropdown({ item, ...props }: Props) {
+export default function NavBarMenuItemDropdown({ item, isCollapsed, ...props }: Props) {
     const history = useHistory();
 
     const menu = item.items
@@ -34,7 +35,7 @@ export default function NavBarMenuItemDropdown({ item, ...props }: Props) {
 
     return (
         <Dropdown menu={{ items: menu, onClick: (attrs) => onItemClick(attrs.key) }}>
-            <NavBarMenuItem item={item} {...props} />
+            <NavBarMenuItem item={item} isCollapsed={isCollapsed} {...props} />
         </Dropdown>
     );
 }

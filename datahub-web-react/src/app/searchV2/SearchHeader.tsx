@@ -7,6 +7,8 @@ import { AutoCompleteResultForEntity } from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
 import { useAppConfig } from '../useAppConfig';
 import OnboardingContext from '../onboarding/OnboardingContext';
+import { useNavBarContext } from '../homeV2/layout/navBarRedesign/NavBarContext';
+import NavBarToggler from '../homeV2/layout/navBarRedesign/NavBarToggler';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
 const styles = {
@@ -26,19 +28,34 @@ const styles = {
     },
 };
 
-const Wrapper = styled.div`
+const Wrapper = styled.div<{ isNavBarCollapsed?: boolean; isShowNavBarRedesign?: boolean }>`
     position: fixed;
     width: 100%;
-    line-height: 20px;
-    padding: 0px 12px;
+    ${(props) =>
+        !props.isShowNavBarRedesign &&
+        `
+        line-height: 20px;
+        padding: 0px 12px;
+    `}
 `;
 
-const Header = styled(Layout)`
+const Header = styled(Layout)<{ isNavBarCollapsed?: boolean; isShowNavBarRedesign?: boolean }>`
     background-color: transparent;
-    height: 60px;
+    height: ${(props) => (props.isShowNavBarRedesign ? '60px' : '72px')};
     display: flex;
+    ${(props) => {
+        if (!props.isShowNavBarRedesign) return '';
+        return `padding-left: ${props.isNavBarCollapsed ? '78px;' : '268px'};`;
+    }}
+    ${(props) =>
+        props.isShowNavBarRedesign &&
+        `
+        gap: 16px;
+        flex-direction: row;
+        transition: padding 250ms ease-in-out;
+    `}
+    ${(props) => !props.isNavBarCollapsed && 'justify-content: space-between;'}
     align-items: center;
-    justify-content: space-between;
 `;
 
 const HeaderBackground = styled.div<{ isShowNavBarRedesign?: boolean }>`
@@ -49,13 +66,17 @@ const HeaderBackground = styled.div<{ isShowNavBarRedesign?: boolean }>`
     z-index: -1;
 `;
 
-const SearchBarContainer = styled.div`
+const SearchBarContainer = styled.div<{ isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex: 1;
-    align-items: center;
-    justify-content: center;
-    margin-left: 80px;
-    margin-top: 6px;
+    ${(props) =>
+        !props.isShowNavBarRedesign &&
+        `
+        align-items: center;
+        justify-content: center;
+        margin-left: 80px;
+        margin-top: 6px;
+    `}
 `;
 
 type Props = {
@@ -82,14 +103,16 @@ export const SearchHeader = ({
     const appConfig = useAppConfig();
     const viewsEnabled = appConfig.config?.viewsConfig?.enabled || false;
     const { isUserInitializing } = useContext(OnboardingContext);
+    const { isCollapsed } = useNavBarContext();
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     return (
         <>
             <HeaderBackground isShowNavBarRedesign={isShowNavBarRedesign} />
-            <Wrapper>
-                <Header>
-                    <SearchBarContainer>
+            <Wrapper isNavBarCollapsed={isCollapsed}>
+                <Header isShowNavBarRedesign={isShowNavBarRedesign} isNavBarCollapsed={isCollapsed}>
+                    {isShowNavBarRedesign && isCollapsed && <NavBarToggler iconSize={20} />}
+                    <SearchBarContainer isShowNavBarRedesign={isShowNavBarRedesign}>
                         <SearchBar
                             isLoading={isUserInitializing || !appConfig.loaded}
                             id={V2_SEARCH_BAR_ID}
