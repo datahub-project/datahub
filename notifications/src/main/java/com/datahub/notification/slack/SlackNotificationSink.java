@@ -983,9 +983,10 @@ public class SlackNotificationSink implements NotificationSink {
         log.debug(String.format("Successfully sent Slack notification to channel %s", channel));
       } else {
         log.error(
-            String.format(
-                "Failed to sink Slack notification to channel %s. Received error from Slack API: %s",
-                channel, response.getError()));
+            "Failed to sink Slack notification to channel {} with text {}. Received error from Slack API: {}",
+            channel,
+            text,
+            response.getError());
       }
     }
     return response;
