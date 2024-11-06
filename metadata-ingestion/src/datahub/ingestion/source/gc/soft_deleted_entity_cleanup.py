@@ -158,14 +158,19 @@ class SoftDeletedEntitiesCleanup:
             self.report.num_soft_deleted_entity_removed
             <= self.config.limit_entities_delete
         ):
-            urns = self.ctx.graph.get_urns_by_filter(
-                entity_types=self.config.entity_types,
-                platform=self.config.platform,
-                env=self.config.env,
-                query=self.config.query,
-                status=RemovedStatusFilter.ONLY_SOFT_DELETED,
-                batch_size=self.config.batch_size,
+            urns = list(
+                self.ctx.graph.get_urns_by_filter(
+                    entity_types=self.config.entity_types,
+                    platform=self.config.platform,
+                    env=self.config.env,
+                    query=self.config.query,
+                    status=RemovedStatusFilter.ONLY_SOFT_DELETED,
+                    batch_size=self.config.batch_size,
+                )
             )
+            if len(urns) == 0:
+                logger.info("No more urns found")
+                return
 
             futures = {}
             with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
