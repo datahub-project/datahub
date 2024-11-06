@@ -182,7 +182,10 @@ class SoftDeletedEntitiesCleanup:
                         f"Limit of {self.config.limit_entities_delete} entities reached. Stopping"
                     )
                     break
-                if time.time() - start_time > self.config.runtime_limit_seconds:
+                if (
+                    self.config.runtime_limit_seconds
+                    and time.time() - start_time > self.config.runtime_limit_seconds
+                ):
                     logger.info(
                         f"Runtime limit of {self.config.runtime_limit_seconds} seconds reached. Stopping"
                     )
