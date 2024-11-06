@@ -348,17 +348,15 @@ class DeltaLakeSource(Source):
                 opts["AWS_ENDPOINT_URL"] = aws_config.aws_endpoint_url
             return opts
         elif (
-                self.source_config.is_azure
-                and self.source_config.azure
-                and self.source_config.azure.azure_config
+            self.source_config.is_azure
+            and self.source_config.azure
+            and self.source_config.azure.azure_config
         ):
             azure_config = self.source_config.azure.azure_config
             creds = azure_config.get_credentials()
             parsed_url = urlparse(self.source_config.base_path)
 
-            opts = {
-                "fs.azure.account.name": str(azure_config.account_name or "")
-            }
+            opts = {"fs.azure.account.name": str(azure_config.account_name or "")}
 
             connection_string_parts = [
                 f"DefaultEndpointsProtocol={parsed_url.scheme}",
