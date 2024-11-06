@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import time
-from collections import defaultdict
 from typing import Dict, Iterable, List
 from urllib.parse import urlparse
 
