@@ -299,7 +299,7 @@ class UnityCatalogSourceConfig(
 
     @pydantic.validator("start_time")
     def within_thirty_days(cls, v: datetime) -> datetime:
-        if (datetime.now(timezone.utc) - v).days > 30:
+        if (datetime.now(timezone.utc) - v).days > 365:
             raise ValueError("Query history is only maintained for 30 days.")
         return v
 
