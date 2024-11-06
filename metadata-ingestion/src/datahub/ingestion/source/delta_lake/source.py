@@ -361,7 +361,11 @@ class DeltaLakeSource(Source):
             ]
 
             if isinstance(creds, ClientSecretCredential):
-                if azure_config.client_id and azure_config.client_secret and azure_config.tenant_id:
+                if (
+                    azure_config.client_id
+                    and azure_config.client_secret
+                    and azure_config.tenant_id
+                ):
                     opts.update(
                         {
                             "fs.azure.account.oauth2.client.id": str(azure_config.client_id),
@@ -371,7 +375,9 @@ class DeltaLakeSource(Source):
                     )
             else:
                 if azure_config.account_key:
-                    connection_string_parts.append(f"AccountKey={azure_config.account_key}")
+                    connection_string_parts.append(
+                        f"AccountKey={azure_config.account_key}"
+                    )
                 elif azure_config.sas_token:
                     connection_string_parts.append(
                         f"SharedAccessSignature={str(azure_config.sas_token or '').lstrip('?')}"
@@ -380,7 +386,9 @@ class DeltaLakeSource(Source):
                 if not isinstance(creds, ClientSecretCredential):
                     endpoint = f"{self.source_config.base_path.split('/' + str(azure_config.container_name))[0]}/"
                     connection_string_parts.append(f"BlobEndpoint={endpoint}")
-                    opts["fs.azure.account.connection.string"] = ";".join(connection_string_parts)
+                    opts["fs.azure.account.connection.string"] = ";".join(
+                        connection_string_parts
+                    )
 
             return {k: v for k, v in opts.items() if v}
         else:
