@@ -47,7 +47,12 @@ export const DomainSearchList = ({ content, onClick }: Props) => {
     return (
         <DomainListContainer>
             {domainsWithCounts.map((domain, index) => (
-                <HoverEntityTooltip key={domain.domain.urn} entity={domain.domain} placement="bottom">
+                <HoverEntityTooltip
+                    key={domain.domain.urn}
+                    entity={domain.domain}
+                    entityCount={domain.count}
+                    placement="bottom"
+                >
                     <Link
                         to={entityRegistry.getEntityUrl(EntityType.Domain, domain.domain.urn)}
                         onClick={() => onClick?.(index)}
