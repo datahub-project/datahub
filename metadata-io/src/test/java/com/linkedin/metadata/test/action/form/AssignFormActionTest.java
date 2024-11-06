@@ -7,7 +7,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.service.FormService;
+import com.linkedin.metadata.service.FormServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 import io.datahubproject.metadata.context.OperationContext;
@@ -22,7 +22,7 @@ public class AssignFormActionTest {
 
   @Test
   public void testValidateWithMissingFormUrnParameter() {
-    FormService formService = Mockito.mock(FormService.class);
+    FormServiceAsync formService = Mockito.mock(FormServiceAsync.class);
     AssignFormAction formAction = new AssignFormAction(formService);
     // Given
     ActionParameters params = new ActionParameters(new HashMap<>());
@@ -32,7 +32,7 @@ public class AssignFormActionTest {
 
   @Test
   public void testValidateValidParameters() {
-    FormService formService = Mockito.mock(FormService.class);
+    FormServiceAsync formService = Mockito.mock(FormServiceAsync.class);
     AssignFormAction formAction = new AssignFormAction(formService);
     // Given
     ActionParameters params =
@@ -42,7 +42,7 @@ public class AssignFormActionTest {
 
   @Test
   public void testApplyCallsFormService() throws Exception {
-    FormService formService = Mockito.mock(FormService.class);
+    FormServiceAsync formService = Mockito.mock(FormServiceAsync.class);
     AssignFormAction formAction = new AssignFormAction(formService);
     Urn formUrn = UrnUtils.getUrn("urn:li:form:test");
     Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");

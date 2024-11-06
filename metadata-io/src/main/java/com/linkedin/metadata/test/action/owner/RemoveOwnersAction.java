@@ -5,7 +5,7 @@ import static com.linkedin.metadata.test.action.ActionUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.service.OwnerService;
+import com.linkedin.metadata.service.OwnerServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.action.api.ValuesAction;
 import com.linkedin.metadata.test.definition.ActionType;
@@ -22,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class RemoveOwnersAction extends ValuesAction {
 
-  private final OwnerService ownerService;
+  private final OwnerServiceAsync ownerService;
 
   @Override
   public ActionType getActionType() {

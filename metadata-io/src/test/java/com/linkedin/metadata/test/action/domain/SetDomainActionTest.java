@@ -7,7 +7,7 @@ import static org.mockito.Mockito.mock;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.resource.ResourceReference;
-import com.linkedin.metadata.service.DomainService;
+import com.linkedin.metadata.service.DomainServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 import io.datahubproject.metadata.context.OperationContext;
@@ -58,7 +58,7 @@ public class SetDomainActionTest {
 
   @Test
   private void testApply() throws Exception {
-    DomainService service = mock(DomainService.class);
+    DomainServiceAsync service = mock(DomainServiceAsync.class);
 
     SetDomainAction action = new SetDomainAction(service);
     ActionParameters params = new ActionParameters(VALID_PARAMS);
@@ -82,14 +82,14 @@ public class SetDomainActionTest {
 
   @Test
   private void testValidateValidParams() {
-    SetDomainAction action = new SetDomainAction(mock(DomainService.class));
+    SetDomainAction action = new SetDomainAction(mock(DomainServiceAsync.class));
     ActionParameters params = new ActionParameters(VALID_PARAMS);
     action.validate(params);
   }
 
   @Test
   private void testValidateInvalidParams() {
-    SetDomainAction action = new SetDomainAction(mock(DomainService.class));
+    SetDomainAction action = new SetDomainAction(mock(DomainServiceAsync.class));
     ActionParameters params = new ActionParameters(Collections.emptyMap());
     Assert.assertThrows(InvalidActionParamsException.class, () -> action.validate(params));
   }

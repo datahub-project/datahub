@@ -9,7 +9,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.service.FormService;
+import com.linkedin.metadata.service.FormServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 import io.datahubproject.metadata.context.OperationContext;
@@ -24,7 +24,7 @@ public class VerifyFormActionTest {
 
   @Test
   public void testValidateWithInvalidParameters() {
-    FormService formService = Mockito.mock(FormService.class);
+    FormServiceAsync formService = Mockito.mock(FormServiceAsync.class);
     VerifyFormAction verifyFormAction = new VerifyFormAction(formService);
     Map<String, List<String>> paramsMap = new HashMap<>();
 
@@ -49,7 +49,7 @@ public class VerifyFormActionTest {
 
   @Test
   public void testValidateValidParameters() {
-    FormService formService = Mockito.mock(FormService.class);
+    FormServiceAsync formService = Mockito.mock(FormServiceAsync.class);
     VerifyFormAction verifyFormAction = new VerifyFormAction(formService);
     ActionParameters params =
         new ActionParameters(
@@ -63,7 +63,7 @@ public class VerifyFormActionTest {
 
   @Test
   public void testVerifyFormAction() throws Exception {
-    FormService formService = Mockito.mock(FormService.class);
+    FormServiceAsync formService = Mockito.mock(FormServiceAsync.class);
     VerifyFormAction verifyFormAction = new VerifyFormAction(formService);
     Urn actorUrn = UrnUtils.getUrn("urn:li:corpuser:testing");
     Urn formUrn = UrnUtils.getUrn("urn:li:form:test");

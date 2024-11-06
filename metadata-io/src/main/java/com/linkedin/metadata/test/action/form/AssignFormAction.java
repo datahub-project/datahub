@@ -2,7 +2,7 @@ package com.linkedin.metadata.test.action.form;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.service.FormService;
+import com.linkedin.metadata.service.FormServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.action.api.ValuesAction;
 import com.linkedin.metadata.test.definition.ActionType;
@@ -24,7 +24,7 @@ public class AssignFormAction extends ValuesAction {
 
   private static final String FORM_URN_PARAMETER = "formUrn";
 
-  private final FormService formService;
+  private final FormServiceAsync formService;
 
   @Override
   public ActionType getActionType() {

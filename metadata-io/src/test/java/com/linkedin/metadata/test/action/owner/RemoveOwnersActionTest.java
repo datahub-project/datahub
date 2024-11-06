@@ -8,7 +8,7 @@ import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.resource.ResourceReference;
-import com.linkedin.metadata.service.OwnerService;
+import com.linkedin.metadata.service.OwnerServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 import io.datahubproject.metadata.context.OperationContext;
@@ -63,7 +63,7 @@ public class RemoveOwnersActionTest {
 
   @Test
   private void testApply() throws Exception {
-    OwnerService service = mock(OwnerService.class);
+    OwnerServiceAsync service = mock(OwnerServiceAsync.class);
 
     RemoveOwnersAction action = new RemoveOwnersAction(service);
     ActionParameters params = new ActionParameters(VALID_PARAMS);
@@ -88,14 +88,14 @@ public class RemoveOwnersActionTest {
 
   @Test
   private void testValidateValidParams() {
-    RemoveOwnersAction action = new RemoveOwnersAction(mock(OwnerService.class));
+    RemoveOwnersAction action = new RemoveOwnersAction(mock(OwnerServiceAsync.class));
     ActionParameters params = new ActionParameters(VALID_PARAMS);
     action.validate(params);
   }
 
   @Test
   private void testValidateInvalidParams() {
-    RemoveOwnersAction action = new RemoveOwnersAction(mock(OwnerService.class));
+    RemoveOwnersAction action = new RemoveOwnersAction(mock(OwnerServiceAsync.class));
     ActionParameters params = new ActionParameters(Collections.emptyMap());
     Assert.assertThrows(InvalidActionParamsException.class, () -> action.validate(params));
   }

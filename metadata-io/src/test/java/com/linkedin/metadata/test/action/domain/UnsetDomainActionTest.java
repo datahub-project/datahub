@@ -7,7 +7,7 @@ import static org.mockito.Mockito.mock;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.resource.ResourceReference;
-import com.linkedin.metadata.service.DomainService;
+import com.linkedin.metadata.service.DomainServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -55,7 +55,7 @@ public class UnsetDomainActionTest {
 
   @Test
   private void testApply() throws Exception {
-    DomainService service = mock(DomainService.class);
+    DomainServiceAsync service = mock(DomainServiceAsync.class);
 
     UnsetDomainAction action = new UnsetDomainAction(service);
     ActionParameters params = new ActionParameters(VALID_PARAMS);
@@ -79,7 +79,7 @@ public class UnsetDomainActionTest {
 
   @Test
   private void testValidateValidParams() {
-    UnsetDomainAction action = new UnsetDomainAction(mock(DomainService.class));
+    UnsetDomainAction action = new UnsetDomainAction(mock(DomainServiceAsync.class));
     ActionParameters params = new ActionParameters(VALID_PARAMS);
     action.validate(params);
   }

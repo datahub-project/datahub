@@ -5,7 +5,7 @@ import static com.linkedin.metadata.test.action.ActionUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.service.GlossaryTermService;
+import com.linkedin.metadata.service.GlossaryTermServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.action.api.ValuesAction;
 import com.linkedin.metadata.test.definition.ActionType;
@@ -22,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AddGlossaryTermsAction extends ValuesAction {
 
-  private final GlossaryTermService glossaryTermService;
+  private final GlossaryTermServiceAsync glossaryTermService;
 
   @Override
   public ActionType getActionType() {
