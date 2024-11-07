@@ -238,7 +238,7 @@ class AbstractDataPlatformTableCreator(ABC):
 
         if parsed_result is None:
             self.reporter.info(
-                title="SQL Parsing fail",
+                title="SQL Parsing Failure",
                 message="Fail to parse native sql present in PowerBI M-Query",
                 context=f"table-name={self.table.full_name}, sql={query}",
             )
