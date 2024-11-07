@@ -18,7 +18,8 @@
           type: datahub-reporting-forms
           config: { }
       debugMode: false
-      extraArgs: {}
+      extraArgs:
+        extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}["{{&ingestion.acryl-cloud-package}}{{^ingestion.acryl-cloud-package}}acryl-datahub-cloud[datahub-reporting-forms]{{/ingestion.acryl-cloud-package}}"]{{/ingestion.extra_pip_requirements}}'
       executorId: default
     source:
       type: {{source}}{{^source}}SYSTEM{{/source}}
