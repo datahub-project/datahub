@@ -51,7 +51,7 @@ from datahub.metadata.schema_classes import (
 )
 
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
-
+from datahub.metadata._schema_classes import OwnerClass, OwnershipClass, OwnershipTypeClass
 
 # FIXME: ValueType module cannot be used as a type
 _field_type_mapping: Dict[Union[ValueType, feast.types.FeastType], str] = {
@@ -131,7 +131,7 @@ class FeastRepositorySource(Source):
         )
 
     def _get_field_type(
-        self, field_type: Union[ValueType, feast.types.FeastType], parent_name: str
+            self, field_type: Union[ValueType, feast.types.FeastType], parent_name: str
     ) -> str:
         """
         Maps types encountered in Feast to corresponding schema types.
@@ -213,7 +213,7 @@ class FeastRepositorySource(Source):
         return sources
 
     def _get_entity_workunit(
-        self, feature_view: FeatureView, entity: Entity
+            self, feature_view: FeatureView, entity: Entity
     ) -> MetadataWorkUnit:
         """
         Generate an MLPrimaryKey work unit for a Feast entity.
@@ -221,9 +221,28 @@ class FeastRepositorySource(Source):
 
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
 
+        aspects = [
+            StatusClass(removed=False)
+        ]
+
+        if entity.tags.get("name"):
+            tag = entity.tags.get("name")
+            tag_association = TagAssociationClass(tag=builder.make_tag_urn(tag))
+            global_tags_aspect = GlobalTagsClass(tags=[tag_association])
+            aspects.append(global_tags_aspect)
+
+        if entity.owner:
+            owner = entity.owner
+            owner_association = OwnerClass(
+                owner=builder.make_owner_urn(owner, owner_type=builder.OwnerType.USER),
+                type=OwnershipTypeClass.TECHNICAL_OWNER
+            )
+            owners_aspect = OwnershipClass(owners=[owner_association])
+            aspects.append(owners_aspect)
+
         entity_snapshot = MLPrimaryKeySnapshot(
             urn=builder.make_ml_primary_key_urn(feature_view_name, entity.name),
-            aspects=[StatusClass(removed=False)],
+            aspects=aspects,
         )
 
         entity_snapshot.aspects.append(
@@ -239,19 +258,29 @@ class FeastRepositorySource(Source):
         return MetadataWorkUnit(id=entity.name, mce=mce)
 
     def _get_feature_workunit(
-        self,
-        # FIXME: FeatureView and OnDemandFeatureView cannot be used as a type
-        feature_view: Union[FeatureView, OnDemandFeatureView],
-        field: FeastField,
+            self,
+            # FIXME: FeatureView and OnDemandFeatureView cannot be used as a type
+            feature_view: Union[FeatureView, OnDemandFeatureView],
+            field: FeastField,
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeature work unit for a Feast feature.
         """
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
+        global_tags_aspect = None
+
+        if field.tags.get("name"):
+            tag_name = field.tags.get("name")
+            tag_association = TagAssociationClass(tag=builder.make_tag_urn(tag_name))
+            global_tags_aspect = GlobalTagsClass(tags=[tag_association])
+
+        aspects = [StatusClass(removed=False)]
+        if global_tags_aspect is not None:
+            aspects.append(global_tags_aspect)
 
         feature_snapshot = MLFeatureSnapshot(
             urn=builder.make_ml_feature_urn(feature_view_name, field.name),
-            aspects=[StatusClass(removed=False)],
+            aspects=aspects,
         )
 
         feature_sources = []
@@ -274,7 +303,7 @@ class FeastRepositorySource(Source):
 
             if feature_view.source_feature_view_projections is not None:
                 for (
-                    feature_view_projection
+                        feature_view_projection
                 ) in feature_view.source_feature_view_projections.values():
                     feature_view_source = self.feature_store.get_feature_view(
                         feature_view_projection.name
@@ -301,12 +330,29 @@ class FeastRepositorySource(Source):
 
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
 
+        aspects = [
+            BrowsePathsClass(paths=[f"/feast/{self.feature_store.project}"]),
+            StatusClass(removed=False)
+        ]
+
+        if feature_view.tags.get("name"):
+            tag = feature_view.tags.get("name")
+            tag_association = TagAssociationClass(tag=builder.make_tag_urn(tag))
+            global_tags_aspect = GlobalTagsClass(tags=[tag_association])
+            aspects.append(global_tags_aspect)
+
+        if feature_view.owner:
+            owner = feature_view.owner
+            owner_association = OwnerClass(
+                owner=builder.make_owner_urn(owner, owner_type=builder.OwnerType.USER),
+                type=OwnershipTypeClass.TECHNICAL_OWNER
+            )
+            owners_aspect = OwnershipClass(owners=[owner_association])
+            aspects.append(owners_aspect)
+
         feature_view_snapshot = MLFeatureTableSnapshot(
             urn=builder.make_ml_feature_table_urn("feast", feature_view_name),
-            aspects=[
-                BrowsePathsClass(paths=[f"/feast/{self.feature_store.project}"]),
-                StatusClass(removed=False),
-            ],
+            aspects=aspects,
         )
 
         feature_view_snapshot.aspects.append(
@@ -330,7 +376,7 @@ class FeastRepositorySource(Source):
         return MetadataWorkUnit(id=feature_view_name, mce=mce)
 
     def _get_on_demand_feature_view_workunit(
-        self, on_demand_feature_view: OnDemandFeatureView
+            self, on_demand_feature_view: OnDemandFeatureView
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeatureTable work unit for a Feast on-demand feature view.
@@ -370,35 +416,7 @@ class FeastRepositorySource(Source):
         config = FeastRepositorySourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def _add_tags_to_feature(self, feature_urn: str, tag_data: dict):
-        """
-        Attach tags to a feature in DataHub using tag data from a Field.
-
-        Args:
-            feature_urn (str): The URN of the feature to attach tags to.
-            tag_data (dict): Tag data with "name" for tag name.
-        """
-        feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
-
-        tag_name = tag_data.get("name")
-        if tag_name:
-            # Create tag association
-            tag_association = TagAssociationClass(tag=make_tag_urn(tag_name))
-            global_tags_aspect = GlobalTagsClass(tags=[tag_association])
-
-            # Create and emit the MetadataChangeProposalWrapper for tags
-            tag_event = MetadataChangeProposalWrapper(
-                entityUrn=feature_urn,
-                aspect=global_tags_aspect,
-            )
-
-            return MetadataWorkUnit(id=feature_view_name, mcp=tag_event)
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-
-        yield from self._add_tags_to_feature(
-            'urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,feature_store.visitor_actions_view)',
-            tag_data={"name": "Legacy"})
 
         for feature_view in self.feature_store.list_feature_views():
             for entity_name in feature_view.entities:
@@ -418,4 +436,3 @@ class FeastRepositorySource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
-
