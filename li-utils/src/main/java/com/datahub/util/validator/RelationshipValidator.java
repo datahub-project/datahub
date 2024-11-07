@@ -1,14 +1,9 @@
 package com.datahub.util.validator;
 
-import com.linkedin.common.urn.Urn;
-import com.linkedin.data.DataList;
-import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.UnionDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
