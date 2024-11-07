@@ -1,13 +1,12 @@
 from itertools import zip_longest
-from typing import List, Iterable
+from typing import Iterable, List
 
 from acryl_datahub_cloud.metadata.schema_classes import (
-    ContainerClass,
-    BrowsePathsV2Class,
     BrowsePathEntryClass,
+    BrowsePathsV2Class,
 )
 
-from datahub.emitter.mcp_builder import SchemaKey, DatabaseKey
+from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.source_helpers import auto_browse_path_v2
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_utils import gen_schema_container
