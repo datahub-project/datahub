@@ -52,7 +52,7 @@ driver_hourly_stats_view = FeatureView(
     online=True,
     source=driver_hourly_stats_source,
     tags={"name": "deprecated"},
-    owner="Datahub"
+    owner="Datahub",
 )
 
 input_request = RequestSource(
