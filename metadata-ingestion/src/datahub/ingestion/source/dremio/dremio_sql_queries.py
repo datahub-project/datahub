@@ -242,7 +242,7 @@ class DremioSQLQueries:
         SYS.JOBS_RECENT
     WHERE
         STATUS = 'COMPLETED'
-        AND ARRAY_SIZE(queried_datasets)>0
+        AND LENGTH(queried_datasets)>0
         AND user_name != '$dremio$'
         AND query_type not like '%INTERNAL%'
     """
