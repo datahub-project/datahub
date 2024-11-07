@@ -5,7 +5,10 @@ import BookmarkIcon from '../../images/collections_bookmark.svg?react';
 import GroupBookmarkIconWhite from '../../images/glossary_collections_bookmark_white.svg?react';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { EntityType, Maybe } from '../../types.generated';
-import { GlossaryPreviewCardDecoration } from '../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
+import {
+    GlossaryPreviewCardDecoration,
+    GLOSSARY_RIBBON_SIZE,
+} from '../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 import { generateColorFromPalette } from './colorUtils';
 import { GenericEntityProperties } from '../entity/shared/types';
 import { Editor } from '../entityV2/shared/tabs/Documentation/components/editor/Editor';
@@ -68,6 +71,7 @@ const EntityDetailsWrapper = styled.div`
     margin: 0 2px;
     display: flex;
     flex-direction: column;
+    padding: ${GLOSSARY_RIBBON_SIZE}px 0 0 ${GLOSSARY_RIBBON_SIZE * 2}px;
 
     &:hover > ${EntityDetails} > ${EntityDetailsLeftColumn} > ${BookmarkIconWrapper} > svg > g > path {
         transition: 0.15s;

@@ -14,13 +14,15 @@ interface GlossaryItemRibbonProps {
     color: string;
 }
 
+export const GLOSSARY_RIBBON_SIZE = 8;
+
 const GlossaryItemRibbon = styled.span<GlossaryItemRibbonProps>`
     position: absolute;
     left: -20px;
     top: 4px;
     width: 80px;
     transform: rotate(-45deg);
-    padding: 8px;
+    padding: ${GLOSSARY_RIBBON_SIZE}px;
     opacity: 1;
     background-color: ${(props) => `${props.color}`};
 `;
