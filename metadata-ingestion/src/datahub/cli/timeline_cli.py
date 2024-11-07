@@ -6,7 +6,6 @@ from typing import Any, List, Optional
 
 import click
 from requests import Response
-from termcolor import colored
 
 from datahub.emitter.mce_builder import dataset_urn_to_key, schema_field_urn_to_key
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
@@ -44,14 +43,14 @@ def pretty_id(id: Optional[str]) -> str:
             assert schema_field_key is not None
             field_path = schema_field_key.fieldPath
 
-            return f"{colored('field','cyan')}:{colored(pretty_field_path(field_path),'white')}"
+            return f"{click.style('field', fg='cyan')}:{click.style(pretty_field_path(field_path), fg='white')}"
     if id.startswith("[version=2.0]"):
-        return f"{colored('field','cyan')}:{colored(pretty_field_path(id),'white')}"
+        return f"{click.style('field', fg='cyan')}:{click.style(pretty_field_path(id), fg='white')}"
 
     if id.startswith("urn:li:dataset"):
         dataset_key = dataset_urn_to_key(id)
         if dataset_key:
-            return f"{colored('dataset','cyan')}:{colored(dataset_key.platform[len('urn:li:dataPlatform:'):],'white')}:{colored(dataset_key.name,'white')}"
+            return f"{click.style('dataset', fg='cyan')}:{click.style(dataset_key.platform[len('urn:li:dataPlatform:'):], fg='white')}:{click.style(dataset_key.name, fg='white')}"
     # failed to prettify, return original
     return id
 
@@ -196,8 +195,8 @@ def timeline(
                 else "red"
             )
 
-            print(
-                f"{colored(change_instant,'cyan')} - {colored(change_txn['semVer'],change_color)}"
+            click.echo(
+                f"{click.style(change_instant, fg='cyan')} - {click.style(change_txn['semVer'], fg=change_color)}"
             )
             if change_txn["changeEvents"] is not None:
                 for change_event in change_txn["changeEvents"]:
@@ -216,8 +215,8 @@ def timeline(
                         or change_event.get("entityUrn")
                         or ""
                     )
-                    print(
-                        f"\t{colored(change_event.get('changeType') or change_event.get('operation'),event_change_color)} {change_event.get('category')} {target_string} {element_string}: {change_event['description']}"
+                    click.echo(
+                        f"\t{click.style(change_event.get('changeType') or change_event.get('operation'), fg=event_change_color)} {change_event.get('category')} {target_string} {element_string}: {change_event['description']}"
                     )
     else:
         click.echo(

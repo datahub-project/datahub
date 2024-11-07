@@ -134,7 +134,7 @@ class QueryMetadata:
 
     upstreams: List[UrnStr]  # this is direct upstreams, which may be temp tables
     column_lineage: List[ColumnLineageInfo]
-    column_usage: Dict[UrnStr, Set[UrnStr]]
+    column_usage: Dict[UrnStr, Set[UrnStr]]  # TODO: Change to an OrderedSet
     confidence_score: float
 
     used_temp_tables: bool = True
@@ -1426,7 +1426,7 @@ class SqlParsingAggregator(Closeable):
         for upstream in query.upstreams:
             query_subject_urns.add(upstream)
             if self.generate_query_subject_fields:
-                for column in query.column_usage.get(upstream, []):
+                for column in sorted(query.column_usage.get(upstream, [])):
                     query_subject_urns.add(
                         builder.make_schema_field_urn(upstream, column)
                     )

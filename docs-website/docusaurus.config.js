@@ -88,7 +88,26 @@ module.exports = {
       },
       items: [
         {
-          to: "cloud/",
+          type: "dropdown",
+          label: "Solutions",
+          position: "right",
+          items: [
+            {
+              to: "/solutions/discovery",
+              label: "Discovery",
+            },
+            {
+              to: "/solutions/observability",
+              label: "Observability",
+            },
+            {
+              to: "/solutions/governance",
+              label: "Governance",
+            },
+          ]
+        },
+        {
+          to: "/cloud",
           activeBasePath: "cloud",
           label: "Cloud",
           position: "right",
@@ -180,7 +199,7 @@ module.exports = {
                 opacity: 0.8;
               }
             </style>
-            <div class='cloud-cta button button--primary' alt='try-datahub-cloud' style='font-weight: 700;'>Try DataHub Cloud Free</div>
+            <div class='cloud-cta button button--primary' alt='try-datahub-cloud' style='font-weight: 700;'>Get DataHub Cloud</div>
           `,
           position: "right",
         }
