@@ -1,6 +1,7 @@
 /* eslint-disable import/no-cycle */
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Dropdown, Menu, Popover } from 'antd';
+import { Button, Dropdown, Menu } from 'antd';
+import { Popover } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { IconStyleType } from '../../entity/Entity';

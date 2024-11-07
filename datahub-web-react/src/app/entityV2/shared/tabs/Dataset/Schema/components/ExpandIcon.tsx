@@ -1,5 +1,6 @@
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import RowIcon from '../../../../../../../images/row-icon.svg?react';

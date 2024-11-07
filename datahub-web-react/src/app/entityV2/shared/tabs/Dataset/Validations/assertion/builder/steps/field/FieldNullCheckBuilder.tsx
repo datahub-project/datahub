@@ -1,7 +1,8 @@
 import React from 'react';
 import Typography from 'antd/lib/typography';
 import styled from 'styled-components';
-import { Switch, Tooltip } from 'antd';
+import { Switch } from 'antd';
+import { Tooltip } from '@components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { AssertionMonitorBuilderState } from '../../types';
 import { AssertionStdOperator } from '../../../../../../../../../../types.generated';

@@ -1,4 +1,5 @@
-import { Select, Tag, Tooltip } from 'antd';
+import { Select, Tag } from 'antd';
+import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import { useGetEntitiesLazyQuery } from '../../../../graphql/entity.generated';
 import { useGetSearchResultsForMultipleLazyQuery } from '../../../../graphql/search.generated';

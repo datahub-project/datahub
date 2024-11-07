@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { DataPlatform, EntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../../../../../entity/shared/constants';

@@ -12,7 +12,8 @@ import {
     SubnodeOutlined,
     LoadingOutlined,
 } from '@ant-design/icons';
-import { Button, Select, Tooltip, Typography } from 'antd';
+import { Button, Select, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { EntityType, LineageDirection } from '../../../../../types.generated';
 import ManageLineageMenu from '../../../../lineage/manage/ManageLineageMenu';

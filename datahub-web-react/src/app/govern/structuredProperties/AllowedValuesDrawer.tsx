@@ -1,7 +1,8 @@
 import { colors, Icon, Input, Text, TextArea } from '@src/alchemy-components';
 import { StyledButton } from '@src/app/shared/share/v2/styledComponents';
 import { AllowedValue } from '@src/types.generated';
-import { Form, FormInstance, Tooltip } from 'antd';
+import { Form, FormInstance } from 'antd';
+import { Tooltip } from '@components';
 import React, { useEffect, useRef } from 'react';
 import {
     AddButtonContainer,

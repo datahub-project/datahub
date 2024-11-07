@@ -1,6 +1,7 @@
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Modal, Popover, Typography, message } from 'antd';
+import { Modal, Typography, message } from 'antd';
+import { Popover } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import MarkdownViewer from '@src/app/entity/shared/components/legacy/MarkdownViewer';

@@ -1,4 +1,5 @@
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import Highlight from 'react-highlighter';

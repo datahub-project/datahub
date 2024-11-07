@@ -1,6 +1,7 @@
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
-import { Carousel, Button, Tooltip } from 'antd';
+import { Carousel, Button } from 'antd';
+import { Tooltip } from '@components';
 import { NotificationOutlined, CloseOutlined } from '@ant-design/icons';
 import AnnouncementsSkeleton from '../../content/tabs/announcements/AnnouncementsSkeleton';
 import { Announcement } from './Announcement';

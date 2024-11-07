@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
 import LanguageIcon from '@mui/icons-material/Language';
 import CloseIcon from '@mui/icons-material/Close';
 import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../../shared/constants';

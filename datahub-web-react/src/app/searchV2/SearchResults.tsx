@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Pagination, Tooltip, Typography } from 'antd';
+import { Pagination, Typography } from 'antd';
+import { Tooltip } from '@components';
 import ViewHeadlineOutlinedIcon from '@mui/icons-material/ViewHeadlineOutlined';
 import ViewDayOutlinedIcon from '@mui/icons-material/ViewDayOutlined';
 import styled from 'styled-components/macro';

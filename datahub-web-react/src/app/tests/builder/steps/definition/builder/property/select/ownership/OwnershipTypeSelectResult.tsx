@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Divider, Tooltip } from 'antd';
+import { Divider } from 'antd';
+import { Tooltip } from '@components';
 import { OwnershipTypeEntity } from '../../../../../../../../../types.generated';
 import { getOwnershipTypeDisplayName } from './utils';
 import { ANTD_GRAY } from '../../../../../../../../entity/shared/constants';

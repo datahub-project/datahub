@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { BookOutlined } from '@ant-design/icons';
-import { Tag, Tooltip } from 'antd';
+import { Tag } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import {
     Domain,

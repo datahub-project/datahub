@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Info } from 'phosphor-react';
-import { Input, Tooltip, Collapse } from 'antd';
+import { Input, Collapse } from 'antd';
+import { Tooltip } from '@components';
 
 import type { ComponentBaseProps } from '@app/automations/types';
 

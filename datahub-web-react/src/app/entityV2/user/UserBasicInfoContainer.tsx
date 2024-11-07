@@ -1,5 +1,6 @@
 import React from 'react';
-import { Divider, Tooltip } from 'antd';
+import { Divider } from 'antd';
+import { Tooltip } from '@components';
 import { PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import {
     EmptyValue,

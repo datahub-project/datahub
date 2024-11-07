@@ -1,4 +1,4 @@
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import { IconContainer, Label, Required, Slider, StyledIcon, StyledInput, SwitchContainer } from './components';
 import { SwitchProps } from './types';

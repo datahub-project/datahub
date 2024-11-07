@@ -1,5 +1,6 @@
 import { PartitionOutlined } from '@ant-design/icons';
-import { Avatar, Popover } from 'antd';
+import { Avatar } from 'antd';
+import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { CorpUser, EntityType } from '../../../types.generated';

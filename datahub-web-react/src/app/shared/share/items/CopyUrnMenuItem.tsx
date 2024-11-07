@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 
 interface CopyUrnMenuItemProps {

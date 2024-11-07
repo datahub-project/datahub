@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import FilterCenterFocusOutlinedIcon from '@mui/icons-material/FilterCenterFocusOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PublicIcon from '@mui/icons-material/Public';

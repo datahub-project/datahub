@@ -1,5 +1,6 @@
 import React, { useContext, useState } from 'react';
-import { Button, Select, Tooltip, message } from 'antd';
+import { Button, Select, message } from 'antd';
+import { Tooltip } from '@components';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { orderBy } from 'lodash';

@@ -1,7 +1,6 @@
-import { colors, Pill, Text } from '@src/alchemy-components';
+import { colors, Pill, Text, Tooltip } from '@src/alchemy-components';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { getDisplayName } from '@src/app/govern/structuredProperties/utils';
-import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { getStructuredPropertyValue } from '@src/app/entity/shared/utils';

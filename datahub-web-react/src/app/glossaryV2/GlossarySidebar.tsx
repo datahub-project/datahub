@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
 import { PlusCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';

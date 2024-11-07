@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
 import { DataPlatform } from '@src/types.generated';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../graphql/monitor.generated';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';

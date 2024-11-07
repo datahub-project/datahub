@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { PostContent } from '../../../../../types.generated';
 import { PinnedLinkLogo } from './PinnedLinkLogo';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';

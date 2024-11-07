@@ -1,6 +1,5 @@
-import { Icon, Text } from '@components';
+import { Icon, Text, Tooltip } from '@components';
 import { AllowedValue } from '@src/types.generated';
-import { Tooltip } from 'antd';
 import React from 'react';
 import {
     FieldLabel,

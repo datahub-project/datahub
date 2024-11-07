@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { Button, Select, Tooltip, Typography } from 'antd';
+import { Button, Select, Typography } from 'antd';
+import { Tooltip } from '@components';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation } from 'react-router';
 import {

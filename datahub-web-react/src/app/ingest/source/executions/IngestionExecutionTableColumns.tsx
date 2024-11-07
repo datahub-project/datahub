@@ -1,6 +1,7 @@
 import React from 'react';
 import { CopyOutlined } from '@ant-design/icons';
-import { Button, Typography, Tooltip } from 'antd';
+import { Button, Typography } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import {
     getExecutionRequestStatusDisplayColor,

@@ -1,6 +1,7 @@
 import { ConsoleSqlOutlined, HomeOutlined, LoadingOutlined } from '@ant-design/icons';
 import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
-import { Skeleton, Spin, Tooltip } from 'antd';
+import { Skeleton, Spin } from 'antd';
+import { Tooltip } from '@components';
 import React, { useContext } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';

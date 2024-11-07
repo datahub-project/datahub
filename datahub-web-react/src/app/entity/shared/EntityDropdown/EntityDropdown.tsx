@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Dropdown, Menu, message, Tooltip } from 'antd';
+import { Dropdown, Menu, message } from 'antd';
+import { Tooltip } from '@components';
 import {
     DeleteOutlined,
     ExclamationCircleOutlined,

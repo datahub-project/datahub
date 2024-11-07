@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import { Group } from '@visx/group';
 import { AxisBottom } from '@visx/axis';
 import { scaleUtc } from '@visx/scale';

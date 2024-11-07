@@ -1,7 +1,8 @@
 import { LockOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-import { List, Tag, Tooltip, Typography } from 'antd';
+import { List, Tag, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
 import { CorpGroup, DataHubRole, EntityType, OriginType } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';

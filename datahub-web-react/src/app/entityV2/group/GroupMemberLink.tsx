@@ -1,5 +1,6 @@
 import React from 'react';
-import { Tag, Tooltip } from 'antd';
+import { Tag } from 'antd';
+import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { CustomAvatar } from '../../shared/avatar';

@@ -2,7 +2,7 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
 import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
 import { DisplayProperties, EntityType, GlossaryNode, GlossaryTerm } from '../../types.generated';

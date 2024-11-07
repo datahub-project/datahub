@@ -3,7 +3,8 @@ import styled from 'styled-components';
 import GridViewIcon from '@mui/icons-material/GridView';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PublicIcon from '@mui/icons-material/Public';
-import { Input, Tooltip } from 'antd';
+import { Input } from 'antd';
+import { Tooltip } from '@components';
 import { SearchOutlined } from '@ant-design/icons';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../shared/constants';
 

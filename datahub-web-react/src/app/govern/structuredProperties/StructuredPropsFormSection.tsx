@@ -1,6 +1,6 @@
-import { Icon, SimpleSelect, Text } from '@src/alchemy-components';
+import { Icon, SimpleSelect, Text, Tooltip } from '@src/alchemy-components';
 import { AllowedValue, PropertyCardinality, SearchResult } from '@src/types.generated';
-import { Form, FormInstance, Tooltip } from 'antd';
+import { Form, FormInstance } from 'antd';
 import React from 'react';
 import AllowedValuesField from './AllowedValuesField';
 import { FieldLabel, FlexContainer, RowContainer, SubTextContainer } from './styledComponents';

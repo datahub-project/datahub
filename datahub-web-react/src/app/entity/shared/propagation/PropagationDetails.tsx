@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import { StringMapEntry } from '../../../../types.generated';
 import PropagationEntityLink from './PropagationEntityLink';
 import { usePropagationDetails } from './utils';

@@ -1,4 +1,4 @@
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { TooltipProps } from 'antd/lib/tooltip';
 import React from 'react';
 

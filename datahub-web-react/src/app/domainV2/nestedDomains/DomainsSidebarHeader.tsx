@@ -1,6 +1,7 @@
 import { useApolloClient } from '@apollo/client';
 import { PlusCircleOutlined } from '@ant-design/icons';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import CreateDomainModal from '../CreateDomainModal';

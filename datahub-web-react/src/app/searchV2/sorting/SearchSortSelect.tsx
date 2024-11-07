@@ -1,6 +1,7 @@
 import React from 'react';
 import { CaretDownFilled } from '@ant-design/icons';
-import { Select, Tooltip } from 'antd';
+import { Select } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { DEFAULT_SORT_OPTION } from '../context/constants';

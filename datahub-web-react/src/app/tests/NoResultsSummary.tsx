@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Popover, Tag, Typography } from 'antd';
+import { Tag, Typography } from 'antd';
+import { Popover } from '@components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { METADATA_TESTS_DOC_URL } from './constants';

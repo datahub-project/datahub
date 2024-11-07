@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import { CampaignOutlined } from '@mui/icons-material';
 import { Post } from '../../types.generated';
 import { pluralize } from '../shared/textUtil';

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pagination, Tooltip, Typography } from 'antd';
+import { Pagination, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import QueriesList from './QueriesList';

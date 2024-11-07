@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Popover, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Popover } from '@components';
 import { ClockCircleOutlined, ConsoleSqlOutlined, TableOutlined, TeamOutlined, HddOutlined } from '@ant-design/icons';
 import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
 import { ANTD_GRAY } from '../../shared/constants';

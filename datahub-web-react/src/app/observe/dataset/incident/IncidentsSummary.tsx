@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FlagOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { SearchSection } from '../shared/SearchSection';
 import { EntityType, IncidentType } from '../../../../types.generated';

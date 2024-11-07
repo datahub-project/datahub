@@ -1,4 +1,5 @@
-import { Select, Tag, Tooltip } from 'antd';
+import { Select, Tag } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import { useGetSearchResultsForMultipleLazyQuery } from '../../../../../../../../graphql/search.generated';
 import { EntityType } from '../../../../../../../../types.generated';

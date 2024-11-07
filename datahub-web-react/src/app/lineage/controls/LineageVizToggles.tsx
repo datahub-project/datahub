@@ -1,5 +1,6 @@
 import React from 'react';
-import { Switch, Tooltip } from 'antd';
+import { Switch } from 'antd';
+import { Tooltip } from '@components';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components/macro';

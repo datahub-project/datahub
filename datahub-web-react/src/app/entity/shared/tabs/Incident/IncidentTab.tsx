@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Empty, List, Select, Tooltip, Typography } from 'antd';
+import { Button, Empty, List, Select, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { PlusOutlined } from '@ant-design/icons';
 import { useGetEntityIncidentsQuery } from '../../../../../graphql/incident.generated';
 import TabToolbar from '../../components/styled/TabToolbar';

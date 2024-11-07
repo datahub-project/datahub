@@ -1,6 +1,6 @@
 import { InfoCircleFilled, InfoCircleOutlined } from '@ant-design/icons';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 

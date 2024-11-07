@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { CountBadge } from './CountBadge';
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Sparkle } from 'phosphor-react';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 
 const AiSparkle = styled(Sparkle)`
     height: 16px;

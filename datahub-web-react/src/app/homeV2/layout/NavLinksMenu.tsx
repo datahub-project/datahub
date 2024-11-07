@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled, { useTheme } from 'styled-components/macro';
 
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
 
 import { HelpLinkRoutes, PageRoutes } from '../../../conf/Global';

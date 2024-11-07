@@ -1,5 +1,5 @@
 import { geekblue } from '@ant-design/colors';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 import { UsageQueryResult } from '../../../../../../../types.generated';

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Avatar, Tooltip } from 'antd';
+import { Avatar } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 
 import { UserUsageCounts } from '../../../../types.generated';

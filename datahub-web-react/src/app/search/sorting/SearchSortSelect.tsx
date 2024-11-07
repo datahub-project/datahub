@@ -1,5 +1,6 @@
 import Icon, { CaretDownFilled } from '@ant-design/icons';
-import { Select, Tooltip } from 'antd';
+import { Select } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import useGetSortOptions from '@src/app/searchV2/sorting/useGetSortOptions';

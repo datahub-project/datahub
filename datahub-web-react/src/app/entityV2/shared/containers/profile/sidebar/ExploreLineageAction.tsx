@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import CompactContext from '@src/app/shared/CompactContext';
 import { REDESIGN_COLORS } from '../../../constants';
 import { getEntityPath } from '../utils';

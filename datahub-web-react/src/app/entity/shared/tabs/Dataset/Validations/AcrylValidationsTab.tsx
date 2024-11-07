@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 import { AuditOutlined, FileProtectOutlined } from '@ant-design/icons';

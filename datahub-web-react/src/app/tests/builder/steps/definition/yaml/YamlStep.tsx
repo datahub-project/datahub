@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { CodeOutlined, FormOutlined } from '@ant-design/icons';
-import { Button, message, Tooltip } from 'antd';
+import { Button, message } from 'antd';
+import { Tooltip } from '@components';
 import { jsonToYaml, yamlToJson } from '../../../../../ingest/source/utils';
 import { ANTD_GRAY } from '../../../../../entity/shared/constants';
 import { YamlBuilder } from './YamlBuilder';

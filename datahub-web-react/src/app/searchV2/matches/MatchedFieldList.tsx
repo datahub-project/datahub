@@ -1,6 +1,7 @@
 import React from 'react';
 
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { useHistory } from 'react-router';

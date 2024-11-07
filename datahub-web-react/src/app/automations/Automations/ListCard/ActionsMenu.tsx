@@ -1,9 +1,8 @@
 import React from 'react';
 
 import styled from 'styled-components';
-import { Dropdown, Menu, Tooltip } from 'antd';
-
-import { Icon } from '@components';
+import { Dropdown, Menu } from 'antd';
+import { Tooltip, Icon } from '@components';
 
 import { typography } from '@components/theme';
 import { semanticTokens } from '@components/theme/semantic-tokens';

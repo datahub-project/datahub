@@ -1,5 +1,5 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 
 export default function SharedByInfo() {

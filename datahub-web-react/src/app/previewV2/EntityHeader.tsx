@@ -1,6 +1,6 @@
-import { Tooltip } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import { Deprecation, Health, Maybe } from '../../types.generated';
 import { GenericEntityProperties } from '../entity/shared/types';

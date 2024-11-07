@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
-import { Button, Divider, Tooltip, Typography } from 'antd';
+import { Button, Divider, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { ProfileSidebarResizer } from '@src/app/entityV2/shared/containers/profile/sidebar/ProfileSidebarResizer';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import EntityBrowse from './EntityBrowse';

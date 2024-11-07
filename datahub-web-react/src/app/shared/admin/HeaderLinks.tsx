@@ -13,7 +13,8 @@ import {
     SolutionOutlined,
     UnorderedListOutlined,
 } from '@ant-design/icons';
-import { Button, Dropdown, Menu, Tooltip } from 'antd';
+import { Button, Dropdown, Menu } from 'antd';
+import { Tooltip } from '@components';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';

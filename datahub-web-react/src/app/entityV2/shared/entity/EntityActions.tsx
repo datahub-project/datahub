@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Button, Tooltip, message } from 'antd';
+import { Button, message } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components/macro';
 import { LinkOutlined, PlusOutlined } from '@ant-design/icons';
 import { SearchSelectModal } from '../components/styled/search/SearchSelectModal';

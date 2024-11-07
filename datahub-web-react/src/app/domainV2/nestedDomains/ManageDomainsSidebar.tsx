@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { Button, Divider, Tooltip } from 'antd';
+import { Button, Divider } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import useSidebarWidth from '../../sharedV2/sidebar/useSidebarWidth';

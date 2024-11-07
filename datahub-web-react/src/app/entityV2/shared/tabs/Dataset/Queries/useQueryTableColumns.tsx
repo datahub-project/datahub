@@ -1,7 +1,7 @@
 import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { Query } from './types';
 import QueryComponent from './Query';
 import { EditDeleteColumn, QueryCreatedBy, QueryDescription, PopularityColumn, ColumnsColumn } from './queryColumns';

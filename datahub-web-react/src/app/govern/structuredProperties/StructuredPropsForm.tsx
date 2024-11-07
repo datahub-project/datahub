@@ -1,6 +1,7 @@
 import { Icon, Input, Text, TextArea } from '@src/alchemy-components';
 import { AllowedValue, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
-import { Form, FormInstance, Select, Tooltip } from 'antd';
+import { Form, FormInstance, Select } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import AdvancedOptions from './AdvancedOptions';
 import DisplayPreferences from './DisplayPreferences';

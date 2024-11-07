@@ -1,6 +1,7 @@
 import React, { Fragment } from 'react';
 
-import { Button, Collapse, Form, message, Tooltip, Typography } from 'antd';
+import { Button, Collapse, Form, message, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { get } from 'lodash';
 import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';

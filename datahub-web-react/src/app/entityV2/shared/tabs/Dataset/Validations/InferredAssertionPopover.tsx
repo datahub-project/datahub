@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Popover, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Popover } from '@components';
 import { Sparkle } from 'phosphor-react';
 import { REDESIGN_COLORS } from '../../../constants';
 

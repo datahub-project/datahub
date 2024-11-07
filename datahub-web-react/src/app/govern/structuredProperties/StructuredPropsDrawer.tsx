@@ -18,7 +18,8 @@ import {
     StructuredPropertyFilterStatus,
     UpdateStructuredPropertyInput,
 } from '@src/types.generated';
-import { Form, Tooltip } from 'antd';
+import { Form } from 'antd';
+import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import AllowedValuesDrawer from './AllowedValuesDrawer';
 import { updatePropertiesList } from './cacheUtils';

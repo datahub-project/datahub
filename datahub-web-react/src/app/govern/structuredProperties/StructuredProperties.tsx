@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { SearchOutlined } from '@ant-design/icons';
-import { Button } from '@src/alchemy-components';
-import { PageTitle } from '@src/alchemy-components/components/PageTitle';
+import { Button, PageTitle, Tooltip } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
-import { Tooltip } from 'antd';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import StructuredPropsDrawer from './StructuredPropsDrawer';
 import StructuredPropsTable from './StructuredPropsTable';

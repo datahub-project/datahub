@@ -1,6 +1,7 @@
 import { ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
-import { Tag as AntTag, Tooltip, Typography, message } from 'antd';
+import { Tag as AntTag, Typography, message } from 'antd';
+import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';

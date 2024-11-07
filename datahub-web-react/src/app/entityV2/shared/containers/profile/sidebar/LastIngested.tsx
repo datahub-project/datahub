@@ -1,5 +1,6 @@
 import { green, orange, red } from '@ant-design/colors';
-import { Image, Popover } from 'antd';
+import { Image } from 'antd';
+import { Popover } from '@components';
 import styled from 'styled-components/macro';
 import moment from 'moment-timezone';
 import React from 'react';

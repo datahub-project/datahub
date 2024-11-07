@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Select, Tooltip, Typography } from 'antd';
+import { Select, Typography } from 'antd';
+import { Tooltip } from '@components';
 import Icon, { CaretDownFilled } from '@ant-design/icons';
 import EntityNode from './EntityNode';
 import { BrowseProvider } from './BrowseContext';

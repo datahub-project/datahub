@@ -1,4 +1,4 @@
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
 import { Entity } from '../../../../types.generated';

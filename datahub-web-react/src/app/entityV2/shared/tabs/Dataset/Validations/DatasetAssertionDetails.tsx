@@ -1,4 +1,5 @@
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import { SelectValue } from 'antd/lib/select';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';

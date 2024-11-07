@@ -1,5 +1,5 @@
-import { Icon, Input, Text } from '@components';
-import { Collapse, Form, Tooltip } from 'antd';
+import { Icon, Input, Text, Tooltip } from '@components';
+import { Collapse, Form } from 'antd';
 import React from 'react';
 import { CollapseHeader, FlexContainer, InputLabel, StyledCollapse } from './styledComponents';
 

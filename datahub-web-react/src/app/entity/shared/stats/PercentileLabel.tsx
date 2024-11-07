@@ -1,4 +1,5 @@
-import { Popover, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Popover } from '@components';
 import React from 'react';
 import { percentileToLabel } from './statsUtils';
 

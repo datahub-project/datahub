@@ -1,6 +1,7 @@
 import React from 'react';
 import { LockOutlined } from '@ant-design/icons';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import { REDESIGN_COLORS } from '../shared/constants';
 import { MemberCount } from './GroupSidebar';

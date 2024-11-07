@@ -1,6 +1,7 @@
 import { ArrowLeftOutlined, ArrowRightOutlined, MoreOutlined } from '@ant-design/icons';
 import Colors from '@components/theme/foundations/colors';
-import { Button, Dropdown, Menu, Popover } from 'antd';
+import { Button, Dropdown, Menu } from 'antd';
+import { Popover } from '@components';
 import styled from 'styled-components';
 import React, { useCallback, useContext, useState } from 'react';
 import { EntityType, LineageDirection } from '../../../types.generated';

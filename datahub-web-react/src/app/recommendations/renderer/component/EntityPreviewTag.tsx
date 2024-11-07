@@ -1,5 +1,6 @@
 import React from 'react';
-import { Divider, Image, Tag, Tooltip } from 'antd';
+import { Divider, Image, Tag } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import { Maybe } from 'graphql/jsutils/Maybe';

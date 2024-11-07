@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip, Typography, Image } from 'antd';
+import { Typography, Image } from 'antd';
+import { Tooltip } from '@components';
 import { DataPlatform, EntityType } from '../../../../../../types.generated';
 import { LinkWrapper } from '../../../../../shared/LinkWrapper';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';

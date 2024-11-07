@@ -1,4 +1,4 @@
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 import KeyboardTabOutlinedIcon from '@mui/icons-material/KeyboardTabOutlined';

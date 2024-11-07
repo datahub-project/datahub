@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { Entity } from '../../../../types.generated';
 import { EntityLink } from './EntityLink';
 import { EntityLinkListSkeleton } from './EntityLinkListSkeleton';

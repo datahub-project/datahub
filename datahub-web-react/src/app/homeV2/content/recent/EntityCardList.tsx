@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { HorizontalList } from '../../../entityV2/shared/summary/ListComponents';
 import { EntityCard } from './EntityCard';
 import { Entity } from '../../../../types.generated';

@@ -1,7 +1,7 @@
 import React from 'react';
 import { PartitionOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { ShareResult } from '../../../../../../../types.generated';
 
 const LineageIcon = styled(PartitionOutlined)<{ size?: number }>`

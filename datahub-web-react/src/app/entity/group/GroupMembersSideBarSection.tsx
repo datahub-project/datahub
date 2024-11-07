@@ -1,4 +1,5 @@
-import { Tag, Tooltip } from 'antd';
+import { Tag } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';

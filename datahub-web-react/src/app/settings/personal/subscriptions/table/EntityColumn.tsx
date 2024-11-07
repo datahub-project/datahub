@@ -1,5 +1,6 @@
 import React from 'react';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';

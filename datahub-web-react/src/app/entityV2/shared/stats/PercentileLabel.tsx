@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import { percentileToColor, percentileToLabel } from './statsUtils';
 import { ANTD_GRAY } from '../constants';
 

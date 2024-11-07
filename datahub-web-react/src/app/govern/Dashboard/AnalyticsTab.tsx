@@ -1,6 +1,7 @@
 import DownloadForOfflineOutlinedIcon from '@mui/icons-material/DownloadForOfflineOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
-import { Tabs, Tooltip } from 'antd';
+import { Tabs } from 'antd';
+import { Tooltip } from '@components';
 import dayjs from 'dayjs';
 import { json2csv } from 'json-2-csv';
 import React, { useEffect, useState } from 'react';

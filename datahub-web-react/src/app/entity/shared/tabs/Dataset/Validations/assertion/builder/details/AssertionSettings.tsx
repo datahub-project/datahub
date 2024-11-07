@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
-import { Button, Form, Tooltip } from 'antd';
+import { Button, Form } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import { Assertion, AssertionType, Monitor, Entity } from '../../../../../../../../../types.generated';
 import { EditButton } from './EditButton';

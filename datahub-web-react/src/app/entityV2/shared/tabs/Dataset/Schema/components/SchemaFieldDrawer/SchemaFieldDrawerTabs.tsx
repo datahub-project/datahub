@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Tabs, Tooltip } from 'antd';
+import { Tabs } from 'antd';
+import { Tooltip } from '@components';
 import { EntitySidebarTab } from '../../../../../types';
 
 const UnborderedTabs = styled(Tabs)`

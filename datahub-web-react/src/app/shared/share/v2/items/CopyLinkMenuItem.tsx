@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { StyledMenuItem } from '../styledComponents';
 import { EntityType } from '../../../../../types.generated';
 import { useEntityRegistryV2 } from '../../../../useEntityRegistry';

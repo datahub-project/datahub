@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';

@@ -1,5 +1,6 @@
 import React, { MouseEventHandler, useCallback } from 'react';
-import { Button, ButtonProps, Tooltip } from 'antd';
+import { Button, ButtonProps } from 'antd';
+import { Tooltip } from '@components';
 import { capitalCase } from '@remirror/core';
 import { useHelpers } from '@remirror/react';
 

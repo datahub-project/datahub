@@ -12,7 +12,8 @@ import {
     FieldBinaryOutlined,
     LineChartOutlined,
 } from '@ant-design/icons';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import React, { FC } from 'react';
 import { VscFileBinary } from 'react-icons/vsc';
 import styled from 'styled-components';

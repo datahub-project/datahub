@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Carousel } from '@src/app/sharedV2/carousel/Carousel';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { PinnedLink } from './PinnedLink';
 
 const Title = styled.div<{ hasAction: boolean }>`

@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import { EntityType } from '../../types.generated';
 import EntityRegistry from '../entityV2/EntityRegistry';
 import LineageStatusIcon from '../../images/lineage-status.svg?react';

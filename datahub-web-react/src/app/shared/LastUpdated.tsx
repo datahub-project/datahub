@@ -1,6 +1,7 @@
 import { green, orange, red } from '@ant-design/colors';
 import { ClockCircleOutlined } from '@ant-design/icons';
-import { Image, Popover } from 'antd';
+import { Image } from 'antd';
+import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../entity/shared/constants';

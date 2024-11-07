@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import styled from 'styled-components';
 import { debounce } from 'lodash';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';

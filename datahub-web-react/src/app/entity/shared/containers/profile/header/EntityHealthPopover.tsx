@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Popover, Divider } from 'antd';
+import { Divider } from 'antd';
+import { Popover } from '@components';
 import {
     getHealthSummaryIcon,
     getHealthSummaryMessage,

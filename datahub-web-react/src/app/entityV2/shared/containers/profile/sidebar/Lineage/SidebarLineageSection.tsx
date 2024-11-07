@@ -3,7 +3,7 @@ import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLi
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { ArrowDownOutlined, ArrowUpOutlined, PartitionOutlined } from '@ant-design/icons';
 import { useGetSearchAcrossLineageCountsQuery } from '../../../../../../../graphql/lineage.generated';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';

@@ -1,4 +1,5 @@
-import { Popover, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import { CorpGroup, CorpUser } from '../../../../../types.generated';

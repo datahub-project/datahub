@@ -1,6 +1,7 @@
 import React, { Key } from 'react';
 import _ from 'lodash';
-import { Tooltip, Typography, message, notification } from 'antd';
+import { Typography, message, notification } from 'antd';
+import { Tooltip } from '@components';
 import { DataNode } from 'antd/lib/tree';
 import { CheckCircleFilled, QuestionCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';

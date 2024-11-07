@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Divider, message, Modal, Popover, Tooltip, Typography } from 'antd';
+import { Divider, message, Modal, Typography } from 'antd';
+import { Tooltip, Popover } from '@components';
 import moment from 'moment';
 import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
 import { Deprecation } from '../../../../../types.generated';

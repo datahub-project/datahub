@@ -1,4 +1,5 @@
-import { Button, Checkbox, Collapse, Form, Input, Tooltip, Typography } from 'antd';
+import { Button, Checkbox, Collapse, Form, Input, Typography } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';

@@ -1,5 +1,6 @@
 import { Icon } from '@src/alchemy-components';
-import { Form, FormInstance, Tooltip } from 'antd';
+import { Form, FormInstance } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import { RequiredFieldContainer, StyledCheckbox, StyledLabel } from '../styledComponents';
 

@@ -1,7 +1,8 @@
 import { CloseOutlined, FileDoneOutlined } from '@ant-design/icons';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { PendingProposals } from './PendingProposals';
 import { PendingRequests } from './PendingRequests';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { CloseCircleOutlined, ExclamationCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import InfoIcon from '@mui/icons-material/Info';

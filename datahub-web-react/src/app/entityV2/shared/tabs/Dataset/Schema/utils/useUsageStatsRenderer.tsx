@@ -1,7 +1,7 @@
 import { geekblue } from '@ant-design/colors';
 import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import { UsageQueryResult } from '../../../../../../../types.generated';

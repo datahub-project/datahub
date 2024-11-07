@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { Button, Select, Tooltip } from 'antd';
+import { Button, Select } from 'antd';
+import { Tooltip } from '@components';
 import { CaretDownOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { blue } from '@ant-design/colors';

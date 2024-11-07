@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 import EditIcon from '@mui/icons-material/Edit';
-import { Button, Tooltip, Typography } from 'antd';
+import { Button, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { DataContractState } from '../../../../../../../types.generated';
 import { AssertionStatusSummary } from '../acrylTypes';
 import { getContractSummaryIcon, getContractSummaryTitle, getContractSummaryMessage } from './utils';

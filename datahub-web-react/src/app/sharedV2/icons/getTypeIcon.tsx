@@ -1,5 +1,5 @@
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import { EntityType } from '../../../types.generated';

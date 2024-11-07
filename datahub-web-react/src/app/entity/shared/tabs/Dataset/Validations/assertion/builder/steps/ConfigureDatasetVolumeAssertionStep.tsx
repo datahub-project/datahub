@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
 import { AssertionBuilderStep, StepProps } from '../types';
 import {
     AssertionEvaluationParametersInput,

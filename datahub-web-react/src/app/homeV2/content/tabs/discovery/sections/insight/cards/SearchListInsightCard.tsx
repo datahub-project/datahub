@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { InsightCard } from '../shared/InsightCard';
 import { EntityLinkList } from '../../../../../../reference/sections/EntityLinkList';
 import { EmbeddedListSearchModal } from '../../../../../../../entityV2/shared/components/styled/search/EmbeddedListSearchModal';

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Divider, message, Modal, Popover, Tooltip, Typography } from 'antd';
+import { Divider, message, Modal, Typography } from 'antd';
+import { Tooltip, Popover } from '@components';
 import { blue } from '@ant-design/colors';
 import styled from 'styled-components';
 import moment from 'moment';

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { EntityCapabilityType } from '../../../../entity/Entity';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
