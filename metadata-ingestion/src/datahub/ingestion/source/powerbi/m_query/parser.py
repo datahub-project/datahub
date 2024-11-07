@@ -81,7 +81,7 @@ def get_upstream_tables(
             assert message is not None
             logger.debug(f"Validation failed: {message}")
             reporter.info(
-                title="Unsupported M-Query",
+                title="Non-Data Platform Expression",
                 message=message,
                 context=f"table-full-name={table.full_name}, expression={table.expression}, message={message}",
             )
