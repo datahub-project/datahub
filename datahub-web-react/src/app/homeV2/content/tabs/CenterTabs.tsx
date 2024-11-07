@@ -1,17 +1,18 @@
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 import { Skeleton } from 'antd';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import OnboardingContext from '../../../onboarding/OnboardingContext';
 import { useGetActiveTabs } from './useGetVisibleTabs';
 import { DEFAULT_TAB, TAB_NAME_DETAILS, TabType } from './tabs';
 import { CenterTab } from './CenterTab';
 import { useAppConfig } from '../../../useAppConfig';
 
-const Container = styled.div`
+const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     border-radius: 8px;
     padding: 0px 0px 0px 0px;
-    margin-top: 18px;
+    ${(props) => !props.$isShowNavBarRedesign && 'margin-top: 18px;'}
 `;
 
 const Tabs = styled.div`
@@ -39,6 +40,7 @@ const SkeletonButton = styled(Skeleton.Button)`
 `;
 
 export const CenterTabs = () => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const activeTabs = useGetActiveTabs();
     const [selectedTab, setSelectedTab] = useState<TabType>(activeTabs[0].type || DEFAULT_TAB);
     const selectedTabDetails = TAB_NAME_DETAILS.get(selectedTab);
@@ -56,7 +58,7 @@ export const CenterTabs = () => {
 
     const showSkeleton = isUserInitializing || !loaded;
     return (
-        <Container>
+        <Container $isShowNavBarRedesign={isShowNavBarRedesign}>
             {showSkeleton ? (
                 <SkeletonButton shape="square" size="large" active />
             ) : (

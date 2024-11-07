@@ -1,4 +1,4 @@
-import React, { useContext, useState, ReactNode, useMemo } from 'react';
+import React, { useContext, useState, ReactNode, useMemo, useCallback } from 'react';
 
 export enum NavBarStateType {
     Collapsed = 'COLLAPSED',
@@ -11,6 +11,7 @@ export interface NavBarContextType {
     setState: (newState: NavBarStateType) => void;
     isCollapsed: boolean;
     toggle: () => void;
+    collapseIfOpened: () => void;
     selectedKey: string;
     setSelectedKey: (key: string) => void;
 }
@@ -20,6 +21,7 @@ export const NavBarContext = React.createContext<NavBarContextType>({
     setState: () => {},
     isCollapsed: true,
     toggle: () => {},
+    collapseIfOpened: () => {},
     selectedKey: '',
     setSelectedKey: () => {},
 });
@@ -50,6 +52,15 @@ export const NavBarProvider = ({ children }: Props) => {
         });
     };
 
+    const collapseIfOpened = useCallback(() => {
+        setState((currentState) => {
+            if (currentState === NavBarStateType.Opened) {
+                return NavBarStateType.Collapsed;
+            }
+            return currentState;
+        });
+    }, [setState]);
+
     return (
         <NavBarContext.Provider
             value={{
@@ -59,6 +70,7 @@ export const NavBarProvider = ({ children }: Props) => {
                 toggle,
                 selectedKey,
                 setSelectedKey,
+                collapseIfOpened,
             }}
         >
             {children}

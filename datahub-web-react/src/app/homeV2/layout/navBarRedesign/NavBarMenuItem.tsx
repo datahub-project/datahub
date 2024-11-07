@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, MenuItemProps } from 'antd';
+import { Menu, MenuItemProps, Tooltip } from 'antd';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 import { Text } from '@src/alchemy-components';
@@ -58,11 +58,13 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
         box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
 
         && .ant-menu-title-content {
-            color: #533fd1;
+            background: linear-gradient(#7565d6 20%, #5340cc 80%);
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         && svg {
-            color: #533fd1;
+            fill: url(#menu-item-selected-gradient) #533fd1;
         }
     }
 `;
@@ -81,17 +83,23 @@ type Props = {
 export default function NavBarMenuItem({ item, isCollapsed, isSelected, ...props }: Props) {
     const history = useHistory();
 
-    const redirect = (link: string | undefined) => link && history.push(link);
+    const onClick = () => {
+        if (item.link) return history.push(item.link);
+        if (item.onClick) return item.onClick();
+        return null;
+    };
 
     const component = (
-        <StyledMenuItem isCollapsed={isCollapsed} onClick={() => redirect(item.link)} {...props}>
-            <Icon>{isSelected ? item.selectedIcon || item.icon : item.icon}</Icon>
-            {!isCollapsed && (
-                <Text size="md" type="div">
-                    {item.title}
-                </Text>
-            )}
-        </StyledMenuItem>
+        <Tooltip title={isCollapsed ? item.title : null} placement="right" showArrow={false}>
+            <StyledMenuItem isCollapsed={isCollapsed} onClick={onClick} {...props}>
+                <Icon>{isSelected ? item.selectedIcon || item.icon : item.icon}</Icon>
+                {!isCollapsed && (
+                    <Text size="md" type="div" weight="semiBold">
+                        {item.title}
+                    </Text>
+                )}
+            </StyledMenuItem>
+        </Tooltip>
     );
 
     return component;

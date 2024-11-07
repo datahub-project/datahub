@@ -44,13 +44,13 @@ const Wrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     `}
 `;
 
-const Header = styled(Layout)<{ isNavBarCollapsed?: boolean; $isShowNavBarRedesign?: boolean }>`
+const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedesign?: boolean }>`
     background-color: transparent;
     height: ${(props) => (props.$isShowNavBarRedesign ? '56px' : '72px')};
     display: flex;
     ${(props) => {
         if (!props.$isShowNavBarRedesign) return '';
-        return `padding-left: ${props.isNavBarCollapsed ? '78px;' : '272px'};`;
+        return `padding-left: ${props.$isNavBarCollapsed ? '69px;' : '275px'};`;
     }}
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -60,7 +60,7 @@ const Header = styled(Layout)<{ isNavBarCollapsed?: boolean; $isShowNavBarRedesi
         flex-direction: row;
         transition: padding 250ms ease-in-out;
     `}
-    ${(props) => props.$isShowNavBarRedesign && !props.isNavBarCollapsed && 'justify-content: space-between;'}
+    ${(props) => props.$isShowNavBarRedesign && !props.$isNavBarCollapsed && 'justify-content: space-between;'}
     align-items: center;
 `;
 
@@ -139,7 +139,7 @@ export const SearchHeader = ({
         <>
             <HeaderBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Wrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
-                <Header $isShowNavBarRedesign={isShowNavBarRedesign} isNavBarCollapsed={isCollapsed}>
+                <Header $isShowNavBarRedesign={isShowNavBarRedesign} $isNavBarCollapsed={isCollapsed}>
                     {isShowNavBarRedesign && isCollapsed && <NavBarToggler iconSize={20} />}
                     <SearchBarContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                         <SearchBar

@@ -1,5 +1,5 @@
 import { CloseOutlined, FileDoneOutlined } from '@ant-design/icons';
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import { Button } from 'antd';
 import { Tooltip } from '@components';
@@ -62,7 +62,11 @@ const StyledCloseOutlined = styled(CloseOutlined)`
     font-size: 12px;
 `;
 
-export const PendingTasks = () => {
+type Props = {
+    setHasPendingTasks?: (value: boolean) => void;
+};
+
+export const PendingTasks = ({ setHasPendingTasks }: Props) => {
     const {
         state: { notificationsCount, proposalCount, unfinishedTaskCount },
         loaded,
@@ -70,6 +74,20 @@ export const PendingTasks = () => {
     const { isUserInitializing } = useContext(OnboardingContext);
     const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
     const hidePendingTasks = useShouldHidePendingTasks();
+    const hideTransformations = hidePendingTasks[0];
+
+    const isCardShouldBeHidden = useMemo(() => {
+        // Don't show the card if there are no pending tasks
+        if (unfinishedTaskCount === 0 || !unfinishedTaskCount) return true;
+        // Don't show if forms are disabled and there are no proposals
+        if (!isDocumentationFormsEnabled && !proposalCount) return true;
+
+        return false;
+    }, [unfinishedTaskCount, isDocumentationFormsEnabled, proposalCount]);
+
+    useEffect(() => {
+        setHasPendingTasks?.(isCardShouldBeHidden && hideTransformations);
+    }, [setHasPendingTasks, isCardShouldBeHidden, hideTransformations]);
 
     if (hidePendingTasks) {
         return null;
@@ -82,11 +100,8 @@ export const PendingTasks = () => {
             </Card>
         );
     }
-    // Don't show the card if there are no pending tasks
-    if (unfinishedTaskCount === 0 || !unfinishedTaskCount) return null;
 
-    // Don't show if forms are disabled and there are no proposals
-    if (!isDocumentationFormsEnabled && !proposalCount) return null;
+    if (isCardShouldBeHidden) return null;
 
     return (
         <Card id={V2_HOME_PAGE_PENDING_TASKS_ID}>

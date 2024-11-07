@@ -25,14 +25,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     display: flex;
     overflow: hidden;
-    ${(props) =>
-        props.$isShowNavBarRedesign &&
-        `
-        background: white;
-        border-radius: ${props.theme.styles['border-radius-navbar-redesign']};
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
-        margin: 5px;
-    `}
+    ${(props) => props.$isShowNavBarRedesign && 'gap: 6px;'}
 `;
 
 export const HomePage = () => {

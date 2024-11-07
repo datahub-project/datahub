@@ -1,8 +1,35 @@
 import React from 'react';
 import { Dropdown, MenuItemProps } from 'antd';
 import { useHistory } from 'react-router';
+import styled from 'styled-components';
+import { Text } from '@src/alchemy-components';
 import NavBarMenuItem from './NavBarMenuItem';
 import { NavBarMenuDropdownItem } from './types';
+
+const StyledDropdownContentWrapper = styled.div`
+    background-color: white;
+    border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
+    box-shadow: 0px 0px 14px 0px rgba(0, 0, 0, 0.15);
+    padding: 8px;
+`;
+
+const StyledDropDownOption = styled.div<{ $disabled?: boolean }>`
+    padding: 8px;
+    border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
+    ${(props) =>
+        !props.$disabled &&
+        `
+        cursor: pointer;
+        &:hover {
+            background: linear-gradient(
+                180deg,
+                rgba(243, 244, 246, 0.5) -3.99%,
+                rgba(235, 236, 240, 0.5) 53.04%,
+                rgba(235, 236, 240, 0.5) 100%
+            );;
+        }
+    `}
+`;
 
 type Props = {
     item: NavBarMenuDropdownItem;
@@ -13,13 +40,7 @@ type Props = {
 export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, ...props }: Props) {
     const history = useHistory();
 
-    const menu = item.items
-        ?.filter((subItem) => !subItem.isHidden)
-        .map((subItem) => ({
-            title: subItem.description,
-            label: subItem.title,
-            key: subItem.key,
-        }));
+    const dropdownItems = item.items?.filter((subItem) => !subItem.isHidden);
 
     const onItemClick = (key) => {
         const clickedItem = item.items?.filter((dropdownItem) => dropdownItem.key === key)?.[0];
@@ -35,7 +56,28 @@ export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, 
     };
 
     return (
-        <Dropdown menu={{ items: menu, onClick: (attrs) => onItemClick(attrs.key) }}>
+        <Dropdown
+            dropdownRender={() => {
+                return (
+                    <StyledDropdownContentWrapper>
+                        {dropdownItems?.map((dropdownItem) => {
+                            return (
+                                <StyledDropDownOption
+                                    key={dropdownItem.key}
+                                    $disabled={dropdownItem.disabled}
+                                    onClick={() => onItemClick(dropdownItem.key)}
+                                >
+                                    <Text>{dropdownItem.title}</Text>
+                                    <Text size="sm" color="gray">
+                                        {dropdownItem.description}
+                                    </Text>
+                                </StyledDropDownOption>
+                            );
+                        })}
+                    </StyledDropdownContentWrapper>
+                );
+            }}
+        >
             <NavBarMenuItem item={item} isCollapsed={isCollapsed} isSelected={isSelected} {...props} />
         </Dropdown>
     );

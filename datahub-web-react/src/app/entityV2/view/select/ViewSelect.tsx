@@ -90,6 +90,20 @@ const overlayInnerStyle = {
     width: '100%',
 };
 
+const getOverlayInnerStyle = (isShowNavBarRedesign?: boolean) => {
+    if (isShowNavBarRedesign)
+        return {
+            display: 'flex',
+            width: '100%',
+            opacity: 0.97,
+            borderRadius: 0,
+            backgroundColor: REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK,
+            paddingTop: '15px',
+        };
+
+    return overlayInnerStyle;
+};
+
 const overlayStyle = {
     left: '0px',
     backgroundColor: REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK,
@@ -97,6 +111,19 @@ const overlayStyle = {
     opacity: 0.97,
     zIndex: 13,
     'transform-origin': '0',
+};
+
+const getOverlayStyle = (isShowNavBarRedesign?: boolean) => {
+    if (isShowNavBarRedesign)
+        return {
+            left: '0px',
+            backdropFilter: 'blur(5px)',
+            paddingTop: 0,
+            zIndex: 13,
+            'transform-origin': '0',
+        };
+
+    return overlayStyle;
 };
 
 /**
@@ -306,8 +333,8 @@ export const ViewSelect = () => {
                 }
                 trigger="click"
                 overlayClassName="view-select-popover"
-                overlayInnerStyle={overlayInnerStyle}
-                overlayStyle={overlayStyle}
+                overlayInnerStyle={getOverlayInnerStyle(isShowNavBarRedesign)}
+                overlayStyle={getOverlayStyle(isShowNavBarRedesign)}
                 showArrow={false}
                 popupVisible={false}
                 ref={selectRef}

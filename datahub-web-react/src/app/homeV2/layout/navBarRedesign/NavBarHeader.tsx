@@ -11,7 +11,7 @@ const Container = styled.div<{ isCollapsed?: boolean }>`
     min-height: 40px;
     align-items: center;
     gap: 8px;
-    ${(props) => props.isCollapsed && 'padding-left: 6px;'}
+    ${(props) => props.isCollapsed && 'padding-left: 4px;'}
     transition: padding 250ms ease-in-out;
 `;
 

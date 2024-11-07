@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
@@ -8,15 +8,16 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
 import { EntityType } from '@src/types.generated';
 import {
-    BuildingOffice,
-    Cylinder,
+    BookBookmark,
     FileLock,
     Gear,
+    Globe,
     Heartbeat,
     Lightning,
     ListChecks,
     Plugs,
     Question,
+    SignOut,
     SquaresFour,
     TestTube,
     TextColumns,
@@ -24,6 +25,7 @@ import {
     UserCircle,
 } from '@phosphor-icons/react';
 import styled, { useTheme } from 'styled-components';
+import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
 import AcrylIcon from '../../../../images/acryl-light-mark.svg?react';
 import { useUserContext } from '../../../context/useUserContext';
 import OnboardingContext from '../../../onboarding/OnboardingContext';
@@ -33,6 +35,7 @@ import NavBarMenu from './NavBarMenu';
 import NavSkeleton from './NavBarSkeleton';
 import { NavBarMenuDropdownItemElement, NavBarMenuItems, NavBarMenuItemTypes } from './types';
 import { useNavBarContext } from './NavBarContext';
+import useSelectedKey from './useSelectedKey';
 
 const Container = styled.div`
     height: 100vh;
@@ -74,7 +77,7 @@ export const NavSidebar = () => {
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
 
-    const { isCollapsed } = useNavBarContext();
+    const { isCollapsed, setSelectedKey } = useNavBarContext();
     const appConfig = useAppConfig();
     const userContext = useUserContext();
     const me = useUserContext();
@@ -83,6 +86,7 @@ export const NavSidebar = () => {
     const { helpLinkState } = useGlobalSettingsContext();
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
+    const logout = useGetLogoutHandler();
 
     const showActionRequests = config?.actionRequestsConfig.enabled || false;
     const showTests = ((config?.testsConfig.enabled || false) && me?.platformPrivileges?.manageTests) || false;
@@ -128,6 +132,7 @@ export const NavSidebar = () => {
                 selectedIcon: <SquaresFour weight="fill" />,
                 key: 'home',
                 link: PageRoutes.ROOT,
+                onlyExactPathMapping: true,
             },
             {
                 type: NavBarMenuItemTypes.Item,
@@ -165,17 +170,21 @@ export const NavSidebar = () => {
                         type: NavBarMenuItemTypes.Item,
                         title: 'Glossary',
                         key: 'glossary',
-                        icon: <Cylinder />,
-                        selectedIcon: <Cylinder weight="fill" />,
+                        icon: <BookBookmark />,
+                        selectedIcon: <BookBookmark weight="fill" />,
                         link: PageRoutes.GLOSSARY,
+                        additionalLinksForPathMatching: entityRegistry
+                            .getGlossaryEntities()
+                            .map((entity) => `/${entity.getPathName()}/:urn`),
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
                         title: 'Domains',
                         key: 'domains',
-                        icon: <BuildingOffice />,
-                        selectedIcon: <BuildingOffice weight="fill" />,
+                        icon: <Globe />,
+                        selectedIcon: <Globe weight="fill" />,
                         link: PageRoutes.DOMAINS,
+                        additionalLinksForPathMatching: [`/${entityRegistry.getPathName(EntityType.Domain)}/:urn`],
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -297,6 +306,7 @@ export const NavSidebar = () => {
                         title: config?.appVersion || '',
                         isHidden: !config?.appVersion,
                         key: 'helpAppVersion',
+                        disabled: true,
                     },
                     {
                         type: NavBarMenuItemTypes.DropdownElement,
@@ -307,13 +317,39 @@ export const NavSidebar = () => {
                     },
                 ],
             },
+            {
+                type: NavBarMenuItemTypes.Item,
+                title: 'Sign out',
+                icon: <SignOut />,
+                key: 'signOut',
+                onClick: logout,
+            },
         ],
     };
+    const selectedKey = useSelectedKey(mainMenu);
+
+    useEffect(() => setSelectedKey(selectedKey), [selectedKey, setSelectedKey]);
 
     const showSkeleton = isUserInitializing || !appConfig.loaded || !userContext.loaded;
 
+    const renderSvgSelectedGradientForReusingInIcons = () => {
+        return (
+            <svg
+                style={{ width: 0, height: 0, position: 'absolute', visibility: 'hidden' }}
+                aria-hidden="true"
+                focusable="false"
+            >
+                <linearGradient id="menu-item-selected-gradient" x2="1" y2="1">
+                    <stop offset="20%" stopColor="#7565d6" />
+                    <stop offset="80%" stopColor="#5340cc" />
+                </linearGradient>
+            </svg>
+        );
+    };
+
     return (
         <Container>
+            {renderSvgSelectedGradientForReusingInIcons()}
             <Content isCollapsed={isCollapsed}>
                 {showSkeleton ? (
                     <NavSkeleton isCollapsed={isCollapsed} />

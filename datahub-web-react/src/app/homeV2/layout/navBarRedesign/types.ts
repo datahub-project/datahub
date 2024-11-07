@@ -13,9 +13,14 @@ export interface NavBarMenuBaseElement {
     key: string;
     description?: string;
     link?: string;
+    // Additional links to detect selected menu item (for subroutes)
+    additionalLinksForPathMatching?: string[];
+    //
+    onlyExactPathMapping?: boolean;
     isExternalLink?: boolean;
     isHidden?: boolean;
     onClick?: () => void;
+    disabled?: boolean;
 }
 
 export interface NavBarMenuBaseItem extends NavBarMenuBaseElement {

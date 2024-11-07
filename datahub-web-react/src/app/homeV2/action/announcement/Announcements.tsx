@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { Carousel, Button } from 'antd';
 import { Tooltip } from '@components';
@@ -66,7 +66,11 @@ const CloseButton = styled(Button)`
     padding: 2px;
 `;
 
-export const Announcements = () => {
+type Props = {
+    setHasAnnouncements?: (value: boolean) => void;
+};
+
+export const Announcements = ({ setHasAnnouncements }: Props) => {
     const { user } = useUserContext();
     const { announcements, loading } = useGetUnseenAnnouncements();
     const { updateLastViewedAnnouncementTime } = useUpdateLastViewedAnnouncementTime();
@@ -84,6 +88,10 @@ export const Announcements = () => {
         updateLastViewedAnnouncementTime(user?.urn);
         setHidden(true);
     };
+
+    useEffect(() => {
+        setHasAnnouncements?.(!hidden && !!sortedAnnouncements.length);
+    }, [setHasAnnouncements, hidden, sortedAnnouncements.length]);
 
     if (hidden || !sortedAnnouncements.length) {
         return null;

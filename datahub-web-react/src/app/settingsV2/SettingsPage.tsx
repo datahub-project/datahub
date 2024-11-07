@@ -16,7 +16,6 @@ import {
 } from '@ant-design/icons';
 import { Redirect, Route, useHistory, useLocation, useRouteMatch, Switch } from 'react-router';
 import styled from 'styled-components';
-import Cookies from 'js-cookie';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { ManageIdentities } from '../identity/ManageIdentities';
 import { ManagePermissions } from '../permissions/ManagePermissions';
@@ -36,11 +35,9 @@ import { useSubscriptionsEnabled } from './personal/notifications/utils';
 import ManagePosts from './posts/ManagePosts';
 import ManageHelpLink from './helpLink/ManageHelpLink';
 
-import analytics, { EventType } from '../analytics';
-import { GlobalCfg } from '../../conf';
-import { isLoggedInVar } from '../auth/checkAuthStatus';
 import { useIsThemeV2 } from '../useIsThemeV2';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+import useGetLogoutHandler from '../auth/useGetLogoutHandler';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
@@ -171,12 +168,7 @@ export const SettingsPage = () => {
     const isThemeV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
-    const handleLogout = () => {
-        analytics.event({ type: EventType.LogOutEvent });
-        isLoggedInVar(false);
-        Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
-        me.updateLocalState({ selectedViewUrn: undefined });
-    };
+    const handleLogout = useGetLogoutHandler();
 
     const FinalSettingsContentContainer = isShowNavBarRedesign ? SettingsContentContainer : React.Fragment;
 
@@ -186,7 +178,7 @@ export const SettingsPage = () => {
                 <SettingsBarHeader>
                     <PageTitle level={3}>Settings</PageTitle>
                     <Typography.Paragraph type="secondary">Manage your DataHub settings.</Typography.Paragraph>
-                    {isThemeV2 && (
+                    {isThemeV2 && !isShowNavBarRedesign && (
                         <Button
                             type="link"
                             href="/logOut"

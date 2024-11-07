@@ -28,14 +28,14 @@ type Props = {
 } & Omit<MenuProps, 'items'>;
 
 export default function NavBarMenu({ menu }: Props) {
-    const { isCollapsed, selectedKey, setSelectedKey } = useNavBarContext();
+    const { isCollapsed, selectedKey } = useNavBarContext();
 
     const renderMenuItem = (item: AnyMenuItem) => {
         if (item.isHidden) return null;
 
         const isSelected = selectedKey === item.key;
 
-        if (item.type === NavBarMenuItemTypes.Group && item.items?.length) {
+        if (item.type === NavBarMenuItemTypes.Group && item.items?.filter((candidate) => !candidate.isHidden)?.length) {
             return (
                 <NavBarMenuItemGroup title={!isCollapsed && item.title} key={item.key}>
                     {item.items?.map((subItem) => renderMenuItem(subItem))}
@@ -61,7 +61,7 @@ export default function NavBarMenu({ menu }: Props) {
     };
 
     return (
-        <StyledMenu selectedKeys={selectedKey ? [selectedKey] : []} onSelect={(info) => setSelectedKey(info.key)}>
+        <StyledMenu selectedKeys={selectedKey ? [selectedKey] : []}>
             {menu.items.map((item) => renderMenuItem(item))}
         </StyledMenu>
     );
