@@ -15,6 +15,7 @@
 import json
 import logging
 import time
+import urllib.parse
 from typing import Any, Iterable, List, Optional
 
 from datahub.configuration.common import ConfigModel
@@ -441,18 +442,23 @@ class DocPropagationAction(Action):
 
     def get_upstreams(self, graph: AcrylDataHubGraph, entity_urn: str) -> List[str]:
         """
-        Fetch the upstreams for an dataset or schema field.
-        Note that this DOES NOT support DataJob upstreams, or any intermediate nodes.
+        Fetch the upstreams for a dataset or schema field.
+        Note that this DOES NOT support DataJob upstreams or any intermediate nodes.
         """
-        import urllib.parse
-
         url_frag = f"/relationships?direction=OUTGOING&types=List(DownstreamOf)&urn={urllib.parse.quote(entity_urn)}"
         url = f"{graph.graph._gms_server}{url_frag}"
         response = graph.graph._get_generic(url)
+
         if response["count"] > 0:
             relnships = response["relationships"]
-            entities = [x["entity"] for x in relnships]
+            # Convert entity_urn to lowercase for case-insensitive comparison
+            entities = [
+                x["entity"]
+                for x in relnships
+                if x["entity"].lower() != entity_urn.lower()
+            ]
             return entities
+
         return []
 
     def _only_one_upstream_field(
