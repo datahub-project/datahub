@@ -255,6 +255,20 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          "Configure Single Sign-On": [
+            {
+              type: "doc",
+              id: "docs/authentication/guides/sso/initialize-oidc",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/integrations/oidc-sso-integration",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
           "DataHub API": [
             {
               type: "doc",
@@ -265,20 +279,6 @@ module.exports = {
               "GraphQL API": [
                 "docs/managed-datahub/datahub-api/graphql-api/getting-started",
               ],
-            },
-          ],
-        },
-        {
-          Integrations: [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/aws-privatelink",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/oidc-sso-integration",
-              className: "saasOnly",
             },
           ],
         },
@@ -302,7 +302,7 @@ module.exports = {
           ],
         },
         {
-          "Operator Guide": [
+          "Operator Guides": [
             {
               type: "doc",
               id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
@@ -311,6 +311,11 @@ module.exports = {
             {
               type: "doc",
               id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/integrations/aws-privatelink",
               className: "saasOnly",
             },
           ],
