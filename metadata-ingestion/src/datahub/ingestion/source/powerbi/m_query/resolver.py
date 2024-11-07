@@ -117,18 +117,24 @@ class AbstractDataPlatformTableCreator(ABC):
     """
 
     ctx: PipelineContext
+    table: Table
     config: PowerBiDashboardSourceConfig
+    reporter: PowerBiDashboardSourceReport
     platform_instance_resolver: AbstractDataPlatformInstanceResolver
 
     def __init__(
         self,
         ctx: PipelineContext,
+        table: Table,
         config: PowerBiDashboardSourceConfig,
+        reporter: PowerBiDashboardSourceReport,
         platform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ) -> None:
         super().__init__()
         self.ctx = ctx
+        self.table = table
         self.config = config
+        self.reporter = reporter
         self.platform_instance_resolver = platform_instance_resolver
 
     @abstractmethod
@@ -214,6 +220,10 @@ class AbstractDataPlatformTableCreator(ABC):
             )
         )
 
+        query = native_sql_parser.remove_drop_statement(
+            native_sql_parser.remove_special_characters(query)
+        )
+
         parsed_result: Optional[
             "SqlParsingResult"
         ] = native_sql_parser.parse_custom_sql(
@@ -227,7 +237,19 @@ class AbstractDataPlatformTableCreator(ABC):
         )
 
         if parsed_result is None:
-            logger.debug("Failed to parse query")
+            self.reporter.info(
+                title="SQL Parsing fail",
+                message="Fail to parse native sql present in PowerBI M-Query",
+                context=f"table-name={self.table.full_name}, sql={query}",
+            )
+            return Lineage.empty()
+
+        if parsed_result.debug_info and parsed_result.debug_info.table_error:
+            self.reporter.info(
+                title="SQL Parsing fail",
+                message="Fail to parse native sql present in PowerBI M-Query",
+                context=f"table-name={self.table.full_name}, error={parsed_result.debug_info.table_error},sql={query}",
+            )
             return Lineage.empty()
 
         for urn in parsed_result.in_tables:
@@ -290,7 +312,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
     Once DataAccessFunctionDetail instance is initialized thereafter MQueryResolver generates the DataPlatformTable with the help of AbstractDataPlatformTableCreator
     (see method resolve_to_data_platform_table_list).
 
-    Classes which extended from AbstractDataPlatformTableCreator knows how to convert generated DataAccessFunctionDetail instance
+    Classes which extended from AbstractDataPlatformTableCreator know how to convert generated DataAccessFunctionDetail instance
     to respective DataPlatformTable instance as per dataplatform.
 
     """
@@ -620,7 +642,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 AbstractDataPlatformTableCreator
             ) = supported_resolver.get_table_full_name_creator()(
                 ctx=ctx,
+                table=self.table,
                 config=config,
+                reporter=self.reporter,
                 platform_instance_resolver=platform_instance_resolver,
             )
 
@@ -721,8 +745,10 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
                 database = db_name
                 schema = MSSqlDataPlatformTableCreator.DEFAULT_SCHEMA
             else:
-                logger.warning(
-                    f"Unsupported table format found {parsed_table} in query {query}"
+                self.reporter.warning(
+                    title="Invalid table format",
+                    message="The advanced SQL lineage feature (enable_advance_lineage_sql_construct) is disabled. Please either enable this feature or ensure the table is referenced as <db-name>.<schema-name>.<table-name> in the SQL.",
+                    context=f"table-name={self.table.full_name}",
                 )
                 continue
 
@@ -756,7 +782,7 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
         )
 
         if len(arguments) == 2:
-            # It is regular case of MS-SQL
+            # It is a regular case of MS-SQL
             logger.debug("Handling with regular case")
             return self.two_level_access_pattern(data_access_func_detail)
 
@@ -1137,7 +1163,7 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
 
         if (
             len(data_access_tokens) >= 6 and data_access_tokens[4] == "Catalog"
-        ):  # use Catalog name is database
+        ):  # use Catalog name is a database
             return tree_function.strip_char(data_access_tokens[5])
 
         return None

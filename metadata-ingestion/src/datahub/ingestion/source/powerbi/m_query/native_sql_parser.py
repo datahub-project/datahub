@@ -73,7 +73,7 @@ def remove_drop_statement(query: str) -> str:
     # Certain PowerBI M-Queries contain a combination of DROP and SELECT statements within SQL, causing SQLParser to fail on these queries.
     # Therefore, these occurrences are being removed.
     # Regular expression to match patterns like "DROP TABLE IF EXISTS #<identifier>;"
-    pattern = r"DROP TABLE IF EXISTS #\w+;"
+    pattern = r"DROP TABLE IF EXISTS #\w+;?"
 
     return re.sub(pattern, "", query)
 
@@ -90,12 +90,10 @@ def parse_custom_sql(
 
     logger.debug("Using sqlglot_lineage to parse custom sql")
 
-    sql_query = remove_drop_statement(remove_special_characters(query))
-
-    logger.debug(f"Processing native query = {sql_query}")
+    logger.debug(f"Processing native query using DataHub Sql Parser = {query}")
 
     return create_lineage_sql_parsed_result(
-        query=sql_query,
+        query=query,
         default_schema=schema,
         default_db=database,
         platform=platform,
