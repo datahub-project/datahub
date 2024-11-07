@@ -54,6 +54,7 @@ public class BootstrapMCPUtil {
             .getBootstrap()
             .getTemplates()
             .stream()
+            .map(cfg -> cfg.withOverride(opContext.getObjectMapper()))
             .filter(cfg -> cfg.isBlocking() == isBlocking)
             .map(cfg -> new BootstrapMCPStep(opContext, entityService, cfg))
             .collect(Collectors.toList());
