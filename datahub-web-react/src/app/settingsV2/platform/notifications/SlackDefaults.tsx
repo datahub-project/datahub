@@ -141,7 +141,7 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange, botTo
                 )}
             </InputDiv>
             <TestNotificationButton
-                hidden={!isSlackEnabled || editing}
+                hidden={!isSlackEnabled || !inputValue?.length}
                 integration="slack"
                 connectionUrn={SLACK_CONNECTION_URN}
                 destinationSettings={{
