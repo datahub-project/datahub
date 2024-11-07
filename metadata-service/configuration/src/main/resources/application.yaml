@@ -576,7 +576,7 @@ featureFlags:
   separateSiblingsLineageByDefault: ${SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT:false} # Whether siblings lineage should be separate from each other or not
   formCreationEnabled: ${FORM_CREATION_ENABLED:true} # Enables the form creation workflow feature on the documentation page
   schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
-  schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:false} # If turned on, schema field lineage will always fetch ghost entities and present them as real
+  schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
   hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage

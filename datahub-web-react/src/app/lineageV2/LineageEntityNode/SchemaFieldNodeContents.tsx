@@ -148,7 +148,6 @@ const InvalidSchemaFieldLine = styled.span`
     display: flex;
     align-items: center;
     height: min-content;
-    width: max-content;
     gap: 4px;
 
     font-size: 1.1em;

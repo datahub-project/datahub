@@ -1,4 +1,5 @@
 import SearchControl from '@app/lineageV2/controls/SearchControl';
+import TentativeEdge, { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
 import React, { useContext, useEffect, useState } from 'react';
 import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes, useReactFlow } from 'reactflow';
 import styled from 'styled-components';
@@ -36,6 +37,7 @@ const nodeTypes: NodeTypes = {
 
 const edgeTypes: EdgeTypes = {
     [LINEAGE_TABLE_EDGE_NAME]: LineageTableEdge,
+    [TENTATIVE_EDGE_NAME]: TentativeEdge,
 };
 
 interface Props {

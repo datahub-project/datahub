@@ -21,6 +21,7 @@ interface LineageAssetBase {
     name: string;
     numUpstream?: number;
     numDownstream?: number;
+    lineageCountsFetched?: boolean;
 }
 
 export interface ColumnAsset extends LineageAssetBase {
