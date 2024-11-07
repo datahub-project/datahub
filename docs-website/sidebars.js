@@ -250,11 +250,6 @@ module.exports = {
       items: [
         "docs/managed-datahub/welcome-acryl",
         {
-          type: "doc",
-          id: "docs/managed-datahub/approval-workflows",
-          className: "saasOnly",
-        },
-        {
           "Configure Single Sign-On": [
             {
               type: "doc",
@@ -319,6 +314,11 @@ module.exports = {
               className: "saasOnly",
             },
           ],
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/approval-workflows",
+          className: "saasOnly",
         },
         {
           type: "doc",
