@@ -42,3 +42,4 @@ bootstrap:
       optional: false
       mcps_location: "bootstrap_mcps/ingestion-datahub-gc.yaml"
       values_env: "DATAHUB_GC_BOOTSTRAP_VALUES"
+      revision_env: "DATAHUB_GC_BOOTSTRAP_REVISION"
