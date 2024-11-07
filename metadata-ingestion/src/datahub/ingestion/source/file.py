@@ -220,7 +220,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
         # No super() call, as we don't want helpers that create / remove workunits
         return [
             partial(auto_workunit_reporter, self.report),
-            auto_status_aspect,
+            auto_status_aspect if self.config.stateful_ingestion else None,
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
