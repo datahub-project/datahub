@@ -96,6 +96,7 @@ export const DEFAULT_APP_CONFIG = {
         showManageStructuredProperties: false,
         showNavBarRedesign: false,
         showAutoCompleteResults: false,
+        showFormAnalytics: false,
     },
     chromeExtensionConfig: {
         enabled: false,

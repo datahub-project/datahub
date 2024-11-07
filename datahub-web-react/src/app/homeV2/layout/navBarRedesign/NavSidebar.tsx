@@ -86,6 +86,7 @@ export const NavSidebar = () => {
     const { helpLinkState } = useGlobalSettingsContext();
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
+    const { showFormAnalytics, formCreationEnabled } = config.featureFlags;
     const logout = useGetLogoutHandler();
 
     const showActionRequests = config?.actionRequestsConfig.enabled || false;
@@ -95,7 +96,8 @@ export const NavSidebar = () => {
     const showAutomations = config?.classificationConfig.enabled && me?.platformPrivileges?.manageIngestion;
     const showDocumentationCenter =
         config?.featureFlags?.documentationFormsEnabled &&
-        (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage);
+        (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage) &&
+        (showFormAnalytics || formCreationEnabled);
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);

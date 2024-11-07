@@ -1303,6 +1303,11 @@ type FeatureFlagsConfig {
   If turned on, we display auto complete results. Otherwise, do not.
   """
   showAutoCompleteResults: Boolean!
+
+  """
+  If turned on, show the tab in the Compliance Form center to get to forms analytics
+  """
+  showFormAnalytics: Boolean!
 }
 
 """

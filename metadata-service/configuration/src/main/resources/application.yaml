@@ -585,6 +585,7 @@ featureFlags:
   showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
   showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:false} # If turned on, show the newly designed nav bar in the V2 experience
   showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
+  showFormAnalytics: ${SHOW_FORM_ANALYTICS:false} # If turned on, show the tab in the Compliance Form center to get to forms analytics
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

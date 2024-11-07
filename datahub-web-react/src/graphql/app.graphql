@@ -115,6 +115,7 @@ query appConfig {
             showManageStructuredProperties
             showNavBarRedesign
             showAutoCompleteResults
+            showFormAnalytics
         }
         chromeExtensionConfig {
             enabled

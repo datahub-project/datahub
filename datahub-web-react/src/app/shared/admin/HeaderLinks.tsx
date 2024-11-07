@@ -90,6 +90,7 @@ export function HeaderLinks(props: Props) {
     const { areLinksHidden } = props;
     const me = useUserContext();
     const { config } = useAppConfig();
+    const { showFormAnalytics, formCreationEnabled } = config.featureFlags;
     const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
 
     const businessAttributesFlag = useBusinessAttributesFlag();
@@ -116,7 +117,8 @@ export function HeaderLinks(props: Props) {
     const showObserve = showDatasetHealth;
     const showDocumentationCenter =
         config?.featureFlags?.documentationFormsEnabled &&
-        (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage);
+        (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage) &&
+        (showFormAnalytics || formCreationEnabled);
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);

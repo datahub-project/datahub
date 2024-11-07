@@ -49,23 +49,21 @@ const StyledTabs = styled(Tabs)<{ isThemeV2: boolean }>`
     }
 `;
 
-const documentationTabs = [
-    {
-        name: 'Forms',
-        key: 'forms',
-        component: <FormsTab />,
-    },
-    {
-        name: 'Analytics',
-        key: 'analytics',
-        component: <AnalyticsTab />,
-    },
-];
+const analyticsTab = {
+    name: 'Analytics',
+    key: 'analytics',
+    component: <AnalyticsTab />,
+};
+const formsTab = {
+    name: 'Forms',
+    key: 'forms',
+    component: <FormsTab />,
+};
 
 export const TabLayout = () => {
     const { platformPrivileges } = useUserContext();
     const { config } = useAppConfig();
-    const { formCreationEnabled } = config.featureFlags;
+    const { formCreationEnabled, showFormAnalytics } = config.featureFlags;
     const isThemeV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const history = useHistory();
@@ -77,6 +75,14 @@ export const TabLayout = () => {
 
     // Get the current documentationTab parameter
     const initialTab = searchParams.get('documentationTab') || '';
+
+    const documentationTabs: any[] = [];
+    if (formCreationEnabled) {
+        documentationTabs.push(formsTab);
+    }
+    if (showFormAnalytics) {
+        documentationTabs.push(analyticsTab);
+    }
 
     const [currentTab, setCurrentTab] = useState(
         documentationTabs.some((tab) => tab.key === initialTab) ? initialTab : 'forms',
@@ -107,6 +113,8 @@ export const TabLayout = () => {
         setCurrentTab(tab);
     };
 
+    if (!documentationTabs.length) return null;
+
     if (!platformPrivileges?.manageDocumentationForms && !platformPrivileges?.viewDocumentationFormsPage)
         return <MissingPermissions />;
 
@@ -119,7 +127,7 @@ export const TabLayout = () => {
                     subTitle="Create and manage compliance initiatives for your data assets"
                 />
             </Header>
-            {formCreationEnabled ? (
+            {documentationTabs.length > 1 ? (
                 <StyledTabs activeKey={currentTab} isThemeV2={isThemeV2} onChange={handleTabChange}>
                     {documentationTabs.map((tab) => {
                         return (
@@ -130,7 +138,7 @@ export const TabLayout = () => {
                     })}
                 </StyledTabs>
             ) : (
-                <AnalyticsTab />
+                <>{documentationTabs[0].component}</>
             )}
         </Layout>
     );
