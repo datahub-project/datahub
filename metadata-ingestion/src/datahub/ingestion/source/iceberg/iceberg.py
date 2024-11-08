@@ -6,7 +6,7 @@ import threading
 import traceback
 import uuid
 from collections import defaultdict
-from time import sleep, time
+from time import time
 from typing import Any, Dict, Iterable, List, Optional
 
 from pyiceberg.catalog import Catalog
@@ -209,7 +209,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                     time_taken = timer.elapsed_seconds()
                     self.report.report_table_load_time(time_taken)
                 LOGGER.debug("Loaded table: %s, time taken: %s", table, time_taken)
-                return [*self._create_iceberg_workunit(dataset_name, table)]
+                yield from self._create_iceberg_workunit(dataset_name, table)
             except NoSuchPropertyException as e:
                 self.report.report_warning(
                     "table-property-missing",
@@ -249,50 +249,50 @@ class IcebergSource(StatefulIngestionSourceBase):
     def _create_iceberg_workunit(
         self, dataset_name: str, table: Table
     ) -> Iterable[MetadataWorkUnit]:
-        start_ts = time()
-        self.report.report_table_scanned(dataset_name)
-        LOGGER.debug("Processing table %s", dataset_name)
-        dataset_urn: str = make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[Status(removed=False)],
-        )
-
-        # Dataset properties aspect.
-        custom_properties = table.metadata.properties.copy()
-        custom_properties["location"] = table.metadata.location
-        custom_properties["format-version"] = str(table.metadata.format_version)
-        custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
-        if table.current_snapshot():
-            custom_properties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
-            custom_properties["manifest-list"] = table.current_snapshot().manifest_list
-        dataset_properties = DatasetPropertiesClass(
-            name=table.name()[-1],
-            tags=[],
-            description=table.metadata.properties.get("comment", None),
-            customProperties=custom_properties,
-        )
-        dataset_snapshot.aspects.append(dataset_properties)
-        # Dataset ownership aspect.
-        dataset_ownership = self._get_ownership_aspect(table)
-        if dataset_ownership:
-            LOGGER.debug(
-                "Adding ownership: %s to the dataset %s",
-                dataset_ownership,
+        with PerfTimer() as timer:
+            self.report.report_table_scanned(dataset_name)
+            LOGGER.debug("Processing table %s", dataset_name)
+            dataset_urn: str = make_dataset_urn_with_platform_instance(
+                self.platform,
                 dataset_name,
+                self.config.platform_instance,
+                self.config.env,
             )
-            dataset_snapshot.aspects.append(dataset_ownership)
+            dataset_snapshot = DatasetSnapshot(
+                urn=dataset_urn,
+                aspects=[Status(removed=False)],
+            )
 
-        schema_metadata = self._create_schema_metadata(dataset_name, table)
-        dataset_snapshot.aspects.append(schema_metadata)
+            # Dataset properties aspect.
+            custom_properties = table.metadata.properties.copy()
+            custom_properties["location"] = table.metadata.location
+            custom_properties["format-version"] = str(table.metadata.format_version)
+            custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
+            if table.current_snapshot():
+                custom_properties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
+                custom_properties["manifest-list"] = table.current_snapshot().manifest_list
+            dataset_properties = DatasetPropertiesClass(
+                name=table.name()[-1],
+                tags=[],
+                description=table.metadata.properties.get("comment", None),
+                customProperties=custom_properties,
+            )
+            dataset_snapshot.aspects.append(dataset_properties)
+            # Dataset ownership aspect.
+            dataset_ownership = self._get_ownership_aspect(table)
+            if dataset_ownership:
+                LOGGER.debug(
+                    "Adding ownership: %s to the dataset %s",
+                    dataset_ownership,
+                    dataset_name,
+                )
+                dataset_snapshot.aspects.append(dataset_ownership)
 
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        self.report.report_table_processing_time(time() - start_ts)
+            schema_metadata = self._create_schema_metadata(dataset_name, table)
+            dataset_snapshot.aspects.append(schema_metadata)
+
+            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        self.report.report_table_processing_time(timer.elapsed_seconds())
         yield MetadataWorkUnit(id=dataset_name, mce=mce)
 
         dpi_aspect = self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
