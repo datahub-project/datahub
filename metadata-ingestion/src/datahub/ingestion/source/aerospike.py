@@ -389,8 +389,6 @@ class AerospikeSource(StatefulIngestionSourceBase):
                 sub_types=[DatasetContainerSubTypes.NAMESPACE],
             )
 
-            # database = self.aerospike_client[namespace]
-            # ns_sets: List[str] = [aerospike_set.set for aerospike_set in all_sets if aerospike_set.ns == namespace]
             ns_sets: List[AerospikeSet] = [
                 aerospike_set
                 for aerospike_set in all_sets
