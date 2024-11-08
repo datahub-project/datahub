@@ -1,3 +1,4 @@
+import concurrent
 import functools
 import importlib.resources as pkg_resource
 import logging
@@ -20,7 +21,6 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     TRACE_POWERBI_MQUERY_PARSER,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
-from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -37,21 +37,30 @@ def get_lark_parser() -> Lark:
     return Lark(grammar, start="let_expression", regex=True)
 
 
-def _parse_expression(expression: str, parse_timeout: int = 60) -> Tree:
+def _parse_with_lark(expression: str) -> Tree:
+    logger.debug(f"PID = {os.getpid()}, Expression = {expression}")
+
     lark_parser: Lark = get_lark_parser()
 
     # Replace U+00a0 NO-BREAK SPACE with a normal space.
     # Sometimes PowerBI returns expressions with this character and it breaks the parser.
     expression = expression.replace("\u00a0", " ")
 
-    logger.debug(f"Parsing expression = {expression}")
-    with threading_timeout(parse_timeout):
-        parse_tree: Tree = lark_parser.parse(expression)
+    parse_tree: Tree = lark_parser.parse(expression)
 
     if TRACE_POWERBI_MQUERY_PARSER:
         logger.debug(parse_tree.pretty())
 
     return parse_tree
+
+
+def _parse_expression(expression: str, parse_timeout: int = 60) -> Tree:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_parse_with_lark, expression)
+        # Try to get the result within the specified timeout
+        result = future.result(timeout=parse_timeout)
+
+        return result
 
 
 def get_upstream_tables(
@@ -96,7 +105,7 @@ def get_upstream_tables(
 
     except KeyboardInterrupt:
         raise
-    except TimeoutException:
+    except concurrent.futures.TimeoutError:
         reporter.m_query_parse_timeouts += 1
         reporter.warning(
             title="M-Query Parsing Timeout",

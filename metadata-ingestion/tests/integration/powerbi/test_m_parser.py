@@ -1095,10 +1095,10 @@ def test_unsupported_data_platform():
 
     is_entry_present: bool = False
     for key, entry in info_entries.items():
-        if entry.title == "Unsupported M-Query":
+        if entry.title == "Non-Data Platform Expression":
             is_entry_present = True
             break
 
     assert (
         is_entry_present
-    ), 'Info message "Unsupported M-Query" should be present in reporter'
+    ), 'Info message "Non-Data Platform Expression" should be present in reporter'

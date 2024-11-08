@@ -503,7 +503,7 @@ class PowerBiDashboardSourceConfig(
     )
 
     m_query_parse_timeout: int = pydantic.Field(
-        default=60,
+        default=70,
         description="Timeout for PowerBI M-query parsing in seconds. Table-level lineage is determined by analyzing the M-query expression. "
         "Increase this value if you encounter the 'M-Query Parsing Timeout' message in the connector report.",
     )

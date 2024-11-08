@@ -20,8 +20,7 @@
 // - Updated argument_list, below are the updates
 //      |   empty_string
 //      |   empty_string "," argument_list
-
-
+// - Added SQL_STRING in any_literal
 
 lexical_unit:   lexical_elements?
 
@@ -380,6 +379,8 @@ argument_list:  WS_INLINE? expression
             |   WS_INLINE? SQL_STRING "," argument_list
             |   "\"" identifier "\""
             |   "\"" identifier "\"" "," argument_list
+            |   "[" identifier "]"
+            |   "[" identifier "]" "," argument_list
             |   empty_string
             |   empty_string "," argument_list
             |   WS_INLINE
@@ -604,6 +605,7 @@ any_literal:      record_literal
             |     number_literal
             |     text_literal
             |     null_literal
+            |     SQL_STRING
 
 
 %import common.WORD
