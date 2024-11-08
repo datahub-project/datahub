@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { colors } from '@src/alchemy-components';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
@@ -9,7 +10,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     opacity: 0.9;
     border-color: black;
     border-radius: 6px;
-    border: 1px solid #dcdcdc;
+    border: 1px solid ${(props) => (props.$isShowNavBarRedesign ? colors.gray[100] : '#dcdcdc')};
     padding-right: 6px;
     padding-left: 6px;
     margin-right: 4px;

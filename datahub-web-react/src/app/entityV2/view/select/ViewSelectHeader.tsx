@@ -6,21 +6,59 @@ import PublicIcon from '@mui/icons-material/Public';
 import { Input } from 'antd';
 import { Tooltip } from '@components';
 import { SearchOutlined } from '@ant-design/icons';
+import { colors } from '@src/alchemy-components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../shared/constants';
 
-const StyledInput = styled(Input)`
-    border-radius: 70px;
-    max-width: 300px;
-    background-color: ${REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK_SEARCH};
-    border-radius: 7px;
-    border: unset;
+const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean }>`
+    ${(props) => !props.$isShowNavBarRedesign && 'max-width: 330px;'}
+    background-color: ${(props) =>
+        props.$isShowNavBarRedesign ? 'white' : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK_SEARCH};
+    border-radius: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '7px')};
+
+    ${(props) => !props.$isShowNavBarRedesign && 'border: unset;'}
+
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        min-width: 440px;
+        height: 40px;
+        border: 1px solid;
+        border-color: ${colors.gray[100]};
+        box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+
+        
+
+        &&:hover {
+            border-color: ${colors.violet[500]};
+        }
+
+
+        &.ant-input-affix-wrapper-focused {
+            border-color: ${colors.violet[500]};
+        }
+        
+        & .ant-input::placeholder {
+            color: ${colors.gray[1700]};
+        }
+
+        & .ant-input-prefix {
+            margin-right: 8px;
+            svg {
+                color: ${colors.gray[1700]}
+            }
+        }
+    `}
+
     & .ant-input {
         background-color: transparent;
-        color: ${ANTD_GRAY[5]};
+        ${(props) => !props.$isShowNavBarRedesign && `color: ${colors.gray[1700]};`}
+        ${(props) => props.$isShowNavBarRedesign && 'font-size: 14px;'}
     }
 `;
 
-const ViewHeader = styled.div`
+const ViewHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     justify-content: space-between;
     width: 100%;
@@ -30,10 +68,10 @@ const ViewHeader = styled.div`
         gap: 1rem;
         align-items: center;
         .select-view-icon {
-            color: ${REDESIGN_COLORS.BLACK};
+            color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1700] : REDESIGN_COLORS.BLACK)};
             display: flex;
             gap: 0.5rem;
-            background: ${ANTD_GRAY[1]};
+            background: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1400] : ANTD_GRAY[1])};
             border-radius: 30px;
             padding: 2px;
             > div {
@@ -58,7 +96,7 @@ const ViewHeader = styled.div`
         gap: 1rem;
         align-items: center;
         .manage {
-            color: ${REDESIGN_COLORS.VIEW_PURPLE};
+            color: ${colors.gray[1600]};
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
@@ -97,8 +135,10 @@ export const ViewSelectHeader = ({
     onChangeSearch,
     onClickManageViews,
 }: Props) => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+
     return (
-        <ViewHeader>
+        <ViewHeader $isShowNavBarRedesign={isShowNavBarRedesign}>
             <div className="select-container">
                 <div className="select-view-icon">
                     <div
@@ -129,17 +169,18 @@ export const ViewSelectHeader = ({
                         </Tooltip>
                     </div>
                 </div>
-                <div className="select-view-label">Select Your View</div>
+                {!isShowNavBarRedesign && <div className="select-view-label">Select Your View</div>}
             </div>
             <div className="search-manage-container">
                 <div>
                     <StyledInput
                         className="style-input-container"
-                        placeholder="Search"
+                        placeholder={isShowNavBarRedesign ? 'Search views...' : 'Search'}
                         onChange={onChangeSearch}
                         allowClear
-                        prefix={<SearchOutlinedStyle />}
+                        prefix={isShowNavBarRedesign ? <MagnifyingGlass size={20} /> : <SearchOutlinedStyle />}
                         data-testid="search-overlay-input"
+                        $isShowNavBarRedesign={isShowNavBarRedesign}
                     />
                 </div>
                 <div className="manage" onClick={() => onClickManageViews()} role="none">

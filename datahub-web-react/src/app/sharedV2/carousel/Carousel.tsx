@@ -67,8 +67,9 @@ export function Carousel({ children, className }: Props) {
     const [showPrevButton, setShowPrevButton] = useState<boolean>(false);
     const [showNextButton, setShowNextButton] = useState<boolean>(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const arrayOfChildren = React.Children.toArray(children);
 
-    const numChildren = React.Children.count(children);
+    const numChildren = arrayOfChildren.length;
     const childRefs = useMemo(
         () => Array.from({ length: numChildren }).map(() => React.createRef<HTMLDivElement>()),
         [numChildren],
@@ -147,7 +148,7 @@ export function Carousel({ children, className }: Props) {
                 </ButtonContainer>
             )}
             <CarouselHorizontalList ref={scrollRef} hideMask={!showNextButton} className={className}>
-                {React.Children.map(children, (child, index) => (
+                {arrayOfChildren.map((child, index) => (
                     <div ref={childRefs[index]}>{child}</div>
                 ))}
             </CarouselHorizontalList>

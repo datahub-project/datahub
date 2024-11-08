@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useHistory } from 'react-router';
 import { Popover } from '@components';
 import styled from 'styled-components';
@@ -96,9 +97,10 @@ const getOverlayInnerStyle = (isShowNavBarRedesign?: boolean) => {
             display: 'flex',
             width: '100%',
             opacity: 0.97,
-            borderRadius: 0,
-            backgroundColor: REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK,
-            paddingTop: '15px',
+            backgroundColor: '#F9FAFC',
+            borderRadius: '0 0 12px 12px',
+            paddingTop: '7px',
+            boxShadow: '0px 520px 20px 500px rgba(0, 0, 0, 0.12), 0px 60px 60px 0px rgba(0, 0, 0, 0.12)',
         };
 
     return overlayInnerStyle;
@@ -117,14 +119,23 @@ const getOverlayStyle = (isShowNavBarRedesign?: boolean) => {
     if (isShowNavBarRedesign)
         return {
             left: '0px',
-            backdropFilter: 'blur(5px)',
-            paddingTop: 0,
             zIndex: 13,
             'transform-origin': '0',
         };
 
     return overlayStyle;
 };
+
+const Blur = styled.div<{ $isOpen?: boolean }>`
+    position: absolute;
+    top: 69px;
+    left: 0;
+    width: 100%;
+    height: calc(100vh - 69px);
+    z-index: 12;
+    backdrop-filter: blur(2px);
+    ${(props) => !props.$isOpen && 'display: none;'}
+`;
 
 /**
  * The View Select component allows you to select a View to apply to query on the current page. For example,
@@ -282,74 +293,79 @@ export const ViewSelect = () => {
     const hasViews = privateViewCount > 0 || publicViewCount > 0 || false;
 
     return (
-        <ViewSelectContainer>
-            <Popover
-                open={isOpen}
-                onOpenChange={() => {
-                    scrollToRef?.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                    setIsOpen(!isOpen);
-                }}
-                content={
-                    <ViewSelectPopoverContent
-                        privateView={privateView}
-                        publicView={publicView}
-                        onClickCreateView={onClickCreateView}
-                        onClickManageViews={onClickManageViews}
-                        onClickViewTypeFilter={onClickViewTypeFilter}
-                        onChangeSearch={debouncedSetFilterText}
-                    >
-                        {hasViews &&
-                            privateViewCount > 0 &&
-                            privateView &&
-                            renderViewOptionGroup({
-                                selectedUrn,
-                                views: highlightedPrivateViewData,
-                                isOwnedByUser: true,
-                                userContext,
-                                hoverViewUrn,
-                                scrollToRef,
-                                setHoverViewUrn,
-                                onClickEditView,
-                                onClickPreviewView,
-                                onClickClear: onClear,
-                                onSelectView,
-                            })}
-                        {hasViews &&
-                            publicViewCount > 0 &&
-                            publicView &&
-                            renderViewOptionGroup({
-                                selectedUrn,
-                                views: highlightedPublicViewData,
-                                userContext,
-                                hoverViewUrn,
-                                scrollToRef,
-                                setHoverViewUrn,
-                                onClickEditView,
-                                onClickPreviewView,
-                                onClickClear: onClear,
-                                onSelectView,
-                            })}
-                    </ViewSelectPopoverContent>
-                }
-                trigger="click"
-                overlayClassName="view-select-popover"
-                overlayInnerStyle={getOverlayInnerStyle(isShowNavBarRedesign)}
-                overlayStyle={getOverlayStyle(isShowNavBarRedesign)}
-                showArrow={false}
-                popupVisible={false}
-                ref={selectRef}
-            >
-                {renderSelectedView({ selectedViewName, onClear, isShowNavBarRedesign })}
-            </Popover>
-            {viewBuilderDisplayState.visible && (
-                <ViewBuilder
-                    urn={viewBuilderDisplayState.view?.urn || undefined}
-                    initialState={viewBuilderDisplayState.view}
-                    mode={viewBuilderDisplayState.mode}
-                    onSubmit={onCloseViewBuilder}
-                    onCancel={onCloseViewBuilder}
-                />
-            )}
-        </ViewSelectContainer>
+        <>
+            {isShowNavBarRedesign && createPortal(<Blur $isOpen={isOpen} />, document.body)}
+            <ViewSelectContainer>
+                <Popover
+                    open={isOpen}
+                    onOpenChange={() => {
+                        scrollToRef?.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        setIsOpen(!isOpen);
+                    }}
+                    content={
+                        <>
+                            <ViewSelectPopoverContent
+                                privateView={privateView}
+                                publicView={publicView}
+                                onClickCreateView={onClickCreateView}
+                                onClickManageViews={onClickManageViews}
+                                onClickViewTypeFilter={onClickViewTypeFilter}
+                                onChangeSearch={debouncedSetFilterText}
+                            >
+                                {hasViews &&
+                                    privateViewCount > 0 &&
+                                    privateView &&
+                                    renderViewOptionGroup({
+                                        selectedUrn,
+                                        views: highlightedPrivateViewData,
+                                        isOwnedByUser: true,
+                                        userContext,
+                                        hoverViewUrn,
+                                        scrollToRef,
+                                        setHoverViewUrn,
+                                        onClickEditView,
+                                        onClickPreviewView,
+                                        onClickClear: onClear,
+                                        onSelectView,
+                                    })}
+                                {hasViews &&
+                                    publicViewCount > 0 &&
+                                    publicView &&
+                                    renderViewOptionGroup({
+                                        selectedUrn,
+                                        views: highlightedPublicViewData,
+                                        userContext,
+                                        hoverViewUrn,
+                                        scrollToRef,
+                                        setHoverViewUrn,
+                                        onClickEditView,
+                                        onClickPreviewView,
+                                        onClickClear: onClear,
+                                        onSelectView,
+                                    })}
+                            </ViewSelectPopoverContent>
+                        </>
+                    }
+                    trigger="click"
+                    overlayClassName="view-select-popover"
+                    overlayInnerStyle={getOverlayInnerStyle(isShowNavBarRedesign)}
+                    overlayStyle={getOverlayStyle(isShowNavBarRedesign)}
+                    showArrow={false}
+                    popupVisible={false}
+                    ref={selectRef}
+                >
+                    {renderSelectedView({ selectedViewName, onClear, isShowNavBarRedesign })}
+                </Popover>
+                {viewBuilderDisplayState.visible && (
+                    <ViewBuilder
+                        urn={viewBuilderDisplayState.view?.urn || undefined}
+                        initialState={viewBuilderDisplayState.view}
+                        mode={viewBuilderDisplayState.mode}
+                        onSubmit={onCloseViewBuilder}
+                        onCancel={onCloseViewBuilder}
+                    />
+                )}
+            </ViewSelectContainer>
+        </>
     );
 };

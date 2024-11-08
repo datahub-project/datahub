@@ -2,18 +2,26 @@ import React from 'react';
 import styled from 'styled-components';
 import { Button } from 'antd';
 import { Tooltip } from '@components';
-import LanguageIcon from '@mui/icons-material/Language';
+import { colors } from '@src/alchemy-components';
+import { FadersHorizontal } from '@phosphor-icons/react';
 import CloseIcon from '@mui/icons-material/Close';
 import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../../shared/constants';
 import { ViewLabel } from './styledComponents';
 
 const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => (props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
-    border-color: ${(props) => {
-        if (props.$selectedViewName) return SEARCH_COLORS.TITLE_PURPLE;
-        return props.$isShowNavBarRedesign ? REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1 : 'transparent';
+    background-color: ${(props) => {
+        if (props.$isShowNavBarRedesign) {
+            return props.$selectedViewName ? colors.gray[1000] : 'transparent';
+        }
+        return props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent';
     }};
-    color: ${ANTD_GRAY[1]};
+    border-color: ${(props) => {
+        if (props.$isShowNavBarRedesign) {
+            return props.$selectedViewName ? 'transparent' : colors.gray[100];
+        }
+        return props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent';
+    }};
+    color: ${(props) => (props.$isShowNavBarRedesign ? colors.violet[500] : ANTD_GRAY[1])};
     max-width: 150px;
 
     ${(props) =>
@@ -32,28 +40,30 @@ const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRe
     `}
 
     &: hover {
-        background: ${SEARCH_COLORS.TITLE_PURPLE};
-        color: ${ANTD_GRAY[1]};
-
-        ${(props) =>
-            props.$isShowNavBarRedesign &&
-            `
-            & svg {
-                color: ${ANTD_GRAY[1]};
+        background: ${(props) => {
+            if (props.$isShowNavBarRedesign) {
+                return props.$selectedViewName ? colors.gray[1000] : 'transparent';
             }
-        `}
+            return SEARCH_COLORS.TITLE_PURPLE;
+        }};
+        color: ${(props) => (props.$isShowNavBarRedesign ? colors.violet[500] : ANTD_GRAY[1])};
 
-        border-color: ${(props) => (props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
+        border-color: ${(props) => {
+            if (props.$isShowNavBarRedesign) return colors.violet[500];
+            return props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent';
+        }};
     }
 
     &: focus {
         background-color: ${(props) => (props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
-        color: ${ANTD_GRAY[1]};
+        color: ${(props) => (props.$isShowNavBarRedesign ? colors.violet[500] : ANTD_GRAY[1])};
         border-color: ${(props) => (props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
 
         ${(props) =>
             props.$isShowNavBarRedesign &&
             `
+            background-color: ${colors.gray[1000]};
+
             & svg {
                 color: ${REDESIGN_COLORS.GREY_300};
             }
@@ -92,7 +102,7 @@ const CloseIconStyle = styled(CloseIcon)`
     color: ${SEARCH_COLORS.TITLE_PURPLE};
 `;
 
-const LanguageIconStyle = styled(LanguageIcon)<{ $isShowNavBarRedesign?: boolean }>`
+const StyledViewIcon = styled(FadersHorizontal)<{ $isShowNavBarRedesign?: boolean }>`
     font-size: ${(props) => (props.$isShowNavBarRedesign ? '20px' : '18px')} !important;
 `;
 
@@ -108,7 +118,9 @@ export const renderSelectedView = ({ selectedViewName, isShowNavBarRedesign, onC
             <SelectButton $selectedViewName={selectedViewName} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <Tooltip showArrow={false} title={selectedViewName} placement="bottom">
                     <ViewLabel>
-                        {selectedViewName || <LanguageIconStyle $isShowNavBarRedesign={isShowNavBarRedesign} />}
+                        {selectedViewName || (
+                            <StyledViewIcon data-testid="views-icon" $isShowNavBarRedesign={isShowNavBarRedesign} />
+                        )}
                     </ViewLabel>
                 </Tooltip>
             </SelectButton>
