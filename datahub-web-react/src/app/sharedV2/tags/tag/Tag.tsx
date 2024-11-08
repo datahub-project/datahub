@@ -15,11 +15,11 @@ import LabelPropagationDetails from '../../propagation/LabelPropagationDetails';
 const TagLink = styled.span<{ $showOneAndCount?: boolean }>`
     display: flex;
     cursor: pointer;
+    max-width: inherit;
     ${(props) =>
         props.$showOneAndCount &&
         `
-            width: 90%;
-            max-width: max-content;
+           max-width: 200px;
         `}
 `;
 
@@ -133,7 +133,7 @@ export default function Tag({
                         $showOneAndCount={showOneAndCount}
                     >
                         <Highlight
-                            style={{ marginLeft: 0, fontSize }}
+                            style={{ marginLeft: 0, fontSize, overflow: 'hidden', textOverflow: 'ellipsis' }}
                             matchStyle={highlightMatchStyle}
                             search={highlightText}
                         >

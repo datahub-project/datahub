@@ -6,6 +6,7 @@ import { ANTD_GRAY_V2 } from '../../../../constants';
 const OptionalPromptsWrapper = styled.div`
     color: ${ANTD_GRAY_V2[8]};
     margin-top: 4px;
+    text-wrap: wrap;
 `;
 
 interface Props {

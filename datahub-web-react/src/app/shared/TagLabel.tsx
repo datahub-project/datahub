@@ -13,6 +13,9 @@ const generateColor = new ColorHash({
 });
 
 export const StyledDiv = styled.div<{ $color: any; $colorHash?: string }>`
+    max-width: inherit;
+    text-overflow: ellipsis;
+    overflow: hidden;
     ${(props) =>
         props.$colorHash &&
         css`

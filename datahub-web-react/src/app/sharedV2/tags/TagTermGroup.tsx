@@ -63,6 +63,7 @@ const TagTermWrapper = styled.div<{ $showOneAndCount?: boolean }>`
     align-items: center;
     row-gap: 4px;
     column-gap: 8px;
+    max-width: 100%;
 `;
 
 const TagText = styled.span`
@@ -74,6 +75,7 @@ const TagText = styled.span`
 
 const ProposedTermContainer = styled.div`
     display: flex;
+    max-width: inherit;
 
     .ant-tag.ant-tag {
         border-radius: 5px;
@@ -89,6 +91,8 @@ export const ProposedTerm = styled(AntTag)`
     position: relative;
     overflow: hidden;
     border: 1px dashed;
+    display: flex;
+    align-items: center;
 `;
 
 export const ProposedTag = styled(StyledTag)`
@@ -97,6 +101,8 @@ export const ProposedTag = styled(StyledTag)`
 
 const ProposedTermText = styled.span`
     margin-left: 8px;
+    text-overflow: ellipsis;
+    overflow: hidden;
 `;
 
 const StyledPlusOutlined = styled(PlusOutlined)`

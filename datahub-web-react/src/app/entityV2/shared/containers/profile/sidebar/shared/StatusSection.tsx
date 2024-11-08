@@ -19,6 +19,7 @@ const SyncedAssetContainer = styled.div`
 `;
 
 export const StyledCollapse = styled(Collapse)`
+    text-wrap: wrap;
     .ant-collapse-header {
         padding: 0px 0px !important;
         align-items: center !important;
