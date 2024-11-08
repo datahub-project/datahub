@@ -14,10 +14,12 @@
 
 import logging
 import os
+import re
 from collections import deque
 from datetime import datetime, timedelta
-from typing import Deque
+from typing import Deque, Dict, List
 
+import cachetools
 from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata._urns.urn_defs import (
     DatasetUrn,
@@ -29,13 +31,13 @@ from datahub.metadata.schema_classes import GlossaryTermInfoClass
 from datahub.utilities.urns.urn import Urn
 from datahub_actions.api.action_graph import AcrylDataHubGraph
 from sqlalchemy import create_engine
+from sqlalchemy.exc import ProgrammingError
 
 from datahub_integrations.propagation.snowflake.config import (
     SnowflakeConnectionConfigPermissive,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
-
 
 MAX_ERRORS_PER_HOUR = int(
     os.getenv("MAX_SNOWFLAKE_ERRORS_PER_HOUR", 15)
@@ -90,6 +92,9 @@ class SnowflakeTagHelper(Closeable):
                 f"Unexpected label type: neither tag or term {label_urn_parsed.get_type()}"
             )
 
+    def has_special_chars(self, text: str) -> bool:
+        return bool(re.search(r"[^a-zA-Z0-9_]", text))
+
     def apply_tag_or_term(
         self, entity_urn: str, tag_or_term_urn: str, graph: AcrylDataHubGraph
     ) -> None:
@@ -107,22 +112,114 @@ class SnowflakeTagHelper(Closeable):
             raise ValueError(
                 f"Invalid entity urn {entity_urn}, can only handle Dataset and SchemaField urns."
             )
-
         database, schema, table = dataset_urn.name.split(".")
         self._create_tag(database, schema, tag, tag_or_term_urn)
 
         if isinstance(parsed_entity_urn, DatasetUrn):
+            query = 'ALTER TABLE {table} SET TAG "{tag}"="{tag_or_term_urn}";'
+            if not self.has_special_chars(table):
+                try:
+                    self._run_query(
+                        database,
+                        schema,
+                        query.format(
+                            table=table, tag=tag, tag_or_term_urn=tag_or_term_urn
+                        ),
+                    )
+                    return
+                except ValueError as e:
+                    # Normally this should not happen as without special characters, the table name should be found. But just in case we try to run the query quoted
+                    logger.debug(
+                        f"Failed to execute query {query}. Error: {e}. Trying to check if colum and table name exists with different casing.."
+                    )
+            query_table = self.find_table_name(database, schema, table)
             self._run_query(
                 database,
                 schema,
-                f'ALTER TABLE {table} SET TAG "{tag}"="{tag_or_term_urn}";',
+                query.format(
+                    table=f'"{query_table}"', tag=tag, tag_or_term_urn=tag_or_term_urn
+                ),
             )
+            return
+
         elif isinstance(parsed_entity_urn, SchemaFieldUrn):
+            # Note we currently do NOT support nested columns. This will be a future improvement.
+            # For now we should likely log a warning if the table column is multipart
+            if len(parsed_entity_urn.field_path.split(".")) > 1:
+                logger.warning(
+                    f"Failed to resolve column with path {parsed_entity_urn.field_path} to Snowflake column. Nested columns not yet supported! Skipping attempt to remove tag..."
+                )
+                return None
+            query = """
+                        ALTER TABLE {table} MODIFY COLUMN {column} SET TAG "{tag}"="{tag_or_term_urn}";
+            """
+            if not self.has_special_chars(
+                parsed_entity_urn.field_path
+            ) and not self.has_special_chars(table):
+                try:
+                    self._run_query(
+                        database,
+                        schema,
+                        query.format(
+                            table=table,
+                            column=parsed_entity_urn.field_path,
+                            tag=tag,
+                            tag_or_term_urn=tag_or_term_urn,
+                        ),
+                    )
+                    return
+                except ValueError as e:
+                    # Normally this should not happen as without special characters, the table name should be found. But just in case we try to run the query quoted
+                    logger.debug(
+                        f"Failed to execute query {query}. Error: {e}. Trying to check if colum and table name exists quoting.."
+                    )
+
+            query_table = self.find_table_name(database, schema, table)
+            query_col = self.find_column_name(
+                database, schema, table, parsed_entity_urn.field_path
+            )
             self._run_query(
                 database,
                 schema,
-                f'ALTER TABLE {table} MODIFY COLUMN {parsed_entity_urn.field_path} SET TAG "{tag}"="{tag_or_term_urn}";',
+                query.format(
+                    table=f'"{query_table}"',
+                    column=f'"{query_col}"',
+                    tag=tag,
+                    tag_or_term_urn=tag_or_term_urn,
+                ),
             )
+
+    def find_table_name(self, database: str, schema: str, table: str) -> str:
+        cols = self._get_columns(
+            database,
+            schema,
+            "SHOW COLUMNS;",
+        )
+        for table_name in cols.keys():
+            if table.upper() == table_name.upper():
+                return table_name
+        return table
+
+    def find_column_name(
+        self, database: str, schema: str, table: str, column: str
+    ) -> str:
+        cols = self._get_columns(
+            database,
+            schema,
+            "SHOW COLUMNS;",
+        )
+
+        for table_name in cols.keys():
+            if table_name.upper() == table.upper():
+                table_cols = cols[table_name]
+                break
+
+        if table_cols:
+            for col in table_cols:
+                if col.upper() == column.upper():
+                    logger.info(f"Found column `{column}` as `{col}` in table {table}")
+                    return col
+        return column
 
     def remove_tag_or_term(
         self, entity_urn: str, tag_urn: str, graph: AcrylDataHubGraph
@@ -136,44 +233,95 @@ class SnowflakeTagHelper(Closeable):
         if isinstance(parsed_entity_urn, DatasetUrn):
             dataset_urn = parsed_entity_urn
             database, schema, table = dataset_urn.name.split(".")
-
             # Since when removing a tag, it might not exist on Snowflake (just datahub), we need to handle the exception
             # internally to prevent getting locked out of the account.
-            query = f"""
-                BEGIN
-                    -- Attempt to remove the tag from the table
-                    ALTER TABLE {table} UNSET TAG "{tag}";
-                EXCEPTION WHEN OTHER THEN
-                    -- Handle any error
-                    RETURN 'Tag does not exist or unauthorized.';
-                END;
-            """
+            query = """
+                            BEGIN
+                                -- Attempt to remove the tag from the table
+                                ALTER TABLE {table} UNSET TAG "{tag}";
+                                EXCEPTION
+                                WHEN STATEMENT_ERROR THEN
+                                    IF (SQLCODE = 2003) THEN
+                                        RETURN 'Tag does not exist or unauthorized';
+                                    ELSE
+                                        RAISE;
+                                    END IF;
+                            END;
+                        """
 
+            if not self.has_special_chars(table):
+                try:
+                    self._run_query(
+                        database,
+                        schema,
+                        query.format(table=table, tag=tag),
+                    )
+
+                    return
+                except ValueError as e:
+                    logger.debug(
+                        f"Failed to execute query {query}. Error: {e}. Trying to check if table name exists with quoting.."
+                    )
+            query_table = self.find_table_name(database, schema, table)
             self._run_query(
                 database,
                 schema,
-                query,
+                query.format(table=f'"{query_table}"', tag=tag),
             )
+
         elif isinstance(parsed_entity_urn, SchemaFieldUrn):
+            # Note we currently do NOT support nested columns. This will be a future improvement.
+            # For now we should likely log a warning if the table column is multipart
+            if len(parsed_entity_urn.field_path.split(".")) > 1:
+                logger.warning(
+                    f"Failed to resolve column with path {parsed_entity_urn.field_path} to Snowflake column. Nested columns not yet supported! Skipping attempt to apply tags..."
+                )
+                return None
             dataset_urn = DatasetUrn.create_from_string(parsed_entity_urn.parent)
             database, schema, table = dataset_urn.name.split(".")
             # Since when removing a tag, it might not exist on Snowflake (just datahub), we need to handle the exception
             # internally to prevent getting locked out of the account.
-            query = f"""
+            query = """
                 BEGIN
-                    -- Attempt to remove the tag from the column
-                    ALTER TABLE {table} MODIFY COLUMN {parsed_entity_urn.field_path} UNSET TAG "{tag}";
-                EXCEPTION WHEN OTHER THEN
-                    -- Handle any error
-                    RETURN 'Tag does not exist or unauthorized.';
+                    -- Your SQL statement
+                    ALTER TABLE {table} MODIFY COLUMN {col} UNSET TAG "{tag}";       
+                    EXCEPTION
+                        WHEN STATEMENT_ERROR THEN
+                            IF (SQLCODE = 2003) THEN
+                                RETURN 'Tag does not exist or unauthorized';
+                            ELSE
+                                RAISE;
+                            END IF;
                 END;
             """
+            if not self.has_special_chars(
+                parsed_entity_urn.field_path
+            ) and not self.has_special_chars(table):
+                try:
+                    self._run_query(
+                        database,
+                        schema,
+                        query.format(
+                            table=table, col=parsed_entity_urn.field_path, tag=tag
+                        ),
+                    )
+                    return
+                except ValueError as e:
+                    logger.debug(
+                        f"Failed to execute query {query}. Error: {e}. Trying to check if colum and table name exists with quoting.."
+                    )
+            query_table = self.find_table_name(database, schema, table)
+
+            query_col = self.find_column_name(
+                database, schema, table, parsed_entity_urn.field_path
+            )
 
             self._run_query(
                 database,
                 schema,
-                query,
+                query.format(table=f'"{query_table}"', col=f'"{query_col}"', tag=tag),
             )
+
         else:
             raise ValueError(
                 f"Invalid entity urn {entity_urn}, can only handle Dataset and SchemaField urns."
@@ -188,6 +336,72 @@ class SnowflakeTagHelper(Closeable):
             f'CREATE TAG IF NOT EXISTS "{tag_name}" COMMENT = "Replicated Tag {tag_or_term_urn} from DataHub";',
         )
 
+    @cachetools.cached(cache=cachetools.TTLCache(maxsize=1024, ttl=60 * 5))
+    def _get_columns(
+        self, database: str, schema: str, query: str, batch_size: int = 1000
+    ) -> Dict[str, List[str]]:
+        """
+        Execute a Snowflake query with pagination using cursor-based fetching.
+
+        Args:
+            database (str): Database name
+            schema (str): Schema name
+            query (str): SQL query to execute
+            batch_size (int): Number of records to fetch per batch
+
+        Returns:
+            list: List of query results
+        """
+        if self._too_many_errors():
+            logger.warning(
+                f"Too many errors have occurred in the past hour; skipping issuing query to Snowflake to avoid account lockout! {query}"
+            )
+            return {}
+
+        results: Dict[str, List[str]] = {}
+        try:
+            # Get a connection and cursor
+            with self.engine.connect() as connection:
+                raw_connection = connection.connection
+                with raw_connection.cursor() as cursor:
+                    # Set the database and schema
+                    cursor.execute(f"USE {database}.{schema}")
+
+                    # Execute the main query
+                    cursor.execute(query)
+
+                    # Get column names from cursor description
+                    columns = [col[0] for col in cursor.description]
+
+                    # Fetch results in batches
+                    while True:
+                        batch = cursor.fetchmany(batch_size)
+                        if not batch:
+                            break
+
+                        # Convert each row to a dictionary with column names
+                        named_batch = [dict(zip(columns, row)) for row in batch]
+                        for row in named_batch:
+                            table_name = row.get("table_name")
+                            if not table_name:
+                                continue
+
+                            if results.get(table_name) is None:
+                                results[table_name] = []
+
+                            column_name = row.get("column_name")
+                            if column_name:
+                                results[table_name].append(column_name)
+
+                    return results
+
+        except Exception as e:
+            logger.exception(
+                f"Failed to execute snowflake query: {query}. Error: {str(e)}. Total errors: {len(self.error_timestamps)}"
+            )
+            self._log_error()
+            return {}
+
     def _run_query(self, database: str, schema: str, query: str) -> None:
 
         # If we hit too many errors in the past 1 hour, then we simply start to drop.
@@ -200,7 +414,13 @@ class SnowflakeTagHelper(Closeable):
         try:
             self.engine.execute(f"USE {database}.{schema};")
             self.engine.execute(query)
+
             logger.info(f"Successfully executed query {query}")
+        except ProgrammingError as e:
+            self._log_error()
+            raise ValueError(
+                f"Failed to execute snowflake query: {query}. Exception: {e}"
+            )
         except Exception:
             logger.exception(
                 f"Failed to execute snowflake query: {query}. Total errors: {len(self.error_timestamps)}"
