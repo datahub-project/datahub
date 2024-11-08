@@ -33,7 +33,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     MLFeatureSnapshot,
@@ -47,11 +46,11 @@ from datahub.metadata.schema_classes import (
     MLFeaturePropertiesClass,
     MLFeatureTablePropertiesClass,
     MLPrimaryKeyPropertiesClass,
-    StatusClass,
-    TagAssociationClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    StatusClass,
+    TagAssociationClass,
 )
 
 # FIXME: ValueType module cannot be used as a type
