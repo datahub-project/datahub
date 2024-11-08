@@ -15,10 +15,14 @@ interface EntitySidebarContextProps {
     separateSiblings?: boolean;
 }
 
-const EntitySidebarContext = React.createContext<EntitySidebarContextProps>({
+export const entitySidebarContextDefaults: EntitySidebarContextProps = {
     width: window.innerWidth * 0.3,
     setSidebarClosed: () => {},
     isClosed: false,
+};
+
+const EntitySidebarContext = React.createContext<EntitySidebarContextProps>({
+    ...entitySidebarContextDefaults,
 });
 
 export default EntitySidebarContext;

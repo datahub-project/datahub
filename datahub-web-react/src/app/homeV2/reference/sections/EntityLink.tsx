@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled, { CSSObject } from 'styled-components';
-
+import HealthIcon from '@src/app/previewV2/HealthIcon';
+import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { Entity, EntityType } from '../../../../types.generated';
 import { GenericEntityProperties } from '../../../entity/shared/types';
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
@@ -10,6 +11,11 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { GlossaryPreviewCardDecoration } from '../../../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 
 const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperties }>`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px;
+
     overflow: hidden;
     border-radius: 8px;
     cursor: pointer;
@@ -31,6 +37,7 @@ const LinkButton = styled(Link)`
     margin: 4px 0px 4px 0px;
     max-width: 100%; /* Ensure the grid container does not exceed its parent's width */
     overflow-x: hidden;
+    width: 100%;
 
     &&& {
         display: flex;
@@ -47,6 +54,9 @@ const DisplayNameText = styled.span<{ entity: GenericEntityProperties }>`
     font-weight: 600;
     line-height: normal;
     padding: ${(props) => props.entity.type === EntityType.GlossaryTerm && '8px 10px 8px 0px'};
+
+    overflow: hidden;
+    text-overflow: ellipsis;
 `;
 
 const RibbonDecoration = styled.div`
@@ -67,17 +77,16 @@ type Props = {
     displayTextStyle?: CSSObject;
     render?: (entity: GenericEntityProperties) => React.ReactNode;
     onClick?: (e) => void;
+    showHealthIcon?: boolean;
 };
 
-export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick }: Props) => {
+export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick, showHealthIcon = false }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const linkProps = useEmbeddedProfileLinkProps();
 
     if (!entity?.urn || !entity.type) return null;
 
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
-    // const subType = entity?.subTypes?.typeNames?.[0];
-    // const SubTypeIcon = subType && getSubTypeIcon(subType);
-    // console.log(displayName, subType, SubTypeIcon, entity);
 
     const getPlatformIcon = (entityData: GenericEntityProperties) => {
         if (entityData.type === EntityType.GlossaryTerm) {
@@ -104,17 +113,27 @@ export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick }
             {render ? (
                 render(entity)
             ) : (
-                <HoverEntityTooltip entity={entity as Entity} showArrow={false} placement="bottom">
-                    <LinkButton
-                        to={!onClick ? entityRegistry.getEntityUrl(entity.type, entity.urn) : undefined}
-                        onClick={onClick}
-                    >
-                        {getPlatformIcon(entity)}
-                        <DisplayNameText entity={entity} style={{ ...displayTextStyle }}>
-                            {displayName}
-                        </DisplayNameText>
-                    </LinkButton>
-                </HoverEntityTooltip>
+                <>
+                    <HoverEntityTooltip entity={entity as Entity} showArrow={false} placement="bottom">
+                        <LinkButton
+                            to={!onClick ? entityRegistry.getEntityUrl(entity.type, entity.urn) : undefined}
+                            onClick={onClick}
+                            {...linkProps}
+                        >
+                            {getPlatformIcon(entity)}
+                            <DisplayNameText entity={entity} style={{ ...displayTextStyle }}>
+                                {displayName}
+                            </DisplayNameText>
+                        </LinkButton>
+                    </HoverEntityTooltip>
+                    {entity?.health && showHealthIcon && (
+                        <HealthIcon
+                            urn={entity?.urn}
+                            health={entity.health}
+                            baseUrl={entityRegistry.getEntityUrl(entity.type, entity.urn)}
+                        />
+                    )}
+                </>
             )}
         </Container>
     );

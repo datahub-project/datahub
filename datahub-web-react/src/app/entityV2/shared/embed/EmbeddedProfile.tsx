@@ -1,5 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { QueryHookOptions, QueryResult } from '@apollo/client';
+import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
 import React from 'react';
 import styled from 'styled-components';
 import { EntityType, Exact } from '../../../../types.generated';
@@ -79,9 +80,16 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
                 </LoadingWrapper>
             )}
             {!loading && entityData && entityData.type && (
-                <SidebarWrapper>
-                    <EntityProfileSidebar tabs={finalTabs} contextType={TabContextType.CHROME_SIDEBAR} />
-                </SidebarWrapper>
+                <EntitySidebarContext.Provider
+                    value={{
+                        ...entitySidebarContextDefaults,
+                        separateSiblings: true,
+                    }}
+                >
+                    <SidebarWrapper>
+                        <EntityProfileSidebar tabs={finalTabs} contextType={TabContextType.CHROME_SIDEBAR} />
+                    </SidebarWrapper>
+                </EntitySidebarContext.Provider>
             )}
         </EntityContext.Provider>
     );
