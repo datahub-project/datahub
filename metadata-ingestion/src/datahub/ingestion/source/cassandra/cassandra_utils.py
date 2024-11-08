@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, Generator, List, Optional, Type
+from typing import Dict, Generator, List, Optional, Type
 
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
@@ -122,7 +122,7 @@ class CassandraToSchemaFieldConverter:
         return ".".join(self._prefix_name_stack)
 
     def _get_schema_fields(
-        self, cassandra_column_infos: List[dict[str, Any]]
+        self, cassandra_column_infos: List
     ) -> Generator[SchemaField, None, None]:
         # append each schema field (sort so output is consistent)
         for column_info in cassandra_column_infos:
@@ -166,7 +166,7 @@ class CassandraToSchemaFieldConverter:
 
     @classmethod
     def get_schema_fields(
-        cls, cassandra_column_infos: List[dict[str, Any]]
+        cls, cassandra_column_infos: List
     ) -> Generator[SchemaField, None, None]:
         converter = cls()
         yield from converter._get_schema_fields(cassandra_column_infos)

@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -43,7 +43,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata._schema_classes import DatasetPropertiesClass, TimeStampClass
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
@@ -52,8 +51,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
+    DatasetPropertiesClass,
     OtherSchemaClass,
     SubTypesClass,
+    TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -261,7 +262,7 @@ class CassandraSource(StatefulIngestionSourceBase):
         self, keyspace_name: str, table_name: str, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
         column_infos = self.cassandra_api.get_columns(keyspace_name, table_name)
-        schema_fields: list[SchemaField] = list(
+        schema_fields: List[SchemaField] = list(
             CassandraToSchemaFieldConverter.get_schema_fields(column_infos)
         )
         if not schema_fields:
@@ -272,7 +273,7 @@ class CassandraSource(StatefulIngestionSourceBase):
             return
 
         # remove any value that is type bytes, so it can be converted to json
-        jsonable_column_infos: list[dict[str, Any]] = []
+        jsonable_column_infos: List[Dict[str, Any]] = []
         for column in column_infos:
             column_dict = column._asdict()
             jsonable_column_dict = column_dict.copy()

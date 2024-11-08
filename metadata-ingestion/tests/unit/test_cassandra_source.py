@@ -56,7 +56,7 @@ def test_cassandra_schema_conversion(
     schema: str, expected_field_paths: List[str]
 ) -> None:
     schema_dict: Dict[str, List[Any]] = json.loads(schema)
-    column_infos: List[dict[str, Any]] = schema_dict["column_infos"]
+    column_infos: List = schema_dict["column_infos"]
     actual_fields = list(
         CassandraToSchemaFieldConverter.get_schema_fields(column_infos)
     )
