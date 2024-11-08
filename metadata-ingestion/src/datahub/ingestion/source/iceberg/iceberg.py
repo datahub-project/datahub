@@ -81,6 +81,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 LOGGER = logging.getLogger(__name__)
@@ -181,21 +182,12 @@ class IcebergSource(StatefulIngestionSourceBase):
             tables = catalog.list_tables(namespace)
             tables_count += len(tables)
             LOGGER.debug(
-                f"Retrieved {len(tables)} for namespace: {namespace}, in total retrieved {tables_count}, first 10: {tables[:10]}"
+                f"Retrieved {len(tables)} tables for namespace: {namespace}, in total retrieved {tables_count}, first 10: {tables[:10]}"
             )
             yield from tables
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         thread_local = threading.local()
-
-        def threaded_function():
-            while True:
-                threaddump = thread_dump()
-                LOGGER.debug(threaddump)
-                sleep(60)
-
-        thread = threading.Thread(target=threaded_function, daemon=True)
-        thread.start()
 
         def _process_dataset(dataset_path):
             LOGGER.debug("Processing dataset for path %s", dataset_path)
@@ -211,13 +203,12 @@ class IcebergSource(StatefulIngestionSourceBase):
                         thread_local,
                     )
                     thread_local.local_catalog = self.config.get_catalog()
-                # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchIcebergTableError.
 
-                start_ts = time()
-                table = thread_local.local_catalog.load_table(dataset_path)
-                # table = self.config.get_catalog().load_table(dataset_path)
-                self.report.report_table_load_time(time() - start_ts)
-                LOGGER.debug("Loaded table: %s", table)
+                with PerfTimer() as timer:
+                    table = thread_local.local_catalog.load_table(dataset_path)
+                    time_taken = timer.elapsed_seconds()
+                    self.report.report_table_load_time(time_taken)
+                LOGGER.debug("Loaded table: %s, time taken: %s", table, time_taken)
                 return [*self._create_iceberg_workunit(dataset_name, table)]
             except NoSuchPropertyException as e:
                 self.report.report_warning(
@@ -243,26 +234,14 @@ class IcebergSource(StatefulIngestionSourceBase):
             return []
 
         try:
-            start = time()
             catalog = self.config.get_catalog()
-            self.report.set_catalog_retrieval_time(time() - start)
         except Exception as e:
-            LOGGER.error("Failed to get catalog", exc_info=True)
             self.report.report_failure("get-catalog", f"Failed to get catalog: {e}")
             return
 
-        LOGGER.debug("Retrieving list of datasets in the catalog")
-        datasets = [*self._get_datasets(catalog)]
-        LOGGER.debug(
-            "Retrieved %s datasets, starting with: %s",
-            len(datasets),
-            datasets[0] if len(datasets) > 0 else None,
-        )
-        # datasets = datasets[:100]
-
         for wu in ThreadedIteratorExecutor.process(
             worker_func=_process_dataset,
-            args_list=[(dataset_path,) for dataset_path in datasets],
+            args_list=[(dataset_path,) for dataset_path in self._get_datasets(catalog)],
             max_workers=self.config.processing_threads,
         ):
             yield wu
@@ -283,7 +262,6 @@ class IcebergSource(StatefulIngestionSourceBase):
             urn=dataset_urn,
             aspects=[Status(removed=False)],
         )
-        LOGGER.debug("Created initial DatasetSnapshot for %s", dataset_name)
 
         # Dataset properties aspect.
         custom_properties = table.metadata.properties.copy()
@@ -300,7 +278,6 @@ class IcebergSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
         )
         dataset_snapshot.aspects.append(dataset_properties)
-        LOGGER.debug("Created datasetProperties for dataset %s", dataset_name)
         # Dataset ownership aspect.
         dataset_ownership = self._get_ownership_aspect(table)
         if dataset_ownership:
@@ -311,14 +288,8 @@ class IcebergSource(StatefulIngestionSourceBase):
             )
             dataset_snapshot.aspects.append(dataset_ownership)
 
-        LOGGER.debug("Attempting to process schema of dataset %s", dataset_name)
         schema_metadata = self._create_schema_metadata(dataset_name, table)
         dataset_snapshot.aspects.append(schema_metadata)
-        LOGGER.debug(
-            "Processed schema of dataset %s, number of fields: %s",
-            dataset_name,
-            len(schema_metadata.fields),
-        )
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         self.report.report_table_processing_time(time() - start_ts)
@@ -329,13 +300,8 @@ class IcebergSource(StatefulIngestionSourceBase):
             yield dpi_aspect
 
         if self.config.is_profiling_enabled():
-            LOGGER.debug("Starting profiling of dataset: %s", dataset_name)
-            start_ts = time()
             profiler = IcebergProfiler(self.report, self.config.profiling)
-            profiling_wu = [*profiler.profile_table(dataset_name, dataset_urn, table)]
-            self.report.report_table_profiling_time(time() - start_ts)
-            LOGGER.debug("Finished profiling of dataset: %s", dataset_name)
-            yield from profiling_wu
+            yield from profiler.profile_table(dataset_name, dataset_urn, table)
 
     def _get_partition_aspect(self, table: Table) -> Optional[str]:
         """Extracts partition information from the provided table and returns a JSON array representing the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) of the table.

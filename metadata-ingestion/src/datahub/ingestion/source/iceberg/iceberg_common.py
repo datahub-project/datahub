@@ -169,7 +169,6 @@ class TimingClass:
 
 @dataclass
 class IcebergSourceReport(StaleEntityRemovalSourceReport):
-    catalog_retrieval_time: str = "no retrieval time reported"
     tables_scanned: int = 0
     entities_profiled: int = 0
     filtered: List[str] = field(default_factory=list)
@@ -182,9 +181,6 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
-
-    def set_catalog_retrieval_time(self, t: float) -> None:
-        self.catalog_retrieval_time = format_timespan(t, detailed=True, max_units=3)
 
     def report_table_load_time(self, t: float) -> None:
         self.load_table_timings.add_timing(t)
