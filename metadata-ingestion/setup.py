@@ -404,6 +404,7 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
+    "cassandra": {"cassandra-driver>=3.28.0"},
     "feast": {
         "feast>=0.34.0,<1",
         "flask-openid>=1.3.0",
@@ -660,6 +661,7 @@ base_dev_requirements = {
             "qlik-sense",
             "sigma",
             "sac",
+            "cassandra",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -778,6 +780,7 @@ entry_points = {
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
         "sac = datahub.ingestion.source.sac.sac:SACSource",
+        "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",

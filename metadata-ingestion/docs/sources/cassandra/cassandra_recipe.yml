@@ -1,0 +1,21 @@
+source:
+  type: "cassandra"
+  config:
+    # Coordinates
+    contact_point: "localhost"
+    port: 9042
+
+    # Credentials
+    username: "admin"
+    password: "password"
+
+    #cloud astra db
+    #cloud_config:
+    #  secure_connect_bundle: "Path to Secure Connect Bundle (.zip)"
+    #  token: "Application Token"
+
+    # Options
+    keyspace_pattern:
+      allow: [".*"]
+sink:
+  # config sinks
