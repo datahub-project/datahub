@@ -195,7 +195,7 @@ You will need the following values in the next step:
 - **Directory (tenant) ID**: Located on the **Overview** tab. This will map to **Discovery URI** in DataHub. It will be formatted as `https://login.microsoftonline.com/{tenant ID}/v2.0/.well-known/openid-configuration`.
 
 <p align="center">
-  <img width="80%"  src=https://learn.microsoft.com/en-us/azure/active-directory-b2c/media/client-credentials-grant-flow/get-application-id.png/>
+  <img width="80%"  src="https://learn.microsoft.com/en-us/azure/active-directory-b2c/media/client-credentials-grant-flow/get-application-id.png"/>
 </p>
 
 </TabItem>
